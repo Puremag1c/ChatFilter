@@ -207,3 +207,172 @@ class TestMessagesPerHour:
         # 6 messages, ~2 hours span
         expected_rate = result.message_count / result.history_hours
         assert result.messages_per_hour == pytest.approx(expected_rate, rel=0.01)
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_messages_with_identical_timestamps(self) -> None:
+        """Test that messages with identical timestamps are handled correctly."""
+        now = datetime.now(UTC)
+        # All messages at the exact same timestamp
+        messages = [
+            Message.fake(id=i, author_id=100 + i, timestamp=now)
+            for i in range(5)
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 5
+        assert result.unique_authors == 5
+        assert result.history_hours == 0.0  # No time span
+        assert result.first_message_at == now
+        assert result.last_message_at == now
+        assert result.messages_per_hour == 0.0
+
+    def test_large_message_count(self) -> None:
+        """Test with very large number of messages."""
+        now = datetime.now(UTC)
+        # Create 10,000 messages over 100 hours
+        messages = [
+            Message.fake(
+                id=i,
+                author_id=(i % 500) + 1,  # 500 unique authors
+                timestamp=now - timedelta(hours=100 - i * 0.01),
+            )
+            for i in range(10000)
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 10000
+        assert result.unique_authors == 500
+        assert result.history_hours == pytest.approx(100.0, rel=0.01)
+        assert result.messages_per_hour == pytest.approx(100.0, rel=0.01)
+
+    def test_microsecond_precision(self) -> None:
+        """Test that microsecond precision is handled correctly."""
+        base = datetime(2024, 6, 15, 12, 0, 0, 0, tzinfo=UTC)
+        # Messages 500 microseconds apart
+        messages = [
+            Message.fake(id=1, timestamp=base),
+            Message.fake(id=2, timestamp=base.replace(microsecond=500)),
+        ]
+
+        result = compute_metrics(messages)
+
+        # 500 microseconds = 0.0005 seconds = 0.0005/3600 hours
+        expected_hours = 0.0005 / 3600.0
+        assert result.history_hours == pytest.approx(expected_hours, rel=0.01)
+        assert result.first_message_at == base
+        assert result.last_message_at == base.replace(microsecond=500)
+
+    def test_very_long_time_span(self) -> None:
+        """Test with messages spanning multiple years."""
+        old = datetime(2020, 1, 1, 0, 0, 0, tzinfo=UTC)
+        recent = datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC)
+
+        messages = [
+            Message.fake(id=1, timestamp=old),
+            Message.fake(id=2, timestamp=recent),
+        ]
+
+        result = compute_metrics(messages)
+
+        # 4 years = ~35,064 hours (4 * 365.25 * 24)
+        expected_hours = (recent - old).total_seconds() / 3600.0
+        assert result.history_hours == pytest.approx(expected_hours, rel=0.001)
+        assert result.first_message_at == old
+        assert result.last_message_at == recent
+
+    def test_all_messages_same_author_different_times(self) -> None:
+        """Test multiple messages from single author over time."""
+        now = datetime.now(UTC)
+        # 100 messages from one author over 24 hours
+        # First message at -24h, last at now
+        messages = [
+            Message.fake(
+                id=i,
+                author_id=42,
+                timestamp=now - timedelta(hours=24) + timedelta(hours=i * 24.0 / 99),
+            )
+            for i in range(100)
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 100
+        assert result.unique_authors == 1
+        assert result.history_hours == pytest.approx(24.0, rel=0.01)
+        assert result.messages_per_hour == pytest.approx(100.0 / 24.0, rel=0.01)
+
+    def test_extreme_author_diversity(self) -> None:
+        """Test when every message is from a unique author."""
+        now = datetime.now(UTC)
+        # 50 messages, each from a different author, spanning 50 minutes
+        # First message at -50min, last at now
+        messages = [
+            Message.fake(
+                id=i,
+                author_id=1000 + i,
+                timestamp=now - timedelta(minutes=50) + timedelta(minutes=i * 50.0 / 49),
+            )
+            for i in range(50)
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 50
+        assert result.unique_authors == 50  # All unique
+        assert result.history_hours == pytest.approx(50.0 / 60.0, rel=0.01)
+
+    def test_two_authors_alternating(self) -> None:
+        """Test with exactly two authors sending alternating messages."""
+        now = datetime.now(UTC)
+        # 10 messages spanning 10 hours
+        # First message at -10h, last at now
+        messages = [
+            Message.fake(
+                id=i,
+                author_id=100 if i % 2 == 0 else 200,
+                timestamp=now - timedelta(hours=10) + timedelta(hours=i * 10.0 / 9),
+            )
+            for i in range(10)
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 10
+        assert result.unique_authors == 2
+        assert result.history_hours == pytest.approx(10.0, rel=0.01)
+
+    def test_messages_in_reverse_chronological_order(self) -> None:
+        """Test messages sorted newest to oldest."""
+        now = datetime.now(UTC)
+        # Messages in reverse order (newest first)
+        messages = [
+            Message.fake(id=1, timestamp=now),
+            Message.fake(id=2, timestamp=now - timedelta(hours=5)),
+            Message.fake(id=3, timestamp=now - timedelta(hours=10)),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.first_message_at == now - timedelta(hours=10)
+        assert result.last_message_at == now
+        assert result.history_hours == pytest.approx(10.0, rel=0.01)
+
+    def test_single_author_with_zero_time_span(self) -> None:
+        """Test multiple messages from one author at exact same time."""
+        now = datetime.now(UTC)
+        messages = [
+            Message.fake(id=i, author_id=42, timestamp=now)
+            for i in range(10)
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 10
+        assert result.unique_authors == 1
+        assert result.history_hours == 0.0
+        assert result.messages_per_hour == 0.0
