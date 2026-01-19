@@ -13,6 +13,7 @@ import socks
 from telethon import TelegramClient
 
 from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
+from chatfilter.telegram.retry import with_retry_for_reads
 from telethon.tl.types import Channel, User
 from telethon.tl.types import Chat as TelegramChat
 from telethon.tl.functions.channels import JoinChannelRequest
@@ -351,6 +352,7 @@ def _dialog_to_chat(dialog: Dialog) -> Chat | None:
     )
 
 
+@with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
 async def get_dialogs(
     client: TelegramClientType,
     chat_types: set[ChatType] | None = None,
@@ -361,6 +363,9 @@ async def get_dialogs(
 
     Fetches all dialogs and converts them to Chat models. Results are
     deduplicated by chat_id to handle edge cases during pagination.
+
+    Network errors (ConnectionError, TimeoutError, OSError, SSL errors) are
+    automatically retried with exponential backoff (up to 3 attempts).
 
     Args:
         client: Connected TelegramClient instance
@@ -488,6 +493,7 @@ def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | 
     )
 
 
+@with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
 async def get_messages(
     client: TelegramClientType,
     chat_id: int,
@@ -497,6 +503,9 @@ async def get_messages(
 
     Fetches messages from the specified chat and converts them to Message models.
     Handles pagination automatically for limits > 100.
+
+    Network errors (ConnectionError, TimeoutError, OSError, SSL errors) are
+    automatically retried with exponential backoff (up to 3 attempts).
 
     Args:
         client: Connected TelegramClient instance

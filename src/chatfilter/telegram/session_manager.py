@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Protocol
 
+from chatfilter.telegram.retry import with_retry_for_reads
+
 if TYPE_CHECKING:
     from telethon import TelegramClient
 
@@ -161,6 +163,32 @@ class SessionManager:
             del self._sessions[session_id]
         self._factories.pop(session_id, None)
 
+    @with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
+    async def _do_connect(
+        self, client: TelegramClient, session_id: str, timeout: float
+    ) -> None:
+        """Execute connection with retry logic and timeout.
+
+        This method wraps client.connect() with automatic retry on network errors.
+        It will retry ConnectionError, TimeoutError, OSError, and SSL errors.
+
+        Args:
+            client: TelegramClient to connect
+            session_id: Session identifier (for logging)
+            timeout: Connection timeout in seconds
+
+        Raises:
+            asyncio.TimeoutError: If connection times out after all retries
+            ConnectionError, OSError: If connection fails after all retries
+        """
+        try:
+            await asyncio.wait_for(client.connect(), timeout=timeout)
+        except asyncio.TimeoutError:
+            # Convert asyncio.TimeoutError to TimeoutError for retry decorator
+            raise TimeoutError(
+                f"Connection timeout for session '{session_id}' after {timeout}s"
+            )
+
     async def connect(self, session_id: str) -> TelegramClient:
         """Connect a session and return the client.
 
@@ -195,9 +223,9 @@ class SessionManager:
             session.error_message = None
 
             try:
-                await asyncio.wait_for(
-                    session.client.connect(),
-                    timeout=self._connect_timeout,
+                # Use retry-enabled connection helper
+                await self._do_connect(
+                    session.client, session_id, self._connect_timeout
                 )
                 session.state = SessionState.CONNECTED
                 session.connected_at = asyncio.get_event_loop().time()
