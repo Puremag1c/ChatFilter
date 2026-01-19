@@ -1,0 +1,240 @@
+# Building ChatFilter with PyInstaller
+
+This document describes how to build standalone executables for ChatFilter using PyInstaller.
+
+## Quick Start
+
+### Prerequisites
+
+1. Python 3.11 or higher
+2. Virtual environment (recommended)
+3. All dependencies installed
+
+### Build Steps
+
+**Linux/macOS:**
+```bash
+# Install build dependencies
+pip install -r requirements-build.txt
+
+# Build the application
+./build.sh
+
+# Clean build artifacts
+./build.sh clean
+```
+
+**Windows:**
+```cmd
+REM Install build dependencies
+pip install -r requirements-build.txt
+
+REM Build the application
+build.bat
+
+REM Clean build artifacts
+build.bat clean
+```
+
+## Build Configuration
+
+### Spec File: `chatfilter.spec`
+
+The PyInstaller spec file includes:
+
+- **Hidden imports**: All required modules that PyInstaller may not auto-detect
+  - Telethon and crypto modules (telethon, cryptg)
+  - FastAPI/Uvicorn with all protocol handlers
+  - AIOHTTP connectors
+  - SSL certificates (certifi)
+
+- **Data files**: Application resources
+  - Templates directory (`src/chatfilter/templates/`)
+  - Static files (`src/chatfilter/static/`)
+  - CA certificates bundle
+
+- **Build mode**: `onedir` (directory of files)
+  - Faster startup than `onefile`
+  - Easier to debug issues
+  - Can be converted to installer later
+
+### Version Information: `file_version_info.txt`
+
+Windows-specific version metadata embedded in the executable.
+
+## Output
+
+After building, the distribution will be in:
+
+```
+dist/
+└── ChatFilter/
+    ├── ChatFilter or ChatFilter.exe  # Main executable
+    ├── _internal/                     # Dependencies
+    │   ├── certifi/                   # CA certificates
+    │   ├── chatfilter/                # App code
+    │   │   ├── templates/            # HTML templates
+    │   │   └── static/               # CSS/JS files
+    │   └── ...                        # Other libs
+    └── (other files)
+```
+
+**macOS additional output:**
+```
+dist/
+└── ChatFilter.app/                    # macOS application bundle
+```
+
+## Testing the Build
+
+### Basic Test
+
+```bash
+# Run the built executable
+./dist/ChatFilter/ChatFilter --help
+./dist/ChatFilter/ChatFilter --version
+./dist/ChatFilter/ChatFilter --check-config
+```
+
+### Full Integration Test
+
+**CRITICAL**: Always test on a clean system (VM or container) without Python installed.
+
+```bash
+# Test on clean system
+./dist/ChatFilter/ChatFilter --host 127.0.0.1 --port 8000
+```
+
+Expected behavior:
+1. Application starts without errors
+2. Web interface accessible at http://127.0.0.1:8000
+3. All features work (upload, analysis, export)
+4. No missing dependencies errors
+
+### Common Issues
+
+1. **Missing hidden imports**
+   - Symptom: `ModuleNotFoundError` at runtime
+   - Fix: Add missing module to `hiddenimports` in spec file
+
+2. **Missing data files**
+   - Symptom: Template or static file not found
+   - Fix: Verify paths in `datas` list in spec file
+
+3. **SSL/Certificate errors**
+   - Symptom: HTTPS requests fail
+   - Fix: Ensure certifi data files are included
+
+4. **Slow startup**
+   - Normal: First run may be slower (antivirus scanning)
+   - Consider: Using onefile if startup time is acceptable
+
+## Size Optimization
+
+Current exclusions in spec file:
+- Test frameworks (pytest, mypy, ruff)
+- GUI toolkits (tkinter, PyQt)
+- Unused stdlib modules (curses, readline)
+
+Additional optimizations:
+- UPX compression enabled (if available)
+- Strip debug symbols: Disabled for better error reports
+
+## Platform-Specific Notes
+
+### macOS
+
+- Creates `.app` bundle automatically
+- Code signing: Set `codesign_identity` in spec file
+- Notarization: Required for distribution outside App Store
+
+### Windows
+
+- Version info embedded via `file_version_info.txt`
+- Antivirus: May flag PyInstaller executables
+  - Submit to antivirus vendors if needed
+  - Code signing helps reduce false positives
+
+### Linux
+
+- Build on oldest supported distro for compatibility
+- Check library dependencies with `ldd`
+- Consider AppImage for better portability
+
+## CI/CD Integration
+
+Example GitHub Actions workflow:
+
+```yaml
+name: Build
+on: [push]
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-build.txt
+      - run: pyinstaller chatfilter.spec --clean
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chatfilter-${{ matrix.os }}
+          path: dist/
+```
+
+## Updating the Build
+
+When dependencies change in `pyproject.toml`:
+
+1. Update `requirements-build.txt` to match
+2. Review `hiddenimports` in spec file
+3. Test build on clean system
+4. Update version in:
+   - `src/chatfilter/__init__.py`
+   - `pyproject.toml`
+   - `file_version_info.txt`
+   - `chatfilter.spec` (`APP_VERSION`)
+
+## Troubleshooting
+
+### Enable Debug Mode
+
+Edit spec file:
+```python
+exe = EXE(
+    ...,
+    debug=True,  # Enable debug output
+    console=True,
+    ...
+)
+```
+
+Rebuild and check console output for detailed errors.
+
+### Check Import Hooks
+
+```bash
+pyi-archive_viewer dist/ChatFilter/ChatFilter
+# Interactive prompt - type 'x module_name' to extract
+```
+
+### Verify Included Files
+
+```bash
+# List all files in the distribution
+find dist/ChatFilter -type f
+
+# Check for specific modules
+grep -r "telethon" dist/ChatFilter/_internal/
+```
+
+## References
+
+- [PyInstaller Documentation](https://pyinstaller.org/)
+- [PyInstaller Hooks](https://github.com/pyinstaller/pyinstaller-hooks-contrib)
+- [Telethon PyInstaller Notes](https://docs.telethon.dev/en/stable/misc/troubleshooting.html#pyinstaller)

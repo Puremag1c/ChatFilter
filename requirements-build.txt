@@ -1,0 +1,21 @@
+# Build requirements for PyInstaller
+# Install with: pip install -r requirements-build.txt
+
+# PyInstaller for building executable
+pyinstaller>=6.0.0
+
+# Runtime dependencies (must match pyproject.toml)
+telethon>=1.34.0
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+pysocks>=1.7.0
+openpyxl>=3.1.0
+httpx>=0.27.0
+
+# Crypto acceleration for Telethon (highly recommended)
+cryptg>=0.4.0
+
+# CA certificates for HTTPS/SSL
+certifi
