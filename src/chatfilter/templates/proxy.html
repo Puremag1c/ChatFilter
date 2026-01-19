@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Proxy Settings - ChatFilter{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Proxy Settings</h2>
+    <p class="subtitle">Configure proxy for Telegram connections</p>
+</div>
+
+<section class="card">
+    <h3>Proxy Configuration</h3>
+
+    <form id="proxy-form"
+          hx-post="/api/proxy"
+          hx-target="#proxy-result"
+          hx-swap="innerHTML"
+          hx-indicator="#save-spinner">
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox"
+                       id="enabled"
+                       name="enabled"
+                       value="true"
+                       {% if config.enabled %}checked{% endif %}>
+                <span>Enable Proxy</span>
+            </label>
+            <small class="form-hint">Enable to route Telegram traffic through a proxy server</small>
+        </div>
+
+        <div class="form-group">
+            <label for="proxy_type">Proxy Type</label>
+            <select id="proxy_type" name="proxy_type">
+                <option value="socks5" {% if config.proxy_type.value == 'socks5' %}selected{% endif %}>SOCKS5</option>
+                <option value="http" {% if config.proxy_type.value == 'http' %}selected{% endif %}>HTTP</option>
+            </select>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group form-group-wide">
+                <label for="host">Host</label>
+                <input type="text"
+                       id="host"
+                       name="host"
+                       value="{{ config.host }}"
+                       placeholder="proxy.example.com">
+            </div>
+
+            <div class="form-group form-group-narrow">
+                <label for="port">Port</label>
+                <input type="number"
+                       id="port"
+                       name="port"
+                       value="{{ config.port }}"
+                       min="1"
+                       max="65535"
+                       placeholder="1080">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="username">Username (optional)</label>
+                <input type="text"
+                       id="username"
+                       name="username"
+                       value="{{ config.username }}"
+                       placeholder="Leave empty if not required">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password (optional)</label>
+                <input type="password"
+                       id="password"
+                       name="password"
+                       value="{{ config.password }}"
+                       placeholder="Leave empty if not required">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-text">Save Settings</span>
+                <span id="save-spinner" class="htmx-indicator spinner"></span>
+            </button>
+        </div>
+    </form>
+
+    <div id="proxy-result"></div>
+</section>
+{% endblock %}

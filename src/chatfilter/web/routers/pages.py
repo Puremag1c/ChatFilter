@@ -37,6 +37,22 @@ async def chats_page(request: Request) -> HTMLResponse:
     )
 
 
+@router.get("/proxy", response_class=HTMLResponse)
+async def proxy_page(request: Request) -> HTMLResponse:
+    """Proxy settings page."""
+    from chatfilter import __version__
+    from chatfilter.config import load_proxy_config
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+    config = load_proxy_config()
+
+    return templates.TemplateResponse(
+        "proxy.html",
+        {"request": request, "version": __version__, "config": config},
+    )
+
+
 @router.get("/results", response_class=HTMLResponse)
 async def results_page(
     request: Request,
