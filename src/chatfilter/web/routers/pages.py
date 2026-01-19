@@ -23,15 +23,17 @@ async def index(request: Request) -> HTMLResponse:
 
 @router.get("/chats", response_class=HTMLResponse)
 async def chats_page(request: Request) -> HTMLResponse:
-    """Chats selection page (placeholder)."""
+    """Chats selection page."""
     from chatfilter import __version__
     from chatfilter.web.app import get_templates
+    from chatfilter.web.routers.sessions import list_stored_sessions
 
     templates = get_templates()
-    # TODO: Implement chats page template
+    sessions = list_stored_sessions()
+
     return templates.TemplateResponse(
-        "base.html",
-        {"request": request, "version": __version__},
+        "chats.html",
+        {"request": request, "version": __version__, "sessions": sessions},
     )
 
 

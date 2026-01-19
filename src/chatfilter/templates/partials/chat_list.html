@@ -1,0 +1,66 @@
+{% if error %}
+<div class="alert alert-error">
+    {{ error }}
+</div>
+{% elif chats %}
+<div class="chat-filters">
+    <div class="form-group">
+        <input type="text"
+               id="chat-search"
+               placeholder="Search chats..."
+               autocomplete="off">
+    </div>
+</div>
+
+<div class="chat-actions">
+    <button type="button" class="btn btn-sm btn-secondary" id="select-all">Select All</button>
+    <button type="button" class="btn btn-sm btn-secondary" id="select-none">Select None</button>
+    <span id="selection-count" class="selection-count">0 of {{ chats|length }} selected</span>
+</div>
+
+<form id="analysis-form"
+      hx-post="/api/analysis/start"
+      hx-target="#analysis-result"
+      hx-swap="innerHTML"
+      hx-indicator="#analysis-spinner">
+    <input type="hidden" name="session_id" value="{{ session_id }}">
+
+    <div class="chat-list">
+        {% for chat in chats %}
+        <label class="chat-item"
+               data-title="{{ chat.title }}"
+               data-username="{{ chat.username or '' }}">
+            <input type="checkbox"
+                   class="chat-checkbox"
+                   name="chat_ids"
+                   value="{{ chat.id }}">
+            <div class="chat-info">
+                <div class="chat-title">{{ chat.title }}</div>
+                <div class="chat-meta">
+                    <span class="chat-type {{ chat.chat_type.value }}">{{ chat.chat_type.value }}</span>
+                    {% if chat.username %}
+                    <span>@{{ chat.username }}</span>
+                    {% endif %}
+                    {% if chat.member_count %}
+                    <span>{{ chat.member_count }} members</span>
+                    {% endif %}
+                </div>
+            </div>
+        </label>
+        {% endfor %}
+    </div>
+
+    <div class="form-actions" style="margin-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary">
+            <span class="btn-text">Start Analysis</span>
+            <span id="analysis-spinner" class="htmx-indicator spinner"></span>
+        </button>
+    </div>
+</form>
+
+<div id="analysis-result"></div>
+{% else %}
+<div class="no-chats">
+    <p>No chats found in this session</p>
+</div>
+{% endif %}
