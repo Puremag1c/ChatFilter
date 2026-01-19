@@ -37,13 +37,22 @@ class TestChatsAPI:
 
     def test_get_chats_session_not_found(self) -> None:
         """Test getting chats from non-existent session returns 404."""
+        from chatfilter.service.chat_analysis import SessionNotFoundError
+
         app = create_app()
         client = TestClient(app)
 
-        response = client.get("/api/chats?session-select=nonexistent")
+        # Mock the service to raise SessionNotFoundError
+        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+            mock_service = mock_get_service.return_value
+            mock_service.get_chats = AsyncMock(
+                side_effect=SessionNotFoundError("Session 'nonexistent' not found")
+            )
 
-        # Session not found returns 404
-        assert response.status_code == 404
+            response = client.get("/api/chats?session-select=nonexistent")
+
+            # Session not found returns 404
+            assert response.status_code == 404
 
     def test_get_chats_success(self) -> None:
         """Test getting chats successfully from a mock session."""
@@ -56,34 +65,10 @@ class TestChatsAPI:
         app = create_app()
         client = TestClient(app)
 
-        # We need to mock several things:
-        # 1. The session path check
-        # 2. The TelegramClientLoader
-        # 3. The SessionManager connection
-        # 4. The get_dialogs call
-
-        with patch("chatfilter.web.routers.chats.get_session_paths") as mock_paths, \
-             patch("chatfilter.web.routers.chats.TelegramClientLoader") as mock_loader_cls, \
-             patch("chatfilter.web.routers.chats.get_session_manager") as mock_get_manager, \
-             patch("chatfilter.web.routers.chats.get_dialogs") as mock_get_dialogs:
-
-            from pathlib import Path
-
-            mock_paths.return_value = (Path("/tmp/test.session"), Path("/tmp/config.json"))
-
-            mock_loader = mock_loader_cls.return_value
-            mock_loader.validate.return_value = None
-
-            mock_manager = mock_get_manager.return_value
-            mock_client = AsyncMock()
-
-            # Create an async context manager mock
-            mock_session_ctx = AsyncMock()
-            mock_session_ctx.__aenter__.return_value = mock_client
-            mock_session_ctx.__aexit__.return_value = None
-            mock_manager.session.return_value = mock_session_ctx
-
-            mock_get_dialogs.return_value = mock_chats
+        # Mock the service layer instead of the low-level components
+        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+            mock_service = mock_get_service.return_value
+            mock_service.get_chats = AsyncMock(return_value=mock_chats)
 
             response = client.get("/api/chats?session-select=test_session")
 
@@ -91,3 +76,6 @@ class TestChatsAPI:
         assert "Test Group" in response.text
         assert "Test Channel" in response.text
         assert "@testchan" in response.text
+
+        # Verify the service was called correctly
+        mock_service.get_chats.assert_awaited_once_with("test_session")
