@@ -8,7 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import socks
 from telethon import TelegramClient
+
+from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
 from telethon.tl.types import Channel, User
 from telethon.tl.types import Chat as TelegramChat
 
@@ -228,11 +231,22 @@ class TelegramClientLoader:
         # Validate session file
         validate_session_file(self._session_path)
 
-    def create_client(self) -> TelegramClientType:
+    def create_client(
+        self,
+        proxy: ProxyConfig | None = None,
+        use_saved_proxy: bool = True,
+    ) -> TelegramClientType:
         """Create and return a Telethon client instance.
 
         Validates files if not already validated. The returned client
         should be used as an async context manager.
+
+        Args:
+            proxy: Explicit proxy configuration to use. If None and
+                use_saved_proxy is True, loads config from saved settings.
+            use_saved_proxy: If True and no explicit proxy provided,
+                loads proxy settings from data/config/proxy.json.
+                Set to False to disable proxy entirely.
 
         Returns:
             TelegramClient instance (not connected yet)
@@ -260,10 +274,31 @@ class TelegramClientLoader:
         if session_name.endswith(".session"):
             session_name = session_name[:-8]
 
+        # Resolve proxy configuration
+        telethon_proxy = None
+        effective_proxy = proxy
+        if effective_proxy is None and use_saved_proxy:
+            effective_proxy = load_proxy_config()
+
+        if effective_proxy is not None and effective_proxy.enabled and effective_proxy.host:
+            proxy_type_map = {
+                ProxyType.SOCKS5: socks.SOCKS5,
+                ProxyType.HTTP: socks.HTTP,
+            }
+            telethon_proxy = (
+                proxy_type_map[effective_proxy.proxy_type],
+                effective_proxy.host,
+                effective_proxy.port,
+                True,  # rdns (resolve DNS remotely)
+                effective_proxy.username or None,
+                effective_proxy.password or None,
+            )
+
         return TelegramClient(
             session_name,
             self._config.api_id,
             self._config.api_hash,
+            proxy=telethon_proxy,
         )
 
 
