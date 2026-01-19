@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
+from chatfilter.config import Settings, get_settings
 from chatfilter.web.middleware import RequestIDMiddleware, RequestLoggingMiddleware
 from chatfilter.web.routers.analysis import router as analysis_router
 from chatfilter.web.routers.chats import router as chats_router
@@ -60,8 +61,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app(
     *,
-    debug: bool = False,
+    debug: bool | None = None,
     cors_origins: list[str] | None = None,
+    settings: Settings | None = None,
 ) -> FastAPI:
     """Create and configure FastAPI application.
 
@@ -69,8 +71,9 @@ def create_app(
     and configuring different environments.
 
     Args:
-        debug: Enable debug mode (more verbose errors)
-        cors_origins: List of allowed CORS origins. Defaults to localhost.
+        debug: Enable debug mode (more verbose errors). If None, uses settings.
+        cors_origins: List of allowed CORS origins. If None, uses settings.
+        settings: Settings instance. If None, uses get_settings().
 
     Returns:
         Configured FastAPI application instance
@@ -83,13 +86,24 @@ def create_app(
     """
     from chatfilter import __version__
 
+    # Use provided settings or get from cache
+    if settings is None:
+        settings = get_settings()
+
+    # Use explicit values or fall back to settings
+    effective_debug = debug if debug is not None else settings.debug
+    effective_cors = cors_origins if cors_origins is not None else settings.cors_origins
+
     app = FastAPI(
         title="ChatFilter",
         description="Telegram chat filtering and analysis tool",
         version=__version__,
-        debug=debug,
+        debug=effective_debug,
         lifespan=lifespan,
     )
+
+    # Store settings in app state for access in routes
+    app.state.settings = settings
 
     # Add middlewares (order matters: first added = last executed)
     # RequestLogging should run after RequestID is set
@@ -97,16 +111,9 @@ def create_app(
     app.add_middleware(RequestIDMiddleware)
 
     # CORS configuration
-    if cors_origins is None:
-        cors_origins = [
-            "http://localhost:8000",
-            "http://127.0.0.1:8000",
-            "http://localhost:3000",  # For potential dev frontend
-        ]
-
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
+        allow_origins=effective_cors,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -6,11 +6,16 @@ import logging
 import sys
 
 
-def setup_logging(debug: bool = False) -> None:
-    """Configure logging for the application."""
-    level = logging.DEBUG if debug else logging.INFO
+def setup_logging(level: str = "INFO", debug: bool = False) -> None:
+    """Configure logging for the application.
+
+    Args:
+        level: Log level string (DEBUG, INFO, WARNING, ERROR)
+        debug: If True, overrides level to DEBUG
+    """
+    effective_level = logging.DEBUG if debug else getattr(logging, level.upper(), logging.INFO)
     logging.basicConfig(
-        level=level,
+        level=effective_level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
@@ -23,29 +28,102 @@ def main() -> None:
     import uvicorn
 
     from chatfilter import __version__
+    from chatfilter.config import Settings, get_settings, reset_settings
+
+    # Load settings from env/.env first for defaults
+    env_settings = get_settings()
 
     parser = argparse.ArgumentParser(
         description="ChatFilter - Telegram chat filtering and analysis tool"
     )
-    parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
-    parser.add_argument("--version", action="version", version=f"ChatFilter {__version__}")
+    parser.add_argument(
+        "--host",
+        default=env_settings.host,
+        help=f"Host to bind to (default: {env_settings.host}, env: CHATFILTER_HOST)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=env_settings.port,
+        help=f"Port to bind to (default: {env_settings.port}, env: CHATFILTER_PORT)",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=env_settings.debug,
+        help="Enable debug mode (env: CHATFILTER_DEBUG)",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help=f"Data directory path (default: {env_settings.data_dir}, env: CHATFILTER_DATA_DIR)",
+    )
+    parser.add_argument(
+        "--log-level",
+        default=env_settings.log_level,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help=f"Logging level (default: {env_settings.log_level}, env: CHATFILTER_LOG_LEVEL)",
+    )
+    parser.add_argument(
+        "--check-config",
+        action="store_true",
+        help="Validate configuration and exit",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"ChatFilter {__version__}",
+    )
 
     args = parser.parse_args()
 
-    setup_logging(debug=args.debug)
+    # Create settings with CLI overrides
+    # Reset cache to apply CLI args
+    reset_settings()
+
+    cli_overrides = {
+        "host": args.host,
+        "port": args.port,
+        "debug": args.debug,
+        "log_level": args.log_level,
+    }
+    if args.data_dir:
+        from pathlib import Path
+
+        cli_overrides["data_dir"] = Path(args.data_dir)
+
+    settings = Settings(**cli_overrides)
+
+    # Handle --check-config
+    if args.check_config:
+        settings.print_config()
+        print()
+        warnings = settings.check()
+        if warnings:
+            print("Warnings:")
+            for warning in warnings:
+                print(f"  ⚠ {warning}")
+            sys.exit(1)
+        print("✓ Configuration is valid")
+        sys.exit(0)
+
+    setup_logging(level=settings.log_level, debug=settings.debug)
+
+    # Ensure data directories exist
+    settings.ensure_data_dirs()
 
     print(f"ChatFilter v{__version__}")
-    print(f"Starting server at http://{args.host}:{args.port}")
+    print(f"Starting server at http://{settings.host}:{settings.port}")
+    print(f"Data directory: {settings.data_dir}")
 
     try:
         uvicorn.run(
             "chatfilter.web.app:app",
-            host=args.host,
-            port=args.port,
-            reload=args.debug,
-            log_level="debug" if args.debug else "info",
+            host=settings.host,
+            port=settings.port,
+            reload=settings.debug,
+            log_level="debug" if settings.debug else "info",
         )
     except KeyboardInterrupt:
         print("\nShutting down...")
