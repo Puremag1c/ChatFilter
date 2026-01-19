@@ -2,15 +2,20 @@
 
 import json
 import sqlite3
+from collections.abc import AsyncIterator
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
+from chatfilter.models.chat import Chat, ChatType
 from chatfilter.telegram.client import (
     SessionFileError,
     TelegramClientLoader,
     TelegramConfig,
     TelegramConfigError,
+    _dialog_to_chat,
+    get_dialogs,
     validate_session_file,
 )
 
@@ -278,3 +283,254 @@ class TestTelegramClientLoader:
 
         assert loader.session_path == session_path
         assert loader.config_path == config_path
+
+
+def create_mock_dialog(
+    dialog_id: int,
+    entity_type: str = "user",
+    name: str = "Test",
+    username: str | None = None,
+    participants_count: int | None = None,
+    megagroup: bool = False,
+    forum: bool = False,
+) -> MagicMock:
+    """Create a mock Telethon Dialog object for testing."""
+    dialog = MagicMock()
+    dialog.id = dialog_id
+    dialog.name = name
+    dialog.title = name
+
+    entity = MagicMock()
+    entity.id = dialog_id
+    entity.username = username
+    entity.participants_count = participants_count
+
+    if entity_type == "user":
+        # Simulate isinstance(entity, User) returning True
+        entity.__class__.__name__ = "User"
+        entity.first_name = name
+        from telethon.tl.types import User
+
+        entity.__class__ = User
+    elif entity_type == "channel":
+        from telethon.tl.types import Channel
+
+        entity.__class__ = Channel
+        entity.megagroup = megagroup
+        entity.forum = forum
+        entity.title = name
+    elif entity_type == "chat":
+        from telethon.tl.types import Chat as TelegramChat
+
+        entity.__class__ = TelegramChat
+        entity.title = name
+
+    dialog.entity = entity
+    return dialog
+
+
+class TestDialogToChat:
+    """Tests for _dialog_to_chat helper function."""
+
+    def test_user_dialog(self) -> None:
+        """Test conversion of private chat (User) dialog."""
+        dialog = create_mock_dialog(123, "user", "John Doe", username="johndoe")
+
+        chat = _dialog_to_chat(dialog)
+
+        assert chat is not None
+        assert chat.id == 123
+        assert chat.title == "John Doe"
+        assert chat.chat_type == ChatType.PRIVATE
+        assert chat.username == "johndoe"
+
+    def test_channel_dialog(self) -> None:
+        """Test conversion of channel dialog."""
+        dialog = create_mock_dialog(
+            456, "channel", "News Channel", username="news", participants_count=1000
+        )
+
+        chat = _dialog_to_chat(dialog)
+
+        assert chat is not None
+        assert chat.id == 456
+        assert chat.title == "News Channel"
+        assert chat.chat_type == ChatType.CHANNEL
+        assert chat.username == "news"
+        assert chat.member_count == 1000
+
+    def test_supergroup_dialog(self) -> None:
+        """Test conversion of supergroup dialog."""
+        dialog = create_mock_dialog(
+            789, "channel", "Discussion Group", megagroup=True, participants_count=500
+        )
+
+        chat = _dialog_to_chat(dialog)
+
+        assert chat is not None
+        assert chat.id == 789
+        assert chat.title == "Discussion Group"
+        assert chat.chat_type == ChatType.SUPERGROUP
+        assert chat.member_count == 500
+
+    def test_forum_dialog(self) -> None:
+        """Test conversion of forum dialog."""
+        dialog = create_mock_dialog(
+            101, "channel", "Forum Group", megagroup=True, forum=True
+        )
+
+        chat = _dialog_to_chat(dialog)
+
+        assert chat is not None
+        assert chat.id == 101
+        assert chat.chat_type == ChatType.FORUM
+
+    def test_basic_group_dialog(self) -> None:
+        """Test conversion of basic group dialog."""
+        dialog = create_mock_dialog(202, "chat", "Family Group", participants_count=10)
+
+        chat = _dialog_to_chat(dialog)
+
+        assert chat is not None
+        assert chat.id == 202
+        assert chat.title == "Family Group"
+        assert chat.chat_type == ChatType.GROUP
+        assert chat.username is None  # Basic groups don't have usernames
+
+    def test_unknown_entity_type(self) -> None:
+        """Test that unknown entity types return None."""
+        dialog = MagicMock()
+        dialog.id = 999
+        dialog.entity = MagicMock()  # Unknown type
+        dialog.entity.__class__ = type("UnknownEntity", (), {})
+
+        chat = _dialog_to_chat(dialog)
+
+        assert chat is None
+
+
+class TestGetDialogs:
+    """Tests for get_dialogs function."""
+
+    @pytest.mark.asyncio
+    async def test_get_all_dialogs(self) -> None:
+        """Test fetching all dialogs."""
+        dialogs = [
+            create_mock_dialog(1, "user", "User 1"),
+            create_mock_dialog(2, "channel", "Channel 1"),
+            create_mock_dialog(3, "chat", "Group 1"),
+        ]
+
+        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
+            for d in dialogs:
+                yield d
+
+        client = MagicMock()
+        client.iter_dialogs = mock_iter_dialogs
+
+        result = await get_dialogs(client)
+
+        assert len(result) == 3
+        assert result[0].id == 1
+        assert result[1].id == 2
+        assert result[2].id == 3
+
+    @pytest.mark.asyncio
+    async def test_filter_by_chat_type(self) -> None:
+        """Test filtering dialogs by chat type."""
+        dialogs = [
+            create_mock_dialog(1, "user", "User 1"),
+            create_mock_dialog(2, "channel", "Channel 1"),
+            create_mock_dialog(3, "channel", "Group 1", megagroup=True),
+            create_mock_dialog(4, "chat", "Group 2"),
+        ]
+
+        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
+            for d in dialogs:
+                yield d
+
+        client = MagicMock()
+        client.iter_dialogs = mock_iter_dialogs
+
+        # Filter for groups and supergroups only
+        result = await get_dialogs(
+            client, chat_types={ChatType.GROUP, ChatType.SUPERGROUP}
+        )
+
+        assert len(result) == 2
+        assert result[0].id == 3  # Supergroup
+        assert result[1].id == 4  # Basic group
+
+    @pytest.mark.asyncio
+    async def test_deduplication(self) -> None:
+        """Test that duplicate chat IDs are deduplicated."""
+        dialogs = [
+            create_mock_dialog(1, "user", "User 1"),
+            create_mock_dialog(1, "user", "User 1 Duplicate"),  # Same ID
+            create_mock_dialog(2, "channel", "Channel 1"),
+        ]
+
+        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
+            for d in dialogs:
+                yield d
+
+        client = MagicMock()
+        client.iter_dialogs = mock_iter_dialogs
+
+        result = await get_dialogs(client)
+
+        assert len(result) == 2
+        assert result[0].id == 1
+        assert result[0].title == "User 1"  # First occurrence kept
+        assert result[1].id == 2
+
+    @pytest.mark.asyncio
+    async def test_caching(self) -> None:
+        """Test session-scoped caching."""
+        call_count = 0
+
+        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
+            nonlocal call_count
+            call_count += 1
+            yield create_mock_dialog(1, "user", "User 1")
+
+        client = MagicMock()
+        client.iter_dialogs = mock_iter_dialogs
+
+        cache: dict[int, list[Chat]] = {}
+
+        # First call should fetch
+        result1 = await get_dialogs(client, _cache=cache)
+        assert call_count == 1
+        assert len(result1) == 1
+
+        # Second call should use cache
+        result2 = await get_dialogs(client, _cache=cache)
+        assert call_count == 1  # No new fetch
+        assert len(result2) == 1
+
+    @pytest.mark.asyncio
+    async def test_cache_with_filter(self) -> None:
+        """Test that cache works correctly with type filtering."""
+        dialogs = [
+            create_mock_dialog(1, "user", "User 1"),
+            create_mock_dialog(2, "channel", "Channel 1"),
+        ]
+
+        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
+            for d in dialogs:
+                yield d
+
+        client = MagicMock()
+        client.iter_dialogs = mock_iter_dialogs
+
+        cache: dict[int, list[Chat]] = {}
+
+        # First call fetches all
+        result1 = await get_dialogs(client, _cache=cache)
+        assert len(result1) == 2
+
+        # Second call with filter uses cache and filters
+        result2 = await get_dialogs(client, chat_types={ChatType.PRIVATE}, _cache=cache)
+        assert len(result2) == 1
+        assert result2[0].chat_type == ChatType.PRIVATE

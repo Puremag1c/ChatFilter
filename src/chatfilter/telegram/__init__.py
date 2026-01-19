@@ -1,5 +1,17 @@
 """Telegram integration module."""
 
-from chatfilter.telegram.client import TelegramClientLoader, TelegramConfig
+from chatfilter.telegram.client import (
+    SessionFileError,
+    TelegramClientLoader,
+    TelegramConfig,
+    TelegramConfigError,
+    get_dialogs,
+)
 
-__all__ = ["TelegramClientLoader", "TelegramConfig"]
+__all__ = [
+    "SessionFileError",
+    "TelegramClientLoader",
+    "TelegramConfig",
+    "TelegramConfigError",
+    "get_dialogs",
+]
