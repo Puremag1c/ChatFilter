@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,8 @@ from telethon import TelegramClient
 from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
 from telethon.tl.types import Channel, User
 from telethon.tl.types import Chat as TelegramChat
+from telethon.tl.functions.channels import JoinChannelRequest
+from telethon.tl.functions.messages import ImportChatInviteRequest
 
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.models.message import Message
@@ -427,6 +430,10 @@ class MessageFetchError(Exception):
     """Raised when fetching messages fails."""
 
 
+class JoinChatError(Exception):
+    """Raised when joining a chat fails."""
+
+
 def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | None:
     """Convert Telethon Message to our Message model.
 
@@ -552,3 +559,167 @@ async def get_messages(
     messages.sort(key=lambda m: m.timestamp)
 
     return messages
+
+
+# Regex patterns for parsing Telegram links
+_INVITE_HASH_PATTERN = re.compile(
+    r"(?:https?://)?(?:t\.me|telegram\.me)/(?:joinchat/|\+)([a-zA-Z0-9_-]+)"
+)
+_PUBLIC_LINK_PATTERN = re.compile(
+    r"(?:https?://)?(?:t\.me|telegram\.me)/([a-zA-Z0-9_]+)"
+)
+
+
+def _parse_chat_reference(ref: str) -> tuple[str | None, str | None]:
+    """Parse a chat reference (username, link, or invite hash).
+
+    Args:
+        ref: Chat reference - can be:
+            - Username: "@channelname" or "channelname"
+            - Public link: "https://t.me/channelname" or "t.me/channelname"
+            - Private invite: "https://t.me/joinchat/XXXXX" or "https://t.me/+XXXXX"
+
+    Returns:
+        Tuple of (username, invite_hash) where only one is set.
+        If input is invalid, both are None.
+    """
+    ref = ref.strip()
+    if not ref:
+        return None, None
+
+    # Check for invite links first (more specific pattern)
+    match = _INVITE_HASH_PATTERN.match(ref)
+    if match:
+        return None, match.group(1)
+
+    # Check for public links
+    match = _PUBLIC_LINK_PATTERN.match(ref)
+    if match:
+        return match.group(1), None
+
+    # Check for @username format
+    if ref.startswith("@"):
+        username = ref[1:]
+        if username and username.isalnum() or "_" in username:
+            return username, None
+
+    # Assume bare username
+    if ref.replace("_", "").isalnum():
+        return ref, None
+
+    return None, None
+
+
+async def join_chat(
+    client: TelegramClientType,
+    chat_ref: str,
+) -> Chat:
+    """Join a public chat/channel by username or invite link.
+
+    Supports joining chats via:
+    - Username: "@channelname" or "channelname"
+    - Public link: "https://t.me/channelname" or "t.me/channelname"
+    - Private invite: "https://t.me/joinchat/XXXXX" or "https://t.me/+XXXXX"
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_ref: Chat reference (username or link)
+
+    Returns:
+        Chat model of the joined chat
+
+    Raises:
+        JoinChatError: If joining fails (invalid link, already banned, etc.)
+        ValueError: If chat_ref format is invalid
+
+    Example:
+        ```python
+        async with loader.create_client() as client:
+            # Join by username
+            chat = await join_chat(client, "@python_ru")
+
+            # Join by link
+            chat = await join_chat(client, "https://t.me/python_ru")
+
+            # Join by invite link
+            chat = await join_chat(client, "https://t.me/+XXXXXX")
+        ```
+    """
+    username, invite_hash = _parse_chat_reference(chat_ref)
+
+    if username is None and invite_hash is None:
+        raise ValueError(f"Invalid chat reference format: {chat_ref}")
+
+    try:
+        if invite_hash:
+            # Private invite link
+            updates = await client(ImportChatInviteRequest(invite_hash))
+            # ImportChatInviteRequest returns Updates with chats
+            if hasattr(updates, "chats") and updates.chats:
+                entity = updates.chats[0]
+            else:
+                raise JoinChatError("Failed to get chat info after joining")
+        else:
+            # Public channel/group by username
+            updates = await client(JoinChannelRequest(username))
+            # JoinChannelRequest returns Updates with chats
+            if hasattr(updates, "chats") and updates.chats:
+                entity = updates.chats[0]
+            else:
+                raise JoinChatError("Failed to get chat info after joining")
+
+        # Convert to our Chat model
+        if isinstance(entity, Channel):
+            if entity.megagroup:
+                chat_type = ChatType.FORUM if getattr(entity, "forum", False) else ChatType.SUPERGROUP
+            else:
+                chat_type = ChatType.CHANNEL
+            title = entity.title or "Unknown"
+            chat_username = entity.username
+            member_count = getattr(entity, "participants_count", None)
+        elif isinstance(entity, TelegramChat):
+            chat_type = ChatType.GROUP
+            title = entity.title or "Unknown"
+            chat_username = None
+            member_count = getattr(entity, "participants_count", None)
+        else:
+            chat_type = ChatType.GROUP
+            title = getattr(entity, "title", "Unknown")
+            chat_username = getattr(entity, "username", None)
+            member_count = None
+
+        chat_id = abs(entity.id)
+
+        return Chat(
+            id=chat_id,
+            title=title,
+            chat_type=chat_type,
+            username=chat_username,
+            member_count=member_count,
+        )
+
+    except ValueError:
+        # Re-raise our own ValueError
+        raise
+    except JoinChatError:
+        # Re-raise our own errors
+        raise
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "invite" in error_msg and "expired" in error_msg:
+            raise JoinChatError(f"Invite link has expired: {chat_ref}") from e
+        if "invite" in error_msg and "invalid" in error_msg:
+            raise JoinChatError(f"Invalid invite link: {chat_ref}") from e
+        if "banned" in error_msg or "kicked" in error_msg:
+            raise JoinChatError(f"You are banned from this chat: {chat_ref}") from e
+        if "flood" in error_msg:
+            raise JoinChatError(
+                f"Rate limited by Telegram. Please wait and try again: {e}"
+            ) from e
+        if "private" in error_msg:
+            raise JoinChatError(
+                f"Chat is private and requires an invite link: {chat_ref}"
+            ) from e
+        if "username" in error_msg and ("invalid" in error_msg or "not" in error_msg):
+            raise JoinChatError(f"Username not found: {chat_ref}") from e
+        raise JoinChatError(f"Failed to join chat: {e}") from e

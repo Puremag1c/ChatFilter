@@ -5,22 +5,25 @@ import sqlite3
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.config import ProxyConfig, ProxyType
 from chatfilter.telegram.client import (
+    JoinChatError,
     MessageFetchError,
     SessionFileError,
     TelegramClientLoader,
     TelegramConfig,
     TelegramConfigError,
     _dialog_to_chat,
+    _parse_chat_reference,
     _telethon_message_to_model,
     get_dialogs,
     get_messages,
+    join_chat,
     validate_session_file,
 )
 
@@ -900,3 +903,209 @@ class TestGetMessages:
 
         with pytest.raises(MessageFetchError, match="Rate limited"):
             await get_messages(client, chat_id=123, limit=10)
+
+
+class TestParseChatReference:
+    """Tests for _parse_chat_reference helper function."""
+
+    def test_username_with_at(self) -> None:
+        """Test parsing @username format."""
+        username, invite_hash = _parse_chat_reference("@python_ru")
+
+        assert username == "python_ru"
+        assert invite_hash is None
+
+    def test_bare_username(self) -> None:
+        """Test parsing bare username without @."""
+        username, invite_hash = _parse_chat_reference("python_ru")
+
+        assert username == "python_ru"
+        assert invite_hash is None
+
+    def test_public_link_https(self) -> None:
+        """Test parsing https://t.me/username link."""
+        username, invite_hash = _parse_chat_reference("https://t.me/durov")
+
+        assert username == "durov"
+        assert invite_hash is None
+
+    def test_public_link_http(self) -> None:
+        """Test parsing http://t.me/username link."""
+        username, invite_hash = _parse_chat_reference("http://t.me/durov")
+
+        assert username == "durov"
+        assert invite_hash is None
+
+    def test_public_link_no_scheme(self) -> None:
+        """Test parsing t.me/username link without scheme."""
+        username, invite_hash = _parse_chat_reference("t.me/durov")
+
+        assert username == "durov"
+        assert invite_hash is None
+
+    def test_invite_link_joinchat(self) -> None:
+        """Test parsing https://t.me/joinchat/XXXXX link."""
+        username, invite_hash = _parse_chat_reference("https://t.me/joinchat/ABC123xyz")
+
+        assert username is None
+        assert invite_hash == "ABC123xyz"
+
+    def test_invite_link_plus(self) -> None:
+        """Test parsing https://t.me/+XXXXX link."""
+        username, invite_hash = _parse_chat_reference("https://t.me/+ABC123xyz")
+
+        assert username is None
+        assert invite_hash == "ABC123xyz"
+
+    def test_invite_link_telegram_me(self) -> None:
+        """Test parsing telegram.me invite link."""
+        username, invite_hash = _parse_chat_reference("https://telegram.me/joinchat/ABC123")
+
+        assert username is None
+        assert invite_hash == "ABC123"
+
+    def test_empty_string(self) -> None:
+        """Test that empty string returns (None, None)."""
+        username, invite_hash = _parse_chat_reference("")
+
+        assert username is None
+        assert invite_hash is None
+
+    def test_whitespace_only(self) -> None:
+        """Test that whitespace-only string returns (None, None)."""
+        username, invite_hash = _parse_chat_reference("   ")
+
+        assert username is None
+        assert invite_hash is None
+
+    def test_strips_whitespace(self) -> None:
+        """Test that leading/trailing whitespace is stripped."""
+        username, invite_hash = _parse_chat_reference("  @python_ru  ")
+
+        assert username == "python_ru"
+        assert invite_hash is None
+
+
+class TestJoinChat:
+    """Tests for join_chat function."""
+
+    @pytest.mark.asyncio
+    async def test_join_by_username(self) -> None:
+        """Test joining chat by username."""
+        from telethon.tl.types import Channel
+
+        # Mock the channel entity that will be returned
+        mock_channel = MagicMock(spec=Channel)
+        mock_channel.id = 12345
+        mock_channel.title = "Test Channel"
+        mock_channel.username = "test_channel"
+        mock_channel.megagroup = False
+        mock_channel.forum = False
+        mock_channel.participants_count = 1000
+
+        # Mock the updates response
+        mock_updates = MagicMock()
+        mock_updates.chats = [mock_channel]
+
+        # Mock the client with AsyncMock for __call__
+        client = AsyncMock()
+        client.return_value = mock_updates
+
+        result = await join_chat(client, "@test_channel")
+
+        assert result.id == 12345
+        assert result.title == "Test Channel"
+        assert result.chat_type == ChatType.CHANNEL
+        assert result.username == "test_channel"
+
+    @pytest.mark.asyncio
+    async def test_join_by_invite_link(self) -> None:
+        """Test joining chat by invite link."""
+        from telethon.tl.types import Channel
+
+        mock_channel = MagicMock(spec=Channel)
+        mock_channel.id = 67890
+        mock_channel.title = "Private Group"
+        mock_channel.username = None
+        mock_channel.megagroup = True
+        mock_channel.forum = False
+        mock_channel.participants_count = 50
+
+        mock_updates = MagicMock()
+        mock_updates.chats = [mock_channel]
+
+        client = AsyncMock()
+        client.return_value = mock_updates
+
+        result = await join_chat(client, "https://t.me/+ABC123xyz")
+
+        assert result.id == 67890
+        assert result.title == "Private Group"
+        assert result.chat_type == ChatType.SUPERGROUP
+
+    @pytest.mark.asyncio
+    async def test_join_invalid_reference_raises_value_error(self) -> None:
+        """Test that invalid chat reference raises ValueError."""
+        client = MagicMock()
+
+        with pytest.raises(ValueError, match="Invalid chat reference format"):
+            await join_chat(client, "")
+
+    @pytest.mark.asyncio
+    async def test_join_expired_invite_raises_error(self) -> None:
+        """Test error handling for expired invite link."""
+        client = AsyncMock()
+        client.side_effect = Exception("Invite link has expired")
+
+        with pytest.raises(JoinChatError, match="Invite link has expired"):
+            await join_chat(client, "https://t.me/+expired123")
+
+    @pytest.mark.asyncio
+    async def test_join_banned_user_raises_error(self) -> None:
+        """Test error handling when user is banned."""
+        client = AsyncMock()
+        client.side_effect = Exception("You have been banned from this chat")
+
+        with pytest.raises(JoinChatError, match="You are banned"):
+            await join_chat(client, "@banned_chat")
+
+    @pytest.mark.asyncio
+    async def test_join_rate_limit_raises_error(self) -> None:
+        """Test error handling for rate limiting."""
+        client = AsyncMock()
+        client.side_effect = Exception("FloodWaitError: wait 300 seconds")
+
+        with pytest.raises(JoinChatError, match="Rate limited"):
+            await join_chat(client, "@some_channel")
+
+    @pytest.mark.asyncio
+    async def test_join_username_not_found_raises_error(self) -> None:
+        """Test error handling for non-existent username."""
+        client = AsyncMock()
+        client.side_effect = Exception("username not found")
+
+        with pytest.raises(JoinChatError, match="Username not found"):
+            await join_chat(client, "@nonexistent_channel")
+
+    @pytest.mark.asyncio
+    async def test_join_forum_supergroup(self) -> None:
+        """Test joining a forum-enabled supergroup."""
+        from telethon.tl.types import Channel
+
+        mock_channel = MagicMock(spec=Channel)
+        mock_channel.id = 11111
+        mock_channel.title = "Forum Group"
+        mock_channel.username = "forum_group"
+        mock_channel.megagroup = True
+        mock_channel.forum = True
+        mock_channel.participants_count = 200
+
+        mock_updates = MagicMock()
+        mock_updates.chats = [mock_channel]
+
+        client = AsyncMock()
+        client.return_value = mock_updates
+
+        result = await join_chat(client, "forum_group")
+
+        assert result.chat_type == ChatType.FORUM
