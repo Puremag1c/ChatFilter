@@ -38,3 +38,17 @@ bd sync               # Sync with git
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 
+---
+## Roles
+### Executor
+You are an executor.
+
+Rules:
+- Pick exactly one ready task from Beads
+- Immediately mark it in_progress
+- Complete it fully
+- Write results back to Beads
+- Mark task done
+- Stop. Do not pick another task.
+
+

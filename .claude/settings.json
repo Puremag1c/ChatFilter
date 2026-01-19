@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add Python project structure with pyproject.toml\n\n- Create src/chatfilter/ package layout\n- Add pyproject.toml with dependencies \\(telethon, fastapi, uvicorn, pytest\\)\n- Configure pytest, ruff, and mypy\n- Add .gitignore for Python projects\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(python -m pytest:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(git commit:*)",
+      "Bash(python -m mypy:*)",
+      "Bash(python3:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add Pydantic data models for Chat, Message, and AnalysisResult\n\nDomain models with strict validation independent of Telethon internals:\n- Chat/ChatType: chat representation with ID/title/type validators\n- Message: message with author_id and timestamp validation\n- ChatMetrics: computed metrics \\(message count, unique authors, history hours\\)\n- AnalysisResult: combines chat with metrics, includes is_active computed field\n\nAll models include .fake\\(\\) factory methods for testing.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(bd claim:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/m/Zen/Code/ChatFilter/src/chatfilter"
+    ]
+  }
+}
