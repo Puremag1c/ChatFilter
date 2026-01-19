@@ -1,11 +1,13 @@
 """Telegram integration module."""
 
 from chatfilter.telegram.client import (
+    MessageFetchError,
     SessionFileError,
     TelegramClientLoader,
     TelegramConfig,
     TelegramConfigError,
     get_dialogs,
+    get_messages,
 )
 from chatfilter.telegram.session_manager import (
     SessionConnectError,
@@ -18,6 +20,7 @@ from chatfilter.telegram.session_manager import (
 )
 
 __all__ = [
+    "MessageFetchError",
     "SessionConnectError",
     "SessionError",
     "SessionFileError",
@@ -30,4 +33,5 @@ __all__ = [
     "TelegramConfig",
     "TelegramConfigError",
     "get_dialogs",
+    "get_messages",
 ]

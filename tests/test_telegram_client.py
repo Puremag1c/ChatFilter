@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -10,12 +11,15 @@ import pytest
 
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.telegram.client import (
+    MessageFetchError,
     SessionFileError,
     TelegramClientLoader,
     TelegramConfig,
     TelegramConfigError,
     _dialog_to_chat,
+    _telethon_message_to_model,
     get_dialogs,
+    get_messages,
     validate_session_file,
 )
 
@@ -534,3 +538,276 @@ class TestGetDialogs:
         result2 = await get_dialogs(client, chat_types={ChatType.PRIVATE}, _cache=cache)
         assert len(result2) == 1
         assert result2[0].chat_type == ChatType.PRIVATE
+
+
+def create_mock_message(
+    msg_id: int,
+    text: str = "Hello",
+    sender_id: int | None = 123,
+    date: datetime | None = None,
+    has_media: bool = False,
+) -> MagicMock:
+    """Create a mock Telethon Message object for testing."""
+    msg = MagicMock()
+    msg.id = msg_id
+    msg.message = text
+    msg.sender_id = sender_id
+    msg.from_id = None
+    msg.date = date or datetime.now(UTC) - timedelta(hours=1)
+    msg.media = MagicMock() if has_media else None
+    return msg
+
+
+class TestTelethonMessageToModel:
+    """Tests for _telethon_message_to_model helper function."""
+
+    def test_basic_message(self) -> None:
+        """Test conversion of basic text message."""
+        msg = create_mock_message(1, "Hello world", sender_id=456)
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is not None
+        assert result.id == 1
+        assert result.chat_id == 123
+        assert result.author_id == 456
+        assert result.text == "Hello world"
+
+    def test_message_with_media(self) -> None:
+        """Test conversion of media message with no text."""
+        msg = create_mock_message(2, text="", sender_id=789, has_media=True)
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is not None
+        assert result.id == 2
+        assert result.text == ""
+
+    def test_message_no_sender_uses_chat_id(self) -> None:
+        """Test that messages without sender use chat_id as author."""
+        msg = create_mock_message(3, "Channel post", sender_id=None)
+
+        result = _telethon_message_to_model(msg, chat_id=456)
+
+        assert result is not None
+        assert result.author_id == 456  # Falls back to chat_id
+
+    def test_message_with_peer_user(self) -> None:
+        """Test handling of from_id as PeerUser object."""
+        msg = create_mock_message(4, "Test", sender_id=None)
+        peer = MagicMock()
+        peer.user_id = 999
+        msg.from_id = peer
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is not None
+        assert result.author_id == 999
+
+    def test_message_empty_returns_none(self) -> None:
+        """Test that empty/deleted messages return None."""
+        msg = MagicMock()
+        msg.id = 5
+        msg.message = None
+        msg.media = None
+        msg.date = None  # MessageEmpty has no date
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is None
+
+    def test_message_timestamp_is_utc(self) -> None:
+        """Test that timestamp is timezone-aware UTC."""
+        test_date = datetime(2024, 1, 15, 12, 0, 0, tzinfo=UTC)
+        msg = create_mock_message(6, "Test", date=test_date)
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is not None
+        assert result.timestamp.tzinfo is not None
+        assert result.timestamp == test_date
+
+
+class TestGetMessages:
+    """Tests for get_messages function."""
+
+    @pytest.mark.asyncio
+    async def test_get_messages_basic(self) -> None:
+        """Test fetching messages from a chat."""
+        messages = [
+            create_mock_message(1, "First", sender_id=100),
+            create_mock_message(2, "Second", sender_id=101),
+            create_mock_message(3, "Third", sender_id=102),
+        ]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages[:limit]:
+                yield m
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        assert len(result) == 3
+        assert result[0].text == "First"
+        assert result[1].text == "Second"
+        assert result[2].text == "Third"
+
+    @pytest.mark.asyncio
+    async def test_get_messages_respects_limit(self) -> None:
+        """Test that limit is respected."""
+        messages = [
+            create_mock_message(i, f"Message {i}")
+            for i in range(10)
+        ]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages[:limit]:
+                yield m
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages(client, chat_id=123, limit=5)
+
+        assert len(result) == 5
+
+    @pytest.mark.asyncio
+    async def test_get_messages_deduplication(self) -> None:
+        """Test that duplicate message IDs are deduplicated."""
+        messages = [
+            create_mock_message(1, "First"),
+            create_mock_message(1, "First duplicate"),  # Same ID
+            create_mock_message(2, "Second"),
+        ]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages:
+                yield m
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        assert len(result) == 2
+        assert result[0].id == 1 or result[1].id == 1
+        assert result[0].id == 2 or result[1].id == 2
+
+    @pytest.mark.asyncio
+    async def test_get_messages_sorts_by_timestamp(self) -> None:
+        """Test that messages are sorted by timestamp (oldest first)."""
+        now = datetime.now(UTC)
+        messages = [
+            create_mock_message(3, "Third", date=now - timedelta(hours=1)),
+            create_mock_message(1, "First", date=now - timedelta(hours=3)),
+            create_mock_message(2, "Second", date=now - timedelta(hours=2)),
+        ]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages:
+                yield m
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        assert len(result) == 3
+        assert result[0].text == "First"  # Oldest
+        assert result[1].text == "Second"
+        assert result[2].text == "Third"  # Newest
+
+    @pytest.mark.asyncio
+    async def test_get_messages_skips_empty(self) -> None:
+        """Test that empty/deleted messages are skipped."""
+        valid_msg = create_mock_message(1, "Valid")
+        empty_msg = MagicMock()
+        empty_msg.id = 2
+        empty_msg.message = None
+        empty_msg.media = None
+        empty_msg.date = None
+
+        messages = [valid_msg, empty_msg]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages:
+                yield m
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        assert len(result) == 1
+        assert result[0].text == "Valid"
+
+    @pytest.mark.asyncio
+    async def test_get_messages_invalid_limit(self) -> None:
+        """Test that invalid limit raises ValueError."""
+        client = MagicMock()
+
+        with pytest.raises(ValueError, match="limit must be positive"):
+            await get_messages(client, chat_id=123, limit=0)
+
+        with pytest.raises(ValueError, match="limit must be positive"):
+            await get_messages(client, chat_id=123, limit=-1)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_chat_not_found_error(self) -> None:
+        """Test error handling for non-existent chat."""
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            raise Exception("Invalid peer")
+            yield  # Make it a generator
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        with pytest.raises(MessageFetchError, match="Chat not found or invalid"):
+            await get_messages(client, chat_id=999, limit=10)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_access_denied_error(self) -> None:
+        """Test error handling for access denied."""
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            raise Exception("forbidden")
+            yield
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        with pytest.raises(MessageFetchError, match="Access denied"):
+            await get_messages(client, chat_id=123, limit=10)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_rate_limit_error(self) -> None:
+        """Test error handling for rate limiting."""
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int
+        ) -> AsyncIterator[MagicMock]:
+            raise Exception("FloodWaitError")
+            yield
+
+        client = MagicMock()
+        client.iter_messages = mock_iter_messages
+
+        with pytest.raises(MessageFetchError, match="Rate limited"):
+            await get_messages(client, chat_id=123, limit=10)

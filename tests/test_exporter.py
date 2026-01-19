@@ -1,0 +1,211 @@
+"""Tests for CSV exporter module."""
+
+import csv
+import io
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+
+from chatfilter.exporter import export_to_csv, to_csv_rows
+from chatfilter.exporter.csv import UTF8_BOM, CSV_HEADERS
+from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
+
+
+def create_test_result(
+    chat_id: int = 123,
+    title: str = "Test Chat",
+    chat_type: ChatType = ChatType.GROUP,
+    username: str | None = "testchat",
+    message_count: int = 100,
+    unique_authors: int = 10,
+    history_hours: float = 24.0,
+) -> AnalysisResult:
+    """Create a test AnalysisResult for testing."""
+    now = datetime.now(UTC)
+    return AnalysisResult(
+        chat=Chat(
+            id=chat_id,
+            title=title,
+            chat_type=chat_type,
+            username=username,
+        ),
+        metrics=ChatMetrics(
+            message_count=message_count,
+            unique_authors=unique_authors,
+            history_hours=history_hours,
+            first_message_at=now - timedelta(hours=history_hours),
+            last_message_at=now,
+        ),
+        analyzed_at=now,
+    )
+
+
+class TestToCsvRows:
+    """Tests for to_csv_rows function."""
+
+    def test_empty_results_yields_header_only(self) -> None:
+        """Test that empty results yields only header row."""
+        rows = list(to_csv_rows([]))
+
+        assert len(rows) == 1
+        assert rows[0] == CSV_HEADERS
+
+    def test_single_result(self) -> None:
+        """Test converting single result to CSV rows."""
+        result = create_test_result()
+        rows = list(to_csv_rows([result]))
+
+        assert len(rows) == 2  # Header + 1 data row
+        assert rows[0] == CSV_HEADERS
+
+        # Check data row
+        data_row = rows[1]
+        assert data_row[0] == "https://t.me/testchat"  # chat_link
+        assert data_row[1] == "Test Chat"  # chat_title
+        assert data_row[2] == "group"  # chat_type
+        assert data_row[3] == "100"  # message_count
+        assert data_row[4] == "10"  # unique_authors
+
+    def test_multiple_results(self) -> None:
+        """Test converting multiple results."""
+        results = [
+            create_test_result(chat_id=1, title="Chat 1"),
+            create_test_result(chat_id=2, title="Chat 2"),
+            create_test_result(chat_id=3, title="Chat 3"),
+        ]
+        rows = list(to_csv_rows(results))
+
+        assert len(rows) == 4  # Header + 3 data rows
+        assert rows[1][1] == "Chat 1"
+        assert rows[2][1] == "Chat 2"
+        assert rows[3][1] == "Chat 3"
+
+    def test_chat_without_username(self) -> None:
+        """Test that chats without username use tg:// link."""
+        result = create_test_result(chat_id=456, username=None)
+        rows = list(to_csv_rows([result]))
+
+        assert rows[1][0] == "tg://chat?id=456"
+
+    def test_different_chat_types(self) -> None:
+        """Test that chat types are exported correctly."""
+        results = [
+            create_test_result(chat_type=ChatType.PRIVATE),
+            create_test_result(chat_type=ChatType.GROUP),
+            create_test_result(chat_type=ChatType.SUPERGROUP),
+            create_test_result(chat_type=ChatType.CHANNEL),
+            create_test_result(chat_type=ChatType.FORUM),
+        ]
+        rows = list(to_csv_rows(results))
+
+        assert rows[1][2] == "private"
+        assert rows[2][2] == "group"
+        assert rows[3][2] == "supergroup"
+        assert rows[4][2] == "channel"
+        assert rows[5][2] == "forum"
+
+    def test_history_hours_formatting(self) -> None:
+        """Test that history hours is formatted to 2 decimal places."""
+        result = create_test_result(history_hours=24.5678)
+        rows = list(to_csv_rows([result]))
+
+        assert rows[1][5] == "24.57"  # Rounded to 2 decimal places
+
+    def test_messages_per_hour_formatting(self) -> None:
+        """Test that messages per hour is formatted correctly."""
+        result = create_test_result(message_count=100, history_hours=24.0)
+        rows = list(to_csv_rows([result]))
+
+        # 100 / 24 = 4.166...
+        assert rows[1][6] == "4.17"
+
+
+class TestExportToCsv:
+    """Tests for export_to_csv function."""
+
+    def test_returns_string(self) -> None:
+        """Test that export_to_csv returns a string."""
+        results = [create_test_result()]
+        content = export_to_csv(results)
+
+        assert isinstance(content, str)
+        assert len(content) > 0
+
+    def test_includes_bom_by_default(self) -> None:
+        """Test that UTF-8 BOM is included by default."""
+        results = [create_test_result()]
+        content = export_to_csv(results)
+
+        assert content.startswith(UTF8_BOM)
+
+    def test_can_exclude_bom(self) -> None:
+        """Test that BOM can be excluded."""
+        results = [create_test_result()]
+        content = export_to_csv(results, include_bom=False)
+
+        assert not content.startswith(UTF8_BOM)
+
+    def test_valid_csv_format(self) -> None:
+        """Test that output is valid CSV."""
+        results = [create_test_result()]
+        content = export_to_csv(results, include_bom=False)
+
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+
+        assert len(rows) == 2
+        assert rows[0] == CSV_HEADERS
+
+    def test_writes_to_file(self, tmp_path: Path) -> None:
+        """Test writing CSV to file."""
+        results = [create_test_result()]
+        output_file = tmp_path / "results.csv"
+
+        content = export_to_csv(results, output_file)
+
+        assert output_file.exists()
+        file_content = output_file.read_text(encoding="utf-8")
+        # Normalize line endings for cross-platform comparison
+        assert file_content.replace("\r\n", "\n") == content.replace("\r\n", "\n")
+
+    def test_file_has_bom(self, tmp_path: Path) -> None:
+        """Test that file has UTF-8 BOM."""
+        results = [create_test_result()]
+        output_file = tmp_path / "results.csv"
+
+        export_to_csv(results, output_file)
+
+        # Read raw bytes to check BOM
+        raw_content = output_file.read_bytes()
+        assert raw_content.startswith(b"\xef\xbb\xbf")  # UTF-8 BOM bytes
+
+    def test_handles_special_characters(self) -> None:
+        """Test that special characters are properly escaped."""
+        result = create_test_result(title='Chat with "quotes" and, commas')
+        content = export_to_csv([result], include_bom=False)
+
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+
+        assert rows[1][1] == 'Chat with "quotes" and, commas'
+
+    def test_handles_unicode(self) -> None:
+        """Test that unicode characters are handled correctly."""
+        result = create_test_result(title="Чат с эмодзи 🎉")
+        content = export_to_csv([result], include_bom=False)
+
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+
+        assert rows[1][1] == "Чат с эмодзи 🎉"
+
+    def test_empty_results_produces_header_only(self) -> None:
+        """Test that empty results produces header row only."""
+        content = export_to_csv([], include_bom=False)
+
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+
+        assert len(rows) == 1
+        assert rows[0] == CSV_HEADERS

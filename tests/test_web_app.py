@@ -164,3 +164,159 @@ class TestStaticFiles:
         response = client.get("/static/nonexistent.js")
 
         assert response.status_code == 404
+
+
+class TestExportCsvEndpoint:
+    """Tests for /api/export/csv endpoint."""
+
+    def test_export_csv_returns_200(self) -> None:
+        """Test CSV export returns 200 OK."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {
+            "results": [
+                {
+                    "chat_id": 123,
+                    "chat_title": "Test Chat",
+                    "chat_type": "group",
+                    "message_count": 100,
+                    "unique_authors": 10,
+                    "history_hours": 24.0,
+                }
+            ]
+        }
+
+        response = client.post("/api/export/csv", json=request_data)
+
+        assert response.status_code == 200
+
+    def test_export_csv_content_type(self) -> None:
+        """Test CSV export returns correct content type."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {"results": []}
+
+        response = client.post("/api/export/csv", json=request_data)
+
+        assert "text/csv" in response.headers.get("content-type", "")
+
+    def test_export_csv_content_disposition(self) -> None:
+        """Test CSV export has attachment disposition."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {"results": []}
+
+        response = client.post("/api/export/csv", json=request_data)
+
+        assert "attachment" in response.headers.get("content-disposition", "")
+        assert "chatfilter_results.csv" in response.headers.get("content-disposition", "")
+
+    def test_export_csv_custom_filename(self) -> None:
+        """Test CSV export with custom filename."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {"results": []}
+
+        response = client.post("/api/export/csv?filename=my_export.csv", json=request_data)
+
+        assert "my_export.csv" in response.headers.get("content-disposition", "")
+
+    def test_export_csv_includes_data(self) -> None:
+        """Test CSV export includes provided data."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {
+            "results": [
+                {
+                    "chat_id": 456,
+                    "chat_title": "My Group",
+                    "chat_type": "supergroup",
+                    "chat_username": "mygroup",
+                    "message_count": 500,
+                    "unique_authors": 25,
+                    "history_hours": 48.0,
+                }
+            ]
+        }
+
+        response = client.post("/api/export/csv?include_bom=false", json=request_data)
+        content = response.text
+
+        assert "My Group" in content
+        assert "supergroup" in content
+        assert "500" in content
+        assert "25" in content
+        assert "t.me/mygroup" in content
+
+    def test_export_csv_multiple_results(self) -> None:
+        """Test CSV export with multiple results."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {
+            "results": [
+                {
+                    "chat_id": 1,
+                    "chat_title": "Chat One",
+                    "chat_type": "group",
+                    "message_count": 100,
+                    "unique_authors": 10,
+                    "history_hours": 24.0,
+                },
+                {
+                    "chat_id": 2,
+                    "chat_title": "Chat Two",
+                    "chat_type": "channel",
+                    "message_count": 200,
+                    "unique_authors": 1,
+                    "history_hours": 48.0,
+                },
+            ]
+        }
+
+        response = client.post("/api/export/csv?include_bom=false", json=request_data)
+        content = response.text
+
+        assert "Chat One" in content
+        assert "Chat Two" in content
+
+    def test_export_csv_empty_results(self) -> None:
+        """Test CSV export with empty results returns header only."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {"results": []}
+
+        response = client.post("/api/export/csv?include_bom=false", json=request_data)
+        content = response.text
+
+        # Should have header row
+        assert "chat_link" in content
+        assert "message_count" in content
+
+    def test_export_csv_invalid_chat_type_returns_422(self) -> None:
+        """Test that invalid chat type returns validation error."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {
+            "results": [
+                {
+                    "chat_id": 123,
+                    "chat_title": "Test",
+                    "chat_type": "invalid_type",
+                    "message_count": 0,
+                    "unique_authors": 0,
+                    "history_hours": 0,
+                }
+            ]
+        }
+
+        response = client.post("/api/export/csv", json=request_data)
+
+        assert response.status_code == 422

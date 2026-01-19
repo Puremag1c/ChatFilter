@@ -19,6 +19,7 @@ class ChatMetrics(BaseModel):
         history_hours: Length of message history in hours.
         first_message_at: Timestamp of the oldest message.
         last_message_at: Timestamp of the newest message.
+        messages_per_hour: Computed message rate (messages / hours).
 
     Example:
         >>> from datetime import datetime, timezone
@@ -60,6 +61,21 @@ class ChatMetrics(BaseModel):
         if v < 0:
             raise ValueError("history_hours cannot be negative")
         return v
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def messages_per_hour(self) -> float:
+        """Calculate message rate (messages per hour).
+
+        Returns 0.0 for edge cases:
+        - No messages (message_count == 0)
+        - Single message or all messages at same time (history_hours == 0)
+
+        For chats with history, returns message_count / history_hours.
+        """
+        if self.message_count == 0 or self.history_hours == 0:
+            return 0.0
+        return self.message_count / self.history_hours
 
     @classmethod
     def empty(cls) -> ChatMetrics:

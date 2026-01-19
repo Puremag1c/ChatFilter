@@ -13,10 +13,12 @@ from telethon.tl.types import Channel, User
 from telethon.tl.types import Chat as TelegramChat
 
 from chatfilter.models.chat import Chat, ChatType
+from chatfilter.models.message import Message
 
 if TYPE_CHECKING:
     from telethon import TelegramClient as TelegramClientType
     from telethon.tl.custom import Dialog
+    from telethon.tl.types import Message as TelegramMessage
 
 
 class TelegramConfigError(Exception):
@@ -377,3 +379,141 @@ async def get_dialogs(
         return [c for c in chats if c.chat_type in chat_types]
 
     return chats
+
+
+# Maximum messages to fetch to protect against OOM
+MAX_MESSAGES_LIMIT = 10_000
+
+# Telegram API returns max 100 messages per request
+TELEGRAM_BATCH_SIZE = 100
+
+
+class MessageFetchError(Exception):
+    """Raised when fetching messages fails."""
+
+
+def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | None:
+    """Convert Telethon Message to our Message model.
+
+    Args:
+        msg: Telethon Message object
+        chat_id: Chat ID this message belongs to
+
+    Returns:
+        Message model or None if message is empty/deleted or has no sender
+    """
+    from datetime import UTC
+
+    # Skip empty/deleted messages (Telethon represents them as MessageEmpty)
+    if getattr(msg, "message", None) is None and getattr(msg, "media", None) is None:
+        # Check if this is a MessageEmpty (deleted message)
+        if not hasattr(msg, "date") or msg.date is None:
+            return None
+
+    # Get sender ID - can be None for channel posts without author
+    sender_id = getattr(msg, "sender_id", None) or getattr(msg, "from_id", None)
+    if sender_id is None:
+        # For channel posts, use the chat's ID as author
+        sender_id = chat_id
+
+    # Handle from_id being a PeerUser/PeerChannel object
+    if hasattr(sender_id, "user_id"):
+        sender_id = sender_id.user_id
+    elif hasattr(sender_id, "channel_id"):
+        sender_id = sender_id.channel_id
+
+    # Ensure positive IDs
+    sender_id = abs(sender_id) if sender_id else chat_id
+
+    # Get message timestamp
+    timestamp = msg.date
+    if timestamp is None:
+        return None
+
+    # Ensure timezone-aware (Telethon returns UTC)
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=UTC)
+
+    # Get message text
+    text = msg.message or ""
+
+    return Message(
+        id=msg.id,
+        chat_id=chat_id,
+        author_id=sender_id,
+        timestamp=timestamp,
+        text=text,
+    )
+
+
+async def get_messages(
+    client: TelegramClientType,
+    chat_id: int,
+    limit: int = 100,
+) -> list[Message]:
+    """Get messages from a Telegram chat.
+
+    Fetches messages from the specified chat and converts them to Message models.
+    Handles pagination automatically for limits > 100.
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_id: ID of the chat to fetch messages from
+        limit: Maximum number of messages to fetch (default 100, max 10000)
+
+    Returns:
+        List of Message models, sorted by timestamp (oldest first)
+
+    Raises:
+        MessageFetchError: If chat doesn't exist, access denied, or other error
+        ValueError: If limit is invalid
+
+    Example:
+        ```python
+        async with loader.create_client() as client:
+            # Get last 50 messages
+            messages = await get_messages(client, chat_id=123, limit=50)
+
+            # Process messages
+            for msg in messages:
+                print(f"{msg.timestamp}: {msg.text[:50]}")
+        ```
+    """
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+
+    # Cap at maximum to prevent OOM
+    effective_limit = min(limit, MAX_MESSAGES_LIMIT)
+
+    messages: list[Message] = []
+    seen_ids: set[int] = set()
+
+    try:
+        # Use iter_messages for efficient pagination
+        async for telethon_msg in client.iter_messages(chat_id, limit=effective_limit):
+            msg = _telethon_message_to_model(telethon_msg, chat_id)
+            if msg is None:
+                continue
+
+            # Deduplicate (handles edge case of duplicates during pagination)
+            if msg.id in seen_ids:
+                continue
+            seen_ids.add(msg.id)
+            messages.append(msg)
+
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "peer" in error_msg or "invalid" in error_msg:
+            raise MessageFetchError(f"Chat not found or invalid: {chat_id}") from e
+        if "flood" in error_msg:
+            raise MessageFetchError(
+                f"Rate limited by Telegram. Please wait and try again: {e}"
+            ) from e
+        if "private" in error_msg or "forbidden" in error_msg or "permission" in error_msg:
+            raise MessageFetchError(f"Access denied to chat {chat_id}") from e
+        raise MessageFetchError(f"Failed to fetch messages: {e}") from e
+
+    # Sort by timestamp (oldest first) to handle out-of-order pagination
+    messages.sort(key=lambda m: m.timestamp)
+
+    return messages

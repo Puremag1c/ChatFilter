@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
 from chatfilter.web.middleware import RequestIDMiddleware, RequestLoggingMiddleware
+from chatfilter.web.routers.export import router as export_router
 from chatfilter.web.routers.health import router as health_router
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,7 @@ def create_app(
 
     # Include routers
     app.include_router(health_router)
+    app.include_router(export_router)
 
     return app
 
