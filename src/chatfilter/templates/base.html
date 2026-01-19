@@ -5,11 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ChatFilter{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
     <header>
-        <h1>ChatFilter</h1>
+        <nav>
+            <a href="/" class="logo">ChatFilter</a>
+            <ul class="nav-links">
+                <li><a href="/">Sessions</a></li>
+                <li><a href="/chats">Chats</a></li>
+                <li><a href="/results">Results</a></li>
+            </ul>
+        </nav>
     </header>
     <main>
         {% block content %}{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Session - ChatFilter{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Telegram Sessions</h2>
+    <p class="subtitle">Upload your Telegram session to start analyzing chats</p>
+</div>
+
+<div class="alert alert-warning">
+    <strong>Security Notice:</strong> Session files provide full access to your Telegram account.
+    Only upload sessions you trust and never share them with others.
+</div>
+
+<section class="card">
+    <h3>Upload New Session</h3>
+
+    <form id="upload-form"
+          hx-post="/api/sessions/upload"
+          hx-encoding="multipart/form-data"
+          hx-target="#upload-result"
+          hx-swap="innerHTML"
+          hx-indicator="#upload-spinner">
+
+        <div class="form-group">
+            <label for="session_name">Session Name</label>
+            <input type="text"
+                   id="session_name"
+                   name="session_name"
+                   required
+                   placeholder="e.g., my_account"
+                   pattern="[a-zA-Z0-9_-]+"
+                   title="Only letters, numbers, underscores, and hyphens allowed">
+            <small class="form-hint">A unique name to identify this session</small>
+        </div>
+
+        <div class="form-group">
+            <label for="session_file">Session File (.session)</label>
+            <input type="file"
+                   id="session_file"
+                   name="session_file"
+                   required
+                   accept=".session">
+            <small class="form-hint">Telethon session file (SQLite database)</small>
+        </div>
+
+        <div class="form-group">
+            <label for="config_file">Config File (.json)</label>
+            <input type="file"
+                   id="config_file"
+                   name="config_file"
+                   required
+                   accept=".json">
+            <small class="form-hint">JSON with api_id and api_hash from my.telegram.org</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-text">Upload Session</span>
+                <span id="upload-spinner" class="htmx-indicator spinner"></span>
+            </button>
+        </div>
+    </form>
+
+    <div id="upload-result"></div>
+</section>
+
+<section class="card">
+    <h3>Registered Sessions</h3>
+    <div id="sessions-list" hx-get="/api/sessions" hx-trigger="load" hx-swap="innerHTML">
+        <p class="loading">Loading sessions...</p>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% if sessions %}
+<div class="sessions-list">
+    {% for session in sessions %}
+    <div class="session-item" id="session-{{ session.session_id }}">
+        <div class="session-info">
+            <span class="session-name">{{ session.session_id }}</span>
+            <span class="session-status {{ session.state }}">{{ session.state }}</span>
+        </div>
+        <div class="session-actions">
+            <button class="btn btn-sm btn-danger"
+                    hx-delete="/api/sessions/{{ session.session_id }}"
+                    hx-target="#session-{{ session.session_id }}"
+                    hx-swap="outerHTML"
+                    hx-confirm="Are you sure you want to delete this session?">
+                Delete
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No sessions uploaded yet. Upload a session above to get started.</p>
+</div>
+{% endif %}

@@ -1,0 +1,15 @@
+{% if success %}
+<div class="alert alert-success">
+    {{ message }}
+    <script>
+        // Refresh the sessions list after successful upload
+        htmx.trigger('#sessions-list', 'load');
+        // Clear the form
+        document.getElementById('upload-form').reset();
+    </script>
+</div>
+{% else %}
+<div class="alert alert-error">
+    <strong>Upload failed:</strong> {{ error }}
+</div>
+{% endif %}
