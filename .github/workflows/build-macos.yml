@@ -1,0 +1,65 @@
+name: Build macOS Application
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'chatfilter.spec'
+      - 'pyproject.toml'
+      - '.github/workflows/build-macos.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build macOS app bundle (universal binary)
+        run: |
+          pyinstaller chatfilter.spec \
+            --target-arch universal2 \
+            --clean \
+            --noconfirm
+
+      - name: Verify app bundle
+        run: |
+          if [ -d "dist/ChatFilter.app" ]; then
+            echo "✓ App bundle created successfully"
+            du -sh dist/ChatFilter.app
+            echo "Architecture:"
+            lipo -info dist/ChatFilter.app/Contents/MacOS/ChatFilter
+          else
+            echo "App bundle not found!"
+            exit 1
+          fi
+
+      - name: Create distributable archive
+        run: |
+          cd dist
+          zip -r ChatFilter-macOS.zip ChatFilter.app
+          cd ..
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatFilter-macOS-app
+          path: dist/ChatFilter-macOS.zip
+          retention-days: 30
