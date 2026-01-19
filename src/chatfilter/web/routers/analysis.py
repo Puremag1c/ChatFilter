@@ -68,13 +68,20 @@ class RealAnalysisExecutor:
         self,
         session_id: str,
         chat_id: int,
+        message_limit: int = 1000,
     ) -> AnalysisResult:
-        """Analyze a single chat."""
+        """Analyze a single chat.
+
+        Args:
+            session_id: Session identifier
+            chat_id: Chat ID to analyze
+            message_limit: Maximum messages to fetch (default 1000)
+        """
         self._ensure_loader(session_id)
 
         async with self._session_manager.session(session_id) as client:
             # Fetch messages
-            messages = await get_messages(client, chat_id, limit=1000)
+            messages = await get_messages(client, chat_id, limit=message_limit)
 
             # Compute metrics
             metrics = compute_metrics(messages)
@@ -112,6 +119,7 @@ async def start_analysis(
     background_tasks: BackgroundTasks,
     session_id: Annotated[str, Form()],
     chat_ids: Annotated[list[int], Form()],
+    message_limit: Annotated[int, Form()] = 1000,
 ) -> HTMLResponse:
     """Start analysis of selected chats.
 
@@ -122,6 +130,7 @@ async def start_analysis(
         background_tasks: Background tasks manager
         session_id: Session identifier
         chat_ids: List of chat IDs to analyze
+        message_limit: Maximum messages to fetch per chat (10-10000)
 
     Returns:
         HTML partial with SSE progress container
@@ -140,6 +149,13 @@ async def start_analysis(
         return templates.TemplateResponse(
             "partials/analysis_progress.html",
             {"request": request, "error": "No chats selected for analysis"},
+        )
+
+    # Validate message_limit
+    if message_limit < 10 or message_limit > 10000:
+        return templates.TemplateResponse(
+            "partials/analysis_progress.html",
+            {"request": request, "error": "Message limit must be between 10 and 10000"},
         )
 
     # Validate session exists
@@ -180,7 +196,7 @@ async def start_analysis(
 
     # Create analysis task
     queue = get_task_queue()
-    task = queue.create_task(session_id, chat_ids)
+    task = queue.create_task(session_id, chat_ids, message_limit)
 
     # Start background analysis
     executor = RealAnalysisExecutor(get_session_manager())

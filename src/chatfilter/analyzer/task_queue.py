@@ -53,6 +53,7 @@ class AnalysisTask:
     task_id: UUID
     session_id: str
     chat_ids: list[int]
+    message_limit: int = 1000
     status: TaskStatus = TaskStatus.PENDING
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
@@ -69,6 +70,7 @@ class AnalysisExecutor(Protocol):
         self,
         session_id: str,
         chat_id: int,
+        message_limit: int = 1000,
     ) -> AnalysisResult:
         """Analyze a single chat and return results."""
         ...
@@ -114,12 +116,14 @@ class TaskQueue:
         self,
         session_id: str,
         chat_ids: list[int],
+        message_limit: int = 1000,
     ) -> AnalysisTask:
         """Create a new analysis task.
 
         Args:
             session_id: Session identifier for Telegram connection
             chat_ids: List of chat IDs to analyze
+            message_limit: Maximum messages to fetch per chat (default 1000)
 
         Returns:
             Created AnalysisTask with generated UUID
@@ -128,6 +132,7 @@ class TaskQueue:
             task_id=uuid4(),
             session_id=session_id,
             chat_ids=chat_ids,
+            message_limit=message_limit,
         )
         self._tasks[task.task_id] = task
         self._subscribers[task.task_id] = []
@@ -281,7 +286,11 @@ class TaskQueue:
 
                 # Analyze chat
                 try:
-                    result = await executor.analyze_chat(task.session_id, chat_id)
+                    result = await executor.analyze_chat(
+                        task.session_id,
+                        chat_id,
+                        task.message_limit,
+                    )
                     task.results.append(result)
                 except Exception as e:
                     logger.warning(f"Failed to analyze chat {chat_id}: {e}")
