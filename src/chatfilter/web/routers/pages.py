@@ -37,6 +37,20 @@ async def chats_page(request: Request) -> HTMLResponse:
     )
 
 
+@router.get("/chatlist", response_class=HTMLResponse)
+async def chatlist_page(request: Request) -> HTMLResponse:
+    """Chat list import page."""
+    from chatfilter import __version__
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    return templates.TemplateResponse(
+        "chatlist.html",
+        {"request": request, "version": __version__},
+    )
+
+
 @router.get("/proxy", response_class=HTMLResponse)
 async def proxy_page(request: Request) -> HTMLResponse:
     """Proxy settings page."""

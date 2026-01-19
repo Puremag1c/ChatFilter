@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Import Chat List - ChatFilter{% endblock %}
+
+{% block head %}
+<style>
+    .import-methods {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    @media (max-width: 768px) {
+        .import-methods {
+            grid-template-columns: 1fr;
+        }
+    }
+    .method-card {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+    .method-card h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #1a1a1a;
+    }
+    .method-card .form-hint {
+        margin-bottom: 1rem;
+    }
+    .supported-formats {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.5rem;
+    }
+    .format-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        background-color: #e9ecef;
+        color: #495057;
+    }
+    .entry-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        margin-top: 1rem;
+    }
+    .entry-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    .entry-item:last-child {
+        border-bottom: none;
+    }
+    .entry-item:hover {
+        background-color: #f8f9fa;
+    }
+    .entry-item.selected {
+        background-color: #e3f2fd;
+    }
+    .entry-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    .entry-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .entry-value {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .entry-meta {
+        display: flex;
+        gap: 0.75rem;
+        font-size: 0.875rem;
+        color: #666;
+    }
+    .entry-type {
+        padding: 0.125rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+    .entry-type.username { background-color: #e3f2fd; color: #1565c0; }
+    .entry-type.link { background-color: #e8f5e9; color: #2e7d32; }
+    .entry-type.id { background-color: #fff3e0; color: #ef6c00; }
+    .import-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        margin-top: 1rem;
+    }
+    .import-summary .count {
+        font-weight: 600;
+        color: #1a1a1a;
+    }
+    .entry-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .selection-info {
+        font-size: 0.875rem;
+        color: #666;
+        margin-left: auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Import Chat List</h2>
+    <p class="subtitle">Upload a file or enter a Google Sheets URL to import a list of chats for analysis</p>
+</div>
+
+<section class="card">
+    <h3>Import Source</h3>
+
+    <div class="import-methods">
+        <div class="method-card">
+            <h4>Upload File</h4>
+            <p class="form-hint">Upload a text file with one chat per line, or a CSV/Excel file with chat usernames, links, or IDs.</p>
+
+            <form id="file-upload-form"
+                  hx-post="/api/chatlist/upload"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#import-result"
+                  hx-swap="innerHTML"
+                  hx-indicator="#file-upload-spinner">
+
+                <div class="form-group">
+                    <input type="file"
+                           id="chatlist_file"
+                           name="chatlist_file"
+                           required
+                           accept=".txt,.csv,.xlsx,.xls">
+                </div>
+
+                <div class="supported-formats">
+                    <span class="format-badge">.txt</span>
+                    <span class="format-badge">.csv</span>
+                    <span class="format-badge">.xlsx</span>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Upload File</span>
+                        <span id="file-upload-spinner" class="htmx-indicator spinner"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="method-card">
+            <h4>Google Sheets</h4>
+            <p class="form-hint">Enter a link to a public Google Sheets document. The sheet must be shared with "Anyone with the link".</p>
+
+            <form id="sheet-fetch-form"
+                  hx-post="/api/chatlist/fetch-sheet"
+                  hx-target="#import-result"
+                  hx-swap="innerHTML"
+                  hx-indicator="#sheet-fetch-spinner">
+
+                <div class="form-group">
+                    <input type="url"
+                           id="sheet_url"
+                           name="sheet_url"
+                           required
+                           placeholder="https://docs.google.com/spreadsheets/d/...">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Fetch Sheet</span>
+                        <span id="sheet-fetch-spinner" class="htmx-indicator spinner"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section class="card">
+    <h3>Imported Chats</h3>
+    <div id="import-result">
+        <p class="empty-state">Import a file or Google Sheet to see the list of chats</p>
+    </div>
+</section>
+
+<section class="card">
+    <h3>File Format Examples</h3>
+    <div class="method-card">
+        <h4>Text File (.txt)</h4>
+        <pre style="background: #f1f1f1; padding: 1rem; border-radius: 4px; font-size: 0.875rem;">
+# One chat per line
+@channel_name
+durov
+https://t.me/telegram
+t.me/username
+-1001234567890</pre>
+    </div>
+
+    <div class="method-card" style="margin-top: 1rem;">
+        <h4>CSV File (.csv)</h4>
+        <pre style="background: #f1f1f1; padding: 1rem; border-radius: 4px; font-size: 0.875rem;">
+username,description
+@channel1,First channel
+channel2,Second channel
+https://t.me/channel3,Third channel</pre>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'import-result') {
+        initEntryList();
+    }
+});
+
+function initEntryList() {
+    const container = document.getElementById('import-result');
+    const selectAllBtn = container.querySelector('#select-all');
+    const selectNoneBtn = container.querySelector('#select-none');
+    const checkboxes = container.querySelectorAll('.entry-checkbox');
+    const countDisplay = container.querySelector('#selection-count');
+    const entryItems = container.querySelectorAll('.entry-item');
+
+    if (!selectAllBtn) return;
+
+    function updateCount() {
+        const checked = container.querySelectorAll('.entry-checkbox:checked').length;
+        const total = checkboxes.length;
+        if (countDisplay) {
+            countDisplay.textContent = checked + ' of ' + total + ' selected';
+        }
+
+        entryItems.forEach(item => {
+            const checkbox = item.querySelector('.entry-checkbox');
+            if (checkbox && checkbox.checked) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+
+    selectAllBtn.addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = true);
+        updateCount();
+    });
+
+    selectNoneBtn.addEventListener('click', function() {
+        checkboxes.forEach(cb => cb.checked = false);
+        updateCount();
+    });
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateCount);
+    });
+
+    updateCount();
+}
+</script>
+{% endblock %}

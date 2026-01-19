@@ -1,0 +1,39 @@
+{% if error %}
+<div class="alert alert-error">
+    {{ error }}
+</div>
+{% else %}
+<div class="entry-actions">
+    <button type="button" id="select-all" class="btn btn-secondary btn-sm">Select All</button>
+    <button type="button" id="select-none" class="btn btn-secondary btn-sm">Select None</button>
+    <span id="selection-count" class="selection-info">{{ entries|length }} of {{ entries|length }} selected</span>
+</div>
+
+<div class="entry-list">
+    {% for entry in entries %}
+    <div class="entry-item selected" data-value="{{ entry.value }}" data-normalized="{{ entry.normalized }}">
+        <input type="checkbox"
+               class="entry-checkbox"
+               name="chat_entries"
+               value="{{ entry.normalized }}"
+               checked>
+        <div class="entry-info">
+            <div class="entry-value">{{ entry.value }}</div>
+            <div class="entry-meta">
+                <span class="entry-type {{ entry.entry_type.value }}">{{ entry.entry_type.value }}</span>
+                {% if entry.normalized != entry.value %}
+                <span>{{ entry.normalized }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="import-summary">
+    <div>
+        <span class="count">{{ entries|length }}</span> chats ready for analysis
+    </div>
+    <input type="hidden" id="list-id" value="{{ list_id }}">
+</div>
+{% endif %}
