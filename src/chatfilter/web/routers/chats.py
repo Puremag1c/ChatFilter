@@ -8,7 +8,8 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 
-from chatfilter.telegram.client import TelegramClientLoader, get_dialogs
+from chatfilter.service import ChatAnalysisService
+from chatfilter.service.chat_analysis import SessionNotFoundError
 from chatfilter.telegram.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ DATA_DIR = Path.cwd() / "data" / "sessions"
 
 # Global session manager instance (in production, this would be in app state)
 _session_manager: SessionManager | None = None
+_chat_service: ChatAnalysisService | None = None
 
 
 def get_session_manager() -> SessionManager:
@@ -28,6 +30,17 @@ def get_session_manager() -> SessionManager:
     if _session_manager is None:
         _session_manager = SessionManager()
     return _session_manager
+
+
+def get_chat_service() -> ChatAnalysisService:
+    """Get or create the chat analysis service instance."""
+    global _chat_service
+    if _chat_service is None:
+        _chat_service = ChatAnalysisService(
+            session_manager=get_session_manager(),
+            data_dir=DATA_DIR,
+        )
+    return _chat_service
 
 
 def get_session_paths(session_id: str) -> tuple[Path, Path]:
@@ -69,8 +82,7 @@ async def get_chats(
 ) -> HTMLResponse:
     """Fetch chats from a session and return as HTML partial.
 
-    Connects to Telegram using the stored session, fetches dialog list,
-    and returns HTML for HTMX to swap into the page.
+    Uses the ChatAnalysisService to fetch dialog list from Telegram.
     """
     from chatfilter.web.app import get_templates
 
@@ -82,53 +94,32 @@ async def get_chats(
             {"request": request, "chats": [], "session_id": ""},
         )
 
+    service = get_chat_service()
+
     try:
-        session_path, config_path = get_session_paths(session_id)
+        chats = await service.get_chats(session_id)
 
-        # Create loader and register with session manager
-        loader = TelegramClientLoader(session_path, config_path)
-        loader.validate()
-
-        manager = get_session_manager()
-        manager.register(session_id, loader)
-
-        # Connect and fetch dialogs
-        try:
-            async with manager.session(session_id) as client:
-                chats = await get_dialogs(client)
-
-            logger.info(f"Fetched {len(chats)} chats from session '{session_id}'")
-
-            return templates.TemplateResponse(
-                "partials/chat_list.html",
-                {
-                    "request": request,
-                    "chats": chats,
-                    "session_id": session_id,
-                },
-            )
-
-        except Exception as e:
-            logger.exception(f"Failed to fetch chats from session '{session_id}'")
-            return templates.TemplateResponse(
-                "partials/chat_list.html",
-                {
-                    "request": request,
-                    "error": f"Failed to connect to Telegram: {e}",
-                    "chats": [],
-                    "session_id": session_id,
-                },
-            )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"Error loading session '{session_id}'")
         return templates.TemplateResponse(
             "partials/chat_list.html",
             {
                 "request": request,
-                "error": f"Failed to load session: {e}",
+                "chats": chats,
+                "session_id": session_id,
+            },
+        )
+
+    except SessionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.exception(f"Failed to fetch chats from session '{session_id}'")
+        return templates.TemplateResponse(
+            "partials/chat_list.html",
+            {
+                "request": request,
+                "error": f"Failed to connect to Telegram: {e}",
                 "chats": [],
                 "session_id": session_id,
             },

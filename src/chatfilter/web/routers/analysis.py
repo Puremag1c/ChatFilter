@@ -5,64 +5,41 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
-from chatfilter.analyzer import compute_metrics
 from chatfilter.analyzer.task_queue import (
     AnalysisExecutor,
-    ProgressEvent,
     TaskStatus,
     get_task_queue,
 )
-from chatfilter.models import AnalysisResult, Chat
-from chatfilter.telegram.client import TelegramClientLoader, get_messages
-from chatfilter.telegram.session_manager import SessionManager
-from chatfilter.web.routers.chats import DATA_DIR, get_session_manager, get_session_paths
-
-if TYPE_CHECKING:
-    from telethon import TelegramClient
+from chatfilter.models import AnalysisResult
+from chatfilter.service.chat_analysis import SessionNotFoundError
+from chatfilter.web.routers.chats import get_chat_service, get_session_paths
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
 
-# Chat cache to avoid repeated lookups
-_chat_cache: dict[str, dict[int, Chat]] = {}
-
-
 class RealAnalysisExecutor:
-    """Real implementation of analysis executor using Telegram client."""
+    """Real implementation of analysis executor using service layer."""
 
-    def __init__(self, session_manager: SessionManager) -> None:
-        self._session_manager = session_manager
-        self._loaders: dict[str, TelegramClientLoader] = {}
-
-    def _ensure_loader(self, session_id: str) -> None:
-        """Ensure loader is registered for session."""
-        if session_id not in self._loaders:
-            session_path, config_path = get_session_paths(session_id)
-            loader = TelegramClientLoader(session_path, config_path)
-            loader.validate()
-            self._session_manager.register(session_id, loader)
-            self._loaders[session_id] = loader
+    def __init__(self) -> None:
+        """Initialize executor with service layer."""
+        self._service = get_chat_service()
 
     async def get_chat_info(
         self,
         session_id: str,
         chat_id: int,
-    ) -> Chat | None:
-        """Get chat info from cache or Telegram."""
-        # Check cache first
-        if session_id in _chat_cache and chat_id in _chat_cache[session_id]:
-            return _chat_cache[session_id][chat_id]
-        return None
+    ) -> None:
+        """Get chat info - delegates to service layer."""
+        return await self._service.get_chat_info(session_id, chat_id)
 
     async def analyze_chat(
         self,
@@ -77,32 +54,7 @@ class RealAnalysisExecutor:
             chat_id: Chat ID to analyze
             message_limit: Maximum messages to fetch (default 1000)
         """
-        self._ensure_loader(session_id)
-
-        async with self._session_manager.session(session_id) as client:
-            # Fetch messages
-            messages = await get_messages(client, chat_id, limit=message_limit)
-
-            # Compute metrics
-            metrics = compute_metrics(messages)
-
-            # Get chat info from cache
-            chat = await self.get_chat_info(session_id, chat_id)
-            if chat is None:
-                # Create minimal chat info
-                from chatfilter.models import ChatType
-
-                chat = Chat(
-                    id=chat_id,
-                    title=f"Chat {chat_id}",
-                    chat_type=ChatType.GROUP,
-                )
-
-            return AnalysisResult(
-                chat=chat,
-                metrics=metrics,
-                analyzed_at=datetime.now(UTC),
-            )
+        return await self._service.analyze_chat(session_id, chat_id, message_limit)
 
 
 class StartAnalysisResponse(BaseModel):
@@ -168,25 +120,15 @@ async def start_analysis(
         )
 
     # Fetch chat info for the cache (needed for progress display)
+    service = get_chat_service()
     try:
-        session_path, config_path = get_session_paths(session_id)
-        loader = TelegramClientLoader(session_path, config_path)
-        loader.validate()
-
-        manager = get_session_manager()
-        manager.register(session_id, loader)
-
-        async with manager.session(session_id) as client:
-            from chatfilter.telegram.client import get_dialogs
-
-            chats = await get_dialogs(client)
-
-            # Cache chat info
-            if session_id not in _chat_cache:
-                _chat_cache[session_id] = {}
-            for chat in chats:
-                _chat_cache[session_id][chat.id] = chat
-
+        # This will cache chat info in the service
+        await service.get_chats(session_id)
+    except SessionNotFoundError as e:
+        return templates.TemplateResponse(
+            "partials/analysis_progress.html",
+            {"request": request, "error": str(e)},
+        )
     except Exception as e:
         logger.exception(f"Failed to fetch chat info: {e}")
         return templates.TemplateResponse(
@@ -199,7 +141,7 @@ async def start_analysis(
     task = queue.create_task(session_id, chat_ids, message_limit)
 
     # Start background analysis
-    executor = RealAnalysisExecutor(get_session_manager())
+    executor = RealAnalysisExecutor()
     background_tasks.add_task(queue.run_task, task.task_id, executor)
 
     logger.info(f"Started analysis task {task.task_id} for {len(chat_ids)} chats")
