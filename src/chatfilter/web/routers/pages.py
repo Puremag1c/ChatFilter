@@ -38,14 +38,53 @@ async def chats_page(request: Request) -> HTMLResponse:
 
 
 @router.get("/results", response_class=HTMLResponse)
-async def results_page(request: Request) -> HTMLResponse:
-    """Analysis results page (placeholder)."""
+async def results_page(
+    request: Request,
+    task_id: str | None = None,
+) -> HTMLResponse:
+    """Analysis results page.
+
+    Args:
+        request: FastAPI request
+        task_id: Optional task ID to load results from
+
+    Returns:
+        HTML page with results table
+    """
+    from uuid import UUID
+
     from chatfilter import __version__
+    from chatfilter.analyzer.task_queue import TaskStatus, get_task_queue
     from chatfilter.web.app import get_templates
 
     templates = get_templates()
-    # TODO: Implement results page template
+    results = []
+    error = None
+
+    if task_id:
+        try:
+            uuid_task_id = UUID(task_id)
+            queue = get_task_queue()
+            task = queue.get_task(uuid_task_id)
+
+            if task is None:
+                error = "Task not found"
+            elif task.status == TaskStatus.IN_PROGRESS:
+                error = "Analysis still in progress"
+            elif task.status == TaskStatus.FAILED:
+                error = task.error or "Analysis failed"
+            else:
+                results = task.results
+        except ValueError:
+            error = "Invalid task ID format"
+
     return templates.TemplateResponse(
-        "base.html",
-        {"request": request, "version": __version__},
+        "results.html",
+        {
+            "request": request,
+            "version": __version__,
+            "results": results,
+            "error": error,
+            "task_id": task_id,
+        },
     )

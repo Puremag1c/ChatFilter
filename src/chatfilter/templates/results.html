@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis Results - ChatFilter{% endblock %}
+
+{% block head %}
+<style>
+    .results-filters {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .results-filters .form-group {
+        margin-bottom: 0;
+        flex: 1;
+        min-width: 200px;
+        max-width: 300px;
+    }
+    .results-filters select {
+        width: 100%;
+    }
+    .results-summary {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    .summary-stat {
+        text-align: center;
+    }
+    .summary-stat .value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #2196F3;
+    }
+    .summary-stat .label {
+        font-size: 0.875rem;
+        color: #666;
+    }
+    .results-table-container {
+        overflow-x: auto;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+    .results-table th,
+    .results-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    .results-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    .results-table th.sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+    .results-table th.sortable:hover {
+        background: #e9ecef;
+    }
+    .results-table th.numeric,
+    .results-table td.numeric {
+        text-align: right;
+    }
+    .sort-icon::after {
+        content: '';
+        display: inline-block;
+        margin-left: 0.25rem;
+        opacity: 0.3;
+    }
+    .sort-asc .sort-icon::after {
+        content: '\25B2';
+        opacity: 1;
+    }
+    .sort-desc .sort-icon::after {
+        content: '\25BC';
+        opacity: 1;
+    }
+    .results-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    .chat-title-cell {
+        max-width: 300px;
+    }
+    .chat-title {
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .chat-username {
+        font-size: 0.75rem;
+        color: #666;
+    }
+    .chat-type {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+    .chat-type.private { background-color: #e3f2fd; color: #1565c0; }
+    .chat-type.group { background-color: #e8f5e9; color: #2e7d32; }
+    .chat-type.supergroup { background-color: #fff3e0; color: #ef6c00; }
+    .chat-type.channel { background-color: #f3e5f5; color: #7b1fa2; }
+    .chat-type.forum { background-color: #fce4ec; color: #c2185b; }
+    .activity-badge {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+    .activity-badge.active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+    .activity-badge.inactive {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #666;
+    }
+    .empty-state p {
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Analysis Results</h2>
+    <p class="subtitle">View and export your chat analysis results</p>
+</div>
+
+{% if error %}
+<div class="alert alert-error">
+    {{ error }}
+</div>
+{% elif results %}
+<section class="card">
+    <div class="results-summary">
+        <div class="summary-stat">
+            <div class="value">{{ results|length }}</div>
+            <div class="label">Chats Analyzed</div>
+        </div>
+        <div class="summary-stat">
+            <div class="value" id="total-messages">0</div>
+            <div class="label">Total Messages</div>
+        </div>
+        <div class="summary-stat">
+            <div class="value" id="total-authors">0</div>
+            <div class="label">Unique Authors</div>
+        </div>
+        <div class="summary-stat">
+            <div class="value" id="active-chats">0</div>
+            <div class="label">Active (7d)</div>
+        </div>
+    </div>
+
+    <div class="results-filters">
+        <div class="form-group">
+            <input type="text" id="search-filter" placeholder="Search chats...">
+        </div>
+        <div class="form-group">
+            <select id="type-filter">
+                <option value="">All Types</option>
+                <option value="private">Private</option>
+                <option value="group">Group</option>
+                <option value="supergroup">Supergroup</option>
+                <option value="channel">Channel</option>
+                <option value="forum">Forum</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <select id="activity-filter">
+                <option value="">All Activity</option>
+                <option value="active">Active (7d)</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn-primary" id="export-csv-btn">
+            Export CSV
+        </button>
+    </div>
+
+    <div class="results-table-container">
+        <table class="results-table" id="results-table">
+            <thead>
+                <tr>
+                    <th class="sortable" data-sort="title">Chat <span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="type">Type <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="messages">Messages <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="authors">Authors <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="hours">History (h) <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="rate">Msg/Hour <span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="active">Activity <span class="sort-icon"></span></th>
+                </tr>
+            </thead>
+            <tbody id="results-tbody">
+                {% for result in results %}
+                <tr data-chat-id="{{ result.chat.id }}"
+                    data-title="{{ result.chat.title }}"
+                    data-type="{{ result.chat.chat_type.value }}"
+                    data-messages="{{ result.metrics.message_count }}"
+                    data-authors="{{ result.metrics.unique_authors }}"
+                    data-hours="{{ result.metrics.history_hours }}"
+                    data-rate="{{ result.metrics.messages_per_hour }}"
+                    data-active="{{ 'active' if result.is_active else 'inactive' }}"
+                    data-username="{{ result.chat.username or '' }}">
+                    <td class="chat-title-cell">
+                        <div class="chat-title">{{ result.chat.title }}</div>
+                        {% if result.chat.username %}
+                        <div class="chat-username">@{{ result.chat.username }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="chat-type {{ result.chat.chat_type.value }}">
+                            {{ result.chat.chat_type.value }}
+                        </span>
+                    </td>
+                    <td class="numeric">{{ result.metrics.message_count }}</td>
+                    <td class="numeric">{{ result.metrics.unique_authors }}</td>
+                    <td class="numeric">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
+                    <td class="numeric">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
+                    <td>
+                        <span class="activity-badge {{ 'active' if result.is_active else 'inactive' }}">
+                            {{ 'Active' if result.is_active else 'Inactive' }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% else %}
+<section class="card">
+    <div class="empty-state">
+        <p>No analysis results yet.</p>
+        <a href="/chats" class="btn btn-primary">Start Analysis</a>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('results-table');
+    if (!table) return;
+
+    const headers = table.querySelectorAll('th.sortable');
+    const tbody = document.getElementById('results-tbody');
+    const searchFilter = document.getElementById('search-filter');
+    const typeFilter = document.getElementById('type-filter');
+    const activityFilter = document.getElementById('activity-filter');
+
+    let currentSort = { column: null, direction: 'asc' };
+
+    // Calculate and display summary stats
+    function updateSummary() {
+        const visibleRows = Array.from(tbody.querySelectorAll('tr:not([style*="display: none"])'));
+
+        let totalMessages = 0;
+        let authorSet = new Set();
+        let activeCount = 0;
+
+        visibleRows.forEach(row => {
+            totalMessages += parseInt(row.dataset.messages) || 0;
+            authorSet.add(row.dataset.chatId); // Using chat ID as proxy for unique authors
+            if (row.dataset.active === 'active') activeCount++;
+        });
+
+        // Sum unique authors from each chat
+        let totalAuthors = 0;
+        visibleRows.forEach(row => {
+            totalAuthors += parseInt(row.dataset.authors) || 0;
+        });
+
+        document.getElementById('total-messages').textContent = totalMessages.toLocaleString();
+        document.getElementById('total-authors').textContent = totalAuthors.toLocaleString();
+        document.getElementById('active-chats').textContent = activeCount;
+    }
+
+    // Initial summary calculation
+    updateSummary();
+
+    // Sorting
+    headers.forEach(header => {
+        header.addEventListener('click', function() {
+            const column = this.dataset.sort;
+            const isNumeric = this.classList.contains('numeric');
+
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+
+            headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+            this.classList.add('sort-' + currentSort.direction);
+
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.sort((a, b) => {
+                let aVal = a.dataset[column];
+                let bVal = b.dataset[column];
+
+                if (isNumeric) {
+                    aVal = parseFloat(aVal) || 0;
+                    bVal = parseFloat(bVal) || 0;
+                } else {
+                    aVal = (aVal || '').toLowerCase();
+                    bVal = (bVal || '').toLowerCase();
+                }
+
+                if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+
+    // Filtering
+    function applyFilters() {
+        const searchTerm = searchFilter.value.toLowerCase();
+        const typeValue = typeFilter.value;
+        const activityValue = activityFilter.value;
+
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const title = row.dataset.title.toLowerCase();
+            const username = (row.dataset.username || '').toLowerCase();
+            const type = row.dataset.type;
+            const active = row.dataset.active;
+
+            const matchesSearch = !searchTerm || title.includes(searchTerm) || username.includes(searchTerm);
+            const matchesType = !typeValue || type === typeValue;
+            const matchesActivity = !activityValue || active === activityValue;
+
+            row.style.display = (matchesSearch && matchesType && matchesActivity) ? '' : 'none';
+        });
+
+        updateSummary();
+    }
+
+    searchFilter.addEventListener('input', applyFilters);
+    typeFilter.addEventListener('change', applyFilters);
+    activityFilter.addEventListener('change', applyFilters);
+
+    // CSV Export
+    document.getElementById('export-csv-btn').addEventListener('click', function() {
+        const visibleRows = Array.from(tbody.querySelectorAll('tr:not([style*="display: none"])'));
+
+        const results = visibleRows.map(row => ({
+            chat_id: parseInt(row.dataset.chatId),
+            chat_title: row.dataset.title,
+            chat_type: row.dataset.type,
+            chat_username: row.dataset.username || null,
+            message_count: parseInt(row.dataset.messages),
+            unique_authors: parseInt(row.dataset.authors),
+            history_hours: parseFloat(row.dataset.hours),
+            first_message_at: null,
+            last_message_at: null,
+            analyzed_at: new Date().toISOString()
+        }));
+
+        fetch('/api/export/csv', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ results: results })
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chatfilter_results.csv';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+        })
+        .catch(err => {
+            console.error('Export failed:', err);
+            alert('Export failed: ' + err.message);
+        });
+    });
+});
+</script>
+{% endblock %}

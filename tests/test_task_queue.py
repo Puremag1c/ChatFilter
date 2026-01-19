@@ -1,0 +1,244 @@
+"""Tests for the analysis task queue."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import UTC, datetime
+from uuid import UUID
+
+import pytest
+
+from chatfilter.analyzer.task_queue import (
+    AnalysisExecutor,
+    AnalysisTask,
+    ProgressEvent,
+    TaskQueue,
+    TaskStatus,
+    get_task_queue,
+    reset_task_queue,
+)
+from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
+
+
+class MockExecutor:
+    """Mock executor for testing."""
+
+    def __init__(
+        self,
+        chats: dict[int, Chat] | None = None,
+        delay: float = 0.0,
+        fail_on: set[int] | None = None,
+    ) -> None:
+        self.chats = chats or {}
+        self.delay = delay
+        self.fail_on = fail_on or set()
+        self.analyzed_chats: list[int] = []
+
+    async def get_chat_info(self, session_id: str, chat_id: int) -> Chat | None:
+        return self.chats.get(chat_id)
+
+    async def analyze_chat(self, session_id: str, chat_id: int) -> AnalysisResult:
+        if self.delay > 0:
+            await asyncio.sleep(self.delay)
+
+        if chat_id in self.fail_on:
+            raise ValueError(f"Failed to analyze chat {chat_id}")
+
+        self.analyzed_chats.append(chat_id)
+
+        chat = self.chats.get(chat_id) or Chat(
+            id=chat_id,
+            title=f"Chat {chat_id}",
+            chat_type=ChatType.GROUP,
+        )
+
+        return AnalysisResult(
+            chat=chat,
+            metrics=ChatMetrics(
+                message_count=100,
+                unique_authors=10,
+                history_hours=24.0,
+                first_message_at=datetime.now(UTC),
+                last_message_at=datetime.now(UTC),
+            ),
+            analyzed_at=datetime.now(UTC),
+        )
+
+
+@pytest.fixture
+def task_queue() -> TaskQueue:
+    """Provide a fresh task queue for each test."""
+    return TaskQueue()
+
+
+@pytest.fixture(autouse=True)
+def reset_global_queue() -> None:
+    """Reset global task queue before and after each test."""
+    reset_task_queue()
+    yield
+    reset_task_queue()
+
+
+class TestTaskQueue:
+    """Tests for TaskQueue class."""
+
+    def test_create_task(self, task_queue: TaskQueue) -> None:
+        """Test creating a new task."""
+        task = task_queue.create_task("session1", [1, 2, 3])
+
+        assert isinstance(task.task_id, UUID)
+        assert task.session_id == "session1"
+        assert task.chat_ids == [1, 2, 3]
+        assert task.status == TaskStatus.PENDING
+        assert task.results == []
+        assert task.error is None
+
+    def test_get_task(self, task_queue: TaskQueue) -> None:
+        """Test retrieving a task by ID."""
+        task = task_queue.create_task("session1", [1, 2, 3])
+
+        retrieved = task_queue.get_task(task.task_id)
+        assert retrieved is not None
+        assert retrieved.task_id == task.task_id
+
+    def test_get_nonexistent_task(self, task_queue: TaskQueue) -> None:
+        """Test retrieving a non-existent task returns None."""
+        from uuid import uuid4
+
+        result = task_queue.get_task(uuid4())
+        assert result is None
+
+    def test_get_all_tasks(self, task_queue: TaskQueue) -> None:
+        """Test retrieving all tasks."""
+        task1 = task_queue.create_task("session1", [1])
+        task2 = task_queue.create_task("session2", [2])
+
+        all_tasks = task_queue.get_all_tasks()
+        assert len(all_tasks) == 2
+        # Should be sorted by created_at (newest first)
+        assert all_tasks[0].task_id == task2.task_id
+        assert all_tasks[1].task_id == task1.task_id
+
+    @pytest.mark.asyncio
+    async def test_run_task_success(self, task_queue: TaskQueue) -> None:
+        """Test running a task successfully."""
+        chat1 = Chat(id=1, title="Chat 1", chat_type=ChatType.GROUP)
+        chat2 = Chat(id=2, title="Chat 2", chat_type=ChatType.CHANNEL)
+
+        executor = MockExecutor(chats={1: chat1, 2: chat2})
+        task = task_queue.create_task("session1", [1, 2])
+
+        await task_queue.run_task(task.task_id, executor)
+
+        assert task.status == TaskStatus.COMPLETED
+        assert len(task.results) == 2
+        assert task.completed_at is not None
+        assert task.error is None
+        assert executor.analyzed_chats == [1, 2]
+
+    @pytest.mark.asyncio
+    async def test_run_task_partial_failure(self, task_queue: TaskQueue) -> None:
+        """Test that task continues even if some chats fail."""
+        executor = MockExecutor(fail_on={2})
+        task = task_queue.create_task("session1", [1, 2, 3])
+
+        await task_queue.run_task(task.task_id, executor)
+
+        # Task should complete despite chat 2 failing
+        assert task.status == TaskStatus.COMPLETED
+        assert len(task.results) == 2  # Only 1 and 3 succeeded
+        assert executor.analyzed_chats == [1, 3]
+
+    @pytest.mark.asyncio
+    async def test_subscribe_and_receive_events(self, task_queue: TaskQueue) -> None:
+        """Test subscribing to progress events."""
+        executor = MockExecutor()
+        task = task_queue.create_task("session1", [1, 2])
+
+        # Subscribe before running
+        queue = await task_queue.subscribe(task.task_id)
+
+        # Run in background
+        run_task = asyncio.create_task(task_queue.run_task(task.task_id, executor))
+
+        # Collect events
+        events: list[ProgressEvent | None] = []
+        while True:
+            event = await asyncio.wait_for(queue.get(), timeout=5.0)
+            events.append(event)
+            if event is None:
+                break
+
+        await run_task
+
+        # Should have progress events plus completion signal
+        assert len(events) >= 3  # At least 2 progress events + None
+        assert events[-1] is None  # Completion signal
+
+        # Verify progress events
+        progress_events = [e for e in events if e is not None]
+        assert any(e.status == TaskStatus.IN_PROGRESS for e in progress_events)
+        assert any(e.status == TaskStatus.COMPLETED for e in progress_events)
+
+    @pytest.mark.asyncio
+    async def test_subscribe_nonexistent_task(self, task_queue: TaskQueue) -> None:
+        """Test subscribing to non-existent task raises error."""
+        from uuid import uuid4
+
+        with pytest.raises(KeyError):
+            await task_queue.subscribe(uuid4())
+
+    def test_cancel_pending_task(self, task_queue: TaskQueue) -> None:
+        """Test cancelling a pending task."""
+        task = task_queue.create_task("session1", [1, 2, 3])
+
+        result = task_queue.cancel_task(task.task_id)
+
+        assert result is True
+        assert task.status == TaskStatus.CANCELLED
+
+    def test_cancel_completed_task(self, task_queue: TaskQueue) -> None:
+        """Test cancelling a completed task returns False."""
+        task = task_queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.COMPLETED
+
+        result = task_queue.cancel_task(task.task_id)
+
+        assert result is False
+        assert task.status == TaskStatus.COMPLETED
+
+    def test_clear_completed(self, task_queue: TaskQueue) -> None:
+        """Test clearing completed tasks."""
+        task1 = task_queue.create_task("session1", [1])
+        task2 = task_queue.create_task("session2", [2])
+        task3 = task_queue.create_task("session3", [3])
+
+        task1.status = TaskStatus.COMPLETED
+        task2.status = TaskStatus.FAILED
+        # task3 remains PENDING
+
+        removed = task_queue.clear_completed()
+
+        assert removed == 2
+        assert task_queue.get_task(task1.task_id) is None
+        assert task_queue.get_task(task2.task_id) is None
+        assert task_queue.get_task(task3.task_id) is not None
+
+
+class TestGlobalTaskQueue:
+    """Tests for global task queue singleton."""
+
+    def test_get_task_queue_returns_same_instance(self) -> None:
+        """Test that get_task_queue returns the same instance."""
+        queue1 = get_task_queue()
+        queue2 = get_task_queue()
+
+        assert queue1 is queue2
+
+    def test_reset_task_queue(self) -> None:
+        """Test resetting the global task queue."""
+        queue1 = get_task_queue()
+        reset_task_queue()
+        queue2 = get_task_queue()
+
+        assert queue1 is not queue2

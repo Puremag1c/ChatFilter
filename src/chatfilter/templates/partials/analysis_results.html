@@ -1,0 +1,270 @@
+{% if error %}
+<div class="alert alert-error">
+    {{ error }}
+</div>
+{% elif results %}
+<div class="analysis-results" id="analysis-results">
+    <div class="results-header">
+        <h4>Analysis Results ({{ results|length }} chats)</h4>
+        <div class="results-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="export-csv-btn">
+                Export CSV
+            </button>
+            <a href="/results?task_id={{ task_id }}" class="btn btn-secondary btn-sm">
+                View Full Results
+            </a>
+        </div>
+    </div>
+
+    <div class="results-table-container">
+        <table class="results-table" id="results-table">
+            <thead>
+                <tr>
+                    <th class="sortable" data-sort="title">Chat <span class="sort-icon"></span></th>
+                    <th class="sortable" data-sort="type">Type <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="messages">Messages <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="authors">Authors <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="hours">History (h) <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="rate">Msg/Hour <span class="sort-icon"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr data-chat-id="{{ result.chat.id }}"
+                    data-title="{{ result.chat.title }}"
+                    data-type="{{ result.chat.chat_type.value }}"
+                    data-messages="{{ result.metrics.message_count }}"
+                    data-authors="{{ result.metrics.unique_authors }}"
+                    data-hours="{{ result.metrics.history_hours }}"
+                    data-rate="{{ result.metrics.messages_per_hour }}">
+                    <td class="chat-title-cell">
+                        <div class="chat-title">{{ result.chat.title }}</div>
+                        {% if result.chat.username %}
+                        <div class="chat-username">@{{ result.chat.username }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="chat-type {{ result.chat.chat_type.value }}">
+                            {{ result.chat.chat_type.value }}
+                        </span>
+                    </td>
+                    <td class="numeric">{{ result.metrics.message_count }}</td>
+                    <td class="numeric">{{ result.metrics.unique_authors }}</td>
+                    <td class="numeric">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
+                    <td class="numeric">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.analysis-results {
+    margin-top: 1.5rem;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.results-header h4 {
+    margin: 0;
+}
+
+.results-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.results-table-container {
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.results-table th,
+.results-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.results-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+}
+
+.results-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.results-table th.sortable:hover {
+    background: #e9ecef;
+}
+
+.results-table th.numeric,
+.results-table td.numeric {
+    text-align: right;
+}
+
+.sort-icon::after {
+    content: '';
+    display: inline-block;
+    margin-left: 0.25rem;
+    opacity: 0.3;
+}
+
+.sort-asc .sort-icon::after {
+    content: '\25B2';
+    opacity: 1;
+}
+
+.sort-desc .sort-icon::after {
+    content: '\25BC';
+    opacity: 1;
+}
+
+.results-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.chat-title-cell {
+    max-width: 250px;
+}
+
+.chat-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-username {
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.chat-type {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.chat-type.private { background-color: #e3f2fd; color: #1565c0; }
+.chat-type.group { background-color: #e8f5e9; color: #2e7d32; }
+.chat-type.supergroup { background-color: #fff3e0; color: #ef6c00; }
+.chat-type.channel { background-color: #f3e5f5; color: #7b1fa2; }
+.chat-type.forum { background-color: #fce4ec; color: #c2185b; }
+</style>
+
+<script>
+(function() {
+    const table = document.getElementById('results-table');
+    const headers = table.querySelectorAll('th.sortable');
+    const tbody = table.querySelector('tbody');
+    let currentSort = { column: null, direction: 'asc' };
+
+    // Sorting
+    headers.forEach(header => {
+        header.addEventListener('click', function() {
+            const column = this.dataset.sort;
+            const isNumeric = this.classList.contains('numeric');
+
+            // Toggle direction if same column
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+
+            // Update header styles
+            headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+            this.classList.add('sort-' + currentSort.direction);
+
+            // Sort rows
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.sort((a, b) => {
+                let aVal = a.dataset[column];
+                let bVal = b.dataset[column];
+
+                if (isNumeric) {
+                    aVal = parseFloat(aVal) || 0;
+                    bVal = parseFloat(bVal) || 0;
+                } else {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+
+                if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+
+    // CSV Export
+    document.getElementById('export-csv-btn').addEventListener('click', function() {
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const results = rows.map(row => ({
+            chat_id: parseInt(row.dataset.chatId),
+            chat_title: row.dataset.title,
+            chat_type: row.dataset.type,
+            chat_username: row.querySelector('.chat-username')?.textContent?.replace('@', '') || null,
+            message_count: parseInt(row.dataset.messages),
+            unique_authors: parseInt(row.dataset.authors),
+            history_hours: parseFloat(row.dataset.hours),
+            first_message_at: null,
+            last_message_at: null,
+            analyzed_at: new Date().toISOString()
+        }));
+
+        fetch('/api/export/csv', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ results: results })
+        })
+        .then(response => response.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chatfilter_results.csv';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+        })
+        .catch(err => {
+            console.error('Export failed:', err);
+            alert('Export failed: ' + err.message);
+        });
+    });
+})();
+</script>
+{% else %}
+<div class="no-results">
+    <p>No results found</p>
+</div>
+{% endif %}

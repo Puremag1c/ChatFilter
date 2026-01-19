@@ -1,0 +1,208 @@
+{% if error %}
+<div class="alert alert-error">
+    {{ error }}
+</div>
+{% else %}
+<div class="analysis-progress" id="analysis-progress-{{ task_id }}" data-task-id="{{ task_id }}">
+    <div class="progress-header">
+        <h4>Analyzing {{ total_chats }} chat{% if total_chats != 1 %}s{% endif %}...</h4>
+        <span class="progress-status" id="progress-status">Starting...</span>
+    </div>
+
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+    </div>
+
+    <div class="progress-details">
+        <span id="progress-current">0</span> / <span id="progress-total">{{ total_chats }}</span> chats
+        <span id="progress-chat-title" class="current-chat"></span>
+    </div>
+
+    <div id="progress-message" class="progress-message"></div>
+
+    <div id="analysis-result-container"></div>
+</div>
+
+<style>
+.analysis-progress {
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.progress-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.progress-status {
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.progress-status.completed {
+    color: #28a745;
+    font-weight: 500;
+}
+
+.progress-status.failed {
+    color: #dc3545;
+    font-weight: 500;
+}
+
+.progress-bar-container {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #2196F3;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-bar.completed {
+    background: #28a745;
+}
+
+.progress-bar.failed {
+    background: #dc3545;
+}
+
+.progress-details {
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.current-chat {
+    margin-left: 0.5rem;
+    color: #333;
+    font-style: italic;
+}
+
+.progress-message {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.progress-message.error {
+    color: #dc3545;
+}
+</style>
+
+<script>
+(function() {
+    const taskId = '{{ task_id }}';
+    const progressBar = document.getElementById('progress-bar');
+    const progressStatus = document.getElementById('progress-status');
+    const progressCurrent = document.getElementById('progress-current');
+    const progressTotal = document.getElementById('progress-total');
+    const progressChatTitle = document.getElementById('progress-chat-title');
+    const progressMessage = document.getElementById('progress-message');
+    const resultContainer = document.getElementById('analysis-result-container');
+
+    // Connect to SSE endpoint
+    const eventSource = new EventSource('/api/analysis/' + taskId + '/progress');
+
+    eventSource.addEventListener('init', function(e) {
+        const data = JSON.parse(e.data);
+        progressTotal.textContent = data.total;
+        progressStatus.textContent = 'In progress...';
+    });
+
+    eventSource.addEventListener('progress', function(e) {
+        const data = JSON.parse(e.data);
+        const current = data.current + 1; // 0-based to 1-based
+        const total = data.total;
+        const percent = Math.round((current / total) * 100);
+
+        progressBar.style.width = percent + '%';
+        progressCurrent.textContent = current;
+        progressTotal.textContent = total;
+
+        if (data.chat_title) {
+            progressChatTitle.textContent = '- ' + data.chat_title;
+        }
+
+        if (data.message) {
+            progressMessage.textContent = data.message;
+        }
+    });
+
+    eventSource.addEventListener('complete', function(e) {
+        const data = JSON.parse(e.data);
+        eventSource.close();
+
+        progressBar.style.width = '100%';
+        progressBar.classList.add('completed');
+        progressStatus.textContent = 'Complete!';
+        progressStatus.classList.add('completed');
+        progressChatTitle.textContent = '';
+        progressMessage.textContent = 'Analysis complete. ' + data.results_count + ' chats analyzed.';
+
+        // Fetch and display results
+        htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
+            target: '#analysis-result-container',
+            swap: 'innerHTML'
+        });
+    });
+
+    eventSource.addEventListener('error', function(e) {
+        let errorMsg = 'Analysis failed';
+        try {
+            const data = JSON.parse(e.data);
+            if (data.error) {
+                errorMsg = data.error;
+            }
+        } catch (err) {}
+
+        eventSource.close();
+
+        progressBar.classList.add('failed');
+        progressStatus.textContent = 'Failed';
+        progressStatus.classList.add('failed');
+        progressMessage.textContent = errorMsg;
+        progressMessage.classList.add('error');
+    });
+
+    eventSource.onerror = function(e) {
+        // Connection error - try polling as fallback
+        if (eventSource.readyState === EventSource.CLOSED) {
+            return;
+        }
+        eventSource.close();
+        progressMessage.textContent = 'Connection lost. Checking status...';
+
+        // Poll for status
+        setTimeout(function() {
+            fetch('/api/analysis/' + taskId + '/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'completed') {
+                        htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
+                            target: '#analysis-result-container',
+                            swap: 'innerHTML'
+                        });
+                    } else if (data.status === 'failed') {
+                        progressMessage.textContent = data.error || 'Analysis failed';
+                        progressMessage.classList.add('error');
+                    }
+                });
+        }, 1000);
+    };
+})();
+</script>
+{% endif %}
