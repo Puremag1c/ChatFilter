@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from chatfilter.models.chat import Chat, ChatType
+from chatfilter.config import ProxyConfig, ProxyType
 from chatfilter.telegram.client import (
     MessageFetchError,
     SessionFileError,
@@ -287,6 +288,94 @@ class TestTelegramClientLoader:
 
         assert loader.session_path == session_path
         assert loader.config_path == config_path
+
+    def test_create_client_with_proxy(self, tmp_path: Path) -> None:
+        """Test creating a client with explicit proxy configuration."""
+        import socks
+
+        session_path = tmp_path / "new_session"
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        loader = TelegramClientLoader(session_path, config_path)
+        loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+
+        proxy = ProxyConfig(
+            enabled=True,
+            proxy_type=ProxyType.SOCKS5,
+            host="proxy.example.com",
+            port=1080,
+            username="user",
+            password="pass",
+        )
+
+        client = loader.create_client(proxy=proxy)
+
+        # Verify proxy is set
+        assert client._proxy is not None
+        assert client._proxy[0] == socks.SOCKS5
+        assert client._proxy[1] == "proxy.example.com"
+        assert client._proxy[2] == 1080
+        assert client._proxy[4] == "user"
+        assert client._proxy[5] == "pass"
+
+    def test_create_client_with_http_proxy(self, tmp_path: Path) -> None:
+        """Test creating a client with HTTP proxy."""
+        import socks
+
+        session_path = tmp_path / "new_session"
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        loader = TelegramClientLoader(session_path, config_path)
+        loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+
+        proxy = ProxyConfig(
+            enabled=True,
+            proxy_type=ProxyType.HTTP,
+            host="http-proxy.example.com",
+            port=8080,
+        )
+
+        client = loader.create_client(proxy=proxy)
+
+        assert client._proxy is not None
+        assert client._proxy[0] == socks.HTTP
+        assert client._proxy[1] == "http-proxy.example.com"
+        assert client._proxy[2] == 8080
+
+    def test_create_client_with_disabled_proxy(self, tmp_path: Path) -> None:
+        """Test that disabled proxy results in no proxy being set."""
+        session_path = tmp_path / "new_session"
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        loader = TelegramClientLoader(session_path, config_path)
+        loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+
+        proxy = ProxyConfig(
+            enabled=False,
+            host="proxy.example.com",
+            port=1080,
+        )
+
+        client = loader.create_client(proxy=proxy)
+
+        assert client._proxy is None
+
+    def test_create_client_without_saved_proxy(self, tmp_path: Path) -> None:
+        """Test creating client with use_saved_proxy=False."""
+        session_path = tmp_path / "new_session"
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        loader = TelegramClientLoader(session_path, config_path)
+        loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+
+        # Even if saved proxy exists, use_saved_proxy=False should skip it
+        client = loader.create_client(use_saved_proxy=False)
+
+        assert client._proxy is None
 
 
 def create_mock_dialog(
