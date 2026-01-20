@@ -28,6 +28,7 @@ from chatfilter.web.routers.chatlist import router as chatlist_router
 from chatfilter.web.routers.chats import router as chats_router
 from chatfilter.web.routers.export import router as export_router
 from chatfilter.web.routers.health import router as health_router
+from chatfilter.web.routers.history import router as history_router
 from chatfilter.web.routers.pages import router as pages_router
 from chatfilter.web.routers.proxy import router as proxy_router
 from chatfilter.web.routers.sessions import router as sessions_router
@@ -268,6 +269,7 @@ def create_app(
     # Include routers
     app.include_router(health_router)
     app.include_router(export_router)
+    app.include_router(history_router)
     app.include_router(sessions_router)
     app.include_router(chatlist_router)
     app.include_router(chats_router)

@@ -186,6 +186,86 @@ class TaskDatabase:
             task for task_id in task_ids if (task := self.load_task(task_id))
         ]
 
+    def load_completed_tasks(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        status_filter: list[TaskStatus] | None = None,
+    ) -> list[AnalysisTask]:
+        """Load completed tasks from the database with optional filtering.
+
+        Args:
+            limit: Maximum number of tasks to return (None for all)
+            offset: Number of tasks to skip (for pagination)
+            status_filter: List of statuses to filter by (default: all completed statuses)
+
+        Returns:
+            List of completed tasks, sorted by completion time (newest first)
+        """
+        if status_filter is None:
+            status_filter = [
+                TaskStatus.COMPLETED,
+                TaskStatus.FAILED,
+                TaskStatus.CANCELLED,
+                TaskStatus.TIMEOUT,
+            ]
+
+        with self._connection() as conn:
+            # Build query with placeholders
+            placeholders = ",".join("?" * len(status_filter))
+            query = f"""
+                SELECT task_id FROM tasks
+                WHERE status IN ({placeholders})
+                ORDER BY completed_at DESC, created_at DESC
+            """
+
+            # Add pagination if specified
+            if limit is not None:
+                query += f" LIMIT {limit} OFFSET {offset}"
+
+            cursor = conn.execute(
+                query,
+                [status.value for status in status_filter],
+            )
+            task_ids = [UUID(row["task_id"]) for row in cursor.fetchall()]
+
+        return [
+            task for task_id in task_ids if (task := self.load_task(task_id))
+        ]
+
+    def count_completed_tasks(
+        self,
+        status_filter: list[TaskStatus] | None = None,
+    ) -> int:
+        """Count completed tasks in the database.
+
+        Args:
+            status_filter: List of statuses to count (default: all completed statuses)
+
+        Returns:
+            Number of matching tasks
+        """
+        if status_filter is None:
+            status_filter = [
+                TaskStatus.COMPLETED,
+                TaskStatus.FAILED,
+                TaskStatus.CANCELLED,
+                TaskStatus.TIMEOUT,
+            ]
+
+        with self._connection() as conn:
+            placeholders = ",".join("?" * len(status_filter))
+            query = f"""
+                SELECT COUNT(*) as count FROM tasks
+                WHERE status IN ({placeholders})
+            """
+            cursor = conn.execute(
+                query,
+                [status.value for status in status_filter],
+            )
+            row = cursor.fetchone()
+            return row["count"] if row else 0
+
     def save_task_result(self, task_id: UUID, result: AnalysisResult) -> None:
         """Save an analysis result to the database.
 

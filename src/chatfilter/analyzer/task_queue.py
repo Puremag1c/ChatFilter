@@ -57,6 +57,10 @@ class ProgressEvent:
     chat_title: str | None = None  # Currently processing chat
     message: str | None = None  # Optional status message
     error: str | None = None  # Error message if failed
+    # Batch-level progress (for large chats with streaming)
+    messages_processed: int | None = None  # Total messages processed so far
+    batch_number: int | None = None  # Current batch number
+    total_batches: int | None = None  # Estimated total batches (if known)
 
 
 @dataclass
@@ -77,6 +81,25 @@ class AnalysisTask:
     last_progress_at: datetime | None = None  # Track last progress for deadlock detection
 
 
+class BatchProgressCallback(Protocol):
+    """Callback protocol for batch progress updates."""
+
+    async def __call__(
+        self,
+        messages_processed: int,
+        batch_number: int,
+        total_batches: int | None = None,
+    ) -> None:
+        """Report batch progress.
+
+        Args:
+            messages_processed: Total messages processed so far
+            batch_number: Current batch number
+            total_batches: Estimated total batches (if known)
+        """
+        ...
+
+
 class AnalysisExecutor(Protocol):
     """Protocol for analysis executor (allows test injection)."""
 
@@ -85,8 +108,24 @@ class AnalysisExecutor(Protocol):
         session_id: str,
         chat_id: int,
         message_limit: int = 1000,
+        batch_size: int = 1000,
+        use_streaming: bool | None = None,
+        memory_limit_mb: float = 1024.0,
+        enable_memory_monitoring: bool = False,
+        batch_progress_callback: BatchProgressCallback | None = None,
     ) -> AnalysisResult:
-        """Analyze a single chat and return results."""
+        """Analyze a single chat and return results.
+
+        Args:
+            session_id: Session identifier
+            chat_id: Chat ID to analyze
+            message_limit: Maximum messages to fetch
+            batch_size: Batch size for streaming mode
+            use_streaming: Force streaming mode (None = auto-detect)
+            memory_limit_mb: Memory threshold in MB
+            enable_memory_monitoring: Enable memory monitoring
+            batch_progress_callback: Optional callback for batch progress updates
+        """
         ...
 
     async def get_chat_info(
@@ -306,16 +345,27 @@ class TaskQueue:
         logger.info(f"Created analysis task {task.task_id} for {len(chat_ids)} chats")
         return task
 
-    def get_task(self, task_id: UUID) -> AnalysisTask | None:
+    def get_task(self, task_id: UUID, include_historical: bool = False) -> AnalysisTask | None:
         """Get task by ID.
 
         Args:
             task_id: Task UUID
+            include_historical: If True, also check database for historical tasks
+                not currently in memory (default: False)
 
         Returns:
             AnalysisTask or None if not found
         """
-        return self._tasks.get(task_id)
+        # First check in-memory tasks
+        task = self._tasks.get(task_id)
+        if task is not None:
+            return task
+
+        # If not in memory and historical lookup is enabled, check database
+        if include_historical and self._db:
+            return self._db.load_task(task_id)
+
+        return None
 
     def get_all_tasks(self) -> list[AnalysisTask]:
         """Get all tasks.
@@ -734,22 +784,47 @@ class TaskQueue:
                     )
                 )
 
+                # Create batch progress callback
+                async def batch_progress_callback(
+                    messages_processed: int,
+                    batch_number: int,
+                    total_batches: int | None = None,
+                ) -> None:
+                    """Report batch progress to subscribers."""
+                    await self._publish_event(
+                        ProgressEvent(
+                            task_id=task_id,
+                            status=TaskStatus.IN_PROGRESS,
+                            current=i,
+                            total=len(task.chat_ids),
+                            chat_title=chat_title,
+                            message=f"Processing batch {batch_number}...",
+                            messages_processed=messages_processed,
+                            batch_number=batch_number,
+                            total_batches=total_batches,
+                        )
+                    )
+                    # Update last progress timestamp for stall detection
+                    task.last_progress_at = datetime.now(UTC)
+
                 # Analyze chat with per-chat timeout
                 try:
                     if self._per_chat_timeout_seconds > 0:
                         result = await asyncio.wait_for(
                             executor.analyze_chat(
-                                task.session_id,
-                                chat_id,
-                                task.message_limit,
+                                session_id=task.session_id,
+                                chat_id=chat_id,
+                                message_limit=task.message_limit,
+                                batch_progress_callback=batch_progress_callback,
                             ),
                             timeout=self._per_chat_timeout_seconds,
                         )
                     else:
                         result = await executor.analyze_chat(
-                            task.session_id,
-                            chat_id,
-                            task.message_limit,
+                            session_id=task.session_id,
+                            chat_id=chat_id,
+                            message_limit=task.message_limit,
+                            batch_progress_callback=batch_progress_callback,
                         )
                     task.results.append(result)
 
@@ -861,10 +936,13 @@ class TaskQueue:
         return False
 
     def clear_completed(self) -> int:
-        """Remove all completed/failed/cancelled/timeout tasks from memory and database.
+        """Remove all completed/failed/cancelled/timeout tasks from memory.
+
+        Note: Tasks are removed from memory only, not from the database.
+        This preserves analysis history while freeing up memory.
 
         Returns:
-            Number of tasks removed
+            Number of tasks removed from memory
         """
         to_remove = [
             task_id
@@ -877,12 +955,12 @@ class TaskQueue:
             del self._tasks[task_id]
             self._subscribers.pop(task_id, None)
 
-            # Remove from database
-            if self._db:
-                self._db.delete_task(task_id)
+            # NOTE: Tasks are NOT deleted from database to preserve history
+            # Historical tasks can be retrieved via TaskDatabase.load_task()
+            # or TaskDatabase.load_all_tasks()
 
         if to_remove:
-            logger.info(f"Cleared {len(to_remove)} completed tasks")
+            logger.info(f"Cleared {len(to_remove)} completed tasks from memory (preserved in database)")
 
         return len(to_remove)
 
