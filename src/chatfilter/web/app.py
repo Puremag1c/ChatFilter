@@ -13,7 +13,11 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
 from chatfilter.config import Settings, get_settings
-from chatfilter.web.middleware import RequestIDMiddleware, RequestLoggingMiddleware
+from chatfilter.web.middleware import (
+    GracefulShutdownMiddleware,
+    RequestIDMiddleware,
+    RequestLoggingMiddleware,
+)
 from chatfilter.web.routers.analysis import router as analysis_router
 from chatfilter.web.routers.chatlist import router as chatlist_router
 from chatfilter.web.routers.chats import router as chats_router
@@ -36,6 +40,8 @@ class AppState:
 
     def __init__(self) -> None:
         self.shutting_down = False
+        self.active_connections = 0
+        self.session_manager = None  # Will be set during startup
 
 
 @asynccontextmanager
@@ -46,18 +52,54 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     - Startup: Initialize resources
     - Shutdown: Graceful cleanup with signal to active connections
     """
+    import asyncio
+
     # Startup
     logger.info("ChatFilter application starting up")
     app.state.app_state = AppState()
 
+    # Initialize session manager for Telegram connections
+    # This will be populated by routes as needed
+    logger.info("Application startup complete")
+
     yield
 
-    # Shutdown
-    logger.info("ChatFilter application shutting down")
+    # Graceful shutdown
+    logger.info("Initiating graceful shutdown")
     app.state.app_state.shutting_down = True
-    # Give active connections a moment to complete
-    # In production, you might want to track and wait for active SSE connections
-    logger.info("Shutdown complete")
+
+    # 1. Stop accepting new requests (handled by middleware)
+    logger.info("Rejecting new requests")
+
+    # 2. Wait for active connections to complete (with timeout)
+    shutdown_timeout = 30.0  # seconds
+    start_time = asyncio.get_event_loop().time()
+
+    while app.state.app_state.active_connections > 0:
+        elapsed = asyncio.get_event_loop().time() - start_time
+        if elapsed > shutdown_timeout:
+            logger.warning(
+                f"Shutdown timeout reached with {app.state.app_state.active_connections} "
+                "active connections still running. Forcing shutdown."
+            )
+            break
+
+        logger.info(
+            f"Waiting for {app.state.app_state.active_connections} active connections "
+            f"to complete ({elapsed:.1f}s / {shutdown_timeout}s)"
+        )
+        await asyncio.sleep(0.5)
+
+    # 3. Disconnect all Telegram sessions
+    if app.state.app_state.session_manager:
+        logger.info("Disconnecting Telegram sessions")
+        try:
+            await app.state.app_state.session_manager.disconnect_all()
+            logger.info("All Telegram sessions disconnected")
+        except Exception as e:
+            logger.error(f"Error disconnecting sessions during shutdown: {e}")
+
+    logger.info("Graceful shutdown complete")
 
 
 def create_app(
@@ -107,9 +149,11 @@ def create_app(
     app.state.settings = settings
 
     # Add middlewares (order matters: first added = last executed)
+    # GracefulShutdown runs first to reject requests during shutdown
     # RequestLogging should run after RequestID is set
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(GracefulShutdownMiddleware)
 
     # CORS configuration
     app.add_middleware(

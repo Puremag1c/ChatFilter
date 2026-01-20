@@ -98,3 +98,61 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         )
 
         return response
+
+
+class GracefulShutdownMiddleware(BaseHTTPMiddleware):
+    """Middleware for graceful shutdown handling.
+
+    Features:
+    - Rejects new requests when shutting down (503 Service Unavailable)
+    - Tracks active connections for graceful drain
+    - Allows health checks even during shutdown
+
+    During shutdown:
+    - Health check endpoint returns 503 (load balancers will remove from pool)
+    - All other requests get 503 with Retry-After header
+    - Active requests are allowed to complete
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        from starlette.responses import JSONResponse
+
+        # Get app state
+        app_state = getattr(request.app.state, "app_state", None)
+        if not app_state:
+            # No app state, proceed normally
+            return await call_next(request)
+
+        # Check if shutting down
+        if app_state.shutting_down:
+            # Allow health checks to fail (for load balancer detection)
+            if request.url.path == "/health":
+                return JSONResponse(
+                    status_code=503,
+                    content={"status": "shutting_down"},
+                )
+
+            # Reject new requests
+            logger.warning(
+                f"Rejecting request during shutdown: {request.method} {request.url.path}",
+                extra={"request_id": get_request_id()},
+            )
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "Server is shutting down. Please retry.",
+                    "status": "shutting_down",
+                },
+                headers={"Retry-After": "10"},  # Suggest retry in 10 seconds
+            )
+
+        # Track active connection
+        app_state.active_connections += 1
+
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            app_state.active_connections -= 1
