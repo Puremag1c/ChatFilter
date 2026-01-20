@@ -16,6 +16,12 @@ def compute_metrics(messages: list[Message]) -> ChatMetrics:
     - first_message_at: Timestamp of the earliest message
     - last_message_at: Timestamp of the latest message
 
+    Note on anonymous authors:
+        In Telegram channels and groups with anonymous admins, sender_id can be None.
+        Anonymous messages use chat_id as their author_id, meaning all anonymous
+        messages in a chat are counted as ONE author. This is a deliberate design
+        decision to ensure consistent unique_authors counts without skipping messages.
+
     Args:
         messages: List of Message models to analyze. Messages should be
             sorted by timestamp but the function handles unsorted input.

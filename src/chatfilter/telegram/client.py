@@ -498,7 +498,10 @@ def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | 
     # Get sender ID - can be None for channel posts without author
     sender_id = getattr(msg, "sender_id", None) or getattr(msg, "from_id", None)
     if sender_id is None:
-        # For channel posts, use the chat's ID as author
+        # For channel posts and anonymous admins, use the chat's ID as author.
+        # This means all anonymous messages in a chat are attributed to one "author"
+        # (the chat itself) for unique_authors counting. This is a deliberate design
+        # decision to handle anonymous posts consistently without skipping them.
         sender_id = chat_id
 
     # Handle from_id being a PeerUser/PeerChannel object

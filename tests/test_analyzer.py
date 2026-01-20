@@ -63,6 +63,56 @@ class TestComputeMetrics:
         assert result.message_count == 4
         assert result.unique_authors == 3  # 100, 200, 300
 
+    def test_anonymous_authors_counted_as_chat(self) -> None:
+        """Test that anonymous authors (sender=None) are counted as the chat itself.
+
+        In Telegram channels and groups with anonymous admins, sender_id can be None.
+        The current implementation assigns chat_id as the author_id for these messages,
+        meaning all anonymous messages in a chat are counted as ONE author (the chat).
+
+        This is a deliberate design decision:
+        - Pros: Simple, consistent, prevents zero unique_authors in anonymous-only chats
+        - Cons: May undercount if multiple people post anonymously
+
+        Alternative approaches considered:
+        - Skip anonymous messages: Would lose message count data
+        - Count each as unique: Would overcount if same person posts multiple times
+        """
+        now = datetime.now(UTC)
+        chat_id = 999
+
+        # Simulate channel where all messages use chat_id as author_id (anonymous)
+        messages = [
+            Message.fake(id=1, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=3)),
+            Message.fake(id=2, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=2)),
+            Message.fake(id=3, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=1)),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 3
+        assert result.unique_authors == 1  # All anonymous messages counted as one author
+
+    def test_mixed_anonymous_and_regular_authors(self) -> None:
+        """Test unique author counting with mix of anonymous and regular authors."""
+        now = datetime.now(UTC)
+        chat_id = 999
+
+        messages = [
+            # Anonymous messages (use chat_id as author)
+            Message.fake(id=1, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=5)),
+            Message.fake(id=2, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=4)),
+            # Regular users
+            Message.fake(id=3, chat_id=chat_id, author_id=100, timestamp=now - timedelta(hours=3)),
+            Message.fake(id=4, chat_id=chat_id, author_id=200, timestamp=now - timedelta(hours=2)),
+            Message.fake(id=5, chat_id=chat_id, author_id=100, timestamp=now - timedelta(hours=1)),  # Duplicate
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 5
+        assert result.unique_authors == 3  # chat_id (anonymous), 100, 200
+
     def test_history_hours_calculation(self) -> None:
         """Test that history hours is calculated correctly."""
         now = datetime.now(UTC)
