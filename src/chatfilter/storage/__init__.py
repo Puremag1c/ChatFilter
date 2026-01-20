@@ -23,6 +23,11 @@ Example:
 from __future__ import annotations
 
 from chatfilter.storage.base import Storage, StorageDecorator
+from chatfilter.storage.encrypted import (
+    EncryptedStorage,
+    StorageDecryptionError,
+    derive_key_from_machine_id,
+)
 from chatfilter.storage.errors import (
     StorageCorruptedError,
     StorageError,
@@ -39,13 +44,16 @@ __all__ = [
     "StorageDecorator",
     # Implementations
     "FileStorage",
+    "EncryptedStorage",
     # Helpers
     "save_json",
     "load_json",
+    "derive_key_from_machine_id",
     # Exceptions
     "StorageError",
     "StorageNotFoundError",
     "StoragePermissionError",
     "StorageValidationError",
     "StorageCorruptedError",
+    "StorageDecryptionError",
 ]
