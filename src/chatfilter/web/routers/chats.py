@@ -10,7 +10,11 @@ from fastapi.responses import HTMLResponse
 
 from chatfilter.service import ChatAnalysisService
 from chatfilter.service.chat_analysis import SessionNotFoundError
-from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.telegram.session_manager import (
+    SessionInvalidError,
+    SessionManager,
+    SessionReauthRequiredError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +116,43 @@ async def get_chats(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
+        )
+    except SessionInvalidError as e:
+        logger.error(f"Invalid session '{session_id}': {e}")
+        return templates.TemplateResponse(
+            "partials/chat_list.html",
+            {
+                "request": request,
+                "error": (
+                    "Session is invalid and cannot be used. "
+                    "The session may have been revoked, logged out from another device, "
+                    "or the account may be banned. Please upload a new session file."
+                ),
+                "chats": [],
+                "session_id": session_id,
+            },
+        )
+    except SessionReauthRequiredError as e:
+        logger.warning(f"Session '{session_id}' requires re-authorization: {e}")
+        error_msg = str(e)
+        if "2FA" in error_msg or "password" in error_msg.lower():
+            user_message = (
+                "Two-factor authentication (2FA) is required. "
+                "Please upload a new session file that was created with 2FA authorization."
+            )
+        else:
+            user_message = (
+                "Session has expired and requires re-authorization. "
+                "Please upload a new session file from your authenticated Telegram client."
+            )
+        return templates.TemplateResponse(
+            "partials/chat_list.html",
+            {
+                "request": request,
+                "error": user_message,
+                "chats": [],
+                "session_id": session_id,
+            },
         )
     except Exception as e:
         logger.exception(f"Failed to fetch chats from session '{session_id}'")

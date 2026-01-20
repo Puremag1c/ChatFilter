@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Protocol
 
+from telethon import errors
+
 from chatfilter.telegram.retry import with_retry_for_reads
 
 if TYPE_CHECKING:
@@ -77,6 +79,29 @@ class SessionTimeoutError(SessionError):
 
 class SessionNotConnectedError(SessionError):
     """Raised when trying to use a disconnected session."""
+
+
+class SessionInvalidError(SessionError):
+    """Raised when session is permanently invalid and requires new session file.
+
+    This indicates issues like:
+    - Session was revoked/logged out from another device
+    - Auth key is unregistered or invalid
+    - Account is banned
+
+    User must provide a new session file to continue.
+    """
+
+
+class SessionReauthRequiredError(SessionError):
+    """Raised when session requires re-authorization but may be recoverable.
+
+    This indicates issues like:
+    - 2FA password needed
+    - Session expired but can be refreshed
+
+    The session file itself may still be valid after re-authentication.
+    """
 
 
 class SessionManager:
@@ -239,6 +264,54 @@ class SessionManager:
                 raise SessionTimeoutError(
                     f"Connection timeout for session '{session_id}'"
                 ) from e
+            except (
+                errors.SessionRevokedError,
+                errors.AuthKeyUnregisteredError,
+                errors.AuthKeyInvalidError,
+                errors.AuthKeyNotFound,
+                errors.AuthKeyPermEmptyError,
+                errors.PhoneNumberBannedError,
+            ) as e:
+                # Permanently invalid session - requires new session file
+                session.state = SessionState.ERROR
+                error_type = type(e).__name__
+                session.error_message = (
+                    f"Session is invalid ({error_type}). "
+                    "Please provide a new session file."
+                )
+                raise SessionInvalidError(
+                    f"Session '{session_id}' is permanently invalid: {error_type}. "
+                    "The session has been revoked, the auth key is unregistered, "
+                    "or the account is banned. Please generate and upload a new "
+                    "session file from an authenticated Telegram client."
+                ) from e
+            except (
+                errors.SessionPasswordNeededError,
+                errors.SessionExpiredError,
+            ) as e:
+                # Session needs re-authorization but may be recoverable
+                session.state = SessionState.ERROR
+                error_type = type(e).__name__
+                if isinstance(e, errors.SessionPasswordNeededError):
+                    session.error_message = (
+                        "Two-factor authentication (2FA) is enabled. "
+                        "Re-authorization required."
+                    )
+                    raise SessionReauthRequiredError(
+                        f"Session '{session_id}' requires 2FA password. "
+                        "The account has two-factor authentication enabled. "
+                        "Please re-authorize with your 2FA password, or provide "
+                        "a new session file that includes 2FA authorization."
+                    ) from e
+                else:
+                    session.error_message = (
+                        "Session has expired. Re-authorization required."
+                    )
+                    raise SessionReauthRequiredError(
+                        f"Session '{session_id}' has expired: {error_type}. "
+                        "Please re-authorize your Telegram account or provide "
+                        "a new session file."
+                    ) from e
             except Exception as e:
                 session.state = SessionState.ERROR
                 session.error_message = str(e)
@@ -292,6 +365,10 @@ class SessionManager:
 
         Returns:
             True if session is connected and responds to ping
+
+        Note:
+            If session auth errors are detected, session state is updated
+            with appropriate error message.
         """
         if session_id not in self._sessions:
             return False
@@ -308,6 +385,43 @@ class SessionManager:
             )
             session.last_activity = asyncio.get_event_loop().time()
             return True
+        except (
+            errors.SessionRevokedError,
+            errors.AuthKeyUnregisteredError,
+            errors.AuthKeyInvalidError,
+            errors.AuthKeyNotFound,
+            errors.AuthKeyPermEmptyError,
+            errors.PhoneNumberBannedError,
+        ) as e:
+            error_type = type(e).__name__
+            session.state = SessionState.ERROR
+            session.error_message = (
+                f"Session is invalid ({error_type}). "
+                "Please provide a new session file."
+            )
+            logger.error(
+                f"Session '{session_id}' is permanently invalid: {error_type}"
+            )
+            return False
+        except (
+            errors.SessionPasswordNeededError,
+            errors.SessionExpiredError,
+        ) as e:
+            error_type = type(e).__name__
+            session.state = SessionState.ERROR
+            if isinstance(e, errors.SessionPasswordNeededError):
+                session.error_message = (
+                    "Two-factor authentication (2FA) is enabled. "
+                    "Re-authorization required."
+                )
+            else:
+                session.error_message = (
+                    "Session has expired. Re-authorization required."
+                )
+            logger.error(
+                f"Session '{session_id}' requires re-authorization: {error_type}"
+            )
+            return False
         except Exception as e:
             logger.warning(f"Health check failed for session '{session_id}': {e}")
             return False

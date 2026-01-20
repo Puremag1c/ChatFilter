@@ -4,11 +4,14 @@ import asyncio
 from unittest.mock import MagicMock
 
 import pytest
+from telethon import errors
 
 from chatfilter.telegram.session_manager import (
     SessionConnectError,
     SessionError,
+    SessionInvalidError,
     SessionManager,
+    SessionReauthRequiredError,
     SessionState,
     SessionTimeoutError,
 )
@@ -17,9 +20,16 @@ from chatfilter.telegram.session_manager import (
 class MockClient:
     """Mock Telethon client for testing."""
 
-    def __init__(self, *, fail_connect: bool = False, hang_connect: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail_connect: bool = False,
+        hang_connect: bool = False,
+        auth_error: Exception | None = None,
+    ) -> None:
         self.fail_connect = fail_connect
         self.hang_connect = hang_connect
+        self.auth_error = auth_error
         self.connected = False
         self.connect_calls = 0
         self.disconnect_calls = 0
@@ -29,6 +39,8 @@ class MockClient:
         self.connect_calls += 1
         if self.hang_connect:
             await asyncio.sleep(100)  # Will timeout
+        if self.auth_error:
+            raise self.auth_error
         if self.fail_connect:
             raise ConnectionError("Mock connection failure")
         self.connected = True
@@ -340,3 +352,119 @@ class TestSessionManagerLocking:
 
         with pytest.raises(SessionError, match="Cannot unregister connected"):
             manager.unregister("test")
+
+
+class TestSessionAuthErrors:
+    """Tests for session authentication error handling."""
+
+    @pytest.mark.asyncio
+    async def test_connect_session_revoked_error(self) -> None:
+        """Test connection with SessionRevokedError raises SessionInvalidError."""
+        manager = SessionManager()
+        # Telethon errors need a mock request object
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.SessionRevokedError(request=mock_request))
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(
+            SessionInvalidError,
+            match="permanently invalid.*SessionRevokedError",
+        ):
+            await manager.connect("test")
+
+    @pytest.mark.asyncio
+    async def test_connect_auth_key_unregistered_error(self) -> None:
+        """Test connection with AuthKeyUnregisteredError raises SessionInvalidError."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(
+            auth_error=errors.AuthKeyUnregisteredError(request=mock_request)
+        )
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(
+            SessionInvalidError,
+            match="permanently invalid.*AuthKeyUnregisteredError",
+        ):
+            await manager.connect("test")
+
+    @pytest.mark.asyncio
+    async def test_connect_phone_banned_error(self) -> None:
+        """Test connection with PhoneNumberBannedError raises SessionInvalidError."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(
+            auth_error=errors.PhoneNumberBannedError(request=mock_request)
+        )
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(
+            SessionInvalidError,
+            match="permanently invalid.*PhoneNumberBannedError",
+        ):
+            await manager.connect("test")
+
+    @pytest.mark.asyncio
+    async def test_connect_session_password_needed_error(self) -> None:
+        """Test connection with SessionPasswordNeededError raises SessionReauthRequiredError."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(
+            auth_error=errors.SessionPasswordNeededError(request=mock_request)
+        )
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(
+            SessionReauthRequiredError,
+            match="requires 2FA password",
+        ):
+            await manager.connect("test")
+
+    @pytest.mark.asyncio
+    async def test_connect_session_expired_error(self) -> None:
+        """Test connection with SessionExpiredError raises SessionReauthRequiredError."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.SessionExpiredError(request=mock_request))
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(
+            SessionReauthRequiredError,
+            match="has expired",
+        ):
+            await manager.connect("test")
+
+    @pytest.mark.asyncio
+    async def test_invalid_session_state_and_error_message(self) -> None:
+        """Test that session state is set to ERROR with appropriate message."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.SessionRevokedError(request=mock_request))
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("test")
+
+        info = manager.get_info("test")
+        assert info is not None
+        assert info.state == SessionState.ERROR
+        assert "Session is invalid" in info.error_message
+        assert "new session file" in info.error_message
+
+    @pytest.mark.asyncio
+    async def test_reauth_required_state_and_error_message(self) -> None:
+        """Test that session state is set to ERROR with appropriate message for reauth."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(
+            auth_error=errors.SessionPasswordNeededError(request=mock_request)
+        )
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(SessionReauthRequiredError):
+            await manager.connect("test")
+
+        info = manager.get_info("test")
+        assert info is not None
+        assert info.state == SessionState.ERROR
+        assert "2FA" in info.error_message or "Two-factor" in info.error_message
