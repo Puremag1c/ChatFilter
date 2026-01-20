@@ -7,7 +7,7 @@ import logging
 import struct
 import uuid
 from pathlib import Path
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -16,6 +16,9 @@ from chatfilter.storage.errors import (
     StorageCorruptedError,
     StorageError,
 )
+
+if TYPE_CHECKING:
+    from chatfilter.security.key_manager import KeyManager
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +92,10 @@ class EncryptedStorage(StorageDecorator):
 
     Features:
     - Transparent encryption/decryption
-    - Machine-specific key derivation (default)
+    - Secure key management via OS keychain (recommended)
+    - Machine-specific key derivation (fallback)
     - Support for custom encryption keys
-    - File format versioning for future key rotation
+    - File format versioning for key rotation
     - Corruption detection
 
     File Format:
@@ -100,16 +104,21 @@ class EncryptedStorage(StorageDecorator):
     Example:
         ```python
         from chatfilter.storage import FileStorage, EncryptedStorage
+        from chatfilter.security.key_manager import KeyManager
 
-        # Use machine-derived key
+        # Recommended: Use KeyManager with OS keychain
         base_storage = FileStorage()
-        storage = EncryptedStorage(base_storage)
+        key_manager = KeyManager.create()  # Auto-selects best backend
+        storage = EncryptedStorage(base_storage, key_manager=key_manager)
 
         # Save encrypted
         storage.save(path, "sensitive data")
 
         # Load decrypted
         data = storage.load(path)
+
+        # Alternative: Use machine-derived key (backward compatible)
+        storage = EncryptedStorage(base_storage)
 
         # Use custom key
         custom_key = Fernet.generate_key()
@@ -126,23 +135,39 @@ class EncryptedStorage(StorageDecorator):
         *,
         encryption_key: bytes | None = None,
         key_id: int = 0,
+        key_manager: KeyManager | None = None,
     ) -> None:
         """Initialize encrypted storage.
 
         Args:
             wrapped: Storage instance to wrap
             encryption_key: Encryption key (base64-encoded Fernet key).
-                If None, derives key from machine ID.
+                If None and no key_manager provided, derives key from machine ID.
+                Takes precedence over key_manager if both provided.
             key_id: Key identifier for rotation support (0-65535)
+            key_manager: KeyManager instance for secure key storage.
+                If provided, uses KeyManager to retrieve keys instead of
+                machine-derived keys.
+
+        Note:
+            Using key_manager is recommended for production deployments as it
+            provides secure key storage via OS keychain or password-derived keys.
         """
         super().__init__(wrapped)
 
+        self._key_manager = key_manager
+        self._key_id = key_id
+
+        # Priority: explicit encryption_key > key_manager > machine-derived
         if encryption_key is None:
-            encryption_key = derive_key_from_machine_id()
-            logger.debug("Using machine-derived encryption key")
+            if key_manager is not None:
+                encryption_key = key_manager.get_or_create_key(key_id)
+                logger.debug(f"Using key from KeyManager (key_id={key_id})")
+            else:
+                encryption_key = derive_key_from_machine_id()
+                logger.debug("Using machine-derived encryption key")
 
         self._key = encryption_key
-        self._key_id = key_id
         self._fernet = Fernet(encryption_key)
 
         # Register key for decryption
@@ -233,13 +258,20 @@ class EncryptedStorage(StorageDecorator):
             )
 
         # Get encryption key for this key_id
-        if key_id not in self._KEY_REGISTRY:
-            raise StorageDecryptionError(
-                f"Unknown key_id {key_id}. Key may have been rotated or file "
-                "was encrypted with a different key."
-            )
+        # Try KeyManager first, then fall back to registry
+        decryption_key = None
 
-        decryption_key = self._KEY_REGISTRY[key_id]
+        if self._key_manager is not None:
+            decryption_key = self._key_manager.get_key(key_id)
+
+        if decryption_key is None:
+            if key_id not in self._KEY_REGISTRY:
+                raise StorageDecryptionError(
+                    f"Unknown key_id {key_id}. Key may have been rotated or file "
+                    "was encrypted with a different key."
+                )
+            decryption_key = self._KEY_REGISTRY[key_id]
+
         fernet = Fernet(decryption_key)
 
         # Decrypt
