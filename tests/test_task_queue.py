@@ -37,7 +37,9 @@ class MockExecutor:
     async def get_chat_info(self, session_id: str, chat_id: int) -> Chat | None:
         return self.chats.get(chat_id)
 
-    async def analyze_chat(self, session_id: str, chat_id: int) -> AnalysisResult:
+    async def analyze_chat(
+        self, session_id: str, chat_id: int, message_limit: int = 1000
+    ) -> AnalysisResult:
         if self.delay > 0:
             await asyncio.sleep(self.delay)
 
@@ -196,6 +198,31 @@ class TestTaskQueue:
 
         assert result is True
         assert task.status == TaskStatus.CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_cancel_in_progress_task(self, task_queue: TaskQueue) -> None:
+        """Test cancelling a task while it's running."""
+        # Use delay to keep task running long enough to cancel
+        executor = MockExecutor(delay=0.2)
+        task = task_queue.create_task("session1", [1, 2, 3, 4, 5])
+
+        # Run task in background
+        run_task = asyncio.create_task(task_queue.run_task(task.task_id, executor))
+
+        # Wait for task to start and process at least one chat
+        await asyncio.sleep(0.3)
+
+        # Cancel the task
+        result = task_queue.cancel_task(task.task_id)
+        assert result is True
+
+        # Wait for task to finish
+        await run_task
+
+        # Task should be cancelled
+        assert task.status == TaskStatus.CANCELLED
+        # Should have partial results (at least 1, but not all)
+        assert 0 < len(task.results) < len(task.chat_ids)
 
     def test_cancel_completed_task(self, task_queue: TaskQueue) -> None:
         """Test cancelling a completed task returns False."""

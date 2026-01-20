@@ -13,7 +13,6 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from chatfilter.analyzer.task_queue import (
-    AnalysisExecutor,
     TaskStatus,
     get_task_queue,
 )
@@ -180,7 +179,8 @@ async def _generate_sse_events(
     # Send initial event
     task = queue.get_task(task_id)
     if task:
-        yield f"event: init\ndata: {json.dumps({'total': len(task.chat_ids), 'status': task.status.value})}\n\n"
+        init_data = {"total": len(task.chat_ids), "status": task.status.value}
+        yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
     # Heartbeat interval for keepalive
     heartbeat_interval = 15  # seconds
@@ -203,9 +203,17 @@ async def _generate_sse_events(
                     # Task completed, send final event
                     task = queue.get_task(task_id)
                     if task and task.status == TaskStatus.COMPLETED:
-                        yield f"event: complete\ndata: {json.dumps({'results_count': len(task.results)})}\n\n"
+                        complete_data = {"results_count": len(task.results)}
+                        yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+                    elif task and task.status == TaskStatus.CANCELLED:
+                        cancel_data = {
+                            "results_count": len(task.results),
+                            "message": "Analysis cancelled",
+                        }
+                        yield f"event: cancelled\ndata: {json.dumps(cancel_data)}\n\n"
                     elif task and task.status == TaskStatus.FAILED:
-                        yield f"event: error\ndata: {json.dumps({'error': task.error or 'Unknown error'})}\n\n"
+                        error_data = {"error": task.error or "Unknown error"}
+                        yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
                     break
 
                 # Send progress event
@@ -315,12 +323,19 @@ async def get_results(
             {"request": request, "error": "Analysis still in progress"},
         )
 
+    if task.status == TaskStatus.PENDING:
+        return templates.TemplateResponse(
+            "partials/analysis_results.html",
+            {"request": request, "error": "Analysis not started"},
+        )
+
     if task.status == TaskStatus.FAILED:
         return templates.TemplateResponse(
             "partials/analysis_results.html",
             {"request": request, "error": task.error or "Analysis failed"},
         )
 
+    # For COMPLETED or CANCELLED, show results (partial results for cancelled)
     return templates.TemplateResponse(
         "partials/analysis_results.html",
         {
@@ -328,6 +343,7 @@ async def get_results(
             "task_id": task_id,
             "results": task.results,
             "session_id": task.session_id,
+            "is_partial": task.status == TaskStatus.CANCELLED,
         },
     )
 
@@ -370,3 +386,48 @@ async def get_status(task_id: str) -> dict:
         "results_count": len(task.results),
         "error": task.error,
     }
+
+
+@router.post("/{task_id}/cancel")
+async def cancel_analysis(task_id: str) -> dict:
+    """Cancel a running analysis task.
+
+    Args:
+        task_id: Task UUID string
+
+    Returns:
+        Status message with partial results count
+
+    Raises:
+        HTTPException: If task not found or cannot be cancelled
+    """
+    try:
+        uuid_task_id = UUID(task_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid task ID format",
+        )
+
+    queue = get_task_queue()
+
+    if queue.cancel_task(uuid_task_id):
+        task = queue.get_task(uuid_task_id)
+        logger.info(f"Analysis task {task_id} cancelled by user")
+        return {
+            "status": "cancelled",
+            "message": "Analysis cancelled successfully",
+            "partial_results": len(task.results) if task else 0,
+        }
+    else:
+        task = queue.get_task(uuid_task_id)
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot cancel task with status: {task.status.value}",
+            )

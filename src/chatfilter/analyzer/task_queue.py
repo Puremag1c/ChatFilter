@@ -266,6 +266,21 @@ class TaskQueue:
 
         try:
             for i, chat_id in enumerate(task.chat_ids):
+                # Check if task was cancelled
+                if task.status == TaskStatus.CANCELLED:
+                    logger.info(f"Task {task_id} was cancelled, stopping execution")
+                    partial_count = len(task.results)
+                    await self._publish_event(
+                        ProgressEvent(
+                            task_id=task_id,
+                            status=TaskStatus.CANCELLED,
+                            current=i,
+                            total=len(task.chat_ids),
+                            message=f"Analysis cancelled. {partial_count} chats analyzed before cancellation.",
+                        )
+                    )
+                    break
+
                 task.current_chat_index = i
 
                 # Get chat info for progress display
@@ -296,38 +311,44 @@ class TaskQueue:
                     logger.warning(f"Failed to analyze chat {chat_id}: {e}")
                     # Continue with other chats
 
-            # Mark completed
-            task.status = TaskStatus.COMPLETED
-            task.completed_at = datetime.now(UTC)
+            # Only mark as completed if not cancelled
+            if task.status != TaskStatus.CANCELLED:
+                task.status = TaskStatus.COMPLETED
+                task.completed_at = datetime.now(UTC)
 
-            await self._publish_event(
-                ProgressEvent(
-                    task_id=task_id,
-                    status=TaskStatus.COMPLETED,
-                    current=len(task.chat_ids),
-                    total=len(task.chat_ids),
-                    message=f"Analysis complete. {len(task.results)} chats analyzed.",
+                await self._publish_event(
+                    ProgressEvent(
+                        task_id=task_id,
+                        status=TaskStatus.COMPLETED,
+                        current=len(task.chat_ids),
+                        total=len(task.chat_ids),
+                        message=f"Analysis complete. {len(task.results)} chats analyzed.",
+                    )
                 )
-            )
 
-            logger.info(f"Task {task_id} completed with {len(task.results)} results")
+                logger.info(f"Task {task_id} completed with {len(task.results)} results")
+            else:
+                # Task was cancelled
+                logger.info(f"Task {task_id} cancelled with {len(task.results)} partial results")
 
         except Exception as e:
-            task.status = TaskStatus.FAILED
-            task.error = str(e)
-            task.completed_at = datetime.now(UTC)
+            # Only mark as failed if not cancelled
+            if task.status != TaskStatus.CANCELLED:
+                task.status = TaskStatus.FAILED
+                task.error = str(e)
+                task.completed_at = datetime.now(UTC)
 
-            await self._publish_event(
-                ProgressEvent(
-                    task_id=task_id,
-                    status=TaskStatus.FAILED,
-                    current=task.current_chat_index,
-                    total=len(task.chat_ids),
-                    error=str(e),
+                await self._publish_event(
+                    ProgressEvent(
+                        task_id=task_id,
+                        status=TaskStatus.FAILED,
+                        current=task.current_chat_index,
+                        total=len(task.chat_ids),
+                        error=str(e),
+                    )
                 )
-            )
 
-            logger.exception(f"Task {task_id} failed: {e}")
+                logger.exception(f"Task {task_id} failed: {e}")
 
         finally:
             await self._signal_completion(task_id)
