@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import platformdirs
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,17 +20,59 @@ logger = logging.getLogger(__name__)
 
 
 def _get_default_data_dir() -> Path:
-    """Get platform-appropriate default data directory."""
-    if sys.platform == "darwin":
-        # macOS: ~/Library/Application Support/ChatFilter
-        return Path.home() / "Library" / "Application Support" / "ChatFilter"
-    elif sys.platform == "win32":
-        # Windows: %APPDATA%/ChatFilter
-        appdata = Path.home() / "AppData" / "Roaming"
-        return appdata / "ChatFilter"
-    else:
-        # Linux/Unix: ~/.local/share/chatfilter
-        return Path.home() / ".local" / "share" / "chatfilter"
+    """Get platform-appropriate default data directory using platformdirs.
+
+    Uses OS-specific conventions:
+    - macOS: ~/Library/Application Support/ChatFilter
+    - Windows: %APPDATA%/ChatFilter
+    - Linux: ~/.local/share/chatfilter
+
+    Returns:
+        Path to platform-specific user data directory
+    """
+    return Path(platformdirs.user_data_dir("ChatFilter", "ChatFilter"))
+
+
+def get_user_config_dir() -> Path:
+    """Get platform-appropriate user configuration directory.
+
+    Uses OS-specific conventions:
+    - macOS: ~/Library/Application Support/ChatFilter
+    - Windows: %APPDATA%/ChatFilter
+    - Linux: ~/.config/chatfilter
+
+    Returns:
+        Path to platform-specific config directory
+    """
+    return Path(platformdirs.user_config_dir("ChatFilter", "ChatFilter"))
+
+
+def get_user_cache_dir() -> Path:
+    """Get platform-appropriate user cache directory.
+
+    Uses OS-specific conventions:
+    - macOS: ~/Library/Caches/ChatFilter
+    - Windows: %LOCALAPPDATA%/ChatFilter/Cache
+    - Linux: ~/.cache/chatfilter
+
+    Returns:
+        Path to platform-specific cache directory
+    """
+    return Path(platformdirs.user_cache_dir("ChatFilter", "ChatFilter"))
+
+
+def get_user_log_dir() -> Path:
+    """Get platform-appropriate user logs directory.
+
+    Uses OS-specific conventions:
+    - macOS: ~/Library/Logs/ChatFilter
+    - Windows: %LOCALAPPDATA%/ChatFilter/Logs
+    - Linux: ~/.local/state/chatfilter/log
+
+    Returns:
+        Path to platform-specific logs directory
+    """
+    return Path(platformdirs.user_log_dir("ChatFilter", "ChatFilter"))
 
 
 class Settings(BaseSettings):
