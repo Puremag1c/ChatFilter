@@ -216,36 +216,130 @@ See the web interface onboarding for detailed instructions.
 
 ## Development
 
-### Install with dev dependencies
+### Building from Source
+
+Complete instructions for developers who want to build, test, and contribute to ChatFilter.
+
+#### Prerequisites
+
+- Python 3.11 or higher
+- Git
+- pip package manager
+
+#### Clone Repository
+
+```bash
+git clone https://github.com/yourusername/ChatFilter.git
+cd ChatFilter
+```
+
+#### Install with Development Dependencies
+
+Install the package in editable mode with all development tools:
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-### Run tests
+This installs:
+- The main package dependencies (Telethon, FastAPI, etc.)
+- Development tools: pytest, ruff, mypy
+- Test utilities: pytest-asyncio, pytest-cov, pytest-timeout
+
+#### Run the Application
+
+After installation, run the application directly:
+
+```bash
+chatfilter
+```
+
+Or with custom options:
+
+```bash
+chatfilter --debug --port 9000
+```
+
+See [Command Line Options](#command-line-options) section for all available options.
+
+#### Run Tests
+
+Run the full test suite:
 
 ```bash
 pytest
 ```
 
-### Code quality
+Run tests with coverage report:
 
 ```bash
-# Linting
-ruff check .
+pytest --cov=chatfilter --cov-report=html
+```
 
-# Type checking
+Run specific test file or test:
+
+```bash
+pytest tests/test_filter.py
+pytest tests/test_filter.py::test_specific_function
+```
+
+#### Code Quality
+
+**Linting:**
+
+Check code style with Ruff:
+
+```bash
+ruff check .
+```
+
+Auto-fix issues:
+
+```bash
+ruff check --fix .
+```
+
+**Type Checking:**
+
+Run MyPy type checker:
+
+```bash
 mypy src/
 ```
 
-### Build executable
+**Run All Checks:**
+
+```bash
+ruff check . && mypy src/ && pytest
+```
+
+#### Build Executable
+
+Build standalone executable with PyInstaller:
 
 ```bash
 pip install pyinstaller
 pyinstaller chatfilter.spec
 ```
 
-The executable will be in the `dist/` directory.
+The executable will be in the `dist/` directory:
+- **Windows**: `dist/ChatFilter.exe`
+- **macOS**: `dist/ChatFilter.app`
+- **Linux**: `dist/ChatFilter`
+
+#### Project Structure
+
+```
+ChatFilter/
+├── src/chatfilter/       # Main package source code
+│   ├── main.py          # Entry point
+│   ├── filter/          # Chat filtering logic
+│   ├── web/             # FastAPI web application
+│   └── session/         # Telegram session management
+├── tests/               # Test suite
+├── pyproject.toml       # Project configuration
+└── chatfilter.spec      # PyInstaller build spec
+```
 
 ## License
 
