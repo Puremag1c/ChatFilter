@@ -10,6 +10,13 @@
 </div>
 {% else %}
 <div class="alert alert-error">
-    <strong>Upload failed:</strong> {{ error }}
+    <div><strong>Upload failed:</strong> {{ error }}</div>
+    <div style="margin-top: 0.75rem;">
+        <button type="button"
+                class="btn btn-sm btn-primary"
+                onclick="document.getElementById('upload-form').querySelector('button[type=submit]').click()">
+            Retry Upload
+        </button>
+    </div>
 </div>
 {% endif %}

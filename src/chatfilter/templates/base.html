@@ -27,6 +27,345 @@
     <footer>
         <p>ChatFilter v{{ version }}</p>
     </footer>
+
+    <!-- Toast notification container -->
+    <div id="toast-container"></div>
+
+    <!-- Global error handling and toast system -->
+    <script>
+        // Toast Notification System
+        const ToastManager = {
+            container: null,
+            queue: [],
+            maxToasts: 3,
+            defaultDuration: 5000,
+
+            init() {
+                this.container = document.getElementById('toast-container');
+                if (!this.container) {
+                    this.container = document.createElement('div');
+                    this.container.id = 'toast-container';
+                    document.body.appendChild(this.container);
+                }
+            },
+
+            show(options) {
+                if (!this.container) this.init();
+
+                const toast = {
+                    id: Date.now() + Math.random(),
+                    type: options.type || 'info',
+                    title: options.title || this.getDefaultTitle(options.type),
+                    message: options.message || '',
+                    duration: options.duration !== undefined ? options.duration : this.defaultDuration,
+                    actions: options.actions || [],
+                    onClose: options.onClose
+                };
+
+                this.queue.push(toast);
+                this.render();
+
+                if (toast.duration > 0) {
+                    setTimeout(() => this.hide(toast.id), toast.duration);
+                }
+
+                return toast.id;
+            },
+
+            hide(toastId) {
+                const toast = this.queue.find(t => t.id === toastId);
+                if (!toast) return;
+
+                const element = document.querySelector(`[data-toast-id="${toastId}"]`);
+                if (element) {
+                    element.classList.add('hiding');
+                    setTimeout(() => {
+                        this.queue = this.queue.filter(t => t.id !== toastId);
+                        this.render();
+                        if (toast.onClose) toast.onClose();
+                    }, 300);
+                }
+            },
+
+            hideAll() {
+                const toastIds = this.queue.map(t => t.id);
+                toastIds.forEach(id => this.hide(id));
+            },
+
+            render() {
+                const visibleToasts = this.queue.slice(-this.maxToasts);
+                this.container.innerHTML = visibleToasts.map(toast => this.createToastHTML(toast)).join('');
+
+                setTimeout(() => {
+                    visibleToasts.forEach(toast => {
+                        const element = document.querySelector(`[data-toast-id="${toast.id}"]`);
+                        if (element) element.classList.add('show');
+                    });
+                }, 10);
+            },
+
+            createToastHTML(toast) {
+                const icons = {
+                    error: '✕',
+                    success: '✓',
+                    warning: '⚠',
+                    info: 'ℹ'
+                };
+
+                const actionsHTML = toast.actions.length > 0 ? `
+                    <div class="toast-actions">
+                        ${toast.actions.map(action => `
+                            <button class="toast-action ${action.class || ''}" onclick="ToastManager.handleAction('${toast.id}', '${action.action}')">
+                                ${action.label}
+                            </button>
+                        `).join('')}
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="toast toast-${toast.type}" data-toast-id="${toast.id}">
+                        <div class="toast-icon">${icons[toast.type] || icons.info}</div>
+                        <div class="toast-content">
+                            <div class="toast-title">${this.escapeHtml(toast.title)}</div>
+                            ${toast.message ? `<div class="toast-message">${this.escapeHtml(toast.message)}</div>` : ''}
+                            ${actionsHTML}
+                        </div>
+                        <button class="toast-close" onclick="ToastManager.hide('${toast.id}')">&times;</button>
+                    </div>
+                `;
+            },
+
+            handleAction(toastId, action) {
+                const toast = this.queue.find(t => t.id === toastId);
+                if (!toast) return;
+
+                const actionObj = toast.actions.find(a => a.action === action);
+                if (actionObj && actionObj.callback) {
+                    actionObj.callback();
+                }
+
+                this.hide(toastId);
+            },
+
+            getDefaultTitle(type) {
+                const titles = {
+                    error: 'Error',
+                    success: 'Success',
+                    warning: 'Warning',
+                    info: 'Info'
+                };
+                return titles[type] || 'Notification';
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            // Convenience methods
+            error(message, options = {}) {
+                return this.show({ ...options, type: 'error', message });
+            },
+
+            success(message, options = {}) {
+                return this.show({ ...options, type: 'success', message });
+            },
+
+            warning(message, options = {}) {
+                return this.show({ ...options, type: 'warning', message });
+            },
+
+            info(message, options = {}) {
+                return this.show({ ...options, type: 'info', message });
+            }
+        };
+
+        // Initialize toast system
+        ToastManager.init();
+
+        // Global error boundary
+        window.addEventListener('error', function(event) {
+            console.error('Global error caught:', event.error);
+
+            ToastManager.error(
+                event.error?.message || 'An unexpected error occurred',
+                {
+                    title: 'Application Error',
+                    duration: 0,
+                    actions: [{
+                        label: 'Reload Page',
+                        class: 'retry',
+                        action: 'reload',
+                        callback: () => window.location.reload()
+                    }, {
+                        label: 'Dismiss',
+                        class: 'dismiss',
+                        action: 'dismiss'
+                    }]
+                }
+            );
+        });
+
+        // Global unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+
+            ToastManager.error(
+                event.reason?.message || 'An unexpected error occurred',
+                {
+                    title: 'Application Error',
+                    duration: 8000
+                }
+            );
+        });
+
+        // Make ToastManager globally accessible
+        window.ToastManager = ToastManager;
+
+        // HTMX Error Handling Configuration
+        document.body.addEventListener('htmx:responseError', function(event) {
+            const status = event.detail.xhr.status;
+            const statusText = event.detail.xhr.statusText;
+            let message = 'An error occurred while processing your request';
+            let title = 'Request Failed';
+
+            // Parse error response if JSON
+            try {
+                const response = JSON.parse(event.detail.xhr.responseText);
+                if (response.detail) {
+                    message = response.detail;
+                }
+            } catch (e) {
+                // If not JSON, use status text
+                if (status === 404) {
+                    message = 'The requested resource was not found';
+                    title = 'Not Found';
+                } else if (status === 403) {
+                    message = 'You do not have permission to access this resource';
+                    title = 'Access Denied';
+                } else if (status === 422) {
+                    message = 'Invalid input. Please check your data and try again';
+                    title = 'Validation Error';
+                } else if (status >= 500) {
+                    message = 'A server error occurred. Please try again later';
+                    title = 'Server Error';
+                } else if (statusText) {
+                    message = statusText;
+                }
+            }
+
+            // Get the retry action if available
+            const target = event.detail.target;
+            const canRetry = target && (target.tagName === 'FORM' || target.hasAttribute('hx-get') || target.hasAttribute('hx-post'));
+
+            const actions = [];
+            if (canRetry) {
+                actions.push({
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => {
+                        htmx.trigger(target, target.tagName === 'FORM' ? 'submit' : 'click');
+                    }
+                });
+            }
+            actions.push({
+                label: 'Dismiss',
+                class: 'dismiss',
+                action: 'dismiss'
+            });
+
+            ToastManager.error(message, {
+                title: title,
+                duration: 8000,
+                actions: actions
+            });
+        });
+
+        // HTMX network error (timeout, connection failed, etc.)
+        document.body.addEventListener('htmx:sendError', function(event) {
+            const target = event.detail.target;
+            const canRetry = target && (target.tagName === 'FORM' || target.hasAttribute('hx-get') || target.hasAttribute('hx-post'));
+
+            const actions = [];
+            if (canRetry) {
+                actions.push({
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => {
+                        htmx.trigger(target, target.tagName === 'FORM' ? 'submit' : 'click');
+                    }
+                });
+            }
+            actions.push({
+                label: 'Dismiss',
+                class: 'dismiss',
+                action: 'dismiss'
+            });
+
+            ToastManager.error(
+                'Unable to connect to the server. Please check your internet connection',
+                {
+                    title: 'Connection Error',
+                    duration: 8000,
+                    actions: actions
+                }
+            );
+        });
+
+        // HTMX timeout error
+        document.body.addEventListener('htmx:timeout', function(event) {
+            const target = event.detail.target;
+            const canRetry = target && (target.tagName === 'FORM' || target.hasAttribute('hx-get') || target.hasAttribute('hx-post'));
+
+            const actions = [];
+            if (canRetry) {
+                actions.push({
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => {
+                        htmx.trigger(target, target.tagName === 'FORM' ? 'submit' : 'click');
+                    }
+                });
+            }
+            actions.push({
+                label: 'Dismiss',
+                class: 'dismiss',
+                action: 'dismiss'
+            });
+
+            ToastManager.error(
+                'The request took too long to complete. The server may be busy',
+                {
+                    title: 'Request Timeout',
+                    duration: 8000,
+                    actions: actions
+                }
+            );
+        });
+
+        // HTMX swap error (invalid response format)
+        document.body.addEventListener('htmx:swapError', function(event) {
+            console.error('HTMX swap error:', event.detail);
+
+            ToastManager.error(
+                'The server returned an unexpected response format',
+                {
+                    title: 'Response Error',
+                    duration: 8000
+                }
+            );
+        });
+
+        // Log successful responses (optional, for debugging)
+        // document.body.addEventListener('htmx:afterSwap', function(event) {
+        //     console.log('HTMX swap successful:', event.detail);
+        // });
+    </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

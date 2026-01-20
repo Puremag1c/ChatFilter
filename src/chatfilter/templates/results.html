@@ -404,7 +404,20 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(err => {
             console.error('Export failed:', err);
-            alert('Export failed: ' + err.message);
+            ToastManager.error(err.message || 'Failed to export results. Please try again.', {
+                title: 'Export Failed',
+                duration: 8000,
+                actions: [{
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => document.querySelector('.btn-primary').click()
+                }, {
+                    label: 'Dismiss',
+                    class: 'dismiss',
+                    action: 'dismiss'
+                }]
+            });
         });
     });
 });

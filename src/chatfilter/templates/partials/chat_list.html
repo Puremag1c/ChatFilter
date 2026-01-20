@@ -1,6 +1,15 @@
 {% if error %}
 <div class="alert alert-error">
-    {{ error }}
+    <div>{{ error }}</div>
+    <div style="margin-top: 0.75rem;">
+        <button type="button"
+                class="btn btn-sm btn-primary"
+                hx-get="/api/chats?session-select={{ session_id }}"
+                hx-target="#chats-container"
+                hx-swap="innerHTML">
+            Retry Loading Chats
+        </button>
+    </div>
 </div>
 {% elif chats %}
 {% if is_initial_load %}

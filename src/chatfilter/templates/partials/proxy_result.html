@@ -4,6 +4,13 @@
 </div>
 {% else %}
 <div class="alert alert-error">
-    <strong>Error:</strong> {{ error }}
+    <div><strong>Error:</strong> {{ error }}</div>
+    <div style="margin-top: 0.75rem;">
+        <button type="button"
+                class="btn btn-sm btn-primary"
+                onclick="document.getElementById('proxy-form').querySelector('button[type=submit]').click()">
+            Retry Save
+        </button>
+    </div>
 </div>
 {% endif %}

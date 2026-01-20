@@ -400,7 +400,16 @@
                 console.error('Failed to cancel:', err);
                 cancelBtn.disabled = false;
                 cancelBtn.textContent = 'Cancel';
-                alert('Failed to cancel analysis. Please try again.');
+                ToastManager.error('Failed to cancel analysis. Please try again.', {
+                    title: 'Cancellation Failed',
+                    duration: 8000,
+                    actions: [{
+                        label: 'Retry',
+                        class: 'retry',
+                        action: 'retry',
+                        callback: () => cancelBtn.click()
+                    }]
+                });
             });
         }
     });
