@@ -348,6 +348,181 @@ class TestTaskQueue:
         assert found is not None
         assert found.task_id in [task1.task_id, task2.task_id]
 
+    @pytest.mark.asyncio
+    async def test_task_timeout(self) -> None:
+        """Test that tasks timeout after exceeding max execution time."""
+        # Create queue with 1 second timeout
+        queue = TaskQueue(task_timeout_seconds=1.0)
+
+        # Create executor with long delay that will exceed timeout
+        executor = MockExecutor(delay=0.5)
+        task = queue.create_task("session1", [1, 2, 3, 4, 5])
+
+        # Run task - should timeout before completing all chats
+        await queue.run_task(task.task_id, executor)
+
+        # Task should be marked as timeout
+        assert task.status == TaskStatus.TIMEOUT
+        assert "exceeded maximum execution time" in task.error
+        assert len(task.results) < len(task.chat_ids)  # Partial results
+
+    @pytest.mark.asyncio
+    async def test_per_chat_timeout(self) -> None:
+        """Test that individual chats timeout if they take too long."""
+        # Create queue with 0.2 second per-chat timeout
+        queue = TaskQueue(per_chat_timeout_seconds=0.2)
+
+        # First chat is fast, second is slow
+        class SlowOnSecondExecutor(MockExecutor):
+            async def analyze_chat(self, session_id: str, chat_id: int, message_limit: int = 1000) -> AnalysisResult:
+                if chat_id == 2:
+                    await asyncio.sleep(0.5)  # Exceeds timeout
+                return await super().analyze_chat(session_id, chat_id, message_limit)
+
+        executor = SlowOnSecondExecutor()
+        task = queue.create_task("session1", [1, 2, 3])
+
+        # Run task
+        await queue.run_task(task.task_id, executor)
+
+        # Task should complete (not timeout at task level)
+        assert task.status == TaskStatus.COMPLETED
+        # Should have results for chat 1 and 3, but not 2 (timed out)
+        assert len(task.results) == 2
+        assert 1 in executor.analyzed_chats
+        assert 2 not in executor.analyzed_chats  # Timed out
+        assert 3 in executor.analyzed_chats
+
+    @pytest.mark.asyncio
+    async def test_stalled_task_detection(self) -> None:
+        """Test that stalled tasks are detected and cancelled."""
+        # Create queue with very short stall timeout (2 seconds) and check interval (1 second)
+        queue = TaskQueue(
+            progress_stall_timeout_seconds=2.0,
+            stall_check_interval_seconds=1.0,
+        )
+
+        # Create executor that hangs on second chat
+        class HangingExecutor(MockExecutor):
+            async def analyze_chat(self, session_id: str, chat_id: int, message_limit: int = 1000) -> AnalysisResult:
+                if chat_id == 2:
+                    # Hang indefinitely (will be killed by stall monitor)
+                    await asyncio.sleep(10)
+                return await super().analyze_chat(session_id, chat_id, message_limit)
+
+        executor = HangingExecutor()
+        task = queue.create_task("session1", [1, 2, 3])
+
+        # Run task - should be cancelled by stall monitor
+        try:
+            await queue.run_task(task.task_id, executor)
+        except asyncio.CancelledError:
+            pass  # Expected when force cancelled
+
+        # Wait a bit for stall monitor to detect and cancel
+        await asyncio.sleep(3.0)
+
+        # Task should be cancelled
+        assert task.status == TaskStatus.CANCELLED
+        # Should have partial results (only chat 1)
+        assert len(task.results) == 1
+
+    @pytest.mark.asyncio
+    async def test_force_cancel_running_task(self) -> None:
+        """Test force cancelling a running task."""
+        queue = TaskQueue()
+
+        # Create slow executor
+        executor = MockExecutor(delay=0.2)
+        task = queue.create_task("session1", [1, 2, 3, 4, 5])
+
+        # Run task in background
+        run_task = asyncio.create_task(queue.run_task(task.task_id, executor))
+
+        # Wait for task to start
+        await asyncio.sleep(0.3)
+
+        # Force cancel the task
+        result = await queue.force_cancel_task(task.task_id, reason="Test force cancel")
+        assert result is True
+
+        # Wait for task to finish
+        try:
+            await run_task
+        except asyncio.CancelledError:
+            pass  # Expected
+
+        # Task should be cancelled
+        assert task.status == TaskStatus.CANCELLED
+        # Error could be either "Task was force-cancelled" or the custom reason
+        assert task.error is not None
+
+    @pytest.mark.asyncio
+    async def test_force_cancel_nonexistent_task(self) -> None:
+        """Test force cancelling non-existent task returns False."""
+        queue = TaskQueue()
+        from uuid import uuid4
+
+        result = await queue.force_cancel_task(uuid4(), reason="Test")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_shutdown_cancels_running_tasks(self) -> None:
+        """Test that shutdown cancels all running tasks."""
+        queue = TaskQueue()
+
+        # Create slow executor
+        executor = MockExecutor(delay=0.2)
+        task = queue.create_task("session1", [1, 2, 3, 4, 5])
+
+        # Run task in background
+        run_task = asyncio.create_task(queue.run_task(task.task_id, executor))
+
+        # Wait for task to start
+        await asyncio.sleep(0.3)
+
+        # Shutdown queue
+        await queue.shutdown()
+
+        # Wait for task to finish
+        try:
+            await run_task
+        except asyncio.CancelledError:
+            pass  # Expected
+
+        # Task should be cancelled
+        assert task.status == TaskStatus.CANCELLED
+
+    def test_clear_completed_includes_timeout(self) -> None:
+        """Test that clear_completed removes timeout tasks."""
+        queue = TaskQueue()
+
+        task1 = queue.create_task("session1", [1])
+        task2 = queue.create_task("session2", [2])
+        task3 = queue.create_task("session3", [3])
+
+        task1.status = TaskStatus.TIMEOUT
+        task2.status = TaskStatus.COMPLETED
+        # task3 remains PENDING
+
+        removed = queue.clear_completed()
+
+        assert removed == 2
+        assert queue.get_task(task1.task_id) is None
+        assert queue.get_task(task2.task_id) is None
+        assert queue.get_task(task3.task_id) is not None
+
+    def test_find_active_task_ignores_timeout(self) -> None:
+        """Test that timeout tasks are not returned as active."""
+        queue = TaskQueue()
+        task = queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.TIMEOUT
+
+        # Should not find timeout task
+        found = queue.find_active_task("session1", [1, 2, 3], 1000)
+
+        assert found is None
+
 
 class TestGlobalTaskQueue:
     """Tests for global task queue singleton."""

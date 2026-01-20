@@ -222,6 +222,12 @@ async def _generate_sse_events(
                             "message": "Analysis cancelled",
                         }
                         yield f"event: cancelled\ndata: {json.dumps(cancel_data)}\n\n"
+                    elif task and task.status == TaskStatus.TIMEOUT:
+                        timeout_data = {
+                            "results_count": len(task.results),
+                            "error": task.error or "Task timed out",
+                        }
+                        yield f"event: timeout\ndata: {json.dumps(timeout_data)}\n\n"
                     elif task and task.status == TaskStatus.FAILED:
                         error_data = {"error": task.error or "Unknown error"}
                         yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
@@ -346,6 +352,19 @@ async def get_results(
             {"request": request, "error": task.error or "Analysis failed"},
         )
 
+    if task.status == TaskStatus.TIMEOUT:
+        return templates.TemplateResponse(
+            "partials/analysis_results.html",
+            {
+                "request": request,
+                "task_id": task_id,
+                "results": task.results,
+                "session_id": task.session_id,
+                "is_partial": True,
+                "error": task.error or "Analysis timed out",
+            },
+        )
+
     # For COMPLETED or CANCELLED, show results (partial results for cancelled)
     return templates.TemplateResponse(
         "partials/analysis_results.html",
@@ -401,7 +420,9 @@ async def get_status(task_id: str) -> dict:
 
 @router.post("/{task_id}/cancel")
 async def cancel_analysis(task_id: str) -> dict:
-    """Cancel a running analysis task.
+    """Cancel a running analysis task gracefully.
+
+    Waits for current chat to finish before stopping.
 
     Args:
         task_id: Task UUID string
@@ -441,4 +462,56 @@ async def cancel_analysis(task_id: str) -> dict:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot cancel task with status: {task.status.value}",
+            )
+
+
+@router.post("/{task_id}/force-cancel")
+async def force_cancel_analysis(task_id: str, reason: str = "User-requested forced cancellation") -> dict:
+    """Forcefully cancel a running analysis task immediately.
+
+    This is more aggressive than regular cancel - it immediately cancels
+    the asyncio task without waiting for the current operation to complete.
+    Use this for hung/deadlocked tasks that aren't responding to graceful
+    cancellation.
+
+    Args:
+        task_id: Task UUID string
+        reason: Optional reason for forced cancellation
+
+    Returns:
+        Status message with cancellation details
+
+    Raises:
+        HTTPException: If task not found or cannot be cancelled
+    """
+    try:
+        uuid_task_id = UUID(task_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid task ID format",
+        )
+
+    queue = get_task_queue()
+
+    if await queue.force_cancel_task(uuid_task_id, reason=reason):
+        task = queue.get_task(uuid_task_id)
+        logger.warning(f"Analysis task {task_id} force-cancelled by user: {reason}")
+        return {
+            "status": "force_cancelled",
+            "message": "Task force-cancelled successfully",
+            "reason": reason,
+            "partial_results": len(task.results) if task else 0,
+        }
+    else:
+        task = queue.get_task(uuid_task_id)
+        if task is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot force-cancel task with status: {task.status.value}",
             )

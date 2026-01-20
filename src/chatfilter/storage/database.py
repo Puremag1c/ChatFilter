@@ -258,7 +258,7 @@ class TaskDatabase:
             conn.execute("DELETE FROM tasks WHERE task_id = ?", (str(task_id),))
 
     def delete_completed_tasks(self) -> int:
-        """Delete all completed, failed, and cancelled tasks.
+        """Delete all completed, failed, cancelled, and timeout tasks.
 
         Returns:
             Number of tasks deleted
@@ -267,12 +267,13 @@ class TaskDatabase:
             cursor = conn.execute(
                 """
                 DELETE FROM tasks
-                WHERE status IN (?, ?, ?)
+                WHERE status IN (?, ?, ?, ?)
                 """,
                 (
                     TaskStatus.COMPLETED.value,
                     TaskStatus.FAILED.value,
                     TaskStatus.CANCELLED.value,
+                    TaskStatus.TIMEOUT.value,
                 ),
             )
             return cursor.rowcount

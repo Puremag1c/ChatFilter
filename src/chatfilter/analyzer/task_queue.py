@@ -43,6 +43,7 @@ class TaskStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    TIMEOUT = "timeout"  # Task exceeded time limit
 
 
 @dataclass
@@ -73,6 +74,7 @@ class AnalysisTask:
     results: list[AnalysisResult] = field(default_factory=list)
     error: str | None = None
     current_chat_index: int = 0
+    last_progress_at: datetime | None = None  # Track last progress for deadlock detection
 
 
 class AnalysisExecutor(Protocol):
@@ -125,6 +127,10 @@ class TaskQueue:
         auto_cleanup_threshold: int = 100,
         memory_threshold_mb: float = 2048.0,
         enable_memory_monitoring: bool = True,
+        task_timeout_seconds: float = 3600.0,  # 1 hour default
+        per_chat_timeout_seconds: float = 300.0,  # 5 minutes per chat default
+        progress_stall_timeout_seconds: float = 600.0,  # 10 minutes of no progress
+        stall_check_interval_seconds: float = 60.0,  # How often to check for stalls
     ) -> None:
         """Initialize the task queue.
 
@@ -135,13 +141,27 @@ class TaskQueue:
             memory_threshold_mb: Memory usage threshold in MB for warnings (default 2048MB).
                 Set to 0 to disable memory monitoring.
             enable_memory_monitoring: Enable periodic memory logging (default True)
+            task_timeout_seconds: Maximum time for entire task execution (default 3600s = 1 hour).
+                Set to 0 to disable task timeout.
+            per_chat_timeout_seconds: Maximum time for analyzing a single chat (default 300s = 5 minutes).
+                Set to 0 to disable per-chat timeout.
+            progress_stall_timeout_seconds: Time without progress before considering task stalled
+                (default 600s = 10 minutes). Set to 0 to disable stall detection.
+            stall_check_interval_seconds: How often to check for stalled tasks (default 60s).
+                Only used when stall detection is enabled.
         """
         self._db = db
         self._tasks: dict[UUID, AnalysisTask] = {}
         self._subscribers: dict[UUID, list[asyncio.Queue[ProgressEvent | None]]] = {}
+        self._running_tasks: dict[UUID, asyncio.Task] = {}  # Track asyncio tasks for cancellation
         self._lock = asyncio.Lock()
         self._auto_cleanup_threshold = auto_cleanup_threshold
         self._enable_memory_monitoring = enable_memory_monitoring and MemoryMonitor is not None
+        self._task_timeout_seconds = task_timeout_seconds
+        self._per_chat_timeout_seconds = per_chat_timeout_seconds
+        self._progress_stall_timeout_seconds = progress_stall_timeout_seconds
+        self._stall_check_interval_seconds = stall_check_interval_seconds
+        self._monitor_task: asyncio.Task | None = None  # Background monitor for stalled tasks
 
         # Initialize memory monitor
         self._memory_monitor: MemoryMonitor | None = None
@@ -152,6 +172,18 @@ class TaskQueue:
                 circuit_breaker=False,  # Don't break, just warn
             )
             logger.info(f"Memory monitoring enabled (threshold: {memory_threshold_mb}MB)")
+
+        # Start background monitoring if stall detection is enabled
+        # Only create the task if we're in an async context (event loop running)
+        if self._progress_stall_timeout_seconds > 0:
+            try:
+                self._monitor_task = asyncio.create_task(self._monitor_stalled_tasks())
+                logger.info(
+                    f"Task stall monitoring enabled (timeout: {progress_stall_timeout_seconds}s)"
+                )
+            except RuntimeError:
+                # No event loop running - will start monitor on first task run
+                logger.debug("Event loop not running, will start monitor on first task run")
 
         # Load incomplete tasks from database
         if self._db:
@@ -338,6 +370,11 @@ class TaskQueue:
         Args:
             event: Event to publish
         """
+        # Update last progress time for deadlock detection
+        task = self._tasks.get(event.task_id)
+        if task and event.status == TaskStatus.IN_PROGRESS:
+            task.last_progress_at = datetime.now(UTC)
+
         async with self._lock:
             subscribers = self._subscribers.get(event.task_id, [])
             for queue in subscribers:
@@ -366,14 +403,134 @@ class TaskQueue:
                 except asyncio.QueueFull:
                     pass
 
+    def _ensure_monitor_started(self) -> None:
+        """Ensure the stall monitor task is running.
+
+        Called at the start of task execution to start the monitor
+        if it wasn't started during __init__ (no event loop at that time).
+        """
+        if (
+            self._progress_stall_timeout_seconds > 0
+            and (self._monitor_task is None or self._monitor_task.done())
+        ):
+            try:
+                self._monitor_task = asyncio.create_task(self._monitor_stalled_tasks())
+                logger.info(
+                    f"Task stall monitoring started (timeout: {self._progress_stall_timeout_seconds}s)"
+                )
+            except RuntimeError:
+                # Event loop not available yet
+                pass
+
+    async def _monitor_stalled_tasks(self) -> None:
+        """Background task to monitor for stalled/hung tasks.
+
+        Checks periodically for tasks that haven't made progress within
+        the configured stall timeout period.
+        """
+        while True:
+            try:
+                await asyncio.sleep(self._stall_check_interval_seconds)
+
+                now = datetime.now(UTC)
+                for task_id, task in list(self._tasks.items()):
+                    if task.status != TaskStatus.IN_PROGRESS:
+                        continue
+
+                    # Check if task has stalled (no progress for too long)
+                    if task.last_progress_at:
+                        time_since_progress = (now - task.last_progress_at).total_seconds()
+                        if time_since_progress > self._progress_stall_timeout_seconds:
+                            logger.warning(
+                                f"Task {task_id} detected as stalled "
+                                f"({time_since_progress:.0f}s since last progress). "
+                                f"Forcing cancellation."
+                            )
+                            await self.force_cancel_task(
+                                task_id,
+                                reason=f"Task stalled: no progress for {time_since_progress:.0f}s",
+                            )
+
+            except asyncio.CancelledError:
+                logger.info("Task stall monitor shutting down")
+                break
+            except Exception as e:
+                logger.exception(f"Error in stall monitor: {e}")
+                # Continue monitoring despite errors
+
+    async def force_cancel_task(
+        self,
+        task_id: UUID,
+        reason: str = "Forced cancellation",
+    ) -> bool:
+        """Forcefully cancel a running task by canceling its asyncio Task.
+
+        This is more aggressive than cancel_task() which waits for graceful completion.
+        Use this for hung/deadlocked tasks that aren't responding.
+
+        Args:
+            task_id: Task UUID to cancel
+            reason: Reason for cancellation
+
+        Returns:
+            True if cancelled, False if task not found or not running
+        """
+        task = self._tasks.get(task_id)
+        if task is None:
+            return False
+
+        # Cancel the asyncio task if it's running
+        asyncio_task = self._running_tasks.get(task_id)
+        if asyncio_task and not asyncio_task.done():
+            logger.info(f"Force cancelling task {task_id}: {reason}")
+            asyncio_task.cancel()
+            return True
+
+        # If not running, fallback to graceful cancellation
+        if task.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS):
+            task.status = TaskStatus.CANCELLED
+            task.completed_at = datetime.now(UTC)
+            task.error = reason
+
+            # Persist cancellation
+            if self._db:
+                self._db.save_task(task)
+
+            logger.info(f"Task {task_id} cancelled (not running): {reason}")
+            return True
+
+        return False
+
+    async def shutdown(self) -> None:
+        """Gracefully shutdown the task queue.
+
+        Stops background monitoring and cancels all running tasks.
+        """
+        logger.info("Shutting down task queue...")
+
+        # Stop background monitor
+        if self._monitor_task and not self._monitor_task.done():
+            self._monitor_task.cancel()
+            try:
+                await self._monitor_task
+            except asyncio.CancelledError:
+                pass
+
+        # Cancel all running tasks
+        for task_id in list(self._running_tasks.keys()):
+            await self.force_cancel_task(task_id, reason="System shutdown")
+
+        logger.info("Task queue shutdown complete")
+
     async def run_task(
         self,
         task_id: UUID,
         executor: AnalysisExecutor,
     ) -> None:
-        """Execute an analysis task.
+        """Execute an analysis task with timeout protection.
 
         Processes each chat, publishes progress events, and stores results.
+        Applies task-level and per-chat timeouts to prevent hanging.
 
         Args:
             task_id: Task UUID to run
@@ -382,12 +539,92 @@ class TaskQueue:
         Raises:
             KeyError: If task not found
         """
+        # Ensure stall monitor is running (in case it wasn't started during __init__)
+        self._ensure_monitor_started()
+
+        # Create asyncio task and track it for forced cancellation
+        current_task = asyncio.current_task()
+        if current_task:
+            self._running_tasks[task_id] = current_task
+
+        try:
+            # Apply task-level timeout if configured
+            if self._task_timeout_seconds > 0:
+                await asyncio.wait_for(
+                    self._run_task_impl(task_id, executor),
+                    timeout=self._task_timeout_seconds,
+                )
+            else:
+                await self._run_task_impl(task_id, executor)
+        except asyncio.TimeoutError:
+            # Task exceeded time limit
+            task = self._tasks.get(task_id)
+            if task:
+                task.status = TaskStatus.TIMEOUT
+                task.error = f"Task exceeded maximum execution time ({self._task_timeout_seconds}s)"
+                task.completed_at = datetime.now(UTC)
+
+                if self._db:
+                    self._db.save_task(task)
+
+                await self._publish_event(
+                    ProgressEvent(
+                        task_id=task_id,
+                        status=TaskStatus.TIMEOUT,
+                        current=task.current_chat_index,
+                        total=len(task.chat_ids),
+                        error=task.error,
+                    )
+                )
+
+                logger.error(f"Task {task_id} timed out after {self._task_timeout_seconds}s")
+                await self._signal_completion(task_id)
+        except asyncio.CancelledError:
+            # Task was force-cancelled
+            task = self._tasks.get(task_id)
+            if task and task.status != TaskStatus.CANCELLED:
+                task.status = TaskStatus.CANCELLED
+                task.error = task.error or "Task was force-cancelled"
+                task.completed_at = datetime.now(UTC)
+
+                if self._db:
+                    self._db.save_task(task)
+
+                await self._publish_event(
+                    ProgressEvent(
+                        task_id=task_id,
+                        status=TaskStatus.CANCELLED,
+                        current=task.current_chat_index,
+                        total=len(task.chat_ids),
+                        message="Task was force-cancelled",
+                    )
+                )
+
+                logger.info(f"Task {task_id} was force-cancelled")
+                await self._signal_completion(task_id)
+            raise  # Re-raise to properly handle cancellation
+        finally:
+            # Clean up running task tracking
+            self._running_tasks.pop(task_id, None)
+
+    async def _run_task_impl(
+        self,
+        task_id: UUID,
+        executor: AnalysisExecutor,
+    ) -> None:
+        """Internal implementation of task execution.
+
+        Args:
+            task_id: Task UUID to run
+            executor: Analysis executor implementation
+        """
         task = self._tasks.get(task_id)
         if task is None:
             raise KeyError(f"Task {task_id} not found")
 
         task.status = TaskStatus.IN_PROGRESS
         task.started_at = datetime.now(UTC)
+        task.last_progress_at = datetime.now(UTC)  # Initialize progress tracking
 
         # Persist status change
         if self._db:
@@ -432,13 +669,23 @@ class TaskQueue:
                     )
                 )
 
-                # Analyze chat
+                # Analyze chat with per-chat timeout
                 try:
-                    result = await executor.analyze_chat(
-                        task.session_id,
-                        chat_id,
-                        task.message_limit,
-                    )
+                    if self._per_chat_timeout_seconds > 0:
+                        result = await asyncio.wait_for(
+                            executor.analyze_chat(
+                                task.session_id,
+                                chat_id,
+                                task.message_limit,
+                            ),
+                            timeout=self._per_chat_timeout_seconds,
+                        )
+                    else:
+                        result = await executor.analyze_chat(
+                            task.session_id,
+                            chat_id,
+                            task.message_limit,
+                        )
                     task.results.append(result)
 
                     # Persist result and update task state
@@ -450,6 +697,13 @@ class TaskQueue:
                     if self._memory_monitor:
                         self._memory_monitor.check()
 
+                except asyncio.TimeoutError:
+                    # Per-chat timeout exceeded
+                    logger.warning(
+                        f"Chat {chat_id} ({chat_title}) analysis timed out "
+                        f"after {self._per_chat_timeout_seconds}s. Skipping and continuing."
+                    )
+                    # Continue with other chats - don't fail entire task
                 except ChatAccessDeniedError as e:
                     # Chat is inaccessible (kicked, banned, left, or private/deleted)
                     logger.info(f"Skipping inaccessible chat {chat_id} ({chat_title}): {e}")
@@ -542,7 +796,7 @@ class TaskQueue:
         return False
 
     def clear_completed(self) -> int:
-        """Remove all completed/failed/cancelled tasks from memory and database.
+        """Remove all completed/failed/cancelled/timeout tasks from memory and database.
 
         Returns:
             Number of tasks removed
@@ -551,7 +805,7 @@ class TaskQueue:
             task_id
             for task_id, task in self._tasks.items()
             if task.status
-            in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)
+            in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.TIMEOUT)
         ]
 
         for task_id in to_remove:
@@ -579,7 +833,7 @@ class TaskQueue:
             1
             for task in self._tasks.values()
             if task.status
-            in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)
+            in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.TIMEOUT)
         )
 
         if completed_count >= self._auto_cleanup_threshold:
@@ -590,7 +844,7 @@ class TaskQueue:
             self.clear_completed()
 
     async def cleanup_orphaned_subscribers(self) -> int:
-        """Clean up subscriber queues for completed/failed/cancelled tasks.
+        """Clean up subscriber queues for completed/failed/cancelled/timeout tasks.
 
         Orphaned subscribers can occur when clients disconnect abruptly
         without properly unsubscribing. This method removes subscriber
@@ -603,11 +857,12 @@ class TaskQueue:
             cleaned_count = 0
             for task_id in list(self._subscribers.keys()):
                 task = self._tasks.get(task_id)
-                # Clean subscribers for completed/failed/cancelled tasks
+                # Clean subscribers for completed/failed/cancelled/timeout tasks
                 if task and task.status in (
                     TaskStatus.COMPLETED,
                     TaskStatus.FAILED,
                     TaskStatus.CANCELLED,
+                    TaskStatus.TIMEOUT,
                 ):
                     subscriber_count = len(self._subscribers[task_id])
                     if subscriber_count > 0:
