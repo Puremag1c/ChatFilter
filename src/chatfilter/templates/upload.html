@@ -13,6 +13,112 @@
     Only upload sessions you trust and never share them with others.
 </div>
 
+<section class="card onboarding">
+    <h3>First Time Setup Guide</h3>
+    <p>To use ChatFilter, you need two things: <strong>API credentials</strong> and a <strong>session file</strong>. Follow the steps below to obtain them.</p>
+
+    <details class="onboarding-section">
+        <summary><strong>Step 1: Get API Credentials (api_id and api_hash)</strong></summary>
+        <div class="onboarding-content">
+            <ol>
+                <li>Go to <a href="https://my.telegram.org/apps" target="_blank" rel="noopener">https://my.telegram.org/apps</a></li>
+                <li>Sign in with your phone number (you'll receive a confirmation code via Telegram)</li>
+                <li>Fill in the application registration form:
+                    <ul>
+                        <li><strong>App title:</strong> Any name (e.g., "My Chat Filter")</li>
+                        <li><strong>Short name:</strong> A short identifier (e.g., "chatfilter")</li>
+                        <li><strong>Platform:</strong> Select "Desktop"</li>
+                        <li><strong>Description:</strong> Optional description of your app</li>
+                    </ul>
+                </li>
+                <li>Click "Create application"</li>
+                <li>You'll receive your <code>api_id</code> (a number) and <code>api_hash</code> (a long string)</li>
+                <li>Save these credentials - you'll need them in the next step</li>
+            </ol>
+        </div>
+    </details>
+
+    <details class="onboarding-section">
+        <summary><strong>Step 2: Create a Session File</strong></summary>
+        <div class="onboarding-content">
+            <p>You need to create a Telegram session file using either Telethon or Pyrogram. Here's how:</p>
+
+            <h4>Option A: Using Telethon (Recommended)</h4>
+            <ol>
+                <li>Install Telethon:
+                    <pre><code>pip install telethon</code></pre>
+                </li>
+                <li>Create a Python script (<code>create_session.py</code>):
+                    <pre><code>from telethon.sync import TelegramClient
+
+# Replace with your credentials from Step 1
+api_id = 12345678  # Your api_id (number)
+api_hash = 'your_api_hash_here'  # Your api_hash (string)
+session_name = 'my_session'  # Choose a name for your session
+
+# Create the session
+client = TelegramClient(session_name, api_id, api_hash)
+client.start()
+print(f"Session created: {session_name}.session")
+client.disconnect()</code></pre>
+                </li>
+                <li>Run the script:
+                    <pre><code>python create_session.py</code></pre>
+                </li>
+                <li>Enter your phone number and the confirmation code you receive via Telegram</li>
+                <li>A <code>.session</code> file will be created in the same directory</li>
+            </ol>
+
+            <h4>Option B: Using Pyrogram</h4>
+            <ol>
+                <li>Install Pyrogram:
+                    <pre><code>pip install pyrogram</code></pre>
+                </li>
+                <li>Create a Python script:
+                    <pre><code>from pyrogram import Client
+
+api_id = 12345678  # Your api_id
+api_hash = 'your_api_hash_here'  # Your api_hash
+session_name = 'my_session'
+
+app = Client(session_name, api_id=api_id, api_hash=api_hash)
+
+with app:
+    print(f"Session created: {session_name}.session")
+    me = app.get_me()
+    print(f"Logged in as: {me.first_name}")</code></pre>
+                </li>
+                <li>Run the script and follow the authentication prompts</li>
+                <li>A <code>.session</code> file will be created</li>
+            </ol>
+        </div>
+    </details>
+
+    <details class="onboarding-section">
+        <summary><strong>Step 3: Create Config File</strong></summary>
+        <div class="onboarding-content">
+            <p>Create a JSON file (<code>config.json</code>) with your API credentials:</p>
+            <pre><code>{
+    "api_id": 12345678,
+    "api_hash": "your_api_hash_here"
+}</code></pre>
+            <p><strong>Important:</strong> Replace the values with your actual credentials from Step 1.</p>
+        </div>
+    </details>
+
+    <details class="onboarding-section">
+        <summary><strong>Step 4: Upload Your Files</strong></summary>
+        <div class="onboarding-content">
+            <p>Now you're ready to upload:</p>
+            <ul>
+                <li>Your <code>.session</code> file created in Step 2</li>
+                <li>Your <code>config.json</code> file created in Step 3</li>
+            </ul>
+            <p>Use the upload form below to add them to ChatFilter. Give your session a memorable name to identify it later.</p>
+        </div>
+    </details>
+</section>
+
 <section class="card">
     <h3>Upload New Session</h3>
 

@@ -337,3 +337,130 @@ footer {
     padding: 2rem;
     color: #666;
 }
+
+/* Onboarding Section */
+.card.onboarding {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+}
+
+.card.onboarding > p {
+    margin-bottom: 1.5rem;
+    color: #495057;
+    line-height: 1.7;
+}
+
+.onboarding-section {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.onboarding-section summary {
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    user-select: none;
+    background: white;
+    transition: background-color 0.2s;
+    list-style: none;
+    display: flex;
+    align-items: center;
+}
+
+.onboarding-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.onboarding-section summary::before {
+    content: "▶";
+    margin-right: 0.75rem;
+    transition: transform 0.2s;
+    color: #2196F3;
+    font-size: 0.75rem;
+}
+
+.onboarding-section[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.onboarding-section summary:hover {
+    background-color: #f8f9fa;
+}
+
+.onboarding-content {
+    padding: 1.25rem;
+    border-top: 1px solid #e9ecef;
+    background: #fafbfc;
+}
+
+.onboarding-content h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem 0;
+    color: #2196F3;
+}
+
+.onboarding-content h4:first-child {
+    margin-top: 0;
+}
+
+.onboarding-content ol,
+.onboarding-content ul {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.onboarding-content li {
+    margin-bottom: 0.5rem;
+    line-height: 1.7;
+}
+
+.onboarding-content li ul,
+.onboarding-content li ol {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.onboarding-content code {
+    background: #e9ecef;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #d63384;
+}
+
+.onboarding-content pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    border: 1px solid #333;
+}
+
+.onboarding-content pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.onboarding-content a {
+    color: #2196F3;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.onboarding-content a:hover {
+    text-decoration: underline;
+}
+
+.onboarding-content p {
+    margin-bottom: 0.75rem;
+    line-height: 1.7;
+}

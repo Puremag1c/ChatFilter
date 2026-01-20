@@ -12,7 +12,14 @@
       "Bash(python -m mypy:*)",
       "Bash(python3:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add Pydantic data models for Chat, Message, and AnalysisResult\n\nDomain models with strict validation independent of Telethon internals:\n- Chat/ChatType: chat representation with ID/title/type validators\n- Message: message with author_id and timestamp validation\n- ChatMetrics: computed metrics \\(message count, unique authors, history hours\\)\n- AnalysisResult: combines chat with metrics, includes is_active computed field\n\nAll models include .fake\\(\\) factory methods for testing.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(bd claim:*)"
+      "Bash(bd claim:*)",
+      "Bash(.venv/bin/pytest:*)",
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.12/bin/pytest:*)",
+      "Bash(CHATFILTER_PORT=9999 CHATFILTER_DEBUG=true python3:*)",
+      "Bash(ruff check:*)",
+      "Bash(pkill:*)",
+      "Bash(git pull:*)",
+      "Bash(pytest:*)"
     ],
     "additionalDirectories": [
       "/Users/m/Zen/Code/ChatFilter/src/chatfilter"
