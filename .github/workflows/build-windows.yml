@@ -32,20 +32,21 @@ jobs:
           pip install -e .
           pip install pyinstaller
 
-      - name: Build Windows onefile executable
+      - name: Build Windows onedir executable
         run: |
           pyinstaller chatfilter.spec `
-            --onefile `
             --clean `
             --noconfirm
         shell: pwsh
 
       - name: Verify executable
         run: |
-          if (Test-Path "dist/ChatFilter.exe") {
+          if (Test-Path "dist/ChatFilter/ChatFilter.exe") {
             Write-Host "✓ Executable created successfully"
-            $size = (Get-Item "dist/ChatFilter.exe").Length / 1MB
+            $size = (Get-Item "dist/ChatFilter/ChatFilter.exe").Length / 1MB
             Write-Host "Size: $([math]::Round($size, 2)) MB"
+            Write-Host "Distribution directory:"
+            Get-ChildItem "dist/ChatFilter" | Format-Table Name, Length
           } else {
             Write-Error "Executable not found!"
             exit 1
@@ -59,12 +60,17 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          python tests/smoke_test.py --binary dist/ChatFilter.exe --verbose
+          python tests/smoke_test.py --binary dist/ChatFilter/ChatFilter.exe --verbose
+        shell: pwsh
+
+      - name: Create distributable archive
+        run: |
+          Compress-Archive -Path "dist/ChatFilter" -DestinationPath "dist/ChatFilter-Windows.zip"
         shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ChatFilter-Windows-exe
-          path: dist/ChatFilter.exe
+          name: ChatFilter-Windows
+          path: dist/ChatFilter-Windows.zip
           retention-days: 30

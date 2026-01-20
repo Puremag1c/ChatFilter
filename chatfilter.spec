@@ -158,15 +158,15 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,  # Compress with UPX if available
+    upx=False,  # UPX disabled: reduces antivirus false positives
     console=True,  # Console application (web server)
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='file_version_info.txt',  # Optional: add version info
-    icon=None,  # Optional: add application icon
+    version='file_version_info.txt',  # Windows version metadata (increases legitimacy)
+    icon=None,  # TODO: Add icon file (e.g., 'icon.ico') to reduce AV false positives
 )
 
 # COLLECT: collect all files into distribution directory
@@ -176,7 +176,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,  # UPX disabled: reduces antivirus false positives
     upx_exclude=[],
     name=APP_NAME,
 )
@@ -188,7 +188,7 @@ if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name=f'{APP_NAME}.app',
-        icon=None,
+        icon=None,  # TODO: Add icon file (e.g., 'icon.icns') for macOS
         bundle_identifier=f'com.chatfilter.{APP_NAME.lower()}',
         info_plist={
             'NSPrincipalClass': 'NSApplication',
