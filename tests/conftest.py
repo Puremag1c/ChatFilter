@@ -5,18 +5,28 @@ Fixtures:
 - mock_http_server: Mock HTTP server for network boundary tests
 - telegram_config_file: Sample Telegram config JSON file
 - valid_session_file: Valid Telethon session file
+- mock_telegram_client: Mock TelegramClient with common methods pre-configured
+- fake_chat_factory: Factory for creating fake Chat objects
+- fake_message_factory: Factory for creating fake Message objects
+- mock_dialog_factory: Factory for creating mock Telethon Dialog objects
+- mock_message_factory: Factory for creating mock Telethon Message objects
+- edge_case_chats: Pre-configured edge case chats
+- edge_case_messages: Pre-configured edge case messages
 """
 
 from __future__ import annotations
 
 import json
+import random
 import socket
 import sqlite3
 import threading
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -236,3 +246,377 @@ def fastapi_test_client() -> Iterator[Any]:
     app = create_app()
     with TestClient(app) as client:
         yield client
+
+
+# ============================================================================
+# Telegram Mock Fixtures
+# ============================================================================
+# These fixtures provide reusable mocks for Telegram client, chats, messages,
+# and edge cases. They use fixed seeds for determinism and are designed to be
+# independent (each test gets its own mock instance).
+# ============================================================================
+
+
+@pytest.fixture
+def deterministic_seed() -> int:
+    """Provide a fixed random seed for deterministic test data.
+
+    Returns:
+        Fixed seed value (42)
+    """
+    return 42
+
+
+@pytest.fixture
+def fake_chat_factory(deterministic_seed: int) -> Callable[..., Any]:
+    """Factory for creating fake Chat objects with deterministic data.
+
+    Returns:
+        Factory function that creates Chat instances
+
+    Example:
+        def test_something(fake_chat_factory):
+            chat = fake_chat_factory(title="Test Group")
+            assert chat.title == "Test Group"
+    """
+    from chatfilter.models.chat import Chat, ChatType
+
+    def _factory(
+        id: int | None = None,
+        title: str | None = None,
+        chat_type: ChatType | None = None,
+        username: str | None = None,
+        member_count: int | None = None,
+        seed_offset: int = 0,
+    ) -> Chat:
+        """Create a fake Chat with deterministic data.
+
+        Args:
+            id: Chat ID (default: deterministic random)
+            title: Chat title
+            chat_type: Chat type
+            username: Username
+            member_count: Member count
+            seed_offset: Offset to add to seed for variation
+
+        Returns:
+            Chat instance
+        """
+        rng = random.Random(deterministic_seed + seed_offset)
+        return Chat(
+            id=id if id is not None else rng.randint(1, 1_000_000),
+            title=title if title is not None else "Test Chat",
+            chat_type=chat_type if chat_type is not None else ChatType.GROUP,
+            username=username,
+            member_count=member_count,
+        )
+
+    return _factory
+
+
+@pytest.fixture
+def fake_message_factory(deterministic_seed: int) -> Callable[..., Any]:
+    """Factory for creating fake Message objects with deterministic data.
+
+    Returns:
+        Factory function that creates Message instances
+
+    Example:
+        def test_something(fake_message_factory):
+            msg = fake_message_factory(text="Hello")
+            assert msg.text == "Hello"
+    """
+    from chatfilter.models.message import Message
+
+    def _factory(
+        id: int | None = None,
+        chat_id: int | None = None,
+        author_id: int | None = None,
+        timestamp: datetime | None = None,
+        text: str | None = None,
+        seed_offset: int = 0,
+    ) -> Message:
+        """Create a fake Message with deterministic data.
+
+        Args:
+            id: Message ID (default: deterministic random)
+            chat_id: Chat ID (default: deterministic random)
+            author_id: Author ID (default: deterministic random)
+            timestamp: Timestamp (default: 1 hour ago)
+            text: Message text (default: "Test message")
+            seed_offset: Offset to add to seed for variation
+
+        Returns:
+            Message instance
+        """
+        rng = random.Random(deterministic_seed + seed_offset)
+        default_timestamp = datetime.now(UTC) - timedelta(hours=1)
+        return Message(
+            id=id if id is not None else rng.randint(1, 1_000_000),
+            chat_id=chat_id if chat_id is not None else rng.randint(1, 1_000_000),
+            author_id=author_id if author_id is not None else rng.randint(1, 1_000_000),
+            timestamp=timestamp if timestamp is not None else default_timestamp,
+            text=text if text is not None else "Test message",
+        )
+
+    return _factory
+
+
+@pytest.fixture
+def mock_dialog_factory() -> Callable[..., MagicMock]:
+    """Factory for creating mock Telethon Dialog objects.
+
+    Returns:
+        Factory function that creates mock Dialog instances
+
+    Example:
+        def test_something(mock_dialog_factory):
+            dialog = mock_dialog_factory(1, "user", "John")
+            assert dialog.id == 1
+    """
+
+    def _factory(
+        dialog_id: int,
+        entity_type: str = "user",
+        name: str = "Test",
+        username: str | None = None,
+        participants_count: int | None = None,
+        megagroup: bool = False,
+        forum: bool = False,
+    ) -> MagicMock:
+        """Create a mock Telethon Dialog object.
+
+        Args:
+            dialog_id: Dialog ID
+            entity_type: Type of entity (user, channel, chat)
+            name: Display name
+            username: Optional username
+            participants_count: Number of participants
+            megagroup: Whether it's a megagroup
+            forum: Whether it's a forum
+
+        Returns:
+            Mock Dialog object
+        """
+        dialog = MagicMock()
+        dialog.id = dialog_id
+        dialog.name = name
+        dialog.title = name
+
+        entity = MagicMock()
+        entity.id = dialog_id
+        entity.username = username
+        entity.participants_count = participants_count
+
+        if entity_type == "user":
+            from telethon.tl.types import User
+
+            entity.__class__ = User
+            entity.first_name = name
+        elif entity_type == "channel":
+            from telethon.tl.types import Channel
+
+            entity.__class__ = Channel
+            entity.megagroup = megagroup
+            entity.forum = forum
+            entity.title = name
+        elif entity_type == "chat":
+            from telethon.tl.types import Chat as TelegramChat
+
+            entity.__class__ = TelegramChat
+            entity.title = name
+
+        dialog.entity = entity
+        return dialog
+
+    return _factory
+
+
+@pytest.fixture
+def mock_message_factory() -> Callable[..., MagicMock]:
+    """Factory for creating mock Telethon Message objects.
+
+    Returns:
+        Factory function that creates mock Message instances
+
+    Example:
+        def test_something(mock_message_factory):
+            msg = mock_message_factory(1, "Hello")
+            assert msg.message == "Hello"
+    """
+
+    def _factory(
+        msg_id: int,
+        text: str = "Hello",
+        sender_id: int | None = 123,
+        date: datetime | None = None,
+        has_media: bool = False,
+    ) -> MagicMock:
+        """Create a mock Telethon Message object.
+
+        Args:
+            msg_id: Message ID
+            text: Message text
+            sender_id: Sender ID (None for channel posts)
+            date: Message date (default: 1 hour ago)
+            has_media: Whether message has media
+
+        Returns:
+            Mock Message object
+        """
+        msg = MagicMock()
+        msg.id = msg_id
+        msg.message = text
+        msg.sender_id = sender_id
+        msg.from_id = None
+        msg.date = date or datetime.now(UTC) - timedelta(hours=1)
+        msg.media = MagicMock() if has_media else None
+        return msg
+
+    return _factory
+
+
+@pytest.fixture
+def mock_telegram_client() -> MagicMock:
+    """Provide a mock TelegramClient with common methods pre-configured.
+
+    The client is independent per test and includes commonly mocked methods:
+    - iter_dialogs: Returns empty async iterator by default
+    - iter_messages: Returns empty async iterator by default
+    - get_entity: Returns mock entity by default
+    - connect/disconnect: Async no-ops
+
+    Returns:
+        Mock TelegramClient instance
+
+    Example:
+        def test_something(mock_telegram_client):
+            # Configure specific behavior
+            mock_telegram_client.get_entity = AsyncMock(return_value=some_entity)
+            # Use in test
+            result = await some_function(mock_telegram_client)
+    """
+    client = MagicMock()
+
+    # Configure async methods as AsyncMock
+    client.connect = AsyncMock()
+    client.disconnect = AsyncMock()
+    client.get_entity = AsyncMock()
+    client.get_me = AsyncMock()
+
+    # Configure iter methods to return empty async iterators by default
+    async def empty_iter() -> Iterator[Any]:
+        if False:  # Make it a generator
+            yield
+
+    client.iter_dialogs = lambda **kwargs: empty_iter()
+    client.iter_messages = lambda *args, **kwargs: empty_iter()
+
+    return client
+
+
+@pytest.fixture
+def edge_case_chats(fake_chat_factory: Callable[..., Any]) -> dict[str, Any]:
+    """Pre-configured edge case chats for testing.
+
+    Returns:
+        Dictionary of edge case chat scenarios
+
+    Example:
+        def test_edge_cases(edge_case_chats):
+            empty_chat = edge_case_chats["empty"]
+            unicode_chat = edge_case_chats["unicode"]
+    """
+    from chatfilter.models.chat import ChatType
+
+    return {
+        "empty": fake_chat_factory(id=1, title="", chat_type=ChatType.PRIVATE),
+        "unicode": fake_chat_factory(
+            id=2,
+            title="🎉 Тестовая группа 中文测试 🚀",
+            username="unicode_test",
+            chat_type=ChatType.GROUP,
+        ),
+        "long_title": fake_chat_factory(
+            id=3,
+            title="A" * 255,  # Max length title
+            chat_type=ChatType.CHANNEL,
+        ),
+        "deleted_account": fake_chat_factory(
+            id=4,
+            title="Deleted Account",
+            chat_type=ChatType.PRIVATE,
+        ),
+        "no_username": fake_chat_factory(
+            id=5,
+            title="Private Group",
+            username=None,
+            chat_type=ChatType.SUPERGROUP,
+        ),
+        "zero_members": fake_chat_factory(
+            id=6,
+            title="Empty Group",
+            member_count=0,
+            chat_type=ChatType.GROUP,
+        ),
+        "forum": fake_chat_factory(
+            id=7,
+            title="Forum Group",
+            chat_type=ChatType.FORUM,
+            member_count=100,
+        ),
+    }
+
+
+@pytest.fixture
+def edge_case_messages(fake_message_factory: Callable[..., Any]) -> dict[str, Any]:
+    """Pre-configured edge case messages for testing.
+
+    Returns:
+        Dictionary of edge case message scenarios
+
+    Example:
+        def test_edge_cases(edge_case_messages):
+            empty_msg = edge_case_messages["empty"]
+            unicode_msg = edge_case_messages["unicode"]
+    """
+    now = datetime.now(UTC)
+
+    return {
+        "empty": fake_message_factory(id=1, text=""),
+        "unicode": fake_message_factory(
+            id=2,
+            text="Hello 👋 Привет مرحبا 你好 שלום",
+        ),
+        "long_text": fake_message_factory(
+            id=3,
+            text="Lorem ipsum " * 1000,  # Very long message
+        ),
+        "emoji_only": fake_message_factory(
+            id=4,
+            text="🎉🚀💻🔥✨",
+        ),
+        "deleted_author": fake_message_factory(
+            id=5,
+            author_id=1,  # Represents deleted user
+            text="Message from deleted user",
+        ),
+        "old_message": fake_message_factory(
+            id=6,
+            timestamp=now - timedelta(days=365),  # 1 year old
+            text="Old message",
+        ),
+        "recent_message": fake_message_factory(
+            id=7,
+            timestamp=now - timedelta(seconds=5),  # 5 seconds ago
+            text="Recent message",
+        ),
+        "newlines": fake_message_factory(
+            id=8,
+            text="Line 1\nLine 2\nLine 3\n\nLine 5",
+        ),
+        "special_chars": fake_message_factory(
+            id=9,
+            text='Special: <>&"\'\n\t\r',
+        ),
+    }
