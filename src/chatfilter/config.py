@@ -327,25 +327,11 @@ class Settings(BaseSettings):
                     f"  → Fix: Check parent directory exists and has write permissions"
                 )
 
-        # 3. Port availability check (basic check - more thorough in h3s task)
-        try:
-            import socket
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                try:
-                    sock.bind((self.host, self.port))
-                except OSError as e:
-                    if e.errno == 48 or e.errno == 98:  # Address already in use
-                        errors.append(
-                            f"Port {self.port} is already in use on {self.host}\n"
-                            f"  → Fix: Stop the process using this port or choose a different port\n"
-                            f"  → Hint: Use 'lsof -i :{self.port}' to find the process"
-                        )
-                    else:
-                        errors.append(f"Cannot bind to {self.host}:{self.port}: {e}")
-        except Exception as e:
-            # Don't fail validation if socket check fails for other reasons
-            logger.warning(f"Could not check port availability: {e}")
+        # 3. Port availability check
+        from chatfilter.utils.ports import format_port_conflict_message, is_port_available
+
+        if not is_port_available(self.host, self.port):
+            errors.append(format_port_conflict_message(self.host, self.port))
 
         return errors
 
