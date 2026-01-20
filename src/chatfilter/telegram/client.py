@@ -277,6 +277,12 @@ def validate_session_file(session_path: Path) -> None:
         try:
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         except sqlite3.DatabaseError as e:
+            error_msg = str(e).lower()
+            if "locked" in error_msg or "database is locked" in error_msg:
+                raise SessionFileError(
+                    f"Session file is locked by another process. "
+                    f"Make sure no other application is using this session: {session_path}"
+                ) from e
             raise SessionFileError(f"Invalid session file (not a valid database): {e}") from e
         tables = {row[0] for row in cursor.fetchall()}
 

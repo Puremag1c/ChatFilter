@@ -212,6 +212,24 @@ class TestValidateSessionFile:
         with pytest.raises(SessionFileError, match="Invalid session file format"):
             validate_session_file(session_path)
 
+    def test_locked_session_file(self, tmp_path: Path) -> None:
+        """Test error when session file is locked by another process."""
+        session_path = tmp_path / "test.session"
+        create_valid_session(session_path)
+
+        # Lock the session file by opening it with exclusive lock
+        conn = sqlite3.connect(session_path)
+        conn.execute("BEGIN EXCLUSIVE")  # Acquire exclusive lock
+
+        try:
+            # Validation should detect the lock and raise SessionFileError
+            with pytest.raises(SessionFileError, match="locked by another process"):
+                validate_session_file(session_path)
+        finally:
+            # Release the lock
+            conn.rollback()
+            conn.close()
+
 
 class TestTelegramClientLoader:
     """Tests for TelegramClientLoader class."""
