@@ -154,8 +154,232 @@
     const resultContainer = document.getElementById('analysis-result-container');
     const cancelBtn = document.getElementById('cancel-btn');
 
-    // Connect to SSE endpoint
-    const eventSource = new EventSource('/api/analysis/' + taskId + '/progress');
+    // Connection state management
+    let eventSource = null;
+    let pollingInterval = null;
+    let reconnectAttempts = 0;
+    let maxReconnectAttempts = 5;
+    let isFinished = false;
+    let connectionMode = 'sse'; // 'sse' or 'polling'
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+    function getReconnectDelay() {
+        return Math.min(1000 * Math.pow(2, reconnectAttempts), 16000);
+    }
+
+    // Update connection status in UI
+    function updateConnectionStatus(status) {
+        const statusMessages = {
+            'connected': 'In progress...',
+            'reconnecting': 'In progress (reconnecting...)',
+            'polling': 'In progress (polling...)',
+            'connection_lost': 'In progress (connection issues)'
+        };
+        if (!isFinished && statusMessages[status]) {
+            progressStatus.textContent = statusMessages[status];
+        }
+    }
+
+    // Handle task completion
+    function handleComplete(data) {
+        isFinished = true;
+        cleanup();
+
+        progressBar.style.width = '100%';
+        progressBar.classList.add('completed');
+        progressStatus.textContent = 'Complete!';
+        progressStatus.classList.add('completed');
+        progressChatTitle.textContent = '';
+        progressMessage.textContent = 'Analysis complete. ' + data.results_count + ' chats analyzed.';
+        cancelBtn.disabled = true;
+
+        // Fetch and display results
+        htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
+            target: '#analysis-result-container',
+            swap: 'innerHTML'
+        });
+    }
+
+    // Handle task cancellation
+    function handleCancelled(data) {
+        isFinished = true;
+        cleanup();
+
+        progressBar.classList.add('cancelled');
+        progressStatus.textContent = 'Cancelled';
+        progressStatus.classList.add('cancelled');
+        progressChatTitle.textContent = '';
+        progressMessage.textContent = data.message + '. ' + data.results_count + ' chats analyzed.';
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'Cancelled';
+
+        // Fetch and display partial results if any
+        if (data.results_count > 0) {
+            htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
+                target: '#analysis-result-container',
+                swap: 'innerHTML'
+            });
+        }
+    }
+
+    // Handle task failure
+    function handleError(errorMsg) {
+        isFinished = true;
+        cleanup();
+
+        progressBar.classList.add('failed');
+        progressStatus.textContent = 'Failed';
+        progressStatus.classList.add('failed');
+        progressMessage.textContent = errorMsg;
+        progressMessage.classList.add('error');
+        cancelBtn.disabled = true;
+    }
+
+    // Update progress UI
+    function updateProgress(data) {
+        if (data.total) {
+            progressTotal.textContent = data.total;
+        }
+
+        if (data.current !== undefined) {
+            const current = data.current + 1; // 0-based to 1-based
+            const total = data.total;
+            const percent = Math.round((current / total) * 100);
+
+            progressBar.style.width = percent + '%';
+            progressCurrent.textContent = current;
+            progressTotal.textContent = total;
+
+            if (data.chat_title) {
+                progressChatTitle.textContent = '- ' + data.chat_title;
+            }
+
+            if (data.message) {
+                progressMessage.textContent = data.message;
+            }
+        }
+    }
+
+    // Cleanup connections
+    function cleanup() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+
+    // Poll for status updates
+    function startPolling() {
+        if (pollingInterval || isFinished) return;
+
+        connectionMode = 'polling';
+        updateConnectionStatus('polling');
+
+        pollingInterval = setInterval(function() {
+            fetch('/api/analysis/' + taskId + '/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (isFinished) {
+                        cleanup();
+                        return;
+                    }
+
+                    updateProgress(data);
+
+                    if (data.status === 'completed') {
+                        handleComplete(data);
+                    } else if (data.status === 'cancelled') {
+                        handleCancelled(data);
+                    } else if (data.status === 'failed') {
+                        handleError(data.error || 'Analysis failed');
+                    }
+                })
+                .catch(err => {
+                    console.error('Polling error:', err);
+                    progressMessage.textContent = 'Connection issues. Retrying...';
+                });
+        }, 2000); // Poll every 2 seconds
+    }
+
+    // Connect to SSE with reconnection logic
+    function connectSSE() {
+        if (isFinished) return;
+
+        cleanup(); // Clean up any existing connections
+
+        try {
+            eventSource = new EventSource('/api/analysis/' + taskId + '/progress');
+            connectionMode = 'sse';
+
+            eventSource.addEventListener('init', function(e) {
+                const data = JSON.parse(e.data);
+                progressTotal.textContent = data.total;
+                updateConnectionStatus('connected');
+                reconnectAttempts = 0; // Reset on successful connection
+            });
+
+            eventSource.addEventListener('progress', function(e) {
+                const data = JSON.parse(e.data);
+                updateProgress(data);
+                updateConnectionStatus('connected');
+                reconnectAttempts = 0; // Reset on successful message
+            });
+
+            eventSource.addEventListener('complete', function(e) {
+                const data = JSON.parse(e.data);
+                handleComplete(data);
+            });
+
+            eventSource.addEventListener('cancelled', function(e) {
+                const data = JSON.parse(e.data);
+                handleCancelled(data);
+            });
+
+            eventSource.addEventListener('error', function(e) {
+                let errorMsg = 'Analysis failed';
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.error) {
+                        errorMsg = data.error;
+                    }
+                } catch (err) {}
+                handleError(errorMsg);
+            });
+
+            eventSource.onerror = function(e) {
+                if (isFinished || eventSource.readyState === EventSource.CLOSED) {
+                    return;
+                }
+
+                console.log('SSE connection error, attempt:', reconnectAttempts + 1);
+                cleanup();
+
+                // Try to reconnect with exponential backoff
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    updateConnectionStatus('reconnecting');
+
+                    const delay = getReconnectDelay();
+                    progressMessage.textContent = 'Connection lost. Reconnecting in ' + (delay / 1000) + 's...';
+
+                    setTimeout(connectSSE, delay);
+                } else {
+                    // Max reconnect attempts reached, fall back to polling
+                    console.log('Max SSE reconnect attempts reached, falling back to polling');
+                    progressMessage.textContent = 'Connection unstable. Switched to polling mode.';
+                    startPolling();
+                }
+            };
+        } catch (err) {
+            console.error('Failed to create EventSource:', err);
+            // Immediate fallback to polling if SSE creation fails
+            startPolling();
+        }
+    }
 
     // Cancel button handler
     cancelBtn.addEventListener('click', function() {
@@ -181,115 +405,34 @@
         }
     });
 
-    eventSource.addEventListener('init', function(e) {
-        const data = JSON.parse(e.data);
-        progressTotal.textContent = data.total;
-        progressStatus.textContent = 'In progress...';
-    });
+    // Initial connection - check if task is already in progress (page refresh recovery)
+    fetch('/api/analysis/' + taskId + '/status')
+        .then(r => r.json())
+        .then(data => {
+            // Update UI with current state
+            updateProgress(data);
 
-    eventSource.addEventListener('progress', function(e) {
-        const data = JSON.parse(e.data);
-        const current = data.current + 1; // 0-based to 1-based
-        const total = data.total;
-        const percent = Math.round((current / total) * 100);
-
-        progressBar.style.width = percent + '%';
-        progressCurrent.textContent = current;
-        progressTotal.textContent = total;
-
-        if (data.chat_title) {
-            progressChatTitle.textContent = '- ' + data.chat_title;
-        }
-
-        if (data.message) {
-            progressMessage.textContent = data.message;
-        }
-    });
-
-    eventSource.addEventListener('complete', function(e) {
-        const data = JSON.parse(e.data);
-        eventSource.close();
-        cancelBtn.disabled = true;
-
-        progressBar.style.width = '100%';
-        progressBar.classList.add('completed');
-        progressStatus.textContent = 'Complete!';
-        progressStatus.classList.add('completed');
-        progressChatTitle.textContent = '';
-        progressMessage.textContent = 'Analysis complete. ' + data.results_count + ' chats analyzed.';
-
-        // Fetch and display results
-        htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
-            target: '#analysis-result-container',
-            swap: 'innerHTML'
-        });
-    });
-
-    eventSource.addEventListener('cancelled', function(e) {
-        const data = JSON.parse(e.data);
-        eventSource.close();
-        cancelBtn.disabled = true;
-        cancelBtn.textContent = 'Cancelled';
-
-        progressBar.classList.add('cancelled');
-        progressStatus.textContent = 'Cancelled';
-        progressStatus.classList.add('cancelled');
-        progressChatTitle.textContent = '';
-        progressMessage.textContent = data.message + '. ' + data.results_count + ' chats analyzed.';
-
-        // Fetch and display partial results if any
-        if (data.results_count > 0) {
-            htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
-                target: '#analysis-result-container',
-                swap: 'innerHTML'
-            });
-        }
-    });
-
-    eventSource.addEventListener('error', function(e) {
-        let errorMsg = 'Analysis failed';
-        try {
-            const data = JSON.parse(e.data);
-            if (data.error) {
-                errorMsg = data.error;
+            if (data.status === 'completed') {
+                handleComplete(data);
+            } else if (data.status === 'cancelled') {
+                handleCancelled(data);
+            } else if (data.status === 'failed') {
+                handleError(data.error || 'Analysis failed');
+            } else if (data.status === 'in_progress' || data.status === 'pending') {
+                // Task is running, connect to progress stream
+                connectSSE();
             }
-        } catch (err) {}
+        })
+        .catch(err => {
+            console.error('Failed to check initial status:', err);
+            // Try to connect anyway
+            connectSSE();
+        });
 
-        eventSource.close();
-        cancelBtn.disabled = true;
-
-        progressBar.classList.add('failed');
-        progressStatus.textContent = 'Failed';
-        progressStatus.classList.add('failed');
-        progressMessage.textContent = errorMsg;
-        progressMessage.classList.add('error');
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        cleanup();
     });
-
-    eventSource.onerror = function(e) {
-        // Connection error - try polling as fallback
-        if (eventSource.readyState === EventSource.CLOSED) {
-            return;
-        }
-        eventSource.close();
-        progressMessage.textContent = 'Connection lost. Checking status...';
-
-        // Poll for status
-        setTimeout(function() {
-            fetch('/api/analysis/' + taskId + '/status')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.status === 'completed') {
-                        htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
-                            target: '#analysis-result-container',
-                            swap: 'innerHTML'
-                        });
-                    } else if (data.status === 'failed') {
-                        progressMessage.textContent = data.error || 'Analysis failed';
-                        progressMessage.classList.add('error');
-                    }
-                });
-        }, 1000);
-    };
 })();
 </script>
 {% endif %}
