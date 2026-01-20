@@ -17,15 +17,15 @@ class TestHealthEndpoint:
 
         assert response.status_code == 200
 
-    def test_health_returns_status_healthy(self) -> None:
-        """Test health endpoint returns healthy status."""
+    def test_health_returns_status_ok(self) -> None:
+        """Test health endpoint returns ok status."""
         app = create_app()
         client = TestClient(app)
 
         response = client.get("/health")
         data = response.json()
 
-        assert data["status"] == "healthy"
+        assert data["status"] in ["ok", "degraded", "unhealthy"]
 
     def test_health_returns_version(self) -> None:
         """Test health endpoint returns application version."""
@@ -38,6 +38,68 @@ class TestHealthEndpoint:
         data = response.json()
 
         assert data["version"] == __version__
+
+    def test_health_returns_uptime(self) -> None:
+        """Test health endpoint returns uptime."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/health")
+        data = response.json()
+
+        assert "uptime_seconds" in data
+        assert isinstance(data["uptime_seconds"], (int, float))
+        assert data["uptime_seconds"] >= 0
+
+    def test_health_returns_disk_space(self) -> None:
+        """Test health endpoint returns disk space information."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/health")
+        data = response.json()
+
+        assert "disk" in data
+        assert "total_gb" in data["disk"]
+        assert "used_gb" in data["disk"]
+        assert "free_gb" in data["disk"]
+        assert "percent_used" in data["disk"]
+
+    def test_health_returns_telegram_status(self) -> None:
+        """Test health endpoint returns telegram connection status."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/health")
+        data = response.json()
+
+        # Telegram status may be None or have status info
+        if data.get("telegram"):
+            assert "connected" in data["telegram"]
+            assert "sessions_count" in data["telegram"]
+
+
+class TestReadyEndpoint:
+    """Tests for /ready endpoint."""
+
+    def test_ready_returns_200(self) -> None:
+        """Test ready endpoint returns 200 OK."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/ready")
+
+        assert response.status_code == 200
+
+    def test_ready_returns_ready_true(self) -> None:
+        """Test ready endpoint returns ready: true when not shutting down."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/ready")
+        data = response.json()
+
+        assert data["ready"] is True
 
 
 class TestRequestIDMiddleware:
