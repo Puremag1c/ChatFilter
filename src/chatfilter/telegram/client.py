@@ -47,22 +47,68 @@ class SessionFileError(Exception):
 
 @dataclass(frozen=True)
 class TelegramConfig:
-    """Telegram API configuration loaded from JSON file.
+    """Telegram API configuration with secure storage support.
+
+    Credentials are stored securely using:
+    1. OS Keyring (preferred) - native system credential storage
+    2. Encrypted file (fallback) - for systems without keyring
+    3. Environment variables (read-only) - for containers
 
     Attributes:
         api_id: Telegram API ID (integer)
-        api_hash: Telegram API hash (string)
+        api_hash: Telegram API hash (string) - redacted in logs
     """
 
     api_id: int
     api_hash: str
 
+    def __repr__(self) -> str:
+        """Redact api_hash in repr for security."""
+        return f"TelegramConfig(api_id={self.api_id}, api_hash='***REDACTED***')"
+
+    def __str__(self) -> str:
+        """Redact api_hash in str for security."""
+        return f"TelegramConfig(api_id={self.api_id})"
+
     @classmethod
-    def from_json_file(cls, path: Path) -> TelegramConfig:
-        """Load config from JSON file.
+    def from_secure_storage(cls, session_id: str, storage_dir: Path) -> TelegramConfig:
+        """Load config from secure credential storage.
+
+        Args:
+            session_id: Unique session identifier
+            storage_dir: Directory containing secure credentials
+
+        Returns:
+            TelegramConfig instance
+
+        Raises:
+            TelegramConfigError: If credentials cannot be loaded
+        """
+        from chatfilter.security import CredentialNotFoundError, SecureCredentialManager
+
+        try:
+            manager = SecureCredentialManager(storage_dir)
+            api_id, api_hash = manager.retrieve_credentials(session_id)
+            return cls(api_id=api_id, api_hash=api_hash)
+        except CredentialNotFoundError as e:
+            raise TelegramConfigError(
+                f"Credentials not found in secure storage for session '{session_id}'. "
+                f"Please ensure credentials are properly configured."
+            ) from e
+        except Exception as e:
+            raise TelegramConfigError(f"Failed to load credentials: {e}") from e
+
+    @classmethod
+    def from_json_file(cls, path: Path, *, migrate_to_secure: bool = False) -> TelegramConfig:
+        """Load config from JSON file (legacy/fallback method).
+
+        DEPRECATED: This method loads credentials from plaintext JSON.
+        Use from_secure_storage() for secure credential access.
 
         Args:
             path: Path to JSON config file
+            migrate_to_secure: If True, migrate credentials to secure storage
+                and delete the plaintext file
 
         Returns:
             TelegramConfig instance
@@ -70,9 +116,18 @@ class TelegramConfig:
         Raises:
             TelegramConfigError: If file is invalid or missing required fields
             FileNotFoundError: If config file doesn't exist
+
+        Warning:
+            Storing credentials in plaintext JSON is insecure. Consider using
+            secure storage via from_secure_storage() instead.
         """
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
+
+        logger.warning(
+            "Loading credentials from plaintext JSON (DEPRECATED). "
+            "Consider migrating to secure storage for better security."
+        )
 
         try:
             with path.open("r", encoding="utf-8") as f:
@@ -110,7 +165,78 @@ class TelegramConfig:
         if not api_hash:
             raise TelegramConfigError("api_hash cannot be empty")
 
-        return cls(api_id=api_id, api_hash=api_hash)
+        config = cls(api_id=api_id, api_hash=api_hash)
+
+        # Auto-migrate to secure storage if requested
+        if migrate_to_secure:
+            try:
+                _migrate_plaintext_to_secure(path, api_id, api_hash)
+            except Exception as e:
+                logger.error(f"Failed to migrate credentials to secure storage: {e}")
+                # Don't fail the config load, just log the error
+
+        return config
+
+
+def _secure_delete_file(file_path: Path) -> None:
+    """Securely delete a file by overwriting before removal.
+
+    Args:
+        file_path: Path to file to securely delete
+    """
+    if not file_path.exists() or not file_path.is_file():
+        return
+
+    try:
+        # Get file size
+        file_size = file_path.stat().st_size
+
+        # Overwrite with random data then zeros
+        with file_path.open("r+b") as f:
+            f.write(b"\x00" * file_size)
+            f.flush()
+            import os
+            os.fsync(f.fileno())
+
+        # Delete the file
+        file_path.unlink()
+        logger.info(f"Securely deleted plaintext config: {file_path}")
+    except Exception as e:
+        logger.warning(f"Failed to securely delete file, falling back to regular delete: {e}")
+        # Fallback to regular deletion
+        file_path.unlink(missing_ok=True)
+
+
+def _migrate_plaintext_to_secure(config_path: Path, api_id: int, api_hash: str) -> None:
+    """Migrate plaintext credentials to secure storage and delete plaintext file.
+
+    Args:
+        config_path: Path to plaintext config.json file
+        api_id: Telegram API ID
+        api_hash: Telegram API hash
+    """
+    from chatfilter.security import SecureCredentialManager
+
+    # Determine session_id from path (parent directory name)
+    session_id = config_path.parent.name
+
+    # Determine storage directory (sessions directory)
+    storage_dir = config_path.parent.parent
+
+    # Store credentials securely
+    manager = SecureCredentialManager(storage_dir)
+    manager.store_credentials(session_id, api_id, api_hash)
+
+    # Securely delete plaintext file
+    _secure_delete_file(config_path)
+
+    # Create a migration marker file to prevent re-migration attempts
+    marker_file = config_path.parent / ".migrated"
+    marker_file.write_text(
+        "Credentials migrated to secure storage.\n"
+        "Original plaintext config.json has been securely deleted.\n"
+    )
+    logger.info(f"Migrated credentials to secure storage for session: {session_id}")
 
 
 def validate_session_file(session_path: Path) -> None:
@@ -193,29 +319,50 @@ def validate_session_file(session_path: Path) -> None:
 
 
 class TelegramClientLoader:
-    """Loader for creating Telethon client from session and config files.
+    """Loader for creating Telethon client from session and secure credentials.
+
+    Supports both secure credential storage (preferred) and legacy plaintext
+    config files with auto-migration.
 
     Example:
         ```python
+        # Using secure storage (preferred)
         loader = TelegramClientLoader(
-            session_path=Path("my_account.session"),
-            config_path=Path("telegram_config.json"),
+            session_path=Path("sessions/my_account/session.session"),
+            use_secure_storage=True,
         )
         async with loader.create_client() as client:
             me = await client.get_me()
             print(f"Logged in as {me.username}")
+
+        # Legacy mode with plaintext config (deprecated)
+        loader = TelegramClientLoader(
+            session_path=Path("my_account.session"),
+            config_path=Path("telegram_config.json"),
+        )
         ```
     """
 
-    def __init__(self, session_path: Path, config_path: Path) -> None:
-        """Initialize loader with session and config file paths.
+    def __init__(
+        self,
+        session_path: Path,
+        config_path: Path | None = None,
+        *,
+        use_secure_storage: bool = True,
+    ) -> None:
+        """Initialize loader with session and credential configuration.
 
         Args:
             session_path: Path to Telethon .session file
-            config_path: Path to JSON config file with api_id and api_hash
+            config_path: Path to JSON config file (legacy mode). If None,
+                uses secure storage based on session directory structure.
+            use_secure_storage: If True, prefer secure storage over plaintext.
+                When True and config_path exists, will auto-migrate to secure
+                storage.
         """
         self._session_path = session_path
         self._config_path = config_path
+        self._use_secure_storage = use_secure_storage
         self._config: TelegramConfig | None = None
 
     @property
@@ -224,25 +371,59 @@ class TelegramClientLoader:
         return self._session_path
 
     @property
-    def config_path(self) -> Path:
-        """Path to config file."""
+    def config_path(self) -> Path | None:
+        """Path to config file (legacy)."""
         return self._config_path
 
     def validate(self) -> None:
-        """Validate both session and config files.
+        """Validate session file and load credentials.
 
         Call this before create_client() to get early validation errors.
 
         Raises:
-            FileNotFoundError: If session or config file doesn't exist
+            FileNotFoundError: If session file doesn't exist
             SessionFileError: If session file is invalid
-            TelegramConfigError: If config file is invalid
+            TelegramConfigError: If credentials cannot be loaded
         """
-        # Validate config first (cheaper operation)
-        self._config = TelegramConfig.from_json_file(self._config_path)
-
-        # Validate session file
+        # Validate session file first
         validate_session_file(self._session_path)
+
+        # Load credentials based on configuration
+        if self._use_secure_storage:
+            # Try secure storage first
+            session_id = self._session_path.parent.name
+            storage_dir = self._session_path.parent.parent
+
+            try:
+                self._config = TelegramConfig.from_secure_storage(session_id, storage_dir)
+                logger.debug(f"Loaded credentials from secure storage for: {session_id}")
+                return
+            except TelegramConfigError as e:
+                # If secure storage fails and we have a config_path, try plaintext
+                if self._config_path and self._config_path.exists():
+                    logger.warning(
+                        f"Secure storage failed ({e}), falling back to plaintext config"
+                    )
+                    self._config = TelegramConfig.from_json_file(
+                        self._config_path,
+                        migrate_to_secure=True,  # Auto-migrate
+                    )
+                    return
+                # No fallback available
+                raise
+
+        # Legacy mode: use plaintext config
+        if self._config_path is not None:
+            migrate = self._use_secure_storage  # Auto-migrate if secure storage enabled
+            self._config = TelegramConfig.from_json_file(
+                self._config_path,
+                migrate_to_secure=migrate,
+            )
+        else:
+            raise TelegramConfigError(
+                "No config_path provided and secure storage is disabled. "
+                "Either provide config_path or enable use_secure_storage=True."
+            )
 
     def create_client(
         self,

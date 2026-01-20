@@ -224,7 +224,7 @@ class TestTelegramClientLoader:
         create_valid_session(session_path)
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader.validate()  # Should not raise
 
     def test_validate_invalid_config(self, tmp_path: Path) -> None:
@@ -235,7 +235,7 @@ class TestTelegramClientLoader:
         create_valid_session(session_path)
         config_path.write_text(json.dumps({"api_id": 12345}))  # Missing api_hash
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         with pytest.raises(TelegramConfigError):
             loader.validate()
 
@@ -247,7 +247,7 @@ class TestTelegramClientLoader:
         session_path.write_text("not a database")
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         with pytest.raises(SessionFileError):
             loader.validate()
 
@@ -273,7 +273,7 @@ class TestTelegramClientLoader:
 
         # For actual client creation, use a fresh session path
         # (Telethon will create its own session file)
-        loader_for_client = TelegramClientLoader(session_path, config_path)
+        loader_for_client = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader_for_client._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
         client = loader_for_client.create_client()
@@ -288,7 +288,7 @@ class TestTelegramClientLoader:
         session_path = tmp_path / "test.session"
         config_path = tmp_path / "config.json"
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
 
         assert loader.session_path == session_path
         assert loader.config_path == config_path
@@ -301,7 +301,7 @@ class TestTelegramClientLoader:
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
         proxy = ProxyConfig(
@@ -331,7 +331,7 @@ class TestTelegramClientLoader:
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
         proxy = ProxyConfig(
@@ -354,7 +354,7 @@ class TestTelegramClientLoader:
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
         proxy = ProxyConfig(
@@ -373,7 +373,7 @@ class TestTelegramClientLoader:
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        loader = TelegramClientLoader(session_path, config_path)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
         # Even if saved proxy exists, use_saved_proxy=False should skip it
