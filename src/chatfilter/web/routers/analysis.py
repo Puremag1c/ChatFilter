@@ -135,15 +135,26 @@ async def start_analysis(
             {"request": request, "error": f"Failed to connect to Telegram: {e}"},
         )
 
-    # Create analysis task
+    # Check for existing active task with same parameters (deduplication)
     queue = get_task_queue()
-    task = queue.create_task(session_id, chat_ids, message_limit)
+    existing_task = queue.find_active_task(session_id, chat_ids, message_limit)
 
-    # Start background analysis
-    executor = RealAnalysisExecutor()
-    background_tasks.add_task(queue.run_task, task.task_id, executor)
+    if existing_task:
+        # Return existing task instead of creating duplicate
+        logger.info(
+            f"Reusing existing task {existing_task.task_id} for {len(chat_ids)} chats "
+            f"(status: {existing_task.status})"
+        )
+        task = existing_task
+    else:
+        # Create new analysis task
+        task = queue.create_task(session_id, chat_ids, message_limit)
 
-    logger.info(f"Started analysis task {task.task_id} for {len(chat_ids)} chats")
+        # Start background analysis
+        executor = RealAnalysisExecutor()
+        background_tasks.add_task(queue.run_task, task.task_id, executor)
+
+        logger.info(f"Started analysis task {task.task_id} for {len(chat_ids)} chats")
 
     return templates.TemplateResponse(
         "partials/analysis_progress.html",

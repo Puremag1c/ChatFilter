@@ -251,6 +251,103 @@ class TestTaskQueue:
         assert task_queue.get_task(task2.task_id) is None
         assert task_queue.get_task(task3.task_id) is not None
 
+    def test_find_active_task_exact_match(self, task_queue: TaskQueue) -> None:
+        """Test finding an active task with exact matching parameters."""
+        # Create a pending task
+        task = task_queue.create_task("session1", [1, 2, 3], message_limit=500)
+
+        # Should find the task with matching parameters
+        found = task_queue.find_active_task("session1", [1, 2, 3], 500)
+
+        assert found is not None
+        assert found.task_id == task.task_id
+
+    def test_find_active_task_order_independent(self, task_queue: TaskQueue) -> None:
+        """Test finding task works regardless of chat_ids order."""
+        # Create a task with chat_ids in one order
+        task = task_queue.create_task("session1", [3, 1, 2])
+
+        # Should find the task even with different order
+        found = task_queue.find_active_task("session1", [1, 2, 3], 1000)
+
+        assert found is not None
+        assert found.task_id == task.task_id
+
+    def test_find_active_task_no_match_different_session(
+        self, task_queue: TaskQueue
+    ) -> None:
+        """Test that different session_id doesn't match."""
+        task_queue.create_task("session1", [1, 2, 3])
+
+        # Different session should not match
+        found = task_queue.find_active_task("session2", [1, 2, 3], 1000)
+
+        assert found is None
+
+    def test_find_active_task_no_match_different_chats(
+        self, task_queue: TaskQueue
+    ) -> None:
+        """Test that different chat_ids don't match."""
+        task_queue.create_task("session1", [1, 2, 3])
+
+        # Different chats should not match
+        found = task_queue.find_active_task("session1", [1, 2, 4], 1000)
+
+        assert found is None
+
+    def test_find_active_task_no_match_different_limit(
+        self, task_queue: TaskQueue
+    ) -> None:
+        """Test that different message_limit doesn't match."""
+        task_queue.create_task("session1", [1, 2, 3], message_limit=500)
+
+        # Different message limit should not match
+        found = task_queue.find_active_task("session1", [1, 2, 3], 1000)
+
+        assert found is None
+
+    def test_find_active_task_ignores_completed(self, task_queue: TaskQueue) -> None:
+        """Test that completed tasks are not returned."""
+        task = task_queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.COMPLETED
+
+        # Should not find completed task
+        found = task_queue.find_active_task("session1", [1, 2, 3], 1000)
+
+        assert found is None
+
+    def test_find_active_task_ignores_failed(self, task_queue: TaskQueue) -> None:
+        """Test that failed tasks are not returned."""
+        task = task_queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.FAILED
+
+        # Should not find failed task
+        found = task_queue.find_active_task("session1", [1, 2, 3], 1000)
+
+        assert found is None
+
+    def test_find_active_task_finds_in_progress(self, task_queue: TaskQueue) -> None:
+        """Test that in-progress tasks are found."""
+        task = task_queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.IN_PROGRESS
+
+        # Should find in-progress task
+        found = task_queue.find_active_task("session1", [1, 2, 3], 1000)
+
+        assert found is not None
+        assert found.task_id == task.task_id
+
+    def test_find_active_task_returns_first_match(self, task_queue: TaskQueue) -> None:
+        """Test that only one task is returned when multiple match."""
+        task1 = task_queue.create_task("session1", [1, 2, 3])
+        task2 = task_queue.create_task("session1", [1, 2, 3])
+
+        # Should find one of the matching tasks
+        found = task_queue.find_active_task("session1", [1, 2, 3], 1000)
+
+        assert found is not None
+        assert found.task_id in [task1.task_id, task2.task_id]
+
 
 class TestGlobalTaskQueue:
     """Tests for global task queue singleton."""
