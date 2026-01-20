@@ -177,7 +177,7 @@ async def upload_chat_list(
             {
                 "request": request,
                 "success": False,
-                "error": f"Unexpected error: {e}",
+                "error": "An unexpected error occurred while processing the file. Please try again.",
             },
         )
 
@@ -273,7 +273,7 @@ async def fetch_google_sheet_endpoint(
             {
                 "request": request,
                 "success": False,
-                "error": f"Unexpected error: {e}",
+                "error": "An unexpected error occurred while fetching the Google Sheet. Please try again.",
             },
         )
 

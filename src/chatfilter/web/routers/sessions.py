@@ -141,7 +141,9 @@ def validate_session_file_format(content: bytes) -> None:
 
             conn.close()
         except sqlite3.Error as e:
-            raise ValueError(f"Database error: {e}") from e
+            # Log the actual database error for debugging
+            logger.error(f"SQLite database validation error: {e}")
+            raise ValueError("Invalid database file") from e
 
 
 def validate_config_file_format(content: bytes) -> dict:
@@ -297,7 +299,7 @@ async def upload_session(
             )
 
         try:
-            validate_config_file_format(config_content)
+            config_data = validate_config_file_format(config_content)
         except ValueError as e:
             return templates.TemplateResponse(
                 "partials/upload_result.html",
@@ -307,18 +309,36 @@ async def upload_session(
         # Create session directory and save files
         session_dir.mkdir(parents=True, exist_ok=True)
         session_path = session_dir / "session.session"
-        config_path = session_dir / "config.json"
 
         try:
+            # Save session file
             session_path.write_bytes(session_content)
-            config_path.write_bytes(config_content)
-
-            # Set secure file permissions (chmod 600)
             secure_file_permissions(session_path)
-            secure_file_permissions(config_path)
 
-            # Validate that TelegramClientLoader can use these files
-            loader = TelegramClientLoader(session_path, config_path)
+            # Store credentials securely (NOT in plaintext)
+            from chatfilter.security import SecureCredentialManager
+
+            api_id = int(config_data["api_id"])
+            api_hash = str(config_data["api_hash"])
+
+            # Get storage directory (parent of session_dir)
+            storage_dir = session_dir.parent
+
+            # Store credentials in secure storage
+            manager = SecureCredentialManager(storage_dir)
+            manager.store_credentials(safe_name, api_id, api_hash)
+
+            logger.info(f"Stored credentials securely for session: {safe_name}")
+
+            # Create migration marker to indicate we're using secure storage
+            marker_file = session_dir / ".secure_storage"
+            marker_file.write_text(
+                "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
+                "Do not create a plaintext config.json file.\n"
+            )
+
+            # Validate that TelegramClientLoader can use secure storage
+            loader = TelegramClientLoader(session_path, use_secure_storage=True)
             loader.validate()
 
         except TelegramConfigError as e:
@@ -334,7 +354,7 @@ async def upload_session(
             logger.exception("Failed to save session files")
             return templates.TemplateResponse(
                 "partials/upload_result.html",
-                {"request": request, "success": False, "error": f"Failed to save files: {e}"},
+                {"request": request, "success": False, "error": "Failed to save session files. Please try again."},
             )
 
         logger.info(f"Session '{safe_name}' uploaded successfully")
@@ -352,7 +372,7 @@ async def upload_session(
         logger.exception("Unexpected error during session upload")
         return templates.TemplateResponse(
             "partials/upload_result.html",
-            {"request": request, "success": False, "error": f"Unexpected error: {e}"},
+            {"request": request, "success": False, "error": "An unexpected error occurred during upload. Please try again."},
         )
 
 
@@ -379,18 +399,31 @@ async def delete_session(session_id: str) -> HTMLResponse:
         )
 
     try:
-        # Securely delete session files
+        # Delete credentials from secure storage
+        from chatfilter.security import SecureCredentialManager
+
+        storage_dir = session_dir.parent
+        try:
+            manager = SecureCredentialManager(storage_dir)
+            manager.delete_credentials(safe_name)
+            logger.info(f"Deleted credentials from secure storage for session: {safe_name}")
+        except Exception as e:
+            logger.warning(f"Error deleting credentials from secure storage: {e}")
+
+        # Securely delete session file
         session_file = session_dir / "session.session"
-        config_file = session_dir / "config.json"
-
         secure_delete_file(session_file)
-        secure_delete_file(config_file)
 
-        # Remove directory (should be empty now)
+        # Delete any legacy plaintext config file (if it exists)
+        config_file = session_dir / "config.json"
+        if config_file.exists():
+            secure_delete_file(config_file)
+
+        # Remove directory
         shutil.rmtree(session_dir, ignore_errors=True)
-        logger.info(f"Session deleted successfully")
+        logger.info(f"Session '{safe_name}' deleted successfully")
     except Exception as e:
-        logger.exception(f"Failed to delete session")
+        logger.exception(f"Failed to delete session '{safe_name}'")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete session: {e}",
