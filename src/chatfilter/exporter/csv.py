@@ -1,4 +1,11 @@
-"""CSV export for analysis results."""
+"""CSV export for analysis results.
+
+This module provides robust CSV export with proper handling of:
+- Unicode characters including emoji (🎉), RTL text (العربية), and complex emoji sequences
+- Zero-width characters (zero-width space, joiner, non-joiner)
+- Special CSV characters (quotes, commas, newlines) with proper escaping
+- UTF-8 BOM for Excel compatibility
+"""
 
 from __future__ import annotations
 
@@ -101,6 +108,10 @@ def export_to_csv(
     include_bom: bool = True,
 ) -> str:
     """Export analysis results to CSV format.
+
+    Properly handles Unicode characters including emoji, RTL text,
+    zero-width characters, and special CSV characters (quotes, commas,
+    newlines). Output is UTF-8 encoded with optional BOM for Excel.
 
     Args:
         results: List of analysis results to export
