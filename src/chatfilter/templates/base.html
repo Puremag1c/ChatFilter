@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}ChatFilter{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -31,6 +32,26 @@
 
     <!-- Toast notification container -->
     <div id="toast-container"></div>
+
+    <!-- CSRF Token Configuration for HTMX -->
+    <script>
+        // Configure HTMX to include CSRF token in all POST/DELETE requests
+        document.addEventListener('DOMContentLoaded', function() {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+            if (csrfToken) {
+                // Add CSRF token to all HTMX requests
+                document.body.addEventListener('htmx:configRequest', function(event) {
+                    // Only add token to POST/DELETE requests
+                    if (event.detail.verb === 'post' || event.detail.verb === 'delete') {
+                        event.detail.headers['X-CSRF-Token'] = csrfToken;
+                    }
+                });
+            } else {
+                console.warn('CSRF token not found in page meta tags');
+            }
+        });
+    </script>
 
     <!-- Global error handling and toast system -->
     <script>

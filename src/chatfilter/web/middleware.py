@@ -1,4 +1,4 @@
-"""FastAPI middleware for request tracking, logging, and session management."""
+"""FastAPI middleware for request tracking, logging, session management, and CSRF protection."""
 
 from __future__ import annotations
 
@@ -10,8 +10,9 @@ from contextvars import ContextVar
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
+from chatfilter.web.csrf import CSRF_FORM_FIELD, CSRF_HEADER_NAME, validate_csrf_token
 from chatfilter.web.session import get_session, get_session_store, set_session_cookie
 
 logger = logging.getLogger(__name__)
@@ -232,3 +233,111 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         return response
+
+
+class CSRFProtectionMiddleware(BaseHTTPMiddleware):
+    """Middleware for CSRF protection on state-changing requests.
+
+    Validates CSRF tokens on POST/DELETE requests to prevent Cross-Site
+    Request Forgery attacks. Token can be provided via:
+    - X-CSRF-Token header (recommended for AJAX/HTMX)
+    - csrf_token form field (for traditional forms)
+
+    Features:
+    - Validates all POST/DELETE requests (except exempt paths)
+    - Supports both header and form-based tokens
+    - Constant-time comparison to prevent timing attacks
+    - Clear error messages for debugging
+
+    Exempt paths (no CSRF check):
+    - /health - Health check endpoint
+    - /api/export/* - Export endpoints (read-only operations)
+    """
+
+    # Paths exempt from CSRF validation
+    EXEMPT_PATHS = {
+        "/health",
+    }
+
+    # Path prefixes exempt from CSRF validation
+    EXEMPT_PREFIXES = (
+        "/api/export/",  # Export endpoints are read-only despite POST
+    )
+
+    def _is_exempt(self, path: str) -> bool:
+        """Check if path is exempt from CSRF validation."""
+        if path in self.EXEMPT_PATHS:
+            return True
+
+        for prefix in self.EXEMPT_PREFIXES:
+            if path.startswith(prefix):
+                return True
+
+        return False
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        # Only check state-changing methods
+        if request.method not in ("POST", "DELETE"):
+            return await call_next(request)
+
+        # Skip CSRF check for exempt paths
+        if self._is_exempt(request.url.path):
+            logger.debug(f"CSRF check skipped for exempt path: {request.url.path}")
+            return await call_next(request)
+
+        # Get session (created by SessionMiddleware)
+        session = get_session(request)
+        if not session:
+            logger.error("No session found for CSRF validation")
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "CSRF validation failed: No session",
+                    "error": "csrf_no_session",
+                },
+            )
+
+        # Try to get token from header first (preferred for AJAX/HTMX)
+        csrf_token = request.headers.get(CSRF_HEADER_NAME)
+
+        # If not in header, try form data
+        if not csrf_token:
+            try:
+                form_data = await request.form()
+                csrf_token = form_data.get(CSRF_FORM_FIELD)
+            except Exception:
+                # Not a form request or error parsing form
+                pass
+
+        # Validate token
+        if not csrf_token:
+            logger.warning(
+                f"CSRF token missing for {request.method} {request.url.path}",
+                extra={"request_id": get_request_id()},
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "CSRF validation failed: Token missing",
+                    "error": "csrf_token_missing",
+                },
+            )
+
+        if not validate_csrf_token(session, csrf_token):
+            logger.warning(
+                f"CSRF token invalid for {request.method} {request.url.path}",
+                extra={"request_id": get_request_id()},
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "CSRF validation failed: Invalid token",
+                    "error": "csrf_token_invalid",
+                },
+            )
+
+        # Token valid, proceed with request
+        logger.debug(f"CSRF token validated for {request.method} {request.url.path}")
+        return await call_next(request)

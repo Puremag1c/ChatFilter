@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
+from chatfilter.web.template_helpers import get_template_context
+
 router = APIRouter(tags=["pages"])
 
 
@@ -17,7 +19,7 @@ async def index(request: Request) -> HTMLResponse:
     templates = get_templates()
     return templates.TemplateResponse(
         "upload.html",
-        {"request": request, "version": __version__},
+        get_template_context(request, version=__version__),
     )
 
 
@@ -33,7 +35,7 @@ async def chats_page(request: Request) -> HTMLResponse:
 
     return templates.TemplateResponse(
         "chats.html",
-        {"request": request, "version": __version__, "sessions": sessions},
+        get_template_context(request, version=__version__, sessions=sessions),
     )
 
 
@@ -47,7 +49,7 @@ async def chatlist_page(request: Request) -> HTMLResponse:
 
     return templates.TemplateResponse(
         "chatlist.html",
-        {"request": request, "version": __version__},
+        get_template_context(request, version=__version__),
     )
 
 
@@ -63,7 +65,7 @@ async def proxy_page(request: Request) -> HTMLResponse:
 
     return templates.TemplateResponse(
         "proxy.html",
-        {"request": request, "version": __version__, "config": config},
+        get_template_context(request, version=__version__, config=config),
     )
 
 
@@ -110,11 +112,11 @@ async def results_page(
 
     return templates.TemplateResponse(
         "results.html",
-        {
-            "request": request,
-            "version": __version__,
-            "results": results,
-            "error": error,
-            "task_id": task_id,
-        },
+        get_template_context(
+            request,
+            version=__version__,
+            results=results,
+            error=error,
+            task_id=task_id,
+        ),
     )

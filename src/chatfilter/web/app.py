@@ -16,6 +16,7 @@ from chatfilter.config import Settings, get_settings
 from chatfilter.utils.paths import get_base_path
 from chatfilter.web.exception_handlers import register_exception_handlers
 from chatfilter.web.middleware import (
+    CSRFProtectionMiddleware,
     GracefulShutdownMiddleware,
     RequestIDMiddleware,
     RequestLoggingMiddleware,
@@ -234,9 +235,11 @@ def create_app(
     # Add middlewares (order matters: first added = last executed)
     # GracefulShutdown runs first to reject requests during shutdown
     # RequestLogging should run after RequestID is set
-    # Session middleware manages session cookies
+    # Session middleware manages session cookies (must run before CSRF)
+    # CSRF protection validates tokens (must run after Session)
     # SecurityHeaders adds security headers to all responses
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(CSRFProtectionMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(SessionMiddleware)
     app.add_middleware(RequestIDMiddleware)
@@ -254,6 +257,7 @@ def create_app(
             "Accept",
             "Accept-Language",
             "Content-Language",
+            "X-CSRF-Token",  # CSRF protection header
         ],
     )
 
