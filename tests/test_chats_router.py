@@ -45,7 +45,7 @@ class TestChatsAPI:
         # Mock the service to raise SessionNotFoundError
         with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
             mock_service = mock_get_service.return_value
-            mock_service.get_chats = AsyncMock(
+            mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionNotFoundError("Session 'nonexistent' not found")
             )
 
@@ -68,7 +68,8 @@ class TestChatsAPI:
         # Mock the service layer instead of the low-level components
         with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
             mock_service = mock_get_service.return_value
-            mock_service.get_chats = AsyncMock(return_value=mock_chats)
+            # Return tuple of (chats, total_count)
+            mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, len(mock_chats)))
 
             response = client.get("/api/chats?session-select=test_session")
 
@@ -77,5 +78,59 @@ class TestChatsAPI:
         assert "Test Channel" in response.text
         assert "@testchan" in response.text
 
-        # Verify the service was called correctly
-        mock_service.get_chats.assert_awaited_once_with("test_session")
+        # Verify the service was called correctly with pagination params
+        mock_service.get_chats_paginated.assert_awaited_once_with("test_session", offset=0, limit=100)
+
+    def test_get_chats_with_pagination(self) -> None:
+        """Test getting chats with explicit pagination parameters."""
+        # Mock data - simulate a large list with pagination
+        mock_chats = [
+            Chat(id=i, title=f"Chat {i}", chat_type=ChatType.GROUP)
+            for i in range(150, 200)  # Simulating items 150-200 (offset=150, limit=50)
+        ]
+
+        app = create_app()
+        client = TestClient(app)
+
+        # Mock the service layer
+        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+            mock_service = mock_get_service.return_value
+            # Return tuple of (chats_slice, total_count)
+            mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 500))
+
+            response = client.get("/api/chats?session-select=test_session&offset=150&limit=50")
+
+        assert response.status_code == 200
+        # Check that pagination metadata is in the response
+        assert "Chat 150" in response.text
+        assert "Chat 199" in response.text
+        # Check for load more button (has_more should be True since 200 < 500)
+        assert "Load More" in response.text
+        assert "300 remaining" in response.text  # 500 - 200 = 300
+
+        # Verify the service was called with custom pagination params
+        mock_service.get_chats_paginated.assert_awaited_once_with("test_session", offset=150, limit=50)
+
+    def test_get_chats_last_page(self) -> None:
+        """Test getting the last page of chats (no load more button)."""
+        # Mock data - last 20 chats
+        mock_chats = [
+            Chat(id=i, title=f"Chat {i}", chat_type=ChatType.GROUP)
+            for i in range(80, 100)  # Last 20 chats
+        ]
+
+        app = create_app()
+        client = TestClient(app)
+
+        # Mock the service layer
+        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+            mock_service = mock_get_service.return_value
+            # Return tuple showing we've reached the end
+            mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 100))
+
+            response = client.get("/api/chats?session-select=test_session&offset=80&limit=100")
+
+        assert response.status_code == 200
+        assert "Chat 80" in response.text
+        # Should not have load more button on last page
+        # Note: The response might not contain "Load More" if has_more is False

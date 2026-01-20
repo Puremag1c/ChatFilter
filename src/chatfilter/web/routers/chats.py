@@ -114,10 +114,18 @@ def cleanup_invalid_session(session_id: str) -> None:
 async def get_chats(
     request: Request,
     session_id: str = Query(alias="session-select"),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> HTMLResponse:
     """Fetch chats from a session and return as HTML partial.
 
     Uses the ChatAnalysisService to fetch dialog list from Telegram.
+    Supports pagination to prevent timeouts with large chat lists.
+
+    Args:
+        session_id: Telegram session identifier
+        offset: Number of chats to skip (for pagination)
+        limit: Maximum number of chats to return (1-500, default 100)
     """
     from chatfilter.web.app import get_templates
 
@@ -132,7 +140,14 @@ async def get_chats(
     service = get_chat_service()
 
     try:
-        chats = await service.get_chats(session_id)
+        # Fetch paginated chats and total count
+        chats, total_count = await service.get_chats_paginated(
+            session_id, offset=offset, limit=limit
+        )
+
+        # Calculate if there are more chats to load
+        has_more = (offset + len(chats)) < total_count
+        remaining = total_count - (offset + len(chats))
 
         return templates.TemplateResponse(
             "partials/chat_list.html",
@@ -140,6 +155,12 @@ async def get_chats(
                 "request": request,
                 "chats": chats,
                 "session_id": session_id,
+                "offset": offset,
+                "limit": limit,
+                "total_count": total_count,
+                "has_more": has_more,
+                "remaining": remaining,
+                "is_initial_load": offset == 0,
             },
         )
 

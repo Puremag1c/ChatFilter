@@ -3,6 +3,7 @@
     {{ error }}
 </div>
 {% elif chats %}
+{% if is_initial_load %}
 <div class="chat-filters">
     <div class="form-group">
         <input type="text"
@@ -15,9 +16,11 @@
 <div class="chat-actions">
     <button type="button" class="btn btn-sm btn-secondary" id="select-all">Select All</button>
     <button type="button" class="btn btn-sm btn-secondary" id="select-none">Select None</button>
-    <span id="selection-count" class="selection-count">0 of {{ chats|length }} selected</span>
+    <span id="selection-count" class="selection-count">0 of {{ total_count }} chats</span>
 </div>
+{% endif %}
 
+{% if is_initial_load %}
 <form id="analysis-form"
       hx-post="/api/analysis/start"
       hx-target="#analysis-result"
@@ -25,7 +28,10 @@
       hx-indicator="#analysis-spinner">
     <input type="hidden" name="session_id" value="{{ session_id }}">
 
-    <div class="chat-list">
+    <div class="chat-list" id="chat-list">
+{% else %}
+<div id="chat-list-append">
+{% endif %}
         {% for chat in chats %}
         <label class="chat-item"
                data-title="{{ chat.title }}"
@@ -48,7 +54,22 @@
             </div>
         </label>
         {% endfor %}
+{% if is_initial_load %}
     </div>
+
+    {% if has_more %}
+    <div id="load-more-container" style="margin-top: 1rem; text-align: center;">
+        <button type="button"
+                class="btn btn-secondary"
+                hx-get="/api/chats?session-select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
+                hx-target="#load-more-container"
+                hx-swap="outerHTML"
+                hx-indicator="#load-more-spinner">
+            Load More Chats ({{ remaining }} remaining)
+            <span id="load-more-spinner" class="htmx-indicator spinner"></span>
+        </button>
+    </div>
+    {% endif %}
 
     <div class="analysis-settings" style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
         <h4 style="margin-bottom: 0.75rem; font-size: 1rem;">Analysis Settings</h4>
@@ -75,6 +96,34 @@
 </form>
 
 <div id="analysis-result"></div>
+{% else %}
+</div>
+<script>
+    // Append the new chats to the existing list
+    (function() {
+        const newChats = document.getElementById('chat-list-append');
+        const chatList = document.getElementById('chat-list');
+        if (chatList && newChats) {
+            while (newChats.firstChild) {
+                chatList.appendChild(newChats.firstChild);
+            }
+        }
+    })();
+</script>
+{% if has_more %}
+<div id="load-more-container" style="margin-top: 1rem; text-align: center;">
+    <button type="button"
+            class="btn btn-secondary"
+            hx-get="/api/chats?session-select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
+            hx-target="#load-more-container"
+            hx-swap="outerHTML"
+            hx-indicator="#load-more-spinner">
+        Load More Chats ({{ remaining }} remaining)
+        <span id="load-more-spinner" class="htmx-indicator spinner"></span>
+    </button>
+</div>
+{% endif %}
+{% endif %}
 {% else %}
 <div class="no-chats">
     <p>No chats found in this session</p>

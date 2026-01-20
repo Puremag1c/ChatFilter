@@ -135,6 +135,41 @@ class ChatAnalysisService:
             logger.info(f"Fetched {len(chats)} chats from session '{session_id}'")
             return chats
 
+    async def get_chats_paginated(
+        self, session_id: str, offset: int = 0, limit: int = 100
+    ) -> tuple[list[Chat], int]:
+        """Get paginated list of chats from a Telegram session.
+
+        This method fetches all chats (cached if available) and returns
+        a slice based on offset/limit to support pagination.
+
+        Args:
+            session_id: Session identifier
+            offset: Number of chats to skip (default: 0)
+            limit: Maximum number of chats to return (default: 100)
+
+        Returns:
+            Tuple of (chat_list_slice, total_count)
+
+        Raises:
+            SessionNotFoundError: If session not found
+            Exception: If connection or fetch fails
+        """
+        # Get all chats (will be cached after first call)
+        all_chats = await self.get_chats(session_id)
+        total_count = len(all_chats)
+
+        # Return paginated slice
+        end_index = min(offset + limit, total_count)
+        paginated_chats = all_chats[offset:end_index]
+
+        logger.info(
+            f"Returning {len(paginated_chats)} chats "
+            f"(offset={offset}, limit={limit}, total={total_count}) "
+            f"from session '{session_id}'"
+        )
+        return paginated_chats, total_count
+
     async def get_chat_info(
         self,
         session_id: str,
