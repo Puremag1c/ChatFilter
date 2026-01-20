@@ -107,6 +107,46 @@ CHATFILTER_DEBUG=false
 CHATFILTER_LOG_LEVEL=INFO
 ```
 
+### CORS Configuration (Separated Frontend/Backend)
+
+If you're running the frontend separately from the backend API, you need to configure CORS (Cross-Origin Resource Sharing) to allow cross-origin requests.
+
+**Default Allowed Origins:**
+
+The application includes default CORS origins for common development scenarios:
+- `http://localhost:8000`, `http://127.0.0.1:8000` (backend)
+- `http://localhost:3000`, `http://127.0.0.1:3000` (React, Next.js)
+- `http://localhost:5173`, `http://127.0.0.1:5173` (Vite)
+- `http://localhost:4200`, `http://127.0.0.1:4200` (Angular)
+
+**Environment Variable:**
+
+Set `CHATFILTER_CORS_ORIGINS` to a comma-separated list of allowed origins:
+
+```bash
+CHATFILTER_CORS_ORIGINS=http://localhost:3000,https://myapp.com
+```
+
+**Security Notes:**
+
+- **Allowed Methods:** Only `GET`, `POST`, and `DELETE` are permitted (not `PUT`, `PATCH`)
+- **Allowed Headers:** Limited to `Content-Type`, `Accept`, `Accept-Language`, `Content-Language`
+- **Credentials:** Enabled (`allow_credentials=True`) for cookie-based authentication
+- **Production:** Always restrict origins to your specific domain(s) in production:
+  ```bash
+  CHATFILTER_CORS_ORIGINS=https://yourdomain.com
+  ```
+
+**Programmatic Configuration:**
+
+You can also configure CORS programmatically when creating the app:
+
+```python
+from chatfilter.web.app import create_app
+
+app = create_app(cors_origins=["https://yourdomain.com"])
+```
+
 ### Examples
 
 Run on custom port:

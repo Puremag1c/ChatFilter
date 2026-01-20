@@ -141,13 +141,23 @@ class Settings(BaseSettings):
         description="Logging level (DEBUG, INFO, WARNING, ERROR)",
     )
 
-    # CORS (comma-separated list in env var)
+    # CORS origins for separated frontend/backend architecture
+    # Include common development ports for frontend frameworks
+    # In production, override via CHATFILTER_CORS_ORIGINS environment variable
     cors_origins: list[str] = Field(
         default_factory=lambda: [
+            # Backend (served UI)
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            # Common frontend development ports
+            "http://localhost:3000",    # React, Next.js, Node servers
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",    # Vite
+            "http://127.0.0.1:5173",
+            "http://localhost:4200",    # Angular
+            "http://127.0.0.1:4200",
         ],
-        description="Allowed CORS origins",
+        description="Allowed CORS origins (comma-separated in env var)",
     )
 
     # Telegram settings

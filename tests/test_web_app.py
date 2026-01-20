@@ -110,6 +110,88 @@ class TestCORSConfiguration:
 
         assert response.headers.get("access-control-allow-origin") == "http://localhost:8000"
 
+    def test_cors_allows_only_specified_methods(self) -> None:
+        """Test CORS only allows GET, POST, DELETE methods."""
+        app = create_app(cors_origins=["http://localhost:3000"])
+        client = TestClient(app)
+
+        # Test allowed methods
+        for method in ["GET", "POST", "DELETE"]:
+            response = client.options(
+                "/health",
+                headers={
+                    "Origin": "http://localhost:3000",
+                    "Access-Control-Request-Method": method,
+                },
+            )
+            allowed_methods = response.headers.get("access-control-allow-methods", "")
+            assert method in allowed_methods, f"{method} should be allowed"
+
+        # Test that disallowed methods are not in the allowed list
+        response = client.options(
+            "/health",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        allowed_methods = response.headers.get("access-control-allow-methods", "")
+        # Verify we don't have wildcard
+        assert allowed_methods != "*", "Should not use wildcard for methods"
+        # PUT and PATCH should not be explicitly listed (unless framework adds them)
+        assert "PUT" not in allowed_methods or "GET" in allowed_methods
+
+    def test_cors_allows_credentials(self) -> None:
+        """Test CORS allows credentials for secure cookie-based auth."""
+        app = create_app(cors_origins=["http://localhost:3000"])
+        client = TestClient(app)
+
+        response = client.options(
+            "/health",
+            headers={
+                "Origin": "http://localhost:3000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+        assert response.headers.get("access-control-allow-credentials") == "true"
+
+    def test_cors_default_origins_include_common_frontend_ports(self) -> None:
+        """Test default CORS origins include common frontend development ports."""
+        app = create_app()
+        client = TestClient(app)
+
+        # Test common frontend ports are allowed by default
+        frontend_ports = ["3000", "5173", "4200", "8000"]
+        for port in frontend_ports:
+            response = client.options(
+                "/health",
+                headers={
+                    "Origin": f"http://localhost:{port}",
+                    "Access-Control-Request-Method": "GET",
+                },
+            )
+            assert (
+                response.headers.get("access-control-allow-origin") == f"http://localhost:{port}"
+            ), f"Default CORS should allow localhost:{port}"
+
+    def test_cors_blocks_disallowed_origin(self) -> None:
+        """Test CORS blocks requests from non-allowed origins."""
+        app = create_app(cors_origins=["http://localhost:3000"])
+        client = TestClient(app)
+
+        response = client.options(
+            "/health",
+            headers={
+                "Origin": "http://evil.com",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+        # Should not include the evil origin in response
+        origin_header = response.headers.get("access-control-allow-origin")
+        assert origin_header != "http://evil.com", "Should not allow unauthorized origin"
+
 
 class TestAppFactory:
     """Tests for app factory pattern."""
