@@ -230,6 +230,25 @@ class TestValidateSessionFile:
             conn.rollback()
             conn.close()
 
+    def test_telethon_2x_session_detected(self, tmp_path: Path) -> None:
+        """Test that Telethon 2.x session format is detected and rejected."""
+        session_path = tmp_path / "test.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+
+        # Create a Telethon 2.x-like schema with "version" table
+        cursor.execute("CREATE TABLE version (version INTEGER PRIMARY KEY)")
+        cursor.execute("INSERT INTO version (version) VALUES (2)")
+        cursor.execute("CREATE TABLE some_other_table (id INTEGER PRIMARY KEY)")
+        conn.commit()
+        conn.close()
+
+        with pytest.raises(
+            SessionFileError,
+            match="Telethon 2.x.*incompatible.*Telethon 1.x.*different session formats"
+        ):
+            validate_session_file(session_path)
+
 
 class TestTelegramClientLoader:
     """Tests for TelegramClientLoader class."""

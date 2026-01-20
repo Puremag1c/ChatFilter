@@ -56,12 +56,16 @@ class TestValidateSessionFileFormat:
     """Tests for session file format validation."""
 
     def test_valid_session_file(self, tmp_path: Path) -> None:
-        """Test validation of valid session file."""
+        """Test validation of valid Telethon 1.x session file."""
         session_path = tmp_path / "test.session"
         conn = sqlite3.connect(session_path)
         cursor = conn.cursor()
+        # Create required Telethon 1.x tables
         cursor.execute(
             "CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)"
+        )
+        cursor.execute(
+            "CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)"
         )
         cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
         conn.commit()
@@ -76,7 +80,7 @@ class TestValidateSessionFileFormat:
             validate_session_file_format(b"not a database")
 
     def test_invalid_missing_sessions_table(self, tmp_path: Path) -> None:
-        """Test rejection of SQLite without sessions table."""
+        """Test rejection of SQLite without required Telethon 1.x tables."""
         db_path = tmp_path / "test.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -85,7 +89,7 @@ class TestValidateSessionFileFormat:
         conn.close()
 
         content = db_path.read_bytes()
-        with pytest.raises(ValueError, match="missing sessions table"):
+        with pytest.raises(ValueError, match="Invalid session file format.*Expected Telethon 1.x"):
             validate_session_file_format(content)
 
     def test_invalid_empty_sessions(self, tmp_path: Path) -> None:
@@ -93,13 +97,52 @@ class TestValidateSessionFileFormat:
         db_path = tmp_path / "test.db"
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
+        # Create required tables but leave sessions empty
         cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY)")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
         conn.commit()
         conn.close()
 
         content = db_path.read_bytes()
         with pytest.raises(ValueError, match="Session file is empty"):
             validate_session_file_format(content)
+
+    def test_telethon_2x_session_rejected(self, tmp_path: Path) -> None:
+        """Test that Telethon 2.x session format is detected and rejected at upload time."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Create a Telethon 2.x-like schema with "version" table but missing required 1.x tables
+        cursor.execute("CREATE TABLE version (version INTEGER PRIMARY KEY)")
+        cursor.execute("INSERT INTO version (version) VALUES (2)")
+        cursor.execute("CREATE TABLE some_other_table (id INTEGER PRIMARY KEY)")
+        conn.commit()
+        conn.close()
+
+        content = db_path.read_bytes()
+        with pytest.raises(
+            ValueError,
+            match="Telethon 2.x.*incompatible.*Telethon 1.x.*different session formats"
+        ):
+            validate_session_file_format(content)
+
+    def test_valid_telethon_1x_session(self, tmp_path: Path) -> None:
+        """Test that valid Telethon 1.x session with required tables is accepted."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Create a valid Telethon 1.x schema with required tables
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        conn.commit()
+        conn.close()
+
+        content = db_path.read_bytes()
+        # Should not raise
+        validate_session_file_format(content)
 
 
 class TestValidateConfigFileFormat:

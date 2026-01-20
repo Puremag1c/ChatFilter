@@ -109,7 +109,7 @@ def validate_session_file_format(content: bytes) -> None:
         content: File content as bytes
 
     Raises:
-        ValueError: If file is not a valid Telethon session
+        ValueError: If file is not a valid Telethon session or has incompatible version
     """
     # Check SQLite header
     if not content.startswith(b"SQLite format 3"):
@@ -126,18 +126,40 @@ def validate_session_file_format(content: bytes) -> None:
             conn = sqlite3.connect(tmp.name)
             cursor = conn.cursor()
 
-            # Check for sessions table
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'"
-            )
-            if not cursor.fetchone():
-                raise ValueError("Invalid session file format: missing sessions table")
+            # Get all tables in the database
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = {row[0] for row in cursor.fetchall()}
+
+            # Telethon 1.x required tables
+            required_tables = {"sessions", "entities"}
+
+            # Check for Telethon 2.x format (incompatible)
+            if "version" in tables and not required_tables.issubset(tables):
+                conn.close()
+                raise ValueError(
+                    "Session file is from Telethon 2.x which is incompatible with this application. "
+                    "Please generate a new session file using Telethon 1.x (version 1.34.0 or later). "
+                    "Telethon 1.x and 2.x use different session formats that are not interchangeable."
+                )
+
+            # Check for required Telethon 1.x tables
+            if not required_tables.issubset(tables):
+                conn.close()
+                raise ValueError(
+                    f"Invalid session file format. Expected Telethon 1.x session with tables "
+                    f"{required_tables}, but found: {tables}. "
+                    "Please ensure you're uploading a valid Telethon session file."
+                )
 
             # Check for session data
             cursor.execute("SELECT COUNT(*) FROM sessions")
             count = cursor.fetchone()[0]
             if count == 0:
-                raise ValueError("Session file is empty: no active session found")
+                conn.close()
+                raise ValueError(
+                    "Session file is empty (no active session found). "
+                    "Please use a session file that has been authenticated with Telegram."
+                )
 
             conn.close()
         except sqlite3.Error as e:

@@ -295,12 +295,14 @@ def validate_session_file(session_path: Path) -> None:
             if "version" in tables:
                 # Likely Telethon 2.x format
                 raise SessionFileError(
-                    "Session file appears to be from Telethon 2.x which is incompatible. "
-                    "Please export a new session using Telethon 1.x (>=1.34.0)"
+                    "Session file is from Telethon 2.x which is incompatible with this application. "
+                    "Please generate a new session file using Telethon 1.x (version 1.34.0 or later). "
+                    "Telethon 1.x and 2.x use different session formats that are not interchangeable."
                 )
             raise SessionFileError(
-                f"Invalid session file format. Expected tables {required_tables}, "
-                f"found: {tables}"
+                f"Invalid session file format. Expected Telethon 1.x session with tables "
+                f"{required_tables}, but found: {tables}. "
+                "Please ensure you're using a valid Telethon session file."
             )
 
         # Verify session has data
