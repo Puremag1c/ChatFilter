@@ -49,3 +49,6 @@ htmlcov/
 .env
 *.session
 *.session-journal
+
+# Runtime data directory
+data/

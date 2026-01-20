@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
-    DATA_DIR,
     sanitize_session_name,
     validate_config_file_format,
     validate_session_file_format,
@@ -161,10 +160,16 @@ class TestSessionsAPIEndpoints:
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Path:
         """Provide a clean data directory and clean up after test."""
+        from unittest.mock import MagicMock
+
         test_data_dir = tmp_path / "test_sessions"
         test_data_dir.mkdir(parents=True, exist_ok=True)
 
-        with patch("chatfilter.web.routers.sessions.DATA_DIR", test_data_dir):
+        # Mock settings to return our test directory
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = test_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             yield test_data_dir
 
         # Cleanup
@@ -173,7 +178,12 @@ class TestSessionsAPIEndpoints:
 
     def test_get_sessions_empty(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test getting sessions when none exist."""
-        with patch("chatfilter.web.routers.sessions.DATA_DIR", clean_data_dir):
+        from unittest.mock import MagicMock
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.get("/api/sessions")
 
         assert response.status_code == 200
@@ -206,7 +216,12 @@ class TestSessionsAPIEndpoints:
         """Test upload with invalid session file."""
         config_content = json.dumps({"api_id": 12345, "api_hash": "abc"})
 
-        with patch("chatfilter.web.routers.sessions.DATA_DIR", clean_data_dir):
+        from unittest.mock import MagicMock
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -235,7 +250,12 @@ class TestSessionsAPIEndpoints:
         conn.close()
         session_content = session_path.read_bytes()
 
-        with patch("chatfilter.web.routers.sessions.DATA_DIR", clean_data_dir):
+        from unittest.mock import MagicMock
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -252,7 +272,12 @@ class TestSessionsAPIEndpoints:
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test deleting non-existent session."""
-        with patch("chatfilter.web.routers.sessions.DATA_DIR", clean_data_dir):
+        from unittest.mock import MagicMock
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.delete("/api/sessions/nonexistent")
 
         assert response.status_code == 404

@@ -14,14 +14,12 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, s
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from chatfilter.config import get_settings
 from chatfilter.telegram.client import TelegramClientLoader, TelegramConfigError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["sessions"])
-
-# Data directory for storing sessions
-DATA_DIR = Path.cwd() / "data" / "sessions"
 
 # Maximum file sizes (security limit)
 MAX_SESSION_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -36,9 +34,51 @@ class SessionListItem(BaseModel):
 
 
 def ensure_data_dir() -> Path:
-    """Ensure data directory exists."""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    return DATA_DIR
+    """Ensure sessions directory exists with proper permissions."""
+    sessions_dir = get_settings().sessions_dir
+    sessions_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return sessions_dir
+
+
+def secure_file_permissions(file_path: Path) -> None:
+    """Set file permissions to 600 (owner read/write only).
+
+    Args:
+        file_path: Path to file to secure
+    """
+    import os
+    import stat
+
+    # chmod 600: owner read/write, no access for group/others
+    os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def secure_delete_file(file_path: Path) -> None:
+    """Securely delete a file by overwriting before removal.
+
+    Args:
+        file_path: Path to file to securely delete
+    """
+    if not file_path.exists() or not file_path.is_file():
+        return
+
+    try:
+        # Get file size
+        file_size = file_path.stat().st_size
+
+        # Overwrite with zeros
+        with file_path.open("r+b") as f:
+            f.write(b"\x00" * file_size)
+            f.flush()
+            import os
+            os.fsync(f.fileno())
+
+        # Delete the file
+        file_path.unlink()
+    except Exception as e:
+        logger.warning(f"Failed to securely delete file, falling back to regular delete: {e}")
+        # Fallback to regular deletion
+        file_path.unlink(missing_ok=True)
 
 
 def sanitize_session_name(name: str) -> str:
@@ -273,6 +313,10 @@ async def upload_session(
             session_path.write_bytes(session_content)
             config_path.write_bytes(config_content)
 
+            # Set secure file permissions (chmod 600)
+            secure_file_permissions(session_path)
+            secure_file_permissions(config_path)
+
             # Validate that TelegramClientLoader can use these files
             loader = TelegramClientLoader(session_path, config_path)
             loader.validate()
@@ -335,10 +379,18 @@ async def delete_session(session_id: str) -> HTMLResponse:
         )
 
     try:
-        shutil.rmtree(session_dir)
-        logger.info(f"Session '{safe_name}' deleted")
+        # Securely delete session files
+        session_file = session_dir / "session.session"
+        config_file = session_dir / "config.json"
+
+        secure_delete_file(session_file)
+        secure_delete_file(config_file)
+
+        # Remove directory (should be empty now)
+        shutil.rmtree(session_dir, ignore_errors=True)
+        logger.info(f"Session deleted successfully")
     except Exception as e:
-        logger.exception(f"Failed to delete session '{safe_name}'")
+        logger.exception(f"Failed to delete session")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete session: {e}",
