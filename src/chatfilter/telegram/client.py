@@ -17,6 +17,7 @@ from telethon.errors import (
     ChannelPrivateError,
     ChatForbiddenError,
     ChatRestrictedError,
+    FloodWaitError,
     UserBannedInChannelError,
 )
 from telethon.tl.functions.channels import JoinChannelRequest
@@ -1033,14 +1034,19 @@ async def get_messages(
     ) as e:
         # User has limited access to this chat (kicked, banned, left, or chat is private/deleted)
         raise ChatAccessDeniedError(f"Access denied to chat {chat_id}: {type(e).__name__}") from e
+    except FloodWaitError as e:
+        # FloodWait that persisted through retries - inform user with exact wait time
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        wait_seconds = getattr(e, "seconds", None)
+        friendly_msg = get_user_friendly_message(e)
+        raise MessageFetchError(
+            f"Rate limited by Telegram for chat {chat_id}. {friendly_msg}"
+        ) from e
     except Exception as e:
         error_msg = str(e).lower()
         if "peer" in error_msg or "invalid" in error_msg:
             raise MessageFetchError(f"Chat not found or invalid: {chat_id}") from e
-        if "flood" in error_msg:
-            raise MessageFetchError(
-                f"Rate limited by Telegram. Please wait and try again: {e}"
-            ) from e
         if "private" in error_msg or "forbidden" in error_msg or "permission" in error_msg:
             raise MessageFetchError(f"Access denied to chat {chat_id}") from e
         raise MessageFetchError(f"Failed to fetch messages: {e}") from e
@@ -1059,6 +1065,278 @@ async def get_messages(
         )
 
     return messages
+
+
+async def get_messages_streaming(
+    client: TelegramClientType,
+    chat_id: int,
+    batch_size: int = 1000,
+    max_messages: int | None = None,
+):
+    """Stream messages from a Telegram chat in batches (generator).
+
+    Similar to get_messages() but yields batches of messages instead of loading
+    all messages into memory. Ideal for processing large chats (>100k messages)
+    with memory constraints.
+
+    For forum chats (supergroups with topics enabled), this function automatically
+    fetches messages from ALL topics and aggregates them.
+
+    Network errors (ConnectionError, TimeoutError, OSError, SSL errors) are
+    automatically retried with exponential backoff (up to 3 attempts per batch).
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_id: ID of the chat to fetch messages from
+        batch_size: Number of messages per batch (default 1000)
+        max_messages: Maximum total messages to fetch (None = unlimited)
+                     For forums, this is the total across all topics.
+
+    Yields:
+        Batches of Message models as list[Message], sorted by timestamp within batch
+
+    Raises:
+        ChatAccessDeniedError: If access to chat is denied (user kicked/banned/left,
+                                or chat is private/deleted)
+        MessageFetchError: If chat doesn't exist or other error
+        ValueError: If batch_size is invalid
+
+    Example:
+        ```python
+        from chatfilter.analyzer.metrics import StreamingMetricsAggregator
+
+        async with loader.create_client() as client:
+            aggregator = StreamingMetricsAggregator()
+
+            # Process messages in batches
+            async for batch in get_messages_streaming(client, chat_id=123):
+                aggregator.add_batch(batch)
+                print(f"Processed batch of {len(batch)} messages")
+
+            # Get final metrics without storing all messages
+            metrics = aggregator.get_metrics()
+            print(f"Total: {metrics.message_count} messages")
+        ```
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    if max_messages is not None and max_messages <= 0:
+        raise ValueError("max_messages must be positive or None")
+
+    # Proactive rate limiting
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.wait_if_needed("get_messages")
+
+    total_fetched = 0
+    seen_ids: set[int] = set()
+
+    try:
+        # Check if this is a forum chat
+        entity = await client.get_entity(chat_id)
+        is_forum = (
+            isinstance(entity, Channel)
+            and getattr(entity, "megagroup", False)
+            and getattr(entity, "forum", False)
+        )
+
+        if is_forum:
+            # For forums, fetch messages from all topics
+            logger.info(f"Chat {chat_id} is a forum, streaming from all topics")
+
+            # Get all topics
+            topic_ids = await _get_forum_topics(client, chat_id)
+
+            if topic_ids:
+                logger.info(f"Found {len(topic_ids)} topics in forum {chat_id}")
+
+                # Stream messages from each topic
+                for topic_id in topic_ids:
+                    # Check if we've reached max_messages limit
+                    if max_messages and total_fetched >= max_messages:
+                        logger.info(
+                            f"Reached max_messages limit ({max_messages}), "
+                            f"stopping forum topic fetch"
+                        )
+                        return
+
+                    max_retries = 3
+                    retry_count = 0
+                    batch: list[Message] = []
+
+                    while retry_count < max_retries:
+                        try:
+                            # Calculate remaining messages to fetch
+                            remaining = (
+                                max_messages - total_fetched if max_messages else batch_size
+                            )
+                            fetch_limit = min(batch_size, remaining)
+
+                            async for telethon_msg in client.iter_messages(
+                                chat_id,
+                                limit=fetch_limit,
+                                reply_to=topic_id,
+                            ):
+                                msg = _telethon_message_to_model(telethon_msg, chat_id)
+                                if msg is None:
+                                    continue
+
+                                # Deduplicate
+                                if msg.id in seen_ids:
+                                    continue
+                                seen_ids.add(msg.id)
+                                batch.append(msg)
+
+                                # Yield batch when it reaches batch_size
+                                if len(batch) >= batch_size:
+                                    batch.sort(key=lambda m: m.timestamp)
+                                    yield batch
+                                    total_fetched += len(batch)
+                                    batch = []
+
+                                    # Check if we've reached max_messages
+                                    if max_messages and total_fetched >= max_messages:
+                                        return
+
+                            # Yield remaining messages in final batch for this topic
+                            if batch:
+                                batch.sort(key=lambda m: m.timestamp)
+                                yield batch
+                                total_fetched += len(batch)
+
+                            # Successfully fetched from this topic
+                            break
+
+                        except (ConnectionError, TimeoutError, OSError) as e:
+                            retry_count += 1
+                            logger.warning(
+                                f"Connection interrupted while streaming topic {topic_id} "
+                                f"(attempt {retry_count}/{max_retries}): {e}"
+                            )
+
+                            if retry_count < max_retries:
+                                import asyncio
+
+                                wait_time = 1.0 * (2 ** (retry_count - 1))
+                                logger.info(f"Retrying topic {topic_id} in {wait_time}s...")
+                                await asyncio.sleep(wait_time)
+                            else:
+                                logger.warning(
+                                    f"Max retries reached for topic {topic_id}. "
+                                    f"Moving to next topic."
+                                )
+                                break
+                        except Exception as e:
+                            logger.warning(f"Failed to stream from topic {topic_id}: {e}")
+                            break
+            else:
+                # No topics found, fall back to default behavior
+                logger.info(f"No topics found for forum {chat_id}, using default streaming")
+
+        # Regular chat or forum fallback: stream messages
+        max_retries = 3
+        retry_count = 0
+        batch: list[Message] = []
+
+        while retry_count < max_retries:
+            try:
+                # Calculate remaining messages to fetch
+                if max_messages:
+                    remaining = max_messages - total_fetched
+                    if remaining <= 0:
+                        # Yield final batch if any
+                        if batch:
+                            batch.sort(key=lambda m: m.timestamp)
+                            yield batch
+                        return
+                    fetch_limit = min(batch_size * 10, remaining)  # Fetch larger chunks
+                else:
+                    fetch_limit = batch_size * 10
+
+                async for telethon_msg in client.iter_messages(
+                    chat_id,
+                    limit=fetch_limit,
+                ):
+                    msg = _telethon_message_to_model(telethon_msg, chat_id)
+                    if msg is None:
+                        continue
+
+                    # Deduplicate
+                    if msg.id in seen_ids:
+                        continue
+                    seen_ids.add(msg.id)
+                    batch.append(msg)
+
+                    # Yield batch when it reaches batch_size
+                    if len(batch) >= batch_size:
+                        batch.sort(key=lambda m: m.timestamp)
+                        yield batch
+                        total_fetched += len(batch)
+                        batch = []
+
+                        # Check if we've reached max_messages
+                        if max_messages and total_fetched >= max_messages:
+                            return
+
+                # Yield remaining messages in final batch
+                if batch:
+                    batch.sort(key=lambda m: m.timestamp)
+                    yield batch
+                    total_fetched += len(batch)
+
+                # Successfully completed streaming
+                break
+
+            except (ConnectionError, TimeoutError, OSError) as e:
+                retry_count += 1
+                logger.warning(
+                    f"Connection interrupted while streaming chat {chat_id} "
+                    f"(fetched {total_fetched} so far, "
+                    f"attempt {retry_count}/{max_retries}): {e}"
+                )
+
+                if retry_count < max_retries:
+                    import asyncio
+
+                    wait_time = 1.0 * (2 ** (retry_count - 1))
+                    logger.info(f"Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.warning(
+                        f"Max retries reached for chat {chat_id}. "
+                        f"Yielding final partial batch."
+                    )
+                    # Yield any remaining batch
+                    if batch:
+                        batch.sort(key=lambda m: m.timestamp)
+                        yield batch
+                    break
+
+    except (
+        ChatForbiddenError,
+        ChannelPrivateError,
+        UserBannedInChannelError,
+        ChatRestrictedError,
+        ChannelBannedError,
+    ) as e:
+        raise ChatAccessDeniedError(f"Access denied to chat {chat_id}: {type(e).__name__}") from e
+    except FloodWaitError as e:
+        # FloodWait that persisted through retries - inform user with exact wait time
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        friendly_msg = get_user_friendly_message(e)
+        raise MessageFetchError(
+            f"Rate limited by Telegram for chat {chat_id}. {friendly_msg}"
+        ) from e
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "peer" in error_msg or "invalid" in error_msg:
+            raise MessageFetchError(f"Chat not found or invalid: {chat_id}") from e
+        if "private" in error_msg or "forbidden" in error_msg or "permission" in error_msg:
+            raise MessageFetchError(f"Access denied to chat {chat_id}") from e
+        raise MessageFetchError(f"Failed to stream messages: {e}") from e
+    finally:
+        # Clear seen_ids to free memory
+        seen_ids.clear()
 
 
 # Regex patterns for parsing Telegram links
@@ -1110,6 +1388,7 @@ def _parse_chat_reference(ref: str) -> tuple[str | None, str | None]:
     return None, None
 
 
+@with_retry_for_reads(max_attempts=3, base_delay=2.0, max_delay=30.0)
 async def join_chat(
     client: TelegramClientType,
     chat_ref: str,
@@ -1208,6 +1487,14 @@ async def join_chat(
     except JoinChatError:
         # Re-raise our own errors
         raise
+    except FloodWaitError as e:
+        # FloodWait when joining chat - inform user with exact wait time
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        friendly_msg = get_user_friendly_message(e)
+        raise JoinChatError(
+            f"Rate limited by Telegram when joining {chat_ref}. {friendly_msg}"
+        ) from e
     except Exception as e:
         error_msg = str(e).lower()
         if "invite" in error_msg and "expired" in error_msg:
@@ -1216,10 +1503,6 @@ async def join_chat(
             raise JoinChatError(f"Invalid invite link: {chat_ref}") from e
         if "banned" in error_msg or "kicked" in error_msg:
             raise JoinChatError(f"You are banned from this chat: {chat_ref}") from e
-        if "flood" in error_msg:
-            raise JoinChatError(
-                f"Rate limited by Telegram. Please wait and try again: {e}"
-            ) from e
         if "private" in error_msg:
             raise JoinChatError(
                 f"Chat is private and requires an invite link: {chat_ref}"

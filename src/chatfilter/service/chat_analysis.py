@@ -12,9 +12,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from chatfilter.analyzer import compute_metrics
+from chatfilter.analyzer.metrics import StreamingMetricsAggregator
 from chatfilter.models import AnalysisResult, Chat, ChatType
-from chatfilter.telegram.client import TelegramClientLoader, get_dialogs, get_messages
+from chatfilter.telegram.client import (
+    TelegramClientLoader,
+    get_dialogs,
+    get_messages,
+    get_messages_streaming,
+)
 from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.utils.memory import MemoryMonitor, MemoryTracker, log_memory_usage
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
@@ -193,31 +200,137 @@ class ChatAnalysisService:
         session_id: str,
         chat_id: int,
         message_limit: int = 1000,
+        batch_size: int = 1000,
+        use_streaming: bool | None = None,
+        memory_limit_mb: float = 1024.0,
+        enable_memory_monitoring: bool = False,
+        batch_progress_callback=None,
     ) -> AnalysisResult:
         """Analyze a single chat.
 
-        Fetches messages from the chat and computes metrics.
+        Fetches messages from the chat and computes metrics. For large chats
+        (>100k messages), automatically uses streaming to avoid memory issues.
 
         Args:
             session_id: Session identifier
             chat_id: Chat ID to analyze
             message_limit: Maximum messages to fetch (default 1000)
+            batch_size: Batch size for streaming mode (default 1000)
+            use_streaming: Force streaming mode (None = auto-detect based on limit)
+            memory_limit_mb: Memory threshold in MB (default 1024MB)
+            enable_memory_monitoring: Enable memory monitoring and logging
+            batch_progress_callback: Optional callback for batch progress updates
 
         Returns:
             AnalysisResult with metrics
 
         Raises:
             SessionNotFoundError: If session not found
+            MemoryError: If memory limit exceeded (when monitoring enabled)
             Exception: If fetch or analysis fails
         """
         self._ensure_loader(session_id)
 
-        async with self._session_manager.session(session_id) as client:
-            # Fetch messages
-            messages = await get_messages(client, chat_id, limit=message_limit)
+        # Auto-detect streaming mode for large chats
+        if use_streaming is None:
+            use_streaming = message_limit > 100_000
 
-            # Compute metrics
-            metrics = compute_metrics(messages)
+        # Auto-enable memory monitoring for large chats or streaming mode
+        if not enable_memory_monitoring and (use_streaming or message_limit > 50_000):
+            enable_memory_monitoring = True
+            logger.info(
+                f"Auto-enabled memory monitoring for chat {chat_id} "
+                f"(limit={message_limit}, streaming={use_streaming})"
+            )
+
+        # Setup memory monitoring if enabled
+        memory_monitor = None
+        memory_tracker = None
+        if enable_memory_monitoring:
+            memory_monitor = MemoryMonitor(
+                threshold_mb=memory_limit_mb,
+                circuit_breaker=False,  # Log warnings but don't raise
+            )
+            memory_tracker = MemoryTracker()
+            memory_tracker.snapshot("start")
+            log_memory_usage(f"Starting analysis for chat {chat_id}")
+
+            # Check memory before starting - warn if already high
+            initial_check = memory_monitor.check()
+            if not initial_check:
+                logger.warning(
+                    f"Memory usage is already high before starting analysis of chat {chat_id}. "
+                    f"Consider using streaming mode or increasing memory_limit_mb."
+                )
+
+                # Auto-enable streaming if memory is already high
+                if not use_streaming and message_limit > 10_000:
+                    logger.warning(
+                        f"Auto-switching to streaming mode for chat {chat_id} "
+                        f"due to high memory usage"
+                    )
+                    use_streaming = True
+
+        async with self._session_manager.session(session_id) as client:
+            if use_streaming:
+                # Stream processing for large chats
+                logger.info(
+                    f"Using streaming mode for chat {chat_id} "
+                    f"(limit={message_limit}, batch_size={batch_size})"
+                )
+
+                aggregator = StreamingMetricsAggregator()
+                batch_count = 0
+
+                async for batch in get_messages_streaming(
+                    client, chat_id, batch_size=batch_size, max_messages=message_limit
+                ):
+                    batch_count += 1
+                    aggregator.add_batch(batch)
+
+                    # Log batch progress
+                    logger.debug(
+                        f"Processed batch {batch_count}: "
+                        f"+{len(batch)} messages, "
+                        f"total={aggregator.message_count}"
+                    )
+
+                    # Report batch progress to callback
+                    if batch_progress_callback:
+                        estimated_total_batches = (
+                            (message_limit + batch_size - 1) // batch_size
+                            if message_limit
+                            else None
+                        )
+                        await batch_progress_callback(
+                            messages_processed=aggregator.message_count,
+                            batch_number=batch_count,
+                            total_batches=estimated_total_batches,
+                        )
+
+                    # Check memory periodically
+                    if memory_monitor and batch_count % 10 == 0:
+                        memory_monitor.check()
+                        if memory_tracker:
+                            memory_tracker.snapshot(f"batch_{batch_count}")
+
+                # Get final metrics from aggregator
+                metrics = aggregator.get_metrics()
+
+                logger.info(
+                    f"Streaming analysis complete for chat {chat_id}: "
+                    f"{metrics.message_count} messages in {batch_count} batches"
+                )
+
+            else:
+                # Standard processing for smaller chats
+                logger.debug(f"Using standard mode for chat {chat_id} (limit={message_limit})")
+
+                # Fetch messages
+                messages = await get_messages(client, chat_id, limit=message_limit)
+
+                # Compute metrics
+                metrics = compute_metrics(messages)
 
             # Get chat info from cache
             chat = await self.get_chat_info(session_id, chat_id)
@@ -228,6 +341,12 @@ class ChatAnalysisService:
                     title=f"Chat {chat_id}",
                     chat_type=ChatType.GROUP,
                 )
+
+            # Log final memory usage
+            if memory_tracker:
+                memory_tracker.snapshot("end")
+                memory_tracker.log_diff("start", "end")
+                log_memory_usage(f"Completed analysis for chat {chat_id}")
 
             return AnalysisResult(
                 chat=chat,

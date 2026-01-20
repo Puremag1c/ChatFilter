@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from chatfilter.analyzer import compute_metrics
+from chatfilter.analyzer.metrics import StreamingMetricsAggregator
 from chatfilter.models import ChatMetrics, Message
 
 
@@ -426,3 +427,242 @@ class TestEdgeCases:
         assert result.unique_authors == 1
         assert result.history_hours == 0.0
         assert result.messages_per_hour == 0.0
+
+
+class TestStreamingMetricsAggregator:
+    """Tests for StreamingMetricsAggregator class."""
+
+    def test_empty_aggregator_returns_empty_metrics(self) -> None:
+        """Test that empty aggregator returns empty metrics."""
+        aggregator = StreamingMetricsAggregator()
+        result = aggregator.get_metrics()
+
+        assert result.message_count == 0
+        assert result.unique_authors == 0
+        assert result.history_hours == 0.0
+        assert result.first_message_at is None
+        assert result.last_message_at is None
+
+    def test_add_single_batch(self) -> None:
+        """Test adding a single batch of messages."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+        batch = [
+            Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=2)),
+            Message.fake(id=2, author_id=200, timestamp=now - timedelta(hours=1)),
+            Message.fake(id=3, author_id=100, timestamp=now),
+        ]
+
+        aggregator.add_batch(batch)
+        result = aggregator.get_metrics()
+
+        assert result.message_count == 3
+        assert result.unique_authors == 2  # 100 and 200
+        assert result.history_hours == pytest.approx(2.0, rel=0.01)
+
+    def test_add_multiple_batches(self) -> None:
+        """Test adding multiple batches incrementally."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        # First batch
+        batch1 = [
+            Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=5)),
+            Message.fake(id=2, author_id=200, timestamp=now - timedelta(hours=4)),
+        ]
+        aggregator.add_batch(batch1)
+
+        # Second batch
+        batch2 = [
+            Message.fake(id=3, author_id=300, timestamp=now - timedelta(hours=3)),
+            Message.fake(id=4, author_id=100, timestamp=now - timedelta(hours=2)),  # Duplicate author
+        ]
+        aggregator.add_batch(batch2)
+
+        # Third batch
+        batch3 = [
+            Message.fake(id=5, author_id=400, timestamp=now - timedelta(hours=1)),
+            Message.fake(id=6, author_id=200, timestamp=now),  # Duplicate author
+        ]
+        aggregator.add_batch(batch3)
+
+        result = aggregator.get_metrics()
+
+        assert result.message_count == 6
+        assert result.unique_authors == 4  # 100, 200, 300, 400
+        assert result.history_hours == pytest.approx(5.0, rel=0.01)
+        assert result.first_message_at == now - timedelta(hours=5)
+        assert result.last_message_at == now
+
+    def test_add_single_message(self) -> None:
+        """Test adding messages one at a time."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        aggregator.add_message(Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=1)))
+        aggregator.add_message(Message.fake(id=2, author_id=200, timestamp=now))
+
+        result = aggregator.get_metrics()
+
+        assert result.message_count == 2
+        assert result.unique_authors == 2
+        assert result.history_hours == pytest.approx(1.0, rel=0.01)
+
+    def test_empty_batch_ignored(self) -> None:
+        """Test that empty batches don't affect metrics."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        batch1 = [Message.fake(id=1, timestamp=now - timedelta(hours=1))]
+        aggregator.add_batch(batch1)
+
+        # Add empty batch
+        aggregator.add_batch([])
+
+        batch2 = [Message.fake(id=2, timestamp=now)]
+        aggregator.add_batch(batch2)
+
+        result = aggregator.get_metrics()
+
+        assert result.message_count == 2
+        assert result.history_hours == pytest.approx(1.0, rel=0.01)
+
+    def test_batches_with_out_of_order_timestamps(self) -> None:
+        """Test that batches with out-of-order timestamps are handled correctly."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        # First batch with newer messages
+        batch1 = [
+            Message.fake(id=1, timestamp=now - timedelta(hours=2)),
+            Message.fake(id=2, timestamp=now),
+        ]
+        aggregator.add_batch(batch1)
+
+        # Second batch with older messages (out of order)
+        batch2 = [
+            Message.fake(id=3, timestamp=now - timedelta(hours=10)),
+            Message.fake(id=4, timestamp=now - timedelta(hours=5)),
+        ]
+        aggregator.add_batch(batch2)
+
+        result = aggregator.get_metrics()
+
+        # Should correctly identify the oldest and newest timestamps
+        assert result.first_message_at == now - timedelta(hours=10)
+        assert result.last_message_at == now
+        assert result.history_hours == pytest.approx(10.0, rel=0.01)
+
+    def test_reset_clears_state(self) -> None:
+        """Test that reset clears all aggregated state."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        # Add some messages
+        batch = [
+            Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=1)),
+            Message.fake(id=2, author_id=200, timestamp=now),
+        ]
+        aggregator.add_batch(batch)
+
+        # Verify state is set
+        assert aggregator.message_count == 2
+        assert aggregator.unique_authors == 2
+
+        # Reset
+        aggregator.reset()
+
+        # Verify state is cleared
+        assert aggregator.message_count == 0
+        assert aggregator.unique_authors == 0
+        result = aggregator.get_metrics()
+        assert result.message_count == 0
+
+    def test_large_number_of_batches(self) -> None:
+        """Test processing many batches (simulating large chat)."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        # Simulate 100 batches of 100 messages each = 10,000 messages
+        for batch_num in range(100):
+            batch = [
+                Message.fake(
+                    id=batch_num * 100 + i,
+                    author_id=(batch_num * 100 + i) % 50 + 1,  # 50 unique authors (1-50)
+                    timestamp=now - timedelta(hours=100 - batch_num),
+                )
+                for i in range(100)
+            ]
+            aggregator.add_batch(batch)
+
+        result = aggregator.get_metrics()
+
+        assert result.message_count == 10_000
+        assert result.unique_authors == 50
+        assert result.history_hours == pytest.approx(100.0, rel=0.01)
+
+    def test_matches_compute_metrics_result(self) -> None:
+        """Test that streaming aggregator produces same result as compute_metrics."""
+        now = datetime.now(UTC)
+
+        # Create test messages
+        messages = [
+            Message.fake(id=i, author_id=(i % 10) + 1, timestamp=now - timedelta(hours=20 - i * 0.5))
+            for i in range(40)
+        ]
+
+        # Compute with standard function
+        standard_result = compute_metrics(messages)
+
+        # Compute with streaming aggregator (split into 4 batches)
+        aggregator = StreamingMetricsAggregator()
+        for i in range(4):
+            batch = messages[i * 10 : (i + 1) * 10]
+            aggregator.add_batch(batch)
+
+        streaming_result = aggregator.get_metrics()
+
+        # Results should match
+        assert streaming_result.message_count == standard_result.message_count
+        assert streaming_result.unique_authors == standard_result.unique_authors
+        assert streaming_result.history_hours == pytest.approx(standard_result.history_hours, rel=0.001)
+        assert streaming_result.first_message_at == standard_result.first_message_at
+        assert streaming_result.last_message_at == standard_result.last_message_at
+
+    def test_author_set_size_bytes_estimation(self) -> None:
+        """Test memory estimation for author ID set."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        # Add messages with 100 unique authors
+        batch = [Message.fake(id=i, author_id=i + 1, timestamp=now) for i in range(100)]
+        aggregator.add_batch(batch)
+
+        # Estimate should be roughly 100 * 32 + 200 = ~3400 bytes
+        estimate = aggregator.author_set_size_bytes
+        assert estimate > 3000  # At least 3KB
+        assert estimate < 5000  # Less than 5KB (conservative upper bound)
+
+    def test_progressive_properties(self) -> None:
+        """Test that properties update as batches are added."""
+        aggregator = StreamingMetricsAggregator()
+        now = datetime.now(UTC)
+
+        # Initially empty
+        assert aggregator.message_count == 0
+        assert aggregator.unique_authors == 0
+
+        # Add first batch
+        batch1 = [Message.fake(id=1, author_id=100, timestamp=now)]
+        aggregator.add_batch(batch1)
+        assert aggregator.message_count == 1
+        assert aggregator.unique_authors == 1
+
+        # Add second batch
+        batch2 = [
+            Message.fake(id=2, author_id=100, timestamp=now - timedelta(minutes=30)),  # Duplicate author
+            Message.fake(id=3, author_id=200, timestamp=now),  # New author
+        ]
+        aggregator.add_batch(batch2)
+        assert aggregator.message_count == 3
+        assert aggregator.unique_authors == 2
