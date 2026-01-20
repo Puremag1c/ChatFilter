@@ -400,9 +400,35 @@ class TestSessionAuthErrors:
 
         with pytest.raises(
             SessionInvalidError,
-            match="permanently invalid.*PhoneNumberBannedError",
+            match="cannot be used.*PhoneNumberBannedError",
         ):
             await manager.connect("test")
+
+        # Verify error message mentions account ban/deactivation
+        info = manager.get_info("test")
+        assert info is not None
+        assert "deactivated or banned" in info.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_connect_user_deactivated_ban_error(self) -> None:
+        """Test connection with UserDeactivatedBanError raises SessionInvalidError."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(
+            auth_error=errors.UserDeactivatedBanError(request=mock_request)
+        )
+        manager.register("test", MockFactory(client))
+
+        with pytest.raises(
+            SessionInvalidError,
+            match="cannot be used.*UserDeactivatedBanError",
+        ):
+            await manager.connect("test")
+
+        # Verify error message mentions account deactivation
+        info = manager.get_info("test")
+        assert info is not None
+        assert "deactivated or banned" in info.error_message.lower()
 
     @pytest.mark.asyncio
     async def test_connect_session_password_needed_error(self) -> None:

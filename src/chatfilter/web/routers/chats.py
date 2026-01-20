@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -79,6 +80,36 @@ def get_session_paths(session_id: str) -> tuple[Path, Path]:
     return session_path, config_path
 
 
+def cleanup_invalid_session(session_id: str) -> None:
+    """Clean up an invalid session by securely deleting its files.
+
+    This is called when a session is detected as permanently invalid
+    (e.g., account banned, session revoked, auth key unregistered).
+
+    Args:
+        session_id: Session identifier to clean up
+    """
+    from chatfilter.web.routers.sessions import secure_delete_file
+
+    session_dir = DATA_DIR / session_id
+    if not session_dir.exists():
+        return
+
+    try:
+        # Securely delete session files
+        session_file = session_dir / "session.session"
+        config_file = session_dir / "config.json"
+
+        secure_delete_file(session_file)
+        secure_delete_file(config_file)
+
+        # Remove directory
+        shutil.rmtree(session_dir, ignore_errors=True)
+        logger.info(f"Cleaned up invalid session '{session_id}'")
+    except Exception as e:
+        logger.error(f"Failed to clean up invalid session '{session_id}': {e}")
+
+
 @router.get("/api/chats", response_class=HTMLResponse)
 async def get_chats(
     request: Request,
@@ -119,14 +150,17 @@ async def get_chats(
         )
     except SessionInvalidError as e:
         logger.error(f"Invalid session '{session_id}': {e}")
+        # Clean up the invalid session
+        cleanup_invalid_session(session_id)
         return templates.TemplateResponse(
             "partials/chat_list.html",
             {
                 "request": request,
                 "error": (
-                    "Session is invalid and cannot be used. "
+                    "Session is invalid and has been removed. "
                     "The session may have been revoked, logged out from another device, "
-                    "or the account may be banned. Please upload a new session file."
+                    "or the account may be banned or deactivated. "
+                    "Please upload a new session file from an active Telegram account."
                 ),
                 "chats": [],
                 "session_id": session_id,

@@ -271,20 +271,36 @@ class SessionManager:
                 errors.AuthKeyNotFound,
                 errors.AuthKeyPermEmptyError,
                 errors.PhoneNumberBannedError,
+                errors.UserDeactivatedBanError,
             ) as e:
                 # Permanently invalid session - requires new session file
                 session.state = SessionState.ERROR
                 error_type = type(e).__name__
-                session.error_message = (
-                    f"Session is invalid ({error_type}). "
-                    "Please provide a new session file."
-                )
-                raise SessionInvalidError(
-                    f"Session '{session_id}' is permanently invalid: {error_type}. "
-                    "The session has been revoked, the auth key is unregistered, "
-                    "or the account is banned. Please generate and upload a new "
-                    "session file from an authenticated Telegram client."
-                ) from e
+
+                # Provide specific message for account deactivation/ban
+                if isinstance(e, (errors.UserDeactivatedBanError, errors.PhoneNumberBannedError)):
+                    session.error_message = (
+                        f"Account is deactivated or banned ({error_type}). "
+                        "This Telegram account has been banned, deactivated, or deleted. "
+                        "Please use a different account."
+                    )
+                    raise SessionInvalidError(
+                        f"Session '{session_id}' cannot be used: {error_type}. "
+                        "The Telegram account associated with this session is banned, "
+                        "deactivated, or deleted. Please generate and upload a new "
+                        "session file from a different, active Telegram account."
+                    ) from e
+                else:
+                    session.error_message = (
+                        f"Session is invalid ({error_type}). "
+                        "Please provide a new session file."
+                    )
+                    raise SessionInvalidError(
+                        f"Session '{session_id}' is permanently invalid: {error_type}. "
+                        "The session has been revoked, the auth key is unregistered, "
+                        "or the account is inaccessible. Please generate and upload a new "
+                        "session file from an authenticated Telegram client."
+                    ) from e
             except (
                 errors.SessionPasswordNeededError,
                 errors.SessionExpiredError,
@@ -392,6 +408,7 @@ class SessionManager:
             errors.AuthKeyNotFound,
             errors.AuthKeyPermEmptyError,
             errors.PhoneNumberBannedError,
+            errors.UserDeactivatedBanError,
         ) as e:
             error_type = type(e).__name__
             session.state = SessionState.ERROR
