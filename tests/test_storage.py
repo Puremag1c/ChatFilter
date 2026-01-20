@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -21,6 +24,7 @@ from chatfilter.storage import (
     load_json,
     save_json,
 )
+from chatfilter.storage.file import cleanup_orphaned_temp_files
 
 
 class TestFileStorage:
@@ -167,6 +171,103 @@ class TestFileStorage:
         storage.ensure_dir(test_dir)
 
         assert test_dir.exists()
+
+    def test_temp_file_cleanup_on_normal_operation(self, tmp_path: Path) -> None:
+        """Test that temp files are cleaned up after successful save."""
+        storage = FileStorage()
+        test_file = tmp_path / "test.txt"
+        content = "test content"
+
+        # Save file
+        storage.save(test_file, content)
+
+        # Verify the target file exists
+        assert test_file.exists()
+        assert test_file.read_text() == content
+
+        # Verify no temp files remain
+        temp_files = list(tmp_path.glob(".*.tmp"))
+        assert len(temp_files) == 0
+
+    def test_temp_file_cleanup_on_error(self, tmp_path: Path) -> None:
+        """Test that temp files are cleaned up even when save fails."""
+        storage = FileStorage()
+        test_file = tmp_path / "subdir" / "test.txt"
+
+        # Create parent directory but make it read-only
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(test_file.parent, 0o444)  # Read-only
+
+        try:
+            # Try to save (should fail due to permissions)
+            with pytest.raises(StoragePermissionError):
+                storage.save(test_file, "content")
+
+            # Verify no temp files remain in parent directory
+            temp_files = list(test_file.parent.glob(".*.tmp"))
+            assert len(temp_files) == 0
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(test_file.parent, 0o755)
+
+    def test_orphaned_temp_files_cleanup(self, tmp_path: Path) -> None:
+        """Test cleanup of orphaned temp files from previous crashes."""
+        # Create some orphaned temp files
+        (tmp_path / ".test1.txt.tmp").write_text("orphaned1")
+        (tmp_path / ".test2.txt.tmp").write_text("orphaned2")
+        (tmp_path / "regular.txt").write_text("regular file")
+
+        # Create subdirectory with orphaned temp file
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        (subdir / ".test3.txt.tmp").write_text("orphaned3")
+
+        # Run cleanup
+        cleaned_count = cleanup_orphaned_temp_files(tmp_path)
+
+        # Verify orphaned temp files were removed
+        assert cleaned_count == 3
+        assert not (tmp_path / ".test1.txt.tmp").exists()
+        assert not (tmp_path / ".test2.txt.tmp").exists()
+        assert not (subdir / ".test3.txt.tmp").exists()
+
+        # Verify regular file remains
+        assert (tmp_path / "regular.txt").exists()
+
+    def test_orphaned_temp_files_cleanup_nonexistent_dir(self, tmp_path: Path) -> None:
+        """Test cleanup handles nonexistent directories gracefully."""
+        nonexistent_dir = tmp_path / "nonexistent"
+
+        # Should not raise, returns 0
+        cleaned_count = cleanup_orphaned_temp_files(nonexistent_dir)
+        assert cleaned_count == 0
+
+    def test_orphaned_temp_files_cleanup_empty_dir(self, tmp_path: Path) -> None:
+        """Test cleanup handles empty directories."""
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+
+        # Should not raise, returns 0
+        cleaned_count = cleanup_orphaned_temp_files(empty_dir)
+        assert cleaned_count == 0
+
+    def test_atomic_write_temp_file_registration(self, tmp_path: Path) -> None:
+        """Test that temp files are registered for atexit cleanup."""
+        from chatfilter.storage.file import _temp_files_registry
+
+        storage = FileStorage()
+        test_file = tmp_path / "test.txt"
+
+        # Clear registry before test
+        registry_before = len(list(_temp_files_registry))
+
+        # Save file (temp file should be registered during operation)
+        storage.save(test_file, "content")
+
+        # After successful save, temp file should not exist
+        # (it was cleaned up by the finally block)
+        temp_files = list(tmp_path.glob(".*.tmp"))
+        assert len(temp_files) == 0
 
 
 class TestJSONHelpers:

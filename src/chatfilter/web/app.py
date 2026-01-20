@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 
 from chatfilter.config import Settings, get_settings
+from chatfilter.utils.paths import get_base_path
 from chatfilter.web.middleware import (
     GracefulShutdownMiddleware,
     RequestIDMiddleware,
@@ -29,8 +30,8 @@ from chatfilter.web.routers.sessions import router as sessions_router
 
 logger = logging.getLogger(__name__)
 
-# Paths for static files and templates
-PACKAGE_DIR = Path(__file__).parent.parent
+# Paths for static files and templates (PyInstaller-safe)
+PACKAGE_DIR = get_base_path()
 STATIC_DIR = PACKAGE_DIR / "static"
 TEMPLATES_DIR = PACKAGE_DIR / "templates"
 
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     from chatfilter.analyzer.task_queue import get_task_queue
     from chatfilter.storage.database import TaskDatabase
+    from chatfilter.storage.file import cleanup_orphaned_temp_files
 
     # Startup
     logger.info("ChatFilter application starting up")
@@ -65,6 +67,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = app.state.settings
     db_path = settings.data_dir / "tasks.db"
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+
+    # Clean up orphaned temp files from previous crashes
+    cleaned = cleanup_orphaned_temp_files(settings.data_dir)
+    if cleaned > 0:
+        logger.info(f"Cleaned up {cleaned} orphaned temp file(s) from previous session")
 
     task_db = TaskDatabase(db_path)
     task_queue = get_task_queue(db=task_db)
@@ -186,13 +193,19 @@ def create_app(
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(GracefulShutdownMiddleware)
 
-    # CORS configuration
+    # CORS configuration for separated frontend/backend
+    # Restrict to only the methods and headers actually used by the API
     app.add_middleware(
         CORSMiddleware,
         allow_origins=effective_cors,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "DELETE"],  # Explicit methods used by API
+        allow_headers=[  # Only allow headers needed for the application
+            "Content-Type",
+            "Accept",
+            "Accept-Language",
+            "Content-Language",
+        ],
     )
 
     # Mount static files if directory exists

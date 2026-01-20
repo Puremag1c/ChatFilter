@@ -9,6 +9,11 @@ from chatfilter.utils.memory import (
     get_memory_usage,
     log_memory_usage,
 )
+from chatfilter.utils.paths import (
+    get_application_path,
+    get_base_path,
+    is_frozen,
+)
 from chatfilter.utils.ports import (
     PortInfo,
     find_available_port,
@@ -26,4 +31,7 @@ __all__ = [
     "MemoryStats",
     "MemoryMonitor",
     "MemoryTracker",
+    "get_base_path",
+    "get_application_path",
+    "is_frozen",
 ]

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import atexit
 import logging
+import os
 import shutil
 import tempfile
+import weakref
 from pathlib import Path
 
 from chatfilter.storage.base import Storage
@@ -16,6 +19,63 @@ from chatfilter.storage.errors import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Global registry for temporary files cleanup on abnormal exit
+_temp_files_registry: weakref.WeakSet[Path] = weakref.WeakSet()
+
+
+def _cleanup_temp_files() -> None:
+    """Clean up any remaining temporary files on exit.
+
+    This handler is called via atexit to ensure temp files are removed
+    even if the process crashes or exits abnormally.
+    """
+    for temp_path in list(_temp_files_registry):
+        try:
+            if temp_path.exists():
+                temp_path.unlink()
+                logger.debug(f"Cleaned up temp file on exit: {temp_path}")
+        except (OSError, Exception) as e:
+            # Log but don't raise - we're in cleanup
+            logger.warning(f"Failed to cleanup temp file {temp_path}: {e}")
+
+
+# Register cleanup handler
+atexit.register(_cleanup_temp_files)
+
+
+def cleanup_orphaned_temp_files(directory: Path, pattern: str = ".*.tmp") -> int:
+    """Clean up orphaned temporary files from previous crashes.
+
+    Searches for and removes temporary files matching the pattern.
+    This should be called at application startup to clean up any
+    temp files left over from abnormal exits.
+
+    Args:
+        directory: Directory to search for temp files
+        pattern: Glob pattern for temp files (default: ".*.tmp")
+
+    Returns:
+        Number of files cleaned up
+    """
+    if not directory.exists() or not directory.is_dir():
+        return 0
+
+    cleaned_count = 0
+    try:
+        for temp_file in directory.rglob(pattern):
+            if temp_file.is_file():
+                try:
+                    temp_file.unlink()
+                    logger.info(f"Cleaned up orphaned temp file: {temp_file}")
+                    cleaned_count += 1
+                except OSError as e:
+                    logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
+    except OSError as e:
+        logger.warning(f"Error scanning directory {directory} for temp files: {e}")
+
+    return cleaned_count
 
 
 class FileStorage(Storage):
@@ -76,6 +136,7 @@ class FileStorage(Storage):
             ) from e
 
         # Write to temporary file in same directory (for atomic rename)
+        tmp_path = None
         try:
             # Use same directory as target for atomic rename on same filesystem
             temp_dir = path.parent
@@ -87,11 +148,12 @@ class FileStorage(Storage):
                 suffix=".tmp",
             ) as tmp_file:
                 tmp_path = Path(tmp_file.name)
+                # Register for cleanup on abnormal exit
+                _temp_files_registry.add(tmp_path)
+
                 tmp_file.write(content_bytes)
                 tmp_file.flush()
                 # Ensure data is written to disk
-                tmp_file.file.fileno()
-                import os
                 os.fsync(tmp_file.fileno())
 
             # Atomic rename
@@ -99,17 +161,18 @@ class FileStorage(Storage):
             logger.debug(f"Saved {len(content_bytes)} bytes to {path}")
 
         except PermissionError as e:
-            # Clean up temp file
-            if "tmp_path" in locals():
-                tmp_path.unlink(missing_ok=True)
             raise StoragePermissionError(
                 f"Cannot write to {path}: permission denied"
             ) from e
         except OSError as e:
-            # Clean up temp file
-            if "tmp_path" in locals():
-                tmp_path.unlink(missing_ok=True)
             raise StorageError(f"Failed to write {path}: {e}") from e
+        finally:
+            # Clean up temp file if it still exists (i.e., rename didn't happen)
+            if tmp_path is not None and tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass  # Best effort cleanup
 
     def load(self, path: Path) -> bytes:
         """Load content from file.

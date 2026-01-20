@@ -6,6 +6,13 @@ This spec file bundles the ChatFilter application with all required dependencies
 data files, and hidden imports needed for Telegram client functionality.
 
 Build with: pyinstaller chatfilter.spec
+
+RUNTIME PATH RESOLUTION:
+- The application uses chatfilter.utils.paths.get_base_path() for PyInstaller-safe
+  path resolution (handles sys._MEIPASS in frozen mode)
+- Data files (templates, static, certificates) are extracted to sys._MEIPASS/chatfilter/
+- User data (sessions, configs, databases) uses platformdirs for the appropriate
+  user data directory (NOT bundled in the executable)
 """
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -83,6 +90,9 @@ hiddenimports = [
     # SSL/TLS certificates (critical for HTTPS)
     'certifi',
     'ssl',
+
+    # Platform directories (user data paths)
+    'platformdirs',
 
     # Standard library that may not be auto-detected
     'asyncio',
