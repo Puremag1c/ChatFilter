@@ -50,7 +50,16 @@ def get_session_manager() -> SessionManager:
     """
     global _session_manager
     if _session_manager is None:
-        _session_manager = SessionManager()
+        from chatfilter.config import get_settings
+
+        settings = get_settings()
+        _session_manager = SessionManager(
+            connect_timeout=settings.connect_timeout,
+            operation_timeout=settings.operation_timeout,
+            heartbeat_interval=settings.heartbeat_interval,
+            heartbeat_timeout=settings.heartbeat_timeout,
+            heartbeat_max_failures=settings.heartbeat_max_failures,
+        )
     return _session_manager
 
 

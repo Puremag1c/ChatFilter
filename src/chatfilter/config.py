@@ -182,6 +182,34 @@ class Settings(BaseSettings):
         description="Timeout for Telegram operations",
     )
 
+    # Connection health monitoring
+    heartbeat_interval: float = Field(
+        default=60.0,
+        ge=10.0,
+        le=600.0,
+        description="Interval between heartbeat checks (seconds)",
+    )
+    heartbeat_timeout: float = Field(
+        default=10.0,
+        ge=5.0,
+        le=60.0,
+        description="Timeout for heartbeat ping operations",
+    )
+    heartbeat_max_failures: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Max consecutive failures before reconnection",
+    )
+
+    # Task recovery settings
+    stale_task_threshold_hours: float = Field(
+        default=24.0,
+        ge=1.0,
+        le=168.0,  # Max 1 week
+        description="Hours after which in-progress tasks are considered stale on recovery",
+    )
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
@@ -360,6 +388,10 @@ class Settings(BaseSettings):
         print(f"  Max Messages Limit: {self.max_messages_limit}")
         print(f"  Connect Timeout: {self.connect_timeout}s")
         print(f"  Operation Timeout: {self.operation_timeout}s")
+        print(f"  Heartbeat Interval: {self.heartbeat_interval}s")
+        print(f"  Heartbeat Timeout: {self.heartbeat_timeout}s")
+        print(f"  Heartbeat Max Failures: {self.heartbeat_max_failures}")
+        print(f"  Stale Task Threshold: {self.stale_task_threshold_hours}h")
 
 
 @lru_cache

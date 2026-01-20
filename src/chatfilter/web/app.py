@@ -87,11 +87,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info(f"Cleaned up {cleaned} orphaned temp file(s) from previous session")
 
     task_db = TaskDatabase(db_path)
-    task_queue = get_task_queue(db=task_db)
+    task_queue = get_task_queue(
+        db=task_db,
+        stale_task_threshold_hours=settings.stale_task_threshold_hours,
+    )
     logger.info(f"Task database initialized at {db_path}")
 
-    # Initialize session manager for Telegram connections
-    # This will be populated by routes as needed
+    # Initialize session manager and start connection monitor
+    from chatfilter.web.dependencies import get_session_manager
+
+    session_manager = get_session_manager()
+    app.state.app_state.session_manager = session_manager
+    session_manager.start_monitor()
+    logger.info("Telegram session manager initialized with connection monitoring")
+
     logger.info("Application startup complete")
 
     yield
@@ -131,8 +140,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.error(f"Error clearing tasks during shutdown: {e}")
 
-    # 4. Disconnect all Telegram sessions
+    # 4. Stop connection monitor and disconnect all Telegram sessions
     if app.state.app_state.session_manager:
+        logger.info("Stopping connection monitor")
+        try:
+            await app.state.app_state.session_manager.stop_monitor()
+            logger.info("Connection monitor stopped")
+        except Exception as e:
+            logger.error(f"Error stopping connection monitor during shutdown: {e}")
+
         logger.info("Disconnecting Telegram sessions")
         try:
             await app.state.app_state.session_manager.disconnect_all()

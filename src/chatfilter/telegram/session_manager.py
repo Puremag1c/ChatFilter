@@ -51,6 +51,10 @@ class SessionInfo:
     connected_at: float | None = None
     last_activity: float | None = None
     error_message: str | None = None
+    # Heartbeat metrics
+    last_ping_at: float | None = None
+    last_ping_success: float | None = None
+    consecutive_ping_failures: int = 0
 
 
 @dataclass
@@ -63,6 +67,10 @@ class ManagedSession:
     connected_at: float | None = None
     last_activity: float | None = None
     error_message: str | None = None
+    # Heartbeat metrics
+    last_ping_at: float | None = None
+    last_ping_success: float | None = None
+    consecutive_ping_failures: int = 0
 
 
 class SessionError(Exception):
@@ -137,6 +145,9 @@ class SessionManager:
         operation_timeout: float = DEFAULT_OPERATION_TIMEOUT,
         disconnect_timeout: float = DEFAULT_DISCONNECT_TIMEOUT,
         health_check_timeout: float = DEFAULT_HEALTH_CHECK_TIMEOUT,
+        heartbeat_interval: float = 60.0,
+        heartbeat_timeout: float = 10.0,
+        heartbeat_max_failures: int = 3,
     ) -> None:
         """Initialize SessionManager.
 
@@ -145,6 +156,9 @@ class SessionManager:
             operation_timeout: Default timeout for operations
             disconnect_timeout: Timeout for disconnect
             health_check_timeout: Timeout for health checks
+            heartbeat_interval: Interval between heartbeat checks
+            heartbeat_timeout: Timeout for heartbeat ping operations
+            heartbeat_max_failures: Max consecutive failures before reconnection
         """
         self._sessions: dict[str, ManagedSession] = {}
         self._factories: dict[str, ClientFactory] = {}
@@ -153,6 +167,12 @@ class SessionManager:
         self._disconnect_timeout = disconnect_timeout
         self._health_check_timeout = health_check_timeout
         self._global_lock = asyncio.Lock()
+        # Heartbeat monitoring
+        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_timeout = heartbeat_timeout
+        self._heartbeat_max_failures = heartbeat_max_failures
+        self._monitor_task: asyncio.Task[None] | None = None
+        self._monitor_stop_event = asyncio.Event()
 
     def register(self, session_id: str, factory: ClientFactory) -> None:
         """Register a client factory for a session.
@@ -467,6 +487,9 @@ class SessionManager:
             connected_at=session.connected_at,
             last_activity=session.last_activity,
             error_message=session.error_message,
+            last_ping_at=session.last_ping_at,
+            last_ping_success=session.last_ping_success,
+            consecutive_ping_failures=session.consecutive_ping_failures,
         )
 
     def list_sessions(self) -> list[str]:
@@ -481,6 +504,173 @@ class SessionManager:
         """Disconnect all sessions. Useful for graceful shutdown."""
         for session_id in list(self._sessions.keys()):
             await self.disconnect(session_id)
+
+    def start_monitor(self) -> None:
+        """Start the connection monitor background task.
+
+        The monitor periodically checks all connected sessions for health
+        and automatically reconnects zombie connections (connected but unresponsive).
+        """
+        if self._monitor_task is not None and not self._monitor_task.done():
+            logger.warning("Connection monitor already running")
+            return
+
+        self._monitor_stop_event.clear()
+        self._monitor_task = asyncio.create_task(self._monitor_connections())
+        logger.info(
+            f"Connection monitor started (interval={self._heartbeat_interval}s, "
+            f"timeout={self._heartbeat_timeout}s, "
+            f"max_failures={self._heartbeat_max_failures})"
+        )
+
+    async def stop_monitor(self) -> None:
+        """Stop the connection monitor background task."""
+        if self._monitor_task is None or self._monitor_task.done():
+            return
+
+        self._monitor_stop_event.set()
+        try:
+            await asyncio.wait_for(self._monitor_task, timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning("Connection monitor did not stop gracefully, cancelling...")
+            self._monitor_task.cancel()
+            try:
+                await self._monitor_task
+            except asyncio.CancelledError:
+                pass
+        logger.info("Connection monitor stopped")
+
+    async def _monitor_connections(self) -> None:
+        """Background task that monitors connection health.
+
+        This task runs continuously, checking all connected sessions
+        at regular intervals and attempting to recover zombie connections.
+        """
+        logger.debug("Connection monitor loop started")
+        while not self._monitor_stop_event.is_set():
+            try:
+                # Check all sessions
+                session_ids = list(self._sessions.keys())
+                for session_id in session_ids:
+                    try:
+                        await self._check_session_health(session_id)
+                    except Exception as e:
+                        logger.error(
+                            f"Error checking health for session '{session_id}': {e}",
+                            exc_info=True,
+                        )
+
+                # Wait for next check interval or stop event
+                try:
+                    await asyncio.wait_for(
+                        self._monitor_stop_event.wait(),
+                        timeout=self._heartbeat_interval,
+                    )
+                    # Stop event was set
+                    break
+                except asyncio.TimeoutError:
+                    # Timeout is normal - time for next check
+                    continue
+
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error in connection monitor: {e}",
+                    exc_info=True,
+                )
+                # Continue monitoring despite errors
+                await asyncio.sleep(5.0)
+
+        logger.debug("Connection monitor loop ended")
+
+    async def _check_session_health(self, session_id: str) -> None:
+        """Check health of a single session and handle reconnection if needed.
+
+        Args:
+            session_id: Session to check
+        """
+        if session_id not in self._sessions:
+            return
+
+        session = self._sessions[session_id]
+
+        # Only monitor connected sessions
+        if session.state != SessionState.CONNECTED:
+            return
+
+        current_time = asyncio.get_event_loop().time()
+        session.last_ping_at = current_time
+
+        # Perform health check with timeout
+        try:
+            is_healthy = await asyncio.wait_for(
+                self.is_healthy(session_id),
+                timeout=self._heartbeat_timeout,
+            )
+
+            if is_healthy:
+                # Success - reset failure counter
+                session.consecutive_ping_failures = 0
+                session.last_ping_success = current_time
+                logger.debug(f"Heartbeat OK for session '{session_id}'")
+            else:
+                # Health check failed
+                session.consecutive_ping_failures += 1
+                logger.warning(
+                    f"Heartbeat failed for session '{session_id}' "
+                    f"({session.consecutive_ping_failures}/{self._heartbeat_max_failures})"
+                )
+
+                # Check if we've reached max failures - this is a zombie connection
+                if session.consecutive_ping_failures >= self._heartbeat_max_failures:
+                    logger.error(
+                        f"Session '{session_id}' is a zombie connection "
+                        f"({session.consecutive_ping_failures} consecutive failures). "
+                        "Attempting reconnection..."
+                    )
+                    await self._recover_zombie_connection(session_id)
+
+        except asyncio.TimeoutError:
+            # Ping timed out
+            session.consecutive_ping_failures += 1
+            logger.warning(
+                f"Heartbeat timeout for session '{session_id}' "
+                f"({session.consecutive_ping_failures}/{self._heartbeat_max_failures})"
+            )
+
+            if session.consecutive_ping_failures >= self._heartbeat_max_failures:
+                logger.error(
+                    f"Session '{session_id}' is a zombie connection "
+                    f"(timeout after {self._heartbeat_max_failures} attempts). "
+                    "Attempting reconnection..."
+                )
+                await self._recover_zombie_connection(session_id)
+
+        except Exception as e:
+            logger.error(
+                f"Error during health check for session '{session_id}': {e}",
+                exc_info=True,
+            )
+
+    async def _recover_zombie_connection(self, session_id: str) -> None:
+        """Attempt to recover a zombie connection by disconnecting and reconnecting.
+
+        Args:
+            session_id: Session to recover
+        """
+        try:
+            logger.info(f"Disconnecting zombie session '{session_id}'...")
+            await self.disconnect(session_id)
+
+            logger.info(f"Reconnecting session '{session_id}'...")
+            await self.connect(session_id)
+
+            logger.info(f"Successfully recovered session '{session_id}'")
+
+        except Exception as e:
+            logger.error(
+                f"Failed to recover zombie session '{session_id}': {e}",
+                exc_info=True,
+            )
 
     class _SessionContext:
         """Context manager for session access with automatic cleanup."""
@@ -497,7 +687,12 @@ class SessionManager:
             self._client = await self._manager.connect(self._session_id)
             return self._client
 
-        async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:  # noqa: ANN001
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: object | None,
+        ) -> None:
             if self._auto_disconnect:
                 await self._manager.disconnect(self._session_id)
 
