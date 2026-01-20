@@ -131,6 +131,7 @@ class TaskQueue:
         per_chat_timeout_seconds: float = 300.0,  # 5 minutes per chat default
         progress_stall_timeout_seconds: float = 600.0,  # 10 minutes of no progress
         stall_check_interval_seconds: float = 60.0,  # How often to check for stalls
+        stale_task_threshold_hours: float = 24.0,  # Hours after which in-progress tasks are stale
     ) -> None:
         """Initialize the task queue.
 
@@ -149,6 +150,8 @@ class TaskQueue:
                 (default 600s = 10 minutes). Set to 0 to disable stall detection.
             stall_check_interval_seconds: How often to check for stalled tasks (default 60s).
                 Only used when stall detection is enabled.
+            stale_task_threshold_hours: Hours after which in-progress tasks are considered stale
+                on recovery (default 24h). Stale tasks are marked as FAILED instead of PENDING.
         """
         self._db = db
         self._tasks: dict[UUID, AnalysisTask] = {}
@@ -161,6 +164,7 @@ class TaskQueue:
         self._per_chat_timeout_seconds = per_chat_timeout_seconds
         self._progress_stall_timeout_seconds = progress_stall_timeout_seconds
         self._stall_check_interval_seconds = stall_check_interval_seconds
+        self._stale_task_threshold_hours = stale_task_threshold_hours
         self._monitor_task: asyncio.Task | None = None  # Background monitor for stalled tasks
 
         # Initialize memory monitor
@@ -206,23 +210,63 @@ class TaskQueue:
             logger.info(f"Freed memory by clearing {cleared} completed tasks")
 
     def _load_incomplete_tasks(self) -> None:
-        """Load incomplete tasks from database on startup."""
+        """Load incomplete tasks from database on startup.
+
+        For tasks left in IN_PROGRESS status (from crashes):
+        - If age > stale_task_threshold_hours: mark as FAILED
+        - Otherwise: reset to PENDING for retry
+        """
         if not self._db:
             return
 
         try:
             incomplete_tasks = self._db.load_incomplete_tasks()
+            recovered_count = 0
+            stale_count = 0
+
             for task in incomplete_tasks:
                 self._tasks[task.task_id] = task
                 self._subscribers[task.task_id] = []
-                # Reset in-progress tasks to pending for recovery
+
+                # Handle in-progress tasks based on age
                 if task.status == TaskStatus.IN_PROGRESS:
-                    task.status = TaskStatus.PENDING
-                    self._db.save_task(task)
+                    # Calculate task age using started_at if available, else created_at
+                    task_timestamp = task.started_at if task.started_at else task.created_at
+
+                    # Ensure task_timestamp is timezone-aware (for database compatibility)
+                    if task_timestamp.tzinfo is None:
+                        task_timestamp = task_timestamp.replace(tzinfo=UTC)
+
+                    task_age_hours = (datetime.now(UTC) - task_timestamp).total_seconds() / 3600
+
+                    if task_age_hours > self._stale_task_threshold_hours:
+                        # Task is stale - mark as failed
+                        task.status = TaskStatus.FAILED
+                        task.error = (
+                            f"Task abandoned after application crash "
+                            f"(stale for {task_age_hours:.1f} hours, threshold: {self._stale_task_threshold_hours}h)"
+                        )
+                        task.completed_at = datetime.now(UTC)
+                        self._db.save_task(task)
+                        stale_count += 1
+                        logger.warning(
+                            f"Marked stale task {task.task_id} as FAILED (age: {task_age_hours:.1f}h)"
+                        )
+                    else:
+                        # Task is recent - reset to pending for retry
+                        task.status = TaskStatus.PENDING
+                        self._db.save_task(task)
+                        recovered_count += 1
+                        logger.info(
+                            f"Recovered task {task.task_id} for retry (age: {task_age_hours:.1f}h)"
+                        )
+                else:
+                    # Non in-progress tasks just get loaded
+                    recovered_count += 1
 
             if incomplete_tasks:
                 logger.info(
-                    f"Recovered {len(incomplete_tasks)} incomplete tasks from database"
+                    f"Task recovery complete: {recovered_count} recovered, {stale_count} marked stale"
                 )
         except Exception as e:
             logger.exception(f"Failed to load incomplete tasks from database: {e}")
@@ -889,19 +933,24 @@ class TaskQueue:
 _task_queue: TaskQueue | None = None
 
 
-def get_task_queue(db: TaskDatabase | None = None) -> TaskQueue:
+def get_task_queue(
+    db: TaskDatabase | None = None,
+    stale_task_threshold_hours: float = 24.0,
+) -> TaskQueue:
     """Get the global task queue instance.
 
     Args:
         db: Optional TaskDatabase instance. Only used on first call to initialize queue.
             Subsequent calls ignore this parameter and return existing singleton.
+        stale_task_threshold_hours: Hours after which in-progress tasks are considered stale
+            on recovery. Only used on first call.
 
     Returns:
         TaskQueue singleton
     """
     global _task_queue
     if _task_queue is None:
-        _task_queue = TaskQueue(db=db)
+        _task_queue = TaskQueue(db=db, stale_task_threshold_hours=stale_task_threshold_hours)
     return _task_queue
 
 

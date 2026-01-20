@@ -1,7 +1,7 @@
 """Tests for TaskQueue persistence and recovery."""
 
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -267,3 +267,211 @@ def test_get_task_queue_with_database():
 
         # Cleanup
         reset_task_queue()
+
+
+def test_stale_task_detection_marks_old_tasks_as_failed(temp_db):
+    """Test that tasks older than threshold are marked as FAILED on recovery."""
+    # Create an old in-progress task (25 hours ago, threshold is 24h)
+    old_time = datetime.now(UTC) - timedelta(hours=25)
+    stale_task = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session1",
+        chat_ids=[1, 2, 3],
+        message_limit=1000,
+        status=TaskStatus.IN_PROGRESS,
+        created_at=old_time,
+        started_at=old_time,
+    )
+
+    temp_db.save_task(stale_task)
+
+    # Create new queue with 24h threshold
+    queue = TaskQueue(db=temp_db, stale_task_threshold_hours=24.0)
+
+    # Task should be marked as FAILED
+    recovered_task = queue.get_task(stale_task.task_id)
+    assert recovered_task is not None
+    assert recovered_task.status == TaskStatus.FAILED
+    assert recovered_task.error is not None
+    assert "abandoned after application crash" in recovered_task.error
+    assert "stale for" in recovered_task.error
+    assert recovered_task.completed_at is not None
+
+    # Verify it's also updated in database
+    db_task = temp_db.load_task(stale_task.task_id)
+    assert db_task.status == TaskStatus.FAILED
+    assert db_task.error is not None
+
+
+def test_stale_task_detection_resets_recent_tasks(temp_db):
+    """Test that recent in-progress tasks are reset to PENDING on recovery."""
+    # Create a recent in-progress task (1 hour ago, threshold is 24h)
+    recent_time = datetime.now(UTC) - timedelta(hours=1)
+    recent_task = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session1",
+        chat_ids=[1, 2, 3],
+        message_limit=1000,
+        status=TaskStatus.IN_PROGRESS,
+        created_at=recent_time,
+        started_at=recent_time,
+    )
+
+    temp_db.save_task(recent_task)
+
+    # Create new queue with 24h threshold
+    queue = TaskQueue(db=temp_db, stale_task_threshold_hours=24.0)
+
+    # Task should be reset to PENDING
+    recovered_task = queue.get_task(recent_task.task_id)
+    assert recovered_task is not None
+    assert recovered_task.status == TaskStatus.PENDING
+    assert recovered_task.error is None
+
+    # Verify it's also updated in database
+    db_task = temp_db.load_task(recent_task.task_id)
+    assert db_task.status == TaskStatus.PENDING
+
+
+def test_stale_task_detection_uses_started_at_when_available(temp_db):
+    """Test that stale detection uses started_at if available, else created_at."""
+    # Create task with started_at 25 hours ago (stale)
+    old_started = datetime.now(UTC) - timedelta(hours=25)
+    recent_created = datetime.now(UTC) - timedelta(hours=1)
+
+    task_with_started = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session1",
+        chat_ids=[1, 2, 3],
+        message_limit=1000,
+        status=TaskStatus.IN_PROGRESS,
+        created_at=recent_created,  # Recent
+        started_at=old_started,     # Stale
+    )
+
+    temp_db.save_task(task_with_started)
+
+    # Create new queue with 24h threshold
+    queue = TaskQueue(db=temp_db, stale_task_threshold_hours=24.0)
+
+    # Task should be marked as FAILED (uses started_at, not created_at)
+    recovered_task = queue.get_task(task_with_started.task_id)
+    assert recovered_task is not None
+    assert recovered_task.status == TaskStatus.FAILED
+
+
+def test_stale_task_detection_uses_created_at_when_no_started_at(temp_db):
+    """Test that stale detection uses created_at when started_at is None."""
+    # Create task with old created_at and no started_at (stale)
+    old_created = datetime.now(UTC) - timedelta(hours=25)
+
+    task_no_started = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session1",
+        chat_ids=[1, 2, 3],
+        message_limit=1000,
+        status=TaskStatus.IN_PROGRESS,
+        created_at=old_created,
+        started_at=None,
+    )
+
+    temp_db.save_task(task_no_started)
+
+    # Create new queue with 24h threshold
+    queue = TaskQueue(db=temp_db, stale_task_threshold_hours=24.0)
+
+    # Task should be marked as FAILED (uses created_at)
+    recovered_task = queue.get_task(task_no_started.task_id)
+    assert recovered_task is not None
+    assert recovered_task.status == TaskStatus.FAILED
+
+
+def test_stale_task_detection_with_different_threshold(temp_db):
+    """Test that stale detection respects the configured threshold."""
+    # Create task 10 hours old
+    task_time = datetime.now(UTC) - timedelta(hours=10)
+    task = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session1",
+        chat_ids=[1, 2, 3],
+        message_limit=1000,
+        status=TaskStatus.IN_PROGRESS,
+        created_at=task_time,
+        started_at=task_time,
+    )
+
+    temp_db.save_task(task)
+
+    # With 8h threshold, should be FAILED
+    queue1 = TaskQueue(db=temp_db, stale_task_threshold_hours=8.0)
+    task1 = queue1.get_task(task.task_id)
+    assert task1.status == TaskStatus.FAILED
+
+    # Recreate task for second test
+    task.status = TaskStatus.IN_PROGRESS
+    task.error = None
+    task.completed_at = None
+    temp_db.save_task(task)
+
+    # Reset queue singleton
+    from chatfilter.analyzer.task_queue import reset_task_queue
+    reset_task_queue()
+
+    # With 12h threshold, should be PENDING
+    queue2 = TaskQueue(db=temp_db, stale_task_threshold_hours=12.0)
+    task2 = queue2.get_task(task.task_id)
+    assert task2.status == TaskStatus.PENDING
+
+
+def test_stale_task_detection_mixed_recovery(temp_db):
+    """Test recovery with mix of stale, recent, and pending tasks."""
+    now = datetime.now(UTC)
+
+    # Stale in-progress task (25h old)
+    stale_task = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session1",
+        chat_ids=[1],
+        message_limit=1000,
+        status=TaskStatus.IN_PROGRESS,
+        created_at=now - timedelta(hours=25),
+        started_at=now - timedelta(hours=25),
+    )
+
+    # Recent in-progress task (1h old)
+    recent_task = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session2",
+        chat_ids=[2],
+        message_limit=1000,
+        status=TaskStatus.IN_PROGRESS,
+        created_at=now - timedelta(hours=1),
+        started_at=now - timedelta(hours=1),
+    )
+
+    # Pending task (should stay pending)
+    pending_task = AnalysisTask(
+        task_id=uuid4(),
+        session_id="session3",
+        chat_ids=[3],
+        message_limit=1000,
+        status=TaskStatus.PENDING,
+        created_at=now - timedelta(hours=30),
+    )
+
+    temp_db.save_task(stale_task)
+    temp_db.save_task(recent_task)
+    temp_db.save_task(pending_task)
+
+    # Create queue with 24h threshold
+    queue = TaskQueue(db=temp_db, stale_task_threshold_hours=24.0)
+
+    # Verify each task has correct status
+    recovered_stale = queue.get_task(stale_task.task_id)
+    assert recovered_stale.status == TaskStatus.FAILED
+
+    recovered_recent = queue.get_task(recent_task.task_id)
+    assert recovered_recent.status == TaskStatus.PENDING
+
+    recovered_pending = queue.get_task(pending_task.task_id)
+    assert recovered_pending.status == TaskStatus.PENDING
