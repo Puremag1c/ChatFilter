@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -13,6 +14,38 @@ from chatfilter.exporter import export_to_csv
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 
 router = APIRouter(prefix="/api/export", tags=["export"])
+
+
+def _generate_unique_filename(base_filename: str) -> str:
+    """Generate a unique filename with timestamp and random suffix.
+
+    Prevents concurrent download conflicts by ensuring each request
+    gets a unique filename, even if requests are made simultaneously.
+
+    Args:
+        base_filename: Base name for the file (e.g., "results.csv")
+
+    Returns:
+        Unique filename with timestamp and random suffix
+        (e.g., "results_20260120_143052_a3f2.csv")
+
+    Example:
+        >>> _generate_unique_filename("results.csv")
+        'results_20260120_143052_a3f2.csv'
+    """
+    # Split filename and extension
+    if "." in base_filename:
+        name, ext = base_filename.rsplit(".", 1)
+    else:
+        name, ext = base_filename, "csv"
+
+    # Generate timestamp
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+
+    # Generate short random suffix (4 chars)
+    suffix = secrets.token_hex(2)
+
+    return f"{name}_{timestamp}_{suffix}.{ext}"
 
 
 class AnalysisResultInput(BaseModel):
@@ -64,15 +97,17 @@ async def export_csv(
     """Export analysis results to CSV format.
 
     Accepts analysis results in the request body and returns
-    a downloadable CSV file.
+    a downloadable CSV file with a unique filename to prevent
+    concurrent download conflicts.
 
     Args:
         request: Analysis results to export
-        filename: Name for the downloaded file
+        filename: Base name for the downloaded file (will have timestamp added)
         include_bom: Include UTF-8 BOM for Excel compatibility
 
     Returns:
         CSV file with Content-Disposition: attachment header
+        and unique filename with timestamp
     """
     # Convert input models to internal models
     results = [r.to_analysis_result() for r in request.results]
@@ -80,11 +115,14 @@ async def export_csv(
     # Generate CSV content
     csv_content = export_to_csv(results, include_bom=include_bom)
 
+    # Generate unique filename to prevent concurrent request conflicts
+    unique_filename = _generate_unique_filename(filename)
+
     # Return as downloadable file
     return Response(
         content=csv_content,
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'attachment; filename="{unique_filename}"',
         },
     )

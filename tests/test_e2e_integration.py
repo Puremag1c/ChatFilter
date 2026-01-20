@@ -208,8 +208,11 @@ class TestE2EIntegration:
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/csv; charset=utf-8"
-        assert "attachment" in response.headers["content-disposition"]
-        assert "test_results.csv" in response.headers["content-disposition"]
+        disposition = response.headers["content-disposition"]
+        assert "attachment" in disposition
+        # Filename now includes timestamp for uniqueness
+        assert "test_results_" in disposition
+        assert ".csv" in disposition
 
         # Verify CSV content
         csv_content = response.content.decode("utf-8-sig")  # Handle BOM

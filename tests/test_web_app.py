@@ -347,7 +347,7 @@ class TestExportCsvEndpoint:
         assert "text/csv" in response.headers.get("content-type", "")
 
     def test_export_csv_content_disposition(self) -> None:
-        """Test CSV export has attachment disposition."""
+        """Test CSV export has attachment disposition with unique filename."""
         app = create_app()
         client = TestClient(app)
 
@@ -355,11 +355,14 @@ class TestExportCsvEndpoint:
 
         response = client.post("/api/export/csv", json=request_data)
 
-        assert "attachment" in response.headers.get("content-disposition", "")
-        assert "chatfilter_results.csv" in response.headers.get("content-disposition", "")
+        disposition = response.headers.get("content-disposition", "")
+        assert "attachment" in disposition
+        # Should contain base filename (but with timestamp suffix for uniqueness)
+        assert "chatfilter_results_" in disposition
+        assert ".csv" in disposition
 
     def test_export_csv_custom_filename(self) -> None:
-        """Test CSV export with custom filename."""
+        """Test CSV export with custom filename gets unique suffix."""
         app = create_app()
         client = TestClient(app)
 
@@ -367,7 +370,36 @@ class TestExportCsvEndpoint:
 
         response = client.post("/api/export/csv?filename=my_export.csv", json=request_data)
 
-        assert "my_export.csv" in response.headers.get("content-disposition", "")
+        disposition = response.headers.get("content-disposition", "")
+        # Should contain base filename with timestamp suffix
+        assert "my_export_" in disposition
+        assert ".csv" in disposition
+
+    def test_export_csv_concurrent_requests_unique_filenames(self) -> None:
+        """Test concurrent CSV export requests get unique filenames."""
+        app = create_app()
+        client = TestClient(app)
+
+        request_data = {"results": []}
+
+        # Make multiple rapid requests (simulating concurrent downloads)
+        responses = [
+            client.post("/api/export/csv", json=request_data)
+            for _ in range(5)
+        ]
+
+        # Extract filenames from Content-Disposition headers
+        filenames = []
+        for response in responses:
+            disposition = response.headers.get("content-disposition", "")
+            # Extract filename from: attachment; filename="name.csv"
+            filename_part = disposition.split('filename="')[1].rstrip('"')
+            filenames.append(filename_part)
+
+        # All filenames should be unique
+        assert len(filenames) == len(set(filenames)), f"Found duplicate filenames: {filenames}"
+        # All should contain the base name
+        assert all("chatfilter_results_" in fn for fn in filenames)
 
     def test_export_csv_includes_data(self) -> None:
         """Test CSV export includes provided data."""
