@@ -51,6 +51,86 @@ jobs:
             exit 1
           fi
 
+      - name: Import code signing certificate
+        if: github.event_name != 'pull_request'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          echo "$CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -k $KEYCHAIN_PATH -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Set default keychain
+          security list-keychains -d user -s $KEYCHAIN_PATH
+          security default-keychain -s $KEYCHAIN_PATH
+
+      - name: Code sign app bundle
+        if: github.event_name != 'pull_request'
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
+        run: |
+          # Sign all binaries and libraries inside the app
+          find dist/ChatFilter.app/Contents/MacOS -type f -perm +111 -exec codesign --force --options runtime --entitlements entitlements.plist --sign "$CODESIGN_IDENTITY" --timestamp {} \;
+
+          # Sign frameworks and dylibs
+          find dist/ChatFilter.app/Contents -name "*.dylib" -exec codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp {} \;
+          find dist/ChatFilter.app/Contents -name "*.so" -exec codesign --force --options runtime --sign "$CODESIGN_IDENTITY" --timestamp {} \;
+
+          # Sign the main app bundle
+          codesign --force --options runtime --entitlements entitlements.plist --sign "$CODESIGN_IDENTITY" --timestamp --deep dist/ChatFilter.app
+
+          # Verify signature
+          codesign --verify --deep --strict --verbose=2 dist/ChatFilter.app
+          spctl --assess --verbose=4 --type execute dist/ChatFilter.app
+
+      - name: Notarize app bundle
+        if: github.event_name != 'pull_request'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Create a zip for notarization (required by notarytool)
+          cd dist
+          ditto -c -k --keepParent ChatFilter.app ChatFilter-notarization.zip
+          cd ..
+
+          # Submit for notarization
+          echo "Submitting app for notarization..."
+          xcrun notarytool submit dist/ChatFilter-notarization.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait \
+            --timeout 30m
+
+          # Check notarization status
+          echo "Checking notarization status..."
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID"
+
+          # Staple the notarization ticket to the app
+          echo "Stapling notarization ticket..."
+          xcrun stapler staple dist/ChatFilter.app
+
+          # Verify stapling
+          xcrun stapler validate dist/ChatFilter.app
+
+          # Clean up notarization zip
+          rm dist/ChatFilter-notarization.zip
+
       - name: Install test dependencies
         run: |
           pip install httpx
@@ -71,3 +151,12 @@ jobs:
           name: ChatFilter-macOS-app
           path: dist/ChatFilter-macOS.zip
           retention-days: 30
+
+      - name: Cleanup keychain
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain $KEYCHAIN_PATH
+            echo "✓ Temporary keychain deleted"
+          fi

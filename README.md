@@ -31,6 +31,14 @@ You only need to do this once. Windows will remember your choice for future runs
 - No telemetry or network calls except to Telegram API
 - Open-source under MIT license
 
+#### macOS Code Signing
+
+The macOS builds support automatic code signing and notarization through Apple Developer Program. This prevents Gatekeeper warnings and ensures a smooth user experience.
+
+**For maintainers:** See [docs/MACOS_CODESIGN_SETUP.md](docs/MACOS_CODESIGN_SETUP.md) for setup instructions.
+
+**For users:** Official builds from GitHub Actions with proper secrets configured will be fully signed and notarized. Community builds without signing credentials will require manual approval through System Preferences → Security & Privacy.
+
 ### Running the Application
 
 **Windows:**
