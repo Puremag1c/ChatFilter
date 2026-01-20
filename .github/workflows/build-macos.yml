@@ -145,11 +145,20 @@ jobs:
           zip -r ChatFilter-macOS.zip ChatFilter.app
           cd ..
 
+      - name: Generate SHA256 checksum
+        run: |
+          cd dist
+          shasum -a 256 ChatFilter-macOS.zip | tee ChatFilter-macOS.zip.sha256
+          echo "✓ SHA256 checksum generated"
+          cd ..
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ChatFilter-macOS-app
-          path: dist/ChatFilter-macOS.zip
+          path: |
+            dist/ChatFilter-macOS.zip
+            dist/ChatFilter-macOS.zip.sha256
           retention-days: 30
 
       - name: Cleanup keychain

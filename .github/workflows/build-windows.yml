@@ -68,9 +68,20 @@ jobs:
           Compress-Archive -Path "dist/ChatFilter" -DestinationPath "dist/ChatFilter-Windows.zip"
         shell: pwsh
 
+      - name: Generate SHA256 checksum
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 "dist/ChatFilter-Windows.zip").Hash.ToLower()
+          $filename = "ChatFilter-Windows.zip"
+          "$hash  $filename" | Out-File -FilePath "dist/ChatFilter-Windows.zip.sha256" -Encoding ASCII -NoNewline
+          Write-Host "✓ SHA256 checksum generated:"
+          Write-Host "$hash  $filename"
+        shell: pwsh
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ChatFilter-Windows
-          path: dist/ChatFilter-Windows.zip
+          path: |
+            dist/ChatFilter-Windows.zip
+            dist/ChatFilter-Windows.zip.sha256
           retention-days: 30

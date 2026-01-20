@@ -140,6 +140,64 @@ Expected behavior:
 3. All features work (upload, analysis, export)
 4. No missing dependencies errors
 
+## Verifying Release Checksums
+
+All official releases include SHA256 checksums for integrity verification. Always verify checksums after downloading releases to ensure the files haven't been tampered with.
+
+### Download Checksum Files
+
+Each release includes:
+- `ChatFilter-Windows.zip.sha256` - Windows binary checksum
+- `ChatFilter-macOS.zip.sha256` - macOS binary checksum
+- `SHA256SUMS.txt` - Combined checksums for all platforms
+
+### Verification Commands
+
+**Windows (PowerShell):**
+```powershell
+# Download the release and checksum file, then verify
+$actualHash = (Get-FileHash -Algorithm SHA256 ChatFilter-Windows.zip).Hash.ToLower()
+$expectedHash = (Get-Content ChatFilter-Windows.zip.sha256).Split()[0]
+if ($actualHash -eq $expectedHash) {
+    Write-Host "✓ Checksum verified successfully" -ForegroundColor Green
+} else {
+    Write-Host "✗ Checksum verification FAILED!" -ForegroundColor Red
+    Write-Host "Expected: $expectedHash"
+    Write-Host "Actual:   $actualHash"
+}
+```
+
+**macOS/Linux:**
+```bash
+# Verify using shasum
+shasum -a 256 -c ChatFilter-macOS.zip.sha256
+
+# Or manually compare
+calculated=$(shasum -a 256 ChatFilter-macOS.zip | awk '{print $1}')
+expected=$(awk '{print $1}' ChatFilter-macOS.zip.sha256)
+if [ "$calculated" = "$expected" ]; then
+    echo "✓ Checksum verified successfully"
+else
+    echo "✗ Checksum verification FAILED!"
+    echo "Expected: $expected"
+    echo "Actual:   $calculated"
+fi
+```
+
+**Using SHA256SUMS.txt (all platforms):**
+```bash
+# Verify all downloaded files at once
+shasum -a 256 -c SHA256SUMS.txt --ignore-missing
+```
+
+### What If Verification Fails?
+
+If checksum verification fails:
+1. **Do NOT run the binary** - the file may be corrupted or tampered with
+2. Re-download the release from the official GitHub releases page
+3. Verify checksums again
+4. If it still fails, report the issue on GitHub
+
 ### Common Issues
 
 1. **Missing hidden imports**
