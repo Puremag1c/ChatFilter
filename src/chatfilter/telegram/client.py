@@ -12,6 +12,13 @@ from typing import TYPE_CHECKING
 
 import socks
 from telethon import TelegramClient
+from telethon.errors import (
+    ChannelBannedError,
+    ChannelPrivateError,
+    ChatForbiddenError,
+    ChatRestrictedError,
+    UserBannedInChannelError,
+)
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import GetForumTopicsRequest, ImportChatInviteRequest
 from telethon.tl.types import Channel, User
@@ -404,16 +411,38 @@ async def get_dialogs(
     chats: list[Chat] = []
     seen_ids: set[int] = set()
 
-    async for dialog in client.iter_dialogs():
-        chat = _dialog_to_chat(dialog)
-        if chat is None:
-            continue
+    try:
+        async for dialog in client.iter_dialogs():
+            try:
+                chat = _dialog_to_chat(dialog)
+                if chat is None:
+                    continue
 
-        # Deduplicate by chat_id (handles edge case of duplicates during pagination)
-        if chat.id in seen_ids:
-            continue
-        seen_ids.add(chat.id)
-        chats.append(chat)
+                # Deduplicate by chat_id (handles edge case of duplicates during pagination)
+                if chat.id in seen_ids:
+                    continue
+                seen_ids.add(chat.id)
+                chats.append(chat)
+            except (
+                ChatForbiddenError,
+                ChannelPrivateError,
+                UserBannedInChannelError,
+                ChatRestrictedError,
+                ChannelBannedError,
+            ) as e:
+                # Skip inaccessible chats (user kicked/banned/left, or chat deleted/private)
+                logger.info(f"Skipping inaccessible dialog: {type(e).__name__}")
+                continue
+    except (
+        ChatForbiddenError,
+        ChannelPrivateError,
+        UserBannedInChannelError,
+        ChatRestrictedError,
+        ChannelBannedError,
+    ):
+        # If iter_dialogs itself fails with access error, that's unusual but handle it
+        logger.warning("Access error while iterating dialogs, returning partial results")
+        pass
 
     # Store in cache if provided
     if _cache is not None:
@@ -435,6 +464,10 @@ TELEGRAM_BATCH_SIZE = 100
 
 class MessageFetchError(Exception):
     """Raised when fetching messages fails."""
+
+
+class ChatAccessDeniedError(MessageFetchError):
+    """Raised when access to a chat is denied (kicked, banned, left, or chat is private/deleted)."""
 
 
 class JoinChatError(Exception):
@@ -570,7 +603,9 @@ async def get_messages(
         List of Message models, sorted by timestamp (oldest first)
 
     Raises:
-        MessageFetchError: If chat doesn't exist, access denied, or other error
+        ChatAccessDeniedError: If access to chat is denied (user kicked/banned/left,
+                                or chat is private/deleted)
+        MessageFetchError: If chat doesn't exist or other error
         ValueError: If limit is invalid
 
     Example:
@@ -656,6 +691,15 @@ async def get_messages(
                 seen_ids.add(msg.id)
                 messages.append(msg)
 
+    except (
+        ChatForbiddenError,
+        ChannelPrivateError,
+        UserBannedInChannelError,
+        ChatRestrictedError,
+        ChannelBannedError,
+    ) as e:
+        # User has limited access to this chat (kicked, banned, left, or chat is private/deleted)
+        raise ChatAccessDeniedError(f"Access denied to chat {chat_id}: {type(e).__name__}") from e
     except Exception as e:
         error_msg = str(e).lower()
         if "peer" in error_msg or "invalid" in error_msg:

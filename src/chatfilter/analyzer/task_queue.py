@@ -20,6 +20,8 @@ from uuid import UUID, uuid4
 if TYPE_CHECKING:
     from chatfilter.models import AnalysisResult, Chat
 
+from chatfilter.telegram.client import ChatAccessDeniedError
+
 logger = logging.getLogger(__name__)
 
 
@@ -307,8 +309,13 @@ class TaskQueue:
                         task.message_limit,
                     )
                     task.results.append(result)
+                except ChatAccessDeniedError as e:
+                    # Chat is inaccessible (kicked, banned, left, or private/deleted)
+                    logger.info(f"Skipping inaccessible chat {chat_id} ({chat_title}): {e}")
+                    # Continue with other chats - this is expected behavior
                 except Exception as e:
-                    logger.warning(f"Failed to analyze chat {chat_id}: {e}")
+                    # Unexpected error - log as warning
+                    logger.warning(f"Failed to analyze chat {chat_id} ({chat_title}): {e}")
                     # Continue with other chats
 
             # Only mark as completed if not cancelled

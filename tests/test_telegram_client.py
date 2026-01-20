@@ -12,6 +12,7 @@ import pytest
 from chatfilter.config import ProxyConfig, ProxyType
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.telegram.client import (
+    ChatAccessDeniedError,
     JoinChatError,
     MessageFetchError,
     SessionFileError,
@@ -904,7 +905,7 @@ class TestGetMessages:
 
     @pytest.mark.asyncio
     async def test_get_messages_access_denied_error(self) -> None:
-        """Test error handling for access denied."""
+        """Test error handling for access denied (string-based)."""
         from telethon.tl.types import User
 
         async def mock_iter_messages(
@@ -921,6 +922,69 @@ class TestGetMessages:
 
         with pytest.raises(MessageFetchError, match="Access denied"):
             await get_messages(client, chat_id=123, limit=10)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_chat_forbidden_error(self) -> None:
+        """Test error handling for ChatForbiddenError (user kicked/banned/left)."""
+        from telethon.errors import ChatForbiddenError
+        from telethon.tl.types import User
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            raise ChatForbiddenError(request=None)
+            yield
+
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        with pytest.raises(ChatAccessDeniedError, match="Access denied to chat 123"):
+            await get_messages(client, chat_id=123, limit=10)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_channel_private_error(self) -> None:
+        """Test error handling for ChannelPrivateError (private channel)."""
+        from telethon.errors import ChannelPrivateError
+        from telethon.tl.types import User
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            raise ChannelPrivateError(request=None)
+            yield
+
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        with pytest.raises(ChatAccessDeniedError, match="Access denied to chat 456"):
+            await get_messages(client, chat_id=456, limit=10)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_user_banned_in_channel_error(self) -> None:
+        """Test error handling for UserBannedInChannelError."""
+        from telethon.errors import UserBannedInChannelError
+        from telethon.tl.types import User
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            raise UserBannedInChannelError(request=None)
+            yield
+
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        with pytest.raises(ChatAccessDeniedError, match="Access denied to chat 789"):
+            await get_messages(client, chat_id=789, limit=10)
 
     @pytest.mark.asyncio
     async def test_get_messages_rate_limit_error(self) -> None:
