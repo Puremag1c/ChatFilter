@@ -14,10 +14,13 @@ from starlette.middleware.cors import CORSMiddleware
 
 from chatfilter.config import Settings, get_settings
 from chatfilter.utils.paths import get_base_path
+from chatfilter.web.exception_handlers import register_exception_handlers
 from chatfilter.web.middleware import (
     GracefulShutdownMiddleware,
     RequestIDMiddleware,
     RequestLoggingMiddleware,
+    SecurityHeadersMiddleware,
+    SessionMiddleware,
 )
 from chatfilter.web.routers.analysis import router as analysis_router
 from chatfilter.web.routers.chatlist import router as chatlist_router
@@ -65,6 +68,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Initialize task database and queue
     settings = app.state.settings
+
+    # Warn if debug mode is enabled (potential security risk)
+    if settings.debug:
+        logger.warning(
+            "⚠️  DEBUG MODE ENABLED - Not recommended for production! "
+            "This exposes detailed error messages including stack traces, "
+            "exception types, and internal details. Set CHATFILTER_DEBUG=false "
+            "for production deployments."
+        )
+
     db_path = settings.data_dir / "tasks.db"
     settings.data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -186,10 +199,17 @@ def create_app(
     # Store settings in app state for access in routes
     app.state.settings = settings
 
+    # Register custom exception handlers for secure error responses
+    register_exception_handlers(app)
+
     # Add middlewares (order matters: first added = last executed)
     # GracefulShutdown runs first to reject requests during shutdown
     # RequestLogging should run after RequestID is set
+    # Session middleware manages session cookies
+    # SecurityHeaders adds security headers to all responses
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(SessionMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(GracefulShutdownMiddleware)
 

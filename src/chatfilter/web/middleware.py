@@ -1,4 +1,4 @@
-"""FastAPI middleware for request tracking and logging."""
+"""FastAPI middleware for request tracking, logging, and session management."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ from contextvars import ContextVar
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+from chatfilter.web.session import get_session, get_session_store, set_session_cookie
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,35 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class SessionMiddleware(BaseHTTPMiddleware):
+    """Middleware for automatic session management.
+
+    Features:
+    - Automatically creates sessions for new visitors
+    - Manages session cookies on all responses
+    - Provides session data via request.state.session
+    - Performs periodic cleanup of expired sessions
+
+    Session data is accessible in route handlers via:
+        session = get_session(request)
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        # Get or create session
+        session = get_session(request)
+
+        # Process request
+        response = await call_next(request)
+
+        # Set session cookie on response (if not already set)
+        if session:
+            set_session_cookie(response, session)
+
+        return response
+
+
 class GracefulShutdownMiddleware(BaseHTTPMiddleware):
     """Middleware for graceful shutdown handling.
 
@@ -156,3 +187,48 @@ class GracefulShutdownMiddleware(BaseHTTPMiddleware):
             return response
         finally:
             app_state.active_connections -= 1
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Middleware that adds security headers to all responses.
+
+    Headers added:
+    - X-Content-Type-Options: nosniff (prevent MIME type sniffing)
+    - X-Frame-Options: DENY (prevent clickjacking)
+    - X-XSS-Protection: 1; mode=block (enable XSS protection)
+    - Referrer-Policy: strict-origin-when-cross-origin (control referrer info)
+    - Content-Security-Policy: Restrictive policy to prevent XSS
+
+    These headers help prevent information disclosure and common web attacks.
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Response]
+    ) -> Response:
+        response = await call_next(request)
+
+        # Prevent MIME type sniffing (information disclosure)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # Prevent clickjacking attacks
+        response.headers["X-Frame-Options"] = "DENY"
+
+        # Enable XSS protection in older browsers
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        # Control referrer information sent to external sites
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Content Security Policy - allows inline styles/scripts for HTMX
+        # Note: This is permissive for HTMX functionality but still provides protection
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "font-src 'self'; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none';"
+        )
+
+        return response

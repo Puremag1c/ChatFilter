@@ -191,5 +191,45 @@ function initChatList() {
 
     updateCount();
 }
+
+// Tab synchronization for session selection
+// When session is selected in one tab, sync to other tabs
+const sessionSelect = document.getElementById('session-select');
+if (sessionSelect) {
+    // Broadcast session selection to other tabs
+    sessionSelect.addEventListener('change', function() {
+        const selectedSession = this.value;
+        if (selectedSession) {
+            TabSync.broadcast('session_selected', {
+                sessionId: selectedSession,
+                timestamp: Date.now()
+            });
+        }
+    });
+
+    // Listen for session selection from other tabs
+    TabSync.on('session_selected', function(data) {
+        if (data && data.sessionId) {
+            const currentValue = sessionSelect.value;
+
+            // Only update if different from current selection
+            if (currentValue !== data.sessionId) {
+                // Find the option and select it
+                const option = sessionSelect.querySelector('option[value="' + data.sessionId + '"]');
+                if (option) {
+                    sessionSelect.value = data.sessionId;
+
+                    // Trigger HTMX request to load chats
+                    htmx.trigger(sessionSelect, 'change');
+
+                    // Show notification
+                    ToastManager.info('Session selection synced from another tab', {
+                        duration: 3000
+                    });
+                }
+            }
+        }
+    });
+}
 </script>
 {% endblock %}

@@ -16,6 +16,7 @@ from chatfilter.telegram.session_manager import (
     SessionManager,
     SessionReauthRequiredError,
 )
+from chatfilter.web.dependencies import WebSession
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,7 @@ def cleanup_invalid_session(session_id: str) -> None:
 @router.get("/api/chats", response_class=HTMLResponse)
 async def get_chats(
     request: Request,
+    web_session: WebSession,
     session_id: str = Query(alias="session-select"),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
@@ -122,7 +124,12 @@ async def get_chats(
     Uses the ChatAnalysisService to fetch dialog list from Telegram.
     Supports pagination to prevent timeouts with large chat lists.
 
+    This endpoint also stores the selected Telegram session in the user's
+    web session for persistence across page refreshes and multi-tab support.
+
     Args:
+        request: FastAPI request object
+        web_session: User's web session (injected dependency)
         session_id: Telegram session identifier
         offset: Number of chats to skip (for pagination)
         limit: Maximum number of chats to return (1-500, default 100)
@@ -136,6 +143,10 @@ async def get_chats(
             "partials/chat_list.html",
             {"request": request, "chats": [], "session_id": ""},
         )
+
+    # Store selected Telegram session in user's web session
+    # This enables multi-tab support and persistence across refreshes
+    web_session.set("selected_telegram_session", session_id)
 
     service = get_chat_service()
 
@@ -219,7 +230,7 @@ async def get_chats(
             "partials/chat_list.html",
             {
                 "request": request,
-                "error": f"Failed to connect to Telegram: {e}",
+                "error": "Failed to connect to Telegram. Please check your session and try again.",
                 "chats": [],
                 "session_id": session_id,
             },
