@@ -254,11 +254,14 @@ class TaskQueue:
                         )
                     else:
                         # Task is recent - reset to pending for retry
+                        # Note: Partial results are preserved; task will resume from checkpoint
                         task.status = TaskStatus.PENDING
                         self._db.save_task(task)
                         recovered_count += 1
+                        partial_results = len(task.results)
                         logger.info(
-                            f"Recovered task {task.task_id} for retry (age: {task_age_hours:.1f}h)"
+                            f"Recovered task {task.task_id} for retry (age: {task_age_hours:.1f}h, "
+                            f"{partial_results} results preserved)"
                         )
                 else:
                     # Non in-progress tasks just get loaded
@@ -678,8 +681,26 @@ class TaskQueue:
         if self._enable_memory_monitoring and log_memory_usage:
             log_memory_usage(f"Task {task_id} start")
 
+        # Checkpoint resume: skip already-analyzed chats
+        resume_index = len(task.results)
+        if resume_index > 0:
+            logger.info(
+                f"Resuming task {task_id} from checkpoint: "
+                f"{resume_index}/{len(task.chat_ids)} chats already analyzed"
+            )
+            await self._publish_event(
+                ProgressEvent(
+                    task_id=task_id,
+                    status=TaskStatus.IN_PROGRESS,
+                    current=resume_index,
+                    total=len(task.chat_ids),
+                    message=f"Resuming from checkpoint ({resume_index} chats already analyzed)...",
+                )
+            )
+
         try:
-            for i, chat_id in enumerate(task.chat_ids):
+            for i in range(resume_index, len(task.chat_ids)):
+                chat_id = task.chat_ids[i]
                 # Check if task was cancelled
                 if task.status == TaskStatus.CANCELLED:
                     logger.info(f"Task {task_id} was cancelled, stopping execution")
