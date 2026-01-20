@@ -27,6 +27,7 @@ from telethon.tl.types import Chat as TelegramChat
 from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.models.message import Message
+from chatfilter.telegram.rate_limiter import get_rate_limiter
 from chatfilter.telegram.retry import with_retry_for_reads
 
 if TYPE_CHECKING:
@@ -596,6 +597,10 @@ async def get_dialogs(
             return cached
         return [c for c in cached if c.chat_type in chat_types]
 
+    # Proactive rate limiting to prevent FloodWaitError
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.wait_if_needed("get_dialogs")
+
     # Fetch all dialogs
     chats: list[Chat] = []
     seen_ids: set[int] = set()
@@ -813,6 +818,10 @@ async def get_messages(
     """
     if limit <= 0:
         raise ValueError("limit must be positive")
+
+    # Proactive rate limiting to prevent FloodWaitError
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.wait_if_needed("get_messages")
 
     # Cap at maximum to prevent OOM
     effective_limit = min(limit, MAX_MESSAGES_LIMIT)
@@ -1140,6 +1149,10 @@ async def join_chat(
 
     if username is None and invite_hash is None:
         raise ValueError(f"Invalid chat reference format: {chat_ref}")
+
+    # Proactive rate limiting to prevent FloodWaitError
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.wait_if_needed("join_chat")
 
     try:
         if invite_hash:
