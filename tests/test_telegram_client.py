@@ -1130,6 +1130,106 @@ class TestGetMessages:
         assert result[0].text == "Message 1"
         assert result[1].text == "Message 2"
 
+    @pytest.mark.asyncio
+    async def test_get_messages_connection_interrupted_with_resume(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that connection interruption preserves partial messages and resumes."""
+        from telethon.tl.types import User
+
+        # Create 10 messages for testing
+        all_messages = [
+            create_mock_message(i, f"Message {i}", sender_id=100 + i) for i in range(1, 11)
+        ]
+
+        # Track how many times iter_messages is called
+        call_count = 0
+
+        async def mock_iter_messages_with_interruption(
+            chat_id: int, limit: int, offset_id: int | None = None, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            nonlocal call_count
+            call_count += 1
+
+            # First call: yield 5 messages then fail
+            if call_count == 1:
+                for m in all_messages[:5]:
+                    yield m
+                raise ConnectionError("Network interrupted")
+
+            # Second call (resume): should use offset_id=1 (min of first 5)
+            # Yield remaining messages (6-10)
+            elif call_count == 2:
+                assert offset_id == 1, "Should resume from min message ID"
+                for m in all_messages[5:]:
+                    yield m
+
+        # Mock entity (not a forum)
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages_with_interruption
+
+        # Monkeypatch asyncio.sleep to avoid delays in tests
+        async def mock_sleep(seconds: float) -> None:
+            pass
+
+        monkeypatch.setattr("asyncio.sleep", mock_sleep)
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        # Should have all 10 messages (5 from first attempt + 5 from resume)
+        assert len(result) == 10
+        assert call_count == 2, "Should have called iter_messages twice (initial + 1 retry)"
+
+        # Verify all messages are present
+        texts = {msg.text for msg in result}
+        expected_texts = {f"Message {i}" for i in range(1, 11)}
+        assert texts == expected_texts
+
+    @pytest.mark.asyncio
+    async def test_get_messages_connection_interrupted_max_retries(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that max retries is respected and partial messages are returned."""
+        from telethon.tl.types import User
+
+        # Create messages for testing
+        messages_batch1 = [create_mock_message(i, f"Message {i}") for i in range(1, 4)]
+
+        call_count = 0
+
+        async def mock_iter_messages_always_fails(
+            chat_id: int, limit: int, offset_id: int | None = None, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            nonlocal call_count
+            call_count += 1
+
+            # Always yield some messages then fail
+            for m in messages_batch1:
+                yield m
+            raise ConnectionError("Network keeps failing")
+
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages_always_fails
+
+        # Monkeypatch asyncio.sleep
+        async def mock_sleep(seconds: float) -> None:
+            pass
+
+        monkeypatch.setattr("asyncio.sleep", mock_sleep)
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        # Should have stopped after 3 retries and returned partial messages
+        assert call_count == 3, "Should have attempted 3 times (max_retries)"
+        assert len(result) == 3, "Should return partial messages from first attempt"
+        assert result[0].text == "Message 1"
+
 
 class TestParseChatReference:
     """Tests for _parse_chat_reference helper function."""

@@ -627,6 +627,7 @@ async def get_messages(
 
     messages: list[Message] = []
     seen_ids: set[int] = set()
+    fetch_interrupted = False
 
     try:
         # Check if this is a forum chat by getting the entity
@@ -647,49 +648,166 @@ async def get_messages(
             if topic_ids:
                 logger.info(f"Found {len(topic_ids)} topics in forum {chat_id}")
 
-                # Fetch messages from each topic
+                # Fetch messages from each topic with resume capability
                 for topic_id in topic_ids:
+                    max_retries = 3
+                    retry_count = 0
+                    topic_messages_before = len(messages)
+
+                    while retry_count < max_retries:
+                        try:
+                            # Determine offset for this topic (min message ID among topic messages)
+                            topic_msgs = [m for m in messages if m.id not in seen_ids]
+                            offset_id = (
+                                min(m.id for m in topic_msgs if m in messages[topic_messages_before:])
+                                if len(messages) > topic_messages_before
+                                else 0
+                            )
+
+                            async for telethon_msg in client.iter_messages(
+                                chat_id,
+                                limit=effective_limit,
+                                reply_to=topic_id,
+                                offset_id=offset_id if offset_id > 0 else None,
+                            ):
+                                msg = _telethon_message_to_model(telethon_msg, chat_id)
+                                if msg is None:
+                                    continue
+
+                                # Deduplicate (handles edge case of duplicates)
+                                if msg.id in seen_ids:
+                                    continue
+                                seen_ids.add(msg.id)
+                                messages.append(msg)
+
+                            # Successfully fetched from this topic
+                            break
+
+                        except (ConnectionError, TimeoutError, OSError) as e:
+                            retry_count += 1
+                            fetch_interrupted = True
+                            topic_msg_count = len(messages) - topic_messages_before
+                            logger.warning(
+                                f"Connection interrupted while fetching topic {topic_id} "
+                                f"(collected {topic_msg_count} messages from this topic, "
+                                f"attempt {retry_count}/{max_retries}): {e}"
+                            )
+
+                            if retry_count < max_retries:
+                                import asyncio
+
+                                wait_time = 1.0 * (2 ** (retry_count - 1))
+                                logger.info(
+                                    f"Retrying topic {topic_id} in {wait_time}s with offset..."
+                                )
+                                await asyncio.sleep(wait_time)
+                            else:
+                                logger.warning(
+                                    f"Max retries reached for topic {topic_id}. "
+                                    f"Moving to next topic."
+                                )
+                                # Continue with other topics to maximize data recovery
+                                break
+                        except Exception as e:
+                            # Log error but continue with other topics
+                            logger.warning(f"Failed to fetch messages from topic {topic_id}: {e}")
+                            break
+            else:
+                # No topics found or error getting topics, fall back to default behavior
+                logger.info(f"No topics found for forum {chat_id}, using default fetch")
+                max_retries = 3
+                retry_count = 0
+
+                while retry_count < max_retries and len(messages) < effective_limit:
                     try:
+                        offset_id = min(messages, key=lambda m: m.id).id if messages else 0
+                        remaining = effective_limit - len(messages)
+
                         async for telethon_msg in client.iter_messages(
                             chat_id,
-                            limit=effective_limit,
-                            reply_to=topic_id,
+                            limit=remaining,
+                            offset_id=offset_id if offset_id > 0 else None,
                         ):
                             msg = _telethon_message_to_model(telethon_msg, chat_id)
                             if msg is None:
                                 continue
-
-                            # Deduplicate (handles edge case of duplicates)
                             if msg.id in seen_ids:
                                 continue
                             seen_ids.add(msg.id)
                             messages.append(msg)
-                    except Exception as e:
-                        # Log error but continue with other topics
-                        logger.warning(f"Failed to fetch messages from topic {topic_id}: {e}")
-            else:
-                # No topics found or error getting topics, fall back to default behavior
-                logger.info(f"No topics found for forum {chat_id}, using default fetch")
-                async for telethon_msg in client.iter_messages(chat_id, limit=effective_limit):
-                    msg = _telethon_message_to_model(telethon_msg, chat_id)
-                    if msg is None:
-                        continue
-                    if msg.id in seen_ids:
-                        continue
-                    seen_ids.add(msg.id)
-                    messages.append(msg)
-        else:
-            # Regular chat, use standard fetch
-            async for telethon_msg in client.iter_messages(chat_id, limit=effective_limit):
-                msg = _telethon_message_to_model(telethon_msg, chat_id)
-                if msg is None:
-                    continue
 
-                # Deduplicate (handles edge case of duplicates during pagination)
-                if msg.id in seen_ids:
-                    continue
-                seen_ids.add(msg.id)
-                messages.append(msg)
+                        break
+
+                    except (ConnectionError, TimeoutError, OSError) as e:
+                        retry_count += 1
+                        fetch_interrupted = True
+                        logger.warning(
+                            f"Connection interrupted while fetching forum {chat_id} "
+                            f"(collected {len(messages)}/{effective_limit} messages, "
+                            f"attempt {retry_count}/{max_retries}): {e}"
+                        )
+
+                        if retry_count < max_retries:
+                            import asyncio
+
+                            wait_time = 1.0 * (2 ** (retry_count - 1))
+                            logger.info(f"Retrying in {wait_time}s with offset from last message...")
+                            await asyncio.sleep(wait_time)
+                        else:
+                            logger.warning(
+                                f"Max retries reached for forum {chat_id}. "
+                                f"Returning {len(messages)} partial messages."
+                            )
+        else:
+            # Regular chat, use standard fetch with resume capability
+            max_retries = 3
+            retry_count = 0
+
+            while retry_count < max_retries and len(messages) < effective_limit:
+                try:
+                    # Determine offset for resume (use min message ID if resuming)
+                    offset_id = min(messages, key=lambda m: m.id).id if messages else 0
+                    remaining = effective_limit - len(messages)
+
+                    async for telethon_msg in client.iter_messages(
+                        chat_id,
+                        limit=remaining,
+                        offset_id=offset_id if offset_id > 0 else None,
+                    ):
+                        msg = _telethon_message_to_model(telethon_msg, chat_id)
+                        if msg is None:
+                            continue
+
+                        # Deduplicate (handles edge case of duplicates during pagination)
+                        if msg.id in seen_ids:
+                            continue
+                        seen_ids.add(msg.id)
+                        messages.append(msg)
+
+                    # Successfully completed fetch
+                    break
+
+                except (ConnectionError, TimeoutError, OSError) as e:
+                    retry_count += 1
+                    fetch_interrupted = True
+                    logger.warning(
+                        f"Connection interrupted while fetching chat {chat_id} "
+                        f"(collected {len(messages)}/{effective_limit} messages, "
+                        f"attempt {retry_count}/{max_retries}): {e}"
+                    )
+
+                    if retry_count < max_retries:
+                        # Wait before retry with exponential backoff
+                        import asyncio
+
+                        wait_time = 1.0 * (2 ** (retry_count - 1))
+                        logger.info(f"Retrying in {wait_time}s with offset from last message...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.warning(
+                            f"Max retries reached for chat {chat_id}. "
+                            f"Returning {len(messages)} partial messages."
+                        )
 
     except (
         ChatForbiddenError,
@@ -714,6 +832,13 @@ async def get_messages(
 
     # Sort by timestamp (oldest first) to handle out-of-order pagination
     messages.sort(key=lambda m: m.timestamp)
+
+    # Log if fetch was interrupted but we're returning partial results
+    if fetch_interrupted:
+        logger.info(
+            f"Returning {len(messages)} partial messages for chat {chat_id} "
+            f"(fetch was interrupted, requested limit was {effective_limit})"
+        )
 
     return messages
 
