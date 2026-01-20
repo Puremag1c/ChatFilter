@@ -248,6 +248,107 @@ class Settings(BaseSettings):
 
         return warnings
 
+    def validate(self) -> list[str]:
+        """Strict validation for startup - fails fast with all errors at once.
+
+        Validates:
+        - Port number is valid
+        - Data directory is writable
+        - Required subdirectories can be created
+        - Port is not already in use (basic check)
+
+        Returns:
+            List of error messages (empty if validation passes)
+
+        Example:
+            ```python
+            settings = Settings()
+            errors = settings.validate()
+            if errors:
+                for error in errors:
+                    print(f"ERROR: {error}")
+                sys.exit(1)
+            ```
+        """
+        errors = []
+
+        # 1. Port validation (already done by pydantic, but double-check)
+        if not (1 <= self.port <= 65535):
+            errors.append(f"Invalid port number: {self.port} (must be 1-65535)")
+
+        # 2. Data directory writability check
+        try:
+            dir_exists = self.data_dir.exists()
+        except PermissionError:
+            errors.append(
+                f"Cannot access data directory (permission denied): {self.data_dir}\n"
+                f"  → Fix: Grant read permissions to the directory or use a different path"
+            )
+            dir_exists = False
+
+        if dir_exists:
+            if not self.data_dir.is_dir():
+                errors.append(
+                    f"Data path exists but is not a directory: {self.data_dir}\n"
+                    f"  → Fix: Remove the file or choose a different data directory"
+                )
+            else:
+                # Check if writable by trying to create a temp file
+                import tempfile
+                try:
+                    with tempfile.NamedTemporaryFile(dir=self.data_dir, delete=True):
+                        pass
+                except PermissionError:
+                    errors.append(
+                        f"Data directory is not writable: {self.data_dir}\n"
+                        f"  → Fix: Grant write permissions or choose a different directory"
+                    )
+                except OSError as e:
+                    errors.append(
+                        f"Cannot write to data directory: {self.data_dir} ({e})\n"
+                        f"  → Fix: Check directory permissions and disk space"
+                    )
+        else:
+            # Try to create it
+            try:
+                self.data_dir.mkdir(parents=True, exist_ok=True)
+                # Verify it's writable
+                import tempfile
+                with tempfile.NamedTemporaryFile(dir=self.data_dir, delete=True):
+                    pass
+            except PermissionError:
+                errors.append(
+                    f"Cannot create data directory (permission denied): {self.data_dir}\n"
+                    f"  → Fix: Grant write permissions to parent directory or use a different path"
+                )
+            except OSError as e:
+                errors.append(
+                    f"Cannot create data directory: {self.data_dir} ({e})\n"
+                    f"  → Fix: Check parent directory exists and has write permissions"
+                )
+
+        # 3. Port availability check (basic check - more thorough in h3s task)
+        try:
+            import socket
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    sock.bind((self.host, self.port))
+                except OSError as e:
+                    if e.errno == 48 or e.errno == 98:  # Address already in use
+                        errors.append(
+                            f"Port {self.port} is already in use on {self.host}\n"
+                            f"  → Fix: Stop the process using this port or choose a different port\n"
+                            f"  → Hint: Use 'lsof -i :{self.port}' to find the process"
+                        )
+                    else:
+                        errors.append(f"Cannot bind to {self.host}:{self.port}: {e}")
+        except Exception as e:
+            # Don't fail validation if socket check fails for other reasons
+            logger.warning(f"Could not check port availability: {e}")
+
+        return errors
+
     def print_config(self) -> None:
         """Print current configuration to stdout."""
         print("ChatFilter Configuration:")

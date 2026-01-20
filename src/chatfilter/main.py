@@ -68,7 +68,12 @@ def main() -> None:
     parser.add_argument(
         "--check-config",
         action="store_true",
-        help="Validate configuration and exit",
+        help="Validate configuration and exit (deprecated, use --validate)",
+    )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate configuration and exit without starting server",
     )
     parser.add_argument(
         "--version",
@@ -95,20 +100,40 @@ def main() -> None:
 
     settings = Settings(**cli_overrides)
 
-    # Handle --check-config
-    if args.check_config:
+    # Handle --validate or --check-config
+    if args.validate or args.check_config:
         settings.print_config()
         print()
+
+        # Run strict validation
+        errors = settings.validate()
         warnings = settings.check()
-        if warnings:
-            print("Warnings:")
-            for warning in warnings:
-                print(f"  ⚠ {warning}")
+
+        if errors:
+            print("❌ Configuration validation failed:")
+            for error in errors:
+                print(f"\n{error}")
             sys.exit(1)
-        print("✓ Configuration is valid")
+
+        if warnings:
+            print("⚠️  Configuration warnings:")
+            for warning in warnings:
+                print(f"  • {warning}")
+            print()
+
+        print("✅ Configuration is valid")
         sys.exit(0)
 
     setup_logging(level=settings.log_level, debug=settings.debug)
+
+    # Validate configuration before starting server (fail-fast)
+    errors = settings.validate()
+    if errors:
+        print("❌ Configuration validation failed:")
+        for error in errors:
+            print(f"\n{error}")
+        print("\nRun with --validate to check configuration without starting the server")
+        sys.exit(1)
 
     # Ensure data directories exist
     settings.ensure_data_dirs()
