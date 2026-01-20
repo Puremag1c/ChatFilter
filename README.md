@@ -31,13 +31,45 @@ You only need to do this once. Windows will remember your choice for future runs
 - No telemetry or network calls except to Telegram API
 - Open-source under MIT license
 
-#### macOS Code Signing
+#### macOS Gatekeeper Warning
 
-The macOS builds support automatic code signing and notarization through Apple Developer Program. This prevents Gatekeeper warnings and ensures a smooth user experience.
+When opening `ChatFilter.app` for the first time, macOS Gatekeeper may block the application if it's not properly signed and notarized. You might see errors like:
+- **"ChatFilter.app cannot be opened because the developer cannot be verified"**
+- **"ChatFilter.app is damaged and can't be opened"**
+
+This is a security feature of macOS, not an indication that the app is actually malicious. All source code is open and auditable in this repository.
+
+**Solution 1: Use System Preferences (Recommended)**
+
+1. Try to open `ChatFilter.app` (it will be blocked)
+2. Open **System Preferences** → **Security & Privacy** → **General** tab
+3. You should see a message: *"ChatFilter.app was blocked from use because it is not from an identified developer"*
+4. Click the **"Open Anyway"** button
+5. Confirm by clicking **"Open"** in the dialog
+6. The application will start normally
+
+You only need to do this once. macOS will remember your choice for future runs.
+
+**Solution 2: Remove Quarantine Attribute (Alternative)**
+
+If the System Preferences method doesn't work, you can remove the quarantine attribute using Terminal:
+
+```bash
+xattr -cr /path/to/ChatFilter.app
+```
+
+Then open the app normally by double-clicking it.
+
+**Why is this safe?**
+- All source code is public and can be reviewed
+- The executable is built automatically via GitHub Actions (see [.github/workflows/build-macos.yml](.github/workflows/build-macos.yml))
+- No telemetry or network calls except to Telegram API
+- Open-source under MIT license
+
+**Signed Builds:**
+The macOS builds support automatic code signing and notarization through Apple Developer Program. Official builds from GitHub Actions with proper secrets configured will be fully signed and notarized, preventing Gatekeeper warnings entirely.
 
 **For maintainers:** See [docs/MACOS_CODESIGN_SETUP.md](docs/MACOS_CODESIGN_SETUP.md) for setup instructions.
-
-**For users:** Official builds from GitHub Actions with proper secrets configured will be fully signed and notarized. Community builds without signing credentials will require manual approval through System Preferences → Security & Privacy.
 
 ### Running the Application
 
