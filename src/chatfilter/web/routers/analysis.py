@@ -139,6 +139,7 @@ async def start_analysis(
     queue = get_task_queue()
     existing_task = queue.find_active_task(session_id, chat_ids, message_limit)
 
+    is_duplicate = False
     if existing_task:
         # Return existing task instead of creating duplicate
         logger.info(
@@ -146,6 +147,7 @@ async def start_analysis(
             f"(status: {existing_task.status})"
         )
         task = existing_task
+        is_duplicate = True
     else:
         # Create new analysis task
         task = queue.create_task(session_id, chat_ids, message_limit)
@@ -162,6 +164,7 @@ async def start_analysis(
             "request": request,
             "task_id": str(task.task_id),
             "total_chats": len(chat_ids),
+            "is_duplicate": is_duplicate,
         },
     )
 
