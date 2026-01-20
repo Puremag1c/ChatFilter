@@ -49,14 +49,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler for startup/shutdown.
 
     Handles:
-    - Startup: Initialize resources
+    - Startup: Initialize resources and recover incomplete tasks
     - Shutdown: Graceful cleanup with signal to active connections
     """
     import asyncio
 
+    from chatfilter.analyzer.task_queue import get_task_queue
+    from chatfilter.storage.database import TaskDatabase
+
     # Startup
     logger.info("ChatFilter application starting up")
     app.state.app_state = AppState()
+
+    # Initialize task database and queue
+    settings = app.state.settings
+    db_path = settings.data_dir / "tasks.db"
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+
+    task_db = TaskDatabase(db_path)
+    task_queue = get_task_queue(db=task_db)
+    logger.info(f"Task database initialized at {db_path}")
 
     # Initialize session manager for Telegram connections
     # This will be populated by routes as needed

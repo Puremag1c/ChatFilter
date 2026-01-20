@@ -2,9 +2,10 @@
 
 Provides:
 - Task creation with UUID tracking
-- In-memory task state management
+- Persistent task state management with SQLite
 - Progress event publishing via asyncio.Queue
 - Injectable executor for testing
+- Recovery of incomplete tasks on startup
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
     from chatfilter.models import AnalysisResult, Chat
+    from chatfilter.storage.database import TaskDatabase
 
 from chatfilter.telegram.client import ChatAccessDeniedError
 
@@ -87,13 +89,14 @@ class AnalysisExecutor(Protocol):
 
 
 class TaskQueue:
-    """In-memory task queue for analysis jobs.
+    """Persistent task queue for analysis jobs with SQLite backend.
 
-    Thread-safe asyncio-based queue with progress event publishing.
+    Thread-safe asyncio-based queue with progress event publishing
+    and recovery of incomplete tasks on startup.
 
     Example:
         ```python
-        queue = TaskQueue()
+        queue = TaskQueue(db=TaskDatabase("tasks.db"))
 
         # Create a task
         task = queue.create_task("session1", [123, 456, 789])
@@ -108,11 +111,42 @@ class TaskQueue:
         ```
     """
 
-    def __init__(self) -> None:
-        """Initialize the task queue."""
+    def __init__(self, db: TaskDatabase | None = None) -> None:
+        """Initialize the task queue.
+
+        Args:
+            db: Optional TaskDatabase instance. If None, persistence is disabled.
+        """
+        self._db = db
         self._tasks: dict[UUID, AnalysisTask] = {}
         self._subscribers: dict[UUID, list[asyncio.Queue[ProgressEvent | None]]] = {}
         self._lock = asyncio.Lock()
+
+        # Load incomplete tasks from database
+        if self._db:
+            self._load_incomplete_tasks()
+
+    def _load_incomplete_tasks(self) -> None:
+        """Load incomplete tasks from database on startup."""
+        if not self._db:
+            return
+
+        try:
+            incomplete_tasks = self._db.load_incomplete_tasks()
+            for task in incomplete_tasks:
+                self._tasks[task.task_id] = task
+                self._subscribers[task.task_id] = []
+                # Reset in-progress tasks to pending for recovery
+                if task.status == TaskStatus.IN_PROGRESS:
+                    task.status = TaskStatus.PENDING
+                    self._db.save_task(task)
+
+            if incomplete_tasks:
+                logger.info(
+                    f"Recovered {len(incomplete_tasks)} incomplete tasks from database"
+                )
+        except Exception as e:
+            logger.exception(f"Failed to load incomplete tasks from database: {e}")
 
     def create_task(
         self,
@@ -138,6 +172,11 @@ class TaskQueue:
         )
         self._tasks[task.task_id] = task
         self._subscribers[task.task_id] = []
+
+        # Persist to database
+        if self._db:
+            self._db.save_task(task)
+
         logger.info(f"Created analysis task {task.task_id} for {len(chat_ids)} chats")
         return task
 
@@ -266,6 +305,10 @@ class TaskQueue:
         task.status = TaskStatus.IN_PROGRESS
         task.started_at = datetime.now(UTC)
 
+        # Persist status change
+        if self._db:
+            self._db.save_task(task)
+
         try:
             for i, chat_id in enumerate(task.chat_ids):
                 # Check if task was cancelled
@@ -309,6 +352,12 @@ class TaskQueue:
                         task.message_limit,
                     )
                     task.results.append(result)
+
+                    # Persist result and update task state
+                    if self._db:
+                        self._db.save_task_result(task_id, result)
+                        self._db.save_task(task)
+
                 except ChatAccessDeniedError as e:
                     # Chat is inaccessible (kicked, banned, left, or private/deleted)
                     logger.info(f"Skipping inaccessible chat {chat_id} ({chat_title}): {e}")
@@ -322,6 +371,10 @@ class TaskQueue:
             if task.status != TaskStatus.CANCELLED:
                 task.status = TaskStatus.COMPLETED
                 task.completed_at = datetime.now(UTC)
+
+                # Persist completion
+                if self._db:
+                    self._db.save_task(task)
 
                 await self._publish_event(
                     ProgressEvent(
@@ -344,6 +397,10 @@ class TaskQueue:
                 task.status = TaskStatus.FAILED
                 task.error = str(e)
                 task.completed_at = datetime.now(UTC)
+
+                # Persist failure
+                if self._db:
+                    self._db.save_task(task)
 
                 await self._publish_event(
                     ProgressEvent(
@@ -376,13 +433,18 @@ class TaskQueue:
         if task.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS):
             task.status = TaskStatus.CANCELLED
             task.completed_at = datetime.now(UTC)
+
+            # Persist cancellation
+            if self._db:
+                self._db.save_task(task)
+
             logger.info(f"Task {task_id} cancelled")
             return True
 
         return False
 
     def clear_completed(self) -> int:
-        """Remove all completed/failed/cancelled tasks.
+        """Remove all completed/failed/cancelled tasks from memory and database.
 
         Returns:
             Number of tasks removed
@@ -398,6 +460,10 @@ class TaskQueue:
             del self._tasks[task_id]
             self._subscribers.pop(task_id, None)
 
+            # Remove from database
+            if self._db:
+                self._db.delete_task(task_id)
+
         if to_remove:
             logger.info(f"Cleared {len(to_remove)} completed tasks")
 
@@ -408,15 +474,19 @@ class TaskQueue:
 _task_queue: TaskQueue | None = None
 
 
-def get_task_queue() -> TaskQueue:
+def get_task_queue(db: TaskDatabase | None = None) -> TaskQueue:
     """Get the global task queue instance.
+
+    Args:
+        db: Optional TaskDatabase instance. Only used on first call to initialize queue.
+            Subsequent calls ignore this parameter and return existing singleton.
 
     Returns:
         TaskQueue singleton
     """
     global _task_queue
     if _task_queue is None:
-        _task_queue = TaskQueue()
+        _task_queue = TaskQueue(db=db)
     return _task_queue
 
 
