@@ -653,6 +653,13 @@ async def get_messages(
 
                 # Fetch messages from each topic with resume capability
                 for topic_id in topic_ids:
+                    # Check if we've reached the message limit
+                    if len(messages) >= effective_limit:
+                        logger.info(
+                            f"Reached message limit ({effective_limit}), "
+                            f"stopping forum topic fetch at topic {topic_id}"
+                        )
+                        break
                     max_retries = 3
                     retry_count = 0
                     topic_messages_before = len(messages)
@@ -667,9 +674,12 @@ async def get_messages(
                                 else 0
                             )
 
+                            # Calculate remaining messages to fetch
+                            remaining = effective_limit - len(messages)
+
                             async for telethon_msg in client.iter_messages(
                                 chat_id,
-                                limit=effective_limit,
+                                limit=remaining,
                                 reply_to=topic_id,
                                 offset_id=offset_id if offset_id > 0 else None,
                             ):
@@ -682,6 +692,10 @@ async def get_messages(
                                     continue
                                 seen_ids.add(msg.id)
                                 messages.append(msg)
+
+                                # Stop if we've reached the limit
+                                if len(messages) >= effective_limit:
+                                    break
 
                             # Successfully fetched from this topic
                             break
@@ -835,6 +849,9 @@ async def get_messages(
 
     # Sort by timestamp (oldest first) to handle out-of-order pagination
     messages.sort(key=lambda m: m.timestamp)
+
+    # Clear seen_ids to free memory (no longer needed after deduplication)
+    seen_ids.clear()
 
     # Log if fetch was interrupted but we're returning partial results
     if fetch_interrupted:

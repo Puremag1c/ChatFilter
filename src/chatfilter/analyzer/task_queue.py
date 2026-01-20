@@ -6,6 +6,7 @@ Provides:
 - Progress event publishing via asyncio.Queue
 - Injectable executor for testing
 - Recovery of incomplete tasks on startup
+- Automatic memory cleanup for completed tasks
 """
 
 from __future__ import annotations
@@ -23,6 +24,13 @@ if TYPE_CHECKING:
     from chatfilter.storage.database import TaskDatabase
 
 from chatfilter.telegram.client import ChatAccessDeniedError
+
+try:
+    from chatfilter.utils.memory import MemoryMonitor, log_memory_usage
+except ImportError:
+    # Memory monitoring is optional (requires psutil)
+    MemoryMonitor = None  # type: ignore
+    log_memory_usage = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -111,20 +119,59 @@ class TaskQueue:
         ```
     """
 
-    def __init__(self, db: TaskDatabase | None = None) -> None:
+    def __init__(
+        self,
+        db: TaskDatabase | None = None,
+        auto_cleanup_threshold: int = 100,
+        memory_threshold_mb: float = 2048.0,
+        enable_memory_monitoring: bool = True,
+    ) -> None:
         """Initialize the task queue.
 
         Args:
             db: Optional TaskDatabase instance. If None, persistence is disabled.
+            auto_cleanup_threshold: Number of completed tasks before automatic cleanup
+                (default 100). Set to 0 to disable automatic cleanup.
+            memory_threshold_mb: Memory usage threshold in MB for warnings (default 2048MB).
+                Set to 0 to disable memory monitoring.
+            enable_memory_monitoring: Enable periodic memory logging (default True)
         """
         self._db = db
         self._tasks: dict[UUID, AnalysisTask] = {}
         self._subscribers: dict[UUID, list[asyncio.Queue[ProgressEvent | None]]] = {}
         self._lock = asyncio.Lock()
+        self._auto_cleanup_threshold = auto_cleanup_threshold
+        self._enable_memory_monitoring = enable_memory_monitoring and MemoryMonitor is not None
+
+        # Initialize memory monitor
+        self._memory_monitor: MemoryMonitor | None = None
+        if self._enable_memory_monitoring and memory_threshold_mb > 0:
+            self._memory_monitor = MemoryMonitor(
+                threshold_mb=memory_threshold_mb,
+                on_threshold_exceeded=self._on_memory_threshold_exceeded,
+                circuit_breaker=False,  # Don't break, just warn
+            )
+            logger.info(f"Memory monitoring enabled (threshold: {memory_threshold_mb}MB)")
 
         # Load incomplete tasks from database
         if self._db:
             self._load_incomplete_tasks()
+
+    def _on_memory_threshold_exceeded(self, stats) -> None:
+        """Callback when memory threshold is exceeded.
+
+        Args:
+            stats: MemoryStats object with current memory usage
+        """
+        logger.warning(
+            f"Memory threshold exceeded during task execution: {stats.rss_mb:.1f}MB. "
+            f"Task count: {len(self._tasks)}, Subscriber count: {len(self._subscribers)}"
+        )
+
+        # Try to free memory by clearing completed tasks
+        cleared = self.clear_completed()
+        if cleared > 0:
+            logger.info(f"Freed memory by clearing {cleared} completed tasks")
 
     def _load_incomplete_tasks(self) -> None:
         """Load incomplete tasks from database on startup."""
@@ -202,6 +249,43 @@ class TaskQueue:
             key=lambda t: t.created_at,
             reverse=True,
         )
+
+    def find_active_task(
+        self,
+        session_id: str,
+        chat_ids: list[int],
+        message_limit: int,
+    ) -> AnalysisTask | None:
+        """Find an active (pending or in-progress) task with matching parameters.
+
+        This is used for deduplication to prevent running the same analysis
+        multiple times simultaneously.
+
+        Args:
+            session_id: Session identifier
+            chat_ids: List of chat IDs (order independent)
+            message_limit: Message limit per chat
+
+        Returns:
+            Active task if found, None otherwise
+        """
+        # Normalize chat_ids for comparison (sort to handle different orders)
+        normalized_chat_ids = sorted(chat_ids)
+
+        for task in self._tasks.values():
+            # Only check active tasks
+            if task.status not in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS):
+                continue
+
+            # Check if parameters match
+            if (
+                task.session_id == session_id
+                and sorted(task.chat_ids) == normalized_chat_ids
+                and task.message_limit == message_limit
+            ):
+                return task
+
+        return None
 
     async def subscribe(
         self,
@@ -309,6 +393,10 @@ class TaskQueue:
         if self._db:
             self._db.save_task(task)
 
+        # Log memory at task start
+        if self._enable_memory_monitoring and log_memory_usage:
+            log_memory_usage(f"Task {task_id} start")
+
         try:
             for i, chat_id in enumerate(task.chat_ids):
                 # Check if task was cancelled
@@ -358,6 +446,10 @@ class TaskQueue:
                         self._db.save_task_result(task_id, result)
                         self._db.save_task(task)
 
+                    # Check memory after each chat
+                    if self._memory_monitor:
+                        self._memory_monitor.check()
+
                 except ChatAccessDeniedError as e:
                     # Chat is inaccessible (kicked, banned, left, or private/deleted)
                     logger.info(f"Skipping inaccessible chat {chat_id} ({chat_title}): {e}")
@@ -387,6 +479,10 @@ class TaskQueue:
                 )
 
                 logger.info(f"Task {task_id} completed with {len(task.results)} results")
+
+                # Log memory at task completion
+                if self._enable_memory_monitoring and log_memory_usage:
+                    log_memory_usage(f"Task {task_id} completed")
             else:
                 # Task was cancelled
                 logger.info(f"Task {task_id} cancelled with {len(task.results)} partial results")
@@ -416,6 +512,8 @@ class TaskQueue:
 
         finally:
             await self._signal_completion(task_id)
+            # Automatic cleanup: check if we should clear old completed tasks
+            await self._auto_cleanup_if_needed()
 
     def cancel_task(self, task_id: UUID) -> bool:
         """Cancel a pending or in-progress task.
@@ -468,6 +566,68 @@ class TaskQueue:
             logger.info(f"Cleared {len(to_remove)} completed tasks")
 
         return len(to_remove)
+
+    async def _auto_cleanup_if_needed(self) -> None:
+        """Check and perform automatic cleanup if threshold reached.
+
+        Called after each task completes to prevent unbounded memory growth.
+        """
+        if self._auto_cleanup_threshold <= 0:
+            return
+
+        completed_count = sum(
+            1
+            for task in self._tasks.values()
+            if task.status
+            in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)
+        )
+
+        if completed_count >= self._auto_cleanup_threshold:
+            logger.info(
+                f"Auto-cleanup triggered: {completed_count} completed tasks "
+                f"(threshold: {self._auto_cleanup_threshold})"
+            )
+            self.clear_completed()
+
+    async def cleanup_orphaned_subscribers(self) -> int:
+        """Clean up subscriber queues for completed/failed/cancelled tasks.
+
+        Orphaned subscribers can occur when clients disconnect abruptly
+        without properly unsubscribing. This method removes subscriber
+        lists for tasks that are no longer active.
+
+        Returns:
+            Number of subscriber lists cleaned up
+        """
+        async with self._lock:
+            cleaned_count = 0
+            for task_id in list(self._subscribers.keys()):
+                task = self._tasks.get(task_id)
+                # Clean subscribers for completed/failed/cancelled tasks
+                if task and task.status in (
+                    TaskStatus.COMPLETED,
+                    TaskStatus.FAILED,
+                    TaskStatus.CANCELLED,
+                ):
+                    subscriber_count = len(self._subscribers[task_id])
+                    if subscriber_count > 0:
+                        logger.info(
+                            f"Cleaning {subscriber_count} orphaned subscribers "
+                            f"for task {task_id} (status: {task.status})"
+                        )
+                        self._subscribers[task_id].clear()
+                        cleaned_count += 1
+                # Also clean subscribers for non-existent tasks
+                elif task is None:
+                    subscriber_count = len(self._subscribers[task_id])
+                    if subscriber_count > 0:
+                        logger.warning(
+                            f"Cleaning {subscriber_count} orphaned subscribers "
+                            f"for non-existent task {task_id}"
+                        )
+                        del self._subscribers[task_id]
+                        cleaned_count += 1
+            return cleaned_count
 
 
 # Global task queue instance

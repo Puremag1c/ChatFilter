@@ -250,3 +250,50 @@ class ChatAnalysisService:
         except (SessionNotFoundError, Exception) as e:
             logger.debug(f"Session validation failed for '{session_id}': {e}")
             return False
+
+    def clear_cache(self, session_id: str | None = None) -> None:
+        """Clear cached data for a session or all sessions.
+
+        This method removes cached chat data and loaders to free memory.
+        Should be called periodically for long-running services or when
+        a session is no longer needed.
+
+        Args:
+            session_id: Session ID to clear cache for. If None, clears all caches.
+        """
+        if session_id:
+            # Clear cache for specific session
+            if session_id in self._chat_cache:
+                count = len(self._chat_cache[session_id])
+                del self._chat_cache[session_id]
+                logger.info(f"Cleared {count} cached chats for session '{session_id}'")
+
+            if session_id in self._loaders:
+                del self._loaders[session_id]
+                logger.info(f"Cleared loader for session '{session_id}'")
+        else:
+            # Clear all caches
+            chat_count = sum(len(chats) for chats in self._chat_cache.values())
+            loader_count = len(self._loaders)
+
+            self._chat_cache.clear()
+            self._loaders.clear()
+
+            logger.info(
+                f"Cleared all caches: {chat_count} chats, {loader_count} loaders"
+            )
+
+    def get_cache_stats(self) -> dict[str, int]:
+        """Get statistics about cached data.
+
+        Returns:
+            Dictionary with cache statistics:
+            - total_sessions: Number of sessions with cached data
+            - total_chats: Total number of cached chats
+            - total_loaders: Number of registered loaders
+        """
+        return {
+            "total_sessions": len(self._chat_cache),
+            "total_chats": sum(len(chats) for chats in self._chat_cache.values()),
+            "total_loaders": len(self._loaders),
+        }

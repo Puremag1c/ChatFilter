@@ -102,7 +102,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         await asyncio.sleep(0.5)
 
-    # 3. Disconnect all Telegram sessions
+    # 3. Clear completed tasks to free memory
+    try:
+        logger.info("Cleaning up completed tasks")
+        cleared = task_queue.clear_completed()
+        orphaned = await task_queue.cleanup_orphaned_subscribers()
+        logger.info(f"Cleared {cleared} tasks and {orphaned} orphaned subscriber lists")
+    except Exception as e:
+        logger.error(f"Error clearing tasks during shutdown: {e}")
+
+    # 4. Disconnect all Telegram sessions
     if app.state.app_state.session_manager:
         logger.info("Disconnecting Telegram sessions")
         try:
@@ -110,6 +119,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("All Telegram sessions disconnected")
         except Exception as e:
             logger.error(f"Error disconnecting sessions during shutdown: {e}")
+
+    # 5. Clear service caches to free memory
+    try:
+        from chatfilter.web.dependencies import get_chat_analysis_service
+
+        service = get_chat_analysis_service()
+        service.clear_cache()
+        logger.info("Cleared service caches")
+    except Exception as e:
+        logger.error(f"Error clearing service caches during shutdown: {e}")
 
     logger.info("Graceful shutdown complete")
 
