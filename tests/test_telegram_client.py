@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from chatfilter.models.chat import Chat, ChatType
 from chatfilter.config import ProxyConfig, ProxyType
+from chatfilter.models.chat import Chat, ChatType
 from chatfilter.telegram.client import (
     JoinChatError,
     MessageFetchError,
@@ -726,6 +726,8 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_basic(self) -> None:
         """Test fetching messages from a chat."""
+        from telethon.tl.types import User
+
         messages = [
             create_mock_message(1, "First", sender_id=100),
             create_mock_message(2, "Second", sender_id=101),
@@ -733,12 +735,16 @@ class TestGetMessages:
         ]
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             for m in messages[:limit]:
                 yield m
 
+        # Mock entity (not a forum)
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         result = await get_messages(client, chat_id=123, limit=10)
@@ -751,18 +757,23 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_respects_limit(self) -> None:
         """Test that limit is respected."""
+        from telethon.tl.types import User
+
         messages = [
             create_mock_message(i, f"Message {i}")
             for i in range(10)
         ]
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             for m in messages[:limit]:
                 yield m
 
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         result = await get_messages(client, chat_id=123, limit=5)
@@ -772,6 +783,8 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_deduplication(self) -> None:
         """Test that duplicate message IDs are deduplicated."""
+        from telethon.tl.types import User
+
         messages = [
             create_mock_message(1, "First"),
             create_mock_message(1, "First duplicate"),  # Same ID
@@ -779,12 +792,15 @@ class TestGetMessages:
         ]
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             for m in messages:
                 yield m
 
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         result = await get_messages(client, chat_id=123, limit=10)
@@ -796,6 +812,8 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_sorts_by_timestamp(self) -> None:
         """Test that messages are sorted by timestamp (oldest first)."""
+        from telethon.tl.types import User
+
         now = datetime.now(UTC)
         messages = [
             create_mock_message(3, "Third", date=now - timedelta(hours=1)),
@@ -804,12 +822,15 @@ class TestGetMessages:
         ]
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             for m in messages:
                 yield m
 
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         result = await get_messages(client, chat_id=123, limit=10)
@@ -822,6 +843,8 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_skips_empty(self) -> None:
         """Test that empty/deleted messages are skipped."""
+        from telethon.tl.types import User
+
         valid_msg = create_mock_message(1, "Valid")
         empty_msg = MagicMock()
         empty_msg.id = 2
@@ -832,12 +855,15 @@ class TestGetMessages:
         messages = [valid_msg, empty_msg]
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             for m in messages:
                 yield m
 
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         result = await get_messages(client, chat_id=123, limit=10)
@@ -859,14 +885,18 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_chat_not_found_error(self) -> None:
         """Test error handling for non-existent chat."""
+        from telethon.tl.types import User
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             raise Exception("Invalid peer")
             yield  # Make it a generator
 
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         with pytest.raises(MessageFetchError, match="Chat not found or invalid"):
@@ -875,14 +905,18 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_access_denied_error(self) -> None:
         """Test error handling for access denied."""
+        from telethon.tl.types import User
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             raise Exception("forbidden")
             yield
 
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         with pytest.raises(MessageFetchError, match="Access denied"):
@@ -891,18 +925,146 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_rate_limit_error(self) -> None:
         """Test error handling for rate limiting."""
+        from telethon.tl.types import User
 
         async def mock_iter_messages(
-            chat_id: int, limit: int
+            chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
             raise Exception("FloodWaitError")
             yield
 
+        mock_entity = MagicMock(spec=User)
+
         client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
         client.iter_messages = mock_iter_messages
 
         with pytest.raises(MessageFetchError, match="Rate limited"):
             await get_messages(client, chat_id=123, limit=10)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_forum_with_topics(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test fetching messages from a forum chat with multiple topics."""
+        from telethon.tl.types import Channel
+
+        import chatfilter.telegram.client as client_module
+
+        # Create mock messages for different topics
+        topic1_messages = [
+            create_mock_message(1, "Topic 1 Message 1"),
+            create_mock_message(2, "Topic 1 Message 2"),
+        ]
+        topic2_messages = [
+            create_mock_message(3, "Topic 2 Message 1"),
+            create_mock_message(4, "Topic 2 Message 2"),
+        ]
+
+        # Mock forum entity
+        mock_entity = MagicMock(spec=Channel)
+        mock_entity.megagroup = True
+        mock_entity.forum = True
+
+        # Track which topics are being fetched
+        topics_fetched = []
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, reply_to: int | None = None, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            if reply_to == 100:
+                topics_fetched.append(100)
+                for m in topic1_messages:
+                    yield m
+            elif reply_to == 200:
+                topics_fetched.append(200)
+                for m in topic2_messages:
+                    yield m
+
+        async def mock_get_forum_topics(client: object, chat_id: int) -> list[int]:
+            # Return two topic IDs
+            return [100, 200]
+
+        # Patch _get_forum_topics
+        monkeypatch.setattr(client_module, "_get_forum_topics", mock_get_forum_topics)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        # Should get messages from both topics
+        assert len(result) == 4, f"Expected 4 messages but got {len(result)}"
+        assert 100 in topics_fetched, "Should have fetched from topic 100"
+        assert 200 in topics_fetched, "Should have fetched from topic 200"
+        assert any(msg.text == "Topic 1 Message 1" for msg in result)
+        assert any(msg.text == "Topic 2 Message 1" for msg in result)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_forum_no_topics(self) -> None:
+        """Test fetching messages from a forum with no topics (fallback)."""
+        from telethon.tl.types import Channel
+
+        messages = [
+            create_mock_message(1, "Message 1"),
+            create_mock_message(2, "Message 2"),
+        ]
+
+        # Mock forum entity
+        mock_entity = MagicMock(spec=Channel)
+        mock_entity.megagroup = True
+        mock_entity.forum = True
+
+        # Mock empty topics response
+        mock_topics_result = MagicMock()
+        mock_topics_result.topics = []
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages:
+                yield m
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+        client.return_value = mock_topics_result
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        # Should fallback to default behavior
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_get_messages_non_forum(self) -> None:
+        """Test fetching messages from a non-forum chat."""
+        from telethon.tl.types import Channel
+
+        messages = [
+            create_mock_message(1, "Message 1"),
+            create_mock_message(2, "Message 2"),
+        ]
+
+        # Mock regular supergroup entity (not a forum)
+        mock_entity = MagicMock(spec=Channel)
+        mock_entity.megagroup = True
+        mock_entity.forum = False
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages:
+                yield m
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages(client, chat_id=123, limit=10)
+
+        # Should use standard fetch
+        assert len(result) == 2
+        assert result[0].text == "Message 1"
+        assert result[1].text == "Message 2"
 
 
 class TestParseChatReference:

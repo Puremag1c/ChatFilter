@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -11,21 +12,22 @@ from typing import TYPE_CHECKING
 
 import socks
 from telethon import TelegramClient
-
-from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
-from chatfilter.telegram.retry import with_retry_for_reads
+from telethon.tl.functions.channels import JoinChannelRequest
+from telethon.tl.functions.messages import GetForumTopicsRequest, ImportChatInviteRequest
 from telethon.tl.types import Channel, User
 from telethon.tl.types import Chat as TelegramChat
-from telethon.tl.functions.channels import JoinChannelRequest
-from telethon.tl.functions.messages import ImportChatInviteRequest
 
+from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.models.message import Message
+from chatfilter.telegram.retry import with_retry_for_reads
 
 if TYPE_CHECKING:
     from telethon import TelegramClient as TelegramClientType
     from telethon.tl.custom import Dialog
     from telethon.tl.types import Message as TelegramMessage
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramConfigError(Exception):
@@ -452,10 +454,13 @@ def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | 
     from datetime import UTC
 
     # Skip empty/deleted messages (Telethon represents them as MessageEmpty)
-    if getattr(msg, "message", None) is None and getattr(msg, "media", None) is None:
-        # Check if this is a MessageEmpty (deleted message)
-        if not hasattr(msg, "date") or msg.date is None:
-            return None
+    # Check if this is a MessageEmpty (deleted message)
+    if (
+        getattr(msg, "message", None) is None
+        and getattr(msg, "media", None) is None
+        and (not hasattr(msg, "date") or msg.date is None)
+    ):
+        return None
 
     # Get sender ID - can be None for channel posts without author
     sender_id = getattr(msg, "sender_id", None) or getattr(msg, "from_id", None)
@@ -493,6 +498,49 @@ def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | 
     )
 
 
+async def _get_forum_topics(
+    client: TelegramClientType,
+    chat_id: int,
+) -> list[int]:
+    """Get list of forum topic IDs from a Telegram forum chat.
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_id: ID of the forum chat
+
+    Returns:
+        List of topic IDs (message IDs of the first message in each topic)
+
+    Raises:
+        Exception: If fetching topics fails
+    """
+    try:
+        # Get forum topics using Telegram API
+        result = await client(GetForumTopicsRequest(
+            channel=chat_id,
+            offset_date=0,
+            offset_id=0,
+            offset_topic=0,
+            limit=100,  # Should be enough for most forums
+        ))
+
+        # Extract topic IDs from the result
+        # Each topic has an ID which is the message ID of the first message
+        topic_ids = []
+        if hasattr(result, 'topics'):
+            for topic in result.topics:
+                # Topic ID is stored in the 'id' attribute
+                if hasattr(topic, 'id'):
+                    topic_ids.append(topic.id)
+
+        return topic_ids
+    except Exception as e:
+        # If we can't get topics, log and return empty list
+        # This allows graceful fallback to default behavior
+        logger.debug(f"Failed to get forum topics for chat {chat_id}: {e}")
+        return []
+
+
 @with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
 async def get_messages(
     client: TelegramClientType,
@@ -504,6 +552,11 @@ async def get_messages(
     Fetches messages from the specified chat and converts them to Message models.
     Handles pagination automatically for limits > 100.
 
+    For forum chats (supergroups with topics enabled), this function automatically
+    fetches messages from ALL topics and aggregates them. This ensures complete
+    statistics and avoids the limitation where get_messages() by default only
+    returns messages from the "General" topic.
+
     Network errors (ConnectionError, TimeoutError, OSError, SSL errors) are
     automatically retried with exponential backoff (up to 3 attempts).
 
@@ -511,6 +564,7 @@ async def get_messages(
         client: Connected TelegramClient instance
         chat_id: ID of the chat to fetch messages from
         limit: Maximum number of messages to fetch (default 100, max 10000)
+               For forums, this is applied per-topic to ensure coverage across all topics.
 
     Returns:
         List of Message models, sorted by timestamp (oldest first)
@@ -522,7 +576,7 @@ async def get_messages(
     Example:
         ```python
         async with loader.create_client() as client:
-            # Get last 50 messages
+            # Get last 50 messages (per topic if forum)
             messages = await get_messages(client, chat_id=123, limit=50)
 
             # Process messages
@@ -540,17 +594,67 @@ async def get_messages(
     seen_ids: set[int] = set()
 
     try:
-        # Use iter_messages for efficient pagination
-        async for telethon_msg in client.iter_messages(chat_id, limit=effective_limit):
-            msg = _telethon_message_to_model(telethon_msg, chat_id)
-            if msg is None:
-                continue
+        # Check if this is a forum chat by getting the entity
+        entity = await client.get_entity(chat_id)
+        is_forum = (
+            isinstance(entity, Channel)
+            and getattr(entity, "megagroup", False)
+            and getattr(entity, "forum", False)
+        )
 
-            # Deduplicate (handles edge case of duplicates during pagination)
-            if msg.id in seen_ids:
-                continue
-            seen_ids.add(msg.id)
-            messages.append(msg)
+        if is_forum:
+            # For forums, fetch messages from all topics
+            logger.info(f"Chat {chat_id} is a forum, fetching from all topics")
+
+            # Get all topics
+            topic_ids = await _get_forum_topics(client, chat_id)
+
+            if topic_ids:
+                logger.info(f"Found {len(topic_ids)} topics in forum {chat_id}")
+
+                # Fetch messages from each topic
+                for topic_id in topic_ids:
+                    try:
+                        async for telethon_msg in client.iter_messages(
+                            chat_id,
+                            limit=effective_limit,
+                            reply_to=topic_id,
+                        ):
+                            msg = _telethon_message_to_model(telethon_msg, chat_id)
+                            if msg is None:
+                                continue
+
+                            # Deduplicate (handles edge case of duplicates)
+                            if msg.id in seen_ids:
+                                continue
+                            seen_ids.add(msg.id)
+                            messages.append(msg)
+                    except Exception as e:
+                        # Log error but continue with other topics
+                        logger.warning(f"Failed to fetch messages from topic {topic_id}: {e}")
+            else:
+                # No topics found or error getting topics, fall back to default behavior
+                logger.info(f"No topics found for forum {chat_id}, using default fetch")
+                async for telethon_msg in client.iter_messages(chat_id, limit=effective_limit):
+                    msg = _telethon_message_to_model(telethon_msg, chat_id)
+                    if msg is None:
+                        continue
+                    if msg.id in seen_ids:
+                        continue
+                    seen_ids.add(msg.id)
+                    messages.append(msg)
+        else:
+            # Regular chat, use standard fetch
+            async for telethon_msg in client.iter_messages(chat_id, limit=effective_limit):
+                msg = _telethon_message_to_model(telethon_msg, chat_id)
+                if msg is None:
+                    continue
+
+                # Deduplicate (handles edge case of duplicates during pagination)
+                if msg.id in seen_ids:
+                    continue
+                seen_ids.add(msg.id)
+                messages.append(msg)
 
     except Exception as e:
         error_msg = str(e).lower()
