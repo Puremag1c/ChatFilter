@@ -11,6 +11,26 @@ Download the latest build for your platform from GitHub Actions artifacts:
 - **Windows**: Download `ChatFilter-Windows-exe.zip`, extract `ChatFilter.exe`
 - **macOS**: Download `ChatFilter-macOS-app.zip`, extract and open `ChatFilter.app`
 
+#### Windows SmartScreen Warning
+
+When running `ChatFilter.exe` for the first time, Windows SmartScreen may show a warning: **"Windows protected your PC"**.
+
+This happens because the executable is not code-signed (code signing certificates cost hundreds of dollars annually). The application is completely safe - all source code is open and auditable in this repository.
+
+**To run the application:**
+
+1. Click **"More info"** on the SmartScreen warning dialog
+2. Click **"Run anyway"** button that appears
+3. The application will start normally
+
+You only need to do this once. Windows will remember your choice for future runs.
+
+**Why is this safe?**
+- All source code is public and can be reviewed
+- The executable is built automatically via GitHub Actions (see [build-windows.yml](.github/workflows/build-windows.yml))
+- No telemetry or network calls except to Telegram API
+- Open-source under MIT license
+
 ### Running the Application
 
 **Windows:**
