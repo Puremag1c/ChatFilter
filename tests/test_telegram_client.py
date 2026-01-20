@@ -1027,11 +1027,14 @@ class TestGetMessages:
     async def test_get_messages_rate_limit_error(self) -> None:
         """Test error handling for rate limiting."""
         from telethon.tl.types import User
+        from telethon.errors import FloodWaitError
 
         async def mock_iter_messages(
             chat_id: int, limit: int, **kwargs: object
         ) -> AsyncIterator[MagicMock]:
-            raise Exception("FloodWaitError")
+            # Simulate FloodWaitError with 60 second wait
+            error = FloodWaitError(request=None, capture=60)
+            raise error
             yield
 
         mock_entity = MagicMock(spec=User)
@@ -1435,8 +1438,11 @@ class TestJoinChat:
     @pytest.mark.asyncio
     async def test_join_rate_limit_raises_error(self) -> None:
         """Test error handling for rate limiting."""
+        from telethon.errors import FloodWaitError
+
         client = AsyncMock()
-        client.side_effect = Exception("FloodWaitError: wait 300 seconds")
+        # Simulate FloodWaitError with 300 second wait
+        client.side_effect = FloodWaitError(request=None, capture=300)
 
         with pytest.raises(JoinChatError, match="Rate limited"):
             await join_chat(client, "@some_channel")
