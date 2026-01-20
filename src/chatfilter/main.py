@@ -138,9 +138,20 @@ def main() -> None:
     # Ensure data directories exist
     settings.ensure_data_dirs()
 
+    # Startup banner with system information
+    import platform
+
+    print("=" * 60)
     print(f"ChatFilter v{__version__}")
-    print(f"Starting server at http://{settings.host}:{settings.port}")
-    print(f"Data directory: {settings.data_dir}")
+    print("=" * 60)
+    print(f"Python:        {platform.python_version()}")
+    print(f"OS:            {platform.system()} {platform.release()}")
+    print(f"Server:        http://{settings.host}:{settings.port}")
+    print(f"Data dir:      {settings.data_dir}")
+    print(f"Sessions dir:  {settings.sessions_dir}")
+    print(f"Exports dir:   {settings.exports_dir}")
+    print(f"Log level:     {settings.log_level}")
+    print("=" * 60)
 
     try:
         uvicorn.run(

@@ -63,11 +63,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from chatfilter.storage.file import cleanup_orphaned_temp_files
 
     # Startup
-    logger.info("ChatFilter application starting up")
+    import platform
+
+    from chatfilter import __version__
+
+    logger.info("=" * 60)
+    logger.info(f"ChatFilter v{__version__} starting up")
+    logger.info(f"Python: {platform.python_version()}, OS: {platform.system()} {platform.release()}")
+    logger.info("=" * 60)
     app.state.app_state = AppState()
 
     # Initialize task database and queue
     settings = app.state.settings
+
+    # Log configuration paths
+    logger.info(f"Configuration: host={settings.host}, port={settings.port}")
+    logger.info(f"Data directory: {settings.data_dir}")
+    logger.info(f"Sessions directory: {settings.sessions_dir}")
+    logger.info(f"Exports directory: {settings.exports_dir}")
 
     # Warn if debug mode is enabled (potential security risk)
     if settings.debug:
