@@ -87,6 +87,35 @@ dist/
 
 ## Testing the Build
 
+### Automated Smoke Tests
+
+**NEW**: Automated smoke tests validate binary functionality before release.
+
+```bash
+# Install test dependencies (if not already installed)
+pip install httpx
+
+# Run smoke tests on Windows
+python tests/smoke_test.py --binary dist/ChatFilter.exe --verbose
+
+# Run smoke tests on macOS
+python tests/smoke_test.py --binary dist/ChatFilter.app/Contents/MacOS/ChatFilter --verbose
+
+# Run smoke tests on Linux
+python tests/smoke_test.py --binary dist/ChatFilter/ChatFilter --verbose
+```
+
+The smoke test suite automatically validates:
+1. Binary exists and is executable
+2. `--version` flag returns version information
+3. `--validate` config validation works
+4. Invalid arguments return non-zero exit codes
+5. Session file loading doesn't crash the app
+6. Web server starts and responds to health checks
+7. All routes are accessible
+
+**CI Integration**: Smoke tests run automatically in GitHub Actions after each build.
+
 ### Basic Test
 
 ```bash

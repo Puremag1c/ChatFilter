@@ -52,6 +52,16 @@ jobs:
           }
         shell: pwsh
 
+      - name: Install test dependencies
+        run: |
+          pip install httpx
+        shell: pwsh
+
+      - name: Run smoke tests
+        run: |
+          python tests/smoke_test.py --binary dist/ChatFilter.exe --verbose
+        shell: pwsh
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

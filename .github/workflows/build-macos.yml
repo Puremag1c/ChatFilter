@@ -51,6 +51,14 @@ jobs:
             exit 1
           fi
 
+      - name: Install test dependencies
+        run: |
+          pip install httpx
+
+      - name: Run smoke tests
+        run: |
+          python tests/smoke_test.py --binary dist/ChatFilter.app/Contents/MacOS/ChatFilter --verbose
+
       - name: Create distributable archive
         run: |
           cd dist
