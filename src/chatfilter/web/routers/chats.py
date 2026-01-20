@@ -138,12 +138,16 @@ async def get_chats(
         if "2FA" in error_msg or "password" in error_msg.lower():
             user_message = (
                 "Two-factor authentication (2FA) is required. "
-                "Please upload a new session file that was created with 2FA authorization."
+                "This session needs re-authorization with your 2FA password. "
+                "Please create a new session file using Telethon or Pyrogram, "
+                "and make sure to enter your 2FA password during the authentication process. "
+                "See the Upload page for detailed instructions."
             )
         else:
             user_message = (
                 "Session has expired and requires re-authorization. "
-                "Please upload a new session file from your authenticated Telegram client."
+                "Please create and upload a new session file from your Telegram account. "
+                "See the Upload page for step-by-step instructions."
             )
         return templates.TemplateResponse(
             "partials/chat_list.html",

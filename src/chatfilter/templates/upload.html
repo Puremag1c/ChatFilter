@@ -66,8 +66,13 @@ client.disconnect()</code></pre>
                     <pre><code>python create_session.py</code></pre>
                 </li>
                 <li>Enter your phone number and the confirmation code you receive via Telegram</li>
+                <li><strong>If you have Two-Factor Authentication (2FA) enabled:</strong> You'll be prompted to enter your 2FA password. This is required for the session to work properly.</li>
                 <li>A <code>.session</code> file will be created in the same directory</li>
             </ol>
+
+            <div class="alert alert-info">
+                <strong>Important:</strong> If your Telegram account has Two-Factor Authentication (2FA) enabled, you MUST enter your 2FA password during session creation. Without this, the session file will not be able to access your account.
+            </div>
 
             <h4>Option B: Using Pyrogram</h4>
             <ol>
@@ -89,6 +94,7 @@ with app:
     print(f"Logged in as: {me.first_name}")</code></pre>
                 </li>
                 <li>Run the script and follow the authentication prompts</li>
+                <li><strong>If you have Two-Factor Authentication (2FA) enabled:</strong> You'll be prompted to enter your 2FA password during authentication.</li>
                 <li>A <code>.session</code> file will be created</li>
             </ol>
         </div>
@@ -115,6 +121,34 @@ with app:
                 <li>Your <code>config.json</code> file created in Step 3</li>
             </ul>
             <p>Use the upload form below to add them to ChatFilter. Give your session a memorable name to identify it later.</p>
+        </div>
+    </details>
+
+    <details class="onboarding-section">
+        <summary><strong>Troubleshooting: Two-Factor Authentication (2FA)</strong></summary>
+        <div class="onboarding-content">
+            <p><strong>Issue:</strong> You see an error like "Two-factor authentication (2FA) is required" when trying to use your session.</p>
+
+            <p><strong>Cause:</strong> Your Telegram account has 2FA (also called "Two-Step Verification") enabled. This is an additional security layer that requires a password.</p>
+
+            <p><strong>Solution:</strong> You must create a new session file and enter your 2FA password during the authentication process:</p>
+            <ol>
+                <li>Delete the current session file (if any)</li>
+                <li>Run the session creation script again (see Step 2 above)</li>
+                <li>When prompted, enter:
+                    <ul>
+                        <li>Your phone number</li>
+                        <li>The confirmation code sent via Telegram</li>
+                        <li><strong>Your 2FA password</strong> (the password you set up in Telegram Settings → Privacy and Security → Two-Step Verification)</li>
+                    </ul>
+                </li>
+                <li>The new session file will include your 2FA authorization</li>
+                <li>Upload the new session file to ChatFilter</li>
+            </ol>
+
+            <p><strong>Note:</strong> Your 2FA password is NOT stored in the session file. The session file only contains an authorization token that proves you've successfully authenticated with 2FA. This token allows ChatFilter to access your account without needing to ask for your password again.</p>
+
+            <p><strong>Security:</strong> If you ever change your 2FA password or log out from all devices in Telegram, you'll need to create a new session file.</p>
         </div>
     </details>
 </section>
