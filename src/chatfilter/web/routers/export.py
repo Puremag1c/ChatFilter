@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import math
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from chatfilter.exporter import export_to_csv
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
@@ -61,6 +62,68 @@ class AnalysisResultInput(BaseModel):
     first_message_at: datetime | None = None
     last_message_at: datetime | None = None
     analyzed_at: datetime | None = None
+
+    @field_validator("history_hours")
+    @classmethod
+    def validate_history_hours(cls, v: float) -> float:
+        """Validate that history_hours is not NaN or Inf."""
+        if math.isnan(v):
+            raise ValueError("history_hours cannot be NaN")
+        if math.isinf(v):
+            raise ValueError("history_hours cannot be infinite")
+        return v
+
+    @model_validator(mode="after")
+    def validate_consistency(self) -> AnalysisResultInput:
+        """Validate logical consistency of input data.
+
+        Checks:
+        - unique_authors cannot exceed message_count
+        - Non-empty chats must have at least one author
+        - first_message_at must be before or equal to last_message_at
+        - Dates cannot be in the future
+        - analyzed_at should be after last_message_at
+        """
+        # unique_authors cannot exceed message_count
+        if self.unique_authors > self.message_count:
+            raise ValueError(
+                f"unique_authors ({self.unique_authors}) cannot exceed "
+                f"message_count ({self.message_count})"
+            )
+
+        # Non-empty chats must have at least one author
+        if self.message_count > 0 and self.unique_authors == 0:
+            raise ValueError("message_count > 0 requires at least one unique_author")
+
+        # Validate date ordering
+        if (
+            self.first_message_at is not None
+            and self.last_message_at is not None
+            and self.first_message_at > self.last_message_at
+        ):
+            raise ValueError("first_message_at cannot be after last_message_at")
+
+        # Dates cannot be in the future
+        now = datetime.now(UTC)
+        if self.first_message_at is not None and self.first_message_at > now:
+            raise ValueError("first_message_at cannot be in the future")
+        if self.last_message_at is not None and self.last_message_at > now:
+            raise ValueError("last_message_at cannot be in the future")
+
+        # analyzed_at validation
+        if self.analyzed_at is not None:
+            # Cannot be significantly in the future (allow 1 minute for clock skew)
+            if self.analyzed_at > now + timedelta(minutes=1):
+                raise ValueError("analyzed_at cannot be in the future")
+
+            # Should be after last message (with tolerance)
+            if (
+                self.last_message_at is not None
+                and self.analyzed_at < self.last_message_at - timedelta(minutes=5)
+            ):
+                raise ValueError("analyzed_at cannot be before last_message_at")
+
+        return self
 
     def to_analysis_result(self) -> AnalysisResult:
         """Convert to internal AnalysisResult model."""

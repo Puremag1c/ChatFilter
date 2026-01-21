@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import math
 import random
 from datetime import UTC, datetime, timedelta
 
-from pydantic import BaseModel, ConfigDict, computed_field, field_validator
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
 
 from .chat import Chat
 
@@ -62,10 +63,52 @@ class ChatMetrics(BaseModel):
     @field_validator("history_hours")
     @classmethod
     def history_hours_must_be_non_negative(cls, v: float) -> float:
-        """Validate that history hours is non-negative."""
+        """Validate that history hours is non-negative and not NaN/Inf."""
         if v < 0:
             raise ValueError("history_hours cannot be negative")
+        if math.isnan(v):
+            raise ValueError("history_hours cannot be NaN")
+        if math.isinf(v):
+            raise ValueError("history_hours cannot be infinite")
         return v
+
+    @model_validator(mode="after")
+    def validate_consistency(self) -> ChatMetrics:
+        """Validate logical consistency of metrics.
+
+        Checks:
+        - unique_authors cannot exceed message_count
+        - Non-empty chats must have at least one author
+        - first_message_at must be before or equal to last_message_at
+        - Dates cannot be in the future
+        """
+        # unique_authors cannot exceed message_count
+        if self.unique_authors > self.message_count:
+            raise ValueError(
+                f"unique_authors ({self.unique_authors}) cannot exceed "
+                f"message_count ({self.message_count})"
+            )
+
+        # Non-empty chats must have at least one author
+        if self.message_count > 0 and self.unique_authors == 0:
+            raise ValueError("message_count > 0 requires at least one unique_author")
+
+        # Validate date ordering
+        if (
+            self.first_message_at is not None
+            and self.last_message_at is not None
+            and self.first_message_at > self.last_message_at
+        ):
+            raise ValueError("first_message_at cannot be after last_message_at")
+
+        # Dates cannot be in the future
+        now = datetime.now(UTC)
+        if self.first_message_at is not None and self.first_message_at > now:
+            raise ValueError("first_message_at cannot be in the future")
+        if self.last_message_at is not None and self.last_message_at > now:
+            raise ValueError("last_message_at cannot be in the future")
+
+        return self
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -163,6 +206,32 @@ class AnalysisResult(BaseModel):
     chat: Chat
     metrics: ChatMetrics
     analyzed_at: datetime
+
+    @model_validator(mode="after")
+    def validate_analyzed_at(self) -> AnalysisResult:
+        """Validate that analyzed_at is reasonable.
+
+        Checks:
+        - analyzed_at cannot be in the future
+        - analyzed_at should be after last_message_at (with small tolerance for clock skew)
+        """
+        now = datetime.now(UTC)
+
+        # analyzed_at cannot be significantly in the future (allow 1 minute for clock skew)
+        if self.analyzed_at > now + timedelta(minutes=1):
+            raise ValueError("analyzed_at cannot be in the future")
+
+        # analyzed_at should be after last message (with tolerance for clock skew)
+        # Allow 5 minutes tolerance for clock differences
+        if (
+            self.metrics.last_message_at is not None
+            and self.analyzed_at < self.metrics.last_message_at - timedelta(minutes=5)
+        ):
+            raise ValueError(
+                "analyzed_at cannot be before last_message_at (analysis must happen after messages)"
+            )
+
+        return self
 
     @computed_field  # type: ignore[prop-decorator]
     @property
