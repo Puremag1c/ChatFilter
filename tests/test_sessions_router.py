@@ -1,8 +1,10 @@
 """Tests for sessions router."""
 
 import json
+import re
 import shutil
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,6 +18,19 @@ from chatfilter.web.routers.sessions import (
     validate_config_file_format,
     validate_session_file_format,
 )
+
+
+def extract_csrf_token(html: str) -> str | None:
+    """Extract CSRF token from HTML meta tag.
+
+    Args:
+        html: HTML content containing meta tag with csrf-token
+
+    Returns:
+        CSRF token string or None if not found
+    """
+    match = re.search(r'<meta name="csrf-token" content="([^"]+)"', html)
+    return match.group(1) if match else None
 
 
 class TestReadUploadWithSizeLimit:
@@ -283,7 +298,7 @@ class TestSessionsAPIEndpoints:
         return TestClient(app)
 
     @pytest.fixture
-    def clean_data_dir(self, tmp_path: Path) -> Path:
+    def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
         """Provide a clean data directory and clean up after test."""
         from unittest.mock import MagicMock
 
@@ -323,6 +338,11 @@ class TestSessionsAPIEndpoints:
 
     def test_upload_session_invalid_name(self, client: TestClient) -> None:
         """Test upload with invalid session name."""
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
         response = client.post(
             "/api/sessions/upload",
             data={"session_name": "@#$%"},
@@ -330,6 +350,7 @@ class TestSessionsAPIEndpoints:
                 "session_file": ("test.session", b"dummy", "application/octet-stream"),
                 "config_file": ("config.json", b"{}", "application/json"),
             },
+            headers={"X-CSRF-Token": csrf_token},
         )
 
         assert response.status_code == 200
@@ -339,6 +360,11 @@ class TestSessionsAPIEndpoints:
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test upload with invalid session file."""
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
         config_content = json.dumps({"api_id": 12345, "api_hash": "abc"})
 
         from unittest.mock import MagicMock
@@ -354,6 +380,7 @@ class TestSessionsAPIEndpoints:
                     "session_file": ("test.session", b"not a database", "application/octet-stream"),
                     "config_file": ("config.json", config_content.encode(), "application/json"),
                 },
+                headers={"X-CSRF-Token": csrf_token},
             )
 
         assert response.status_code == 200
@@ -363,6 +390,11 @@ class TestSessionsAPIEndpoints:
         self, client: TestClient, clean_data_dir: Path, tmp_path: Path
     ) -> None:
         """Test upload with invalid config file."""
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
         # Create a valid session file
         session_path = tmp_path / "test.session"
         conn = sqlite3.connect(session_path)
@@ -388,6 +420,7 @@ class TestSessionsAPIEndpoints:
                     "session_file": ("test.session", session_content, "application/octet-stream"),
                     "config_file": ("config.json", b'{"api_id": 123}', "application/json"),
                 },
+                headers={"X-CSRF-Token": csrf_token},
             )
 
         assert response.status_code == 200
@@ -395,19 +428,31 @@ class TestSessionsAPIEndpoints:
 
     def test_delete_session_not_found(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test deleting non-existent session."""
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
         from unittest.mock import MagicMock
 
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
         with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
-            response = client.delete("/api/sessions/nonexistent")
+            response = client.delete(
+                "/api/sessions/nonexistent", headers={"X-CSRF-Token": csrf_token}
+            )
 
         assert response.status_code == 404
 
     def test_delete_session_invalid_name(self, client: TestClient) -> None:
         """Test deleting with invalid session name."""
-        response = client.delete("/api/sessions/@#$%")
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
+        response = client.delete("/api/sessions/@#$%", headers={"X-CSRF-Token": csrf_token})
 
         assert response.status_code == 400
 
@@ -415,6 +460,11 @@ class TestSessionsAPIEndpoints:
         self, client: TestClient, clean_data_dir: Path, tmp_path: Path
     ) -> None:
         """Test that config files exceeding size limit are rejected."""
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
         # Create a valid session file
         session_path = tmp_path / "test.session"
         conn = sqlite3.connect(session_path)
@@ -443,6 +493,7 @@ class TestSessionsAPIEndpoints:
                     "session_file": ("test.session", session_content, "application/octet-stream"),
                     "config_file": ("config.json", config_content, "application/json"),
                 },
+                headers={"X-CSRF-Token": csrf_token},
             )
 
         assert response.status_code == 200
@@ -450,6 +501,11 @@ class TestSessionsAPIEndpoints:
 
     def test_upload_session_file_too_large(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test that session files exceeding size limit are rejected."""
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
         # Create a large fake session file (> 10 MB)
         large_session = b"x" * (11 * 1024 * 1024)  # 11 MB
 
@@ -468,6 +524,7 @@ class TestSessionsAPIEndpoints:
                     "session_file": ("test.session", large_session, "application/octet-stream"),
                     "config_file": ("config.json", config_content, "application/json"),
                 },
+                headers={"X-CSRF-Token": csrf_token},
             )
 
         assert response.status_code == 200
