@@ -255,6 +255,13 @@
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
+
+            // Show success toast notification
+            ToastManager.success('CSV exported successfully!', {
+                title: 'Export Complete',
+                message: 'File download started',
+                duration: 5000
+            });
         })
         .catch(err => {
             console.error('Export failed:', err);

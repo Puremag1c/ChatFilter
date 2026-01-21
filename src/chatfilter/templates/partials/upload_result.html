@@ -2,6 +2,11 @@
 <div class="alert alert-success">
     {{ message }}
     <script>
+        // Show success toast notification
+        ToastManager.success('Session uploaded successfully!', {
+            title: 'Upload Complete',
+            duration: 5000
+        });
         // Refresh the sessions list after successful upload
         htmx.trigger('#sessions-list', 'load');
         // Clear the form

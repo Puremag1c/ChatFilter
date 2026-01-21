@@ -221,6 +221,13 @@
         progressMessage.textContent = 'Analysis complete. ' + data.results_count + ' chats analyzed.';
         cancelBtn.disabled = true;
 
+        // Show success toast notification
+        ToastManager.success('Analysis complete!', {
+            title: 'Analysis Complete',
+            message: data.results_count + ' chats analyzed successfully',
+            duration: 5000
+        });
+
         // Fetch and display results
         htmx.ajax('GET', '/api/analysis/' + taskId + '/results', {
             target: '#analysis-result-container',
