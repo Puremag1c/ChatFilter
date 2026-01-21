@@ -49,7 +49,6 @@ class TestGetProxyConfig:
 
             # Just verify function exists and would call load
             assert hasattr(proxy, "get_proxy_config")
-            mock_load.return_value  # Access it to confirm mock works
 
         assert True  # Test passes if we get here
 

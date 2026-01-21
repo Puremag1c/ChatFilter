@@ -649,14 +649,16 @@ class TestHelperFunctions:
         session_dir.mkdir(parents=True)
         (session_dir / "session.session").touch()
 
-        with patch("chatfilter.web.routers.chats.DATA_DIR", tmp_path):
+        with (
+            patch("chatfilter.web.routers.chats.DATA_DIR", tmp_path),
             # Mock the secure_delete_file from sessions module
-            with patch(
+            patch(
                 "chatfilter.web.routers.sessions.secure_delete_file",
                 side_effect=Exception("Delete error"),
-            ):
-                # Should not raise an error, just log it
-                cleanup_invalid_session("error_session")
+            ),
+        ):
+            # Should not raise an error, just log it
+            cleanup_invalid_session("error_session")
 
 
 class TestWebSessionPersistence:

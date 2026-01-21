@@ -59,10 +59,12 @@ class TestKeyringBackend:
 
     def test_init_without_keyring(self):
         """Test initialization when keyring module is not available."""
-        with patch.dict("sys.modules", {"keyring": None}):
-            with patch("builtins.__import__", side_effect=ImportError("No keyring")):
-                backend = KeyringBackend()
-                assert backend._keyring is None
+        with (
+            patch.dict("sys.modules", {"keyring": None}),
+            patch("builtins.__import__", side_effect=ImportError("No keyring")),
+        ):
+            backend = KeyringBackend()
+            assert backend._keyring is None
 
     def test_init_with_keyring(self):
         """Test initialization when keyring module is available."""

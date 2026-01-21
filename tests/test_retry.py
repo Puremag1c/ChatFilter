@@ -502,9 +502,11 @@ class TestFloodWaitHandling:
         async def cancel_sleep(*args, **kwargs):
             raise asyncio.CancelledError()
 
-        with patch("asyncio.sleep", side_effect=cancel_sleep):
-            with pytest.raises(asyncio.CancelledError):
-                await raises_flood_wait()
+        with (
+            patch("asyncio.sleep", side_effect=cancel_sleep),
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await raises_flood_wait()
 
         # Should have tried once before cancellation
         assert call_count == 1
@@ -694,9 +696,11 @@ class TestWithFloodWaitHandlingDecorator:
         async def cancel_sleep(*args, **kwargs):
             raise asyncio.CancelledError()
 
-        with patch("asyncio.sleep", side_effect=cancel_sleep):
-            with pytest.raises(asyncio.CancelledError):
-                await floods()
+        with (
+            patch("asyncio.sleep", side_effect=cancel_sleep),
+            pytest.raises(asyncio.CancelledError),
+        ):
+            await floods()
 
     @pytest.mark.asyncio
     async def test_final_attempt_flood_wait(self) -> None:

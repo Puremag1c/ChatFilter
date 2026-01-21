@@ -77,10 +77,12 @@ def mock_settings():
 @contextmanager
 def mock_main_dependencies(mock_settings_obj):
     """Context manager to mock all main() dependencies."""
-    with patch("chatfilter.config.get_settings", return_value=mock_settings_obj):
-        with patch("chatfilter.config.Settings", return_value=mock_settings_obj):
-            with patch("chatfilter.config.reset_settings"):
-                yield
+    with (
+        patch("chatfilter.config.get_settings", return_value=mock_settings_obj),
+        patch("chatfilter.config.Settings", return_value=mock_settings_obj),
+        patch("chatfilter.config.reset_settings"),
+    ):
+        yield
 
 
 # ============================================================================
@@ -400,12 +402,14 @@ class TestMain:
         mock_settings.validate.return_value = []
         mock_settings.check.return_value = []
 
-        with patch.object(sys, "argv", ["chatfilter", "--validate"]):
-            with mock_main_dependencies(mock_settings):
-                with pytest.raises(SystemExit) as exc_info:
-                    main()
+        with (
+            patch.object(sys, "argv", ["chatfilter", "--validate"]),
+            mock_main_dependencies(mock_settings),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                assert exc_info.value.code == 0
+            assert exc_info.value.code == 0
 
         captured = capsys.readouterr()
         assert "Configuration is valid" in captured.out
@@ -416,12 +420,14 @@ class TestMain:
         mock_settings.validate.return_value = ["Error: Invalid port", "Error: Bad data dir"]
         mock_settings.check.return_value = []
 
-        with patch.object(sys, "argv", ["chatfilter", "--validate"]):
-            with mock_main_dependencies(mock_settings):
-                with pytest.raises(SystemExit) as exc_info:
-                    main()
+        with (
+            patch.object(sys, "argv", ["chatfilter", "--validate"]),
+            mock_main_dependencies(mock_settings),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                assert exc_info.value.code == 1
+            assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
         assert "Configuration validation failed" in captured.out
@@ -433,12 +439,14 @@ class TestMain:
         mock_settings.validate.return_value = []
         mock_settings.check.return_value = ["Warning: Using default port", "Warning: Debug mode"]
 
-        with patch.object(sys, "argv", ["chatfilter", "--validate"]):
-            with mock_main_dependencies(mock_settings):
-                with pytest.raises(SystemExit) as exc_info:
-                    main()
+        with (
+            patch.object(sys, "argv", ["chatfilter", "--validate"]),
+            mock_main_dependencies(mock_settings),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                assert exc_info.value.code == 0
+            assert exc_info.value.code == 0
 
         captured = capsys.readouterr()
         assert "Configuration warnings" in captured.out
@@ -451,12 +459,14 @@ class TestMain:
         mock_settings.validate.return_value = []
         mock_settings.check.return_value = []
 
-        with patch.object(sys, "argv", ["chatfilter", "--check-config"]):
-            with mock_main_dependencies(mock_settings):
-                with pytest.raises(SystemExit) as exc_info:
-                    main()
+        with (
+            patch.object(sys, "argv", ["chatfilter", "--check-config"]),
+            mock_main_dependencies(mock_settings),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                assert exc_info.value.code == 0
+            assert exc_info.value.code == 0
 
     def test_main_self_test_success(self, mock_settings, capsys) -> None:
         """Test --self-test argument with all tests passing exits successfully."""
@@ -465,15 +475,17 @@ class TestMain:
         mock_self_test.format_table.return_value = "All tests passed"
         mock_self_test.to_dict.return_value = {"status": "ok"}
 
-        with patch.object(sys, "argv", ["chatfilter", "--self-test"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.self_test.SelfTest", return_value=mock_self_test):
-                    with patch("asyncio.run") as mock_asyncio_run:
-                        with pytest.raises(SystemExit) as exc_info:
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter", "--self-test"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.self_test.SelfTest", return_value=mock_self_test),
+            patch("asyncio.run") as mock_asyncio_run,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                        assert exc_info.value.code == 0
-                        mock_asyncio_run.assert_called_once()
+            assert exc_info.value.code == 0
+            mock_asyncio_run.assert_called_once()
 
         captured = capsys.readouterr()
         assert "RUNNING SELF-TEST DIAGNOSTICS" in captured.out
@@ -487,38 +499,40 @@ class TestMain:
         mock_self_test.format_table.return_value = "Some tests failed"
         mock_self_test.to_dict.return_value = {"status": "failed"}
 
-        with patch.object(sys, "argv", ["chatfilter", "--self-test"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.self_test.SelfTest", return_value=mock_self_test):
-                    with patch("asyncio.run"):
-                        with pytest.raises(SystemExit) as exc_info:
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter", "--self-test"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.self_test.SelfTest", return_value=mock_self_test),
+            patch("asyncio.run"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                        assert exc_info.value.code == 1
+            assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
         assert "RUNNING SELF-TEST DIAGNOSTICS" in captured.out
 
     def test_main_cli_overrides_env_settings(self, mock_settings) -> None:
         """Test that CLI arguments override environment settings."""
-        with patch.object(sys, "argv", ["chatfilter", "--host", "0.0.0.0", "--port", "9000"]):
-            with patch("chatfilter.config.get_settings", return_value=mock_settings):
-                with patch("chatfilter.config.Settings") as mock_settings_class:
-                    with patch("chatfilter.config.reset_settings"):
-                        mock_settings_class.return_value = mock_settings
-                        with (
-                            patch("uvicorn.run"),
-                            patch(
-                                "chatfilter.config._is_path_in_readonly_location",
-                                return_value=(False, None),
-                            ),
-                        ):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter", "--host", "0.0.0.0", "--port", "9000"]),
+            patch("chatfilter.config.get_settings", return_value=mock_settings),
+            patch("chatfilter.config.Settings") as mock_settings_class,
+            patch("chatfilter.config.reset_settings"),
+            patch("uvicorn.run"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+        ):
+            mock_settings_class.return_value = mock_settings
+            main()
 
-                        # Check that Settings was called with CLI overrides
-                        call_kwargs = mock_settings_class.call_args[1]
-                        assert call_kwargs["host"] == "0.0.0.0"
-                        assert call_kwargs["port"] == 9000
+            # Check that Settings was called with CLI overrides
+            call_kwargs = mock_settings_class.call_args[1]
+            assert call_kwargs["host"] == "0.0.0.0"
+            assert call_kwargs["port"] == 9000
 
     def test_main_calls_setup_logging(self, mock_settings) -> None:
         """Test that main calls setup_logging with correct parameters."""
@@ -528,36 +542,40 @@ class TestMain:
         mock_settings.log_to_file = False
         mock_settings.log_module_levels = {"test": "INFO"}
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging") as mock_setup_logging:
-                    with patch("uvicorn.run"):
-                        with patch(
-                            "chatfilter.config._is_path_in_readonly_location",
-                            return_value=(False, None),
-                        ):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging") as mock_setup_logging,
+            patch("uvicorn.run"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+        ):
+            main()
 
-                        mock_setup_logging.assert_called_once()
-                        call_kwargs = mock_setup_logging.call_args[1]
-                        assert call_kwargs["level"] == "DEBUG"
-                        assert call_kwargs["debug"] is True
-                        assert call_kwargs["verbose"] is False
+            mock_setup_logging.assert_called_once()
+            call_kwargs = mock_setup_logging.call_args[1]
+            assert call_kwargs["level"] == "DEBUG"
+            assert call_kwargs["debug"] is True
+            assert call_kwargs["verbose"] is False
 
     def test_main_validation_failure_before_server_start(self, mock_settings, capsys) -> None:
         """Test that validation errors prevent server from starting."""
         mock_settings.validate.return_value = ["Error: Port in use"]
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch("uvicorn.run") as mock_run:
-                        with pytest.raises(SystemExit) as exc_info:
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch("uvicorn.run") as mock_run,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                        assert exc_info.value.code == 1
-                        # uvicorn.run should not be called
-                        mock_run.assert_not_called()
+            assert exc_info.value.code == 1
+            # uvicorn.run should not be called
+            mock_run.assert_not_called()
 
         captured = capsys.readouterr()
         assert "Configuration validation failed" in captured.out
@@ -565,13 +583,15 @@ class TestMain:
 
     def test_main_readonly_data_dir_warning(self, mock_settings, capsys) -> None:
         """Test that readonly data directory shows warning."""
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch("chatfilter.config._is_path_in_readonly_location") as mock_readonly:
-                        mock_readonly.return_value = (True, "System directory")
-                        with patch("uvicorn.run"):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch("chatfilter.config._is_path_in_readonly_location") as mock_readonly,
+            patch("uvicorn.run"),
+        ):
+            mock_readonly.return_value = (True, "System directory")
+            main()
 
         captured = capsys.readouterr()
         assert "WARNING: Data directory is in a read-only location" in captured.out
@@ -584,17 +604,19 @@ class TestMain:
             "Permission denied for exports",
         ]
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with pytest.raises(SystemExit) as exc_info:
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
-                        assert exc_info.value.code == 1
+            assert exc_info.value.code == 1
 
         captured = capsys.readouterr()
         assert "ERROR: Failed to create required directories" in captured.out
@@ -605,15 +627,17 @@ class TestMain:
         """Test that first run shows welcome banner and setup guide."""
         mock_settings.is_first_run.return_value = True
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with patch("uvicorn.run"):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            patch("uvicorn.run"),
+        ):
+            main()
 
         captured = capsys.readouterr()
         assert "Welcome! This is your first run." in captured.out
@@ -624,15 +648,17 @@ class TestMain:
         """Test that first run is marked as complete after successful setup."""
         mock_settings.is_first_run.return_value = True
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with patch("uvicorn.run"):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            patch("uvicorn.run"),
+        ):
+            main()
 
         mock_settings.mark_first_run_complete.assert_called_once()
 
@@ -640,15 +666,17 @@ class TestMain:
         """Test that subsequent runs don't show the welcome banner."""
         mock_settings.is_first_run.return_value = False
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with patch("uvicorn.run"):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            patch("uvicorn.run"),
+        ):
+            main()
 
         captured = capsys.readouterr()
         assert "Welcome! This is your first run." not in captured.out
@@ -660,56 +688,62 @@ class TestMain:
         mock_settings.port = 9090
         mock_settings.debug = False
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with patch("uvicorn.run") as mock_uvicorn_run:
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            patch("uvicorn.run") as mock_uvicorn_run,
+        ):
+            main()
 
-                        mock_uvicorn_run.assert_called_once()
-                        call_kwargs = mock_uvicorn_run.call_args[1]
-                        assert call_kwargs["host"] == "0.0.0.0"
-                        assert call_kwargs["port"] == 9090
-                        assert call_kwargs["reload"] is False
-                        assert call_kwargs["log_level"] == "info"
+            mock_uvicorn_run.assert_called_once()
+            call_kwargs = mock_uvicorn_run.call_args[1]
+            assert call_kwargs["host"] == "0.0.0.0"
+            assert call_kwargs["port"] == 9090
+            assert call_kwargs["reload"] is False
+            assert call_kwargs["log_level"] == "info"
 
     def test_main_uvicorn_debug_mode_enables_reload(self, mock_settings) -> None:
         """Test that debug mode enables uvicorn reload."""
         mock_settings.debug = True
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with patch("uvicorn.run") as mock_uvicorn_run:
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            patch("uvicorn.run") as mock_uvicorn_run,
+        ):
+            main()
 
-                        call_kwargs = mock_uvicorn_run.call_args[1]
-                        assert call_kwargs["reload"] is True
-                        assert call_kwargs["log_level"] == "debug"
+            call_kwargs = mock_uvicorn_run.call_args[1]
+            assert call_kwargs["reload"] is True
+            assert call_kwargs["log_level"] == "debug"
 
     def test_main_keyboard_interrupt_graceful_shutdown(self, mock_settings, capsys) -> None:
         """Test that KeyboardInterrupt is handled gracefully."""
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with patch("uvicorn.run") as mock_uvicorn_run:
-                            mock_uvicorn_run.side_effect = KeyboardInterrupt()
-                            with pytest.raises(SystemExit) as exc_info:
-                                main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            patch("uvicorn.run") as mock_uvicorn_run,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            mock_uvicorn_run.side_effect = KeyboardInterrupt()
+            main()
 
-                            assert exc_info.value.code == 0
+            assert exc_info.value.code == 0
 
         captured = capsys.readouterr()
         assert "Shutting down..." in captured.out
@@ -727,15 +761,17 @@ class TestMain:
         mock_settings.log_to_file = True
         mock_settings.log_file_path = Path("/tmp/data/logs/app.log")
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with patch("uvicorn.run"):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            patch("uvicorn.run"),
+        ):
+            main()
 
         captured = capsys.readouterr()
         assert "ChatFilter v0.1.0" in captured.out
@@ -826,15 +862,17 @@ class TestEdgeCases:
         mock_settings.is_first_run.return_value = True
         mock_settings.ensure_data_dirs.return_value = ["Error creating directory"]
 
-        with patch.object(sys, "argv", ["chatfilter"]):
-            with mock_main_dependencies(mock_settings):
-                with patch("chatfilter.main.setup_logging"):
-                    with patch(
-                        "chatfilter.config._is_path_in_readonly_location",
-                        return_value=(False, None),
-                    ):
-                        with pytest.raises(SystemExit):
-                            main()
+        with (
+            patch.object(sys, "argv", ["chatfilter"]),
+            mock_main_dependencies(mock_settings),
+            patch("chatfilter.main.setup_logging"),
+            patch(
+                "chatfilter.config._is_path_in_readonly_location",
+                return_value=(False, None),
+            ),
+            pytest.raises(SystemExit),
+        ):
+            main()
 
         # Should not mark first run complete if there were errors
         mock_settings.mark_first_run_complete.assert_not_called()
