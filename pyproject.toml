@@ -102,6 +102,18 @@ module = ["hypothesis", "hypothesis.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["httpx", "httpx.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["platformdirs", "platformdirs.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["socks", "socks.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["tests.*"]
 disallow_untyped_defs = false
 disallow_untyped_decorators = false

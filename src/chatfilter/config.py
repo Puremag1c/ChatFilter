@@ -262,6 +262,32 @@ class Settings(BaseSettings):
         description="Allowed CORS origins (comma-separated in env var)",
     )
 
+    # Update checking
+    update_check_enabled: bool = Field(
+        default=True,
+        description="Enable automatic update checking",
+    )
+    update_check_interval: float = Field(
+        default=24.0,
+        ge=1.0,
+        le=168.0,  # Max 1 week
+        description="Hours between update checks",
+    )
+    update_check_on_startup: bool = Field(
+        default=True,
+        description="Check for updates on application startup",
+    )
+    update_check_include_prereleases: bool = Field(
+        default=False,
+        description="Include pre-release versions in update checks",
+    )
+    update_check_timeout: float = Field(
+        default=10.0,
+        ge=5.0,
+        le=60.0,
+        description="Timeout for update check HTTP requests (seconds)",
+    )
+
     # Telegram settings
     max_messages_limit: int = Field(
         default=10_000,
@@ -481,7 +507,7 @@ class Settings(BaseSettings):
 
         return warnings
 
-    def validate(self) -> list[str]:
+    def validate(self) -> list[str]:  # type: ignore[override]
         """Strict validation for startup - fails fast with all errors at once.
 
         Validates:
@@ -593,6 +619,11 @@ class Settings(BaseSettings):
         print(f"  Stale Task Threshold: {self.stale_task_threshold_hours}h")
         cleanup_str = f"{self.session_cleanup_days}d" if self.session_cleanup_days else "disabled"
         print(f"  Session Cleanup: {cleanup_str}")
+        print(f"  Update Check Enabled: {self.update_check_enabled}")
+        if self.update_check_enabled:
+            print(f"  Update Check Interval: {self.update_check_interval}h")
+            print(f"  Update Check on Startup: {self.update_check_on_startup}")
+            print(f"  Include Prereleases: {self.update_check_include_prereleases}")
 
 
 @lru_cache

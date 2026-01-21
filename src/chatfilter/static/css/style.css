@@ -2067,3 +2067,148 @@ footer .diagnostic-button:hover {
 }
 
 /* ========== End Responsive Layout Improvements ========== */
+
+/* ========== Update Notification Banner ========== */
+
+.update-notification {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    opacity: 0;
+    transform: translateY(-100%);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+}
+
+.update-notification.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.update-notification-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.875rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.update-notification-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
+}
+
+.update-notification-message {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.update-notification-title {
+    font-weight: 600;
+    font-size: 0.9375rem;
+}
+
+.update-notification-version {
+    font-size: 0.8125rem;
+    opacity: 0.9;
+}
+
+.update-notification-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.update-notification-link {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.375rem 0.875rem;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+.update-notification-link:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.update-notification-dismiss {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    border-radius: 4px;
+}
+
+.update-notification-dismiss:hover {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.update-notification-dismiss:focus {
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline-offset: 2px;
+}
+
+/* Adjust body padding when notification is shown */
+body:has(.update-notification.show) {
+    padding-top: 3.5rem;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .update-notification-content {
+        padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .update-notification-message {
+        flex: 1 1 100%;
+        order: 1;
+    }
+
+    .update-notification-icon {
+        order: 0;
+    }
+
+    .update-notification-actions {
+        order: 2;
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .update-notification-version {
+        font-size: 0.75rem;
+    }
+
+    body:has(.update-notification.show) {
+        padding-top: 5rem;
+    }
+}
+
+/* ========== End Update Notification Banner ========== */
