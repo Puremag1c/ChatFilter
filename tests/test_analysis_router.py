@@ -479,21 +479,23 @@ class TestStartAnalysisEndpoint:
 
     def test_start_analysis_all_chats_invalid(self, client: TestClient, csrf_token: str) -> None:
         """Test starting analysis when all selected chats are invalid/stale."""
-        with patch("chatfilter.web.routers.analysis.get_session_paths"):
-            with patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service:
-                mock_svc = mock_service.return_value
-                # All chats are invalid
-                mock_svc.validate_chat_ids = AsyncMock(return_value=([], [1, 2, 3]))
+        with (
+            patch("chatfilter.web.routers.analysis.get_session_paths"),
+            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+        ):
+            mock_svc = mock_service.return_value
+            # All chats are invalid
+            mock_svc.validate_chat_ids = AsyncMock(return_value=([], [1, 2, 3]))
 
-                response = client.post(
-                    "/api/analysis/start",
-                    data={
-                        "session_id": "test_session",
-                        "chat_ids": [1, 2, 3],
-                        "message_limit": 1000,
-                    },
-                    headers={"X-CSRF-Token": csrf_token},
-                )
+            response = client.post(
+                "/api/analysis/start",
+                data={
+                    "session_id": "test_session",
+                    "chat_ids": [1, 2, 3],
+                    "message_limit": 1000,
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
 
         assert response.status_code == 200
         assert "All selected chats are no longer accessible" in response.text
@@ -501,21 +503,23 @@ class TestStartAnalysisEndpoint:
 
     def test_start_analysis_some_chats_invalid(self, client: TestClient, csrf_token: str) -> None:
         """Test starting analysis when some chats are invalid."""
-        with patch("chatfilter.web.routers.analysis.get_session_paths"):
-            with patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service:
-                mock_svc = mock_service.return_value
-                # Some chats are invalid
-                mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], [3, 4]))
+        with (
+            patch("chatfilter.web.routers.analysis.get_session_paths"),
+            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+        ):
+            mock_svc = mock_service.return_value
+            # Some chats are invalid
+            mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], [3, 4]))
 
-                response = client.post(
-                    "/api/analysis/start",
-                    data={
-                        "session_id": "test_session",
-                        "chat_ids": [1, 2, 3, 4],
-                        "message_limit": 1000,
-                    },
-                    headers={"X-CSRF-Token": csrf_token},
-                )
+            response = client.post(
+                "/api/analysis/start",
+                data={
+                    "session_id": "test_session",
+                    "chat_ids": [1, 2, 3, 4],
+                    "message_limit": 1000,
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
 
         # Should succeed with valid chats
         assert response.status_code == 200
@@ -529,20 +533,22 @@ class TestStartAnalysisEndpoint:
             await asyncio.sleep(10)  # Will timeout
             return ([], [])
 
-        with patch("chatfilter.web.routers.analysis.get_session_paths"):
-            with patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service:
-                mock_svc = mock_service.return_value
-                mock_svc.validate_chat_ids = timeout_validation
+        with (
+            patch("chatfilter.web.routers.analysis.get_session_paths"),
+            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+        ):
+            mock_svc = mock_service.return_value
+            mock_svc.validate_chat_ids = timeout_validation
 
-                response = client.post(
-                    "/api/analysis/start",
-                    data={
-                        "session_id": "test_session",
-                        "chat_ids": [1, 2],
-                        "message_limit": 1000,
-                    },
-                    headers={"X-CSRF-Token": csrf_token},
-                )
+            response = client.post(
+                "/api/analysis/start",
+                data={
+                    "session_id": "test_session",
+                    "chat_ids": [1, 2],
+                    "message_limit": 1000,
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
 
         # Should succeed despite timeout (proceeds with original list)
         assert response.status_code == 200
@@ -551,10 +557,41 @@ class TestStartAnalysisEndpoint:
 
     def test_start_analysis_validation_error(self, client: TestClient, csrf_token: str) -> None:
         """Test starting analysis when chat validation raises an error."""
-        with patch("chatfilter.web.routers.analysis.get_session_paths"):
-            with patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service:
-                mock_svc = mock_service.return_value
-                mock_svc.validate_chat_ids = AsyncMock(side_effect=Exception("Network error"))
+        with (
+            patch("chatfilter.web.routers.analysis.get_session_paths"),
+            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+        ):
+            mock_svc = mock_service.return_value
+            mock_svc.validate_chat_ids = AsyncMock(side_effect=Exception("Network error"))
+
+            response = client.post(
+                "/api/analysis/start",
+                data={
+                    "session_id": "test_session",
+                    "chat_ids": [1, 2],
+                    "message_limit": 1000,
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # Should succeed despite error (proceeds with original list)
+        assert response.status_code == 200
+        # Should contain task_id in the response
+        assert "sse-source" in response.text or "task-id" in response.text
+
+    def test_start_analysis_queue_full(self, client: TestClient, csrf_token: str) -> None:
+        """Test starting analysis when task queue is full."""
+        with (
+            patch("chatfilter.web.routers.analysis.get_session_paths"),
+            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+        ):
+            mock_svc = mock_service.return_value
+            mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], []))
+
+            with patch("chatfilter.web.routers.analysis.get_task_queue") as mock_queue_fn:
+                mock_queue = mock_queue_fn.return_value
+                mock_queue.find_active_task.return_value = None
+                mock_queue.create_task.side_effect = QueueFullError("Queue is full", limit=5)
 
                 response = client.post(
                     "/api/analysis/start",
@@ -565,33 +602,6 @@ class TestStartAnalysisEndpoint:
                     },
                     headers={"X-CSRF-Token": csrf_token},
                 )
-
-        # Should succeed despite error (proceeds with original list)
-        assert response.status_code == 200
-        # Should contain task_id in the response
-        assert "sse-source" in response.text or "task-id" in response.text
-
-    def test_start_analysis_queue_full(self, client: TestClient, csrf_token: str) -> None:
-        """Test starting analysis when task queue is full."""
-        with patch("chatfilter.web.routers.analysis.get_session_paths"):
-            with patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service:
-                mock_svc = mock_service.return_value
-                mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], []))
-
-                with patch("chatfilter.web.routers.analysis.get_task_queue") as mock_queue_fn:
-                    mock_queue = mock_queue_fn.return_value
-                    mock_queue.find_active_task.return_value = None
-                    mock_queue.create_task.side_effect = QueueFullError("Queue is full", limit=5)
-
-                    response = client.post(
-                        "/api/analysis/start",
-                        data={
-                            "session_id": "test_session",
-                            "chat_ids": [1, 2],
-                            "message_limit": 1000,
-                        },
-                        headers={"X-CSRF-Token": csrf_token},
-                    )
 
         assert response.status_code == 200
         assert "queue is at capacity" in response.text.lower()
@@ -602,20 +612,22 @@ class TestStartAnalysisEndpoint:
         queue = get_task_queue()
         existing_task = queue.create_task("test_session", [1, 2], 1000)
 
-        with patch("chatfilter.web.routers.analysis.get_session_paths"):
-            with patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service:
-                mock_svc = mock_service.return_value
-                mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], []))
+        with (
+            patch("chatfilter.web.routers.analysis.get_session_paths"),
+            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+        ):
+            mock_svc = mock_service.return_value
+            mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], []))
 
-                response = client.post(
-                    "/api/analysis/start",
-                    data={
-                        "session_id": "test_session",
-                        "chat_ids": [1, 2],
-                        "message_limit": 1000,
-                    },
-                    headers={"X-CSRF-Token": csrf_token},
-                )
+            response = client.post(
+                "/api/analysis/start",
+                data={
+                    "session_id": "test_session",
+                    "chat_ids": [1, 2],
+                    "message_limit": 1000,
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
 
         assert response.status_code == 200
         # Should reuse existing task
@@ -623,20 +635,22 @@ class TestStartAnalysisEndpoint:
 
     def test_start_analysis_success(self, client: TestClient, csrf_token: str) -> None:
         """Test successful analysis start."""
-        with patch("chatfilter.web.routers.analysis.get_session_paths"):
-            with patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service:
-                mock_svc = mock_service.return_value
-                mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2, 3], []))
+        with (
+            patch("chatfilter.web.routers.analysis.get_session_paths"),
+            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+        ):
+            mock_svc = mock_service.return_value
+            mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2, 3], []))
 
-                response = client.post(
-                    "/api/analysis/start",
-                    data={
-                        "session_id": "test_session",
-                        "chat_ids": [1, 2, 3],
-                        "message_limit": 500,
-                    },
-                    headers={"X-CSRF-Token": csrf_token},
-                )
+            response = client.post(
+                "/api/analysis/start",
+                data={
+                    "session_id": "test_session",
+                    "chat_ids": [1, 2, 3],
+                    "message_limit": 500,
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
 
         assert response.status_code == 200
         # Should contain SSE endpoint
