@@ -13,7 +13,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from chatfilter.web.csrf import CSRF_FORM_FIELD, CSRF_HEADER_NAME, validate_csrf_token
-from chatfilter.web.session import get_session, get_session_store, set_session_cookie
+from chatfilter.web.session import get_session, set_session_cookie
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     - Stored in request.state.request_id
     - Added to response as X-Request-ID header
     - Available via get_request_id() context function
+    - Used as correlation ID for logging
     """
 
     async def dispatch(
@@ -47,12 +48,22 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         token = request_id_var.set(request_id)
 
+        # Set correlation ID for logging (use first 16 chars of request ID)
+        from chatfilter.utils.logging import set_correlation_id
+
+        correlation_id = request_id[:16] if len(request_id) >= 16 else request_id
+        set_correlation_id(correlation_id)
+
         try:
             response = await call_next(request)
             response.headers["X-Request-ID"] = request_id
             return response
         finally:
             request_id_var.reset(token)
+            # Clear correlation ID after request
+            from chatfilter.utils.logging import clear_correlation_id
+
+            clear_correlation_id()
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -269,11 +280,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         if path in self.EXEMPT_PATHS:
             return True
 
-        for prefix in self.EXEMPT_PREFIXES:
-            if path.startswith(prefix):
-                return True
-
-        return False
+        return any(path.startswith(prefix) for prefix in self.EXEMPT_PREFIXES)
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Response]

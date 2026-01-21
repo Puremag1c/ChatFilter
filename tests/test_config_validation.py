@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import socket
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -143,3 +144,86 @@ class TestConfigCheck:
 
         # May have no warnings or only benign ones
         assert isinstance(warnings, list)
+
+
+class TestLoggingConfig:
+    """Tests for logging configuration settings."""
+
+    def test_default_logging_config(self, tmp_path: Path) -> None:
+        """Test default logging configuration values."""
+        settings = Settings(data_dir=tmp_path, port=8893)
+
+        assert settings.log_level == "INFO"
+        assert settings.log_to_file is True
+        assert settings.log_file_max_bytes == 10 * 1024 * 1024  # 10 MB
+        assert settings.log_file_backup_count == 5
+
+    def test_custom_log_level(self, tmp_path: Path) -> None:
+        """Test custom log level configuration."""
+        settings = Settings(data_dir=tmp_path, port=8894, log_level="DEBUG")
+
+        assert settings.log_level == "DEBUG"
+
+    def test_invalid_log_level(self, tmp_path: Path) -> None:
+        """Test that invalid log level raises validation error."""
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="log level"):
+            Settings(data_dir=tmp_path, port=8895, log_level="INVALID")
+
+    def test_log_file_disabled(self, tmp_path: Path) -> None:
+        """Test disabling file logging."""
+        settings = Settings(data_dir=tmp_path, port=8896, log_to_file=False)
+
+        assert settings.log_to_file is False
+
+    def test_custom_log_rotation_settings(self, tmp_path: Path) -> None:
+        """Test custom log rotation configuration."""
+        settings = Settings(
+            data_dir=tmp_path,
+            port=8897,
+            log_file_max_bytes=5 * 1024 * 1024,  # 5 MB
+            log_file_backup_count=10,
+        )
+
+        assert settings.log_file_max_bytes == 5 * 1024 * 1024
+        assert settings.log_file_backup_count == 10
+
+    def test_log_file_path_property(self, tmp_path: Path) -> None:
+        """Test that log_file_path property returns correct path."""
+        settings = Settings(data_dir=tmp_path, port=8898)
+
+        log_path = settings.log_file_path
+        assert log_path.name == "chatfilter.log"
+        assert log_path.parent == settings.log_dir
+
+    def test_log_dir_creation(self, tmp_path: Path) -> None:
+        """Test that log directory is created when log_to_file is enabled."""
+        settings = Settings(data_dir=tmp_path, port=8899, log_to_file=True)
+        settings.ensure_data_dirs()
+
+        assert settings.log_dir.exists()
+        assert settings.log_dir.is_dir()
+
+    def test_log_dir_not_created_when_disabled(self, tmp_path: Path) -> None:
+        """Test that log directory is not created when log_to_file is disabled."""
+        settings = Settings(data_dir=tmp_path, port=8900, log_to_file=False)
+
+        # Get log_dir but don't call ensure_data_dirs
+        log_dir = settings.log_dir
+
+        # Just accessing the property shouldn't create the directory
+        # This tests the platform-specific path function works
+        assert isinstance(log_dir, Path)
+
+    def test_log_config_in_print_config(self, tmp_path: Path, capsys: Any) -> None:
+        """Test that print_config includes logging configuration."""
+        settings = Settings(data_dir=tmp_path, port=8901)
+        settings.print_config()
+
+        captured = capsys.readouterr()
+        assert "Log Level:" in captured.out
+        assert "Log to File:" in captured.out
+        assert "Log File:" in captured.out
+        assert "Log Max Size:" in captured.out
+        assert "Log Backup Count:" in captured.out

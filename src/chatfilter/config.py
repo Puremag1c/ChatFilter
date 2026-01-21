@@ -140,6 +140,22 @@ class Settings(BaseSettings):
         default="INFO",
         description="Logging level (DEBUG, INFO, WARNING, ERROR)",
     )
+    log_to_file: bool = Field(
+        default=True,
+        description="Enable logging to file (in addition to console)",
+    )
+    log_file_max_bytes: int = Field(
+        default=10 * 1024 * 1024,  # 10 MB
+        ge=1024 * 1024,  # Min 1 MB
+        le=100 * 1024 * 1024,  # Max 100 MB
+        description="Maximum size of each log file before rotation",
+    )
+    log_file_backup_count: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Number of backup log files to keep",
+    )
 
     # CORS origins for separated frontend/backend architecture
     # Include common development ports for frontend frameworks
@@ -150,11 +166,11 @@ class Settings(BaseSettings):
             "http://localhost:8000",
             "http://127.0.0.1:8000",
             # Common frontend development ports
-            "http://localhost:3000",    # React, Next.js, Node servers
+            "http://localhost:3000",  # React, Next.js, Node servers
             "http://127.0.0.1:3000",
-            "http://localhost:5173",    # Vite
+            "http://localhost:5173",  # Vite
             "http://127.0.0.1:5173",
-            "http://localhost:4200",    # Angular
+            "http://localhost:4200",  # Angular
             "http://127.0.0.1:4200",
         ],
         description="Allowed CORS origins (comma-separated in env var)",
@@ -251,12 +267,24 @@ class Settings(BaseSettings):
         """Directory for exported files."""
         return self.data_dir / "exports"
 
+    @property
+    def log_dir(self) -> Path:
+        """Directory for log files (uses platform-specific directory)."""
+        return get_user_log_dir()
+
+    @property
+    def log_file_path(self) -> Path:
+        """Path to the main log file."""
+        return self.log_dir / "chatfilter.log"
+
     def ensure_data_dirs(self) -> None:
         """Create data directories if they don't exist."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.exports_dir.mkdir(parents=True, exist_ok=True)
+        if self.log_to_file:
+            self.log_dir.mkdir(parents=True, exist_ok=True)
 
     def check(self) -> list[str]:
         """Validate configuration and return any warnings.
@@ -276,13 +304,17 @@ class Settings(BaseSettings):
                 self.data_dir.mkdir(parents=True, exist_ok=True)
                 self.data_dir.rmdir()  # Remove test directory
             except PermissionError:
-                warnings.append(f"Cannot create data directory (permission denied): {self.data_dir}")
+                warnings.append(
+                    f"Cannot create data directory (permission denied): {self.data_dir}"
+                )
             except OSError as e:
                 warnings.append(f"Cannot create data directory: {self.data_dir} ({e})")
 
         # Warn about debug mode in production
-        if self.debug and self.host == "0.0.0.0":
-            warnings.append("Debug mode enabled with public host binding - not recommended for production")
+        if self.debug and self.host == "0.0.0.0":  # nosec B104
+            warnings.append(
+                "Debug mode enabled with public host binding - not recommended for production"
+            )
 
         return warnings
 
@@ -333,6 +365,7 @@ class Settings(BaseSettings):
             else:
                 # Check if writable by trying to create a temp file
                 import tempfile
+
                 try:
                     with tempfile.NamedTemporaryFile(dir=self.data_dir, delete=True):
                         pass
@@ -352,6 +385,7 @@ class Settings(BaseSettings):
                 self.data_dir.mkdir(parents=True, exist_ok=True)
                 # Verify it's writable
                 import tempfile
+
                 with tempfile.NamedTemporaryFile(dir=self.data_dir, delete=True):
                     pass
             except PermissionError:
@@ -380,6 +414,11 @@ class Settings(BaseSettings):
         print(f"  Port: {self.port}")
         print(f"  Debug: {self.debug}")
         print(f"  Log Level: {self.log_level}")
+        print(f"  Log to File: {self.log_to_file}")
+        if self.log_to_file:
+            print(f"  Log File: {self.log_file_path}")
+            print(f"  Log Max Size: {self.log_file_max_bytes / (1024 * 1024):.1f} MB")
+            print(f"  Log Backup Count: {self.log_file_backup_count}")
         print(f"  Data Directory: {self.data_dir}")
         print(f"  Config Directory: {self.config_dir}")
         print(f"  Sessions Directory: {self.sessions_dir}")
@@ -410,8 +449,6 @@ def get_settings() -> Settings:
 def reset_settings() -> None:
     """Clear settings cache to force reload on next get_settings() call."""
     get_settings.cache_clear()
-
-
 
 
 class ProxyType(str, Enum):

@@ -4,21 +4,89 @@ from __future__ import annotations
 
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 
-def setup_logging(level: str = "INFO", debug: bool = False) -> None:
-    """Configure logging for the application.
+def setup_logging(
+    level: str = "INFO",
+    debug: bool = False,
+    log_to_file: bool = True,
+    log_file_path: Path | None = None,
+    log_file_max_bytes: int = 10 * 1024 * 1024,
+    log_file_backup_count: int = 5,
+) -> None:
+    """Configure logging for the application with console and optional file output.
+
+    Sets up structured logging with:
+    - Console handler for immediate feedback
+    - Optional rotating file handler for persistent logs
+    - Consistent timestamp format
+    - Module-level granularity
 
     Args:
         level: Log level string (DEBUG, INFO, WARNING, ERROR)
         debug: If True, overrides level to DEBUG
+        log_to_file: Enable file logging in addition to console
+        log_file_path: Path to log file (if None and log_to_file=True, uses default)
+        log_file_max_bytes: Maximum size per log file before rotation
+        log_file_backup_count: Number of rotated backup files to keep
     """
     effective_level = logging.DEBUG if debug else getattr(logging, level.upper(), logging.INFO)
-    logging.basicConfig(
-        level=effective_level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+
+    # Create root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(effective_level)
+
+    # Clear any existing handlers to avoid duplicates
+    root_logger.handlers.clear()
+
+    # Import filters
+    from chatfilter.utils.logging import CorrelationIDFilter, LogSanitizer
+
+    # Define consistent format with correlation ID support
+    log_format = "%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s"
+    date_format = "%Y-%m-%d %H:%M:%S"
+    formatter = logging.Formatter(log_format, datefmt=date_format)
+
+    # Console handler - always enabled
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(effective_level)
+    console_handler.setFormatter(formatter)
+    # Add filters to handler (filters are not inherited by child loggers)
+    console_handler.addFilter(LogSanitizer())
+    console_handler.addFilter(CorrelationIDFilter())
+    root_logger.addHandler(console_handler)
+
+    # File handler - optional with rotation
+    if log_to_file and log_file_path:
+        try:
+            # Ensure log directory exists
+            log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Create rotating file handler
+            file_handler = RotatingFileHandler(
+                log_file_path,
+                maxBytes=log_file_max_bytes,
+                backupCount=log_file_backup_count,
+                encoding="utf-8",
+            )
+            file_handler.setLevel(effective_level)
+            file_handler.setFormatter(formatter)
+            # Add filters to handler
+            file_handler.addFilter(LogSanitizer())
+            file_handler.addFilter(CorrelationIDFilter())
+            root_logger.addHandler(file_handler)
+
+            # Log to confirm file logging is active
+            logging.info(f"File logging enabled: {log_file_path}")
+            logging.debug(
+                f"Log rotation: max {log_file_max_bytes / (1024 * 1024):.1f} MB, "
+                f"{log_file_backup_count} backups"
+            )
+        except (OSError, PermissionError) as e:
+            # Graceful degradation - continue with console-only logging
+            logging.warning(f"Failed to initialize file logging: {e}. Using console-only logging.")
 
 
 def main() -> None:
@@ -124,7 +192,14 @@ def main() -> None:
         print("✅ Configuration is valid")
         sys.exit(0)
 
-    setup_logging(level=settings.log_level, debug=settings.debug)
+    setup_logging(
+        level=settings.log_level,
+        debug=settings.debug,
+        log_to_file=settings.log_to_file,
+        log_file_path=settings.log_file_path if settings.log_to_file else None,
+        log_file_max_bytes=settings.log_file_max_bytes,
+        log_file_backup_count=settings.log_file_backup_count,
+    )
 
     # Validate configuration before starting server (fail-fast)
     errors = settings.validate()
@@ -151,6 +226,8 @@ def main() -> None:
     print(f"Sessions dir:  {settings.sessions_dir}")
     print(f"Exports dir:   {settings.exports_dir}")
     print(f"Log level:     {settings.log_level}")
+    if settings.log_to_file:
+        print(f"Log file:      {settings.log_file_path}")
     print("=" * 60)
 
     try:
