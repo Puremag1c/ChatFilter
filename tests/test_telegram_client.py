@@ -420,6 +420,41 @@ class TestTelegramClientLoader:
 
         assert client._proxy is None
 
+    def test_create_client_with_custom_timeout(self, tmp_path: Path) -> None:
+        """Test creating client with custom timeout configuration."""
+        session_path = tmp_path / "new_session"
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
+        loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+
+        # Create client with custom timeout
+        client = loader.create_client(timeout=45, connection_retries=10, retry_delay=2)
+
+        # Verify timeout is set
+        assert client._timeout == 45
+        assert client._retry_delay == 2
+
+    def test_create_client_uses_default_timeout_from_settings(self, tmp_path: Path) -> None:
+        """Test that client uses default timeout from settings when not specified."""
+        session_path = tmp_path / "new_session"
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
+        loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+
+        # Create client without specifying timeout (should use settings default)
+        client = loader.create_client()
+
+        # Verify timeout is set to settings default (30 seconds)
+        from chatfilter.config import get_settings
+
+        settings = get_settings()
+        expected_timeout = int(settings.connect_timeout)
+        assert client._timeout == expected_timeout
+
 
 def create_mock_dialog(
     dialog_id: int,
