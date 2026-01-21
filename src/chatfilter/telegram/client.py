@@ -1475,6 +1475,168 @@ async def get_messages_streaming(
         seen_ids.clear()
 
 
+@with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
+async def get_messages_since(
+    client: TelegramClientType,
+    chat_id: int,
+    min_id: int,
+    limit: int = 10000,
+) -> list[Message]:
+    """Get messages from a chat newer than a specified message ID.
+
+    Used for incremental/delta sync to fetch only new messages since the
+    last sync. This is efficient for continuous monitoring as it avoids
+    re-fetching the entire message history.
+
+    For forum chats, this fetches from all topics.
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_id: ID of the chat to fetch messages from
+        min_id: Minimum message ID - only fetch messages with ID > min_id
+        limit: Maximum number of messages to fetch (default 10000)
+
+    Returns:
+        List of Message models with ID > min_id, sorted by timestamp (oldest first)
+
+    Raises:
+        ChatAccessDeniedError: If access to chat is denied
+        MessageFetchError: If chat doesn't exist or other error
+        ValueError: If min_id or limit is invalid
+
+    Example:
+        ```python
+        async with loader.create_client() as client:
+            # Initial sync - get last 1000 messages
+            messages = await get_messages(client, chat_id, limit=1000)
+            last_id = max(m.id for m in messages)
+
+            # Later - get only new messages
+            new_messages = await get_messages_since(client, chat_id, min_id=last_id)
+            print(f"Found {len(new_messages)} new messages")
+        ```
+    """
+    if min_id < 0:
+        raise ValueError("min_id must be non-negative")
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+
+    # Proactive rate limiting
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.wait_if_needed("get_messages")
+
+    effective_limit = min(limit, MAX_MESSAGES_LIMIT)
+    messages: list[Message] = []
+    seen_ids: set[int] = set()
+
+    try:
+        # Check if this is a forum chat
+        entity = await client.get_entity(chat_id)
+        is_forum = (
+            isinstance(entity, Channel)
+            and getattr(entity, "megagroup", False)
+            and getattr(entity, "forum", False)
+        )
+
+        if is_forum:
+            # For forums, fetch from all topics
+            logger.info(f"Chat {chat_id} is a forum, fetching new messages from all topics")
+
+            topic_ids = await _get_forum_topics(client, chat_id)
+
+            if topic_ids:
+                for topic_id in topic_ids:
+                    if len(messages) >= effective_limit:
+                        break
+
+                    remaining = effective_limit - len(messages)
+
+                    try:
+                        async for telethon_msg in client.iter_messages(
+                            chat_id,
+                            limit=remaining,
+                            reply_to=topic_id,
+                            min_id=min_id,
+                        ):
+                            msg = _telethon_message_to_model(telethon_msg, chat_id)
+                            if msg is None:
+                                continue
+
+                            if msg.id in seen_ids:
+                                continue
+                            seen_ids.add(msg.id)
+                            messages.append(msg)
+
+                            if len(messages) >= effective_limit:
+                                break
+
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch new messages from topic {topic_id}: {e}")
+                        continue
+            else:
+                # No topics found, fall back to default behavior
+                async for telethon_msg in client.iter_messages(
+                    chat_id,
+                    limit=effective_limit,
+                    min_id=min_id,
+                ):
+                    msg = _telethon_message_to_model(telethon_msg, chat_id)
+                    if msg is None:
+                        continue
+
+                    if msg.id in seen_ids:
+                        continue
+                    seen_ids.add(msg.id)
+                    messages.append(msg)
+        else:
+            # Regular chat - fetch messages with min_id filter
+            async for telethon_msg in client.iter_messages(
+                chat_id,
+                limit=effective_limit,
+                min_id=min_id,
+            ):
+                msg = _telethon_message_to_model(telethon_msg, chat_id)
+                if msg is None:
+                    continue
+
+                if msg.id in seen_ids:
+                    continue
+                seen_ids.add(msg.id)
+                messages.append(msg)
+
+    except (
+        ChatForbiddenError,
+        ChannelPrivateError,
+        UserBannedInChannelError,
+        ChatRestrictedError,
+        ChannelBannedError,
+    ) as e:
+        raise ChatAccessDeniedError(f"Access denied to chat {chat_id}: {type(e).__name__}") from e
+    except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        friendly_msg = get_user_friendly_message(e)
+        raise MessageFetchError(
+            f"Rate limited by Telegram for chat {chat_id}. {friendly_msg}"
+        ) from e
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "peer" in error_msg or "invalid" in error_msg:
+            raise MessageFetchError(f"Chat not found or invalid: {chat_id}") from e
+        if "private" in error_msg or "forbidden" in error_msg or "permission" in error_msg:
+            raise MessageFetchError(f"Access denied to chat {chat_id}") from e
+        raise MessageFetchError(f"Failed to fetch messages: {e}") from e
+    finally:
+        seen_ids.clear()
+
+    # Sort by timestamp (oldest first)
+    messages.sort(key=lambda m: m.timestamp)
+
+    logger.info(f"Fetched {len(messages)} new messages from chat {chat_id} (min_id={min_id})")
+
+    return messages
+
+
 # Regex patterns for parsing Telegram links
 _INVITE_HASH_PATTERN = re.compile(
     r"(?:https?://)?(?:t\.me|telegram\.me)/(?:joinchat/|\+)([a-zA-Z0-9_-]+)"
