@@ -31,7 +31,8 @@ def e2e_settings(isolated_tmp_dir: Path) -> Settings:
         data_dir=isolated_tmp_dir,
         debug=True,
     )
-    settings.ensure_data_dirs()
+    errors = settings.ensure_data_dirs()
+    assert errors == []
     return settings
 
 

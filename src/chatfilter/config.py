@@ -277,15 +277,58 @@ class Settings(BaseSettings):
         """Path to the main log file."""
         return self.log_dir / "chatfilter.log"
 
-    def ensure_data_dirs(self) -> None:
-        """Create data directories if they don't exist."""
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.sessions_dir.mkdir(parents=True, exist_ok=True)
-        self.exports_dir.mkdir(parents=True, exist_ok=True)
-        if self.log_to_file:
-            self.log_dir.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def first_run_marker_path(self) -> Path:
+        """Path to first-run marker file."""
+        return self.data_dir / ".initialized"
+
+    def is_first_run(self) -> bool:
+        """Check if this is the first run (marker file does not exist).
+
+        Returns:
+            True if first run, False otherwise
+        """
+        return not self.first_run_marker_path.exists()
+
+    def mark_first_run_complete(self) -> None:
+        """Mark first run as complete by creating marker file with timestamp."""
+        from datetime import UTC, datetime
+
+        self.first_run_marker_path.write_text(
+            f"ChatFilter initialized at {datetime.now(UTC).isoformat()}\n"
+        )
+
+    def ensure_data_dirs(self) -> list[str]:
+        """Create data directories if they don't exist.
+
+        Returns:
+            List of error messages (empty if all successful)
+        """
+        errors = []
+
+        # Try to create each directory and collect errors
+        dirs_to_create = [
+            ("data", self.data_dir),
+            ("config", self.config_dir),
+            ("sessions", self.sessions_dir),
+            ("exports", self.exports_dir),
+        ]
+
+        if self.log_to_file:
+            dirs_to_create.append(("log", self.log_dir))
+
+        for dir_name, dir_path in dirs_to_create:
+            try:
+                dir_path.mkdir(parents=True, exist_ok=True)
+            except PermissionError:
+                errors.append(
+                    f"Permission denied creating {dir_name} directory: {dir_path}"
+                )
+            except OSError as e:
+                errors.append(f"Failed to create {dir_name} directory: {dir_path} ({e})")
+
+        return errors
     def check(self) -> list[str]:
         """Validate configuration and return any warnings.
 

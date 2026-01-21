@@ -183,18 +183,18 @@ def main() -> None:
         warnings = settings.check()
 
         if errors:
-            print("❌ Configuration validation failed:")
+            print("Configuration validation failed:")
             for error in errors:
                 print(f"\n{error}")
             sys.exit(1)
 
         if warnings:
-            print("⚠️  Configuration warnings:")
+            print("Configuration warnings:")
             for warning in warnings:
                 print(f"  • {warning}")
             print()
 
-        print("✅ Configuration is valid")
+        print("Configuration is valid")
         sys.exit(0)
 
     setup_logging(
@@ -209,14 +209,23 @@ def main() -> None:
     # Validate configuration before starting server (fail-fast)
     errors = settings.validate()
     if errors:
-        print("❌ Configuration validation failed:")
+        print("Configuration validation failed:")
         for error in errors:
             print(f"\n{error}")
         print("\nRun with --validate to check configuration without starting the server")
         sys.exit(1)
 
+    # Check if this is the first run
+    is_first_run = settings.is_first_run()
+
     # Ensure data directories exist
-    settings.ensure_data_dirs()
+    dir_errors = settings.ensure_data_dirs()
+    if dir_errors:
+        print("Warning: Some directories could not be created:")
+        for error in dir_errors:
+            print(f"  • {error}")
+        print("Continuing anyway, but some features may not work correctly.")
+        print()
 
     # Startup banner with system information
     import platform
@@ -224,6 +233,9 @@ def main() -> None:
     print("=" * 60)
     print(f"ChatFilter v{__version__}")
     print("=" * 60)
+    if is_first_run:
+        print("Welcome! This is your first run.")
+        print("=" * 60)
     print(f"Python:        {platform.python_version()}")
     print(f"OS:            {platform.system()} {platform.release()}")
     print(f"Server:        http://{settings.host}:{settings.port}")
@@ -234,6 +246,38 @@ def main() -> None:
     if settings.log_to_file:
         print(f"Log file:      {settings.log_file_path}")
     print("=" * 60)
+
+    # Show first run setup guide
+    if is_first_run:
+        print()
+        print("FIRST RUN SETUP GUIDE")
+        print("=" * 60)
+        print()
+        print("Follow these steps to get started with ChatFilter:")
+        print()
+        print("1. Get your Telegram API credentials:")
+        print("   • Visit https://my.telegram.org/apps")
+        print("   • Log in with your phone number")
+        print("   • Create a new application to get api_id and api_hash")
+        print()
+        print("2. Open ChatFilter in your browser:")
+        print(f"   • Navigate to http://{settings.host}:{settings.port}")
+        print()
+        print("3. Upload your session or create a new one:")
+        print("   • Click 'Upload Session' to use an existing session")
+        print("   • Or click 'New Session' to authenticate")
+        print()
+        print("4. Start analyzing your chats:")
+        print("   • Select chats from the list")
+        print("   • Configure filters and criteria")
+        print("   • Export results to CSV or JSON")
+        print()
+        print("=" * 60)
+        print()
+
+    # Mark first run as complete if directories were created successfully
+    if is_first_run and not dir_errors:
+        settings.mark_first_run_complete()
 
     try:
         uvicorn.run(

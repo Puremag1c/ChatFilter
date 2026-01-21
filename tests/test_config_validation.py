@@ -200,7 +200,8 @@ class TestLoggingConfig:
     def test_log_dir_creation(self, tmp_path: Path) -> None:
         """Test that log directory is created when log_to_file is enabled."""
         settings = Settings(data_dir=tmp_path, port=8899, log_to_file=True)
-        settings.ensure_data_dirs()
+        errors = settings.ensure_data_dirs()
+        assert errors == []
 
         assert settings.log_dir.exists()
         assert settings.log_dir.is_dir()
