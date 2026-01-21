@@ -377,9 +377,7 @@ class TestSessionAuthErrors:
         """Test connection with AuthKeyUnregisteredError raises SessionInvalidError."""
         manager = SessionManager()
         mock_request = MagicMock()
-        client = MockClient(
-            auth_error=errors.AuthKeyUnregisteredError(request=mock_request)
-        )
+        client = MockClient(auth_error=errors.AuthKeyUnregisteredError(request=mock_request))
         manager.register("test", MockFactory(client))
 
         with pytest.raises(
@@ -393,9 +391,7 @@ class TestSessionAuthErrors:
         """Test connection with PhoneNumberBannedError raises SessionInvalidError."""
         manager = SessionManager()
         mock_request = MagicMock()
-        client = MockClient(
-            auth_error=errors.PhoneNumberBannedError(request=mock_request)
-        )
+        client = MockClient(auth_error=errors.PhoneNumberBannedError(request=mock_request))
         manager.register("test", MockFactory(client))
 
         with pytest.raises(
@@ -414,9 +410,7 @@ class TestSessionAuthErrors:
         """Test connection with UserDeactivatedBanError raises SessionInvalidError."""
         manager = SessionManager()
         mock_request = MagicMock()
-        client = MockClient(
-            auth_error=errors.UserDeactivatedBanError(request=mock_request)
-        )
+        client = MockClient(auth_error=errors.UserDeactivatedBanError(request=mock_request))
         manager.register("test", MockFactory(client))
 
         with pytest.raises(
@@ -435,9 +429,7 @@ class TestSessionAuthErrors:
         """Test connection with SessionPasswordNeededError raises SessionReauthRequiredError."""
         manager = SessionManager()
         mock_request = MagicMock()
-        client = MockClient(
-            auth_error=errors.SessionPasswordNeededError(request=mock_request)
-        )
+        client = MockClient(auth_error=errors.SessionPasswordNeededError(request=mock_request))
         manager.register("test", MockFactory(client))
 
         with pytest.raises(
@@ -482,9 +474,7 @@ class TestSessionAuthErrors:
         """Test that session state is set to ERROR with appropriate message for reauth."""
         manager = SessionManager()
         mock_request = MagicMock()
-        client = MockClient(
-            auth_error=errors.SessionPasswordNeededError(request=mock_request)
-        )
+        client = MockClient(auth_error=errors.SessionPasswordNeededError(request=mock_request))
         manager.register("test", MockFactory(client))
 
         with pytest.raises(SessionReauthRequiredError):

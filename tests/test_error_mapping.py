@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from chatfilter.telegram.error_mapping import (
     ERROR_MESSAGES,
     _extract_wait_time,
@@ -415,9 +413,9 @@ class TestErrorMessagesCoverage:
         for error_type, message in ERROR_MESSAGES.items():
             msg_lower = message.lower()
             for term in technical_terms:
-                assert (
-                    term not in msg_lower
-                ), f"Message for {error_type} contains technical term '{term}': {message}"
+                assert term not in msg_lower, (
+                    f"Message for {error_type} contains technical term '{term}': {message}"
+                )
 
     def test_error_messages_provide_guidance(self) -> None:
         """Test that error messages provide actionable guidance."""
@@ -444,9 +442,9 @@ class TestErrorMessagesCoverage:
         # Allow some messages to not have guidance (descriptive errors)
         # Some errors are inherently descriptive (e.g., "You have been banned")
         # and don't need actionable guidance, so we allow up to 50%
-        assert (
-            len(messages_without_guidance) < len(ERROR_MESSAGES) * 0.5
-        ), f"Too many messages without guidance: {messages_without_guidance}"
+        assert len(messages_without_guidance) < len(ERROR_MESSAGES) * 0.5, (
+            f"Too many messages without guidance: {messages_without_guidance}"
+        )
 
     def test_coverage_of_common_telegram_errors(self) -> None:
         """Test that common Telegram errors are covered."""
@@ -467,6 +465,6 @@ class TestErrorMessagesCoverage:
             if error == "FloodWaitError":
                 # This is handled specially in the function
                 continue
-            assert (
-                error in ERROR_MESSAGES
-            ), f"Common Telegram error '{error}' is not in ERROR_MESSAGES"
+            assert error in ERROR_MESSAGES, (
+                f"Common Telegram error '{error}' is not in ERROR_MESSAGES"
+            )

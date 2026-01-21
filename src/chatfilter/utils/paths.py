@@ -33,7 +33,7 @@ def get_base_path() -> Path:
         static = base / "static"
         ```
     """
-    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         # Running in PyInstaller bundle
         # sys._MEIPASS is the temp directory where PyInstaller extracts files
         base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
@@ -63,7 +63,7 @@ def get_application_path() -> Path:
         log_file = app_dir / "app.log"
         ```
     """
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # Running in PyInstaller bundle
         # sys.executable is the path to the bundled executable
         return Path(sys.executable).parent
@@ -87,4 +87,4 @@ def is_frozen() -> bool:
             print("Running in development mode")
         ```
     """
-    return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")

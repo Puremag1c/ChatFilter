@@ -6,11 +6,10 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from chatfilter.analyzer.task_queue import AnalysisTask, TaskStatus
+from chatfilter.analyzer.task_queue import TaskStatus
 from chatfilter.models import AnalysisResult
-from chatfilter.storage.database import TaskDatabase
 from chatfilter.web.dependencies import get_database
 
 router = APIRouter(prefix="/api/history", tags=["history"])

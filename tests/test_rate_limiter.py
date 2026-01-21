@@ -235,9 +235,7 @@ class TestGlobalRateLimiter:
 
     def test_set_rate_limiter_replaces_instance(self) -> None:
         """Test that set_rate_limiter() replaces global instance."""
-        custom_limiter = TelegramRateLimiter(
-            RateLimitConfig(get_messages_delay=5.0)
-        )
+        custom_limiter = TelegramRateLimiter(RateLimitConfig(get_messages_delay=5.0))
         set_rate_limiter(custom_limiter)
 
         retrieved = get_rate_limiter()

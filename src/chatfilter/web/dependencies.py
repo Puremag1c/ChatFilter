@@ -41,7 +41,7 @@ WebSession = Annotated[SessionData, Depends(get_web_session)]
 # Global instances (in production, these would be in app state)
 _session_manager: SessionManager | None = None
 _chat_service: ChatAnalysisService | None = None
-_database: "TaskDatabase | None" = None  # type: ignore
+_database: TaskDatabase | None = None  # type: ignore
 
 
 def get_session_manager() -> SessionManager:
@@ -78,7 +78,7 @@ def get_chat_analysis_service() -> ChatAnalysisService:
     return _chat_service
 
 
-def get_database() -> "TaskDatabase":  # type: ignore
+def get_database() -> TaskDatabase:  # type: ignore
     """Get or create the task database instance.
 
     Returns:
@@ -86,8 +86,6 @@ def get_database() -> "TaskDatabase":  # type: ignore
     """
     global _database
     if _database is None:
-        from pathlib import Path
-
         from chatfilter.config import get_settings
         from chatfilter.storage.database import TaskDatabase
 

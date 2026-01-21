@@ -408,8 +408,86 @@ footer {
 
 .empty-state {
     text-align: center;
-    padding: 2rem;
+    padding: 3rem 2rem;
     color: #666;
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.empty-state h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #666;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.empty-state .btn {
+    margin-top: 0.5rem;
+}
+
+.empty-state-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.no-chats {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #666;
+}
+
+.no-chats .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.no-chats h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.no-chats p {
+    color: #666;
+    line-height: 1.6;
+}
+
+.no-results {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #666;
+}
+
+.no-results .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.no-results h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.no-results p {
+    color: #666;
+    line-height: 1.6;
 }
 
 /* Onboarding Section */

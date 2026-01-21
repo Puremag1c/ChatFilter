@@ -12,7 +12,6 @@ from pathlib import Path
 
 from chatfilter.storage.base import Storage
 from chatfilter.storage.errors import (
-    StorageCorruptedError,
     StorageError,
     StorageNotFoundError,
     StoragePermissionError,
@@ -131,9 +130,7 @@ class FileStorage(Storage):
                 f"Cannot create directory {path.parent}: permission denied"
             ) from e
         except OSError as e:
-            raise StorageError(
-                f"Failed to create directory {path.parent}: {e}"
-            ) from e
+            raise StorageError(f"Failed to create directory {path.parent}: {e}") from e
 
         # Write to temporary file in same directory (for atomic rename)
         tmp_path = None
@@ -161,9 +158,7 @@ class FileStorage(Storage):
             logger.debug(f"Saved {len(content_bytes)} bytes to {path}")
 
         except PermissionError as e:
-            raise StoragePermissionError(
-                f"Cannot write to {path}: permission denied"
-            ) from e
+            raise StoragePermissionError(f"Cannot write to {path}: permission denied") from e
         except OSError as e:
             raise StorageError(f"Failed to write {path}: {e}") from e
         finally:
@@ -195,9 +190,7 @@ class FileStorage(Storage):
         except FileNotFoundError as e:
             raise StorageNotFoundError(f"File not found: {path}") from e
         except PermissionError as e:
-            raise StoragePermissionError(
-                f"Cannot read {path}: permission denied"
-            ) from e
+            raise StoragePermissionError(f"Cannot read {path}: permission denied") from e
         except OSError as e:
             raise StorageError(f"Failed to read {path}: {e}") from e
 
@@ -226,9 +219,7 @@ class FileStorage(Storage):
                 path.unlink()
                 logger.debug(f"Deleted file {path}")
         except PermissionError as e:
-            raise StoragePermissionError(
-                f"Cannot delete {path}: permission denied"
-            ) from e
+            raise StoragePermissionError(f"Cannot delete {path}: permission denied") from e
         except OSError as e:
             raise StorageError(f"Failed to delete {path}: {e}") from e
 
@@ -269,9 +260,7 @@ class FileStorage(Storage):
             logger.debug(f"Found {len(files)} files in {directory} matching {pattern}")
             return files
         except PermissionError as e:
-            raise StoragePermissionError(
-                f"Cannot list {directory}: permission denied"
-            ) from e
+            raise StoragePermissionError(f"Cannot list {directory}: permission denied") from e
         except OSError as e:
             raise StorageError(f"Failed to list {directory}: {e}") from e
 

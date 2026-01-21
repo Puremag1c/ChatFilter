@@ -17,14 +17,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
 
 try:
     import httpx
@@ -119,7 +117,8 @@ class SmokeTestRunner:
                 [
                     str(self.binary_path),
                     "--validate",
-                    "--data-dir", str(data_dir),
+                    "--data-dir",
+                    str(data_dir),
                 ],
                 capture_output=True,
                 text=True,
@@ -162,9 +161,12 @@ class SmokeTestRunner:
             process = subprocess.Popen(
                 [
                     str(self.binary_path),
-                    "--host", host,
-                    "--port", str(port),
-                    "--data-dir", str(data_dir),
+                    "--host",
+                    host,
+                    "--port",
+                    str(port),
+                    "--data-dir",
+                    str(data_dir),
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -183,8 +185,7 @@ class SmokeTestRunner:
                         # Process died
                         stdout, stderr = process.communicate()
                         raise AssertionError(
-                            f"Server process died unexpectedly\n"
-                            f"stdout: {stdout}\nstderr: {stderr}"
+                            f"Server process died unexpectedly\nstdout: {stdout}\nstderr: {stderr}"
                         )
 
                     try:
@@ -201,9 +202,7 @@ class SmokeTestRunner:
                         continue
 
                 if not server_ready:
-                    raise AssertionError(
-                        f"Server did not respond within {max_wait}s"
-                    )
+                    raise AssertionError(f"Server did not respond within {max_wait}s")
 
                 # Test health endpoint
                 response = httpx.get(f"http://{host}:{port}/health", timeout=5.0)
@@ -284,7 +283,8 @@ class SmokeTestRunner:
                 [
                     str(self.binary_path),
                     "--validate",
-                    "--data-dir", str(data_dir),
+                    "--data-dir",
+                    str(data_dir),
                 ],
                 capture_output=True,
                 text=True,
@@ -305,9 +305,9 @@ class SmokeTestRunner:
         Returns:
             True if all tests passed, False otherwise
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"🚀 Running smoke tests for: {self.binary_path}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Run tests in order
         tests = [
@@ -323,9 +323,9 @@ class SmokeTestRunner:
             self.run_test(name, test_func)
 
         # Print summary
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("📊 Test Summary")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         passed = sum(1 for _, result, _ in self.test_results if result)
         total = len(self.test_results)
@@ -348,9 +348,7 @@ class SmokeTestRunner:
 
 def main() -> int:
     """Main entry point for smoke tests."""
-    parser = argparse.ArgumentParser(
-        description="Run smoke tests on compiled ChatFilter binary"
-    )
+    parser = argparse.ArgumentParser(description="Run smoke tests on compiled ChatFilter binary")
     parser.add_argument(
         "--binary",
         required=True,
@@ -358,7 +356,8 @@ def main() -> int:
         help="Path to the compiled binary (e.g., dist/ChatFilter.exe or dist/ChatFilter.app/Contents/MacOS/ChatFilter)",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose output",
     )

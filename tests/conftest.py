@@ -617,6 +617,6 @@ def edge_case_messages(fake_message_factory: Callable[..., Any]) -> dict[str, An
         ),
         "special_chars": fake_message_factory(
             id=9,
-            text='Special: <>&"\'\n\t\r',
+            text="Special: <>&\"'\n\t\r",
         ),
     }

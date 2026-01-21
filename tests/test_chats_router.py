@@ -79,7 +79,9 @@ class TestChatsAPI:
         assert "@testchan" in response.text
 
         # Verify the service was called correctly with pagination params
-        mock_service.get_chats_paginated.assert_awaited_once_with("test_session", offset=0, limit=100)
+        mock_service.get_chats_paginated.assert_awaited_once_with(
+            "test_session", offset=0, limit=100
+        )
 
     def test_get_chats_with_pagination(self) -> None:
         """Test getting chats with explicit pagination parameters."""
@@ -109,7 +111,9 @@ class TestChatsAPI:
         assert "300 remaining" in response.text  # 500 - 200 = 300
 
         # Verify the service was called with custom pagination params
-        mock_service.get_chats_paginated.assert_awaited_once_with("test_session", offset=150, limit=50)
+        mock_service.get_chats_paginated.assert_awaited_once_with(
+            "test_session", offset=150, limit=50
+        )
 
     def test_get_chats_last_page(self) -> None:
         """Test getting the last page of chats (no load more button)."""

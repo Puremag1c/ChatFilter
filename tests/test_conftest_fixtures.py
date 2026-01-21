@@ -127,9 +127,7 @@ class TestMockDialogFactory:
 
     def test_creates_forum_dialog(self, mock_dialog_factory):
         """Test creating a forum dialog."""
-        dialog = mock_dialog_factory(
-            4, "channel", "Forum", megagroup=True, forum=True
-        )
+        dialog = mock_dialog_factory(4, "channel", "Forum", megagroup=True, forum=True)
 
         assert dialog.entity.megagroup is True
         assert dialog.entity.forum is True

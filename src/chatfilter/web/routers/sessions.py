@@ -71,6 +71,7 @@ def secure_delete_file(file_path: Path) -> None:
             f.write(b"\x00" * file_size)
             f.flush()
             import os
+
             os.fsync(f.fileno())
 
         # Delete the file
@@ -370,13 +371,17 @@ async def upload_session(
                 "partials/upload_result.html",
                 {"request": request, "success": False, "error": f"Config validation failed: {e}"},
             )
-        except Exception as e:
+        except Exception:
             # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
             logger.exception("Failed to save session files")
             return templates.TemplateResponse(
                 "partials/upload_result.html",
-                {"request": request, "success": False, "error": "Failed to save session files. Please try again."},
+                {
+                    "request": request,
+                    "success": False,
+                    "error": "Failed to save session files. Please try again.",
+                },
             )
 
         logger.info(f"Session '{safe_name}' uploaded successfully")
@@ -390,11 +395,15 @@ async def upload_session(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during session upload")
         return templates.TemplateResponse(
             "partials/upload_result.html",
-            {"request": request, "success": False, "error": "An unexpected error occurred during upload. Please try again."},
+            {
+                "request": request,
+                "success": False,
+                "error": "An unexpected error occurred during upload. Please try again.",
+            },
         )
 
 

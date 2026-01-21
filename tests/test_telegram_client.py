@@ -245,7 +245,7 @@ class TestValidateSessionFile:
 
         with pytest.raises(
             SessionFileError,
-            match="Telethon 2.x.*incompatible.*Telethon 1.x.*different session formats"
+            match="Telethon 2.x.*incompatible.*Telethon 1.x.*different session formats",
         ):
             validate_session_file(session_path)
 
@@ -310,7 +310,9 @@ class TestTelegramClientLoader:
 
         # For actual client creation, use a fresh session path
         # (Telethon will create its own session file)
-        loader_for_client = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
+        loader_for_client = TelegramClientLoader(
+            session_path, config_path, use_secure_storage=False
+        )
         loader_for_client._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
         client = loader_for_client.create_client()
@@ -509,9 +511,7 @@ class TestDialogToChat:
 
     def test_forum_dialog(self) -> None:
         """Test conversion of forum dialog."""
-        dialog = create_mock_dialog(
-            101, "channel", "Forum Group", megagroup=True, forum=True
-        )
+        dialog = create_mock_dialog(101, "channel", "Forum Group", megagroup=True, forum=True)
 
         chat = _dialog_to_chat(dialog)
 
@@ -555,9 +555,11 @@ class TestGetDialogs:
             create_mock_dialog(3, "chat", "Group 1"),
         ]
 
-        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
-            for d in dialogs:
-                yield d
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
+            # Return dialogs only for main folder (folder=0) in this test
+            if folder == 0:
+                for d in dialogs:
+                    yield d
 
         client = MagicMock()
         client.iter_dialogs = mock_iter_dialogs
@@ -568,6 +570,7 @@ class TestGetDialogs:
         assert result[0].id == 1
         assert result[1].id == 2
         assert result[2].id == 3
+        assert all(not chat.is_archived for chat in result)
 
     @pytest.mark.asyncio
     async def test_filter_by_chat_type(self) -> None:
@@ -579,17 +582,16 @@ class TestGetDialogs:
             create_mock_dialog(4, "chat", "Group 2"),
         ]
 
-        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
-            for d in dialogs:
-                yield d
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
+            if folder == 0:
+                for d in dialogs:
+                    yield d
 
         client = MagicMock()
         client.iter_dialogs = mock_iter_dialogs
 
         # Filter for groups and supergroups only
-        result = await get_dialogs(
-            client, chat_types={ChatType.GROUP, ChatType.SUPERGROUP}
-        )
+        result = await get_dialogs(client, chat_types={ChatType.GROUP, ChatType.SUPERGROUP})
 
         assert len(result) == 2
         assert result[0].id == 3  # Supergroup
@@ -604,9 +606,10 @@ class TestGetDialogs:
             create_mock_dialog(2, "channel", "Channel 1"),
         ]
 
-        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
-            for d in dialogs:
-                yield d
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
+            if folder == 0:
+                for d in dialogs:
+                    yield d
 
         client = MagicMock()
         client.iter_dialogs = mock_iter_dialogs
@@ -623,24 +626,25 @@ class TestGetDialogs:
         """Test session-scoped caching."""
         call_count = 0
 
-        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
             nonlocal call_count
             call_count += 1
-            yield create_mock_dialog(1, "user", "User 1")
+            if folder == 0:
+                yield create_mock_dialog(1, "user", "User 1")
 
         client = MagicMock()
         client.iter_dialogs = mock_iter_dialogs
 
         cache: dict[int, list[Chat]] = {}
 
-        # First call should fetch
+        # First call should fetch (calls for both folder 0 and 1)
         result1 = await get_dialogs(client, _cache=cache)
-        assert call_count == 1
+        assert call_count == 2  # Called twice: folder 0 and folder 1
         assert len(result1) == 1
 
         # Second call should use cache
         result2 = await get_dialogs(client, _cache=cache)
-        assert call_count == 1  # No new fetch
+        assert call_count == 2  # No new fetch
         assert len(result2) == 1
 
     @pytest.mark.asyncio
@@ -651,9 +655,10 @@ class TestGetDialogs:
             create_mock_dialog(2, "channel", "Channel 1"),
         ]
 
-        async def mock_iter_dialogs() -> AsyncIterator[MagicMock]:
-            for d in dialogs:
-                yield d
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
+            if folder == 0:
+                for d in dialogs:
+                    yield d
 
         client = MagicMock()
         client.iter_dialogs = mock_iter_dialogs
@@ -668,6 +673,46 @@ class TestGetDialogs:
         result2 = await get_dialogs(client, chat_types={ChatType.PRIVATE}, _cache=cache)
         assert len(result2) == 1
         assert result2[0].chat_type == ChatType.PRIVATE
+
+    @pytest.mark.asyncio
+    async def test_archived_chats(self) -> None:
+        """Test that archived chats are included with is_archived=True."""
+        main_dialogs = [
+            create_mock_dialog(1, "user", "User 1"),
+            create_mock_dialog(2, "channel", "Channel 1"),
+        ]
+        archived_dialogs = [
+            create_mock_dialog(3, "chat", "Archived Group"),
+            create_mock_dialog(4, "user", "Archived User"),
+        ]
+
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
+            if folder == 0:
+                for d in main_dialogs:
+                    yield d
+            elif folder == 1:
+                for d in archived_dialogs:
+                    yield d
+
+        client = MagicMock()
+        client.iter_dialogs = mock_iter_dialogs
+
+        result = await get_dialogs(client)
+
+        # Should have all 4 chats
+        assert len(result) == 4
+
+        # First 2 should be from main folder (not archived)
+        assert result[0].id == 1
+        assert not result[0].is_archived
+        assert result[1].id == 2
+        assert not result[1].is_archived
+
+        # Last 2 should be from archived folder
+        assert result[2].id == 3
+        assert result[2].is_archived
+        assert result[3].id == 4
+        assert result[3].is_archived
 
 
 def create_mock_message(
@@ -797,10 +842,7 @@ class TestGetMessages:
         """Test that limit is respected."""
         from telethon.tl.types import User
 
-        messages = [
-            create_mock_message(i, f"Message {i}")
-            for i in range(10)
-        ]
+        messages = [create_mock_message(i, f"Message {i}") for i in range(10)]
 
         async def mock_iter_messages(
             chat_id: int, limit: int, **kwargs: object
@@ -1026,8 +1068,8 @@ class TestGetMessages:
     @pytest.mark.asyncio
     async def test_get_messages_rate_limit_error(self) -> None:
         """Test error handling for rate limiting."""
-        from telethon.tl.types import User
         from telethon.errors import FloodWaitError
+        from telethon.tl.types import User
 
         async def mock_iter_messages(
             chat_id: int, limit: int, **kwargs: object

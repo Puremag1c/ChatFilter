@@ -224,7 +224,7 @@ async def get_chats(
                 "session_id": session_id,
             },
         )
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to fetch chats from session '{session_id}'")
         return templates.TemplateResponse(
             "partials/chat_list.html",

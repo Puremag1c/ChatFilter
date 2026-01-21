@@ -2,10 +2,9 @@
 
 import json
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
-from typing import Generator
 from uuid import UUID
 
 from chatfilter.analyzer.task_queue import AnalysisTask, TaskStatus
@@ -156,14 +155,10 @@ class TaskDatabase:
             List of all tasks, sorted by creation time (newest first)
         """
         with self._connection() as conn:
-            cursor = conn.execute(
-                "SELECT task_id FROM tasks ORDER BY created_at DESC"
-            )
+            cursor = conn.execute("SELECT task_id FROM tasks ORDER BY created_at DESC")
             task_ids = [UUID(row["task_id"]) for row in cursor.fetchall()]
 
-        return [
-            task for task_id in task_ids if (task := self.load_task(task_id))
-        ]
+        return [task for task_id in task_ids if (task := self.load_task(task_id))]
 
     def load_incomplete_tasks(self) -> list[AnalysisTask]:
         """Load all tasks that are pending or in progress.
@@ -182,9 +177,7 @@ class TaskDatabase:
             )
             task_ids = [UUID(row["task_id"]) for row in cursor.fetchall()]
 
-        return [
-            task for task_id in task_ids if (task := self.load_task(task_id))
-        ]
+        return [task for task_id in task_ids if (task := self.load_task(task_id))]
 
     def load_completed_tasks(
         self,
@@ -229,9 +222,7 @@ class TaskDatabase:
             )
             task_ids = [UUID(row["task_id"]) for row in cursor.fetchall()]
 
-        return [
-            task for task_id in task_ids if (task := self.load_task(task_id))
-        ]
+        return [task for task_id in task_ids if (task := self.load_task(task_id))]
 
     def count_completed_tasks(
         self,
@@ -289,9 +280,7 @@ class TaskDatabase:
                 ),
             )
 
-    def _load_task_results(
-        self, conn: sqlite3.Connection, task_id: UUID
-    ) -> list[AnalysisResult]:
+    def _load_task_results(self, conn: sqlite3.Connection, task_id: UUID) -> list[AnalysisResult]:
         """Load all results for a task.
 
         Args:

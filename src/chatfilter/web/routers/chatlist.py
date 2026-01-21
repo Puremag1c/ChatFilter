@@ -156,7 +156,9 @@ async def upload_chat_list(
         # Store the list
         list_id = store_chat_list(unique_entries)
 
-        logger.info(f"Imported {len(unique_entries)} chats from file '{filename}' (list_id={list_id})")
+        logger.info(
+            f"Imported {len(unique_entries)} chats from file '{filename}' (list_id={list_id})"
+        )
 
         return templates.TemplateResponse(
             "partials/chatlist_result.html",
@@ -170,7 +172,7 @@ async def upload_chat_list(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during file upload")
         return templates.TemplateResponse(
             "partials/chatlist_result.html",
@@ -266,7 +268,7 @@ async def fetch_google_sheet_endpoint(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during Google Sheets fetch")
         return templates.TemplateResponse(
             "partials/chatlist_result.html",

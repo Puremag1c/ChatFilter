@@ -346,7 +346,7 @@ def test_stale_task_detection_uses_started_at_when_available(temp_db):
         message_limit=1000,
         status=TaskStatus.IN_PROGRESS,
         created_at=recent_created,  # Recent
-        started_at=old_started,     # Stale
+        started_at=old_started,  # Stale
     )
 
     temp_db.save_task(task_with_started)
@@ -415,6 +415,7 @@ def test_stale_task_detection_with_different_threshold(temp_db):
 
     # Reset queue singleton
     from chatfilter.analyzer.task_queue import reset_task_queue
+
     reset_task_queue()
 
     # With 12h threshold, should be PENDING

@@ -61,9 +61,7 @@ def test_database_initialization(temp_db):
     """Test that database initializes with correct schema."""
     # Database should be created and tables should exist
     with temp_db._connection() as conn:
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [row[0] for row in cursor.fetchall()]
 
     assert "tasks" in tables
@@ -298,10 +296,7 @@ def test_delete_completed_tasks(temp_db):
     # Verify only PENDING and IN_PROGRESS remain
     remaining_tasks = temp_db.load_all_tasks()
     assert len(remaining_tasks) == 2
-    assert all(
-        t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS)
-        for t in remaining_tasks
-    )
+    assert all(t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) for t in remaining_tasks)
 
 
 def test_task_with_error(temp_db):

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import socket
 
-import pytest
-
 from chatfilter.utils.ports import (
     PortInfo,
     find_available_port,

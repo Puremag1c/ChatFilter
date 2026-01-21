@@ -15,9 +15,8 @@ The key management system ensures:
 import hashlib
 import os
 from abc import ABC, abstractmethod
-from base64 import urlsafe_b64decode, urlsafe_b64encode
+from base64 import urlsafe_b64encode
 from pathlib import Path
-from typing import Optional
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
@@ -46,7 +45,7 @@ class KeyBackend(ABC):
     """Abstract base class for key storage backends."""
 
     @abstractmethod
-    def get_key(self, key_id: int) -> Optional[bytes]:
+    def get_key(self, key_id: int) -> bytes | None:
         """Retrieve encryption key by ID.
 
         Args:
@@ -93,14 +92,14 @@ class KeyringBackend(KeyBackend):
         """Generate keyring entry name for key ID."""
         return f"encryption-key-{key_id}"
 
-    def get_key(self, key_id: int) -> Optional[bytes]:
+    def get_key(self, key_id: int) -> bytes | None:
         """Retrieve key from OS keychain."""
         try:
             key_str = keyring.get_password(self.SERVICE_NAME, self._key_name(key_id))
             if key_str is None:
                 return None
             # Fernet keys are already base64-encoded, return as bytes
-            return key_str.encode('ascii')
+            return key_str.encode("ascii")
         except keyring.errors.KeyringError as e:
             raise KeyManagerError(f"Failed to retrieve key from keyring: {e}") from e
 
@@ -109,7 +108,7 @@ class KeyringBackend(KeyBackend):
         try:
             # Fernet keys are already base64-encoded, store as string
             if isinstance(key, bytes):
-                key = key.decode('ascii')
+                key = key.decode("ascii")
             keyring.set_password(self.SERVICE_NAME, self._key_name(key_id), key)
         except keyring.errors.KeyringError as e:
             raise KeyManagerError(f"Failed to store key in keyring: {e}") from e
@@ -135,7 +134,7 @@ class PasswordBackend(KeyBackend):
     PBKDF2_ITERATIONS = 600_000  # OWASP recommended minimum for 2023+
     SALT_PREFIX = b"chatfilter-key-derivation-v1"
 
-    def __init__(self, password: Optional[str] = None) -> None:
+    def __init__(self, password: str | None = None) -> None:
         """Initialize password backend.
 
         Args:
@@ -163,7 +162,7 @@ class PasswordBackend(KeyBackend):
         key = kdf.derive(self._password.encode())
         return urlsafe_b64encode(key)
 
-    def get_key(self, key_id: int) -> Optional[bytes]:
+    def get_key(self, key_id: int) -> bytes | None:
         """Derive key from password."""
         return self._derive_key(key_id)
 
@@ -196,7 +195,7 @@ class EnvironmentBackend(KeyBackend):
         """Generate environment variable name for key ID."""
         return f"{self.ENV_VAR_PREFIX}_{key_id}"
 
-    def get_key(self, key_id: int) -> Optional[bytes]:
+    def get_key(self, key_id: int) -> bytes | None:
         """Retrieve key from environment variable."""
         key_b64 = os.environ.get(self._env_var_name(key_id))
         if key_b64 is None:
@@ -204,14 +203,14 @@ class EnvironmentBackend(KeyBackend):
         # Fernet keys are already base64-encoded, so we return them as-is
         # Just convert string to bytes if needed
         if isinstance(key_b64, str):
-            return key_b64.encode('ascii')
+            return key_b64.encode("ascii")
         return key_b64
 
     def set_key(self, key_id: int, key: bytes) -> None:
         """Store key in environment (for current process only)."""
         # Fernet keys are already base64-encoded, store as-is
         if isinstance(key, bytes):
-            key = key.decode('ascii')
+            key = key.decode("ascii")
         os.environ[self._env_var_name(key_id)] = key
 
     def delete_key(self, key_id: int) -> None:
@@ -251,7 +250,7 @@ class MachineKeyBackend(KeyBackend):
         key_hash = hashlib.sha256(key_material).digest()
         return urlsafe_b64encode(key_hash)
 
-    def get_key(self, key_id: int) -> Optional[bytes]:
+    def get_key(self, key_id: int) -> bytes | None:
         """Derive key from machine ID (ignores key_id)."""
         return self._derive_key_from_machine_id()
 
@@ -300,7 +299,7 @@ class KeyManager:
     def create(
         cls,
         backend_type: str = "auto",
-        password: Optional[str] = None,
+        password: str | None = None,
     ) -> "KeyManager":
         """Create key manager with specified backend.
 
@@ -357,7 +356,7 @@ class KeyManager:
 
         return cls(backend)
 
-    def get_key(self, key_id: int = 0) -> Optional[bytes]:
+    def get_key(self, key_id: int = 0) -> bytes | None:
         """Retrieve encryption key by ID.
 
         Args:

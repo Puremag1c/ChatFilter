@@ -139,9 +139,7 @@ class TestDatabaseHistoryMethods:
         temp_db.save_task(cancelled_task)
 
         # Load only completed tasks
-        completed_only = temp_db.load_completed_tasks(
-            status_filter=[TaskStatus.COMPLETED]
-        )
+        completed_only = temp_db.load_completed_tasks(status_filter=[TaskStatus.COMPLETED])
         assert len(completed_only) == 1
         assert completed_only[0].status == TaskStatus.COMPLETED
 
@@ -181,9 +179,7 @@ class TestDatabaseHistoryMethods:
             temp_db.save_task(task)
 
         # Count completed only
-        completed_count = temp_db.count_completed_tasks(
-            status_filter=[TaskStatus.COMPLETED]
-        )
+        completed_count = temp_db.count_completed_tasks(status_filter=[TaskStatus.COMPLETED])
         assert completed_count == 1
 
         # Count all
@@ -280,9 +276,7 @@ class TestHistoryAPI:
         def mock_get_database():
             return temp_db
 
-        monkeypatch.setattr(
-            "chatfilter.web.routers.history.get_database", mock_get_database
-        )
+        monkeypatch.setattr("chatfilter.web.routers.history.get_database", mock_get_database)
 
         app = create_app(debug=True)
         return TestClient(app)

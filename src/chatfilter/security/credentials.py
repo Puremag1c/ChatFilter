@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -108,6 +107,7 @@ class KeyringBackend(CredentialStorageBackend):
         """Initialize keyring backend."""
         try:
             import keyring
+
             self._keyring = keyring
         except ImportError:
             self._keyring = None
@@ -170,9 +170,7 @@ class KeyringBackend(CredentialStorageBackend):
             try:
                 api_id = int(api_id_str)
             except ValueError as e:
-                raise CredentialStorageError(
-                    f"Invalid api_id in keyring: {api_id_str}"
-                ) from e
+                raise CredentialStorageError(f"Invalid api_id in keyring: {api_id_str}") from e
 
             return api_id, api_hash
 
@@ -340,9 +338,7 @@ class EnvironmentBackend(CredentialStorageBackend):
 
     def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
         """Environment backend is read-only."""
-        raise CredentialStorageError(
-            "Cannot store credentials in environment backend (read-only)"
-        )
+        raise CredentialStorageError("Cannot store credentials in environment backend (read-only)")
 
     def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
         """Retrieve credentials from environment variables."""
@@ -363,9 +359,7 @@ class EnvironmentBackend(CredentialStorageBackend):
         try:
             api_id = int(api_id_str)
         except ValueError as e:
-            raise CredentialStorageError(
-                f"Invalid api_id in environment: {api_id_str}"
-            ) from e
+            raise CredentialStorageError(f"Invalid api_id in environment: {api_id_str}") from e
 
         return api_id, api_hash
 

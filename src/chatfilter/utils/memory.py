@@ -11,9 +11,8 @@ from __future__ import annotations
 
 import logging
 import os
-import platform
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -244,15 +243,12 @@ class MemoryTracker:
         """
         diff = self.get_diff(label1, label2)
         if diff is None:
-            logger.warning(
-                f"Cannot compute diff: snapshots '{label1}' or '{label2}' not found"
-            )
+            logger.warning(f"Cannot compute diff: snapshots '{label1}' or '{label2}' not found")
             return
 
         rss_diff, vms_diff = diff
         logger.info(
-            f"Memory diff ({label1} -> {label2}): "
-            f"RSS={rss_diff:+.1f}MB, VMS={vms_diff:+.1f}MB"
+            f"Memory diff ({label1} -> {label2}): RSS={rss_diff:+.1f}MB, VMS={vms_diff:+.1f}MB"
         )
 
     def clear(self) -> None:

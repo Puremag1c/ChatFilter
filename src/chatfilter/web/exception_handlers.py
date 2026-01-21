@@ -63,8 +63,7 @@ async def validation_exception_handler(
 
     # Log validation errors for debugging
     logger.warning(
-        f"Validation error on {request.url.path}: {exc.errors()} "
-        f"(request_id={error_id})"
+        f"Validation error on {request.url.path}: {exc.errors()} (request_id={error_id})"
     )
 
     # In production, we still return validation details as they're safe
@@ -95,8 +94,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
 
     # Always log the full exception with stack trace for debugging
     logger.exception(
-        f"Unhandled exception in {request.method} {request.url.path} "
-        f"(request_id={error_id}): {exc}"
+        f"Unhandled exception in {request.method} {request.url.path} (request_id={error_id}): {exc}"
     )
 
     # Get debug mode from app settings

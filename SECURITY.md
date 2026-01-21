@@ -10,7 +10,7 @@ The application uses a layered approach with multiple storage backends:
 
 1. **OS Keyring (Preferred)** - Native system credential storage
    - macOS: Keychain
-   - Windows: Credential Locker  
+   - Windows: Credential Locker
    - Linux: Secret Service (libsecret/gnome-keyring)
 
 2. **Encrypted File (Fallback)** - For systems without keyring support

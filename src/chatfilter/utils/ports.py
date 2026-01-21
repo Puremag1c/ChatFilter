@@ -200,6 +200,7 @@ def format_port_conflict_message(host: str, port: int) -> str:
 
     # Add hint for finding the process
     import sys
+
     if sys.platform != "win32":
         message += f"\n  Hint: Run 'lsof -i :{port}' to see details about the process"
     else:

@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -60,18 +59,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     import asyncio
 
-    from chatfilter.analyzer.task_queue import get_task_queue
-    from chatfilter.storage.database import TaskDatabase
-    from chatfilter.storage.file import cleanup_orphaned_temp_files
-
     # Startup
     import platform
 
     from chatfilter import __version__
+    from chatfilter.analyzer.task_queue import get_task_queue
+    from chatfilter.storage.database import TaskDatabase
+    from chatfilter.storage.file import cleanup_orphaned_temp_files
 
     logger.info("=" * 60)
     logger.info(f"ChatFilter v{__version__} starting up")
-    logger.info(f"Python: {platform.python_version()}, OS: {platform.system()} {platform.release()}")
+    logger.info(
+        f"Python: {platform.python_version()}, OS: {platform.system()} {platform.release()}"
+    )
     logger.info("=" * 60)
     app.state.app_state = AppState()
 
@@ -125,6 +125,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     def open_browser():
         """Open browser to application URL after short delay."""
         import time
+
         time.sleep(1.5)  # Wait for server to be fully ready
         url = f"http://{settings.host}:{settings.port}"
         logger.info(f"Opening browser to {url}")

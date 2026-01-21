@@ -23,7 +23,6 @@ from chatfilter.service.chat_analysis import ChatAnalysisService
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from chatfilter.telegram.session_manager import SessionManager
 
 # Try to import memory utilities (optional dependency)
 try:
@@ -401,8 +400,7 @@ class TestResourceCleanup:
         # Add some cache data (start from 1 to avoid chat id 0)
         for i in range(5):
             service._chat_cache[f"session{i}"] = {
-                j: Chat(id=j, title=f"Chat {j}", chat_type=ChatType.GROUP)
-                for j in range(1, 11)
+                j: Chat(id=j, title=f"Chat {j}", chat_type=ChatType.GROUP) for j in range(1, 11)
             }
 
         stats = service.get_cache_stats()

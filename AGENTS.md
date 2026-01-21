@@ -50,5 +50,3 @@ Rules:
 - Write results back to Beads
 - Mark task done
 - Stop. Do not pick another task.
-
-

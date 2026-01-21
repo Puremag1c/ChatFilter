@@ -160,9 +160,7 @@ class TelegramConfig:
                 ) from e
 
         if not isinstance(api_hash, str):
-            raise TelegramConfigError(
-                f"api_hash must be a string, got: {type(api_hash).__name__}"
-            )
+            raise TelegramConfigError(f"api_hash must be a string, got: {type(api_hash).__name__}")
 
         if not api_hash:
             raise TelegramConfigError("api_hash cannot be empty")
@@ -198,6 +196,7 @@ def _secure_delete_file(file_path: Path) -> None:
             f.write(b"\x00" * file_size)
             f.flush()
             import os
+
             os.fsync(f.fileno())
 
         # Delete the file
@@ -411,9 +410,7 @@ class TelegramClientLoader:
             except TelegramConfigError as e:
                 # If secure storage fails and we have a config_path, try plaintext
                 if self._config_path and self._config_path.exists():
-                    logger.warning(
-                        f"Secure storage failed ({e}), falling back to plaintext config"
-                    )
+                    logger.warning(f"Secure storage failed ({e}), falling back to plaintext config")
                     self._config = TelegramConfig.from_json_file(
                         self._config_path,
                         migrate_to_secure=True,  # Auto-migrate
@@ -506,11 +503,12 @@ class TelegramClientLoader:
         )
 
 
-def _dialog_to_chat(dialog: Dialog) -> Chat | None:
+def _dialog_to_chat(dialog: Dialog, is_archived: bool = False) -> Chat | None:
     """Convert Telethon Dialog to our Chat model.
 
     Args:
         dialog: Telethon Dialog object
+        is_archived: Whether the dialog is from the archived folder
 
     Returns:
         Chat model or None if dialog type is not supported
@@ -549,6 +547,7 @@ def _dialog_to_chat(dialog: Dialog) -> Chat | None:
         chat_type=chat_type,
         username=username,
         member_count=member_count,
+        is_archived=is_archived,
     )
 
 
@@ -561,8 +560,9 @@ async def get_dialogs(
 ) -> list[Chat]:
     """Get list of user's dialogs (chats) from Telegram.
 
-    Fetches all dialogs and converts them to Chat models. Results are
-    deduplicated by chat_id to handle edge cases during pagination.
+    Fetches all dialogs from both main and archived folders and converts them
+    to Chat models. Archived chats are marked with is_archived=True.
+    Results are deduplicated by chat_id to handle edge cases during pagination.
 
     Network errors (ConnectionError, TimeoutError, OSError, SSL errors) are
     automatically retried with exponential backoff (up to 3 attempts).
@@ -575,7 +575,8 @@ async def get_dialogs(
             Pass the same dict across calls to enable caching.
 
     Returns:
-        List of Chat models, sorted by dialog order (most recent first)
+        List of Chat models, sorted by dialog order (most recent first).
+        Includes both main and archived chats.
 
     Example:
         ```python
@@ -602,14 +603,15 @@ async def get_dialogs(
     rate_limiter = get_rate_limiter()
     await rate_limiter.wait_if_needed("get_dialogs")
 
-    # Fetch all dialogs
+    # Fetch all dialogs from both main (folder=0) and archived (folder=1) folders
     chats: list[Chat] = []
     seen_ids: set[int] = set()
 
     try:
-        async for dialog in client.iter_dialogs():
+        # Fetch from main folder (folder=0)
+        async for dialog in client.iter_dialogs(folder=0):
             try:
-                chat = _dialog_to_chat(dialog)
+                chat = _dialog_to_chat(dialog, is_archived=False)
                 if chat is None:
                     continue
 
@@ -627,6 +629,29 @@ async def get_dialogs(
             ) as e:
                 # Skip inaccessible chats (user kicked/banned/left, or chat deleted/private)
                 logger.info(f"Skipping inaccessible dialog: {type(e).__name__}")
+                continue
+
+        # Fetch from archived folder (folder=1)
+        async for dialog in client.iter_dialogs(folder=1):
+            try:
+                chat = _dialog_to_chat(dialog, is_archived=True)
+                if chat is None:
+                    continue
+
+                # Deduplicate by chat_id (handles edge case of duplicates)
+                if chat.id in seen_ids:
+                    continue
+                seen_ids.add(chat.id)
+                chats.append(chat)
+            except (
+                ChatForbiddenError,
+                ChannelPrivateError,
+                UserBannedInChannelError,
+                ChatRestrictedError,
+                ChannelBannedError,
+            ) as e:
+                # Skip inaccessible chats (user kicked/banned/left, or chat deleted/private)
+                logger.info(f"Skipping inaccessible archived dialog: {type(e).__name__}")
                 continue
     except (
         ChatForbiddenError,
@@ -747,21 +772,23 @@ async def _get_forum_topics(
     """
     try:
         # Get forum topics using Telegram API
-        result = await client(GetForumTopicsRequest(
-            channel=chat_id,
-            offset_date=0,
-            offset_id=0,
-            offset_topic=0,
-            limit=100,  # Should be enough for most forums
-        ))
+        result = await client(
+            GetForumTopicsRequest(
+                channel=chat_id,
+                offset_date=0,
+                offset_id=0,
+                offset_topic=0,
+                limit=100,  # Should be enough for most forums
+            )
+        )
 
         # Extract topic IDs from the result
         # Each topic has an ID which is the message ID of the first message
         topic_ids = []
-        if hasattr(result, 'topics'):
+        if hasattr(result, "topics"):
             for topic in result.topics:
                 # Topic ID is stored in the 'id' attribute
-                if hasattr(topic, 'id'):
+                if hasattr(topic, "id"):
                     topic_ids.append(topic.id)
 
         return topic_ids
@@ -868,7 +895,11 @@ async def get_messages(
                             # Determine offset for this topic (min message ID among topic messages)
                             topic_msgs = [m for m in messages if m.id not in seen_ids]
                             offset_id = (
-                                min(m.id for m in topic_msgs if m in messages[topic_messages_before:])
+                                min(
+                                    m.id
+                                    for m in topic_msgs
+                                    if m in messages[topic_messages_before:]
+                                )
                                 if len(messages) > topic_messages_before
                                 else 0
                             )
@@ -967,7 +998,9 @@ async def get_messages(
                             import asyncio
 
                             wait_time = 1.0 * (2 ** (retry_count - 1))
-                            logger.info(f"Retrying in {wait_time}s with offset from last message...")
+                            logger.info(
+                                f"Retrying in {wait_time}s with offset from last message..."
+                            )
                             await asyncio.sleep(wait_time)
                         else:
                             logger.warning(
@@ -1038,7 +1071,6 @@ async def get_messages(
         # FloodWait that persisted through retries - inform user with exact wait time
         from chatfilter.telegram.error_mapping import get_user_friendly_message
 
-        wait_seconds = getattr(e, "seconds", None)
         friendly_msg = get_user_friendly_message(e)
         raise MessageFetchError(
             f"Rate limited by Telegram for chat {chat_id}. {friendly_msg}"
@@ -1166,9 +1198,7 @@ async def get_messages_streaming(
                     while retry_count < max_retries:
                         try:
                             # Calculate remaining messages to fetch
-                            remaining = (
-                                max_messages - total_fetched if max_messages else batch_size
-                            )
+                            remaining = max_messages - total_fetched if max_messages else batch_size
                             fetch_limit = min(batch_size, remaining)
 
                             async for telethon_msg in client.iter_messages(
@@ -1302,8 +1332,7 @@ async def get_messages_streaming(
                     await asyncio.sleep(wait_time)
                 else:
                     logger.warning(
-                        f"Max retries reached for chat {chat_id}. "
-                        f"Yielding final partial batch."
+                        f"Max retries reached for chat {chat_id}. Yielding final partial batch."
                     )
                     # Yield any remaining batch
                     if batch:
@@ -1343,9 +1372,7 @@ async def get_messages_streaming(
 _INVITE_HASH_PATTERN = re.compile(
     r"(?:https?://)?(?:t\.me|telegram\.me)/(?:joinchat/|\+)([a-zA-Z0-9_-]+)"
 )
-_PUBLIC_LINK_PATTERN = re.compile(
-    r"(?:https?://)?(?:t\.me|telegram\.me)/([a-zA-Z0-9_]+)"
-)
+_PUBLIC_LINK_PATTERN = re.compile(r"(?:https?://)?(?:t\.me|telegram\.me)/([a-zA-Z0-9_]+)")
 
 
 def _parse_chat_reference(ref: str) -> tuple[str | None, str | None]:
@@ -1454,7 +1481,9 @@ async def join_chat(
         # Convert to our Chat model
         if isinstance(entity, Channel):
             if entity.megagroup:
-                chat_type = ChatType.FORUM if getattr(entity, "forum", False) else ChatType.SUPERGROUP
+                chat_type = (
+                    ChatType.FORUM if getattr(entity, "forum", False) else ChatType.SUPERGROUP
+                )
             else:
                 chat_type = ChatType.CHANNEL
             title = entity.title or "Unknown"
@@ -1504,9 +1533,7 @@ async def join_chat(
         if "banned" in error_msg or "kicked" in error_msg:
             raise JoinChatError(f"You are banned from this chat: {chat_ref}") from e
         if "private" in error_msg:
-            raise JoinChatError(
-                f"Chat is private and requires an invite link: {chat_ref}"
-            ) from e
+            raise JoinChatError(f"Chat is private and requires an invite link: {chat_ref}") from e
         if "username" in error_msg and ("invalid" in error_msg or "not" in error_msg):
             raise JoinChatError(f"Username not found: {chat_ref}") from e
         raise JoinChatError(f"Failed to join chat: {e}") from e

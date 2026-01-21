@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import ssl
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from chatfilter.telegram.retry import (
-    DEFAULT_BASE_DELAY,
-    DEFAULT_MAX_DELAY,
     calculate_backoff_delay,
     with_retry,
     with_retry_for_reads,
@@ -39,9 +37,7 @@ class TestCalculateBackoffDelay:
 
     def test_jitter_adds_randomness(self) -> None:
         """Test that jitter adds randomness to delay."""
-        delays = [
-            calculate_backoff_delay(2, base_delay=1.0, jitter=0.1) for _ in range(100)
-        ]
+        delays = [calculate_backoff_delay(2, base_delay=1.0, jitter=0.1) for _ in range(100)]
 
         # With jitter, delays should vary
         assert len(set(delays)) > 1
@@ -52,9 +48,7 @@ class TestCalculateBackoffDelay:
 
     def test_zero_jitter_deterministic(self) -> None:
         """Test that zero jitter produces deterministic delays."""
-        delays = [
-            calculate_backoff_delay(2, base_delay=1.0, jitter=0.0) for _ in range(10)
-        ]
+        delays = [calculate_backoff_delay(2, base_delay=1.0, jitter=0.0) for _ in range(10)]
         assert len(set(delays)) == 1
         assert delays[0] == 4.0
 
@@ -127,7 +121,7 @@ class TestRetryDecorator:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
-                raise asyncio.TimeoutError()
+                raise TimeoutError()
             return "success"
 
         result = await fails_with_asyncio_timeout()
@@ -261,9 +255,7 @@ class TestRetryDecorator:
         """Test that operation_name appears in log messages."""
         call_count = 0
 
-        @with_retry(
-            max_attempts=2, base_delay=0.01, operation_name="test_operation"
-        )
+        @with_retry(max_attempts=2, base_delay=0.01, operation_name="test_operation")
         async def fails_once() -> str:
             nonlocal call_count
             call_count += 1
@@ -388,7 +380,7 @@ class TestRetryIntegration:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                raise asyncio.TimeoutError()
+                raise TimeoutError()
             return "success"
 
         result = await sometimes_slow()

@@ -5,10 +5,8 @@ import io
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 from chatfilter.exporter import export_to_csv, to_csv_rows
-from chatfilter.exporter.csv import UTF8_BOM, CSV_HEADERS
+from chatfilter.exporter.csv import CSV_HEADERS, UTF8_BOM
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 
 
@@ -214,7 +212,7 @@ class TestExportToCsv:
         """Test that RTL (right-to-left) characters are handled correctly."""
         # RTL override and marks
         result = create_test_result(
-            title="Chat \u202Eالعربية\u202C with RTL",  # RTL override + Arabic + Pop
+            title="Chat \u202eالعربية\u202c with RTL",  # RTL override + Arabic + Pop
         )
         content = export_to_csv([result], include_bom=False)
 
@@ -222,14 +220,14 @@ class TestExportToCsv:
         rows = list(reader)
 
         # Should preserve RTL characters as-is
-        assert "\u202E" in rows[1][1]
+        assert "\u202e" in rows[1][1]
         assert "العربية" in rows[1][1]
 
     def test_handles_zero_width_characters(self) -> None:
         """Test that zero-width characters are handled correctly."""
         # Zero-width space, joiner, non-joiner
         result = create_test_result(
-            title="Chat\u200Bwith\u200Czero\u200Dwidth",
+            title="Chat\u200bwith\u200czero\u200dwidth",
         )
         content = export_to_csv([result], include_bom=False)
 
@@ -237,9 +235,9 @@ class TestExportToCsv:
         rows = list(reader)
 
         # Should preserve zero-width characters
-        assert "\u200B" in rows[1][1]
-        assert "\u200C" in rows[1][1]
-        assert "\u200D" in rows[1][1]
+        assert "\u200b" in rows[1][1]
+        assert "\u200c" in rows[1][1]
+        assert "\u200d" in rows[1][1]
 
     def test_handles_complex_emoji(self) -> None:
         """Test complex emoji including skin tones and ZWJ sequences."""
@@ -261,7 +259,7 @@ class TestExportToCsv:
         """Test handling of mixed special characters in chat titles."""
         # Combination of emoji, RTL, zero-width, quotes, commas
         result = create_test_result(
-            title='🎉 "Test\u200BChat" العربية, with everything! 🚀',
+            title='🎉 "Test\u200bChat" العربية, with everything! 🚀',
         )
         content = export_to_csv([result], include_bom=False)
 
@@ -269,7 +267,7 @@ class TestExportToCsv:
         rows = list(reader)
 
         # Should preserve all characters correctly
-        expected = '🎉 "Test\u200BChat" العربية, with everything! 🚀'
+        expected = '🎉 "Test\u200bChat" العربية, with everything! 🚀'
         assert rows[1][1] == expected
 
     def test_handles_newlines_in_chat_title(self) -> None:

@@ -129,9 +129,10 @@ class TestGetChats:
         ]
 
         # Mock the loader and get_dialogs
-        with patch("chatfilter.service.chat_analysis.TelegramClientLoader") as mock_loader_cls, \
-             patch("chatfilter.service.chat_analysis.get_dialogs") as mock_get_dialogs:
-
+        with (
+            patch("chatfilter.service.chat_analysis.TelegramClientLoader") as mock_loader_cls,
+            patch("chatfilter.service.chat_analysis.get_dialogs") as mock_get_dialogs,
+        ):
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -219,10 +220,11 @@ class TestAnalyzeChat:
         ]
 
         # Mock the loader, get_messages, and compute_metrics
-        with patch("chatfilter.service.chat_analysis.TelegramClientLoader") as mock_loader_cls, \
-             patch("chatfilter.service.chat_analysis.get_messages") as mock_get_messages, \
-             patch("chatfilter.service.chat_analysis.compute_metrics") as mock_compute_metrics:
-
+        with (
+            patch("chatfilter.service.chat_analysis.TelegramClientLoader") as mock_loader_cls,
+            patch("chatfilter.service.chat_analysis.get_messages") as mock_get_messages,
+            patch("chatfilter.service.chat_analysis.compute_metrics") as mock_compute_metrics,
+        ):
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -265,10 +267,11 @@ class TestAnalyzeChat:
         (session_dir / "config.json").write_text('{"api_id": 123, "api_hash": "abc"}')
 
         # Mock the dependencies
-        with patch("chatfilter.service.chat_analysis.TelegramClientLoader") as mock_loader_cls, \
-             patch("chatfilter.service.chat_analysis.get_messages") as mock_get_messages, \
-             patch("chatfilter.service.chat_analysis.compute_metrics") as mock_compute_metrics:
-
+        with (
+            patch("chatfilter.service.chat_analysis.TelegramClientLoader") as mock_loader_cls,
+            patch("chatfilter.service.chat_analysis.get_messages") as mock_get_messages,
+            patch("chatfilter.service.chat_analysis.compute_metrics") as mock_compute_metrics,
+        ):
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 

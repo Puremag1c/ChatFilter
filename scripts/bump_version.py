@@ -46,10 +46,7 @@ def update_pyproject(project_root: Path, old_version: str, new_version: str) -> 
     pyproject_path = project_root / "pyproject.toml"
     content = pyproject_path.read_text()
 
-    content = content.replace(
-        f'version = "{old_version}"',
-        f'version = "{new_version}"'
-    )
+    content = content.replace(f'version = "{old_version}"', f'version = "{new_version}"')
 
     pyproject_path.write_text(content)
     print(f"✓ Updated {pyproject_path}")
@@ -60,10 +57,7 @@ def update_init_py(project_root: Path, old_version: str, new_version: str) -> No
     init_path = project_root / "src" / "chatfilter" / "__init__.py"
     content = init_path.read_text()
 
-    content = content.replace(
-        f'__version__ = "{old_version}"',
-        f'__version__ = "{new_version}"'
-    )
+    content = content.replace(f'__version__ = "{old_version}"', f'__version__ = "{new_version}"')
 
     init_path.write_text(content)
     print(f"✓ Updated {init_path}")
@@ -74,7 +68,7 @@ def update_changelog(project_root: Path, new_version: str, message: str | None) 
     changelog_path = project_root / "CHANGELOG.md"
 
     if not changelog_path.exists():
-        print(f"⚠ CHANGELOG.md not found, skipping")
+        print("⚠ CHANGELOG.md not found, skipping")
         return
 
     content = changelog_path.read_text()
@@ -88,10 +82,7 @@ def update_changelog(project_root: Path, new_version: str, message: str | None) 
         new_section += "### Changed\n- Version bump\n\n"
 
     # Insert after [Unreleased] section
-    content = content.replace(
-        "## [Unreleased]\n",
-        f"## [Unreleased]\n{new_section}"
-    )
+    content = content.replace("## [Unreleased]\n", f"## [Unreleased]\n{new_section}")
 
     # Update version comparison links at the bottom
     lines = content.split("\n")
@@ -99,12 +90,15 @@ def update_changelog(project_root: Path, new_version: str, message: str | None) 
         if line.startswith("[Unreleased]:"):
             # Update Unreleased link to compare with new version
             lines[i] = re.sub(
-                r'\[Unreleased\]: .*/compare/v[\d.]+\.\.\.HEAD',
-                f'[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v{new_version}...HEAD',
-                line
+                r"\[Unreleased\]: .*/compare/v[\d.]+\.\.\.HEAD",
+                f"[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v{new_version}...HEAD",
+                line,
             )
             # Add new version comparison link
-            lines.insert(i + 1, f'[{new_version}]: https://github.com/Puremag1c/ChatFilter/releases/tag/v{new_version}')
+            lines.insert(
+                i + 1,
+                f"[{new_version}]: https://github.com/Puremag1c/ChatFilter/releases/tag/v{new_version}",
+            )
             break
 
     content = "\n".join(lines)
@@ -116,15 +110,9 @@ def main() -> int:
     """Main function."""
     parser = argparse.ArgumentParser(description="Bump version for ChatFilter")
     parser.add_argument(
-        "bump_type",
-        choices=["major", "minor", "patch"],
-        help="Type of version bump"
+        "bump_type", choices=["major", "minor", "patch"], help="Type of version bump"
     )
-    parser.add_argument(
-        "--message",
-        "-m",
-        help="Release message for CHANGELOG"
-    )
+    parser.add_argument("--message", "-m", help="Release message for CHANGELOG")
 
     args = parser.parse_args()
 
@@ -148,11 +136,13 @@ def main() -> int:
         update_changelog(project_root, new_version, args.message)
 
         print(f"\n✓ Version bumped from {old_version} to {new_version}")
-        print(f"\nNext steps:")
-        print(f"  1. Review changes: git diff")
-        print(f"  2. Commit changes: git add -A && git commit -m 'chore: bump version to {new_version}'")
+        print("\nNext steps:")
+        print("  1. Review changes: git diff")
+        print(
+            f"  2. Commit changes: git add -A && git commit -m 'chore: bump version to {new_version}'"
+        )
         print(f"  3. Create tag: git tag v{new_version}")
-        print(f"  4. Push changes: git push && git push --tags")
+        print("  4. Push changes: git push && git push --tags")
 
         return 0
 

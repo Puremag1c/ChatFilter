@@ -2,6 +2,12 @@
 <div class="alert alert-error">
     {{ error }}
 </div>
+{% elif not entries %}
+<div class="empty-state">
+    <div class="empty-state-icon">📋</div>
+    <h3>No Chat Entries</h3>
+    <p>The imported file didn't contain any valid chat entries. Make sure you're uploading a Telegram chat list in the correct format.</p>
+</div>
 {% else %}
 <div class="entry-actions">
     <button type="button" id="select-all" class="btn btn-secondary btn-sm">Select All</button>

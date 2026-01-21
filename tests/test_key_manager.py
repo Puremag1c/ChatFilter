@@ -1,8 +1,7 @@
 """Tests for secure encryption key management."""
 
 import os
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from cryptography.fernet import Fernet
@@ -238,7 +237,7 @@ class TestKeyManager:
     def test_create_auto_tries_environment_first(self):
         """Test that auto mode tries environment variables."""
         test_key = Fernet.generate_key()
-        os.environ["CHATFILTER_ENCRYPTION_KEY_0"] = test_key.decode('ascii')
+        os.environ["CHATFILTER_ENCRYPTION_KEY_0"] = test_key.decode("ascii")
         try:
             km = KeyManager.create(backend_type="auto")
             key = km.get_key(0)
@@ -375,7 +374,7 @@ class TestKeyManagerIntegration:
 
         # Set up environment key
         key = Fernet.generate_key()
-        os.environ["CHATFILTER_ENCRYPTION_KEY_0"] = key.decode('ascii')
+        os.environ["CHATFILTER_ENCRYPTION_KEY_0"] = key.decode("ascii")
 
         try:
             km = KeyManager.create(backend_type="environment")
@@ -437,7 +436,7 @@ class TestKeyManagerIntegration:
 
         # Encrypt with environment backend
         key = Fernet.generate_key()
-        os.environ["CHATFILTER_ENCRYPTION_KEY_0"] = key.decode('ascii')
+        os.environ["CHATFILTER_ENCRYPTION_KEY_0"] = key.decode("ascii")
 
         try:
             km1 = KeyManager.create(backend_type="environment")

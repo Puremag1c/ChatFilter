@@ -249,7 +249,7 @@ async def _generate_sse_events(
 
                 yield f"event: progress\ndata: {json.dumps(event_data)}\n\n"
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send heartbeat to keep connection alive
                 yield ": heartbeat\n\n"
 
@@ -469,7 +469,9 @@ async def cancel_analysis(task_id: str) -> dict:
 
 
 @router.post("/{task_id}/force-cancel")
-async def force_cancel_analysis(task_id: str, reason: str = "User-requested forced cancellation") -> dict:
+async def force_cancel_analysis(
+    task_id: str, reason: str = "User-requested forced cancellation"
+) -> dict:
     """Forcefully cancel a running analysis task immediately.
 
     This is more aggressive than regular cancel - it immediately cancels

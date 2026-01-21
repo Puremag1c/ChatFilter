@@ -84,9 +84,15 @@ class TestComputeMetrics:
 
         # Simulate channel where all messages use chat_id as author_id (anonymous)
         messages = [
-            Message.fake(id=1, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=3)),
-            Message.fake(id=2, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=2)),
-            Message.fake(id=3, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=1)),
+            Message.fake(
+                id=1, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=3)
+            ),
+            Message.fake(
+                id=2, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=2)
+            ),
+            Message.fake(
+                id=3, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=1)
+            ),
         ]
 
         result = compute_metrics(messages)
@@ -101,12 +107,18 @@ class TestComputeMetrics:
 
         messages = [
             # Anonymous messages (use chat_id as author)
-            Message.fake(id=1, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=5)),
-            Message.fake(id=2, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=4)),
+            Message.fake(
+                id=1, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=5)
+            ),
+            Message.fake(
+                id=2, chat_id=chat_id, author_id=chat_id, timestamp=now - timedelta(hours=4)
+            ),
             # Regular users
             Message.fake(id=3, chat_id=chat_id, author_id=100, timestamp=now - timedelta(hours=3)),
             Message.fake(id=4, chat_id=chat_id, author_id=200, timestamp=now - timedelta(hours=2)),
-            Message.fake(id=5, chat_id=chat_id, author_id=100, timestamp=now - timedelta(hours=1)),  # Duplicate
+            Message.fake(
+                id=5, chat_id=chat_id, author_id=100, timestamp=now - timedelta(hours=1)
+            ),  # Duplicate
         ]
 
         result = compute_metrics(messages)
@@ -249,8 +261,7 @@ class TestMessagesPerHour:
         now = datetime.now(UTC)
         # 6 messages over 2 hours = 3 messages/hour
         messages = [
-            Message.fake(id=i, timestamp=now - timedelta(hours=2 - i * 0.4))
-            for i in range(6)
+            Message.fake(id=i, timestamp=now - timedelta(hours=2 - i * 0.4)) for i in range(6)
         ]
 
         result = compute_metrics(messages)
@@ -267,10 +278,7 @@ class TestEdgeCases:
         """Test that messages with identical timestamps are handled correctly."""
         now = datetime.now(UTC)
         # All messages at the exact same timestamp
-        messages = [
-            Message.fake(id=i, author_id=100 + i, timestamp=now)
-            for i in range(5)
-        ]
+        messages = [Message.fake(id=i, author_id=100 + i, timestamp=now) for i in range(5)]
 
         result = compute_metrics(messages)
 
@@ -416,10 +424,7 @@ class TestEdgeCases:
     def test_single_author_with_zero_time_span(self) -> None:
         """Test multiple messages from one author at exact same time."""
         now = datetime.now(UTC)
-        messages = [
-            Message.fake(id=i, author_id=42, timestamp=now)
-            for i in range(10)
-        ]
+        messages = [Message.fake(id=i, author_id=42, timestamp=now) for i in range(10)]
 
         result = compute_metrics(messages)
 
@@ -475,7 +480,9 @@ class TestStreamingMetricsAggregator:
         # Second batch
         batch2 = [
             Message.fake(id=3, author_id=300, timestamp=now - timedelta(hours=3)),
-            Message.fake(id=4, author_id=100, timestamp=now - timedelta(hours=2)),  # Duplicate author
+            Message.fake(
+                id=4, author_id=100, timestamp=now - timedelta(hours=2)
+            ),  # Duplicate author
         ]
         aggregator.add_batch(batch2)
 
@@ -499,7 +506,9 @@ class TestStreamingMetricsAggregator:
         aggregator = StreamingMetricsAggregator()
         now = datetime.now(UTC)
 
-        aggregator.add_message(Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=1)))
+        aggregator.add_message(
+            Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=1))
+        )
         aggregator.add_message(Message.fake(id=2, author_id=200, timestamp=now))
 
         result = aggregator.get_metrics()
@@ -607,7 +616,9 @@ class TestStreamingMetricsAggregator:
 
         # Create test messages
         messages = [
-            Message.fake(id=i, author_id=(i % 10) + 1, timestamp=now - timedelta(hours=20 - i * 0.5))
+            Message.fake(
+                id=i, author_id=(i % 10) + 1, timestamp=now - timedelta(hours=20 - i * 0.5)
+            )
             for i in range(40)
         ]
 
@@ -625,7 +636,9 @@ class TestStreamingMetricsAggregator:
         # Results should match
         assert streaming_result.message_count == standard_result.message_count
         assert streaming_result.unique_authors == standard_result.unique_authors
-        assert streaming_result.history_hours == pytest.approx(standard_result.history_hours, rel=0.001)
+        assert streaming_result.history_hours == pytest.approx(
+            standard_result.history_hours, rel=0.001
+        )
         assert streaming_result.first_message_at == standard_result.first_message_at
         assert streaming_result.last_message_at == standard_result.last_message_at
 
@@ -660,7 +673,9 @@ class TestStreamingMetricsAggregator:
 
         # Add second batch
         batch2 = [
-            Message.fake(id=2, author_id=100, timestamp=now - timedelta(minutes=30)),  # Duplicate author
+            Message.fake(
+                id=2, author_id=100, timestamp=now - timedelta(minutes=30)
+            ),  # Duplicate author
             Message.fake(id=3, author_id=200, timestamp=now),  # New author
         ]
         aggregator.add_batch(batch2)

@@ -27,6 +27,7 @@ class Chat(BaseModel):
         chat_type: Type of chat (private, group, channel, etc.).
         username: Optional public username (@username).
         member_count: Number of members (if available).
+        is_archived: Whether the chat is archived (in folder 1).
 
     Example:
         >>> chat = Chat(id=123, title="Test Chat", chat_type=ChatType.GROUP)
@@ -45,6 +46,7 @@ class Chat(BaseModel):
     chat_type: ChatType
     username: str | None = None
     member_count: int | None = None
+    is_archived: bool = False
 
     @field_validator("id")
     @classmethod
@@ -70,6 +72,7 @@ class Chat(BaseModel):
         chat_type: ChatType | None = None,
         username: str | None = None,
         member_count: int | None = None,
+        is_archived: bool = False,
     ) -> Chat:
         """Create a fake Chat for testing.
 
@@ -79,6 +82,7 @@ class Chat(BaseModel):
             chat_type: Chat type (default: GROUP).
             username: Optional username.
             member_count: Optional member count.
+            is_archived: Whether the chat is archived (default: False).
 
         Returns:
             Chat instance with test data.
@@ -94,4 +98,5 @@ class Chat(BaseModel):
             chat_type=chat_type if chat_type is not None else ChatType.GROUP,
             username=username,
             member_count=member_count,
+            is_archived=is_archived,
         )

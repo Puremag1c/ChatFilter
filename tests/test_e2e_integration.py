@@ -6,13 +6,10 @@ components work together correctly.
 
 from __future__ import annotations
 
-import json
-import sqlite3
 from datetime import UTC, datetime, timedelta
-from io import BytesIO
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -63,20 +60,21 @@ def mock_telegram_data() -> dict[str, Any]:
     for i in range(3):
         dialog = MagicMock()
         dialog.id = 1000 + i
-        dialog.name = f"Test Chat {i+1}"
-        dialog.title = f"Test Chat {i+1}"
+        dialog.name = f"Test Chat {i + 1}"
+        dialog.title = f"Test Chat {i + 1}"
 
         entity = MagicMock()
         entity.id = 1000 + i
-        entity.username = f"testchat{i+1}"
+        entity.username = f"testchat{i + 1}"
         entity.participants_count = 100 + i * 50
 
         # Create Channel entity
         from telethon.tl.types import Channel
+
         entity.__class__ = Channel
         entity.megagroup = True
         entity.forum = False
-        entity.title = f"Test Chat {i+1}"
+        entity.title = f"Test Chat {i + 1}"
 
         dialog.entity = entity
         dialogs.append(dialog)
@@ -89,10 +87,10 @@ def mock_telegram_data() -> dict[str, Any]:
         for j in range(10):  # 10 messages per chat
             msg = MagicMock()
             msg.id = j + 1
-            msg.message = f"Test message {j+1} in chat {chat_id}"
+            msg.message = f"Test message {j + 1} in chat {chat_id}"
             msg.sender_id = 2000 + (j % 3)  # 3 different authors
             msg.from_id = None
-            msg.date = now - timedelta(hours=10-j)
+            msg.date = now - timedelta(hours=10 - j)
             msg.media = None
             messages.append(msg)
         messages_by_chat[chat_id] = messages
@@ -134,6 +132,7 @@ def mock_telegram_client(mock_telegram_data: dict[str, Any]) -> MagicMock:
             messages = mock_telegram_data["messages_by_chat"].get(chat_id, [])
             for msg in messages:
                 yield msg
+
         return _iter()
 
     client.iter_messages = mock_iter_messages
@@ -167,9 +166,9 @@ class TestE2EIntegration:
             result = AnalysisResult(
                 chat=Chat(
                     id=1000 + i,
-                    title=f"Test Chat {i+1}",
+                    title=f"Test Chat {i + 1}",
                     chat_type=ChatType.SUPERGROUP,
-                    username=f"testchat{i+1}",
+                    username=f"testchat{i + 1}",
                 ),
                 metrics=ChatMetrics(
                     message_count=10,
@@ -193,8 +192,12 @@ class TestE2EIntegration:
                     "message_count": r.metrics.message_count,
                     "unique_authors": r.metrics.unique_authors,
                     "history_hours": r.metrics.history_hours,
-                    "first_message_at": r.metrics.first_message_at.isoformat() if r.metrics.first_message_at else None,
-                    "last_message_at": r.metrics.last_message_at.isoformat() if r.metrics.last_message_at else None,
+                    "first_message_at": r.metrics.first_message_at.isoformat()
+                    if r.metrics.first_message_at
+                    else None,
+                    "last_message_at": r.metrics.last_message_at.isoformat()
+                    if r.metrics.last_message_at
+                    else None,
                     "analyzed_at": r.analyzed_at.isoformat(),
                 }
                 for r in mock_results
@@ -254,7 +257,11 @@ class TestE2EIntegration:
         assert response.status_code == 200  # HTMX returns 200 with error HTML
         html_content = response.text
         # Should contain error message in the HTML
-        assert "error" in html_content.lower() or "invalid" in html_content.lower() or "not a valid" in html_content.lower()
+        assert (
+            "error" in html_content.lower()
+            or "invalid" in html_content.lower()
+            or "not a valid" in html_content.lower()
+        )
 
     def test_export_csv_with_empty_results(
         self,
@@ -353,5 +360,5 @@ class TestE2EIntegration:
         # Verify all key data is preserved
         assert "Test Chat" in csv_content
         assert "100" in csv_content  # message_count
-        assert "10" in csv_content   # unique_authors
+        assert "10" in csv_content  # unique_authors
         assert "24.5" in csv_content or "24.50" in csv_content  # history_hours

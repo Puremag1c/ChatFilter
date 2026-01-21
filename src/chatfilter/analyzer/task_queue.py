@@ -506,9 +506,8 @@ class TaskQueue:
         Called at the start of task execution to start the monitor
         if it wasn't started during __init__ (no event loop at that time).
         """
-        if (
-            self._progress_stall_timeout_seconds > 0
-            and (self._monitor_task is None or self._monitor_task.done())
+        if self._progress_stall_timeout_seconds > 0 and (
+            self._monitor_task is None or self._monitor_task.done()
         ):
             try:
                 self._monitor_task = asyncio.create_task(self._monitor_stalled_tasks())
@@ -653,7 +652,7 @@ class TaskQueue:
                 )
             else:
                 await self._run_task_impl(task_id, executor)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Task exceeded time limit
             task = self._tasks.get(task_id)
             if task:
@@ -837,7 +836,7 @@ class TaskQueue:
                     if self._memory_monitor:
                         self._memory_monitor.check()
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Per-chat timeout exceeded
                     logger.warning(
                         f"Chat {chat_id} ({chat_title}) analysis timed out "
@@ -960,7 +959,9 @@ class TaskQueue:
             # or TaskDatabase.load_all_tasks()
 
         if to_remove:
-            logger.info(f"Cleared {len(to_remove)} completed tasks from memory (preserved in database)")
+            logger.info(
+                f"Cleared {len(to_remove)} completed tasks from memory (preserved in database)"
+            )
 
         return len(to_remove)
 

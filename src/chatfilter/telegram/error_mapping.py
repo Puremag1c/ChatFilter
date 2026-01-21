@@ -21,7 +21,6 @@ Example:
 from __future__ import annotations
 
 import re
-from typing import Any
 
 
 def _format_duration(seconds: int) -> str:
@@ -165,8 +164,12 @@ def get_user_friendly_message(error: Exception) -> str:
         wait_time = _extract_wait_time(error)
         if wait_time:
             duration_str = _format_duration(wait_time)
-            return f"Slow mode is enabled. Please wait {duration_str} before sending another message."
-        return ERROR_MESSAGES.get(error_class, "Slow mode is enabled. Please wait before sending another message.")
+            return (
+                f"Slow mode is enabled. Please wait {duration_str} before sending another message."
+            )
+        return ERROR_MESSAGES.get(
+            error_class, "Slow mode is enabled. Please wait before sending another message."
+        )
 
     # Look up in mapping
     if error_class in ERROR_MESSAGES:
@@ -185,7 +188,9 @@ def get_user_friendly_message(error: Exception) -> str:
             return f"Rate limit exceeded. Please wait {duration_str} before trying again."
         return "Rate limit exceeded. Please wait before trying again."
 
-    if "session" in error_msg.lower() and ("expired" in error_msg.lower() or "revoked" in error_msg.lower()):
+    if "session" in error_msg.lower() and (
+        "expired" in error_msg.lower() or "revoked" in error_msg.lower()
+    ):
         return "Your session has expired. Please log in again with a new session file."
 
     if "banned" in error_msg.lower() or "kicked" in error_msg.lower():
@@ -200,7 +205,9 @@ def get_user_friendly_message(error: Exception) -> str:
     if "network" in error_msg.lower() or "connection" in error_msg.lower():
         return "Network connection error. Please check your internet connection and try again."
 
-    if "invalid" in error_msg.lower() and ("username" in error_msg.lower() or "peer" in error_msg.lower()):
+    if "invalid" in error_msg.lower() and (
+        "username" in error_msg.lower() or "peer" in error_msg.lower()
+    ):
         return "Chat or user not found. Please verify the information is correct."
 
     # Default fallback for unknown errors

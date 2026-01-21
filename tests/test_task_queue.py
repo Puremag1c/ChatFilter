@@ -9,8 +9,6 @@ from uuid import UUID
 import pytest
 
 from chatfilter.analyzer.task_queue import (
-    AnalysisExecutor,
-    AnalysisTask,
     ProgressEvent,
     TaskQueue,
     TaskStatus,
@@ -273,9 +271,7 @@ class TestTaskQueue:
         assert found is not None
         assert found.task_id == task.task_id
 
-    def test_find_active_task_no_match_different_session(
-        self, task_queue: TaskQueue
-    ) -> None:
+    def test_find_active_task_no_match_different_session(self, task_queue: TaskQueue) -> None:
         """Test that different session_id doesn't match."""
         task_queue.create_task("session1", [1, 2, 3])
 
@@ -284,9 +280,7 @@ class TestTaskQueue:
 
         assert found is None
 
-    def test_find_active_task_no_match_different_chats(
-        self, task_queue: TaskQueue
-    ) -> None:
+    def test_find_active_task_no_match_different_chats(self, task_queue: TaskQueue) -> None:
         """Test that different chat_ids don't match."""
         task_queue.create_task("session1", [1, 2, 3])
 
@@ -295,9 +289,7 @@ class TestTaskQueue:
 
         assert found is None
 
-    def test_find_active_task_no_match_different_limit(
-        self, task_queue: TaskQueue
-    ) -> None:
+    def test_find_active_task_no_match_different_limit(self, task_queue: TaskQueue) -> None:
         """Test that different message_limit doesn't match."""
         task_queue.create_task("session1", [1, 2, 3], message_limit=500)
 
@@ -374,7 +366,9 @@ class TestTaskQueue:
 
         # First chat is fast, second is slow
         class SlowOnSecondExecutor(MockExecutor):
-            async def analyze_chat(self, session_id: str, chat_id: int, message_limit: int = 1000) -> AnalysisResult:
+            async def analyze_chat(
+                self, session_id: str, chat_id: int, message_limit: int = 1000
+            ) -> AnalysisResult:
                 if chat_id == 2:
                     await asyncio.sleep(0.5)  # Exceeds timeout
                 return await super().analyze_chat(session_id, chat_id, message_limit)
@@ -404,7 +398,9 @@ class TestTaskQueue:
 
         # Create executor that hangs on second chat
         class HangingExecutor(MockExecutor):
-            async def analyze_chat(self, session_id: str, chat_id: int, message_limit: int = 1000) -> AnalysisResult:
+            async def analyze_chat(
+                self, session_id: str, chat_id: int, message_limit: int = 1000
+            ) -> AnalysisResult:
                 if chat_id == 2:
                     # Hang indefinitely (will be killed by stall monitor)
                     await asyncio.sleep(10)

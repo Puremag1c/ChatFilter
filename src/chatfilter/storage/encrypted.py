@@ -239,17 +239,13 @@ class EncryptedStorage(StorageDecorator):
 
         # Parse header
         try:
-            magic, version, key_id = struct.unpack(
-                "!4sHH", encrypted_content[:HEADER_SIZE]
-            )
+            magic, version, key_id = struct.unpack("!4sHH", encrypted_content[:HEADER_SIZE])
         except struct.error as e:
             raise StorageCorruptedError(f"Invalid file header: {e}") from e
 
         # Verify magic
         if magic != MAGIC:
-            raise StorageCorruptedError(
-                f"Invalid file format (expected {MAGIC!r}, got {magic!r})"
-            )
+            raise StorageCorruptedError(f"Invalid file format (expected {MAGIC!r}, got {magic!r})")
 
         # Check version
         if version != FORMAT_VERSION:

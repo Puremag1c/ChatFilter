@@ -24,7 +24,7 @@ from chatfilter.telegram.session_manager import SessionManager
 from chatfilter.utils.memory import MemoryMonitor, MemoryTracker, log_memory_usage
 
 if TYPE_CHECKING:
-    from telethon import TelegramClient
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +93,7 @@ class ChatAnalysisService:
         config_path = session_dir / "config.json"
 
         if not session_path.exists() or not config_path.exists():
-            raise SessionNotFoundError(
-                f"Session '{session_id}' is incomplete (missing files)"
-            )
+            raise SessionNotFoundError(f"Session '{session_id}' is incomplete (missing files)")
 
         return session_path, config_path
 
@@ -398,9 +396,7 @@ class ChatAnalysisService:
             self._chat_cache.clear()
             self._loaders.clear()
 
-            logger.info(
-                f"Cleared all caches: {chat_count} chats, {loader_count} loaders"
-            )
+            logger.info(f"Cleared all caches: {chat_count} chats, {loader_count} loaders")
 
     def get_cache_stats(self) -> dict[str, int]:
         """Get statistics about cached data.

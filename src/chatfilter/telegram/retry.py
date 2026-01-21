@@ -6,8 +6,9 @@ import asyncio
 import logging
 import random
 import ssl
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, TypeVar, ParamSpec
+from typing import ParamSpec, TypeVar
 
 from telethon.errors import FloodWaitError
 
@@ -33,9 +34,7 @@ RETRYABLE_EXCEPTIONS = (
 )
 
 # Exceptions that should never be retried
-NON_RETRYABLE_EXCEPTIONS = (
-    asyncio.CancelledError,
-)
+NON_RETRYABLE_EXCEPTIONS = (asyncio.CancelledError,)
 
 
 def calculate_backoff_delay(
@@ -113,9 +112,7 @@ def with_retry(
                     return await func(*args, **kwargs)
                 except NON_RETRYABLE_EXCEPTIONS:
                     # Don't retry on CancelledError - propagate immediately
-                    logger.debug(
-                        f"{op_name}: CancelledError received, not retrying"
-                    )
+                    logger.debug(f"{op_name}: CancelledError received, not retrying")
                     raise
                 except FloodWaitError as e:
                     if not handle_flood_wait:
@@ -170,14 +167,10 @@ def with_retry(
                     is_final_attempt = attempt == max_attempts - 1
 
                     if is_final_attempt:
-                        logger.error(
-                            f"{op_name}: Failed after {max_attempts} attempts: {e}"
-                        )
+                        logger.error(f"{op_name}: Failed after {max_attempts} attempts: {e}")
                         raise
                     else:
-                        delay = calculate_backoff_delay(
-                            attempt, base_delay, max_delay, jitter
-                        )
+                        delay = calculate_backoff_delay(attempt, base_delay, max_delay, jitter)
                         logger.warning(
                             f"{op_name}: Attempt {attempt + 1}/{max_attempts} failed "
                             f"with {type(e).__name__}: {e}. Retrying in {delay:.2f}s..."

@@ -202,16 +202,13 @@ class SessionManager:
             session = self._sessions[session_id]
             if session.state == SessionState.CONNECTED:
                 raise SessionError(
-                    f"Cannot unregister connected session '{session_id}'. "
-                    "Disconnect first."
+                    f"Cannot unregister connected session '{session_id}'. Disconnect first."
                 )
             del self._sessions[session_id]
         self._factories.pop(session_id, None)
 
     @with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
-    async def _do_connect(
-        self, client: TelegramClient, session_id: str, timeout: float
-    ) -> None:
+    async def _do_connect(self, client: TelegramClient, session_id: str, timeout: float) -> None:
         """Execute connection with retry logic and timeout.
 
         This method wraps client.connect() with automatic retry on network errors.
@@ -228,11 +225,9 @@ class SessionManager:
         """
         try:
             await asyncio.wait_for(client.connect(), timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Convert asyncio.TimeoutError to TimeoutError for retry decorator
-            raise TimeoutError(
-                f"Connection timeout for session '{session_id}' after {timeout}s"
-            )
+            raise TimeoutError(f"Connection timeout for session '{session_id}' after {timeout}s")
 
     async def connect(self, session_id: str) -> TelegramClient:
         """Connect a session and return the client.
@@ -269,9 +264,7 @@ class SessionManager:
 
             try:
                 # Use retry-enabled connection helper
-                await self._do_connect(
-                    session.client, session_id, self._connect_timeout
-                )
+                await self._do_connect(session.client, session_id, self._connect_timeout)
                 session.state = SessionState.CONNECTED
                 session.connected_at = asyncio.get_event_loop().time()
                 session.last_activity = session.connected_at
@@ -281,9 +274,7 @@ class SessionManager:
             except TimeoutError as e:
                 session.state = SessionState.ERROR
                 session.error_message = "Connection timeout"
-                raise SessionTimeoutError(
-                    f"Connection timeout for session '{session_id}'"
-                ) from e
+                raise SessionTimeoutError(f"Connection timeout for session '{session_id}'") from e
             except (
                 errors.SessionRevokedError,
                 errors.AuthKeyUnregisteredError,
@@ -312,8 +303,7 @@ class SessionManager:
                     ) from e
                 else:
                     session.error_message = (
-                        f"Session is invalid ({error_type}). "
-                        "Please provide a new session file."
+                        f"Session is invalid ({error_type}). Please provide a new session file."
                     )
                     raise SessionInvalidError(
                         f"Session '{session_id}' is permanently invalid: {error_type}. "
@@ -330,8 +320,7 @@ class SessionManager:
                 error_type = type(e).__name__
                 if isinstance(e, errors.SessionPasswordNeededError):
                     session.error_message = (
-                        "Two-factor authentication (2FA) is enabled. "
-                        "Re-authorization required."
+                        "Two-factor authentication (2FA) is enabled. Re-authorization required."
                     )
                     raise SessionReauthRequiredError(
                         f"Session '{session_id}' requires 2FA password. "
@@ -340,9 +329,7 @@ class SessionManager:
                         "a new session file that includes 2FA authorization."
                     ) from e
                 else:
-                    session.error_message = (
-                        "Session has expired. Re-authorization required."
-                    )
+                    session.error_message = "Session has expired. Re-authorization required."
                     raise SessionReauthRequiredError(
                         f"Session '{session_id}' has expired: {error_type}. "
                         "Please re-authorize your Telegram account or provide "
@@ -351,9 +338,7 @@ class SessionManager:
             except Exception as e:
                 session.state = SessionState.ERROR
                 session.error_message = str(e)
-                raise SessionConnectError(
-                    f"Failed to connect session '{session_id}': {e}"
-                ) from e
+                raise SessionConnectError(f"Failed to connect session '{session_id}': {e}") from e
 
     async def disconnect(self, session_id: str) -> None:
         """Disconnect a session.
@@ -381,13 +366,9 @@ class SessionManager:
                     timeout=self._disconnect_timeout,
                 )
             except TimeoutError:
-                logger.warning(
-                    f"Disconnect timeout for session '{session_id}', forcing..."
-                )
+                logger.warning(f"Disconnect timeout for session '{session_id}', forcing...")
             except Exception as e:
-                logger.warning(
-                    f"Error during disconnect of session '{session_id}': {e}"
-                )
+                logger.warning(f"Error during disconnect of session '{session_id}': {e}")
 
             session.state = SessionState.DISCONNECTED
             session.connected_at = None
@@ -433,12 +414,9 @@ class SessionManager:
             error_type = type(e).__name__
             session.state = SessionState.ERROR
             session.error_message = (
-                f"Session is invalid ({error_type}). "
-                "Please provide a new session file."
+                f"Session is invalid ({error_type}). Please provide a new session file."
             )
-            logger.error(
-                f"Session '{session_id}' is permanently invalid: {error_type}"
-            )
+            logger.error(f"Session '{session_id}' is permanently invalid: {error_type}")
             return False
         except (
             errors.SessionPasswordNeededError,
@@ -448,16 +426,11 @@ class SessionManager:
             session.state = SessionState.ERROR
             if isinstance(e, errors.SessionPasswordNeededError):
                 session.error_message = (
-                    "Two-factor authentication (2FA) is enabled. "
-                    "Re-authorization required."
+                    "Two-factor authentication (2FA) is enabled. Re-authorization required."
                 )
             else:
-                session.error_message = (
-                    "Session has expired. Re-authorization required."
-                )
-            logger.error(
-                f"Session '{session_id}' requires re-authorization: {error_type}"
-            )
+                session.error_message = "Session has expired. Re-authorization required."
+            logger.error(f"Session '{session_id}' requires re-authorization: {error_type}")
             return False
         except Exception as e:
             logger.warning(f"Health check failed for session '{session_id}': {e}")
@@ -531,7 +504,7 @@ class SessionManager:
         self._monitor_stop_event.set()
         try:
             await asyncio.wait_for(self._monitor_task, timeout=5.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Connection monitor did not stop gracefully, cancelling...")
             self._monitor_task.cancel()
             try:
@@ -568,7 +541,7 @@ class SessionManager:
                     )
                     # Stop event was set
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Timeout is normal - time for next check
                     continue
 
@@ -629,7 +602,7 @@ class SessionManager:
                     )
                     await self._recover_zombie_connection(session_id)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Ping timed out
             session.consecutive_ping_failures += 1
             logger.warning(
@@ -675,9 +648,7 @@ class SessionManager:
     class _SessionContext:
         """Context manager for session access with automatic cleanup."""
 
-        def __init__(
-            self, manager: SessionManager, session_id: str, auto_disconnect: bool
-        ) -> None:
+        def __init__(self, manager: SessionManager, session_id: str, auto_disconnect: bool) -> None:
             self._manager = manager
             self._session_id = session_id
             self._auto_disconnect = auto_disconnect
@@ -696,9 +667,7 @@ class SessionManager:
             if self._auto_disconnect:
                 await self._manager.disconnect(self._session_id)
 
-    def session(
-        self, session_id: str, *, auto_disconnect: bool = True
-    ) -> _SessionContext:
+    def session(self, session_id: str, *, auto_disconnect: bool = True) -> _SessionContext:
         """Get a context manager for accessing a session.
 
         Args:
