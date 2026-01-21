@@ -112,9 +112,10 @@ async def health_check(request: Request) -> HealthResponse:
             session_manager = request.app.state.app_state.session_manager
             if session_manager:
                 sessions = session_manager.list_sessions()
-                connected_count = sum(
-                    1 for sid in sessions if await session_manager.is_healthy(sid)
-                )
+                connected_count = 0
+                for sid in sessions:
+                    if await session_manager.is_healthy(sid):
+                        connected_count += 1
                 telegram_status = TelegramStatus(
                     connected=connected_count > 0,
                     sessions_count=connected_count,
@@ -178,9 +179,10 @@ async def telegram_status(request: Request) -> TelegramStatus:
             session_manager = request.app.state.app_state.session_manager
             if session_manager:
                 sessions = session_manager.list_sessions()
-                connected_count = sum(
-                    1 for sid in sessions if await session_manager.is_healthy(sid)
-                )
+                connected_count = 0
+                for sid in sessions:
+                    if await session_manager.is_healthy(sid):
+                        connected_count += 1
                 return TelegramStatus(
                     connected=connected_count > 0,
                     sessions_count=connected_count,
