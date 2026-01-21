@@ -189,6 +189,108 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
+
+    /* Responsive improvements for results page */
+    @media (max-width: 768px) {
+        .results-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .summary-stat .value {
+            font-size: 1.5rem;
+        }
+
+        .summary-stat .label {
+            font-size: 0.8125rem;
+        }
+
+        .results-filters {
+            gap: 0.75rem;
+        }
+
+        .results-filters .form-group {
+            min-width: 100%;
+            max-width: 100%;
+        }
+
+        .filter-actions {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .filter-actions .btn {
+            width: 100%;
+        }
+
+        .results-table-container {
+            max-height: 500px;
+        }
+
+        .results-table {
+            font-size: 0.8125rem;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 0.625rem 0.75rem;
+        }
+
+        .chat-title-cell {
+            max-width: 200px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .results-summary {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+
+        .summary-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            text-align: left;
+        }
+
+        .summary-stat .value {
+            font-size: 1.5rem;
+            order: 2;
+        }
+
+        .summary-stat .label {
+            font-size: 0.875rem;
+            order: 1;
+        }
+
+        .results-table-container {
+            max-height: 400px;
+        }
+
+        .results-table {
+            font-size: 0.75rem;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 0.5rem;
+        }
+
+        .chat-title-cell {
+            max-width: 150px;
+        }
+
+        .chat-type,
+        .activity-badge {
+            font-size: 0.65rem;
+            padding: 0.125rem 0.375rem;
+        }
+    }
 </style>
 {% endblock %}
 
