@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 
 from chatfilter.service import ChatAnalysisService
 from chatfilter.service.chat_analysis import SessionNotFoundError
+from chatfilter.telegram.error_mapping import get_actionable_error_info
 from chatfilter.telegram.session_manager import (
     SessionInvalidError,
     SessionManager,
@@ -179,7 +180,7 @@ async def get_chats(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
-        )
+        ) from None
     except SessionInvalidError as e:
         logger.error(f"Invalid session '{session_id}': {e}")
         # Clean up the invalid session
@@ -191,9 +192,11 @@ async def get_chats(
                 "error": (
                     "Session is invalid and has been removed. "
                     "The session may have been revoked, logged out from another device, "
-                    "or the account may be banned or deactivated. "
-                    "Please upload a new session file from an active Telegram account."
+                    "or the account may be banned or deactivated."
                 ),
+                "error_action": "Upload a new session file from an active Telegram account",
+                "error_action_type": "reauth",
+                "error_can_retry": False,
                 "chats": [],
                 "session_id": session_id,
             },
@@ -204,15 +207,16 @@ async def get_chats(
         if "2FA" in error_msg or "password" in error_msg.lower():
             user_message = (
                 "Two-factor authentication (2FA) is required. "
-                "This session needs re-authorization with your 2FA password. "
-                "Please create a new session file using Telethon or Pyrogram, "
-                "and make sure to enter your 2FA password during the authentication process. "
-                "See the Upload page for detailed instructions."
+                "This session needs re-authorization with your 2FA password."
+            )
+            action_message = (
+                "Create a new session file using Telethon or Pyrogram and enter your 2FA password "
+                "during authentication. See the Upload page for instructions."
             )
         else:
-            user_message = (
-                "Session has expired and requires re-authorization. "
-                "Please create and upload a new session file from your Telegram account. "
+            user_message = "Session has expired and requires re-authorization."
+            action_message = (
+                "Create and upload a new session file from your Telegram account. "
                 "See the Upload page for step-by-step instructions."
             )
         return templates.TemplateResponse(
@@ -220,18 +224,48 @@ async def get_chats(
             {
                 "request": request,
                 "error": user_message,
+                "error_action": action_message,
+                "error_action_type": "reauth",
+                "error_can_retry": False,
                 "chats": [],
                 "session_id": session_id,
             },
         )
-    except Exception:
+    except Exception as e:
         logger.exception(f"Failed to fetch chats from session '{session_id}'")
-        return templates.TemplateResponse(
-            "partials/chat_list.html",
-            {
-                "request": request,
-                "error": "Failed to connect to Telegram. Please check your session and try again.",
-                "chats": [],
-                "session_id": session_id,
-            },
-        )
+
+        # Try to extract actionable error info if it's a Telegram error
+        error_info = None
+        try:
+            # Check if it's a Telethon error by checking for common Telethon error attributes
+            if hasattr(e, "__class__") and e.__class__.__module__.startswith("telethon"):
+                error_info = get_actionable_error_info(e)
+        except Exception:
+            pass  # Fallback to generic error
+
+        if error_info:
+            return templates.TemplateResponse(
+                "partials/chat_list.html",
+                {
+                    "request": request,
+                    "error": error_info["message"],
+                    "error_action": error_info["action"],
+                    "error_action_type": error_info["action_type"],
+                    "error_can_retry": error_info["can_retry"],
+                    "chats": [],
+                    "session_id": session_id,
+                },
+            )
+        else:
+            return templates.TemplateResponse(
+                "partials/chat_list.html",
+                {
+                    "request": request,
+                    "error": "Failed to connect to Telegram. Please check your session.",
+                    "error_action": "Verify your session file is valid or try uploading a new one",
+                    "error_action_type": "retry",
+                    "error_can_retry": True,
+                    "chats": [],
+                    "session_id": session_id,
+                },
+            )

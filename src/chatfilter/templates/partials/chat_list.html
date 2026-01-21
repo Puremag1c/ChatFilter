@@ -1,7 +1,14 @@
 {% if error %}
 <div class="alert alert-error">
-    <div>{{ error }}</div>
+    <div><strong>{{ error }}</strong></div>
+    {% if error_action %}
+    <div style="margin-top: 0.5rem; padding-left: 1rem; border-left: 3px solid rgba(255,255,255,0.3);">
+        <div style="font-weight: 500; margin-bottom: 0.25rem;">What to do:</div>
+        <div>{{ error_action }}</div>
+    </div>
+    {% endif %}
     <div style="margin-top: 0.75rem;">
+        {% if error_action_type == 'retry' or error_can_retry %}
         <button type="button"
                 class="btn btn-sm btn-primary"
                 hx-get="/api/chats?session-select={{ session_id }}"
@@ -9,8 +16,14 @@
                 hx-swap="innerHTML"
                 data-tooltip="Try loading chats again"
                 data-tooltip-position="bottom">
-            Retry Loading Chats
+            Retry
         </button>
+        {% endif %}
+        {% if error_action_type == 'reauth' %}
+        <a href="/sessions" class="btn btn-sm btn-primary">
+            Go to Sessions Page
+        </a>
+        {% endif %}
     </div>
 </div>
 {% elif chats %}

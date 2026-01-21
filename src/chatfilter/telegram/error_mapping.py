@@ -21,6 +21,15 @@ Example:
 from __future__ import annotations
 
 import re
+from typing import TypedDict
+
+
+class ActionInfo(TypedDict):
+    """Structure for error action information."""
+
+    action: str
+    action_type: str
+    can_retry: bool
 
 
 def _format_duration(seconds: int) -> str:
@@ -136,6 +145,374 @@ ERROR_MESSAGES = {
     "UserAlreadyParticipantError": "You are already a member of this chat.",
     "BotMethodInvalidError": "This action cannot be performed by bots.",
 }
+
+
+# Action guidance for each error type
+# Maps error types to structured action recommendations
+ERROR_ACTIONS: dict[str, ActionInfo] = {
+    # Authentication & Session Errors
+    "SessionExpiredError": {
+        "action": "Upload a new session file from your Sessions page",
+        "action_type": "reauth",
+        "can_retry": False,
+    },
+    "AuthKeyUnregisteredError": {
+        "action": "Upload a new session file from your Sessions page",
+        "action_type": "reauth",
+        "can_retry": False,
+    },
+    "SessionRevokedError": {
+        "action": "Upload a new session file from your Sessions page",
+        "action_type": "reauth",
+        "can_retry": False,
+    },
+    "AuthKeyDuplicatedError": {
+        "action": "Upload a different session file that isn't being used elsewhere",
+        "action_type": "reauth",
+        "can_retry": False,
+    },
+    "UnauthorizedError": {
+        "action": "Verify your session file is valid or upload a new one",
+        "action_type": "reauth",
+        "can_retry": False,
+    },
+    "UserDeactivatedError": {
+        "action": "Contact Telegram support to reactivate your account",
+        "action_type": "contact_support",
+        "can_retry": False,
+    },
+    "UserDeactivatedBanError": {
+        "action": "Contact Telegram support to appeal your ban",
+        "action_type": "contact_support",
+        "can_retry": False,
+    },
+    # Access Denied Errors
+    "ChatForbiddenError": {
+        "action": "Try a different chat or check your Telegram app to verify membership",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "ChannelPrivateError": {
+        "action": "Request an invite link from the channel admin or try a different chat",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "ChatRestrictedError": {
+        "action": "Contact the chat administrator or try a different chat",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "ChannelBannedError": {
+        "action": "Contact the channel admin to appeal or select a different channel",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "UserBannedInChannelError": {
+        "action": "Contact the chat admin to appeal or select a different chat",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "ChatAdminRequiredError": {
+        "action": "Request admin privileges or perform this action as an admin",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "ChatWriteForbiddenError": {
+        "action": "Request write permissions from chat admin or skip this chat",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    # Rate Limiting
+    "SlowModeWaitError": {
+        "action": "Wait for the specified duration before trying again",
+        "action_type": "wait",
+        "can_retry": True,
+    },
+    # Network & Connection Errors
+    "NetworkError": {
+        "action": "Check your internet connection and click 'Retry'",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "TimeoutError": {
+        "action": "Check your connection speed and click 'Retry'",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "ConnectionError": {
+        "action": "Verify your internet connection is stable and click 'Retry'",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    # DC Migration Errors
+    "FileMigrateError": {
+        "action": "Click 'Retry' - this should resolve automatically",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "NetworkMigrateError": {
+        "action": "Wait a moment and click 'Retry'",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "PhoneMigrateError": {
+        "action": "Click 'Retry' - migration will complete automatically",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "UserMigrateError": {
+        "action": "Click 'Retry' - migration will complete automatically",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "StatsMigrateError": {
+        "action": "Click 'Retry' - migration will complete automatically",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    # RPC & Server Errors
+    "RpcCallFailError": {
+        "action": "Wait a moment and click 'Retry'",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "ServerError": {
+        "action": "Wait a few moments and click 'Retry'",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    # Invalid Input Errors
+    "UsernameInvalidError": {
+        "action": "Verify the username format is correct (e.g., @username)",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "UsernameNotOccupiedError": {
+        "action": "Double-check the username spelling or try a different username",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "InviteHashInvalidError": {
+        "action": "Request a new invite link or verify the link is correct",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "InviteHashExpiredError": {
+        "action": "Request a new invite link from the chat admin",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "PeerIdInvalidError": {
+        "action": "Verify the chat ID or try accessing the chat by username instead",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "ChatIdInvalidError": {
+        "action": "Check the chat ID is correct or try accessing by username",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "MessageIdInvalidError": {
+        "action": "The message may have been deleted - try refreshing the chat",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    # File & Media Errors
+    "FilePartsInvalidError": {
+        "action": "Re-upload the file or try a different file",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    "FileReferenceExpiredError": {
+        "action": "Click 'Retry' to refresh the file reference",
+        "action_type": "retry",
+        "can_retry": True,
+    },
+    # Phone & 2FA Errors
+    "PhoneNumberInvalidError": {
+        "action": "Verify phone number format includes country code (e.g., +1234567890)",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "PhoneCodeInvalidError": {
+        "action": "Check the verification code from Telegram and try again",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "PhoneCodeExpiredError": {
+        "action": "Request a new verification code and try again",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "PasswordHashInvalidError": {
+        "action": "Verify your two-factor authentication password and try again",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    "SessionPasswordNeededError": {
+        "action": "Provide your two-factor authentication password to continue",
+        "action_type": "check_input",
+        "can_retry": False,
+    },
+    # Other Common Errors
+    "ChatNotModifiedError": {
+        "action": "No action needed - the data is already up to date",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "MessageNotModifiedError": {
+        "action": "No action needed - the message content is unchanged",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "UserAlreadyParticipantError": {
+        "action": "No action needed - you are already a member",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+    "BotMethodInvalidError": {
+        "action": "This operation is not available for bot accounts",
+        "action_type": "skip",
+        "can_retry": False,
+    },
+}
+
+
+def get_actionable_error_info(error: Exception) -> dict[str, str | bool | int | None]:
+    """Get comprehensive error information with actionable guidance.
+
+    Returns structured error information that tells users both WHAT happened
+    and WHAT TO DO about it.
+
+    Args:
+        error: Exception from Telegram API (Telethon errors)
+
+    Returns:
+        Dictionary with:
+            - message: User-friendly error message
+            - action: Specific action user should take
+            - action_type: Category of action (retry, reauth, check_input, skip, wait, contact_support)
+            - can_retry: Whether retrying might resolve the error
+            - wait_duration: Seconds to wait (for rate limits), None otherwise
+
+    Examples:
+        >>> from telethon.errors import FloodWaitError
+        >>> err = FloodWaitError(request=None, capture=300)
+        >>> info = get_actionable_error_info(err)
+        >>> info['message']
+        'Rate limit exceeded. Please wait 5 minutes before trying again.'
+        >>> info['action']
+        'Wait 5 minutes and then click 'Retry''
+        >>> info['action_type']
+        'wait'
+        >>> info['can_retry']
+        True
+        >>> info['wait_duration']
+        300
+
+        >>> from telethon.errors import SessionExpiredError
+        >>> err = SessionExpiredError(request=None)
+        >>> info = get_actionable_error_info(err)
+        >>> info['action']
+        'Upload a new session file from your Sessions page'
+        >>> info['action_type']
+        'reauth'
+        >>> info['can_retry']
+        False
+    """
+    error_class = type(error).__name__
+    wait_duration = None
+
+    # Special handling for FloodWaitError (includes wait time)
+    if error_class == "FloodWaitError":
+        wait_duration = _extract_wait_time(error)
+        if wait_duration:
+            duration_str = _format_duration(wait_duration)
+            message = f"Rate limit exceeded. Please wait {duration_str} before trying again."
+            action = f"Wait {duration_str} and then click 'Retry'"
+        else:
+            message = "Rate limit exceeded. Please wait before trying again."
+            action = "Wait a few minutes and then click 'Retry'"
+
+        return {
+            "message": message,
+            "action": action,
+            "action_type": "wait",
+            "can_retry": True,
+            "wait_duration": wait_duration,
+        }
+
+    # Special handling for SlowModeWaitError (includes wait time)
+    if error_class == "SlowModeWaitError":
+        wait_duration = _extract_wait_time(error)
+        if wait_duration:
+            duration_str = _format_duration(wait_duration)
+            message = (
+                f"Slow mode is enabled. Please wait {duration_str} before sending another message."
+            )
+            action = f"Wait {duration_str} before trying again"
+        else:
+            message = ERROR_MESSAGES.get(
+                error_class, "Slow mode is enabled. Please wait before sending another message."
+            )
+            action = "Wait for the slow mode cooldown before trying again"
+
+        return {
+            "message": message,
+            "action": action,
+            "action_type": "wait",
+            "can_retry": True,
+            "wait_duration": wait_duration,
+        }
+
+    # Get message from mapping or use fallback
+    message = get_user_friendly_message(error)
+
+    # Get action guidance if available
+    action_info = ERROR_ACTIONS.get(error_class)
+    if action_info:
+        return {
+            "message": message,
+            "action": action_info["action"],
+            "action_type": action_info["action_type"],
+            "can_retry": action_info["can_retry"],
+            "wait_duration": wait_duration,
+        }
+
+    # Fallback action guidance based on error category
+    category = get_error_category(error)
+    if category == "network":
+        action = "Check your internet connection and click 'Retry'"
+        action_type = "retry"
+        can_retry = True
+    elif category == "auth":
+        action = "Upload a new session file from your Sessions page"
+        action_type = "reauth"
+        can_retry = False
+    elif category == "access":
+        action = "Try a different chat or verify your access permissions"
+        action_type = "skip"
+        can_retry = False
+    elif category == "invalid_input":
+        action = "Check your input and try again with correct information"
+        action_type = "check_input"
+        can_retry = False
+    elif category == "rate_limit":
+        action = "Wait a few minutes and click 'Retry'"
+        action_type = "wait"
+        can_retry = True
+    else:
+        action = "Try again or contact support if the issue persists"
+        action_type = "retry"
+        can_retry = True
+
+    return {
+        "message": message,
+        "action": action,
+        "action_type": action_type,
+        "can_retry": can_retry,
+        "wait_duration": wait_duration,
+    }
 
 
 def get_user_friendly_message(error: Exception) -> str:

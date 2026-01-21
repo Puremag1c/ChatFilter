@@ -118,20 +118,35 @@ async def start_analysis(
     if not session_id:
         return templates.TemplateResponse(
             "partials/analysis_progress.html",
-            {"request": request, "error": "No session selected"},
+            {
+                "request": request,
+                "error": "No session selected",
+                "error_action": "Select a Telegram session from the dropdown above",
+                "error_action_type": "check_input",
+            },
         )
 
     if not chat_ids:
         return templates.TemplateResponse(
             "partials/analysis_progress.html",
-            {"request": request, "error": "No chats selected for analysis"},
+            {
+                "request": request,
+                "error": "No chats selected for analysis",
+                "error_action": "Select at least one chat from the list above by checking the boxes",
+                "error_action_type": "check_input",
+            },
         )
 
     # Validate message_limit
     if message_limit < 10 or message_limit > 10000:
         return templates.TemplateResponse(
             "partials/analysis_progress.html",
-            {"request": request, "error": "Message limit must be between 10 and 10000"},
+            {
+                "request": request,
+                "error": "Message limit must be between 10 and 10000",
+                "error_action": "Adjust the 'Messages per chat' setting to a value between 10 and 10000",
+                "error_action_type": "check_input",
+            },
         )
 
     # Validate session exists
@@ -140,7 +155,12 @@ async def start_analysis(
     except HTTPException as e:
         return templates.TemplateResponse(
             "partials/analysis_progress.html",
-            {"request": request, "error": e.detail},
+            {
+                "request": request,
+                "error": e.detail,
+                "error_action": "Upload a valid session file from the Sessions page",
+                "error_action_type": "reauth",
+            },
         )
 
     # Fetch chat info for the cache (needed for progress display)
@@ -151,13 +171,23 @@ async def start_analysis(
     except SessionNotFoundError as e:
         return templates.TemplateResponse(
             "partials/analysis_progress.html",
-            {"request": request, "error": str(e)},
+            {
+                "request": request,
+                "error": str(e),
+                "error_action": "Upload a valid session file from the Sessions page",
+                "error_action_type": "reauth",
+            },
         )
     except Exception as e:
         logger.exception(f"Failed to fetch chat info: {e}")
         return templates.TemplateResponse(
             "partials/analysis_progress.html",
-            {"request": request, "error": f"Failed to connect to Telegram: {e}"},
+            {
+                "request": request,
+                "error": f"Failed to connect to Telegram: {e}",
+                "error_action": "Check your internet connection and verify your session is valid",
+                "error_action_type": "retry",
+            },
         )
 
     # Check for existing active task with same parameters (deduplication)
@@ -183,10 +213,9 @@ async def start_analysis(
                 "partials/analysis_progress.html",
                 {
                     "request": request,
-                    "error": (
-                        f"Analysis queue is at capacity ({e.limit} concurrent tasks). "
-                        f"Please wait for some analyses to complete before starting new ones."
-                    ),
+                    "error": f"Analysis queue is at capacity ({e.limit} concurrent tasks).",
+                    "error_action": "Wait for currently running analyses to complete, or cancel an existing analysis",
+                    "error_action_type": "wait",
                 },
             )
 
