@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from chatfilter import __version__
     from chatfilter.analyzer.task_queue import get_task_queue
     from chatfilter.storage.database import TaskDatabase
-    from chatfilter.storage.file import cleanup_orphaned_temp_files
+    from chatfilter.storage.file import cleanup_old_session_files, cleanup_orphaned_temp_files
 
     logger.info("=" * 60)
     logger.info(f"ChatFilter v{__version__} starting up")
@@ -100,6 +100,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     cleaned = cleanup_orphaned_temp_files(settings.data_dir)
     if cleaned > 0:
         logger.info(f"Cleaned up {cleaned} orphaned temp file(s) from previous session")
+
+    # Clean up old session files if auto-cleanup is enabled
+    if settings.session_cleanup_days is not None:
+        cleaned_sessions = cleanup_old_session_files(
+            settings.sessions_dir, settings.session_cleanup_days
+        )
+        if cleaned_sessions > 0:
+            logger.info(
+                f"Auto-cleanup: removed {cleaned_sessions} old session(s) "
+                f"(threshold: {settings.session_cleanup_days} days)"
+            )
 
     task_db = TaskDatabase(db_path)
     task_queue = get_task_queue(

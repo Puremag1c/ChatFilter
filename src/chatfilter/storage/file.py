@@ -78,6 +78,111 @@ def cleanup_orphaned_temp_files(directory: Path, pattern: str = ".*.tmp") -> int
     return cleaned_count
 
 
+def secure_delete_file(file_path: Path) -> None:
+    """Securely delete a file by overwriting before removal.
+
+    Args:
+        file_path: Path to file to securely delete
+    """
+    if not file_path.exists() or not file_path.is_file():
+        return
+
+    try:
+        # Get file size
+        file_size = file_path.stat().st_size
+
+        # Overwrite with zeros
+        with file_path.open("r+b") as f:
+            f.write(b"\x00" * file_size)
+            f.flush()
+            os.fsync(f.fileno())
+
+        # Delete the file
+        file_path.unlink()
+    except Exception as e:
+        logger.warning(f"Failed to securely delete file, falling back to regular delete: {e}")
+        # Fallback to regular deletion
+        file_path.unlink(missing_ok=True)
+
+
+def cleanup_old_session_files(sessions_dir: Path, cleanup_days: float) -> int:
+    """Clean up old session files that haven't been accessed recently.
+
+    Removes session directories where the session.session file hasn't been
+    modified within the cleanup threshold. Uses secure deletion for sensitive files.
+
+    Args:
+        sessions_dir: Directory containing session subdirectories
+        cleanup_days: Age threshold in days (sessions older than this are deleted)
+
+    Returns:
+        Number of sessions cleaned up
+    """
+    if not sessions_dir.exists() or not sessions_dir.is_dir():
+        return 0
+
+    from datetime import UTC, datetime
+
+    current_time = datetime.now(UTC)
+    cleanup_threshold_seconds = cleanup_days * 86400  # Convert days to seconds
+    cleaned_count = 0
+
+    try:
+        for session_dir in sessions_dir.iterdir():
+            if not session_dir.is_dir():
+                continue
+
+            session_file = session_dir / "session.session"
+            if not session_file.exists():
+                continue
+
+            try:
+                # Get modification time
+                stat_info = session_file.stat()
+                file_age_seconds = current_time.timestamp() - stat_info.st_mtime
+
+                if file_age_seconds > cleanup_threshold_seconds:
+                    session_id = session_dir.name
+                    age_days = file_age_seconds / 86400
+
+                    # Delete credentials from secure storage
+                    try:
+                        from chatfilter.security import SecureCredentialManager
+
+                        manager = SecureCredentialManager(sessions_dir)
+                        manager.delete_credentials(session_id)
+                        logger.debug(
+                            f"Deleted credentials from secure storage for session: {session_id}"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error deleting credentials from secure storage for {session_id}: {e}"
+                        )
+
+                    # Securely delete session file
+                    secure_delete_file(session_file)
+
+                    # Delete any legacy plaintext config file (if it exists)
+                    config_file = session_dir / "config.json"
+                    if config_file.exists():
+                        secure_delete_file(config_file)
+
+                    # Remove directory
+                    shutil.rmtree(session_dir, ignore_errors=True)
+                    logger.info(f"Cleaned up old session '{session_id}' (age: {age_days:.1f} days)")
+                    cleaned_count += 1
+
+            except OSError as e:
+                logger.warning(f"Failed to check/clean session {session_dir.name}: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error cleaning session {session_dir.name}: {e}")
+
+    except OSError as e:
+        logger.warning(f"Error scanning directory {sessions_dir} for old sessions: {e}")
+
+    return cleaned_count
+
+
 class FileStorage(Storage):
     """File system storage with atomic write operations.
 

@@ -19,7 +19,7 @@ from chatfilter.storage import (
     load_json,
     save_json,
 )
-from chatfilter.storage.file import cleanup_orphaned_temp_files
+from chatfilter.storage.file import cleanup_old_session_files, cleanup_orphaned_temp_files
 
 
 class TestFileStorage:
@@ -248,13 +248,8 @@ class TestFileStorage:
 
     def test_atomic_write_temp_file_registration(self, tmp_path: Path) -> None:
         """Test that temp files are registered for atexit cleanup."""
-        from chatfilter.storage.file import _temp_files_registry
-
         storage = FileStorage()
         test_file = tmp_path / "test.txt"
-
-        # Clear registry before test
-        registry_before = len(list(_temp_files_registry))
 
         # Save file (temp file should be registered during operation)
         storage.save(test_file, "content")
@@ -263,6 +258,120 @@ class TestFileStorage:
         # (it was cleaned up by the finally block)
         temp_files = list(tmp_path.glob(".*.tmp"))
         assert len(temp_files) == 0
+
+    def test_cleanup_old_session_files(self, tmp_path: Path) -> None:
+        """Test cleanup of old session files."""
+        import time
+        from unittest.mock import MagicMock, patch
+
+        sessions_dir = tmp_path / "sessions"
+        sessions_dir.mkdir()
+
+        # Create old session (simulated by setting mtime)
+        old_session = sessions_dir / "old_session"
+        old_session.mkdir()
+        old_session_file = old_session / "session.session"
+        old_session_file.write_bytes(b"old session data")
+
+        # Set modification time to 10 days ago
+        old_time = time.time() - (10 * 86400)
+        os.utime(old_session_file, (old_time, old_time))
+
+        # Create recent session
+        new_session = sessions_dir / "new_session"
+        new_session.mkdir()
+        new_session_file = new_session / "session.session"
+        new_session_file.write_bytes(b"new session data")
+
+        # Mock SecureCredentialManager to avoid keyring dependencies
+        with patch("chatfilter.security.SecureCredentialManager") as mock_manager_class:
+            mock_manager = MagicMock()
+            mock_manager_class.return_value = mock_manager
+
+            # Run cleanup with 7 day threshold
+            cleaned_count = cleanup_old_session_files(sessions_dir, 7.0)
+
+        # Verify old session was deleted
+        assert cleaned_count == 1
+        assert not old_session.exists()
+        assert not old_session_file.exists()
+
+        # Verify new session was kept
+        assert new_session.exists()
+        assert new_session_file.exists()
+
+        # Verify credentials were deleted for old session
+        mock_manager.delete_credentials.assert_called_once_with("old_session")
+
+    def test_cleanup_old_session_files_with_config(self, tmp_path: Path) -> None:
+        """Test cleanup of old session files including legacy config.json."""
+        import time
+        from unittest.mock import MagicMock, patch
+
+        sessions_dir = tmp_path / "sessions"
+        sessions_dir.mkdir()
+
+        # Create old session with legacy config
+        old_session = sessions_dir / "legacy_session"
+        old_session.mkdir()
+        old_session_file = old_session / "session.session"
+        old_session_file.write_bytes(b"session data")
+        old_config_file = old_session / "config.json"
+        old_config_file.write_text('{"api_id": 12345}')
+
+        # Set modification time to 30 days ago
+        old_time = time.time() - (30 * 86400)
+        os.utime(old_session_file, (old_time, old_time))
+
+        # Mock SecureCredentialManager
+        with patch("chatfilter.security.SecureCredentialManager") as mock_manager_class:
+            mock_manager = MagicMock()
+            mock_manager_class.return_value = mock_manager
+
+            # Run cleanup with 7 day threshold
+            cleaned_count = cleanup_old_session_files(sessions_dir, 7.0)
+
+        # Verify session was deleted including config
+        assert cleaned_count == 1
+        assert not old_session.exists()
+        assert not old_session_file.exists()
+        assert not old_config_file.exists()
+
+    def test_cleanup_old_session_files_nonexistent_dir(self, tmp_path: Path) -> None:
+        """Test cleanup handles nonexistent directories gracefully."""
+        nonexistent_dir = tmp_path / "nonexistent"
+
+        # Should not raise, returns 0
+        cleaned_count = cleanup_old_session_files(nonexistent_dir, 7.0)
+        assert cleaned_count == 0
+
+    def test_cleanup_old_session_files_empty_dir(self, tmp_path: Path) -> None:
+        """Test cleanup handles empty directories."""
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+
+        # Should not raise, returns 0
+        cleaned_count = cleanup_old_session_files(empty_dir, 7.0)
+        assert cleaned_count == 0
+
+    def test_cleanup_old_session_files_no_sessions_old_enough(self, tmp_path: Path) -> None:
+        """Test cleanup when no sessions exceed the threshold."""
+        sessions_dir = tmp_path / "sessions"
+        sessions_dir.mkdir()
+
+        # Create recent session (1 day old)
+        recent_session = sessions_dir / "recent_session"
+        recent_session.mkdir()
+        recent_session_file = recent_session / "session.session"
+        recent_session_file.write_bytes(b"recent session data")
+
+        # Run cleanup with 30 day threshold
+        cleaned_count = cleanup_old_session_files(sessions_dir, 30.0)
+
+        # Verify no sessions were deleted
+        assert cleaned_count == 0
+        assert recent_session.exists()
+        assert recent_session_file.exists()
 
 
 class TestJSONHelpers:

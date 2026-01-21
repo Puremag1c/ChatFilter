@@ -226,6 +226,14 @@ class Settings(BaseSettings):
         description="Hours after which in-progress tasks are considered stale on recovery",
     )
 
+    # Session file cleanup settings
+    session_cleanup_days: float | None = Field(
+        default=None,
+        ge=1.0,
+        le=365.0,  # Max 1 year
+        description="Days after which unused session files are auto-deleted (None=disabled)",
+    )
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
@@ -277,7 +285,6 @@ class Settings(BaseSettings):
         """Path to the main log file."""
         return self.log_dir / "chatfilter.log"
 
-
     @property
     def first_run_marker_path(self) -> Path:
         """Path to first-run marker file."""
@@ -322,13 +329,12 @@ class Settings(BaseSettings):
             try:
                 dir_path.mkdir(parents=True, exist_ok=True)
             except PermissionError:
-                errors.append(
-                    f"Permission denied creating {dir_name} directory: {dir_path}"
-                )
+                errors.append(f"Permission denied creating {dir_name} directory: {dir_path}")
             except OSError as e:
                 errors.append(f"Failed to create {dir_name} directory: {dir_path} ({e})")
 
         return errors
+
     def check(self) -> list[str]:
         """Validate configuration and return any warnings.
 
@@ -474,6 +480,8 @@ class Settings(BaseSettings):
         print(f"  Heartbeat Timeout: {self.heartbeat_timeout}s")
         print(f"  Heartbeat Max Failures: {self.heartbeat_max_failures}")
         print(f"  Stale Task Threshold: {self.stale_task_threshold_hours}h")
+        cleanup_str = f"{self.session_cleanup_days}d" if self.session_cleanup_days else "disabled"
+        print(f"  Session Cleanup: {cleanup_str}")
 
 
 @lru_cache
