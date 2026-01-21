@@ -133,7 +133,7 @@
 
     <div class="import-methods">
         <div class="method-card">
-            <h3>Upload File</h3>
+            <h3 data-tooltip="Upload a file containing a list of chats to analyze" data-tooltip-position="right">Upload File</h3>
             <p class="form-hint">Upload a text file with one chat per line, or a CSV/Excel file with chat usernames, links, or IDs.</p>
 
             <form id="file-upload-form"
@@ -152,7 +152,9 @@
                            required
                            accept=".txt,.csv,.xlsx,.xls"
                            aria-required="true"
-                           aria-describedby="file-formats">
+                           aria-describedby="file-formats"
+                           data-tooltip="Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
+                           data-tooltip-position="top">
                 </div>
 
                 <div id="file-formats" class="supported-formats" role="list" aria-label="Supported file formats">
@@ -162,7 +164,11 @@
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" aria-label="Upload chat list file">
+                    <button type="submit"
+                            class="btn btn-primary"
+                            aria-label="Upload chat list file"
+                            data-tooltip="Upload and parse the selected file"
+                            data-tooltip-position="top">
                         <span class="btn-text">Upload File</span>
                         <span id="file-upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="Upload in progress"></span>
                     </button>
@@ -171,7 +177,7 @@
         </div>
 
         <div class="method-card">
-            <h3>Google Sheets</h3>
+            <h3 data-tooltip="Import chats from a public Google Sheets document" data-tooltip-position="right">Google Sheets</h3>
             <p class="form-hint">Enter a link to a public Google Sheets document. The sheet must be shared with "Anyone with the link".</p>
 
             <form id="sheet-fetch-form"
@@ -186,11 +192,16 @@
                            id="sheet_url"
                            name="sheet_url"
                            required
-                           placeholder="https://docs.google.com/spreadsheets/d/...">
+                           placeholder="https://docs.google.com/spreadsheets/d/..."
+                           data-tooltip="Enter the full URL of a public Google Sheets document"
+                           data-tooltip-position="top">
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit"
+                            class="btn btn-primary"
+                            data-tooltip="Fetch and import chats from the Google Sheets URL"
+                            data-tooltip-position="top">
                         <span class="btn-text">Fetch Sheet</span>
                         <span id="sheet-fetch-spinner" class="htmx-indicator spinner"></span>
                     </button>

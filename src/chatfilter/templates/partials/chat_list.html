@@ -6,7 +6,9 @@
                 class="btn btn-sm btn-primary"
                 hx-get="/api/chats?session-select={{ session_id }}"
                 hx-target="#chats-container"
-                hx-swap="innerHTML">
+                hx-swap="innerHTML"
+                data-tooltip="Try loading chats again"
+                data-tooltip-position="bottom">
             Retry Loading Chats
         </button>
     </div>
@@ -18,10 +20,14 @@
         <input type="text"
                id="chat-search"
                placeholder="Search chats..."
-               autocomplete="off">
+               autocomplete="off"
+               data-tooltip="Search chats by name or username"
+               data-tooltip-position="bottom">
     </div>
     <div class="form-group">
-        <select id="chat-type-filter">
+        <select id="chat-type-filter"
+                data-tooltip="Filter chats by type (private, group, channel, etc.)"
+                data-tooltip-position="bottom">
             <option value="">All Types</option>
             <option value="private">Private</option>
             <option value="group">Group</option>
@@ -33,9 +39,22 @@
 </div>
 
 <div class="chat-actions">
-    <button type="button" class="btn btn-sm btn-secondary" id="select-all">Select All</button>
-    <button type="button" class="btn btn-sm btn-secondary" id="select-none">Select None</button>
-    <button type="button" class="btn btn-sm btn-secondary" id="clear-chat-filters" disabled>
+    <button type="button"
+            class="btn btn-sm btn-secondary"
+            id="select-all"
+            data-tooltip="Select all visible chats"
+            data-tooltip-position="bottom">Select All</button>
+    <button type="button"
+            class="btn btn-sm btn-secondary"
+            id="select-none"
+            data-tooltip="Deselect all chats"
+            data-tooltip-position="bottom">Select None</button>
+    <button type="button"
+            class="btn btn-sm btn-secondary"
+            id="clear-chat-filters"
+            disabled
+            data-tooltip="Remove all active filters"
+            data-tooltip-position="bottom">
         Clear Filters <span id="chat-filter-count" class="filter-badge" style="display: none;">0</span>
     </button>
     <span id="selection-count" class="selection-count">0 of {{ total_count }} chats</span>
@@ -100,7 +119,9 @@
                 hx-get="/api/chats?session-select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
                 hx-target="#load-more-container"
                 hx-swap="outerHTML"
-                hx-indicator="#load-more-spinner">
+                hx-indicator="#load-more-spinner"
+                data-tooltip="Load more chats from this session"
+                data-tooltip-position="top">
             Load More Chats ({{ remaining }} remaining)
             <span id="load-more-spinner" class="htmx-indicator spinner"></span>
         </button>
@@ -108,9 +129,13 @@
     {% endif %}
 
     <div class="analysis-settings" style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
-        <h4 style="margin-bottom: 0.75rem; font-size: 1rem;">Analysis Settings</h4>
+        <h4 style="margin-bottom: 0.75rem; font-size: 1rem;"
+            data-tooltip="Configure how many messages to analyze from each chat"
+            data-tooltip-position="right">Analysis Settings</h4>
         <div class="form-group" style="margin-bottom: 0;">
-            <label for="message_limit">Messages per chat</label>
+            <label for="message_limit"
+                   data-tooltip="Set the number of recent messages to fetch and analyze"
+                   data-tooltip-position="right">Messages per chat</label>
             <input type="number"
                    id="message_limit"
                    name="message_limit"
@@ -118,13 +143,18 @@
                    min="10"
                    max="10000"
                    step="100"
-                   style="max-width: 200px;">
+                   style="max-width: 200px;"
+                   data-tooltip="Higher values take longer but provide more comprehensive analysis"
+                   data-tooltip-position="top">
             <small class="form-hint">Number of recent messages to analyze (10-10000)</small>
         </div>
     </div>
 
     <div class="form-actions" style="margin-top: 1.5rem;">
-        <button type="submit" class="btn btn-primary">
+        <button type="submit"
+                class="btn btn-primary"
+                data-tooltip="Begin analyzing the selected chats"
+                data-tooltip-position="top">
             <span class="btn-text">Start Analysis</span>
             <span id="analysis-spinner" class="htmx-indicator spinner"></span>
         </button>
@@ -153,7 +183,9 @@
             hx-get="/api/chats?session-select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
             hx-target="#load-more-container"
             hx-swap="outerHTML"
-            hx-indicator="#load-more-spinner">
+            hx-indicator="#load-more-spinner"
+            data-tooltip="Load more chats from this session"
+            data-tooltip-position="top">
         Load More Chats ({{ remaining }} remaining)
         <span id="load-more-spinner" class="htmx-indicator spinner"></span>
     </button>

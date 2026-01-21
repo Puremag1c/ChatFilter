@@ -12,6 +12,7 @@
     <script src="/static/js/request-dedup.js"></script>
     <script src="/static/js/optimistic-lock.js"></script>
     <script src="/static/js/conflict-warnings.js"></script>
+    <script src="/static/js/tooltips.js"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -22,18 +23,18 @@
         <nav role="navigation" aria-label="Main navigation">
             <a href="/" class="logo">ChatFilter</a>
             <ul class="nav-links">
-                <li><a href="/">Sessions</a></li>
-                <li><a href="/chats">Chats</a></li>
-                <li><a href="/chatlist">Import</a></li>
-                <li><a href="/results">Results</a></li>
-                <li><a href="/proxy">Proxy</a></li>
+                <li><a href="/" data-tooltip="Manage your Telegram session files" data-tooltip-position="bottom">Sessions</a></li>
+                <li><a href="/chats" data-tooltip="Select chats to analyze from your Telegram account" data-tooltip-position="bottom">Chats</a></li>
+                <li><a href="/chatlist" data-tooltip="Import a list of chats from a file or Google Sheets" data-tooltip-position="bottom">Import</a></li>
+                <li><a href="/results" data-tooltip="View analysis results and export data" data-tooltip-position="bottom">Results</a></li>
+                <li><a href="/proxy" data-tooltip="Use Telegram proxy to access chats" data-tooltip-position="bottom">Proxy</a></li>
             </ul>
             <div class="status-indicators">
-                <div class="network-status" id="network-status" role="status" aria-live="polite">
+                <div class="network-status" id="network-status" role="status" aria-live="polite" data-tooltip="Shows your internet connection status" data-tooltip-position="bottom">
                     <span class="status-indicator" id="network-indicator" aria-hidden="true"></span>
                     <span class="status-text" id="network-text">Online</span>
                 </div>
-                <div class="telegram-status" id="telegram-status" role="status" aria-live="polite">
+                <div class="telegram-status" id="telegram-status" role="status" aria-live="polite" data-tooltip="Shows Telegram connection status and active session count" data-tooltip-position="bottom">
                     <span class="status-indicator" id="status-indicator" aria-hidden="true"></span>
                     <span class="status-text" id="status-text">Checking...</span>
                 </div>
@@ -49,7 +50,9 @@
             <a href="/api/export/diagnostics?format=text"
                download
                class="diagnostic-button"
-               aria-label="Export diagnostic information for troubleshooting">
+               aria-label="Export diagnostic information for troubleshooting"
+               data-tooltip="Download diagnostic information for troubleshooting issues"
+               data-tooltip-position="top">
                 Export Diagnostics
             </a>
         </div>

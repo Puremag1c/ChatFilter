@@ -105,7 +105,9 @@
                 hx-swap="innerHTML"
                 hx-include="this"
                 hx-indicator="#chats-loading"
-                aria-label="Select Telegram session to load chats">
+                aria-label="Select Telegram session to load chats"
+                data-tooltip="Choose a Telegram session to load your chats and groups"
+                data-tooltip-position="bottom">
             <option value="">-- Select a session --</option>
             {% for session in sessions %}
             <option value="{{ session.session_id }}">{{ session.session_id }}</option>
