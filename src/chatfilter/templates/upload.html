@@ -255,3 +255,104 @@ with app:
     </div>
 </section>
 {% endblock %}
+
+{% block scripts %}
+<script>
+    // Handle session deletion with modal confirmation
+    document.addEventListener('DOMContentLoaded', function() {
+        // Use event delegation for dynamically loaded session delete buttons
+        document.body.addEventListener('click', async function(e) {
+            const deleteBtn = e.target.closest('.session-delete-btn');
+            if (!deleteBtn) return;
+
+            e.preventDefault();
+            const sessionId = deleteBtn.dataset.sessionId;
+            const lockKey = deleteBtn.dataset.lock;
+
+            // Check optimistic lock
+            if (typeof OptimisticLock !== 'undefined' && !OptimisticLock.tryAcquireLock('session', sessionId, 'delete')) {
+                const lockInfo = OptimisticLock.getLockInfo('session', sessionId, 'delete');
+                const message = lockInfo
+                    ? `Deletion is already in progress in another tab (${Math.round((Date.now() - lockInfo.timestamp) / 1000)}s ago)`
+                    : 'Deletion is already in progress in another tab';
+
+                ToastManager.warning(message, {
+                    title: 'Operation in Progress',
+                    duration: 5000
+                });
+                return;
+            }
+
+            // Show modal confirmation
+            const confirmed = await ModalManager.confirm({
+                type: 'danger',
+                icon: '🗑️',
+                title: 'Delete Telegram Session',
+                message: `Are you sure you want to delete the session "${sessionId}"? This action cannot be undone. All session data and credentials will be permanently removed.`,
+                confirmText: 'Delete Session',
+                cancelText: 'Cancel',
+                confirmClass: 'danger'
+            });
+
+            if (!confirmed) {
+                // User cancelled, release lock
+                if (typeof OptimisticLock !== 'undefined') {
+                    OptimisticLock.releaseLock('session', sessionId, 'delete');
+                }
+                return;
+            }
+
+            // User confirmed, proceed with deletion
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                const response = await fetch(`/api/sessions/${sessionId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Remove the session element from the DOM
+                const sessionElement = document.getElementById(`session-${sessionId}`);
+                if (sessionElement) {
+                    sessionElement.remove();
+                }
+
+                // Show success message
+                ToastManager.success(`Session "${sessionId}" has been deleted successfully.`, {
+                    title: 'Session Deleted',
+                    duration: 5000
+                });
+
+                // Release lock
+                if (typeof OptimisticLock !== 'undefined') {
+                    OptimisticLock.releaseLock('session', sessionId, 'delete');
+                }
+
+            } catch (error) {
+                console.error('Failed to delete session:', error);
+
+                // Release lock on error
+                if (typeof OptimisticLock !== 'undefined') {
+                    OptimisticLock.releaseLock('session', sessionId, 'delete');
+                }
+
+                ToastManager.error(`Failed to delete session: ${error.message}`, {
+                    title: 'Deletion Failed',
+                    duration: 8000,
+                    actions: [{
+                        label: 'Retry',
+                        class: 'retry',
+                        action: 'retry',
+                        callback: () => deleteBtn.click()
+                    }]
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

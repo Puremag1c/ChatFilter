@@ -279,6 +279,169 @@
         // Make ToastManager globally accessible
         window.ToastManager = ToastManager;
 
+        // Modal Dialog System
+        const ModalManager = {
+            currentModal: null,
+            overlayElement: null,
+
+            init() {
+                // Create modal overlay container if it doesn't exist
+                this.overlayElement = document.getElementById('modal-overlay');
+                if (!this.overlayElement) {
+                    this.overlayElement = document.createElement('div');
+                    this.overlayElement.id = 'modal-overlay';
+                    this.overlayElement.className = 'modal-overlay';
+                    this.overlayElement.setAttribute('role', 'dialog');
+                    this.overlayElement.setAttribute('aria-modal', 'true');
+                    document.body.appendChild(this.overlayElement);
+                }
+
+                // Close modal on overlay click
+                this.overlayElement.addEventListener('click', (e) => {
+                    if (e.target === this.overlayElement) {
+                        this.hide();
+                    }
+                });
+
+                // Close modal on Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.currentModal) {
+                        this.hide();
+                    }
+                });
+            },
+
+            confirm(options) {
+                return new Promise((resolve) => {
+                    if (!this.overlayElement) this.init();
+
+                    const modal = {
+                        id: Date.now() + Math.random(),
+                        type: options.type || 'warning',
+                        icon: options.icon || this.getDefaultIcon(options.type),
+                        title: options.title || 'Confirm Action',
+                        message: options.message || 'Are you sure?',
+                        confirmText: options.confirmText || 'Confirm',
+                        cancelText: options.cancelText || 'Cancel',
+                        confirmClass: options.confirmClass || 'danger',
+                        onConfirm: () => {
+                            resolve(true);
+                            this.hide();
+                        },
+                        onCancel: () => {
+                            resolve(false);
+                            this.hide();
+                        }
+                    };
+
+                    this.currentModal = modal;
+                    this.render(modal);
+                });
+            },
+
+            getDefaultIcon(type) {
+                const icons = {
+                    warning: '⚠️',
+                    danger: '⛔',
+                    info: 'ℹ️'
+                };
+                return icons[type] || icons.warning;
+            },
+
+            render(modal) {
+                const modalHTML = `
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-header">
+                            <span class="modal-icon ${modal.type}" aria-hidden="true">${modal.icon}</span>
+                            <h2 class="modal-title" id="modal-title-${modal.id}">${this.escapeHtml(modal.title)}</h2>
+                        </div>
+                        <div class="modal-body">
+                            <p class="modal-message">${this.escapeHtml(modal.message)}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="modal-button secondary"
+                                    onclick="ModalManager.currentModal.onCancel()"
+                                    aria-label="${this.escapeHtml(modal.cancelText)}">
+                                ${this.escapeHtml(modal.cancelText)}
+                            </button>
+                            <button class="modal-button ${modal.confirmClass}"
+                                    onclick="ModalManager.currentModal.onConfirm()"
+                                    aria-label="${this.escapeHtml(modal.confirmText)}"
+                                    autofocus>
+                                ${this.escapeHtml(modal.confirmText)}
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                this.overlayElement.innerHTML = modalHTML;
+                this.overlayElement.setAttribute('aria-labelledby', `modal-title-${modal.id}`);
+
+                // Show modal with animation
+                setTimeout(() => {
+                    this.overlayElement.classList.add('show');
+                    // Focus the confirm button for accessibility
+                    const confirmButton = this.overlayElement.querySelector('.modal-button.' + modal.confirmClass);
+                    if (confirmButton) {
+                        confirmButton.focus();
+                    }
+                }, 10);
+
+                // Trap focus within modal
+                this.trapFocus(this.overlayElement);
+            },
+
+            hide() {
+                if (!this.overlayElement) return;
+
+                this.overlayElement.classList.remove('show');
+
+                setTimeout(() => {
+                    this.overlayElement.innerHTML = '';
+                    this.currentModal = null;
+                }, 300);
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            trapFocus(element) {
+                const focusableElements = element.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                );
+
+                if (focusableElements.length === 0) return;
+
+                const firstFocusable = focusableElements[0];
+                const lastFocusable = focusableElements[focusableElements.length - 1];
+
+                element.addEventListener('keydown', function(e) {
+                    if (e.key !== 'Tab') return;
+
+                    if (e.shiftKey) {
+                        if (document.activeElement === firstFocusable) {
+                            lastFocusable.focus();
+                            e.preventDefault();
+                        }
+                    } else {
+                        if (document.activeElement === lastFocusable) {
+                            firstFocusable.focus();
+                            e.preventDefault();
+                        }
+                    }
+                });
+            }
+        };
+
+        // Initialize modal system
+        ModalManager.init();
+
+        // Make ModalManager globally accessible
+        window.ModalManager = ModalManager;
+
         // HTMX Error Handling Configuration
         document.body.addEventListener('htmx:responseError', function(event) {
             const status = event.detail.xhr.status;
@@ -590,6 +753,219 @@
 
         // Make monitor globally accessible for debugging
         window.TelegramStatusMonitor = TelegramStatusMonitor;
+    </script>
+
+    <!-- Network Connectivity Status Monitor -->
+    <script>
+        const NetworkStatusMonitor = {
+            pollInterval: 30000, // Poll every 30 seconds (less frequent than Telegram)
+            timeoutId: null,
+            lastStatus: null,
+            consecutiveErrors: 0,
+            maxErrors: 2,
+            isOnline: true,
+
+            async checkStatus() {
+                try {
+                    const response = await fetch('/health', {
+                        method: 'GET',
+                        cache: 'no-cache',
+                        signal: AbortSignal.timeout(5000) // 5 second timeout
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    this.consecutiveErrors = 0;
+
+                    const networkOnline = data.network && data.network.online;
+                    this.updateUI(networkOnline, null);
+                    this.notifyStatusChange(networkOnline);
+
+                } catch (error) {
+                    console.error('Network status check failed:', error);
+                    this.consecutiveErrors++;
+
+                    // After multiple failures, assume offline
+                    if (this.consecutiveErrors >= this.maxErrors) {
+                        this.updateUI(false, 'Unable to reach server');
+                        this.notifyStatusChange(false);
+                    }
+                }
+
+                // Schedule next poll
+                this.timeoutId = setTimeout(() => this.checkStatus(), this.pollInterval);
+            },
+
+            updateUI(online, error) {
+                const indicator = document.getElementById('network-indicator');
+                const text = document.getElementById('network-text');
+                const container = document.getElementById('network-status');
+
+                if (!indicator || !text || !container) return;
+
+                // Remove all status classes
+                container.classList.remove('status-connected', 'status-disconnected', 'status-error');
+
+                if (error) {
+                    // Error state (offline)
+                    container.classList.add('status-error');
+                    text.textContent = 'Offline';
+                    container.title = `Network Status: ${error}`;
+                } else if (online) {
+                    // Online state
+                    container.classList.add('status-connected');
+                    text.textContent = 'Online';
+                    container.title = 'Network Status: Connected';
+                } else {
+                    // Offline state
+                    container.classList.add('status-disconnected');
+                    text.textContent = 'Offline';
+                    container.title = 'Network Status: Disconnected';
+                }
+            },
+
+            notifyStatusChange(isOnline) {
+                // Only notify on actual state changes
+                if (this.lastStatus === null) {
+                    this.lastStatus = isOnline;
+                    return;
+                }
+
+                if (this.lastStatus !== isOnline) {
+                    if (!isOnline) {
+                        // Network went offline
+                        ToastManager.error(
+                            'Please check your internet connection. Operations may fail until connectivity is restored.',
+                            {
+                                title: 'Network Offline',
+                                duration: 0, // Persist until dismissed or network restored
+                                actions: [{
+                                    label: 'Check Now',
+                                    class: 'retry',
+                                    action: 'check',
+                                    callback: () => this.checkStatus()
+                                }, {
+                                    label: 'Dismiss',
+                                    class: 'dismiss',
+                                    action: 'dismiss'
+                                }]
+                            }
+                        );
+
+                        // Broadcast to other tabs
+                        if (typeof TabSync !== 'undefined') {
+                            TabSync.broadcast('network-status', { online: false });
+                        }
+                    } else {
+                        // Network came back online
+                        ToastManager.success(
+                            'Network connectivity restored',
+                            {
+                                title: 'Back Online',
+                                duration: 3000
+                            }
+                        );
+
+                        // Broadcast to other tabs
+                        if (typeof TabSync !== 'undefined') {
+                            TabSync.broadcast('network-status', { online: true });
+                        }
+                    }
+                }
+
+                this.lastStatus = isOnline;
+            },
+
+            start() {
+                console.log('Starting network status monitor');
+                this.checkStatus();
+
+                // Also monitor browser online/offline events
+                window.addEventListener('online', () => {
+                    console.log('Browser reports: online');
+                    this.checkStatus(); // Verify with server
+                });
+
+                window.addEventListener('offline', () => {
+                    console.log('Browser reports: offline');
+                    this.updateUI(false, 'No internet connection');
+                    this.notifyStatusChange(false);
+                });
+
+                // Listen for status updates from other tabs
+                if (typeof TabSync !== 'undefined') {
+                    TabSync.on('network-status', (data) => {
+                        console.log('Received network status update from another tab:', data);
+                        this.checkStatus(); // Verify
+                    });
+                }
+            },
+
+            stop() {
+                console.log('Stopping network status monitor');
+                if (this.timeoutId) {
+                    clearTimeout(this.timeoutId);
+                    this.timeoutId = null;
+                }
+            }
+        };
+
+        // Start monitoring when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            NetworkStatusMonitor.start();
+        });
+
+        // Stop monitoring when page unloads
+        window.addEventListener('beforeunload', function() {
+            NetworkStatusMonitor.stop();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                NetworkStatusMonitor.stop();
+            } else {
+                NetworkStatusMonitor.start();
+            }
+        });
+
+        // Make monitor globally accessible
+        window.NetworkStatusMonitor = NetworkStatusMonitor;
+    </script>
+
+    <!-- Analysis State Tracker for beforeunload protection -->
+    <script>
+        const AnalysisStateTracker = {
+            activeAnalysis: false,
+
+            setAnalysisRunning(isRunning) {
+                this.activeAnalysis = isRunning;
+                console.log('Analysis state changed:', isRunning ? 'running' : 'stopped');
+            },
+
+            isAnalysisRunning() {
+                return this.activeAnalysis;
+            }
+        };
+
+        // Prevent closing during active analysis
+        window.addEventListener('beforeunload', function(e) {
+            if (AnalysisStateTracker.isAnalysisRunning()) {
+                // Modern browsers require returnValue to be set
+                e.preventDefault();
+                e.returnValue = '';
+
+                // Note: Modern browsers don't show custom messages anymore for security reasons
+                // They show their own generic message like "Leave site? Changes you made may not be saved"
+                return '';
+            }
+        });
+
+        // Make tracker globally accessible
+        window.AnalysisStateTracker = AnalysisStateTracker;
     </script>
 
     {% block scripts %}{% endblock %}

@@ -213,6 +213,11 @@
         isFinished = true;
         cleanup();
 
+        // Notify that analysis has stopped
+        if (typeof AnalysisStateTracker !== 'undefined') {
+            AnalysisStateTracker.setAnalysisRunning(false);
+        }
+
         progressBar.style.width = '100%';
         progressBar.classList.add('completed');
         progressStatus.textContent = 'Complete!';
@@ -240,6 +245,11 @@
         isFinished = true;
         cleanup();
 
+        // Notify that analysis has stopped
+        if (typeof AnalysisStateTracker !== 'undefined') {
+            AnalysisStateTracker.setAnalysisRunning(false);
+        }
+
         progressBar.classList.add('cancelled');
         progressStatus.textContent = 'Cancelled';
         progressStatus.classList.add('cancelled');
@@ -261,6 +271,11 @@
     function handleError(errorMsg) {
         isFinished = true;
         cleanup();
+
+        // Notify that analysis has stopped
+        if (typeof AnalysisStateTracker !== 'undefined') {
+            AnalysisStateTracker.setAnalysisRunning(false);
+        }
 
         progressBar.classList.add('failed');
         progressStatus.textContent = 'Failed';
@@ -417,7 +432,7 @@
     }
 
     // Cancel button handler with optimistic locking
-    cancelBtn.addEventListener('click', function() {
+    cancelBtn.addEventListener('click', async function() {
         // Try to acquire lock before showing confirmation
         if (typeof OptimisticLock !== 'undefined' && !OptimisticLock.tryAcquireLock('analysis', taskId, 'cancel')) {
             const lockInfo = OptimisticLock.getLockInfo('analysis', taskId, 'cancel');
@@ -432,50 +447,63 @@
             return;
         }
 
-        if (confirm('Are you sure you want to cancel the analysis? Partial results will be saved.')) {
-            cancelBtn.disabled = true;
-            cancelBtn.textContent = 'Cancelling...';
+        // Show modal confirmation
+        const confirmed = await ModalManager.confirm({
+            type: 'warning',
+            icon: '⚠️',
+            title: 'Cancel Analysis',
+            message: 'Are you sure you want to cancel the analysis? The current chat will finish processing, and partial results will be saved.',
+            confirmText: 'Cancel Analysis',
+            cancelText: 'Continue Analysis',
+            confirmClass: 'danger'
+        });
 
-            fetch('/api/analysis/' + taskId + '/cancel', {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'cancelled') {
-                    progressMessage.textContent = data.message;
-                }
-                // Release lock after successful cancellation
-                if (typeof OptimisticLock !== 'undefined') {
-                    OptimisticLock.releaseLock('analysis', taskId, 'cancel');
-                }
-            })
-            .catch(err => {
-                console.error('Failed to cancel:', err);
-                cancelBtn.disabled = false;
-                cancelBtn.textContent = 'Cancel';
-
-                // Release lock on error
-                if (typeof OptimisticLock !== 'undefined') {
-                    OptimisticLock.releaseLock('analysis', taskId, 'cancel');
-                }
-
-                ToastManager.error('Failed to cancel analysis. Please try again.', {
-                    title: 'Cancellation Failed',
-                    duration: 8000,
-                    actions: [{
-                        label: 'Retry',
-                        class: 'retry',
-                        action: 'retry',
-                        callback: () => cancelBtn.click()
-                    }]
-                });
-            });
-        } else {
+        if (!confirmed) {
             // User cancelled the confirmation, release the lock
             if (typeof OptimisticLock !== 'undefined') {
                 OptimisticLock.releaseLock('analysis', taskId, 'cancel');
             }
+            return;
         }
+
+        // User confirmed, proceed with cancellation
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'Cancelling...';
+
+        fetch('/api/analysis/' + taskId + '/cancel', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'cancelled') {
+                progressMessage.textContent = data.message;
+            }
+            // Release lock after successful cancellation
+            if (typeof OptimisticLock !== 'undefined') {
+                OptimisticLock.releaseLock('analysis', taskId, 'cancel');
+            }
+        })
+        .catch(err => {
+            console.error('Failed to cancel:', err);
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = 'Cancel';
+
+            // Release lock on error
+            if (typeof OptimisticLock !== 'undefined') {
+                OptimisticLock.releaseLock('analysis', taskId, 'cancel');
+            }
+
+            ToastManager.error('Failed to cancel analysis. Please try again.', {
+                title: 'Cancellation Failed',
+                duration: 8000,
+                actions: [{
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => cancelBtn.click()
+                }]
+            });
+        });
     });
 
     // Initial connection - check if task is already in progress (page refresh recovery)
@@ -493,6 +521,10 @@
                 handleError(data.error || 'Analysis failed');
             } else if (data.status === 'in_progress' || data.status === 'pending') {
                 // Task is running, connect to progress stream
+                // Notify that analysis is running
+                if (typeof AnalysisStateTracker !== 'undefined') {
+                    AnalysisStateTracker.setAnalysisRunning(true);
+                }
                 connectSSE();
             }
         })
