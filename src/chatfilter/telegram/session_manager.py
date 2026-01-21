@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -55,6 +56,10 @@ class SessionInfo:
     last_ping_at: float | None = None
     last_ping_success: float | None = None
     consecutive_ping_failures: int = 0
+    # Network switch detection
+    last_network_error_at: float | None = None
+    network_error_count: int = 0
+    is_recovering_from_switch: bool = False
 
 
 @dataclass
@@ -71,6 +76,10 @@ class ManagedSession:
     last_ping_at: float | None = None
     last_ping_success: float | None = None
     consecutive_ping_failures: int = 0
+    # Network switch detection
+    last_network_error_at: float | None = None
+    network_error_count: int = 0
+    is_recovering_from_switch: bool = False
 
 
 class SessionError(Exception):
@@ -225,9 +234,11 @@ class SessionManager:
         """
         try:
             await asyncio.wait_for(client.connect(), timeout=timeout)
-        except TimeoutError:
+        except TimeoutError as e:
             # Convert asyncio.TimeoutError to TimeoutError for retry decorator
-            raise TimeoutError(f"Connection timeout for session '{session_id}' after {timeout}s")
+            raise TimeoutError(
+                f"Connection timeout for session '{session_id}' after {timeout}s"
+            ) from e
 
     async def connect(self, session_id: str) -> TelegramClient:
         """Connect a session and return the client.
@@ -289,7 +300,7 @@ class SessionManager:
                 error_type = type(e).__name__
 
                 # Provide specific message for account deactivation/ban
-                if isinstance(e, (errors.UserDeactivatedBanError, errors.PhoneNumberBannedError)):
+                if isinstance(e, errors.UserDeactivatedBanError | errors.PhoneNumberBannedError):
                     session.error_message = (
                         f"Account is deactivated or banned ({error_type}). "
                         "This Telegram account has been banned, deactivated, or deleted. "
@@ -383,9 +394,15 @@ class SessionManager:
         Returns:
             True if session is connected and responds to ping
 
+        Raises:
+            BrokenPipeError, ConnectionResetError, ConnectionAbortedError:
+                Re-raised for network switch detection
+            OSError: Re-raised if it matches network switch patterns
+
         Note:
             If session auth errors are detected, session state is updated
-            with appropriate error message.
+            with appropriate error message. Network switch errors are re-raised
+            for special handling.
         """
         if session_id not in self._sessions:
             return False
@@ -432,6 +449,20 @@ class SessionManager:
                 session.error_message = "Session has expired. Re-authorization required."
             logger.error(f"Session '{session_id}' requires re-authorization: {error_type}")
             return False
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError) as e:
+            # Network switch errors - re-raise for special handling
+            logger.warning(
+                f"Network switch error during health check for '{session_id}': {type(e).__name__}"
+            )
+            raise
+        except OSError as e:
+            # Check if this is a network switch error
+            if self._is_network_switch_error(e):
+                logger.warning(f"Network switch error during health check for '{session_id}': {e}")
+                raise
+            # Regular OSError - log and return False
+            logger.warning(f"Health check failed for session '{session_id}': {e}")
+            return False
         except Exception as e:
             logger.warning(f"Health check failed for session '{session_id}': {e}")
             return False
@@ -463,6 +494,9 @@ class SessionManager:
             last_ping_at=session.last_ping_at,
             last_ping_success=session.last_ping_success,
             consecutive_ping_failures=session.consecutive_ping_failures,
+            last_network_error_at=session.last_network_error_at,
+            network_error_count=session.network_error_count,
+            is_recovering_from_switch=session.is_recovering_from_switch,
         )
 
     def list_sessions(self) -> list[str]:
@@ -507,11 +541,98 @@ class SessionManager:
         except TimeoutError:
             logger.warning("Connection monitor did not stop gracefully, cancelling...")
             self._monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitor_task
-            except asyncio.CancelledError:
-                pass
         logger.info("Connection monitor stopped")
+
+    def _is_network_switch_error(self, error: Exception) -> bool:
+        """Detect if an error is likely caused by network switch.
+
+        Network switches (Wi-Fi↔mobile, VPN on/off) typically cause:
+        - BrokenPipeError: TCP connection broken mid-operation
+        - ConnectionResetError: Connection reset by peer
+        - ConnectionAbortedError: Connection aborted
+        - OSError with specific errno values (ENETUNREACH, EHOSTUNREACH, etc.)
+
+        Args:
+            error: Exception to check
+
+        Returns:
+            True if error indicates network switch
+        """
+        # Direct TCP connection reset errors
+        if isinstance(error, BrokenPipeError | ConnectionResetError | ConnectionAbortedError):
+            return True
+
+        # OSError with network-related errno
+        if isinstance(error, OSError):
+            # Common errno values for network switches:
+            # ENETUNREACH (101), EHOSTUNREACH (113), ENETDOWN (100),
+            # ECONNRESET (104), EPIPE (32)
+            network_errno = {32, 100, 101, 104, 113}
+            if hasattr(error, "errno") and error.errno in network_errno:
+                return True
+
+        # Check error message for network switch indicators
+        error_str = str(error).lower()
+        network_indicators = [
+            "network is unreachable",
+            "host is unreachable",
+            "network is down",
+            "connection reset",
+            "broken pipe",
+            "connection aborted",
+        ]
+        return any(indicator in error_str for indicator in network_indicators)
+
+    async def _handle_network_switch(self, session_id: str) -> None:
+        """Handle network switch with fast reconnection.
+
+        Network switches require immediate reconnection attempts with
+        shorter delays compared to normal failures.
+
+        Args:
+            session_id: Session to recover from network switch
+        """
+        if session_id not in self._sessions:
+            return
+
+        session = self._sessions[session_id]
+        session.is_recovering_from_switch = True
+
+        try:
+            logger.warning(
+                f"Network switch detected for session '{session_id}'. "
+                "Initiating fast reconnection..."
+            )
+
+            # Disconnect zombie connection
+            logger.debug(f"Disconnecting session '{session_id}' after network switch...")
+            await self.disconnect(session_id)
+
+            # Fast reconnection with minimal delay
+            # Network switches typically resolve quickly (1-5 seconds)
+            await asyncio.sleep(0.5)
+
+            logger.debug(f"Reconnecting session '{session_id}' after network switch...")
+            await self.connect(session_id)
+
+            # Success - reset network error tracking
+            session.network_error_count = 0
+            session.last_network_error_at = None
+            logger.info(f"Successfully recovered session '{session_id}' from network switch")
+
+        except Exception as e:
+            logger.error(
+                f"Failed to recover session '{session_id}' from network switch: {e}",
+                exc_info=True,
+            )
+            # Increment error count for tracking
+            session.network_error_count += 1
+            session.last_network_error_at = asyncio.get_event_loop().time()
+
+        finally:
+            session.is_recovering_from_switch = False
 
     async def _monitor_connections(self) -> None:
         """Background task that monitors connection health.
@@ -566,6 +687,13 @@ class SessionManager:
 
         session = self._sessions[session_id]
 
+        # Skip if already recovering from network switch
+        if session.is_recovering_from_switch:
+            logger.debug(
+                f"Session '{session_id}' is already recovering from network switch, skipping health check"
+            )
+            return
+
         # Only monitor connected sessions
         if session.state != SessionState.CONNECTED:
             return
@@ -581,9 +709,16 @@ class SessionManager:
             )
 
             if is_healthy:
-                # Success - reset failure counter
+                # Success - reset failure counter and network error tracking
                 session.consecutive_ping_failures = 0
                 session.last_ping_success = current_time
+                # Clear old network errors (> 60 seconds ago)
+                if (
+                    session.last_network_error_at
+                    and (current_time - session.last_network_error_at) > 60
+                ):
+                    session.network_error_count = 0
+                    session.last_network_error_at = None
                 logger.debug(f"Heartbeat OK for session '{session_id}'")
             else:
                 # Health check failed
@@ -600,6 +735,32 @@ class SessionManager:
                         f"({session.consecutive_ping_failures} consecutive failures). "
                         "Attempting reconnection..."
                     )
+                    await self._recover_zombie_connection(session_id)
+
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError) as e:
+            # Network switch detected - handle immediately with fast reconnection
+            session.network_error_count += 1
+            session.last_network_error_at = current_time
+            logger.warning(
+                f"Network switch error detected for session '{session_id}': {type(e).__name__}"
+            )
+            await self._handle_network_switch(session_id)
+
+        except OSError as e:
+            # Check if this OSError is network-switch related
+            if self._is_network_switch_error(e):
+                session.network_error_count += 1
+                session.last_network_error_at = current_time
+                logger.warning(f"Network switch error detected for session '{session_id}': {e}")
+                await self._handle_network_switch(session_id)
+            else:
+                # Regular OSError - count as ping failure
+                session.consecutive_ping_failures += 1
+                logger.warning(
+                    f"OSError during health check for session '{session_id}': {e} "
+                    f"({session.consecutive_ping_failures}/{self._heartbeat_max_failures})"
+                )
+                if session.consecutive_ping_failures >= self._heartbeat_max_failures:
                     await self._recover_zombie_connection(session_id)
 
         except TimeoutError:
@@ -619,10 +780,17 @@ class SessionManager:
                 await self._recover_zombie_connection(session_id)
 
         except Exception as e:
-            logger.error(
-                f"Error during health check for session '{session_id}': {e}",
-                exc_info=True,
-            )
+            # Check for network switch indicators in other exception types
+            if self._is_network_switch_error(e):
+                session.network_error_count += 1
+                session.last_network_error_at = current_time
+                logger.warning(f"Network switch error detected for session '{session_id}': {e}")
+                await self._handle_network_switch(session_id)
+            else:
+                logger.error(
+                    f"Error during health check for session '{session_id}': {e}",
+                    exc_info=True,
+                )
 
     async def _recover_zombie_connection(self, session_id: str) -> None:
         """Attempt to recover a zombie connection by disconnecting and reconnecting.

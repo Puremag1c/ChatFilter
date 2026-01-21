@@ -41,6 +41,12 @@ RETRYABLE_EXCEPTIONS = (
     asyncio.TimeoutError,
     OSError,
     ssl.SSLError,
+    # TCP connection reset errors during network switches (Wi-Fi↔mobile, VPN on/off)
+    # These are explicit for clarity, though covered by ConnectionError/OSError
+    BrokenPipeError,  # TCP connection broken mid-operation
+    ConnectionResetError,  # Connection explicitly reset by peer
+    ConnectionAbortedError,  # Connection aborted by local system
+    ConnectionRefusedError,  # Temporary refusal during network transition
     # DC migration errors - Telethon handles these automatically, but they can
     # cause temporary failures during the migration window
     FileMigrateError,

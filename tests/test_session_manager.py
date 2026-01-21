@@ -484,3 +484,209 @@ class TestSessionAuthErrors:
         assert info is not None
         assert info.state == SessionState.ERROR
         assert "2FA" in info.error_message or "Two-factor" in info.error_message
+
+
+class TestNetworkSwitchHandling:
+    """Tests for network switch detection and handling."""
+
+    def test_is_network_switch_error_broken_pipe(self) -> None:
+        """Test detection of BrokenPipeError as network switch."""
+        manager = SessionManager()
+        error = BrokenPipeError("Broken pipe")
+
+        result = manager._is_network_switch_error(error)
+
+        assert result is True
+
+    def test_is_network_switch_error_connection_reset(self) -> None:
+        """Test detection of ConnectionResetError as network switch."""
+        manager = SessionManager()
+        error = ConnectionResetError("Connection reset by peer")
+
+        result = manager._is_network_switch_error(error)
+
+        assert result is True
+
+    def test_is_network_switch_error_connection_aborted(self) -> None:
+        """Test detection of ConnectionAbortedError as network switch."""
+        manager = SessionManager()
+        error = ConnectionAbortedError("Connection aborted")
+
+        result = manager._is_network_switch_error(error)
+
+        assert result is True
+
+    def test_is_network_switch_error_oserror_with_errno(self) -> None:
+        """Test detection of OSError with network errno as network switch."""
+        manager = SessionManager()
+        # errno 101 = ENETUNREACH (network unreachable)
+        error = OSError(101, "Network is unreachable")
+
+        result = manager._is_network_switch_error(error)
+
+        assert result is True
+
+    def test_is_network_switch_error_oserror_by_message(self) -> None:
+        """Test detection of OSError by message content as network switch."""
+        manager = SessionManager()
+        error = OSError("Host is unreachable")
+
+        result = manager._is_network_switch_error(error)
+
+        assert result is True
+
+    def test_is_network_switch_error_regular_error(self) -> None:
+        """Test that regular errors are not detected as network switch."""
+        manager = SessionManager()
+        error = ValueError("Regular error")
+
+        result = manager._is_network_switch_error(error)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_handle_network_switch_reconnects(self) -> None:
+        """Test that network switch handling reconnects the session."""
+        manager = SessionManager()
+        client = MockClient()
+        manager.register("test", MockFactory(client))
+        await manager.connect("test")
+
+        # Simulate network switch
+        await manager._handle_network_switch("test")
+
+        # Should have disconnected and reconnected
+        assert client.disconnect_calls == 1
+        assert client.connect_calls == 2  # Initial + reconnect
+        assert client.connected
+
+    @pytest.mark.asyncio
+    async def test_handle_network_switch_sets_recovery_flag(self) -> None:
+        """Test that network switch handling sets recovery flag during operation."""
+        manager = SessionManager()
+        client = MockClient()
+        manager.register("test", MockFactory(client))
+        await manager.connect("test")
+
+        # Create a slow connect to check flag during recovery
+        original_connect = client.connect
+
+        async def slow_connect():
+            session = manager._sessions["test"]
+            # Check flag is set during recovery
+            assert session.is_recovering_from_switch
+            await original_connect()
+
+        client.connect = slow_connect
+
+        # Get session reference
+        session = manager._sessions["test"]
+
+        # Initially not recovering
+        assert not session.is_recovering_from_switch
+
+        # Simulate network switch
+        await manager._handle_network_switch("test")
+
+        # Should be cleared after recovery
+        assert not session.is_recovering_from_switch
+
+    @pytest.mark.asyncio
+    async def test_handle_network_switch_resets_error_tracking(self) -> None:
+        """Test that successful network switch recovery resets error tracking."""
+        manager = SessionManager()
+        client = MockClient()
+        manager.register("test", MockFactory(client))
+        await manager.connect("test")
+
+        session = manager._sessions["test"]
+        session.network_error_count = 5
+        session.last_network_error_at = 12345.0
+
+        # Simulate network switch
+        await manager._handle_network_switch("test")
+
+        # Error tracking should be reset
+        assert session.network_error_count == 0
+        assert session.last_network_error_at is None
+
+    @pytest.mark.asyncio
+    async def test_network_error_tracking_in_info(self) -> None:
+        """Test that network error tracking is included in session info."""
+        manager = SessionManager()
+        client = MockClient()
+        manager.register("test", MockFactory(client))
+        await manager.connect("test")
+
+        session = manager._sessions["test"]
+        session.network_error_count = 3
+        session.last_network_error_at = 54321.0
+        session.is_recovering_from_switch = True
+
+        info = manager.get_info("test")
+
+        assert info is not None
+        assert info.network_error_count == 3
+        assert info.last_network_error_at == 54321.0
+        assert info.is_recovering_from_switch is True
+
+    @pytest.mark.asyncio
+    async def test_health_check_clears_old_network_errors(self) -> None:
+        """Test that successful health checks clear old network errors."""
+        manager = SessionManager()
+        client = MockClient()
+        manager.register("test", MockFactory(client))
+        await manager.connect("test")
+
+        session = manager._sessions["test"]
+        # Set old network error (> 60 seconds ago)
+        current_time = asyncio.get_event_loop().time()
+        session.network_error_count = 5
+        session.last_network_error_at = current_time - 70
+
+        # Run health check
+        await manager._check_session_health("test")
+
+        # Old network errors should be cleared
+        assert session.network_error_count == 0
+        assert session.last_network_error_at is None
+
+
+class MockClientWithNetworkErrors(MockClient):
+    """Mock client that can simulate network errors."""
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.network_error_on_next_get_me = False
+
+    async def get_me(self) -> MagicMock:
+        if self.network_error_on_next_get_me:
+            self.network_error_on_next_get_me = False
+            raise ConnectionResetError("Connection reset by peer")
+        return await super().get_me()
+
+
+class TestNetworkSwitchIntegration:
+    """Integration tests for network switch handling."""
+
+    @pytest.mark.asyncio
+    async def test_health_check_detects_and_recovers_from_network_switch(self) -> None:
+        """Test that health check detects network switch and triggers recovery."""
+        manager = SessionManager()
+        client = MockClientWithNetworkErrors()
+        manager.register("test", MockFactory(client))
+        await manager.connect("test")
+
+        # Simulate network switch error on next health check
+        client.network_error_on_next_get_me = True
+
+        # Run health check - should detect error and trigger reconnection
+        await manager._check_session_health("test")
+
+        # Should have reconnected
+        assert client.connect_calls == 2  # Initial + recovery
+        assert client.disconnect_calls == 1
+        assert client.connected
+
+        session = manager._sessions["test"]
+        assert session.network_error_count == 0  # Reset after successful recovery
