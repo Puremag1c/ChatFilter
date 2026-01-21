@@ -283,3 +283,42 @@ class TestExportToCsv:
 
         # CSV should preserve newlines within quoted fields
         assert rows[1][1] == "Chat\nwith\nnewlines"
+
+    def test_handles_very_long_chat_names(self) -> None:
+        """Test that very long chat names are handled correctly."""
+        # Create a chat name that's 500 characters long
+        long_name = (
+            "A" * 100 + " " + "B" * 100 + " " + "C" * 100 + " " + "D" * 100 + " " + "E" * 100
+        )
+        assert len(long_name) == 504  # 500 letters + 4 spaces
+
+        result = create_test_result(title=long_name)
+        content = export_to_csv([result], include_bom=False)
+
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+
+        # Should preserve the full long name
+        assert rows[1][1] == long_name
+        assert len(rows[1][1]) == 504
+
+    def test_handles_extremely_long_chat_names_with_unicode(self) -> None:
+        """Test that extremely long chat names with unicode are handled correctly."""
+        # Create a chat name with 1000+ characters including unicode
+        long_name = "🎉 " * 250 + "Тест " * 50 + "العربية " * 50 + "测试 " * 50
+        # Verify it's actually long
+        assert len(long_name) > 1000
+
+        result = create_test_result(title=long_name)
+        content = export_to_csv([result], include_bom=False)
+
+        reader = csv.reader(io.StringIO(content))
+        rows = list(reader)
+
+        # Should preserve the full long name with unicode
+        assert rows[1][1] == long_name
+        # Verify emoji and unicode are preserved
+        assert "🎉" in rows[1][1]
+        assert "Тест" in rows[1][1]
+        assert "العربية" in rows[1][1]
+        assert "测试" in rows[1][1]

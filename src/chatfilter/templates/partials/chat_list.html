@@ -96,7 +96,7 @@
                    name="chat_ids"
                    value="{{ chat.id }}">
             <div class="chat-info">
-                <div class="chat-title">{{ chat.title }}</div>
+                <div class="chat-title" title="{{ chat.title }}">{{ chat.title }}</div>
                 <div class="chat-meta">
                     <span class="chat-type {{ chat.chat_type.value }}">{{ chat.chat_type.value }}</span>
                     {% if chat.username %}

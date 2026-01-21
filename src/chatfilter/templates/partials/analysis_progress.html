@@ -157,6 +157,12 @@
     margin-left: 0.5rem;
     color: #333;
     font-style: italic;
+    max-width: 300px;
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
 }
 
 .progress-message {
@@ -302,6 +308,7 @@
 
             if (data.chat_title) {
                 progressChatTitle.textContent = '- ' + data.chat_title;
+                progressChatTitle.title = data.chat_title;
             }
 
             if (data.message) {

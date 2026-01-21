@@ -38,7 +38,7 @@
                     data-hours="{{ result.metrics.history_hours }}"
                     data-rate="{{ result.metrics.messages_per_hour }}">
                     <td class="chat-title-cell">
-                        <div class="chat-title">{{ result.chat.title }}</div>
+                        <div class="chat-title" title="{{ result.chat.title }}">{{ result.chat.title }}</div>
                         {% if result.chat.username %}
                         <div class="chat-username">@{{ result.chat.username }}</div>
                         {% endif %}

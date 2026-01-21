@@ -320,7 +320,7 @@
                     data-active="{{ 'active' if result.is_active else 'inactive' }}"
                     data-username="{{ result.chat.username or '' }}">
                     <td class="chat-title-cell">
-                        <div class="chat-title">{{ result.chat.title }}</div>
+                        <div class="chat-title" title="{{ result.chat.title }}">{{ result.chat.title }}</div>
                         {% if result.chat.username %}
                         <div class="chat-username" aria-label="Username">@{{ result.chat.username }}</div>
                         {% endif %}
