@@ -21,6 +21,90 @@ from chatfilter.storage.helpers import atomic_write
 logger = logging.getLogger(__name__)
 
 
+def _is_path_in_readonly_location(path: Path) -> tuple[bool, str | None]:
+    """Check if path is in a common read-only location.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        Tuple of (is_readonly, reason_message)
+    """
+    import os
+    import platform
+
+    path_str = str(path.resolve())
+    system = platform.system()
+
+    # Common read-only system directories by platform
+    readonly_prefixes = []
+    if system == "Linux":
+        readonly_prefixes = [
+            "/usr/",
+            "/bin/",
+            "/sbin/",
+            "/lib/",
+            "/lib64/",
+            "/boot/",
+            "/sys/",
+            "/proc/",
+        ]
+    elif system == "Darwin":  # macOS
+        readonly_prefixes = ["/System/", "/usr/", "/bin/", "/sbin/"]
+    elif system == "Windows":
+        readonly_prefixes = ["C:\\Windows\\", "C:\\Program Files\\", "C:\\Program Files (x86)\\"]
+
+    for prefix in readonly_prefixes:
+        if path_str.startswith(prefix):
+            return True, f"Path is in system directory: {prefix}"
+
+    # Try to detect read-only filesystem using statvfs (Unix-like systems)
+    if hasattr(os, "statvfs"):
+        try:
+            if path.exists():
+                import os
+
+                st = os.statvfs(path)
+                # ST_RDONLY flag indicates read-only filesystem
+                if st.f_flag & 0x0001:  # ST_RDONLY = 1
+                    return True, "Filesystem is mounted read-only"
+        except (OSError, AttributeError, PermissionError):
+            # If we can't check the path, it might be a permission issue
+            # but not necessarily a read-only location
+            pass
+
+    return False, None
+
+
+def _format_permission_error_message(path: Path, operation: str, error: Exception) -> str:
+    """Format a helpful permission error message with fix suggestions.
+
+    Args:
+        path: Path that caused the error
+        operation: Operation that failed (e.g., "create", "write to")
+        error: The original exception
+
+    Returns:
+        Formatted error message with fix suggestions
+    """
+    is_readonly, readonly_reason = _is_path_in_readonly_location(path)
+
+    msg = f"Cannot {operation} data directory: {path}"
+
+    if is_readonly:
+        msg += f"\n  ⚠ {readonly_reason}"
+        msg += "\n  → Fix: Use a writable location with --data-dir flag:"
+        msg += "\n         chatfilter --data-dir ~/ChatFilter"
+    else:
+        msg += f"\n  → Error: {error}"
+        msg += "\n  → Fix: Grant write permissions or use a different location:"
+        msg += "\n         chatfilter --data-dir ~/ChatFilter"
+
+    msg += "\n  → Tip: Use --validate to test configuration without starting the server"
+
+    return msg
+
+
 def _get_default_data_dir() -> Path:
     """Get platform-appropriate default data directory using platformdirs.
 
@@ -333,7 +417,18 @@ class Settings(BaseSettings):
             try:
                 dir_path.mkdir(parents=True, exist_ok=True)
             except PermissionError:
-                errors.append(f"Permission denied creating {dir_name} directory: {dir_path}")
+                is_readonly, readonly_reason = _is_path_in_readonly_location(dir_path)
+                if is_readonly:
+                    errors.append(
+                        f"Cannot create {dir_name} directory: {dir_path}\n"
+                        f"  ⚠ {readonly_reason}\n"
+                        f"  → Use --data-dir flag to specify a writable location"
+                    )
+                else:
+                    errors.append(
+                        f"Permission denied creating {dir_name} directory: {dir_path}\n"
+                        f"  → Use --data-dir flag or grant write permissions"
+                    )
             except OSError as e:
                 errors.append(f"Failed to create {dir_name} directory: {dir_path} ({e})")
 
@@ -350,18 +445,33 @@ class Settings(BaseSettings):
         # Check if data directory exists and is writable
         if self.data_dir.exists():
             if not self.data_dir.is_dir():
-                warnings.append(f"Data path exists but is not a directory: {self.data_dir}")
+                warnings.append(
+                    f"Data path exists but is not a directory: {self.data_dir}\n"
+                    f"  → Use --data-dir to specify a different location"
+                )
         else:
             # Check if we can create it
             try:
                 self.data_dir.mkdir(parents=True, exist_ok=True)
                 self.data_dir.rmdir()  # Remove test directory
             except PermissionError:
-                warnings.append(
-                    f"Cannot create data directory (permission denied): {self.data_dir}"
-                )
+                is_readonly, readonly_reason = _is_path_in_readonly_location(self.data_dir)
+                if is_readonly:
+                    warnings.append(
+                        f"Cannot create data directory: {self.data_dir}\n"
+                        f"  ⚠ {readonly_reason}\n"
+                        f"  → Use --data-dir flag: chatfilter --data-dir ~/ChatFilter"
+                    )
+                else:
+                    warnings.append(
+                        f"Cannot create data directory (permission denied): {self.data_dir}\n"
+                        f"  → Use --data-dir flag or grant write permissions"
+                    )
             except OSError as e:
-                warnings.append(f"Cannot create data directory: {self.data_dir} ({e})")
+                warnings.append(
+                    f"Cannot create data directory: {self.data_dir} ({e})\n"
+                    f"  → Use --data-dir flag to specify a different location"
+                )
 
         # Warn about debug mode in production
         if self.debug and self.host == "0.0.0.0":  # nosec B104
@@ -402,18 +512,16 @@ class Settings(BaseSettings):
         # 2. Data directory writability check
         try:
             dir_exists = self.data_dir.exists()
-        except PermissionError:
-            errors.append(
-                f"Cannot access data directory (permission denied): {self.data_dir}\n"
-                f"  → Fix: Grant read permissions to the directory or use a different path"
-            )
+        except PermissionError as e:
+            errors.append(_format_permission_error_message(self.data_dir, "access", e))
             dir_exists = False
 
         if dir_exists:
             if not self.data_dir.is_dir():
                 errors.append(
                     f"Data path exists but is not a directory: {self.data_dir}\n"
-                    f"  → Fix: Remove the file or choose a different data directory"
+                    f"  → Fix: Remove the file or use --data-dir to choose a different location:\n"
+                    f"         chatfilter --data-dir ~/ChatFilter"
                 )
             else:
                 # Check if writable by trying to create a temp file
@@ -422,15 +530,14 @@ class Settings(BaseSettings):
                 try:
                     with tempfile.NamedTemporaryFile(dir=self.data_dir, delete=True):
                         pass
-                except PermissionError:
-                    errors.append(
-                        f"Data directory is not writable: {self.data_dir}\n"
-                        f"  → Fix: Grant write permissions or choose a different directory"
-                    )
+                except PermissionError as e:
+                    errors.append(_format_permission_error_message(self.data_dir, "write to", e))
                 except OSError as e:
                     errors.append(
-                        f"Cannot write to data directory: {self.data_dir} ({e})\n"
-                        f"  → Fix: Check directory permissions and disk space"
+                        f"Cannot write to data directory: {self.data_dir}\n"
+                        f"  → Error: {e}\n"
+                        f"  → Fix: Check directory permissions and disk space\n"
+                        f"  → Tip: Use --data-dir to specify a different location"
                     )
         else:
             # Try to create it
@@ -441,15 +548,15 @@ class Settings(BaseSettings):
 
                 with tempfile.NamedTemporaryFile(dir=self.data_dir, delete=True):
                     pass
-            except PermissionError:
-                errors.append(
-                    f"Cannot create data directory (permission denied): {self.data_dir}\n"
-                    f"  → Fix: Grant write permissions to parent directory or use a different path"
-                )
+            except PermissionError as e:
+                errors.append(_format_permission_error_message(self.data_dir, "create", e))
             except OSError as e:
                 errors.append(
-                    f"Cannot create data directory: {self.data_dir} ({e})\n"
-                    f"  → Fix: Check parent directory exists and has write permissions"
+                    f"Cannot create data directory: {self.data_dir}\n"
+                    f"  → Error: {e}\n"
+                    f"  → Fix: Check parent directory exists and has write permissions\n"
+                    f"  → Tip: Use --data-dir to specify a different location:\n"
+                    f"         chatfilter --data-dir ~/ChatFilter"
                 )
 
         # 3. Port availability check

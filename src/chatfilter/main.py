@@ -251,17 +251,49 @@ def main() -> None:
         print("\nRun with --validate to check configuration without starting the server")
         sys.exit(1)
 
+    # Early warning for read-only locations
+    from chatfilter.config import _is_path_in_readonly_location
+
+    is_readonly, readonly_reason = _is_path_in_readonly_location(settings.data_dir)
+    if is_readonly:
+        print()
+        print("=" * 60)
+        print("WARNING: Data directory is in a read-only location")
+        print("=" * 60)
+        print(f"  Location: {settings.data_dir}")
+        print(f"  Reason: {readonly_reason}")
+        print()
+        print("  This may cause permission errors during operation.")
+        print("  Consider using a writable location:")
+        print()
+        print("    chatfilter --data-dir ~/ChatFilter")
+        print()
+        print("=" * 60)
+        print()
+
     # Check if this is the first run
     is_first_run = settings.is_first_run()
 
     # Ensure data directories exist
     dir_errors = settings.ensure_data_dirs()
     if dir_errors:
-        print("Warning: Some directories could not be created:")
-        for error in dir_errors:
-            print(f"  • {error}")
-        print("Continuing anyway, but some features may not work correctly.")
         print()
+        print("=" * 60)
+        print("ERROR: Failed to create required directories")
+        print("=" * 60)
+        for error in dir_errors:
+            print(error)
+            print()
+        print("The application cannot start without write access to the data directory.")
+        print()
+        print("To fix this issue:")
+        print("  1. Use a writable location with --data-dir:")
+        print("       chatfilter --data-dir ~/ChatFilter")
+        print("  2. Or grant write permissions to the current location")
+        print()
+        print("Run --self-test to diagnose permission issues")
+        print("=" * 60)
+        sys.exit(1)
 
     # Startup banner with system information
     import platform
