@@ -360,3 +360,98 @@ def test_generate_correlation_id() -> None:
     # Should be hexadecimal
     assert all(c in "0123456789abcdef" for c in id1)
     assert all(c in "0123456789abcdef" for c in id2)
+
+
+def test_exception_traceback_sanitization() -> None:
+    """Test that exception tracebacks are sanitized when logged."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = Path(tmpdir) / "test.log"
+
+        setup_logging(
+            level="INFO",
+            debug=False,
+            log_to_file=True,
+            log_file_path=log_file,
+        )
+
+        test_logger = logging.getLogger("exception_test")
+
+        # Create an exception with a session token in the message
+        session_token = "1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
+        try:
+            raise ValueError(f"Failed to connect with session: {session_token}")
+        except ValueError:
+            test_logger.exception("Connection error occurred")
+
+        content = log_file.read_text()
+
+        # The session token should be masked in the exception message
+        assert session_token not in content
+        assert "***SESSION_TOKEN***" in content
+        # The exception should still be logged (just sanitized)
+        assert "ValueError" in content
+        assert "Connection error occurred" in content
+
+
+def test_exception_with_bot_token_sanitization() -> None:
+    """Test that bot tokens in exceptions are sanitized."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = Path(tmpdir) / "test.log"
+
+        setup_logging(
+            level="INFO",
+            debug=False,
+            log_to_file=True,
+            log_file_path=log_file,
+        )
+
+        test_logger = logging.getLogger("bot_exception_test")
+
+        # Create an exception with a bot token
+        bot_token = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567"
+        try:
+            raise RuntimeError(f"Bot authentication failed: {bot_token}")
+        except RuntimeError:
+            test_logger.exception("Bot error")
+
+        content = log_file.read_text()
+
+        # The bot token should be masked
+        assert bot_token not in content
+        assert "***BOT_TOKEN***" in content
+
+
+def test_sanitize_text_function() -> None:
+    """Test the standalone sanitize_text function."""
+    from chatfilter.utils.logging import sanitize_text
+
+    # Test various sensitive data types
+    assert "***SESSION_TOKEN***" in sanitize_text(
+        "session: 1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
+    )
+    assert "***BOT_TOKEN***" in sanitize_text("bot: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567")
+    assert "***PHONE***" in sanitize_text("phone: +12345678901234")
+    assert "***PASSWORD***" in sanitize_text("password=secret123")
+    assert "***AUTH***" in sanitize_text("Authorization: Bearer token123")
+
+
+def test_sanitizing_formatter_directly() -> None:
+    """Test SanitizingFormatter directly."""
+    from chatfilter.utils.logging import SanitizingFormatter
+
+    formatter = SanitizingFormatter("%(message)s")
+
+    # Create a log record with sensitive data
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="Token: 1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
+        args=(),
+        exc_info=None,
+    )
+
+    formatted = formatter.format(record)
+    assert "1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789" not in formatted
+    assert "***SESSION_TOKEN***" in formatted

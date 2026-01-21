@@ -41,13 +41,18 @@ def setup_logging(
     # Clear any existing handlers to avoid duplicates
     root_logger.handlers.clear()
 
-    # Import filters
-    from chatfilter.utils.logging import CorrelationIDFilter, LogSanitizer
+    # Import filters and formatter
+    from chatfilter.utils.logging import (
+        CorrelationIDFilter,
+        LogSanitizer,
+        SanitizingFormatter,
+    )
 
     # Define consistent format with correlation ID support
+    # Use SanitizingFormatter to sanitize complete output including exception tracebacks
     log_format = "%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s"
     date_format = "%Y-%m-%d %H:%M:%S"
-    formatter = logging.Formatter(log_format, datefmt=date_format)
+    formatter = SanitizingFormatter(log_format, datefmt=date_format)
 
     # Console handler - always enabled
     console_handler = logging.StreamHandler(sys.stdout)
