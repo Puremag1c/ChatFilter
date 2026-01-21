@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from chatfilter.utils.cleanup import (
+    CleanupStats,
+    cleanup_orphaned_resources,
+)
 from chatfilter.utils.disk import (
     DiskSpaceError,
     ensure_space_available,
@@ -44,4 +48,6 @@ __all__ = [
     "ensure_space_available",
     "get_available_space",
     "format_bytes",
+    "cleanup_orphaned_resources",
+    "CleanupStats",
 ]
