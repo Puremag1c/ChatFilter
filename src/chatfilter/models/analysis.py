@@ -24,6 +24,9 @@ class ChatMetrics(BaseModel):
         has_message_gaps: Whether message ID sequence has gaps (deleted messages).
                          When True, history_hours may be underestimated if
                          first/last messages were deleted.
+        clock_skew_seconds: Clock skew in seconds (positive = local clock ahead,
+                           negative = local clock behind). None if no significant
+                           skew detected (< 5 minutes).
 
     Example:
         >>> from datetime import datetime, timezone
@@ -51,6 +54,7 @@ class ChatMetrics(BaseModel):
     first_message_at: datetime | None
     last_message_at: datetime | None
     has_message_gaps: bool = False
+    clock_skew_seconds: float | None = None
 
     @field_validator("message_count", "unique_authors")
     @classmethod
@@ -135,6 +139,7 @@ class ChatMetrics(BaseModel):
             first_message_at=None,
             last_message_at=None,
             has_message_gaps=False,
+            clock_skew_seconds=None,
         )
 
     @classmethod
@@ -146,6 +151,7 @@ class ChatMetrics(BaseModel):
         first_message_at: datetime | None = None,
         last_message_at: datetime | None = None,
         has_message_gaps: bool = False,
+        clock_skew_seconds: float | None = None,
     ) -> ChatMetrics:
         """Create fake ChatMetrics for testing.
 
@@ -156,6 +162,7 @@ class ChatMetrics(BaseModel):
             first_message_at: First message time (default: calculated).
             last_message_at: Last message time (default: 1 hour ago).
             has_message_gaps: Whether to set gaps flag (default: False).
+            clock_skew_seconds: Clock skew in seconds (default: None).
 
         Returns:
             ChatMetrics instance with test data.
@@ -171,6 +178,7 @@ class ChatMetrics(BaseModel):
             first_message_at=_first,
             last_message_at=_last,
             has_message_gaps=has_message_gaps,
+            clock_skew_seconds=clock_skew_seconds,
         )
 
 

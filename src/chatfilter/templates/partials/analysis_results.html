@@ -16,6 +16,30 @@
         </div>
     </div>
 
+    {% set clock_skew_results = results | selectattr('metrics.clock_skew_seconds', 'ne', None) | list %}
+    {% if clock_skew_results %}
+    <div class="alert alert-warning clock-skew-warning">
+        <strong>⚠️ Clock Skew Detected</strong>
+        <p>
+            Your system clock appears to be incorrect, which may affect time-based calculations
+            (messages per hour, history length). {{ clock_skew_results|length }} chat(s) affected:
+        </p>
+        <ul>
+            {% for result in clock_skew_results %}
+            <li>
+                <strong>{{ result.chat.title }}</strong>:
+                {% if result.metrics.clock_skew_seconds > 0 %}
+                    System clock is {{ (result.metrics.clock_skew_seconds / 60) | round(1) }} minutes ahead of Telegram server time
+                {% else %}
+                    System clock is {{ (result.metrics.clock_skew_seconds | abs / 60) | round(1) }} minutes behind Telegram server time
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        <p><small>Please check your system time settings and synchronize with a reliable time server (e.g., NTP).</small></p>
+    </div>
+    {% endif %}
+
     <div class="results-table-container">
         <table class="results-table" id="results-table">
             <thead>

@@ -3,12 +3,63 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from chatfilter.models.analysis import ChatMetrics
 from chatfilter.models.message import Message
 
 logger = logging.getLogger(__name__)
+
+# Threshold for clock skew detection (5 minutes in seconds)
+CLOCK_SKEW_THRESHOLD_SECONDS = 300
+
+
+def detect_clock_skew(server_timestamp: datetime) -> float | None:
+    """Detect clock skew between local system time and Telegram server time.
+
+    Compares the most recent message timestamp (from Telegram server) with
+    the current local system time to detect if the system clock is significantly
+    wrong. Large clock skew can cause incorrect calculation of history_hours
+    and messages_per_hour metrics.
+
+    Args:
+        server_timestamp: Timestamp of a recent message from Telegram server
+
+    Returns:
+        Clock skew in seconds if significant (> 5 minutes), None otherwise.
+        Positive value means local clock is ahead of server time.
+        Negative value means local clock is behind server time.
+
+    Example:
+        ```python
+        # Get most recent message from Telegram
+        messages = await get_messages(client, chat_id, limit=1)
+        if messages:
+            skew = detect_clock_skew(messages[0].timestamp)
+            if skew:
+                print(f"Clock skew detected: {skew:.0f} seconds")
+                if skew > 0:
+                    print("Local clock is ahead of server time")
+                else:
+                    print("Local clock is behind server time")
+        ```
+    """
+    local_now = datetime.now(UTC)
+
+    # Calculate difference in seconds
+    # Positive = local clock ahead, negative = local clock behind
+    skew_seconds = (local_now - server_timestamp).total_seconds()
+
+    # Only report significant skew (> 5 minutes)
+    if abs(skew_seconds) > CLOCK_SKEW_THRESHOLD_SECONDS:
+        logger.warning(
+            f"Clock skew detected: {skew_seconds:.0f} seconds "
+            f"({'ahead' if skew_seconds > 0 else 'behind'}). "
+            f"This may affect time-based calculations."
+        )
+        return skew_seconds
+
+    return None
 
 
 def compute_metrics(messages: list[Message]) -> ChatMetrics:
@@ -90,6 +141,11 @@ def compute_metrics(messages: list[Message]) -> ChatMetrics:
         id_range = message_ids[-1] - message_ids[0] + 1
         has_message_gaps = id_range > len(messages)
 
+    # Detect clock skew by comparing most recent message time with local time
+    clock_skew_seconds = None
+    if last_message_at is not None:
+        clock_skew_seconds = detect_clock_skew(last_message_at)
+
     return ChatMetrics(
         message_count=len(messages),
         unique_authors=unique_authors,
@@ -97,6 +153,7 @@ def compute_metrics(messages: list[Message]) -> ChatMetrics:
         first_message_at=first_message_at,
         last_message_at=last_message_at,
         has_message_gaps=has_message_gaps,
+        clock_skew_seconds=clock_skew_seconds,
     )
 
 
@@ -129,6 +186,7 @@ class StreamingMetricsAggregator:
         self._last_message_at: datetime | None = None
         self._min_message_id: int | None = None
         self._max_message_id: int | None = None
+        self._clock_skew_seconds: float | None = None
 
     def add_batch(self, messages: list[Message]) -> None:
         """Add a batch of messages to the aggregation.
@@ -158,6 +216,8 @@ class StreamingMetricsAggregator:
 
         if self._last_message_at is None or batch_last > self._last_message_at:
             self._last_message_at = batch_last
+            # Update clock skew detection with most recent message
+            self._clock_skew_seconds = detect_clock_skew(batch_last)
 
         # Update message ID range
         batch_message_ids = [msg.id for msg in messages]
@@ -219,6 +279,7 @@ class StreamingMetricsAggregator:
             first_message_at=self._first_message_at,
             last_message_at=self._last_message_at,
             has_message_gaps=has_message_gaps,
+            clock_skew_seconds=self._clock_skew_seconds,
         )
 
     def reset(self) -> None:
@@ -229,6 +290,7 @@ class StreamingMetricsAggregator:
         self._last_message_at = None
         self._min_message_id = None
         self._max_message_id = None
+        self._clock_skew_seconds = None
 
     @property
     def message_count(self) -> int:
