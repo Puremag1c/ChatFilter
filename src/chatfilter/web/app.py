@@ -331,7 +331,7 @@ def get_templates() -> Jinja2Templates:
         """Install translations for current locale into Jinja2 environment."""
         locale = get_current_locale()
         translations = get_translations(locale)
-        templates.env.install_gettext_translations(translations)
+        templates.env.install_gettext_translations(translations)  # type: ignore[attr-defined]
 
     # Install default translations (will be overridden per request)
     install_translations()

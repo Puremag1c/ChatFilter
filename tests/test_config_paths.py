@@ -61,8 +61,8 @@ class TestPlatformPaths:
         """Test Windows-specific paths."""
         data_dir = _get_default_data_dir()
         config_dir = get_user_config_dir()
-        cache_dir = get_user_cache_dir()
-        log_dir = get_user_log_dir()
+        _cache_dir = get_user_cache_dir()
+        _log_dir = get_user_log_dir()
 
         # Windows uses AppData directories
         assert "AppData" in str(data_dir) or "Roaming" in str(data_dir)
@@ -74,7 +74,7 @@ class TestPlatformPaths:
         data_dir = _get_default_data_dir()
         config_dir = get_user_config_dir()
         cache_dir = get_user_cache_dir()
-        log_dir = get_user_log_dir()
+        _log_dir = get_user_log_dir()
 
         # Linux uses XDG base directory spec
         assert ".local/share" in str(data_dir) or "XDG_DATA_HOME" in str(data_dir)

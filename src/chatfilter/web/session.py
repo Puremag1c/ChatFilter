@@ -25,7 +25,7 @@ import time
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any
+from typing import Any, cast
 
 from starlette.requests import Request
 
@@ -188,7 +188,7 @@ def get_session(request: Request) -> SessionData:
     """
     # Check if session is already attached to request state
     if hasattr(request.state, "session"):
-        return request.state.session
+        return cast(SessionData, request.state.session)
 
     # Get or create session
     store = get_session_store()

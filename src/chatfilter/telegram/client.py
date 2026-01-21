@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import sqlite3
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -1196,7 +1197,7 @@ async def get_messages_streaming(
     chat_id: int,
     batch_size: int = 1000,
     max_messages: int | None = None,
-):
+) -> AsyncGenerator[list[Message], None]:
     """Stream messages from a Telegram chat in batches (generator).
 
     Similar to get_messages() but yields batches of messages instead of loading
@@ -1357,7 +1358,7 @@ async def get_messages_streaming(
         # Regular chat or forum fallback: stream messages
         max_retries = 3
         retry_count = 0
-        batch: list[Message] = []
+        current_batch: list[Message] = []
 
         while retry_count < max_retries:
             try:
@@ -1366,9 +1367,9 @@ async def get_messages_streaming(
                     remaining = max_messages - total_fetched
                     if remaining <= 0:
                         # Yield final batch if any
-                        if batch:
-                            batch.sort(key=lambda m: m.timestamp)
-                            yield batch
+                        if current_batch:
+                            current_batch.sort(key=lambda m: m.timestamp)
+                            yield current_batch
                         return
                     fetch_limit = min(batch_size * 10, remaining)  # Fetch larger chunks
                 else:
@@ -1386,24 +1387,24 @@ async def get_messages_streaming(
                     if msg.id in seen_ids:
                         continue
                     seen_ids.add(msg.id)
-                    batch.append(msg)
+                    current_batch.append(msg)
 
                     # Yield batch when it reaches batch_size
-                    if len(batch) >= batch_size:
-                        batch.sort(key=lambda m: m.timestamp)
-                        yield batch
-                        total_fetched += len(batch)
-                        batch = []
+                    if len(current_batch) >= batch_size:
+                        current_batch.sort(key=lambda m: m.timestamp)
+                        yield current_batch
+                        total_fetched += len(current_batch)
+                        current_batch = []
 
                         # Check if we've reached max_messages
                         if max_messages and total_fetched >= max_messages:
                             return
 
                 # Yield remaining messages in final batch
-                if batch:
-                    batch.sort(key=lambda m: m.timestamp)
-                    yield batch
-                    total_fetched += len(batch)
+                if current_batch:
+                    current_batch.sort(key=lambda m: m.timestamp)
+                    yield current_batch
+                    total_fetched += len(current_batch)
 
                 # Successfully completed streaming
                 break

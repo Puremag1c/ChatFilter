@@ -128,17 +128,20 @@ def parse_text(content: str | bytes) -> list[ChatListEntry]:
     Raises:
         ParseError: If parsing fails.
     """
+    text: str
     if isinstance(content, bytes):
         try:
-            content = content.decode("utf-8")
+            text = content.decode("utf-8")
         except UnicodeDecodeError:
             try:
-                content = content.decode("cp1251")  # Common for Russian text
+                text = content.decode("cp1251")  # Common for Russian text
             except UnicodeDecodeError as e:
                 raise ParseError(f"Failed to decode file: {e}") from e
+    else:
+        text = content
 
     entries = []
-    for line in content.splitlines():
+    for line in text.splitlines():
         entry = _classify_entry(line)
         if entry:
             entries.append(entry)
@@ -161,23 +164,26 @@ def parse_csv(content: str | bytes) -> list[ChatListEntry]:
     Raises:
         ParseError: If parsing fails.
     """
+    text: str
     if isinstance(content, bytes):
         try:
-            content = content.decode("utf-8")
+            text = content.decode("utf-8")
         except UnicodeDecodeError:
             try:
-                content = content.decode("cp1251")
+                text = content.decode("cp1251")
             except UnicodeDecodeError as e:
                 raise ParseError(f"Failed to decode CSV: {e}") from e
+    else:
+        text = content
 
     entries = []
     try:
         # Detect delimiter
-        dialect = csv.Sniffer().sniff(content[:4096], delimiters=",;\t")
-        reader = csv.reader(io.StringIO(content), dialect)
+        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
+        reader = csv.reader(io.StringIO(text), dialect)
     except csv.Error:
         # Fallback to comma
-        reader = csv.reader(io.StringIO(content))
+        reader = csv.reader(io.StringIO(text))
 
     rows = list(reader)
     if not rows:
@@ -230,7 +236,7 @@ def parse_xlsx(file: BinaryIO) -> list[ChatListEntry]:
         ParseError: If parsing fails.
     """
     try:
-        from openpyxl import load_workbook
+        from openpyxl import load_workbook  # type: ignore[import-untyped]
     except ImportError as e:
         raise ParseError("openpyxl is required for Excel file support") from e
 

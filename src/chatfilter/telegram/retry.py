@@ -6,11 +6,11 @@ import asyncio
 import logging
 import random
 import ssl
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
-from telethon.errors import (  # type: ignore[import-untyped]
+from telethon.errors import (
     FileMigrateError,
     FloodWaitError,
     NetworkMigrateError,
@@ -88,7 +88,7 @@ def calculate_backoff_delay(
         jitter_amount = delay * jitter
         delay += random.uniform(-jitter_amount, jitter_amount)
 
-    return max(0, delay)  # Ensure non-negative
+    return float(max(0, delay))  # Ensure non-negative
 
 
 def with_retry(
@@ -100,7 +100,7 @@ def with_retry(
     operation_name: str | None = None,
     handle_flood_wait: bool = True,
     max_flood_wait: int = 3600,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Decorator to add retry logic with exponential backoff to async functions.
 
     Retries on network-related exceptions (ConnectionError, TimeoutError, OSError, SSL errors).
@@ -127,7 +127,7 @@ def with_retry(
             pass
     """
 
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             op_name = operation_name or func.__name__
@@ -208,7 +208,7 @@ def with_retry(
                 raise last_exception
             raise RuntimeError(f"{op_name}: Unexpected retry loop exit")
 
-        return wrapper  # type: ignore
+        return wrapper
 
     return decorator
 
@@ -217,7 +217,7 @@ def with_retry_for_reads(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     base_delay: float = DEFAULT_BASE_DELAY,
     max_delay: float = DEFAULT_MAX_DELAY,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Convenience decorator for read operations (idempotent, safe to retry).
 
     Uses default retry configuration optimized for read operations.
@@ -241,7 +241,7 @@ def with_retry_for_writes(
     max_attempts: int = 2,  # More conservative for writes
     base_delay: float = 2.0,  # Longer delays for writes
     max_delay: float = 10.0,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Convenience decorator for write operations (use cautiously, ensure idempotency).
 
     Uses more conservative retry configuration for write operations.
@@ -296,7 +296,7 @@ def with_flood_wait_handling(
     max_attempts: int = 3,
     max_flood_wait: int = 3600,  # 1 hour max wait by default
     use_exponential_backoff: bool = True,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Decorator to handle FloodWaitError with exponential backoff and user notifications.
 
     Handles Telegram's rate limiting (FloodWaitError) by:
@@ -320,7 +320,7 @@ def with_flood_wait_handling(
             pass
     """
 
-    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             op_name = func.__name__
@@ -390,6 +390,6 @@ def with_flood_wait_handling(
                 raise last_exception
             raise RuntimeError(f"{op_name}: Unexpected retry loop exit")
 
-        return wrapper  # type: ignore
+        return wrapper
 
     return decorator

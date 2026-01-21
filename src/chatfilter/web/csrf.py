@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from chatfilter.web.session import SessionData
@@ -60,7 +60,7 @@ def get_csrf_token(session: SessionData) -> str:
         session.set(CSRF_SESSION_KEY, token)
         logger.debug(f"Generated new CSRF token for session {session.session_id[:8]}...")
 
-    return token
+    return cast(str, token)
 
 
 def validate_csrf_token(session: SessionData, token: str) -> bool:

@@ -6,13 +6,16 @@ including session management, service access, and more.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, Request
 
 from chatfilter.service import ChatAnalysisService
 from chatfilter.telegram.session_manager import SessionManager
 from chatfilter.web.session import SessionData, get_session
+
+if TYPE_CHECKING:
+    from chatfilter.storage.database import TaskDatabase
 
 
 def get_web_session(request: Request) -> SessionData:
@@ -41,7 +44,7 @@ WebSession = Annotated[SessionData, Depends(get_web_session)]
 # Global instances (in production, these would be in app state)
 _session_manager: SessionManager | None = None
 _chat_service: ChatAnalysisService | None = None
-_database: TaskDatabase | None = None  # type: ignore
+_database: TaskDatabase | None = None
 
 
 def get_session_manager() -> SessionManager:
@@ -78,7 +81,7 @@ def get_chat_analysis_service() -> ChatAnalysisService:
     return _chat_service
 
 
-def get_database() -> TaskDatabase:  # type: ignore
+def get_database() -> TaskDatabase:
     """Get or create the task database instance.
 
     Returns:

@@ -6,7 +6,7 @@ import gettext
 from contextvars import ContextVar
 from pathlib import Path
 
-from babel.support import Translations  # type: ignore[import-untyped]
+from babel.support import Translations
 
 # Supported languages
 SUPPORTED_LANGUAGES = ["en", "ru"]

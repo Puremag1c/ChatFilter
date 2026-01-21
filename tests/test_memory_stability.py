@@ -146,7 +146,7 @@ class TestMemoryCleanup:
 
         # Create task and subscribe
         task = queue.create_task("session1", [1, 2, 3])
-        sub_queue = await queue.subscribe(task.task_id)
+        _sub_queue = await queue.subscribe(task.task_id)
 
         # Run task to completion
         await queue.run_task(task.task_id, executor)

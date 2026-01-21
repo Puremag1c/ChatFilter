@@ -36,7 +36,7 @@ def get_base_path() -> Path:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         # Running in PyInstaller bundle
         # sys._MEIPASS is the temp directory where PyInstaller extracts files
-        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        base = Path(sys._MEIPASS)
         # PyInstaller extracts to _MEIPASS/chatfilter/templates, etc.
         # Return the chatfilter subdirectory
         return base / "chatfilter"

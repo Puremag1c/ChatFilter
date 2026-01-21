@@ -352,11 +352,49 @@ async def _generate_sse_events(
     task = queue.get_task(task_id)
     if task:
         init_data = {
+            "current": len(task.results),
             "total": len(task.chat_ids),
             "status": task.status.value,
             "sequence": task.event_sequence,
         }
         yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
+
+        # If task is already in final state, send completion event and close
+        if task.status in (
+            TaskStatus.COMPLETED,
+            TaskStatus.FAILED,
+            TaskStatus.CANCELLED,
+            TaskStatus.TIMEOUT,
+        ):
+            if task.status == TaskStatus.COMPLETED:
+                complete_data = {
+                    "results_count": len(task.results),
+                    "sequence": task.event_sequence,
+                }
+                yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+            elif task.status == TaskStatus.CANCELLED:
+                cancel_data = {
+                    "results_count": len(task.results),
+                    "message": "Analysis cancelled",
+                    "sequence": task.event_sequence,
+                }
+                yield f"event: cancelled\ndata: {json.dumps(cancel_data)}\n\n"
+            elif task.status == TaskStatus.TIMEOUT:
+                timeout_data = {
+                    "results_count": len(task.results),
+                    "error": task.error or "Task timed out",
+                    "sequence": task.event_sequence,
+                }
+                yield f"event: timeout\ndata: {json.dumps(timeout_data)}\n\n"
+            elif task.status == TaskStatus.FAILED:
+                error_data = {
+                    "error": task.error or "Unknown error",
+                    "sequence": task.event_sequence,
+                }
+                yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+            # Clean up and return early
+            await queue.unsubscribe(task_id, progress_queue)
+            return
 
     # Heartbeat interval for keepalive
     heartbeat_interval = 15  # seconds

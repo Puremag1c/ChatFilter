@@ -98,7 +98,7 @@ def main() -> None:
     """Run ChatFilter web application."""
     import argparse
 
-    import uvicorn  # type: ignore[import-not-found]
+    import uvicorn
 
     from chatfilter import __version__
     from chatfilter.config import Settings, get_settings, reset_settings

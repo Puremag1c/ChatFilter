@@ -436,10 +436,8 @@ class TestTaskQueue:
         task = queue.create_task("session1", [1, 2, 3])
 
         # Run task - should be cancelled by stall monitor
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await queue.run_task(task.task_id, executor)
-        except asyncio.CancelledError:
-            pass  # Expected when force cancelled
 
         # Wait a bit for stall monitor to detect and cancel
         await asyncio.sleep(3.0)
@@ -469,10 +467,8 @@ class TestTaskQueue:
         assert result is True
 
         # Wait for task to finish
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await run_task
-        except asyncio.CancelledError:
-            pass  # Expected
 
         # Task should be cancelled
         assert task.status == TaskStatus.CANCELLED
@@ -507,10 +503,8 @@ class TestTaskQueue:
         await queue.shutdown()
 
         # Wait for task to finish
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await run_task
-        except asyncio.CancelledError:
-            pass  # Expected
 
         # Task should be cancelled
         assert task.status == TaskStatus.CANCELLED

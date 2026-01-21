@@ -17,8 +17,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import types
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from cryptography.fernet import Fernet
 
@@ -105,6 +106,8 @@ class KeyringBackend(CredentialStorageBackend):
     - Linux: Secret Service (libsecret/gnome-keyring)
     """
 
+    _keyring: types.ModuleType | None
+
     def __init__(self) -> None:
         """Initialize keyring backend."""
         try:
@@ -116,15 +119,16 @@ class KeyringBackend(CredentialStorageBackend):
 
     def is_available(self) -> bool:
         """Check if keyring is available."""
-        if self._keyring is None:
+        keyring = self._keyring
+        if keyring is None:
             return False
 
         try:
             # Test if keyring backend is functional
             # Some systems have keyring installed but no usable backend
-            backend = self._keyring.get_keyring()
+            backend = keyring.get_keyring()
             # Fail backend is used when no real backend is available
-            return backend.priority >= 1  # type: ignore[union-attr]
+            return bool(backend.priority >= 1)
         except Exception:
             return False
 
@@ -133,14 +137,17 @@ class KeyringBackend(CredentialStorageBackend):
         if not self.is_available():
             raise CredentialStorageError("Keyring backend not available")
 
+        keyring = self._keyring
+        assert keyring is not None  # Guaranteed by is_available() check
+
         try:
             # Store api_id as string (keyring stores strings)
-            self._keyring.set_password(
+            keyring.set_password(
                 KEYRING_SERVICE,
                 f"{session_id}:api_id",
                 str(api_id),
             )
-            self._keyring.set_password(
+            keyring.set_password(
                 KEYRING_SERVICE,
                 f"{session_id}:api_hash",
                 api_hash,
@@ -154,12 +161,15 @@ class KeyringBackend(CredentialStorageBackend):
         if not self.is_available():
             raise CredentialStorageError("Keyring backend not available")
 
+        keyring = self._keyring
+        assert keyring is not None  # Guaranteed by is_available() check
+
         try:
-            api_id_str = self._keyring.get_password(
+            api_id_str = keyring.get_password(
                 KEYRING_SERVICE,
                 f"{session_id}:api_id",
             )
-            api_hash = self._keyring.get_password(
+            api_hash = keyring.get_password(
                 KEYRING_SERVICE,
                 f"{session_id}:api_hash",
             )
@@ -188,9 +198,12 @@ class KeyringBackend(CredentialStorageBackend):
         if not self.is_available():
             raise CredentialStorageError("Keyring backend not available")
 
+        keyring = self._keyring
+        assert keyring is not None  # Guaranteed by is_available() check
+
         try:
-            self._keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_id")
-            self._keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_hash")
+            keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_id")
+            keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_hash")
             logger.info(f"Deleted credentials from keyring for session: {session_id}")
         except Exception as e:
             # Don't fail if already deleted
@@ -267,7 +280,7 @@ class EncryptedFileBackend(CredentialStorageBackend):
             encrypted_data = self._credentials_file.read_bytes()
             fernet = self._get_fernet()
             decrypted_data = fernet.decrypt(encrypted_data)
-            return json.loads(decrypted_data.decode("utf-8"))
+            return cast(dict[str, dict[str, str]], json.loads(decrypted_data.decode("utf-8")))
         except Exception as e:
             logger.error(f"Failed to decrypt credentials file: {e}")
             # Return empty dict if file is corrupted
@@ -397,6 +410,8 @@ class SecureCredentialManager:
     1. OS Keyring (if available)
     2. Encrypted file (fallback)
     """
+
+    _storage_backend: CredentialStorageBackend
 
     def __init__(self, storage_dir: Path) -> None:
         """Initialize credential manager.
