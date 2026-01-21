@@ -12,11 +12,12 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
@@ -216,7 +217,9 @@ class TaskQueue:
         self._db = db
         self._tasks: dict[UUID, AnalysisTask] = {}
         self._subscribers: dict[UUID, list[asyncio.Queue[ProgressEvent | None]]] = {}
-        self._running_tasks: dict[UUID, asyncio.Task] = {}  # Track asyncio tasks for cancellation
+        self._running_tasks: dict[
+            UUID, asyncio.Task[None]
+        ] = {}  # Track asyncio tasks for cancellation
         self._lock = asyncio.Lock()
         self._auto_cleanup_threshold = auto_cleanup_threshold
         self._enable_memory_monitoring = enable_memory_monitoring and MemoryMonitor is not None
@@ -226,7 +229,7 @@ class TaskQueue:
         self._stall_check_interval_seconds = stall_check_interval_seconds
         self._stale_task_threshold_hours = stale_task_threshold_hours
         self._max_concurrent_tasks = max_concurrent_tasks
-        self._monitor_task: asyncio.Task | None = None  # Background monitor for stalled tasks
+        self._monitor_task: asyncio.Task[None] | None = None  # Background monitor for stalled tasks
 
         # Initialize memory monitor
         self._memory_monitor: MemoryMonitor | None = None
@@ -242,6 +245,8 @@ class TaskQueue:
         # Only create the task if we're in an async context (event loop running)
         if self._progress_stall_timeout_seconds > 0:
             try:
+                # Check if event loop is running before creating coroutine
+                asyncio.get_running_loop()
                 self._monitor_task = asyncio.create_task(self._monitor_stalled_tasks())
                 logger.info(
                     f"Task stall monitoring enabled (timeout: {progress_stall_timeout_seconds}s)"
@@ -254,7 +259,7 @@ class TaskQueue:
         if self._db:
             self._load_incomplete_tasks()
 
-    def _on_memory_threshold_exceeded(self, stats) -> None:
+    def _on_memory_threshold_exceeded(self, stats: Any) -> None:
         """Callback when memory threshold is exceeded.
 
         Args:
@@ -538,10 +543,8 @@ class TaskQueue:
         async with self._lock:
             subscribers = self._subscribers.get(task_id, [])
             for queue in subscribers:
-                try:
+                with contextlib.suppress(asyncio.QueueFull):
                     queue.put_nowait(None)
-                except asyncio.QueueFull:
-                    pass
 
     def _ensure_monitor_started(self) -> None:
         """Ensure the stall monitor task is running.
@@ -553,6 +556,8 @@ class TaskQueue:
             self._monitor_task is None or self._monitor_task.done()
         ):
             try:
+                # Check if event loop is running before creating coroutine
+                asyncio.get_running_loop()
                 self._monitor_task = asyncio.create_task(self._monitor_stalled_tasks())
                 logger.info(
                     f"Task stall monitoring started (timeout: {self._progress_stall_timeout_seconds}s)"
@@ -650,10 +655,8 @@ class TaskQueue:
         # Stop background monitor
         if self._monitor_task and not self._monitor_task.done():
             self._monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitor_task
-            except asyncio.CancelledError:
-                pass
 
         # Cancel all running tasks
         for task_id in list(self._running_tasks.keys()):
@@ -770,7 +773,7 @@ class TaskQueue:
             self._db.save_task(task)
 
         # Log memory at task start
-        if self._enable_memory_monitoring and log_memory_usage:
+        if self._enable_memory_monitoring and log_memory_usage is not None:
             log_memory_usage(f"Task {task_id} start")
 
         # Checkpoint resume: skip already-analyzed chats
@@ -831,15 +834,18 @@ class TaskQueue:
                     messages_processed: int,
                     batch_number: int,
                     total_batches: int | None = None,
+                    *,
+                    current_index: int = i,
+                    current_chat_title: str = chat_title,
                 ) -> None:
                     """Report batch progress to subscribers."""
                     await self._publish_event(
                         ProgressEvent(
                             task_id=task_id,
                             status=TaskStatus.IN_PROGRESS,
-                            current=i,
+                            current=current_index,
                             total=len(task.chat_ids),
-                            chat_title=chat_title,
+                            chat_title=current_chat_title,
                             message=f"Processing batch {batch_number}...",
                             messages_processed=messages_processed,
                             batch_number=batch_number,
@@ -917,7 +923,7 @@ class TaskQueue:
                 logger.info(f"Task {task_id} completed with {len(task.results)} results")
 
                 # Log memory at task completion
-                if self._enable_memory_monitoring and log_memory_usage:
+                if self._enable_memory_monitoring and log_memory_usage is not None:
                     log_memory_usage(f"Task {task_id} completed")
             else:
                 # Task was cancelled
