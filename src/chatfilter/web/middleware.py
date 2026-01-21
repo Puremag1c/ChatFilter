@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -39,7 +39,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         # Use existing request ID or generate new one
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
@@ -75,7 +75,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         start_time = time.perf_counter()
 
@@ -128,7 +128,7 @@ class SessionMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         # Get or create session
         session = get_session(request)
@@ -158,7 +158,7 @@ class GracefulShutdownMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         from starlette.responses import JSONResponse
 
@@ -215,7 +215,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         response = await call_next(request)
 
@@ -283,7 +283,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         return any(path.startswith(prefix) for prefix in self.EXEMPT_PREFIXES)
 
     async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         # Only check state-changing methods
         if request.method not in ("POST", "DELETE"):
@@ -313,7 +313,9 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         if not csrf_token:
             try:
                 form_data = await request.form()
-                csrf_token = form_data.get(CSRF_FORM_FIELD)
+                token_value = form_data.get(CSRF_FORM_FIELD)
+                # Ensure we only accept string tokens, not file uploads
+                csrf_token = token_value if isinstance(token_value, str) else None
             except Exception:
                 # Not a form request or error parsing form
                 pass
