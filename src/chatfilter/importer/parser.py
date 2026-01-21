@@ -53,7 +53,7 @@ class ChatListEntry(BaseModel):
 
 # Patterns for parsing
 TELEGRAM_LINK_PATTERN = re.compile(
-    r"(?:https?://)?(?:t\.me|telegram\.me)/(?:joinchat/)?([a-zA-Z0-9_]+)",
+    r"(?:https?://)?(?:t\.me|telegram\.me)/(?:joinchat/|\+)?([a-zA-Z0-9_-]+)",
     re.IGNORECASE,
 )
 USERNAME_PATTERN = re.compile(r"^@?([a-zA-Z][a-zA-Z0-9_]{3,31})$")
