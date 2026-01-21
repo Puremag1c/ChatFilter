@@ -36,6 +36,8 @@ repos:
           - fastapi>=0.109.0
           - pydantic>=2.5.0
           - pydantic-settings>=2.1.0
+          - cryptography>=41.0.0
+          - keyring>=25.0.0
         args: [--config-file=pyproject.toml, --follow-imports=silent]
 
   # Security scanning with bandit
