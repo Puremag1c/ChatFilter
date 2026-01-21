@@ -12,15 +12,23 @@ Fixtures:
 - mock_message_factory: Factory for creating mock Telethon Message objects
 - edge_case_chats: Pre-configured edge case chats
 - edge_case_messages: Pre-configured edge case messages
+
+Memory Leak Detection:
+- Automatic memory leak detection using tracemalloc
+- Enable with: pytest --detect-leaks or DETECT_MEMORY_LEAKS=1
+- Configure thresholds with: --leak-threshold-mb=10
 """
 
 from __future__ import annotations
 
+import gc
 import json
+import os
 import random
 import socket
 import sqlite3
 import threading
+import tracemalloc
 from collections.abc import Callable, Generator, Iterator
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -505,7 +513,7 @@ def mock_telegram_client() -> MagicMock:
     client.get_me = AsyncMock()
 
     # Configure iter methods to return empty async iterators by default
-    async def empty_iter() -> Iterator[Any]:
+    async def empty_iter() -> Any:
         if False:  # Make it a generator
             yield
 
@@ -620,3 +628,129 @@ def edge_case_messages(fake_message_factory: Callable[..., Any]) -> dict[str, An
             text="Special: <>&\"'\n\t\r",
         ),
     }
+
+
+# ============================================================================
+# Memory Leak Detection Plugin
+# ============================================================================
+# Automatically detects memory leaks in tests using tracemalloc.
+# Enable with: pytest --detect-leaks or DETECT_MEMORY_LEAKS=1 environment variable
+# Configure threshold: pytest --leak-threshold-mb=10
+# ============================================================================
+
+
+def pytest_addoption(parser: Any) -> None:
+    """Add command-line options for memory leak detection."""
+    parser.addoption(
+        "--detect-leaks",
+        action="store_true",
+        default=False,
+        help="Enable memory leak detection using tracemalloc",
+    )
+    parser.addoption(
+        "--leak-threshold-mb",
+        type=float,
+        default=5.0,
+        help="Memory leak threshold in MB (default: 5.0)",
+    )
+    parser.addoption(
+        "--leak-report",
+        action="store_true",
+        default=False,
+        help="Generate detailed memory leak report for failed tests",
+    )
+
+
+def pytest_configure(config: Any) -> None:
+    """Configure memory leak detection plugin."""
+    # Check if leak detection is enabled via CLI or environment variable
+    detect_leaks = config.getoption("--detect-leaks") or os.environ.get(
+        "DETECT_MEMORY_LEAKS", ""
+    ).lower() in ("1", "true", "yes")
+
+    if detect_leaks:
+        # Start tracemalloc at the beginning of test session
+        if not tracemalloc.is_tracing():
+            tracemalloc.start()
+        config._leak_detection_enabled = True
+    else:
+        config._leak_detection_enabled = False
+
+
+def pytest_unconfigure(config: Any) -> None:
+    """Stop tracemalloc when test session ends."""
+    if getattr(config, "_leak_detection_enabled", False) and tracemalloc.is_tracing():
+        tracemalloc.stop()
+
+
+@pytest.fixture(autouse=True)
+def _detect_memory_leaks(request: Any) -> Generator[None, None, None]:
+    """Fixture to detect memory leaks per test.
+
+    This fixture is automatically used for all tests when leak detection
+    is enabled. It captures memory snapshots before and after each test
+    and fails the test if memory growth exceeds the threshold.
+    """
+    config = request.config
+
+    # Skip if leak detection is not enabled
+    if not getattr(config, "_leak_detection_enabled", False):
+        yield
+        return
+
+    # Skip for specific markers if needed
+    if request.node.get_closest_marker("skip_leak_detection"):
+        yield
+        return
+
+    # Get configuration
+    threshold_mb = config.getoption("--leak-threshold-mb")
+    generate_report = config.getoption("--leak-report")
+
+    # Force garbage collection before starting
+    gc.collect()
+
+    # Take snapshot before test
+    snapshot_before = tracemalloc.take_snapshot()
+
+    # Run the test
+    yield
+
+    # Force garbage collection after test
+    gc.collect()
+
+    # Take snapshot after test
+    snapshot_after = tracemalloc.take_snapshot()
+
+    # Calculate memory difference
+    top_stats = snapshot_after.compare_to(snapshot_before, "lineno")
+
+    # Calculate total memory growth
+    total_growth_bytes = sum(stat.size_diff for stat in top_stats if stat.size_diff > 0)
+    total_growth_mb = total_growth_bytes / (1024 * 1024)
+
+    # Check if growth exceeds threshold
+    if total_growth_mb > threshold_mb:
+        # Generate detailed report if requested
+        if generate_report:
+            report_lines = [
+                f"\n{'=' * 70}",
+                f"MEMORY LEAK DETECTED: {request.node.nodeid}",
+                f"Memory growth: {total_growth_mb:.2f} MB (threshold: {threshold_mb:.2f} MB)",
+                f"{'=' * 70}",
+                "\nTop 10 memory allocations:",
+            ]
+
+            for stat in top_stats[:10]:
+                if stat.size_diff > 0:
+                    size_mb = stat.size_diff / (1024 * 1024)
+                    report_lines.append(f"  +{size_mb:.2f} MB: {stat.traceback.format()[0]}")
+
+            report = "\n".join(report_lines)
+            pytest.fail(report)
+        else:
+            pytest.fail(
+                f"Memory leak detected: {total_growth_mb:.2f} MB growth "
+                f"(threshold: {threshold_mb:.2f} MB). "
+                f"Run with --leak-report for details."
+            )

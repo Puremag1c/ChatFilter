@@ -88,6 +88,13 @@ jobs:
           echo "Running pytest with coverage threshold..."
           pytest --cov=src/chatfilter --cov-report=xml --cov-report=term-missing --cov-fail-under=80
 
+      - name: Run tests with memory leak detection
+        run: |
+          echo "Running pytest with memory leak detection..."
+          pytest --detect-leaks --leak-threshold-mb=10.0 -v
+        env:
+          DETECT_MEMORY_LEAKS: 1
+
       - name: Upload coverage to artifacts
         if: matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4
