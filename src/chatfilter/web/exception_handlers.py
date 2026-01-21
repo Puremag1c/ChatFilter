@@ -31,15 +31,15 @@ async def http_exception_handler(request: Request, exc: HTTPException | Exceptio
 
     Args:
         request: FastAPI request object
-        exc: HTTPException instance
+        exc: HTTPException instance (FastAPI or Starlette)
 
     Returns:
         JSONResponse with error details
     """
     error_id = _get_error_id(request)
 
-    # Cast to HTTPException for type checking
-    if not isinstance(exc, HTTPException):
+    # Handle both FastAPI and Starlette HTTPExceptions
+    if not isinstance(exc, HTTPException | StarletteHTTPException):
         exc = HTTPException(status_code=500, detail=str(exc))
 
     # Log the error with request context

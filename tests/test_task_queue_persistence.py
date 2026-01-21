@@ -134,8 +134,8 @@ def test_cancel_task_persists_to_database(temp_db):
     assert db_task.completed_at is not None
 
 
-def test_clear_completed_removes_from_database(temp_db):
-    """Test that clearing completed tasks removes them from database."""
+def test_clear_completed_removes_from_memory_preserves_database(temp_db):
+    """Test that clearing completed tasks removes them from memory but preserves in database."""
     queue = TaskQueue(db=temp_db)
 
     # Create tasks with different statuses
@@ -159,9 +159,14 @@ def test_clear_completed_removes_from_database(temp_db):
 
     assert cleared_count == 2
 
-    # Verify tasks are removed from database
-    assert temp_db.load_task(task1.task_id) is None
-    assert temp_db.load_task(task2.task_id) is None
+    # Verify tasks are removed from memory
+    assert queue.get_task(task1.task_id) is None
+    assert queue.get_task(task2.task_id) is None
+    assert queue.get_task(task3.task_id) is not None
+
+    # Verify tasks are PRESERVED in database (for history)
+    assert temp_db.load_task(task1.task_id) is not None
+    assert temp_db.load_task(task2.task_id) is not None
     assert temp_db.load_task(task3.task_id) is not None
 
 
@@ -224,8 +229,13 @@ async def test_run_task_persists_progress(temp_db):
 
 
 @pytest.mark.asyncio
-async def test_run_task_persists_failure(temp_db):
-    """Test that task failures are persisted."""
+async def test_run_task_handles_individual_chat_failures(temp_db):
+    """Test that individual chat failures don't fail the entire task.
+
+    The task should complete with partial results when some chats fail.
+    This is intentional resilient behavior - we don't want one bad chat
+    to fail an entire batch analysis.
+    """
 
     # Mock executor that fails
     class FailingExecutor:
@@ -254,15 +264,14 @@ async def test_run_task_persists_failure(temp_db):
     queue = TaskQueue(db=temp_db)
     task = queue.create_task("session1", [1])
 
-    # Run task (should fail)
+    # Run task (individual chats fail, but task completes)
     executor = FailingExecutor()
     await queue.run_task(task.task_id, executor)
 
-    # Verify failure is persisted
+    # Verify task completes with 0 results (failed chats are skipped)
     db_task = temp_db.load_task(task.task_id)
-    assert db_task.status == TaskStatus.FAILED
-    assert db_task.error is not None
-    assert "Test error" in db_task.error
+    assert db_task.status == TaskStatus.COMPLETED
+    assert len(db_task.results) == 0  # No results due to failures
 
 
 def test_get_task_queue_with_database():

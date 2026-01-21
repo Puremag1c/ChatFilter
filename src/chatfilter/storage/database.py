@@ -128,16 +128,29 @@ class TaskDatabase:
     def save_task(self, task: AnalysisTask) -> None:
         """Save or update a task in the database.
 
+        Uses INSERT ... ON CONFLICT instead of INSERT OR REPLACE to avoid
+        triggering ON DELETE CASCADE which would delete associated results.
+
         Args:
             task: Task to save
         """
         with self._connection() as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO tasks
+                INSERT INTO tasks
                 (task_id, session_id, chat_ids, message_limit, status,
                  created_at, started_at, completed_at, error, current_chat_index)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(task_id) DO UPDATE SET
+                    session_id = excluded.session_id,
+                    chat_ids = excluded.chat_ids,
+                    message_limit = excluded.message_limit,
+                    status = excluded.status,
+                    created_at = excluded.created_at,
+                    started_at = excluded.started_at,
+                    completed_at = excluded.completed_at,
+                    error = excluded.error,
+                    current_chat_index = excluded.current_chat_index
                 """,
                 (
                     str(task.task_id),
