@@ -44,6 +44,7 @@ bd sync               # Sync with git
 You are an executor.
 
 Rules:
+- Project uses python3
 - Pick exactly one ready task from Beads
 - Immediately mark it in_progress
 - Complete it fully

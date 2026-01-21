@@ -287,6 +287,45 @@ class TestValidateConfigFileFormat:
         with pytest.raises(ValueError, match="invalid UTF-8"):
             validate_config_file_format(content)
 
+    def test_unknown_fields_lenient(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test that unknown fields are accepted with warning (lenient mode)."""
+        content = json.dumps(
+            {
+                "api_id": 12345,
+                "api_hash": "abcdef",
+                "unknown_field": "should be ignored",
+                "another_unknown": 123,
+            }
+        ).encode()
+
+        with caplog.at_level("WARNING"):
+            config = validate_config_file_format(content)
+
+        # Config should be accepted (lenient mode)
+        assert config["api_id"] == 12345
+        assert config["api_hash"] == "abcdef"
+        assert config["unknown_field"] == "should be ignored"
+        assert config["another_unknown"] == 123
+
+        # Warning should be logged
+        assert len(caplog.records) == 1
+        assert "unknown fields" in caplog.records[0].message.lower()
+        assert "another_unknown" in caplog.records[0].message
+        assert "unknown_field" in caplog.records[0].message
+
+    def test_no_warning_for_known_fields_only(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test that no warning is logged when only known fields are present."""
+        content = json.dumps({"api_id": 12345, "api_hash": "abcdef"}).encode()
+
+        with caplog.at_level("WARNING"):
+            config = validate_config_file_format(content)
+
+        assert config["api_id"] == 12345
+        assert config["api_hash"] == "abcdef"
+
+        # No warning should be logged
+        assert len(caplog.records) == 0
+
 
 class TestSessionsAPIEndpoints:
     """Tests for session API endpoints."""

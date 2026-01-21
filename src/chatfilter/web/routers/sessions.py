@@ -278,6 +278,15 @@ def validate_config_file_format(content: bytes) -> dict[str, str | int]:
     if not isinstance(api_hash, str) or not api_hash.strip():
         raise ValueError("api_hash must be a non-empty string")
 
+    # Check for unknown fields and warn (lenient mode)
+    known_fields = {"api_id", "api_hash"}
+    unknown_fields = set(config.keys()) - known_fields
+    if unknown_fields:
+        logger.warning(
+            "Config file contains unknown fields that will be ignored: %s",
+            ", ".join(sorted(unknown_fields)),
+        )
+
     return config
 
 
