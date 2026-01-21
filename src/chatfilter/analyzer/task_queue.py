@@ -166,6 +166,24 @@ class AnalysisExecutor(Protocol):
         """Get chat info for a chat ID."""
         ...
 
+    async def pre_cache_chats(
+        self,
+        session_id: str,
+    ) -> None:
+        """Pre-cache all chat info for better progress display.
+
+        This method is called at the start of background task execution
+        to fetch and cache chat metadata. This prevents the HTTP request
+        from blocking on Telegram connection.
+
+        Args:
+            session_id: Session identifier
+
+        Raises:
+            Exception: Connection or fetch errors (non-fatal, can continue with minimal info)
+        """
+        ...
+
 
 class TaskQueue:
     """Persistent task queue for analysis jobs with SQLite backend.
@@ -858,6 +876,14 @@ class TaskQueue:
         # Log memory at task start
         if self._enable_memory_monitoring and log_memory_usage is not None:
             log_memory_usage(f"Task {task_id} start")
+
+        # Pre-cache chat info for better progress display
+        # This is done in the background task (not HTTP request) to prevent request timeouts
+        try:
+            await executor.pre_cache_chats(task.session_id)
+        except Exception as e:
+            # Non-fatal: we can still proceed with minimal chat info
+            logger.warning(f"Failed to pre-cache chat info for task {task_id}: {e}")
 
         # Checkpoint resume: skip already-analyzed chats
         resume_index = len(task.results)

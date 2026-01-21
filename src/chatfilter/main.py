@@ -354,6 +354,11 @@ def main() -> None:
             port=settings.port,
             reload=settings.debug,
             log_level="debug" if settings.debug else "info",
+            # Timeout configuration for HTTP requests
+            # Keep-alive: idle connection timeout
+            timeout_keep_alive=5,
+            # Graceful shutdown: time to wait for requests to complete before forcing shutdown
+            timeout_graceful_shutdown=30,
         )
     except KeyboardInterrupt:
         print("\nShutting down...")

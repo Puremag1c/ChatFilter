@@ -1,4 +1,40 @@
-"""Analysis router for starting analysis and streaming progress via SSE."""
+"""Analysis router for starting analysis and streaming progress via SSE.
+
+ARCHITECTURE: Async Request/Task Separation
+============================================
+
+This module implements a fire-and-forget async architecture to prevent HTTP
+request timeouts when running long-duration background tasks.
+
+Key Principles:
+--------------
+
+1. REQUEST ONLY STARTS TASK
+   - HTTP POST /api/analysis/start validates inputs and creates a background task
+   - Returns immediately with task ID (< 1 second)
+   - NO blocking operations (no Telegram API calls during HTTP request)
+   - Prevents HTTP request timeout regardless of task duration
+
+2. PROGRESS THROUGH SSE
+   - GET /api/analysis/{task_id}/progress streams real-time progress
+   - Server-Sent Events (SSE) with heartbeat every 15 seconds
+   - Client disconnect detection and backpressure handling
+   - Task continues running even if client disconnects
+
+3. SEPARATE RESULT ENDPOINTS
+   - GET /api/analysis/{task_id}/results retrieves completed analysis
+   - GET /api/analysis/{task_id}/status polls task status (fallback)
+   - Results persisted to SQLite for retrieval after server restart
+
+4. BACKGROUND TASK EXECUTION
+   - FastAPI BackgroundTasks + persistent TaskQueue with SQLite
+   - Chat info pre-cached at task start (not during HTTP request)
+   - Multiple timeout layers: task-level (1h), per-chat (5m), stall detection (10m)
+   - Graceful handling of Telegram connection failures
+
+This architecture allows analysis tasks to run for hours without any HTTP
+timeout issues, while providing real-time progress updates to clients.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +59,6 @@ from chatfilter.models import AnalysisResult
 
 if TYPE_CHECKING:
     from chatfilter.models import Chat
-from chatfilter.service.chat_analysis import SessionNotFoundError
 from chatfilter.web.routers.chats import get_chat_service, get_session_paths
 from chatfilter.web.session import get_session, set_session_cookie
 
@@ -46,6 +81,24 @@ class RealAnalysisExecutor:
     ) -> Chat | None:
         """Get chat info - delegates to service layer."""
         return await self._service.get_chat_info(session_id, chat_id)
+
+    async def pre_cache_chats(
+        self,
+        session_id: str,
+    ) -> None:
+        """Pre-cache all chat info for better progress display.
+
+        This is called at the start of background task execution to fetch
+        and cache chat metadata from Telegram. This prevents the HTTP request
+        from blocking on Telegram connection.
+
+        Args:
+            session_id: Session identifier
+
+        Raises:
+            Exception: Connection or fetch errors (non-fatal)
+        """
+        await self._service.get_chats(session_id)
 
     async def analyze_chat(
         self,
@@ -150,7 +203,7 @@ async def start_analysis(
             },
         )
 
-    # Validate session exists
+    # Validate session exists (quick local check only)
     try:
         get_session_paths(session_id)
     except HTTPException as e:
@@ -164,32 +217,8 @@ async def start_analysis(
             },
         )
 
-    # Fetch chat info for the cache (needed for progress display)
-    service = get_chat_service()
-    try:
-        # This will cache chat info in the service
-        await service.get_chats(session_id)
-    except SessionNotFoundError as e:
-        return templates.TemplateResponse(
-            "partials/analysis_progress.html",
-            {
-                "request": request,
-                "error": str(e),
-                "error_action": "Upload a valid session file from the Sessions page",
-                "error_action_type": "reauth",
-            },
-        )
-    except Exception as e:
-        logger.exception(f"Failed to fetch chat info: {e}")
-        return templates.TemplateResponse(
-            "partials/analysis_progress.html",
-            {
-                "request": request,
-                "error": f"Failed to connect to Telegram: {e}",
-                "error_action": "Check your internet connection and verify your session is valid",
-                "error_action_type": "retry",
-            },
-        )
+    # NOTE: Chat info will be fetched by background task, not here
+    # This prevents HTTP request timeout when Telegram connection is slow
 
     # Check for existing active task with same parameters (deduplication)
     queue = get_task_queue()
