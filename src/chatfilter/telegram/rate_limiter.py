@@ -19,16 +19,22 @@ class RateLimitConfig:
         get_messages_delay: Minimum delay between get_messages() calls (seconds)
         get_dialogs_delay: Minimum delay between get_dialogs() calls (seconds)
         join_chat_delay: Minimum delay between join_chat() calls (seconds)
+        leave_chat_delay: Minimum delay between leave_chat() calls (seconds)
+        get_account_info_delay: Minimum delay between get_account_info() calls (seconds)
         enabled: Whether rate limiting is enabled
     """
 
     get_messages_delay: float = 1.5  # 1.5 seconds default
     get_dialogs_delay: float = 1.0  # 1 second default
     join_chat_delay: float = 2.0  # 2 seconds default (more conservative for writes)
+    leave_chat_delay: float = 2.0  # 2 seconds default (more conservative for writes)
+    get_account_info_delay: float = 1.0  # 1 second default
     enabled: bool = True
 
 
-OperationType = Literal["get_messages", "get_dialogs", "join_chat"]
+OperationType = Literal[
+    "get_messages", "get_dialogs", "join_chat", "leave_chat", "get_account_info"
+]
 
 
 class TelegramRateLimiter:
@@ -70,6 +76,8 @@ class TelegramRateLimiter:
             f"get_messages={self._config.get_messages_delay}s, "
             f"get_dialogs={self._config.get_dialogs_delay}s, "
             f"join_chat={self._config.join_chat_delay}s, "
+            f"leave_chat={self._config.leave_chat_delay}s, "
+            f"get_account_info={self._config.get_account_info_delay}s, "
             f"enabled={self._config.enabled}"
         )
 
@@ -90,6 +98,8 @@ class TelegramRateLimiter:
             "get_messages": self._config.get_messages_delay,
             "get_dialogs": self._config.get_dialogs_delay,
             "join_chat": self._config.join_chat_delay,
+            "leave_chat": self._config.leave_chat_delay,
+            "get_account_info": self._config.get_account_info_delay,
         }
         min_delay = delay_map.get(operation, 1.0)
 

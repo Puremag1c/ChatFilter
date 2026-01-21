@@ -186,6 +186,9 @@
             {% endfor %}
         </select>
     </div>
+
+    <!-- Account info with subscription limits (loaded via HTMX when session is selected) -->
+    <div id="account-info-container"></div>
 </section>
 
 <section class="card">
@@ -424,6 +427,22 @@ async function initChatList() {
 // When session is selected in one tab, sync to other tabs
 const sessionSelect = document.getElementById('session-select');
 if (sessionSelect) {
+    // Load account info when session is selected
+    sessionSelect.addEventListener('change', function() {
+        const selectedSession = this.value;
+        const accountInfoContainer = document.getElementById('account-info-container');
+
+        if (selectedSession && accountInfoContainer) {
+            // Load account info via HTMX
+            htmx.ajax('GET', `/api/account-info?session-select=${encodeURIComponent(selectedSession)}`, {
+                target: '#account-info-container',
+                swap: 'innerHTML'
+            });
+        } else if (accountInfoContainer) {
+            accountInfoContainer.innerHTML = '';
+        }
+    });
+
     // Broadcast session selection to other tabs
     sessionSelect.addEventListener('change', function() {
         const selectedSession = this.value;

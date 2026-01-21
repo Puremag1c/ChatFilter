@@ -21,8 +21,16 @@ from telethon.errors import (
     FloodWaitError,
     UserBannedInChannelError,
 )
-from telethon.tl.functions.channels import GetFullChannelRequest, JoinChannelRequest
-from telethon.tl.functions.messages import GetForumTopicsRequest, ImportChatInviteRequest
+from telethon.tl.functions.channels import (
+    GetFullChannelRequest,
+    JoinChannelRequest,
+    LeaveChannelRequest,
+)
+from telethon.tl.functions.messages import (
+    DeleteChatUserRequest,
+    GetForumTopicsRequest,
+    ImportChatInviteRequest,
+)
 from telethon.tl.types import Channel, MessageService, User
 from telethon.tl.types import Chat as TelegramChat
 
@@ -36,6 +44,8 @@ if TYPE_CHECKING:
     from telethon import TelegramClient as TelegramClientType
     from telethon.tl.custom import Dialog
     from telethon.tl.types import Message as TelegramMessage
+
+    from chatfilter.models.account import AccountInfo
 
 logger = logging.getLogger(__name__)
 
@@ -774,6 +784,10 @@ class ChatAccessDeniedError(MessageFetchError):
 
 class JoinChatError(Exception):
     """Raised when joining a chat fails."""
+
+
+class LeaveChatError(Exception):
+    """Raised when leaving a chat fails."""
 
 
 def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | None:
@@ -1630,3 +1644,243 @@ async def join_chat(
         if "username" in error_msg and ("invalid" in error_msg or "not" in error_msg):
             raise JoinChatError(f"Username not found: {chat_ref}") from e
         raise JoinChatError(f"Failed to join chat: {e}") from e
+
+
+@with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
+async def get_account_info(
+    client: TelegramClientType,
+) -> AccountInfo:
+    """Get account information including Premium status and subscription count.
+
+    Fetches the current user's account info and counts their chat subscriptions
+    to track against Telegram's limits (500 for standard, 1000 for Premium).
+
+    Args:
+        client: Connected TelegramClient instance
+
+    Returns:
+        AccountInfo with Premium status and chat subscription count
+
+    Example:
+        ```python
+        async with loader.create_client() as client:
+            info = await get_account_info(client)
+            print(f"Account: {info.display_name}")
+            print(f"Premium: {info.is_premium}")
+            print(f"Chats: {info.chat_count}/{info.chat_limit}")
+            print(f"Remaining: {info.remaining_slots}")
+
+            if info.is_near_limit:
+                print("Warning: Approaching subscription limit!")
+        ```
+    """
+    from chatfilter.models.account import AccountInfo
+
+    # Proactive rate limiting
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.wait_if_needed("get_account_info")
+
+    try:
+        # Get current user info
+        me = await client.get_me()
+
+        # Count chat subscriptions (excluding Saved Messages and private chats)
+        # We count all dialogs from both main and archived folders
+        chat_count = 0
+        seen_ids: set[int] = set()
+
+        # Count from main folder
+        async for dialog in client.iter_dialogs(folder=0):
+            entity = dialog.entity
+            # Skip private chats (User entities) - they don't count toward limit
+            if isinstance(entity, User):
+                continue
+            # Deduplicate
+            dialog_id = abs(dialog.id) if dialog.id else abs(entity.id)
+            if dialog_id in seen_ids:
+                continue
+            seen_ids.add(dialog_id)
+            chat_count += 1
+
+        # Count from archived folder
+        async for dialog in client.iter_dialogs(folder=1):
+            entity = dialog.entity
+            # Skip private chats
+            if isinstance(entity, User):
+                continue
+            # Deduplicate
+            dialog_id = abs(dialog.id) if dialog.id else abs(entity.id)
+            if dialog_id in seen_ids:
+                continue
+            seen_ids.add(dialog_id)
+            chat_count += 1
+
+        return AccountInfo(
+            user_id=me.id,
+            username=me.username,
+            first_name=me.first_name,
+            last_name=me.last_name,
+            is_premium=getattr(me, "premium", False) or False,
+            chat_count=chat_count,
+        )
+
+    except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        friendly_msg = get_user_friendly_message(e)
+        raise MessageFetchError(f"Rate limited by Telegram. {friendly_msg}") from e
+    except Exception as e:
+        raise MessageFetchError(f"Failed to get account info: {e}") from e
+
+
+@with_retry_for_reads(max_attempts=3, base_delay=2.0, max_delay=30.0)
+async def leave_chat(
+    client: TelegramClientType,
+    chat_id: int,
+) -> bool:
+    """Leave a chat/channel to free up a subscription slot.
+
+    This function handles different chat types appropriately:
+    - Channels and supergroups: Uses LeaveChannelRequest
+    - Basic groups: Uses DeleteChatUserRequest (removes self from group)
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_id: ID of the chat to leave (can be negative or positive)
+
+    Returns:
+        True if successfully left the chat
+
+    Raises:
+        LeaveChatError: If leaving fails (not a member, chat doesn't exist, etc.)
+
+    Example:
+        ```python
+        async with loader.create_client() as client:
+            # Leave a channel to free up a slot
+            await leave_chat(client, 123456789)
+
+            # Now we can join a new chat
+            new_chat = await join_chat(client, "@newchannel")
+        ```
+    """
+    # Proactive rate limiting
+    rate_limiter = get_rate_limiter()
+    await rate_limiter.wait_if_needed("leave_chat")
+
+    try:
+        # Get the entity to determine chat type
+        entity = await client.get_entity(chat_id)
+
+        if isinstance(entity, Channel):
+            # Channel or supergroup - use LeaveChannelRequest
+            await client(LeaveChannelRequest(channel=entity))
+            logger.info(f"Left channel/supergroup: {chat_id} ({entity.title})")
+            return True
+        elif isinstance(entity, TelegramChat):
+            # Basic group - use DeleteChatUserRequest (remove self)
+            me = await client.get_me()
+            await client(DeleteChatUserRequest(chat_id=chat_id, user_id=me.id))
+            logger.info(f"Left basic group: {chat_id} ({entity.title})")
+            return True
+        else:
+            raise LeaveChatError(
+                f"Cannot leave chat {chat_id}: unsupported chat type {type(entity).__name__}"
+            )
+
+    except LeaveChatError:
+        raise
+    except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        friendly_msg = get_user_friendly_message(e)
+        raise LeaveChatError(f"Rate limited by Telegram when leaving chat. {friendly_msg}") from e
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "not a member" in error_msg or "user_not_participant" in error_msg:
+            raise LeaveChatError(f"Not a member of chat {chat_id}") from e
+        if "peer" in error_msg or "invalid" in error_msg:
+            raise LeaveChatError(f"Chat not found or invalid: {chat_id}") from e
+        if "private" in error_msg or "forbidden" in error_msg:
+            raise LeaveChatError(f"Cannot leave private chat: {chat_id}") from e
+        raise LeaveChatError(f"Failed to leave chat: {e}") from e
+
+
+async def join_chat_with_rotation(
+    client: TelegramClientType,
+    chat_ref: str,
+    chats_to_leave: list[int] | None = None,
+) -> tuple[Chat, list[int]]:
+    """Join a chat, automatically leaving old chats if at subscription limit.
+
+    This function implements smart rotation for bulk chat analysis workflows:
+    1. Checks if account is at subscription limit
+    2. If at limit and chats_to_leave provided, leaves those chats first
+    3. Joins the new chat
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_ref: Chat reference to join (username or link)
+        chats_to_leave: Optional list of chat IDs to leave if at limit.
+                       If None and at limit, raises JoinChatError.
+
+    Returns:
+        Tuple of (joined_chat, actually_left_chat_ids)
+
+    Raises:
+        JoinChatError: If joining fails or at limit with no chats to leave
+
+    Example:
+        ```python
+        async with loader.create_client() as client:
+            # Get account info
+            info = await get_account_info(client)
+
+            if info.is_at_limit:
+                # Get list of old/inactive chats to rotate out
+                chats_to_leave = [old_chat_id_1, old_chat_id_2]
+
+                # Join new chat, leaving old ones if needed
+                new_chat, left_ids = await join_chat_with_rotation(
+                    client,
+                    "@newchannel",
+                    chats_to_leave=chats_to_leave
+                )
+                print(f"Joined {new_chat.title}, left {len(left_ids)} chats")
+            else:
+                new_chat = await join_chat(client, "@newchannel")
+        ```
+    """
+
+    # Check current account status
+    account_info = await get_account_info(client)
+    left_chat_ids: list[int] = []
+
+    if account_info.is_at_limit:
+        if not chats_to_leave:
+            raise JoinChatError(
+                f"At subscription limit ({account_info.chat_count}/{account_info.chat_limit}). "
+                f"Provide chats_to_leave to enable rotation."
+            )
+
+        # Leave chats to make room (leave 1 more than needed for buffer)
+        needed_slots = 1
+        for chat_id in chats_to_leave[:needed_slots]:
+            try:
+                await leave_chat(client, chat_id)
+                left_chat_ids.append(chat_id)
+                logger.info(f"Left chat {chat_id} to make room for new subscription")
+            except LeaveChatError as e:
+                logger.warning(f"Failed to leave chat {chat_id}: {e}")
+                # Continue trying other chats
+                continue
+
+        if not left_chat_ids:
+            raise JoinChatError(
+                f"At subscription limit and could not leave any of the provided chats. "
+                f"Current: {account_info.chat_count}/{account_info.chat_limit}"
+            )
+
+    # Join the new chat
+    joined_chat = await join_chat(client, chat_ref)
+    return joined_chat, left_chat_ids

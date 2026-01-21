@@ -344,3 +344,111 @@ async def get_chats_json(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to connect to Telegram. Please check your session.",
         ) from None
+
+
+@router.get("/api/account-info", response_class=HTMLResponse)
+async def get_account_info_endpoint(
+    request: Request,
+    web_session: WebSession,
+    session_id: str = Query(alias="session-select"),
+) -> HTMLResponse:
+    """Get account info including subscription limits as HTML partial.
+
+    Returns account info with Premium status, chat count, and limit warnings.
+
+    Args:
+        request: FastAPI request object
+        web_session: User's web session (injected dependency)
+        session_id: Telegram session identifier
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    if not session_id:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/account_info.html",
+            context={"account_info": None},
+        )
+
+    service = get_chat_service()
+
+    try:
+        account_info = await service.get_account_info(session_id)
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/account_info.html",
+            context={
+                "account_info": account_info,
+                "session_id": session_id,
+            },
+        )
+
+    except SessionNotFoundError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/account_info.html",
+            context={"account_info": None, "error": "Session not found"},
+        )
+    except Exception as e:
+        logger.warning(f"Failed to fetch account info for session '{session_id}': {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/account_info.html",
+            context={"account_info": None, "error": "Failed to fetch account info"},
+        )
+
+
+@router.get("/api/account-info/json")
+async def get_account_info_json(
+    web_session: WebSession,
+    session_id: str = Query(alias="session-select"),
+) -> dict[str, Any]:
+    """Get account info including subscription limits as JSON.
+
+    Returns account info with Premium status, chat count, and limit info.
+
+    Args:
+        web_session: User's web session (injected dependency)
+        session_id: Telegram session identifier
+
+    Returns:
+        Dict with account info fields
+    """
+    if not session_id:
+        return {"error": "No session selected"}
+
+    service = get_chat_service()
+
+    try:
+        info = await service.get_account_info(session_id)
+
+        return {
+            "user_id": info.user_id,
+            "username": info.username,
+            "first_name": info.first_name,
+            "last_name": info.last_name,
+            "display_name": info.display_name,
+            "is_premium": info.is_premium,
+            "chat_count": info.chat_count,
+            "chat_limit": info.chat_limit,
+            "remaining_slots": info.remaining_slots,
+            "usage_percent": round(info.usage_percent, 1),
+            "is_at_limit": info.is_at_limit,
+            "is_near_limit": info.is_near_limit,
+            "is_critical": info.is_critical,
+        }
+
+    except SessionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+    except Exception:
+        logger.exception(f"Failed to fetch account info for session '{session_id}'")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch account info",
+        ) from None

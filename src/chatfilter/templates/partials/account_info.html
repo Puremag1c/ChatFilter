@@ -1,0 +1,172 @@
+{% if account_info %}
+<div class="account-info-card">
+    <div class="account-header">
+        <span class="account-name">{{ account_info.display_name }}</span>
+        {% if account_info.is_premium %}
+        <span class="badge badge-premium" data-tooltip="Telegram Premium subscriber with 1000 chat limit">Premium</span>
+        {% endif %}
+    </div>
+
+    <div class="subscription-meter">
+        <div class="meter-labels">
+            <span>Chat Subscriptions</span>
+            <span class="meter-value {% if account_info.is_at_limit %}text-error{% elif account_info.is_critical %}text-warning{% elif account_info.is_near_limit %}text-warning{% endif %}">
+                {{ account_info.chat_count }} / {{ account_info.chat_limit }}
+            </span>
+        </div>
+        <div class="meter-bar">
+            <div class="meter-fill {% if account_info.is_at_limit %}fill-error{% elif account_info.is_critical %}fill-critical{% elif account_info.is_near_limit %}fill-warning{% else %}fill-normal{% endif %}"
+                 style="width: {{ [account_info.usage_percent, 100] | min }}%"
+                 data-tooltip="{{ account_info.usage_percent | round(1) }}% of limit used">
+            </div>
+        </div>
+        <div class="meter-info">
+            <span>{{ account_info.remaining_slots }} slots remaining</span>
+        </div>
+    </div>
+
+    {% if account_info.is_at_limit %}
+    <div class="alert alert-error alert-compact">
+        <strong>Subscription Limit Reached</strong>
+        <p>You cannot join any more chats/channels. Leave some chats to free up slots, or upgrade to Telegram Premium for 1000 slots.</p>
+    </div>
+    {% elif account_info.is_critical %}
+    <div class="alert alert-warning alert-compact">
+        <strong>Almost at Limit</strong>
+        <p>Only {{ account_info.remaining_slots }} slot(s) remaining. Consider leaving inactive chats before joining new ones.</p>
+    </div>
+    {% elif account_info.is_near_limit %}
+    <div class="alert alert-info alert-compact">
+        <strong>Approaching Limit</strong>
+        <p>{{ account_info.remaining_slots }} slots remaining ({{ account_info.usage_percent | round(1) }}% used). Plan ahead for bulk chat operations.</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .account-info-card {
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border: 1px solid #e9ecef;
+    }
+
+    .account-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .account-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-premium {
+        background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+        color: white;
+    }
+
+    .subscription-meter {
+        margin-bottom: 0.75rem;
+    }
+
+    .meter-labels {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.875rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .meter-value {
+        font-weight: 600;
+    }
+
+    .meter-bar {
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .meter-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+
+    .fill-normal {
+        background: #28a745;
+    }
+
+    .fill-warning {
+        background: #ffc107;
+    }
+
+    .fill-critical {
+        background: #fd7e14;
+    }
+
+    .fill-error {
+        background: #dc3545;
+    }
+
+    .meter-info {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+
+    .text-warning {
+        color: #856404;
+    }
+
+    .text-error {
+        color: #dc3545;
+    }
+
+    .alert-compact {
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .alert-compact p {
+        margin: 0.25rem 0 0 0;
+        font-weight: normal;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        border-color: #bee5eb;
+        color: #0c5460;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        border-color: #ffeeba;
+        color: #856404;
+    }
+
+    .alert-error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+</style>
+{% elif error %}
+<div class="account-info-error">
+    <small>{{ error }}</small>
+</div>
+{% endif %}

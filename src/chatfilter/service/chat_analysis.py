@@ -14,13 +14,17 @@ from typing import TYPE_CHECKING
 
 from chatfilter.analyzer import compute_metrics
 from chatfilter.analyzer.metrics import StreamingMetricsAggregator
-from chatfilter.models import AnalysisResult, Chat, ChatType
+from chatfilter.models import AccountInfo, AnalysisResult, Chat, ChatType
 from chatfilter.telegram.client import (
     TelegramClientLoader,
+    get_account_info,
     get_chat_slowmode,
     get_dialogs,
     get_messages,
     get_messages_streaming,
+    join_chat,
+    join_chat_with_rotation,
+    leave_chat,
 )
 from chatfilter.telegram.session_manager import SessionManager
 from chatfilter.utils.memory import MemoryMonitor, MemoryTracker, log_memory_usage
@@ -484,3 +488,134 @@ class ChatAnalysisService:
             "total_chats": sum(len(chats) for chats in self._chat_cache.values()),
             "total_loaders": len(self._loaders),
         }
+
+    async def get_account_info(self, session_id: str) -> AccountInfo:
+        """Get account information including Premium status and subscription limits.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            AccountInfo with Premium status, chat count, and computed limits
+
+        Raises:
+            SessionNotFoundError: If session not found
+            Exception: If connection or fetch fails
+        """
+        self._ensure_loader(session_id)
+
+        async with self._session_manager.session(session_id) as client:
+            info = await get_account_info(client)
+            logger.info(
+                f"Account info for session '{session_id}': "
+                f"{info.display_name}, Premium={info.is_premium}, "
+                f"Chats={info.chat_count}/{info.chat_limit}"
+            )
+            return info
+
+    async def leave_chat(
+        self,
+        session_id: str,
+        chat_id: int,
+    ) -> bool:
+        """Leave a chat to free up a subscription slot.
+
+        Args:
+            session_id: Session identifier
+            chat_id: Chat ID to leave
+
+        Returns:
+            True if successfully left the chat
+
+        Raises:
+            SessionNotFoundError: If session not found
+            LeaveChatError: If leaving fails
+        """
+        self._ensure_loader(session_id)
+
+        async with self._session_manager.session(session_id) as client:
+            result = await leave_chat(client, chat_id)
+
+            # Invalidate chat cache since we left a chat
+            if session_id in self._chat_cache and chat_id in self._chat_cache[session_id]:
+                del self._chat_cache[session_id][chat_id]
+                logger.info(f"Removed chat {chat_id} from cache after leaving")
+
+            return result
+
+    async def join_chat(
+        self,
+        session_id: str,
+        chat_ref: str,
+    ) -> Chat:
+        """Join a chat by username or invite link.
+
+        Args:
+            session_id: Session identifier
+            chat_ref: Chat reference (username or link)
+
+        Returns:
+            Chat model of the joined chat
+
+        Raises:
+            SessionNotFoundError: If session not found
+            JoinChatError: If joining fails
+        """
+        self._ensure_loader(session_id)
+
+        async with self._session_manager.session(session_id) as client:
+            chat = await join_chat(client, chat_ref)
+
+            # Add to cache
+            if session_id not in self._chat_cache:
+                self._chat_cache[session_id] = {}
+            self._chat_cache[session_id][chat.id] = chat
+
+            logger.info(f"Joined chat {chat.title} ({chat.id}) for session '{session_id}'")
+            return chat
+
+    async def join_chat_with_rotation(
+        self,
+        session_id: str,
+        chat_ref: str,
+        chats_to_leave: list[int] | None = None,
+    ) -> tuple[Chat, list[int]]:
+        """Join a chat, automatically leaving old chats if at subscription limit.
+
+        This method enables bulk chat analysis workflows by automatically
+        managing subscription limits.
+
+        Args:
+            session_id: Session identifier
+            chat_ref: Chat reference to join (username or link)
+            chats_to_leave: Optional list of chat IDs to leave if at limit.
+                           If None and at limit, raises JoinChatError.
+
+        Returns:
+            Tuple of (joined_chat, actually_left_chat_ids)
+
+        Raises:
+            SessionNotFoundError: If session not found
+            JoinChatError: If joining fails or at limit with no chats to leave
+        """
+        self._ensure_loader(session_id)
+
+        async with self._session_manager.session(session_id) as client:
+            chat, left_ids = await join_chat_with_rotation(client, chat_ref, chats_to_leave)
+
+            # Update cache - remove left chats
+            if session_id in self._chat_cache:
+                for left_id in left_ids:
+                    if left_id in self._chat_cache[session_id]:
+                        del self._chat_cache[session_id][left_id]
+
+            # Add joined chat to cache
+            if session_id not in self._chat_cache:
+                self._chat_cache[session_id] = {}
+            self._chat_cache[session_id][chat.id] = chat
+
+            logger.info(
+                f"Joined chat {chat.title} ({chat.id}) for session '{session_id}', "
+                f"left {len(left_ids)} chats for rotation"
+            )
+            return chat, left_ids

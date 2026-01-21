@@ -2,14 +2,18 @@
 
 from chatfilter.telegram.client import (
     JoinChatError,
+    LeaveChatError,
     MessageFetchError,
     SessionFileError,
     TelegramClientLoader,
     TelegramConfig,
     TelegramConfigError,
+    get_account_info,
     get_dialogs,
     get_messages,
     join_chat,
+    join_chat_with_rotation,
+    leave_chat,
 )
 from chatfilter.telegram.rate_limiter import (
     RateLimitConfig,
@@ -31,6 +35,7 @@ from chatfilter.telegram.session_manager import (
 
 __all__ = [
     "JoinChatError",
+    "LeaveChatError",
     "MessageFetchError",
     "RateLimitConfig",
     "SessionConnectError",
@@ -47,9 +52,12 @@ __all__ = [
     "TelegramConfig",
     "TelegramConfigError",
     "TelegramRateLimiter",
+    "get_account_info",
     "get_dialogs",
     "get_messages",
     "get_rate_limiter",
     "join_chat",
+    "join_chat_with_rotation",
+    "leave_chat",
     "set_rate_limiter",
 ]
