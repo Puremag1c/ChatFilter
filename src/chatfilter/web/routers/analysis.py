@@ -217,8 +217,63 @@ async def start_analysis(
             },
         )
 
-    # NOTE: Chat info will be fetched by background task, not here
-    # This prevents HTTP request timeout when Telegram connection is slow
+    # Validate chat_ids to prevent stale state (ChatFilter-9526)
+    # If chats were deleted/removed from Telegram after selection,
+    # we filter them out before starting analysis
+    service = get_chat_service()
+    try:
+        # Use timeout to prevent blocking if Telegram connection is slow
+        # If validation times out, we proceed with original list (background task will handle errors)
+        valid_ids, invalid_ids = await asyncio.wait_for(
+            service.validate_chat_ids(session_id, chat_ids),
+            timeout=5.0,
+        )
+
+        if invalid_ids:
+            logger.warning(
+                f"Detected {len(invalid_ids)} stale chat IDs for session '{session_id}': {invalid_ids}"
+            )
+
+        # If ALL selected chats are invalid, return error
+        if not valid_ids:
+            invalid_list = ", ".join(str(cid) for cid in invalid_ids[:5])
+            if len(invalid_ids) > 5:
+                invalid_list += f", ... ({len(invalid_ids) - 5} more)"
+
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/analysis_progress.html",
+                context={
+                    "error": "All selected chats are no longer accessible",
+                    "error_action": (
+                        f"The selected chats (IDs: {invalid_list}) may have been deleted "
+                        "or removed from Telegram. Please refresh the chat list and select valid chats."
+                    ),
+                    "error_action_type": "check_input",
+                },
+            )
+
+        # If some chats are invalid, filter them out and continue with valid ones
+        if invalid_ids:
+            chat_ids = valid_ids
+            logger.info(
+                f"Filtered {len(invalid_ids)} invalid chat IDs, "
+                f"proceeding with {len(valid_ids)} valid chats"
+            )
+
+    except TimeoutError:
+        # Validation timed out - proceed with original list
+        # Background task will handle any errors when fetching messages
+        logger.warning(
+            f"Chat ID validation timed out for session '{session_id}', "
+            f"proceeding with {len(chat_ids)} chat IDs"
+        )
+    except Exception as e:
+        # Validation failed - log error and proceed with original list
+        logger.error(
+            f"Chat ID validation failed for session '{session_id}': {e}, "
+            f"proceeding with {len(chat_ids)} chat IDs"
+        )
 
     # Check for existing active task with same parameters (deduplication)
     queue = get_task_queue()

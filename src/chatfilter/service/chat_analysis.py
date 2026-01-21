@@ -7,6 +7,7 @@ business logic related to Telegram sessions, chat listing, and analysis.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -194,6 +195,50 @@ class ChatAnalysisService:
             return self._chat_cache[session_id][chat_id]
         return None
 
+    async def validate_chat_ids(
+        self,
+        session_id: str,
+        chat_ids: list[int],
+    ) -> tuple[list[int], list[int]]:
+        """Validate that chat IDs are still accessible in the Telegram session.
+
+        This method fetches the current list of chats from Telegram to ensure
+        that selected chat IDs are not stale (e.g., chats deleted or removed
+        between selection and analysis start).
+
+        Args:
+            session_id: Session identifier
+            chat_ids: List of chat IDs to validate
+
+        Returns:
+            Tuple of (valid_chat_ids, invalid_chat_ids)
+            - valid_chat_ids: List of chat IDs that exist and are accessible
+            - invalid_chat_ids: List of chat IDs that are stale or inaccessible
+
+        Raises:
+            SessionNotFoundError: If session not found
+            Exception: If connection or fetch fails
+        """
+        # Force fresh fetch from Telegram (bypass cache)
+        # Clear cache for this session to ensure we get current state
+        if session_id in self._chat_cache:
+            del self._chat_cache[session_id]
+
+        # Fetch current chat list from Telegram
+        current_chats = await self.get_chats(session_id)
+        current_chat_ids = {chat.id for chat in current_chats}
+
+        # Separate valid and invalid chat IDs
+        valid_ids = [chat_id for chat_id in chat_ids if chat_id in current_chat_ids]
+        invalid_ids = [chat_id for chat_id in chat_ids if chat_id not in current_chat_ids]
+
+        logger.info(
+            f"Validated {len(chat_ids)} chat IDs for session '{session_id}': "
+            f"{len(valid_ids)} valid, {len(invalid_ids)} invalid/stale"
+        )
+
+        return valid_ids, invalid_ids
+
     async def analyze_chat(
         self,
         session_id: str,
@@ -203,7 +248,7 @@ class ChatAnalysisService:
         use_streaming: bool | None = None,
         memory_limit_mb: float = 1024.0,
         enable_memory_monitoring: bool = False,
-        batch_progress_callback=None,
+        batch_progress_callback: Callable[..., Awaitable[None]] | None = None,
     ) -> AnalysisResult:
         """Analyze a single chat.
 
