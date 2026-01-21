@@ -7,18 +7,15 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import ASGIApp
 
 from chatfilter.utils.network import get_network_monitor
 from chatfilter.web.csrf import CSRF_FORM_FIELD, CSRF_HEADER_NAME, validate_csrf_token
 from chatfilter.web.session import get_session, set_session_cookie
-
-if TYPE_CHECKING:
-    from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +84,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: FastAPI,
+        app: ASGIApp,
         log_bodies: bool = False,
         max_body_size: int = 10 * 1024,  # 10KB
     ) -> None:
@@ -303,7 +300,7 @@ class NetworkStatusMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: FastAPI,
+        app: ASGIApp,
         check_on_requests: bool = False,
         block_when_offline: bool = False,
         exempt_paths: set[str] | None = None,
