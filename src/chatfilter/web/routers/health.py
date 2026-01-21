@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import time
 from typing import Literal
@@ -10,6 +11,8 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from chatfilter.utils.network import get_network_monitor
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
 
@@ -22,6 +25,17 @@ class TelegramStatus(BaseModel):
 
     connected: bool
     sessions_count: int
+    error: str | None = None
+
+
+class TelegramUser(BaseModel):
+    """Telegram user information."""
+
+    id: int
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
     error: str | None = None
 
 
@@ -231,6 +245,65 @@ async def telegram_status(request: Request) -> TelegramStatus:
             sessions_count=0,
             error=str(e),
         )
+
+
+@router.get("/api/telegram/user", response_model=TelegramUser)
+async def telegram_user(request: Request, session_id: str | None = None) -> TelegramUser:
+    """Get current Telegram user information for a session.
+
+    Args:
+        request: FastAPI request object
+        session_id: Optional session ID. If not provided, uses selected session from web session.
+
+    Returns:
+        TelegramUser with user information or error
+    """
+    from chatfilter.web.dependencies import get_web_session
+
+    # If no session_id provided, try to get it from web session
+    if not session_id:
+        try:
+            web_session = get_web_session(request)
+            session_id = web_session.get("selected_telegram_session")
+        except Exception:
+            pass
+
+    if not session_id:
+        return TelegramUser(id=0, error="No session selected")
+
+    try:
+        # Access session manager if available
+        if hasattr(request.app.state, "app_state") and hasattr(
+            request.app.state.app_state, "session_manager"
+        ):
+            session_manager = request.app.state.app_state.session_manager
+            if not session_manager:
+                return TelegramUser(id=0, error="Session manager not initialized")
+
+            # Get the client for this session
+            sessions = session_manager.list_sessions()
+            if session_id not in sessions:
+                return TelegramUser(id=0, error=f"Session '{session_id}' not found")
+
+            # Check if session is healthy first
+            if not await session_manager.is_healthy(session_id):
+                return TelegramUser(id=0, error="Session not connected or unhealthy")
+
+            # Get user info from the session
+            async with session_manager.get_session(session_id) as client:
+                me = await client.get_me()
+                return TelegramUser(
+                    id=me.id,
+                    username=me.username,
+                    first_name=me.first_name,
+                    last_name=me.last_name,
+                    phone=me.phone,
+                )
+        else:
+            return TelegramUser(id=0, error="Session manager not available")
+    except Exception as e:
+        logger.exception(f"Failed to fetch user info for session '{session_id}'")
+        return TelegramUser(id=0, error=str(e))
 
 
 @router.get("/ready", response_model=ReadyResponse)

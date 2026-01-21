@@ -38,6 +38,10 @@
                     <span class="status-indicator" id="status-indicator" aria-hidden="true"></span>
                     <span class="status-text" id="status-text">Checking...</span>
                 </div>
+                <div class="user-indicator" id="user-indicator" role="status" aria-live="polite" data-tooltip="Currently logged in Telegram user" data-tooltip-position="bottom">
+                    <span class="user-avatar" aria-hidden="true"></span>
+                    <span class="user-text" id="user-text">No User</span>
+                </div>
             </div>
         </nav>
     </header>
@@ -756,6 +760,142 @@
 
         // Make monitor globally accessible for debugging
         window.TelegramStatusMonitor = TelegramStatusMonitor;
+    </script>
+
+    <!-- User Indicator Monitor -->
+    <script>
+        const UserIndicatorMonitor = {
+            pollInterval: 10000, // Poll every 10 seconds
+            timeoutId: null,
+            lastUser: null,
+            consecutiveErrors: 0,
+            maxErrors: 3,
+
+            async checkUser() {
+                try {
+                    const response = await fetch('/api/telegram/user');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    this.consecutiveErrors = 0;
+                    this.updateUI(data);
+
+                } catch (error) {
+                    console.error('Failed to fetch user info:', error);
+                    this.consecutiveErrors++;
+
+                    // Show error state in UI
+                    if (this.consecutiveErrors >= this.maxErrors) {
+                        this.updateUI({
+                            id: 0,
+                            error: 'Unable to fetch user info'
+                        });
+                    }
+                }
+
+                // Schedule next poll
+                this.timeoutId = setTimeout(() => this.checkUser(), this.pollInterval);
+            },
+
+            updateUI(user) {
+                const avatar = document.querySelector('.user-avatar');
+                const text = document.getElementById('user-text');
+                const container = document.getElementById('user-indicator');
+
+                if (!avatar || !text || !container) return;
+
+                // Remove all status classes
+                container.classList.remove('user-loaded', 'user-error');
+
+                if (user.error || user.id === 0) {
+                    // Error or no user state
+                    container.classList.add('user-error');
+                    text.textContent = 'No User';
+                    avatar.textContent = '?';
+                    container.setAttribute('data-tooltip', user.error || 'No session selected');
+                } else {
+                    // User loaded state
+                    container.classList.add('user-loaded');
+
+                    // Display username or first name
+                    const displayName = user.username
+                        ? `@${user.username}`
+                        : user.first_name || 'User';
+                    text.textContent = displayName;
+
+                    // Show first letter of username/first name in avatar
+                    const avatarLetter = user.username
+                        ? user.username.charAt(0).toUpperCase()
+                        : user.first_name
+                            ? user.first_name.charAt(0).toUpperCase()
+                            : 'U';
+                    avatar.textContent = avatarLetter;
+
+                    // Build tooltip with full user info
+                    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+                    const tooltipParts = [];
+                    if (fullName) tooltipParts.push(fullName);
+                    if (user.username) tooltipParts.push(`@${user.username}`);
+                    if (user.phone) tooltipParts.push(`Phone: ${user.phone}`);
+
+                    const tooltip = tooltipParts.length > 0
+                        ? `Logged in as: ${tooltipParts.join(' • ')}`
+                        : 'Logged in user';
+                    container.setAttribute('data-tooltip', tooltip);
+                }
+
+                // Store last user for comparison
+                this.lastUser = user;
+            },
+
+            start() {
+                if (this.timeoutId) return; // Already running
+                this.checkUser(); // Check immediately
+            },
+
+            stop() {
+                if (this.timeoutId) {
+                    clearTimeout(this.timeoutId);
+                    this.timeoutId = null;
+                }
+            },
+
+            refresh() {
+                // Force immediate refresh
+                this.stop();
+                this.start();
+            }
+        };
+
+        // Start monitoring when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            UserIndicatorMonitor.start();
+        });
+
+        // Stop monitoring when page unloads
+        window.addEventListener('beforeunload', function() {
+            UserIndicatorMonitor.stop();
+        });
+
+        // Handle page visibility changes (pause when hidden to save resources)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                UserIndicatorMonitor.stop();
+            } else {
+                UserIndicatorMonitor.start();
+            }
+        });
+
+        // Refresh user indicator when session selection changes
+        // This listens for custom events from the chats page
+        document.addEventListener('session-changed', function() {
+            UserIndicatorMonitor.refresh();
+        });
+
+        // Make monitor globally accessible for debugging
+        window.UserIndicatorMonitor = UserIndicatorMonitor;
     </script>
 
     <!-- Network Connectivity Status Monitor -->

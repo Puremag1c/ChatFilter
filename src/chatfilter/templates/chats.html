@@ -407,6 +407,11 @@ if (sessionSelect) {
                 sessionId: selectedSession,
                 timestamp: Date.now()
             });
+
+            // Dispatch event to trigger user indicator refresh
+            document.dispatchEvent(new CustomEvent('session-changed', {
+                detail: { sessionId: selectedSession }
+            }));
         }
     });
 
@@ -424,6 +429,11 @@ if (sessionSelect) {
 
                     // Trigger HTMX request to load chats
                     htmx.trigger(sessionSelect, 'change');
+
+                    // Dispatch event to trigger user indicator refresh
+                    document.dispatchEvent(new CustomEvent('session-changed', {
+                        detail: { sessionId: data.sessionId }
+                    }));
 
                     // Show notification
                     ToastManager.info('Session selection synced from another tab', {
