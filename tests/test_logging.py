@@ -264,6 +264,46 @@ def test_log_sanitization_phone_numbers() -> None:
         assert "***PHONE***" in content
 
 
+def test_log_sanitization_ip_addresses() -> None:
+    """Test that IP addresses (IPv4 and IPv6) are sanitized from logs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = Path(tmpdir) / "test.log"
+
+        setup_logging(
+            level="INFO",
+            debug=False,
+            log_to_file=True,
+            log_file_path=log_file,
+        )
+
+        test_logger = logging.getLogger("ip_test")
+
+        # Log IPv4 addresses
+        test_logger.info("Client IP: 192.168.1.100")
+        test_logger.info("Server at 10.0.0.1 responded")
+        test_logger.info("Connection from 203.0.113.42")
+
+        # Log IPv6 addresses
+        test_logger.info("IPv6 client: 2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+        test_logger.info("Compressed IPv6: fe80::1")
+        test_logger.info("Another IPv6: 2001:db8::8a2e:370:7334")
+
+        content = log_file.read_text()
+
+        # Verify IPv4 addresses are masked
+        assert "192.168.1.100" not in content
+        assert "10.0.0.1" not in content
+        assert "203.0.113.42" not in content
+
+        # Verify IPv6 addresses are masked
+        assert "2001:0db8:85a3:0000:0000:8a2e:0370:7334" not in content
+        assert "fe80::1" not in content
+        assert "2001:db8::8a2e:370:7334" not in content
+
+        # Verify all are replaced with mask
+        assert "***IP***" in content
+
+
 def test_log_sanitization_bot_tokens() -> None:
     """Test that bot tokens are sanitized from logs."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -286,6 +326,32 @@ def test_log_sanitization_bot_tokens() -> None:
         # Verify bot token is masked
         assert "123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567" not in content
         assert "***BOT_TOKEN***" in content
+
+
+def test_log_sanitization_api_hash() -> None:
+    """Test that api_hash values are sanitized from logs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = Path(tmpdir) / "test.log"
+
+        setup_logging(
+            level="INFO",
+            debug=False,
+            log_to_file=True,
+            log_file_path=log_file,
+        )
+
+        test_logger = logging.getLogger("api_hash_test")
+
+        # Log api_hash in various formats
+        test_logger.info("api_hash=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0")
+        test_logger.info("Config: api-hash: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0")
+        test_logger.info('api_hash="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"')
+
+        content = log_file.read_text()
+
+        # Verify api_hash is masked
+        assert "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0" not in content
+        assert "***TOKEN***" in content
 
 
 def test_correlation_id_in_logs() -> None:

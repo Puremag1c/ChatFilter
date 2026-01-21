@@ -28,11 +28,16 @@ SENSITIVE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\d{8,9}:[A-Za-z0-9_\-]{30,}"), "***BOT_TOKEN***"),
     # API tokens (various formats)
     (
-        re.compile(r"(api[_-]?key|token)['\"]?\s*[:=]\s*['\"]?([A-Za-z0-9_\-]{20,})"),
+        re.compile(r"(api[_-]?(?:key|hash)|token)['\"]?\s*[:=]\s*['\"]?([A-Za-z0-9_\-]{20,})"),
         r"\1=***TOKEN***",
     ),
     # Phone numbers (international format)
     (re.compile(r"\+?[1-9]\d{10,14}"), "***PHONE***"),
+    # IP addresses (IPv4)
+    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "***IP***"),
+    # IP addresses (IPv6 - full and compressed forms)
+    (re.compile(r"\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b"), "***IP***"),
+    (re.compile(r"\b(?:[0-9a-fA-F]{1,4}:)*::(?:[0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}\b"), "***IP***"),
     # Passwords in various contexts
     (
         re.compile(r"(password|passwd|pwd)['\"]?\s*[:=]\s*['\"]?([^\s'\"]{3,})"),
