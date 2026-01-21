@@ -35,6 +35,8 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.8.0",
     "pre-commit>=3.6.0",
+    "bandit[toml]>=1.7.0",
+    "safety>=3.0.0",
 ]
 
 [project.scripts]
@@ -75,3 +77,7 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
+skips = ["B101"]  # Skip assert_used check (acceptable in tests)
