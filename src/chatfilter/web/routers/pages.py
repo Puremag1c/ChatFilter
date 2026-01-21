@@ -18,8 +18,9 @@ async def index(request: Request) -> HTMLResponse:
 
     templates = get_templates()
     return templates.TemplateResponse(
-        "upload.html",
-        get_template_context(request, version=__version__),
+        request=request,
+        name="upload.html",
+        context=get_template_context(request, version=__version__),
     )
 
 
@@ -34,8 +35,9 @@ async def chats_page(request: Request) -> HTMLResponse:
     sessions = list_stored_sessions()
 
     return templates.TemplateResponse(
-        "chats.html",
-        get_template_context(request, version=__version__, sessions=sessions),
+        request=request,
+        name="chats.html",
+        context=get_template_context(request, version=__version__, sessions=sessions),
     )
 
 
@@ -48,8 +50,9 @@ async def chatlist_page(request: Request) -> HTMLResponse:
     templates = get_templates()
 
     return templates.TemplateResponse(
-        "chatlist.html",
-        get_template_context(request, version=__version__),
+        request=request,
+        name="chatlist.html",
+        context=get_template_context(request, version=__version__),
     )
 
 
@@ -64,8 +67,9 @@ async def proxy_page(request: Request) -> HTMLResponse:
     config = load_proxy_config()
 
     return templates.TemplateResponse(
-        "proxy.html",
-        get_template_context(request, version=__version__, config=config),
+        request=request,
+        name="proxy.html",
+        context=get_template_context(request, version=__version__, config=config),
     )
 
 
@@ -119,8 +123,9 @@ async def results_page(
             error = "Invalid task ID format"
 
     return templates.TemplateResponse(
-        "results.html",
-        get_template_context(
+        request=request,
+        name="results.html",
+        context=get_template_context(
             request,
             version=__version__,
             results=results,

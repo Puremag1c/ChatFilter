@@ -171,9 +171,9 @@ async def start_analysis(
 
     if not session_id:
         return templates.TemplateResponse(
-            "partials/analysis_progress.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/analysis_progress.html",
+            context={
                 "error": "No session selected",
                 "error_action": "Select a Telegram session from the dropdown above",
                 "error_action_type": "check_input",
@@ -182,9 +182,9 @@ async def start_analysis(
 
     if not chat_ids:
         return templates.TemplateResponse(
-            "partials/analysis_progress.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/analysis_progress.html",
+            context={
                 "error": "No chats selected for analysis",
                 "error_action": "Select at least one chat from the list above by checking the boxes",
                 "error_action_type": "check_input",
@@ -194,9 +194,9 @@ async def start_analysis(
     # Validate message_limit
     if message_limit < 10 or message_limit > 10000:
         return templates.TemplateResponse(
-            "partials/analysis_progress.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/analysis_progress.html",
+            context={
                 "error": "Message limit must be between 10 and 10000",
                 "error_action": "Adjust the 'Messages per chat' setting to a value between 10 and 10000",
                 "error_action_type": "check_input",
@@ -208,9 +208,9 @@ async def start_analysis(
         get_session_paths(session_id)
     except HTTPException as e:
         return templates.TemplateResponse(
-            "partials/analysis_progress.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/analysis_progress.html",
+            context={
                 "error": e.detail,
                 "error_action": "Upload a valid session file from the Sessions page",
                 "error_action_type": "reauth",
@@ -240,9 +240,9 @@ async def start_analysis(
         except QueueFullError as e:
             # Queue is full - return error with helpful message
             return templates.TemplateResponse(
-                "partials/analysis_progress.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/analysis_progress.html",
+                context={
                     "error": f"Analysis queue is at capacity ({e.limit} concurrent tasks).",
                     "error_action": "Wait for currently running analyses to complete, or cancel an existing analysis",
                     "error_action_type": "wait",
@@ -260,9 +260,9 @@ async def start_analysis(
     session.set("current_task_id", str(task.task_id))
 
     response = templates.TemplateResponse(
-        "partials/analysis_progress.html",
-        {
-            "request": request,
+        request=request,
+        name="partials/analysis_progress.html",
+        context={
             "task_id": str(task.task_id),
             "total_chats": len(chat_ids),
             "is_duplicate": is_duplicate,
@@ -446,8 +446,9 @@ async def get_results(
         uuid_task_id = UUID(task_id)
     except ValueError:
         return templates.TemplateResponse(
-            "partials/analysis_results.html",
-            {"request": request, "error": "Invalid task ID format"},
+            request=request,
+            name="partials/analysis_results.html",
+            context={"error": "Invalid task ID format"},
         )
 
     queue = get_task_queue()
@@ -455,33 +456,37 @@ async def get_results(
 
     if task is None:
         return templates.TemplateResponse(
-            "partials/analysis_results.html",
-            {"request": request, "error": "Task not found"},
+            request=request,
+            name="partials/analysis_results.html",
+            context={"error": "Task not found"},
         )
 
     if task.status == TaskStatus.IN_PROGRESS:
         return templates.TemplateResponse(
-            "partials/analysis_results.html",
-            {"request": request, "error": "Analysis still in progress"},
+            request=request,
+            name="partials/analysis_results.html",
+            context={"error": "Analysis still in progress"},
         )
 
     if task.status == TaskStatus.PENDING:
         return templates.TemplateResponse(
-            "partials/analysis_results.html",
-            {"request": request, "error": "Analysis not started"},
+            request=request,
+            name="partials/analysis_results.html",
+            context={"error": "Analysis not started"},
         )
 
     if task.status == TaskStatus.FAILED:
         return templates.TemplateResponse(
-            "partials/analysis_results.html",
-            {"request": request, "error": task.error or "Analysis failed"},
+            request=request,
+            name="partials/analysis_results.html",
+            context={"error": task.error or "Analysis failed"},
         )
 
     if task.status == TaskStatus.TIMEOUT:
         return templates.TemplateResponse(
-            "partials/analysis_results.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/analysis_results.html",
+            context={
                 "task_id": task_id,
                 "results": task.results,
                 "session_id": task.session_id,
@@ -492,9 +497,9 @@ async def get_results(
 
     # For COMPLETED or CANCELLED, show results (partial results for cancelled)
     response = templates.TemplateResponse(
-        "partials/analysis_results.html",
-        {
-            "request": request,
+        request=request,
+        name="partials/analysis_results.html",
+        context={
             "task_id": task_id,
             "results": task.results,
             "session_id": task.session_id,

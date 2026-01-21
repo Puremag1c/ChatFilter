@@ -24,8 +24,9 @@ async def get_proxy_config(request: Request) -> HTMLResponse:
     config = load_proxy_config()
 
     return templates.TemplateResponse(
-        "partials/proxy_form.html",
-        {"request": request, "config": config, "proxy_types": list(ProxyType)},
+        request=request,
+        name="partials/proxy_form.html",
+        context={"config": config, "proxy_types": list(ProxyType)},
     )
 
 
@@ -53,9 +54,9 @@ async def save_proxy(
             validated_type = ProxyType(proxy_type.lower())
         except ValueError:
             return templates.TemplateResponse(
-                "partials/proxy_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/proxy_result.html",
+                context={
                     "success": False,
                     "error": f"Invalid proxy type: {proxy_type}",
                 },
@@ -64,9 +65,9 @@ async def save_proxy(
         # Validate port range
         if port < 1 or port > 65535:
             return templates.TemplateResponse(
-                "partials/proxy_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/proxy_result.html",
+                context={
                     "success": False,
                     "error": "Port must be between 1 and 65535",
                 },
@@ -85,9 +86,9 @@ async def save_proxy(
         save_proxy_config(config)
 
         return templates.TemplateResponse(
-            "partials/proxy_result.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/proxy_result.html",
+            context={
                 "success": True,
                 "message": "Proxy settings saved successfully",
             },
@@ -96,9 +97,9 @@ async def save_proxy(
     except Exception as e:
         logger.exception("Failed to save proxy config")
         return templates.TemplateResponse(
-            "partials/proxy_result.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/proxy_result.html",
+            context={
                 "success": False,
                 "error": f"Failed to save settings: {e}",
             },

@@ -296,7 +296,7 @@ async def get_account_info_from_session(
     """
     import asyncio
 
-    from telethon import TelegramClient  # type: ignore[import-untyped]
+    from telethon import TelegramClient
 
     try:
         # Create a temporary client to get account info
@@ -425,8 +425,9 @@ async def get_sessions(request: Request) -> HTMLResponse:
     templates = get_templates()
 
     return templates.TemplateResponse(
-        "partials/sessions_list.html",
-        {"request": request, "sessions": sessions},
+        request=request,
+        name="partials/sessions_list.html",
+        context={"sessions": sessions},
     )
 
 
@@ -451,17 +452,18 @@ async def upload_session(
             safe_name = sanitize_session_name(session_name)
         except ValueError as e:
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {"request": request, "success": False, "error": str(e)},
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
             )
 
         # Check if session already exists
         session_dir = ensure_data_dir() / safe_name
         if session_dir.exists():
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/upload_result.html",
+                context={
                     "success": False,
                     "error": f"Session '{safe_name}' already exists",
                 },
@@ -474,16 +476,18 @@ async def upload_session(
             )
         except ValueError as e:
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {"request": request, "success": False, "error": str(e)},
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
             )
 
         try:
             validate_session_file_format(session_content)
         except ValueError as e:
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {"request": request, "success": False, "error": f"Invalid session: {e}"},
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": f"Invalid session: {e}"},
             )
 
         # Read and validate config file with size limit enforcement
@@ -493,16 +497,18 @@ async def upload_session(
             )
         except ValueError as e:
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {"request": request, "success": False, "error": str(e)},
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
             )
 
         try:
             config_data = validate_config_file_format(config_content)
         except ValueError as e:
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {"request": request, "success": False, "error": f"Invalid config: {e}"},
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": f"Invalid config: {e}"},
             )
 
         # Extract account info from session to check for duplicates
@@ -559,8 +565,9 @@ async def upload_session(
                 if session_dir.exists():
                     shutil.rmtree(session_dir, ignore_errors=True)
                 return templates.TemplateResponse(
-                    "partials/upload_result.html",
-                    {"request": request, "success": False, "error": str(e)},
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": str(e)},
                 )
 
             # Atomic write to prevent corruption on crash
@@ -602,17 +609,18 @@ async def upload_session(
             # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {"request": request, "success": False, "error": f"Config validation failed: {e}"},
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": f"Config validation failed: {e}"},
             )
         except Exception:
             # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
             logger.exception("Failed to save session files")
             return templates.TemplateResponse(
-                "partials/upload_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/upload_result.html",
+                context={
                     "success": False,
                     "error": "Failed to save session files. Please try again.",
                 },
@@ -630,16 +638,17 @@ async def upload_session(
         }
 
         return templates.TemplateResponse(
-            "partials/upload_result.html",
-            response_data,
+            request=request,
+            name="partials/upload_result.html",
+            context=response_data,
         )
 
     except Exception:
         logger.exception("Unexpected error during session upload")
         return templates.TemplateResponse(
-            "partials/upload_result.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/upload_result.html",
+            context={
                 "success": False,
                 "error": "An unexpected error occurred during upload. Please try again.",
             },

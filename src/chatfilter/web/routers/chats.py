@@ -142,8 +142,9 @@ async def get_chats(
 
     if not session_id:
         return templates.TemplateResponse(
-            "partials/chat_list.html",
-            {"request": request, "chats": [], "session_id": ""},
+            request=request,
+            name="partials/chat_list.html",
+            context={"chats": [], "session_id": ""},
         )
 
     # Store selected Telegram session in user's web session
@@ -163,9 +164,9 @@ async def get_chats(
         remaining = total_count - (offset + len(chats))
 
         return templates.TemplateResponse(
-            "partials/chat_list.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chat_list.html",
+            context={
                 "chats": chats,
                 "session_id": session_id,
                 "offset": offset,
@@ -187,9 +188,9 @@ async def get_chats(
         # Clean up the invalid session
         cleanup_invalid_session(session_id)
         return templates.TemplateResponse(
-            "partials/chat_list.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chat_list.html",
+            context={
                 "error": (
                     "Session is invalid and has been removed. "
                     "The session may have been revoked, logged out from another device, "
@@ -221,9 +222,9 @@ async def get_chats(
                 "See the Upload page for step-by-step instructions."
             )
         return templates.TemplateResponse(
-            "partials/chat_list.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chat_list.html",
+            context={
                 "error": user_message,
                 "error_action": action_message,
                 "error_action_type": "reauth",
@@ -246,9 +247,9 @@ async def get_chats(
 
         if error_info:
             return templates.TemplateResponse(
-                "partials/chat_list.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chat_list.html",
+                context={
                     "error": error_info["message"],
                     "error_action": error_info["action"],
                     "error_action_type": error_info["action_type"],
@@ -259,9 +260,9 @@ async def get_chats(
             )
         else:
             return templates.TemplateResponse(
-                "partials/chat_list.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chat_list.html",
+                context={
                     "error": "Failed to connect to Telegram. Please check your session.",
                     "error_action": "Verify your session file is valid or try uploading a new one",
                     "error_action_type": "retry",

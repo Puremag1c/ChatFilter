@@ -101,9 +101,9 @@ async def upload_chat_list(
 
         if len(content) > MAX_FILE_SIZE:
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": f"File too large (max {MAX_FILE_SIZE // 1024 // 1024} MB)",
                 },
@@ -111,9 +111,9 @@ async def upload_chat_list(
 
         if not content:
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": "File is empty",
                 },
@@ -127,9 +127,9 @@ async def upload_chat_list(
             entries = parse_chat_list(content, filename)
         except ParseError as e:
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": f"Parse error: {e}",
                 },
@@ -137,9 +137,9 @@ async def upload_chat_list(
 
         if not entries:
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": "No valid chat entries found in file",
                 },
@@ -161,9 +161,9 @@ async def upload_chat_list(
         )
 
         return templates.TemplateResponse(
-            "partials/chatlist_result.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chatlist_result.html",
+            context={
                 "success": True,
                 "list_id": list_id,
                 "entry_count": len(unique_entries),
@@ -175,9 +175,9 @@ async def upload_chat_list(
     except Exception:
         logger.exception("Unexpected error during file upload")
         return templates.TemplateResponse(
-            "partials/chatlist_result.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chatlist_result.html",
+            context={
                 "success": False,
                 "error": "An unexpected error occurred while processing the file. Please try again.",
             },
@@ -202,9 +202,9 @@ async def fetch_google_sheet_endpoint(
         sheet_url = sheet_url.strip()
         if not sheet_url:
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": "Please enter a Google Sheets URL",
                 },
@@ -212,9 +212,9 @@ async def fetch_google_sheet_endpoint(
 
         if not is_google_sheets_url(sheet_url):
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": "Invalid Google Sheets URL",
                 },
@@ -225,9 +225,9 @@ async def fetch_google_sheet_endpoint(
             entries = await fetch_google_sheet(sheet_url)
         except GoogleSheetsError as e:
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": str(e),
                 },
@@ -235,9 +235,9 @@ async def fetch_google_sheet_endpoint(
 
         if not entries:
             return templates.TemplateResponse(
-                "partials/chatlist_result.html",
-                {
-                    "request": request,
+                request=request,
+                name="partials/chatlist_result.html",
+                context={
                     "success": False,
                     "error": "No valid chat entries found in spreadsheet",
                 },
@@ -257,9 +257,9 @@ async def fetch_google_sheet_endpoint(
         logger.info(f"Imported {len(unique_entries)} chats from Google Sheet (list_id={list_id})")
 
         return templates.TemplateResponse(
-            "partials/chatlist_result.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chatlist_result.html",
+            context={
                 "success": True,
                 "list_id": list_id,
                 "entry_count": len(unique_entries),
@@ -271,9 +271,9 @@ async def fetch_google_sheet_endpoint(
     except Exception:
         logger.exception("Unexpected error during Google Sheets fetch")
         return templates.TemplateResponse(
-            "partials/chatlist_result.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chatlist_result.html",
+            context={
                 "success": False,
                 "error": "An unexpected error occurred while fetching the Google Sheet. Please try again.",
             },
@@ -296,17 +296,17 @@ async def get_chat_list_entries(
     entries = get_chat_list(list_id)
     if entries is None:
         return templates.TemplateResponse(
-            "partials/chatlist_entries.html",
-            {
-                "request": request,
+            request=request,
+            name="partials/chatlist_entries.html",
+            context={
                 "error": "List not found or expired",
             },
         )
 
     return templates.TemplateResponse(
-        "partials/chatlist_entries.html",
-        {
-            "request": request,
+        request=request,
+        name="partials/chatlist_entries.html",
+        context={
             "list_id": list_id,
             "entries": entries,
         },
