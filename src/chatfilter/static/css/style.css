@@ -225,6 +225,12 @@ footer .diagnostic-button:hover {
     color: #721c24;
 }
 
+.alert-info {
+    background-color: #d1ecf1;
+    border: 1px solid #17a2b8;
+    color: #0c5460;
+}
+
 /* Forms */
 .form-group {
     margin-bottom: 1.25rem;

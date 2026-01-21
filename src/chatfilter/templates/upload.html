@@ -8,9 +8,27 @@
     <p class="subtitle">Upload your Telegram session to start analyzing chats</p>
 </div>
 
-<div class="alert alert-warning">
-    <strong>Security Notice:</strong> Session files provide full access to your Telegram account.
-    Only upload sessions you trust and never share them with others.
+<div class="alert alert-error">
+    <strong>⚠️ Critical Security Warning: Session File Risks</strong>
+
+    <p style="margin-top: 0.75rem; margin-bottom: 0.75rem;">
+        <strong>Session files grant complete, unrestricted access to your Telegram account.</strong>
+        Before uploading, understand these critical risks:
+    </p>
+
+    <ul style="margin-left: 1.5rem; margin-bottom: 0.75rem;">
+        <li><strong>Full Account Control:</strong> Anyone with your session file can read all messages, send messages as you, join/leave groups, and perform any action you can perform in Telegram</li>
+        <li><strong>No Additional Authentication:</strong> Session files bypass 2FA and password protection - no further credentials are needed to use your account</li>
+        <li><strong>Persistent Access:</strong> Sessions remain valid until you explicitly log out from all devices in Telegram or change your 2FA password</li>
+        <li><strong>Undetectable Usage:</strong> Telegram does not notify you when a session is used from a different location or device</li>
+        <li><strong>Theft Risk:</strong> If your session file is compromised (stolen, leaked, or accessed by malware), attackers gain immediate full access to your account</li>
+    </ul>
+
+    <p style="margin-bottom: 0;">
+        <strong>Best Practices:</strong> Only create and upload session files on trusted devices.
+        Never share session files with anyone. Store them securely with restricted file permissions.
+        If you suspect a session may be compromised, immediately log out from all devices in Telegram settings.
+    </p>
 </div>
 
 <section class="card onboarding">
@@ -193,6 +211,17 @@ with app:
                    required
                    accept=".json">
             <small class="form-hint">JSON with api_id and api_hash from my.telegram.org</small>
+        </div>
+
+        <div class="form-group">
+            <label style="display: flex; align-items: flex-start; cursor: pointer; user-select: none;">
+                <input type="checkbox"
+                       id="security_acknowledgment"
+                       name="security_acknowledgment"
+                       required
+                       style="margin-right: 0.5rem; margin-top: 0.25rem; cursor: pointer;">
+                <span>I understand that session files provide complete access to my Telegram account and accept the security risks described above. I confirm this session was created on a trusted device and will be stored securely.</span>
+            </label>
         </div>
 
         <div class="form-actions">
