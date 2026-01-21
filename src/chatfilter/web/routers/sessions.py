@@ -244,8 +244,7 @@ def validate_config_file_format(content: bytes) -> dict:
     # Quick check: valid JSON objects must start with '{' and end with '}'
     if not text.startswith("{") or not text.endswith("}"):
         raise ValueError(
-            "Config file does not appear to be a JSON object "
-            "(must start with '{' and end with '}')"
+            "Config file does not appear to be a JSON object (must start with '{' and end with '}')"
         )
 
     # Now attempt full JSON parsing
@@ -400,6 +399,28 @@ async def upload_session(
         session_path = session_dir / "session.session"
 
         try:
+            # Check disk space before writing session file
+            from chatfilter.utils.disk import DiskSpaceError, ensure_space_available
+
+            marker_text = (
+                "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
+                "Do not create a plaintext config.json file.\n"
+            )
+
+            # Calculate total space needed (session file + marker file)
+            total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
+
+            try:
+                ensure_space_available(session_path, total_bytes_needed)
+            except DiskSpaceError as e:
+                # Clean up directory if it was just created
+                if session_dir.exists():
+                    shutil.rmtree(session_dir, ignore_errors=True)
+                return templates.TemplateResponse(
+                    "partials/upload_result.html",
+                    {"request": request, "success": False, "error": str(e)},
+                )
+
             # Save session file
             session_path.write_bytes(session_content)
             secure_file_permissions(session_path)
@@ -421,10 +442,7 @@ async def upload_session(
 
             # Create migration marker to indicate we're using secure storage
             marker_file = session_dir / ".secure_storage"
-            marker_file.write_text(
-                "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
-                "Do not create a plaintext config.json file.\n"
-            )
+            marker_file.write_text(marker_text)
 
             # Validate that TelegramClientLoader can use secure storage
             loader = TelegramClientLoader(session_path, use_secure_storage=True)

@@ -6,7 +6,7 @@ import secrets
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Query, Request
+from fastapi import APIRouter, Body, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -108,12 +108,22 @@ async def export_csv(
     Returns:
         CSV file with Content-Disposition: attachment header
         and unique filename with timestamp
+
+    Raises:
+        HTTPException: If there's insufficient disk space or other errors
     """
+
     # Convert input models to internal models
     results = [r.to_analysis_result() for r in request.results]
 
-    # Generate CSV content
-    csv_content = export_to_csv(results, include_bom=include_bom)
+    try:
+        # Generate CSV content (in-memory, no disk space check needed here)
+        csv_content = export_to_csv(results, include_bom=include_bom)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate CSV: {e}",
+        ) from e
 
     # Generate unique filename to prevent concurrent request conflicts
     unique_filename = _generate_unique_filename(filename)

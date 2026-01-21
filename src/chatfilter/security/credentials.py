@@ -231,6 +231,11 @@ class EncryptedFileBackend(CredentialStorageBackend):
         # Generate new key
         key = Fernet.generate_key()
 
+        # Check disk space before writing (key is 44 bytes)
+        from chatfilter.utils.disk import ensure_space_available
+
+        ensure_space_available(self._key_file, len(key))
+
         # Write with restrictive permissions
         self._key_file.write_bytes(key)
         self._key_file.chmod(0o600)
@@ -271,11 +276,19 @@ class EncryptedFileBackend(CredentialStorageBackend):
 
         Args:
             credentials: Dictionary mapping session_id to credentials dict
+
+        Raises:
+            CredentialStorageError: If unable to save credentials
         """
         try:
             fernet = self._get_fernet()
             json_data = json.dumps(credentials).encode("utf-8")
             encrypted_data = fernet.encrypt(json_data)
+
+            # Check disk space before writing
+            from chatfilter.utils.disk import ensure_space_available
+
+            ensure_space_available(self._credentials_file, len(encrypted_data))
 
             # Write with restrictive permissions
             self._credentials_file.write_bytes(encrypted_data)

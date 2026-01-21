@@ -5,6 +5,7 @@ This module provides robust CSV export with proper handling of:
 - Zero-width characters (zero-width space, joiner, non-joiner)
 - Special CSV characters (quotes, commas, newlines) with proper escaping
 - UTF-8 BOM for Excel compatibility
+- Disk space checking before writes to prevent "No space left on device" errors
 """
 
 from __future__ import annotations
@@ -116,6 +117,9 @@ def export_to_csv(
     zero-width characters, and special CSV characters (quotes, commas,
     newlines). Output is UTF-8 encoded with optional BOM for Excel.
 
+    Checks available disk space before writing to prevent
+    "No space left on device" errors with clear error messages.
+
     Args:
         results: List of analysis results to export
         output: Optional file path to write CSV to.
@@ -126,6 +130,10 @@ def export_to_csv(
     Returns:
         CSV content as string (always returned, even when
         writing to file)
+
+    Raises:
+        DiskSpaceError: If insufficient disk space is available
+            for writing the file
 
     Example:
         ```python
@@ -153,6 +161,13 @@ def export_to_csv(
 
     # Write to file if path provided
     if output is not None:
+        # Check disk space before writing
+        from chatfilter.utils.disk import ensure_space_available
+
+        content_bytes = content.encode("utf-8")
+        ensure_space_available(output, len(content_bytes))
+
+        # Safe to write now
         output.write_text(content, encoding="utf-8")
 
     return content

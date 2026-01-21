@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from chatfilter.utils.disk import (
+    DiskSpaceError,
+    ensure_space_available,
+    format_bytes,
+    get_available_space,
+)
 from chatfilter.utils.memory import (
     MemoryMonitor,
     MemoryStats,
@@ -34,4 +40,8 @@ __all__ = [
     "get_base_path",
     "get_application_path",
     "is_frozen",
+    "DiskSpaceError",
+    "ensure_space_available",
+    "get_available_space",
+    "format_bytes",
 ]
