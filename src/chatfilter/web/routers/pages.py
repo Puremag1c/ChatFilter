@@ -133,3 +133,25 @@ async def results_page(
             task_id=task_id,
         ),
     )
+
+
+@router.get("/history", response_class=HTMLResponse)
+async def history_page(request: Request) -> HTMLResponse:
+    """Analysis history page.
+
+    Args:
+        request: FastAPI request
+
+    Returns:
+        HTML page with historical analyses list
+    """
+    from chatfilter import __version__
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="history.html",
+        context=get_template_context(request, version=__version__),
+    )

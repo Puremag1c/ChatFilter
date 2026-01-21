@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://unpkg.com/hyperlist@1.0.0/dist/hyperlist.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/static/js/theme-switcher.js"></script>
     <script src="/static/js/tab-sync.js"></script>
     <script src="/static/js/tab-activity.js"></script>
     <script src="/static/js/request-dedup.js"></script>
@@ -31,6 +32,7 @@
                 <li><a href="/chats" data-tooltip="Select chats to analyze from your Telegram account" data-tooltip-position="bottom">Chats</a></li>
                 <li><a href="/chatlist" data-tooltip="Import a list of chats from a file or Google Sheets" data-tooltip-position="bottom">Import</a></li>
                 <li><a href="/results" data-tooltip="View analysis results and export data" data-tooltip-position="bottom">Results</a></li>
+                <li><a href="/history" data-tooltip="Browse your past analysis history" data-tooltip-position="bottom">History</a></li>
                 <li><a href="/proxy" data-tooltip="Use Telegram proxy to access chats" data-tooltip-position="bottom">Proxy</a></li>
             </ul>
             <div class="status-indicators">
@@ -46,6 +48,9 @@
                     <span class="user-avatar" aria-hidden="true"></span>
                     <span class="user-text" id="user-text">No User</span>
                 </div>
+                <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle dark mode" data-tooltip="Switch between light and dark theme" data-tooltip-position="bottom">
+                    <span class="theme-icon" aria-hidden="true">🌙</span>
+                </button>
             </div>
         </nav>
     </header>
