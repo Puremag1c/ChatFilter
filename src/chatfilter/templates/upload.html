@@ -267,7 +267,38 @@ with app:
          role="region"
          aria-live="polite"
          aria-label="List of registered Telegram sessions">
-        <p class="loading" role="status">Loading sessions...</p>
+        <div class="skeleton-container" aria-busy="true" role="status">
+            <span class="skeleton-sr-text">Loading sessions...</span>
+            <div class="skeleton-session-list">
+                <div class="skeleton-session-item">
+                    <div class="skeleton-session-info">
+                        <div class="skeleton skeleton-session-name"></div>
+                        <div class="skeleton skeleton-session-status"></div>
+                    </div>
+                    <div class="skeleton-session-actions">
+                        <div class="skeleton skeleton-button"></div>
+                    </div>
+                </div>
+                <div class="skeleton-session-item">
+                    <div class="skeleton-session-info">
+                        <div class="skeleton skeleton-session-name"></div>
+                        <div class="skeleton skeleton-session-status"></div>
+                    </div>
+                    <div class="skeleton-session-actions">
+                        <div class="skeleton skeleton-button"></div>
+                    </div>
+                </div>
+                <div class="skeleton-session-item">
+                    <div class="skeleton-session-info">
+                        <div class="skeleton skeleton-session-name"></div>
+                        <div class="skeleton skeleton-session-status"></div>
+                    </div>
+                    <div class="skeleton-session-actions">
+                        <div class="skeleton skeleton-button"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 {% endblock %}

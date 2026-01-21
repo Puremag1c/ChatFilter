@@ -141,7 +141,7 @@
                   hx-encoding="multipart/form-data"
                   hx-target="#import-result"
                   hx-swap="innerHTML"
-                  hx-indicator="#file-upload-spinner"
+                  hx-indicator="#file-upload-spinner, #import-loading"
                   aria-label="Upload chat list file">
 
                 <div class="form-group">
@@ -184,7 +184,7 @@
                   hx-post="/api/chatlist/fetch-sheet"
                   hx-target="#import-result"
                   hx-swap="innerHTML"
-                  hx-indicator="#sheet-fetch-spinner"
+                  hx-indicator="#sheet-fetch-spinner, #import-loading"
                   aria-label="Import chat list from Google Sheets">
 
                 <div class="form-group">
@@ -215,6 +215,49 @@
     <h3>Imported Chats</h3>
     <div id="import-result">
         <p class="empty-state">Import a file or Google Sheet to see the list of chats</p>
+    </div>
+
+    <div id="import-loading" class="htmx-indicator">
+        <div class="skeleton-container" aria-busy="true" role="status">
+            <span class="skeleton-sr-text">Loading imported chats...</span>
+            <div class="skeleton-import-list">
+                <div class="skeleton-import-item">
+                    <div class="skeleton skeleton-import-checkbox"></div>
+                    <div class="skeleton-import-content">
+                        <div class="skeleton skeleton-import-value"></div>
+                        <div class="skeleton skeleton-import-type"></div>
+                    </div>
+                </div>
+                <div class="skeleton-import-item">
+                    <div class="skeleton skeleton-import-checkbox"></div>
+                    <div class="skeleton-import-content">
+                        <div class="skeleton skeleton-import-value"></div>
+                        <div class="skeleton skeleton-import-type"></div>
+                    </div>
+                </div>
+                <div class="skeleton-import-item">
+                    <div class="skeleton skeleton-import-checkbox"></div>
+                    <div class="skeleton-import-content">
+                        <div class="skeleton skeleton-import-value"></div>
+                        <div class="skeleton skeleton-import-type"></div>
+                    </div>
+                </div>
+                <div class="skeleton-import-item">
+                    <div class="skeleton skeleton-import-checkbox"></div>
+                    <div class="skeleton-import-content">
+                        <div class="skeleton skeleton-import-value"></div>
+                        <div class="skeleton skeleton-import-type"></div>
+                    </div>
+                </div>
+                <div class="skeleton-import-item">
+                    <div class="skeleton skeleton-import-checkbox"></div>
+                    <div class="skeleton-import-content">
+                        <div class="skeleton skeleton-import-value"></div>
+                        <div class="skeleton skeleton-import-type"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
