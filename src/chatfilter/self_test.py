@@ -22,7 +22,7 @@ from .config import Settings
 class TestStatus(str, Enum):
     """Test result status."""
 
-    PASS = "PASS"
+    PASS = "PASS"  # nosec B105 - test status string, not a password
     WARN = "WARN"
     FAIL = "FAIL"
     SKIP = "SKIP"
@@ -105,8 +105,8 @@ class SelfTest:
 
             except TimeoutError:
                 continue  # Try next host
-            except Exception:
-                continue  # Try next host
+            except Exception:  # nosec B112 - continue on individual test failure
+                continue
 
         # All hosts failed
         self._add_result(

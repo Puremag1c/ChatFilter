@@ -363,7 +363,7 @@ async def telegram_user(request: Request, session_id: str | None = None) -> Tele
         try:
             web_session = get_web_session(request)
             session_id = web_session.get("selected_telegram_session")
-        except Exception:
+        except Exception:  # nosec B110 - optional session check
             pass
 
     if not session_id:

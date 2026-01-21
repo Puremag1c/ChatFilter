@@ -148,8 +148,8 @@ jobs:
       - name: Run bandit security scanner
         run: |
           echo "Running bandit security scanner..."
-          bandit -r src -f json -o bandit-report.json || true
-          bandit -r src
+          bandit -c pyproject.toml -r src -f json -o bandit-report.json || true
+          bandit -c pyproject.toml -r src
 
       - name: Run safety dependency checker
         run: |

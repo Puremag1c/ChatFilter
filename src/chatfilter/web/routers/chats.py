@@ -242,8 +242,8 @@ async def get_chats(
             # Check if it's a Telethon error by checking for common Telethon error attributes
             if hasattr(e, "__class__") and e.__class__.__module__.startswith("telethon"):
                 error_info = get_actionable_error_info(e)
-        except Exception:
-            pass  # Fallback to generic error
+        except Exception:  # nosec B110 - fallback to generic error
+            pass
 
         if error_info:
             return templates.TemplateResponse(

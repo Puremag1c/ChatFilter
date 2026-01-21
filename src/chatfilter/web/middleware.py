@@ -427,8 +427,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
                 token_value = form_data.get(CSRF_FORM_FIELD)
                 # Ensure we only accept string tokens, not file uploads
                 csrf_token = token_value if isinstance(token_value, str) else None
-            except Exception:
-                # Not a form request or error parsing form
+            except Exception:  # nosec B110 - intentional silent fail for form parsing
                 pass
 
         # Validate token

@@ -149,4 +149,10 @@ exclude_lines = [
 
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
-skips = ["B101"]  # Skip assert_used check (acceptable in tests)
+skips = [
+    "B101",  # assert_used - acceptable for internal invariants
+    "B311",  # random - used for non-security purposes (IDs, sampling)
+    "B404",  # subprocess import - required for port checking
+    "B603",  # subprocess call - controlled internal commands only
+    "B607",  # partial path - lsof/netstat are system utilities
+]
