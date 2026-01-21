@@ -43,6 +43,7 @@ dev = [
     "bandit[toml]>=1.7.0",
     "safety>=3.0.0",
     "memray>=1.11.0",  # Advanced memory profiling (optional)
+    "psutil>=5.9.0",  # Memory monitoring for tests
 ]
 
 [project.scripts]

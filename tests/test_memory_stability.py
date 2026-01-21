@@ -24,17 +24,20 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-# Try to import memory utilities (optional dependency)
+# Check if psutil is available (required for memory monitoring)
 try:
-    from chatfilter.utils.memory import (
-        MemoryMonitor,
-        MemoryTracker,
-        get_memory_usage,
-    )
+    import psutil  # type: ignore[import-untyped]  # noqa: F401
 
     MEMORY_MONITORING_AVAILABLE = True
 except ImportError:
     MEMORY_MONITORING_AVAILABLE = False
+
+# Import memory utilities (always available, but functions require psutil)
+from chatfilter.utils.memory import (
+    MemoryMonitor,
+    MemoryTracker,
+    get_memory_usage,
+)
 
 
 class MockExecutor:
