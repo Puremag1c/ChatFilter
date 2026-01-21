@@ -107,9 +107,8 @@ class KeyringBackend(KeyBackend):
         """Store key in OS keychain."""
         try:
             # Fernet keys are already base64-encoded, store as string
-            if isinstance(key, bytes):
-                key = key.decode("ascii")
-            keyring.set_password(self.SERVICE_NAME, self._key_name(key_id), key)
+            key_str = key.decode("ascii") if isinstance(key, bytes) else key
+            keyring.set_password(self.SERVICE_NAME, self._key_name(key_id), key_str)
         except keyring.errors.KeyringError as e:
             raise KeyManagerError(f"Failed to store key in keyring: {e}") from e
 
@@ -141,7 +140,7 @@ class PasswordBackend(KeyBackend):
             password: Master password for key derivation. If None, will try
                      to read from CHATFILTER_ENCRYPTION_PASSWORD env var.
         """
-        self._password = password or os.environ.get(self.ENV_VAR_PREFIX)
+        self._password: str = password or os.environ.get(self.ENV_VAR_PREFIX) or ""
         if not self._password:
             raise KeyManagerError(
                 f"Password required. Set {self.ENV_VAR_PREFIX} environment variable "
@@ -209,9 +208,8 @@ class EnvironmentBackend(KeyBackend):
     def set_key(self, key_id: int, key: bytes) -> None:
         """Store key in environment (for current process only)."""
         # Fernet keys are already base64-encoded, store as-is
-        if isinstance(key, bytes):
-            key = key.decode("ascii")
-        os.environ[self._env_var_name(key_id)] = key
+        key_str = key.decode("ascii") if isinstance(key, bytes) else key
+        os.environ[self._env_var_name(key_id)] = key_str
 
     def delete_key(self, key_id: int) -> None:
         """Delete key from environment."""
@@ -314,6 +312,7 @@ class KeyManager:
         Raises:
             KeyManagerError: If backend cannot be initialized
         """
+        backend: KeyBackend
         if backend_type == "auto":
             # Try backends in order of preference
             # Note: We prefer explicit configuration (env vars, password) over system defaults (keyring, machine)
