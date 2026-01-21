@@ -36,7 +36,15 @@ class MockExecutor:
         return self.chats.get(chat_id)
 
     async def analyze_chat(
-        self, session_id: str, chat_id: int, message_limit: int = 1000
+        self,
+        session_id: str,
+        chat_id: int,
+        message_limit: int = 1000,
+        batch_size: int = 1000,
+        use_streaming: bool | None = None,
+        memory_limit_mb: float = 1024.0,
+        enable_memory_monitoring: bool = False,
+        batch_progress_callback=None,
     ) -> AnalysisResult:
         if self.delay > 0:
             await asyncio.sleep(self.delay)
@@ -367,7 +375,15 @@ class TestTaskQueue:
         # First chat is fast, second is slow
         class SlowOnSecondExecutor(MockExecutor):
             async def analyze_chat(
-                self, session_id: str, chat_id: int, message_limit: int = 1000
+                self,
+                session_id: str,
+                chat_id: int,
+                message_limit: int = 1000,
+                batch_size: int = 1000,
+                use_streaming: bool | None = None,
+                memory_limit_mb: float = 1024.0,
+                enable_memory_monitoring: bool = False,
+                batch_progress_callback=None,
             ) -> AnalysisResult:
                 if chat_id == 2:
                     await asyncio.sleep(0.5)  # Exceeds timeout
@@ -399,7 +415,15 @@ class TestTaskQueue:
         # Create executor that hangs on second chat
         class HangingExecutor(MockExecutor):
             async def analyze_chat(
-                self, session_id: str, chat_id: int, message_limit: int = 1000
+                self,
+                session_id: str,
+                chat_id: int,
+                message_limit: int = 1000,
+                batch_size: int = 1000,
+                use_streaming: bool | None = None,
+                memory_limit_mb: float = 1024.0,
+                enable_memory_monitoring: bool = False,
+                batch_progress_callback=None,
             ) -> AnalysisResult:
                 if chat_id == 2:
                     # Hang indefinitely (will be killed by stall monitor)

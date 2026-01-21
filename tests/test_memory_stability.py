@@ -55,7 +55,15 @@ class MockExecutor:
         )
 
     async def analyze_chat(
-        self, session_id: str, chat_id: int, message_limit: int = 1000
+        self,
+        session_id: str,
+        chat_id: int,
+        message_limit: int = 1000,
+        batch_size: int = 1000,
+        use_streaming: bool | None = None,
+        memory_limit_mb: float = 1024.0,
+        enable_memory_monitoring: bool = False,
+        batch_progress_callback=None,
     ) -> AnalysisResult:
         self.analyzed_count += 1
 

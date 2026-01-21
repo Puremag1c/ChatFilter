@@ -173,7 +173,17 @@ async def test_run_task_persists_progress(temp_db):
 
     # Mock executor
     class MockExecutor:
-        async def analyze_chat(self, session_id, chat_id, message_limit):
+        async def analyze_chat(
+            self,
+            session_id,
+            chat_id,
+            message_limit=1000,
+            batch_size=1000,
+            use_streaming=None,
+            memory_limit_mb=1024.0,
+            enable_memory_monitoring=False,
+            batch_progress_callback=None,
+        ):
             chat = Chat(
                 id=chat_id,
                 title=f"Chat {chat_id}",
@@ -219,7 +229,17 @@ async def test_run_task_persists_failure(temp_db):
 
     # Mock executor that fails
     class FailingExecutor:
-        async def analyze_chat(self, session_id, chat_id, message_limit):
+        async def analyze_chat(
+            self,
+            session_id,
+            chat_id,
+            message_limit=1000,
+            batch_size=1000,
+            use_streaming=None,
+            memory_limit_mb=1024.0,
+            enable_memory_monitoring=False,
+            batch_progress_callback=None,
+        ):
             raise RuntimeError("Test error")
 
         async def get_chat_info(self, session_id, chat_id):
