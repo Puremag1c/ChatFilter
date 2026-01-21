@@ -514,6 +514,20 @@ class TestDialogToChat:
         assert chat.title == "John Doe"
         assert chat.chat_type == ChatType.PRIVATE
         assert chat.username == "johndoe"
+        assert not chat.is_saved_messages
+
+    def test_saved_messages_dialog(self) -> None:
+        """Test conversion of Saved Messages (chat with yourself) dialog."""
+        current_user_id = 999
+        dialog = create_mock_dialog(current_user_id, "user", "Me Myself", username="myusername")
+
+        chat = _dialog_to_chat(dialog, current_user_id=current_user_id)
+
+        assert chat is not None
+        assert chat.id == current_user_id
+        assert chat.title == "Saved Messages"
+        assert chat.chat_type == ChatType.PRIVATE
+        assert chat.is_saved_messages
 
     def test_channel_dialog(self) -> None:
         """Test conversion of channel dialog."""

@@ -523,12 +523,15 @@ class TelegramClientLoader:
         )
 
 
-def _dialog_to_chat(dialog: Dialog, is_archived: bool = False) -> Chat | None:
+def _dialog_to_chat(
+    dialog: Dialog, is_archived: bool = False, current_user_id: int | None = None
+) -> Chat | None:
     """Convert Telethon Dialog to our Chat model.
 
     Args:
         dialog: Telethon Dialog object
         is_archived: Whether the dialog is from the archived folder
+        current_user_id: Current user's ID to detect Saved Messages
 
     Returns:
         Chat model or None if dialog type is not supported
@@ -536,9 +539,15 @@ def _dialog_to_chat(dialog: Dialog, is_archived: bool = False) -> Chat | None:
     entity = dialog.entity
 
     # Determine chat type from entity
+    is_saved_messages = False
     if isinstance(entity, User):
         chat_type = ChatType.PRIVATE
-        title = dialog.name or entity.first_name or "Private Chat"
+        # Check if this is Saved Messages (chat with yourself)
+        is_saved_messages = current_user_id is not None and entity.id == current_user_id
+        if is_saved_messages:
+            title = "Saved Messages"
+        else:
+            title = dialog.name or entity.first_name or "Private Chat"
         username = entity.username
         member_count = None
     elif isinstance(entity, Channel):
@@ -568,6 +577,7 @@ def _dialog_to_chat(dialog: Dialog, is_archived: bool = False) -> Chat | None:
         username=username,
         member_count=member_count,
         is_archived=is_archived,
+        is_saved_messages=is_saved_messages,
     )
 
 
@@ -665,6 +675,15 @@ async def get_dialogs(
     rate_limiter = get_rate_limiter()
     await rate_limiter.wait_if_needed("get_dialogs")
 
+    # Get current user ID to detect Saved Messages
+    current_user_id: int | None = None
+    try:
+        me = await client.get_me()
+        current_user_id = me.id
+    except Exception as e:
+        logger.debug(f"Could not fetch current user ID: {e}")
+        # Continue without Saved Messages detection
+
     # Fetch all dialogs from both main (folder=0) and archived (folder=1) folders
     chats: list[Chat] = []
     seen_ids: set[int] = set()
@@ -673,7 +692,7 @@ async def get_dialogs(
         # Fetch from main folder (folder=0)
         async for dialog in client.iter_dialogs(folder=0):
             try:
-                chat = _dialog_to_chat(dialog, is_archived=False)
+                chat = _dialog_to_chat(dialog, is_archived=False, current_user_id=current_user_id)
                 if chat is None:
                     continue
 
@@ -696,7 +715,7 @@ async def get_dialogs(
         # Fetch from archived folder (folder=1)
         async for dialog in client.iter_dialogs(folder=1):
             try:
-                chat = _dialog_to_chat(dialog, is_archived=True)
+                chat = _dialog_to_chat(dialog, is_archived=True, current_user_id=current_user_id)
                 if chat is None:
                     continue
 

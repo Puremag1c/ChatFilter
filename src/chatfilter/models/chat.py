@@ -28,6 +28,7 @@ class Chat(BaseModel):
         username: Optional public username (@username).
         member_count: Number of members (if available).
         is_archived: Whether the chat is archived (in folder 1).
+        is_saved_messages: Whether this is the Saved Messages chat (chat with yourself).
         slowmode_seconds: Slow mode delay in seconds (None if disabled or unavailable).
 
     Example:
@@ -48,6 +49,7 @@ class Chat(BaseModel):
     username: str | None = None
     member_count: int | None = None
     is_archived: bool = False
+    is_saved_messages: bool = False
     slowmode_seconds: int | None = None
 
     @field_validator("id")
@@ -83,6 +85,7 @@ class Chat(BaseModel):
         username: str | None = None,
         member_count: int | None = None,
         is_archived: bool = False,
+        is_saved_messages: bool = False,
         slowmode_seconds: int | None = None,
     ) -> Chat:
         """Create a fake Chat for testing.
@@ -94,6 +97,7 @@ class Chat(BaseModel):
             username: Optional username.
             member_count: Optional member count.
             is_archived: Whether the chat is archived (default: False).
+            is_saved_messages: Whether this is Saved Messages (default: False).
             slowmode_seconds: Optional slowmode delay in seconds.
 
         Returns:
@@ -111,5 +115,6 @@ class Chat(BaseModel):
             username=username,
             member_count=member_count,
             is_archived=is_archived,
+            is_saved_messages=is_saved_messages,
             slowmode_seconds=slowmode_seconds,
         )
