@@ -7,9 +7,21 @@ import ssl
 from unittest.mock import patch
 
 import pytest
+from telethon.errors import (
+    FileMigrateError,
+    FloodWaitError,
+    NetworkMigrateError,
+    PhoneMigrateError,
+    RpcCallFailError,
+    ServerError,
+    StatsMigrateError,
+    UserMigrateError,
+)
 
 from chatfilter.telegram.retry import (
+    _format_flood_wait_duration,
     calculate_backoff_delay,
+    with_flood_wait_handling,
     with_retry,
     with_retry_for_reads,
     with_retry_for_writes,
@@ -386,3 +398,682 @@ class TestRetryIntegration:
         result = await sometimes_slow()
         assert result == "success"
         assert call_count == 2
+
+
+class TestFloodWaitHandling:
+    """Tests for FloodWaitError handling in with_retry decorator."""
+
+    @pytest.mark.asyncio
+    async def test_flood_wait_success_after_retry(self) -> None:
+        """Test that FloodWaitError is retried after waiting."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01, handle_flood_wait=True)
+        async def fails_with_flood_wait() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                # Create FloodWaitError with seconds attribute
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 1  # Wait 1 second
+                raise error
+            return "success"
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None  # Make sleep instant
+            result = await fails_with_flood_wait()
+            assert result == "success"
+            assert call_count == 2
+            # Verify that we slept for the flood wait duration
+            mock_sleep.assert_called_with(1)
+
+    @pytest.mark.asyncio
+    async def test_flood_wait_disabled(self) -> None:
+        """Test that FloodWaitError is not handled when handle_flood_wait=False."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01, handle_flood_wait=False)
+        async def raises_flood_wait() -> str:
+            nonlocal call_count
+            call_count += 1
+            error = FloodWaitError("FLOOD_WAIT_X")
+            error.seconds = 1
+            raise error
+
+        with pytest.raises(FloodWaitError):
+            await raises_flood_wait()
+
+        # Should not retry when handle_flood_wait is False
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_flood_wait_exceeds_max_wait(self) -> None:
+        """Test that FloodWaitError exceeding max_flood_wait is not retried."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01, max_flood_wait=60)
+        async def raises_long_flood_wait() -> str:
+            nonlocal call_count
+            call_count += 1
+            error = FloodWaitError("FLOOD_WAIT_X")
+            error.seconds = 120  # 2 minutes, exceeds max_flood_wait of 60s
+            raise error
+
+        with pytest.raises(FloodWaitError):
+            await raises_long_flood_wait()
+
+        # Should fail on first attempt
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_flood_wait_on_final_attempt(self) -> None:
+        """Test that FloodWaitError on final attempt is raised."""
+        call_count = 0
+
+        @with_retry(max_attempts=2, base_delay=0.01)
+        async def always_floods() -> str:
+            nonlocal call_count
+            call_count += 1
+            error = FloodWaitError("FLOOD_WAIT_X")
+            error.seconds = 1
+            raise error
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            with pytest.raises(FloodWaitError):
+                await always_floods()
+
+        # Should try max_attempts times
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_flood_wait_cancelled_during_sleep(self) -> None:
+        """Test that FloodWait sleep can be cancelled."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def raises_flood_wait() -> str:
+            nonlocal call_count
+            call_count += 1
+            error = FloodWaitError("FLOOD_WAIT_X")
+            error.seconds = 10
+            raise error
+
+        async def cancel_sleep(*args, **kwargs):
+            raise asyncio.CancelledError()
+
+        with patch("asyncio.sleep", side_effect=cancel_sleep):
+            with pytest.raises(asyncio.CancelledError):
+                await raises_flood_wait()
+
+        # Should have tried once before cancellation
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_flood_wait_with_explicit_seconds(self) -> None:
+        """Test that FloodWaitError with explicit seconds is handled."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def raises_flood_wait_with_seconds() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 5
+                raise error
+            return "success"
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            result = await raises_flood_wait_with_seconds()
+            assert result == "success"
+            # Should use the explicit seconds value
+            mock_sleep.assert_called_with(5)
+
+
+class TestFormatFloodWaitDuration:
+    """Tests for _format_flood_wait_duration helper function."""
+
+    def test_format_seconds(self) -> None:
+        """Test formatting seconds."""
+        assert _format_flood_wait_duration(1) == "1 second"
+        assert _format_flood_wait_duration(30) == "30 seconds"
+        assert _format_flood_wait_duration(59) == "59 seconds"
+
+    def test_format_minutes(self) -> None:
+        """Test formatting minutes."""
+        assert _format_flood_wait_duration(60) == "1 minute"
+        assert _format_flood_wait_duration(120) == "2 minutes"
+        assert _format_flood_wait_duration(300) == "5 minutes"
+        assert _format_flood_wait_duration(3599) == "59 minutes"
+
+    def test_format_hours(self) -> None:
+        """Test formatting hours."""
+        assert _format_flood_wait_duration(3600) == "1 hour"
+        assert _format_flood_wait_duration(7200) == "2 hours"
+
+    def test_format_hours_and_minutes(self) -> None:
+        """Test formatting hours and minutes."""
+        assert _format_flood_wait_duration(3660) == "1 hour 1 minute"
+        assert _format_flood_wait_duration(3720) == "1 hour 2 minutes"
+        assert _format_flood_wait_duration(7260) == "2 hours 1 minute"
+        assert _format_flood_wait_duration(7320) == "2 hours 2 minutes"
+
+
+class TestWithFloodWaitHandlingDecorator:
+    """Tests for with_flood_wait_handling decorator."""
+
+    @pytest.mark.asyncio
+    async def test_success_on_first_attempt(self) -> None:
+        """Test successful operation without FloodWait."""
+        call_count = 0
+
+        @with_flood_wait_handling()
+        async def succeeds() -> str:
+            nonlocal call_count
+            call_count += 1
+            return "success"
+
+        result = await succeeds()
+        assert result == "success"
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_handles_flood_wait(self) -> None:
+        """Test handling FloodWaitError."""
+        call_count = 0
+
+        @with_flood_wait_handling(max_attempts=3)
+        async def floods_once() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 1
+                raise error
+            return "success"
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            result = await floods_once()
+            assert result == "success"
+            assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_exponential_backoff_enabled(self) -> None:
+        """Test exponential backoff on subsequent FloodWait attempts."""
+        call_count = 0
+
+        @with_flood_wait_handling(max_attempts=3, use_exponential_backoff=True)
+        async def floods_twice() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 10
+                raise error
+            return "success"
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            result = await floods_twice()
+            assert result == "success"
+
+            # Check that backoff was applied
+            calls = [call.args[0] for call in mock_sleep.call_args_list]
+            assert len(calls) == 2
+            # First attempt: 10s (no backoff)
+            assert calls[0] == 10
+            # Second attempt: 10 * 1.5 = 15s (with backoff multiplier)
+            assert calls[1] == 15
+
+    @pytest.mark.asyncio
+    async def test_exponential_backoff_disabled(self) -> None:
+        """Test that exponential backoff can be disabled."""
+        call_count = 0
+
+        @with_flood_wait_handling(max_attempts=3, use_exponential_backoff=False)
+        async def floods_twice() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 10
+                raise error
+            return "success"
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            result = await floods_twice()
+            assert result == "success"
+
+            # All waits should be the same (no backoff)
+            calls = [call.args[0] for call in mock_sleep.call_args_list]
+            assert all(wait == 10 for wait in calls)
+
+    @pytest.mark.asyncio
+    async def test_max_flood_wait_limit(self) -> None:
+        """Test that max_flood_wait is enforced."""
+
+        @with_flood_wait_handling(max_flood_wait=30)
+        async def long_flood() -> str:
+            error = FloodWaitError("FLOOD_WAIT_X")
+            error.seconds = 60  # Exceeds max_flood_wait
+            raise error
+
+        with pytest.raises(FloodWaitError):
+            await long_flood()
+
+    @pytest.mark.asyncio
+    async def test_cancelled_error_not_retried(self) -> None:
+        """Test that CancelledError is not retried."""
+        call_count = 0
+
+        @with_flood_wait_handling()
+        async def raises_cancelled() -> str:
+            nonlocal call_count
+            call_count += 1
+            raise asyncio.CancelledError()
+
+        with pytest.raises(asyncio.CancelledError):
+            await raises_cancelled()
+
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_cancelled_during_flood_wait(self) -> None:
+        """Test cancellation during FloodWait sleep."""
+
+        @with_flood_wait_handling()
+        async def floods() -> str:
+            error = FloodWaitError("FLOOD_WAIT_X")
+            error.seconds = 10
+            raise error
+
+        async def cancel_sleep(*args, **kwargs):
+            raise asyncio.CancelledError()
+
+        with patch("asyncio.sleep", side_effect=cancel_sleep):
+            with pytest.raises(asyncio.CancelledError):
+                await floods()
+
+    @pytest.mark.asyncio
+    async def test_final_attempt_flood_wait(self) -> None:
+        """Test that FloodWait on final attempt is raised."""
+        call_count = 0
+
+        @with_flood_wait_handling(max_attempts=2)
+        async def always_floods() -> str:
+            nonlocal call_count
+            call_count += 1
+            error = FloodWaitError("FLOOD_WAIT_X")
+            error.seconds = 1
+            raise error
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            with pytest.raises(FloodWaitError):
+                await always_floods()
+
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_flood_wait_with_explicit_seconds(self) -> None:
+        """Test handling FloodWait with explicit seconds."""
+        call_count = 0
+
+        @with_flood_wait_handling()
+        async def floods_with_seconds() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 5
+                raise error
+            return "success"
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            result = await floods_with_seconds()
+            assert result == "success"
+            # Should use the explicit seconds value
+            mock_sleep.assert_called_with(5)
+
+    @pytest.mark.asyncio
+    async def test_backoff_capped_at_max_flood_wait(self) -> None:
+        """Test that exponential backoff doesn't exceed max_flood_wait."""
+        call_count = 0
+
+        @with_flood_wait_handling(max_attempts=3, max_flood_wait=20, use_exponential_backoff=True)
+        async def floods_twice() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 15
+                raise error
+            return "success"
+
+        with patch("asyncio.sleep") as mock_sleep:
+            mock_sleep.return_value = None
+            result = await floods_twice()
+            assert result == "success"
+
+            calls = [call.args[0] for call in mock_sleep.call_args_list]
+            # First: 15s, Second would be 15*1.5=22.5s but capped at 20s
+            assert calls[0] == 15
+            assert calls[1] == 20  # Capped at max_flood_wait
+
+
+class TestTelethonErrorRetries:
+    """Tests for retrying Telethon-specific errors."""
+
+    @pytest.mark.asyncio
+    async def test_retry_broken_pipe_error(self) -> None:
+        """Test retry on BrokenPipeError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_broken_pipe() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise BrokenPipeError()
+            return "success"
+
+        result = await fails_with_broken_pipe()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_connection_reset_error(self) -> None:
+        """Test retry on ConnectionResetError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_reset() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionResetError()
+            return "success"
+
+        result = await fails_with_reset()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_connection_aborted_error(self) -> None:
+        """Test retry on ConnectionAbortedError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_aborted() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionAbortedError()
+            return "success"
+
+        result = await fails_with_aborted()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_connection_refused_error(self) -> None:
+        """Test retry on ConnectionRefusedError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_refused() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionRefusedError()
+            return "success"
+
+        result = await fails_with_refused()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_file_migrate_error(self) -> None:
+        """Test retry on FileMigrateError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_file_migrate() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise FileMigrateError("FILE_MIGRATE_X")
+            return "success"
+
+        result = await fails_with_file_migrate()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_network_migrate_error(self) -> None:
+        """Test retry on NetworkMigrateError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_network_migrate() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise NetworkMigrateError("NETWORK_MIGRATE_X")
+            return "success"
+
+        result = await fails_with_network_migrate()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_phone_migrate_error(self) -> None:
+        """Test retry on PhoneMigrateError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_phone_migrate() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise PhoneMigrateError("PHONE_MIGRATE_X")
+            return "success"
+
+        result = await fails_with_phone_migrate()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_user_migrate_error(self) -> None:
+        """Test retry on UserMigrateError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_user_migrate() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise UserMigrateError("USER_MIGRATE_X")
+            return "success"
+
+        result = await fails_with_user_migrate()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_stats_migrate_error(self) -> None:
+        """Test retry on StatsMigrateError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_stats_migrate() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise StatsMigrateError("STATS_MIGRATE_X")
+            return "success"
+
+        result = await fails_with_stats_migrate()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_rpc_call_fail_error(self) -> None:
+        """Test retry on RpcCallFailError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_rpc_fail() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise RpcCallFailError("RPC_CALL_FAIL")
+            return "success"
+
+        result = await fails_with_rpc_fail()
+        assert result == "success"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retry_server_error(self) -> None:
+        """Test retry on ServerError."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def fails_with_server_error() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                # ServerError requires request and message parameters
+                raise ServerError(request=None, message="INTERNAL")
+            return "success"
+
+        result = await fails_with_server_error()
+        assert result == "success"
+        assert call_count == 2
+
+
+class TestEdgeCases:
+    """Tests for edge cases and error conditions."""
+
+    @pytest.mark.asyncio
+    async def test_max_attempts_one(self) -> None:
+        """Test that max_attempts=1 means no retries."""
+        call_count = 0
+
+        @with_retry(max_attempts=1, base_delay=0.01)
+        async def fails() -> str:
+            nonlocal call_count
+            call_count += 1
+            raise ConnectionError("Fail")
+
+        with pytest.raises(ConnectionError):
+            await fails()
+
+        # Should only be called once (no retries)
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_custom_operation_name(self) -> None:
+        """Test custom operation_name is used in logs."""
+
+        @with_retry(max_attempts=2, base_delay=0.01, operation_name="custom_op")
+        async def fails() -> str:
+            raise ConnectionError("Fail")
+
+        with patch("chatfilter.telegram.retry.logger") as mock_logger:
+            with pytest.raises(ConnectionError):
+                await fails()
+
+            # Check that custom operation name was logged
+            assert mock_logger.error.called
+            error_call = str(mock_logger.error.call_args)
+            assert "custom_op" in error_call
+
+    @pytest.mark.asyncio
+    async def test_zero_base_delay(self) -> None:
+        """Test that zero base delay works."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.0)
+        async def fails_twice() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise ConnectionError()
+            return "success"
+
+        result = await fails_twice()
+        assert result == "success"
+        assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_very_large_max_delay(self) -> None:
+        """Test that very large max_delay doesn't cause issues."""
+        call_count = 0
+
+        @with_retry(max_attempts=2, base_delay=0.01, max_delay=1000000.0)
+        async def fails_once() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionError()
+            return "success"
+
+        result = await fails_once()
+        assert result == "success"
+
+    @pytest.mark.asyncio
+    async def test_function_with_args_and_kwargs(self) -> None:
+        """Test that decorated function preserves args and kwargs."""
+        call_count = 0
+
+        @with_retry(max_attempts=3, base_delay=0.01)
+        async def func_with_params(a: int, b: str, c: int = 10) -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise ConnectionError()
+            return f"{a}-{b}-{c}"
+
+        result = await func_with_params(1, "test", c=20)
+        assert result == "1-test-20"
+        assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_decorated_function_preserves_name(self) -> None:
+        """Test that decorator preserves function name."""
+
+        @with_retry()
+        async def my_function() -> str:
+            return "test"
+
+        assert my_function.__name__ == "my_function"
+
+    @pytest.mark.asyncio
+    async def test_multiple_exception_types_in_sequence(self) -> None:
+        """Test handling different retryable exceptions in sequence."""
+        call_count = 0
+
+        @with_retry(max_attempts=5, base_delay=0.01)
+        async def fails_with_different_errors() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise ConnectionError()
+            elif call_count == 2:
+                raise TimeoutError()
+            elif call_count == 3:
+                raise OSError()
+            elif call_count == 4:
+                raise ssl.SSLError()
+            return "success"
+
+        result = await fails_with_different_errors()
+        assert result == "success"
+        assert call_count == 5

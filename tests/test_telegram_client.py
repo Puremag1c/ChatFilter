@@ -14,17 +14,26 @@ from chatfilter.models.chat import Chat, ChatType
 from chatfilter.telegram.client import (
     ChatAccessDeniedError,
     JoinChatError,
+    LeaveChatError,
     MessageFetchError,
     SessionFileError,
     TelegramClientLoader,
     TelegramConfig,
     TelegramConfigError,
     _dialog_to_chat,
+    _migrate_plaintext_to_secure,
     _parse_chat_reference,
+    _secure_delete_file,
     _telethon_message_to_model,
+    get_account_info,
+    get_chat_slowmode,
     get_dialogs,
     get_messages,
+    get_messages_since,
+    get_messages_streaming,
     join_chat,
+    join_chat_with_rotation,
+    leave_chat,
     validate_session_file,
 )
 
@@ -41,6 +50,89 @@ class TestTelegramConfig:
 
         assert config.api_id == 12345
         assert config.api_hash == "abcdef123456"
+
+    def test_repr_redacts_api_hash(self) -> None:
+        """Test that repr redacts api_hash for security."""
+        config = TelegramConfig(api_id=12345, api_hash="secret_hash")
+
+        repr_str = repr(config)
+
+        assert "12345" in repr_str
+        assert "secret_hash" not in repr_str
+        assert "REDACTED" in repr_str
+
+    def test_str_redacts_api_hash(self) -> None:
+        """Test that str redacts api_hash for security."""
+        config = TelegramConfig(api_id=12345, api_hash="secret_hash")
+
+        str_repr = str(config)
+
+        assert "12345" in str_repr
+        assert "secret_hash" not in str_repr
+
+    def test_from_secure_storage_success(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test loading config from secure storage."""
+
+        # Mock the SecureCredentialManager
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+                return (99999, "secure_hash_from_keyring")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        config = TelegramConfig.from_secure_storage("test_session", tmp_path)
+
+        assert config.api_id == 99999
+        assert config.api_hash == "secure_hash_from_keyring"
+
+    def test_from_secure_storage_credential_not_found(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test error when credentials not found in secure storage."""
+        from chatfilter.security import CredentialNotFoundError
+
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+                raise CredentialNotFoundError("Credentials not found")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        with pytest.raises(TelegramConfigError, match="Credentials not found in secure storage"):
+            TelegramConfig.from_secure_storage("test_session", tmp_path)
+
+    def test_from_secure_storage_general_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test error handling for general errors in secure storage."""
+
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+                raise RuntimeError("Keyring error")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        with pytest.raises(TelegramConfigError, match="Failed to load credentials"):
+            TelegramConfig.from_secure_storage("test_session", tmp_path)
 
     def test_from_json_file_api_id_as_string(self, tmp_path: Path) -> None:
         """Test loading config with api_id as string (should convert)."""
@@ -288,7 +380,7 @@ class TestTelegramClientLoader:
         with pytest.raises(SessionFileError):
             loader.validate()
 
-    def test_create_client(self, tmp_path: Path) -> None:
+    def test_create_client(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test creating a Telethon client instance.
 
         Note: We use a fresh session path because Telethon's TelegramClient
@@ -304,8 +396,15 @@ class TestTelegramClientLoader:
         validation_session = tmp_path / "valid.session"
         create_valid_session(validation_session)
 
+        # Mock settings
+        class MockSettings:
+            connect_timeout = 30
+
+        monkeypatch.setattr("chatfilter.config.get_settings", lambda: MockSettings())
+        monkeypatch.setattr("chatfilter.telegram.client.load_proxy_config", lambda: None)
+
         # Test with the valid session for validation
-        loader = TelegramClientLoader(validation_session, config_path)
+        loader = TelegramClientLoader(validation_session, config_path, use_secure_storage=False)
         loader.validate()  # Should pass
 
         # For actual client creation, use a fresh session path
@@ -332,13 +431,21 @@ class TestTelegramClientLoader:
         assert loader.session_path == session_path
         assert loader.config_path == config_path
 
-    def test_create_client_with_proxy(self, tmp_path: Path) -> None:
+    def test_create_client_with_proxy(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test creating a client with explicit proxy configuration."""
         import socks
 
         session_path = tmp_path / "new_session"
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        # Mock settings
+        class MockSettings:
+            connect_timeout = 30
+
+        monkeypatch.setattr("chatfilter.config.get_settings", lambda: MockSettings())
 
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
@@ -362,13 +469,21 @@ class TestTelegramClientLoader:
         assert client._proxy[4] == "user"
         assert client._proxy[5] == "pass"
 
-    def test_create_client_with_http_proxy(self, tmp_path: Path) -> None:
+    def test_create_client_with_http_proxy(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test creating a client with HTTP proxy."""
         import socks
 
         session_path = tmp_path / "new_session"
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        # Mock settings
+        class MockSettings:
+            connect_timeout = 30
+
+        monkeypatch.setattr("chatfilter.config.get_settings", lambda: MockSettings())
 
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
@@ -387,11 +502,19 @@ class TestTelegramClientLoader:
         assert client._proxy[1] == "http-proxy.example.com"
         assert client._proxy[2] == 8080
 
-    def test_create_client_with_disabled_proxy(self, tmp_path: Path) -> None:
+    def test_create_client_with_disabled_proxy(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that disabled proxy results in no proxy being set."""
         session_path = tmp_path / "new_session"
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        # Mock settings
+        class MockSettings:
+            connect_timeout = 30
+
+        monkeypatch.setattr("chatfilter.config.get_settings", lambda: MockSettings())
 
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
@@ -406,11 +529,19 @@ class TestTelegramClientLoader:
 
         assert client._proxy is None
 
-    def test_create_client_without_saved_proxy(self, tmp_path: Path) -> None:
+    def test_create_client_without_saved_proxy(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test creating client with use_saved_proxy=False."""
         session_path = tmp_path / "new_session"
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        # Mock settings
+        class MockSettings:
+            connect_timeout = 30
+
+        monkeypatch.setattr("chatfilter.config.get_settings", lambda: MockSettings())
 
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
@@ -420,11 +551,16 @@ class TestTelegramClientLoader:
 
         assert client._proxy is None
 
-    def test_create_client_with_custom_timeout(self, tmp_path: Path) -> None:
+    def test_create_client_with_custom_timeout(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test creating client with custom timeout configuration."""
         session_path = tmp_path / "new_session"
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        # Mock load_proxy_config to avoid filesystem access
+        monkeypatch.setattr("chatfilter.telegram.client.load_proxy_config", lambda: None)
 
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
@@ -436,24 +572,113 @@ class TestTelegramClientLoader:
         assert client._timeout == 45
         assert client._retry_delay == 2
 
-    def test_create_client_uses_default_timeout_from_settings(self, tmp_path: Path) -> None:
+    def test_create_client_uses_default_timeout_from_settings(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that client uses default timeout from settings when not specified."""
         session_path = tmp_path / "new_session"
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
+        # Mock settings to avoid validation errors
+        class MockSettings:
+            connect_timeout = 30
+
+        def mock_get_settings() -> MockSettings:
+            return MockSettings()
+
+        monkeypatch.setattr("chatfilter.config.get_settings", mock_get_settings)
+
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+
+        # Mock load_proxy_config to avoid filesystem access
+        monkeypatch.setattr("chatfilter.telegram.client.load_proxy_config", lambda: None)
 
         # Create client without specifying timeout (should use settings default)
         client = loader.create_client()
 
         # Verify timeout is set to settings default (30 seconds)
-        from chatfilter.config import get_settings
+        assert client._timeout == 30
 
-        settings = get_settings()
-        expected_timeout = int(settings.connect_timeout)
-        assert client._timeout == expected_timeout
+    def test_validate_with_secure_storage_and_fallback(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test validation with secure storage fallback to plaintext config."""
+        sessions_dir = tmp_path / "sessions"
+        session_dir = sessions_dir / "test_session"
+        session_dir.mkdir(parents=True)
+
+        session_path = session_dir / "test.session"
+        config_path = session_dir / "config.json"
+
+        create_valid_session(session_path)
+        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
+
+        # Mock SecureCredentialManager to raise error
+        from chatfilter.security import CredentialNotFoundError
+
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+                raise CredentialNotFoundError("Not found")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=True)
+
+        # Should fall back to plaintext config
+        loader.validate()
+
+        assert loader._config is not None
+        assert loader._config.api_id == 12345
+
+    def test_validate_with_secure_storage_no_fallback(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test validation with secure storage and no fallback available."""
+        sessions_dir = tmp_path / "sessions"
+        session_dir = sessions_dir / "test_session"
+        session_dir.mkdir(parents=True)
+
+        session_path = session_dir / "test.session"
+        create_valid_session(session_path)
+
+        # Mock SecureCredentialManager to raise error
+        from chatfilter.security import CredentialNotFoundError
+
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+                raise CredentialNotFoundError("Not found")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        # No config_path provided, should raise error
+        loader = TelegramClientLoader(session_path, config_path=None, use_secure_storage=True)
+
+        with pytest.raises(TelegramConfigError, match="Credentials not found in secure storage"):
+            loader.validate()
+
+    def test_validate_no_config_path_secure_storage_disabled(self, tmp_path: Path) -> None:
+        """Test error when no config_path and secure storage disabled."""
+        session_path = tmp_path / "test.session"
+        create_valid_session(session_path)
+
+        loader = TelegramClientLoader(session_path, config_path=None, use_secure_storage=False)
+
+        with pytest.raises(TelegramConfigError, match="No config_path provided"):
+            loader.validate()
 
 
 def create_mock_dialog(
@@ -827,6 +1052,55 @@ class TestTelethonMessageToModel:
 
         assert result is not None
         assert result.author_id == 999
+
+    def test_message_with_peer_channel(self) -> None:
+        """Test handling of sender_id as PeerChannel object."""
+        msg = create_mock_message(5, "Test", sender_id=None)
+        peer = MagicMock()
+        peer.channel_id = 888
+        # Set has attr to return True for channel_id
+        msg.sender_id = peer
+        # Ensure hasattr works properly
+        type(msg.sender_id).channel_id = 888
+
+        # Mock it differently - set sender_id to an object with channel_id attribute
+        class PeerChannel:
+            channel_id = 888
+
+        msg.sender_id = PeerChannel()
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is not None
+        assert result.author_id == 888
+
+    def test_message_with_negative_sender_id(self) -> None:
+        """Test that negative sender IDs are converted to positive."""
+        msg = create_mock_message(6, "Test", sender_id=-12345)
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is not None
+        assert result.author_id == 12345  # Absolute value
+
+    def test_message_without_timestamp_returns_none(self) -> None:
+        """Test that messages without timestamp return None."""
+        msg = create_mock_message(7, "Test", sender_id=456)
+        msg.date = None
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is None
+
+    def test_message_with_naive_timestamp(self) -> None:
+        """Test that naive timestamps are made timezone-aware."""
+        naive_datetime = datetime(2024, 1, 15, 12, 0, 0)  # No timezone
+        msg = create_mock_message(8, "Test", date=naive_datetime)
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is not None
+        assert result.timestamp.tzinfo is not None
 
     def test_message_empty_returns_none(self) -> None:
         """Test that empty/deleted messages return None."""
@@ -1617,3 +1891,617 @@ class TestJoinChat:
         result = await join_chat(client, "forum_group")
 
         assert result.chat_type == ChatType.FORUM
+
+
+class TestSecureDeleteFile:
+    """Tests for _secure_delete_file helper function."""
+
+    def test_secure_delete_existing_file(self, tmp_path: Path) -> None:
+        """Test secure deletion of existing file."""
+        test_file = tmp_path / "secret.txt"
+        test_file.write_text("sensitive data")
+
+        assert test_file.exists()
+
+        _secure_delete_file(test_file)
+
+        assert not test_file.exists()
+
+    def test_secure_delete_nonexistent_file(self, tmp_path: Path) -> None:
+        """Test that deleting nonexistent file doesn't raise error."""
+        test_file = tmp_path / "nonexistent.txt"
+
+        # Should not raise
+        _secure_delete_file(test_file)
+
+    def test_secure_delete_directory_does_nothing(self, tmp_path: Path) -> None:
+        """Test that trying to delete directory doesn't raise error."""
+        test_dir = tmp_path / "test_dir"
+        test_dir.mkdir()
+
+        # Should not raise, just skip
+        _secure_delete_file(test_dir)
+
+        assert test_dir.exists()  # Directory still exists
+
+
+class TestMigratePlaintextToSecure:
+    """Tests for _migrate_plaintext_to_secure function."""
+
+    def test_migrate_success(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test successful migration of plaintext config to secure storage."""
+        # Create directory structure: sessions/test_session/config.json
+        sessions_dir = tmp_path / "sessions"
+        session_dir = sessions_dir / "test_session"
+        session_dir.mkdir(parents=True)
+
+        config_file = session_dir / "config.json"
+        config_file.write_text(json.dumps({"api_id": 12345, "api_hash": "secret"}))
+
+        # Mock SecureCredentialManager
+        stored_credentials = {}
+
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
+                stored_credentials["session_id"] = session_id
+                stored_credentials["api_id"] = api_id
+                stored_credentials["api_hash"] = api_hash
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        _migrate_plaintext_to_secure(config_file, 12345, "secret")
+
+        # Config file should be deleted
+        assert not config_file.exists()
+
+        # Migration marker should exist
+        marker = session_dir / ".migrated"
+        assert marker.exists()
+        assert "migrated to secure storage" in marker.read_text().lower()
+
+        # Credentials should be stored
+        assert stored_credentials["session_id"] == "test_session"
+        assert stored_credentials["api_id"] == 12345
+        assert stored_credentials["api_hash"] == "secret"
+
+
+class TestGetChatSlowmode:
+    """Tests for get_chat_slowmode function."""
+
+    @pytest.mark.asyncio
+    async def test_get_slowmode_channel_with_slowmode(self) -> None:
+        """Test getting slowmode for a channel with slowmode enabled."""
+        from telethon.tl.types import Channel
+
+        mock_channel = MagicMock(spec=Channel)
+
+        # Mock full channel info
+        mock_full_chat = MagicMock()
+        mock_full_chat.slowmode_seconds = 60
+
+        mock_result = MagicMock()
+        mock_result.full_chat = mock_full_chat
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=mock_channel)
+        client.return_value = mock_result
+
+        result = await get_chat_slowmode(client, 123)
+
+        assert result == 60
+
+    @pytest.mark.asyncio
+    async def test_get_slowmode_channel_no_slowmode(self) -> None:
+        """Test getting slowmode for a channel with slowmode disabled (0)."""
+        from telethon.tl.types import Channel
+
+        mock_channel = MagicMock(spec=Channel)
+
+        mock_full_chat = MagicMock()
+        mock_full_chat.slowmode_seconds = 0
+
+        mock_result = MagicMock()
+        mock_result.full_chat = mock_full_chat
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_channel)
+        client.return_value = mock_result
+
+        result = await get_chat_slowmode(client, 123)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_slowmode_non_channel(self) -> None:
+        """Test that non-channel entities return None."""
+        from telethon.tl.types import User
+
+        mock_user = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_user)
+
+        result = await get_chat_slowmode(client, 123)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_get_slowmode_error_returns_none(self) -> None:
+        """Test that errors are logged and None is returned."""
+        client = MagicMock()
+        client.get_entity = AsyncMock(side_effect=Exception("Network error"))
+
+        result = await get_chat_slowmode(client, 123)
+
+        assert result is None
+
+
+class TestGetMessagesSince:
+    """Tests for get_messages_since function."""
+
+    @pytest.mark.asyncio
+    async def test_get_messages_since_basic(self) -> None:
+        """Test fetching messages newer than min_id."""
+        from telethon.tl.types import User
+
+        messages = [
+            create_mock_message(5, "New 1"),
+            create_mock_message(6, "New 2"),
+            create_mock_message(7, "New 3"),
+        ]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, min_id: int | None = None, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            # Should only return messages > min_id
+            if min_id is not None:
+                for m in messages:
+                    if m.id > min_id:
+                        yield m
+            else:
+                for m in messages:
+                    yield m
+
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages_since(client, chat_id=123, min_id=4, limit=100)
+
+        assert len(result) == 3
+        assert all(msg.id > 4 for msg in result)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_since_invalid_min_id(self) -> None:
+        """Test that negative min_id raises ValueError."""
+        client = MagicMock()
+
+        with pytest.raises(ValueError, match="min_id must be non-negative"):
+            await get_messages_since(client, chat_id=123, min_id=-1)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_since_invalid_limit(self) -> None:
+        """Test that invalid limit raises ValueError."""
+        client = MagicMock()
+
+        with pytest.raises(ValueError, match="limit must be positive"):
+            await get_messages_since(client, chat_id=123, min_id=0, limit=0)
+
+    @pytest.mark.asyncio
+    async def test_get_messages_since_forum(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test fetching new messages from a forum chat."""
+        from telethon.tl.types import Channel
+
+        import chatfilter.telegram.client as client_module
+
+        messages = [
+            create_mock_message(10, "New message 1"),
+            create_mock_message(11, "New message 2"),
+        ]
+
+        mock_entity = MagicMock(spec=Channel)
+        mock_entity.megagroup = True
+        mock_entity.forum = True
+
+        async def mock_iter_messages(
+            chat_id: int,
+            limit: int,
+            reply_to: int | None = None,
+            min_id: int | None = None,
+            **kwargs: object,
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages:
+                yield m
+
+        async def mock_get_forum_topics(client: object, chat_id: int) -> list[int]:
+            return [100]
+
+        monkeypatch.setattr(client_module, "_get_forum_topics", mock_get_forum_topics)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        result = await get_messages_since(client, chat_id=123, min_id=9, limit=100)
+
+        assert len(result) == 2
+
+
+class TestGetMessagesStreaming:
+    """Tests for get_messages_streaming function."""
+
+    @pytest.mark.asyncio
+    async def test_streaming_basic(self) -> None:
+        """Test streaming messages in batches."""
+        from telethon.tl.types import User
+
+        # Create 15 messages (will be 2 batches of 10 + 1 batch of 5)
+        messages = [create_mock_message(i, f"Message {i}") for i in range(1, 16)]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages[:limit]:
+                yield m
+
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        batches = []
+        async for batch in get_messages_streaming(client, chat_id=123, batch_size=10):
+            batches.append(batch)
+
+        # Should get 2 batches (10 + 5 messages)
+        assert len(batches) == 2
+        assert len(batches[0]) == 10
+        assert len(batches[1]) == 5
+
+    @pytest.mark.asyncio
+    async def test_streaming_invalid_batch_size(self) -> None:
+        """Test that invalid batch_size raises ValueError."""
+        client = MagicMock()
+
+        generator = get_messages_streaming(client, chat_id=123, batch_size=0)
+
+        with pytest.raises(ValueError, match="batch_size must be positive"):
+            async for _ in generator:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_streaming_invalid_max_messages(self) -> None:
+        """Test that invalid max_messages raises ValueError."""
+        client = MagicMock()
+
+        generator = get_messages_streaming(client, chat_id=123, max_messages=0)
+
+        with pytest.raises(ValueError, match="max_messages must be positive"):
+            async for _ in generator:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_streaming_respects_max_messages(self) -> None:
+        """Test that max_messages limits total messages fetched."""
+        from telethon.tl.types import User
+
+        messages = [create_mock_message(i, f"Message {i}") for i in range(1, 101)]
+
+        async def mock_iter_messages(
+            chat_id: int, limit: int, **kwargs: object
+        ) -> AsyncIterator[MagicMock]:
+            for m in messages[:limit]:
+                yield m
+
+        mock_entity = MagicMock(spec=User)
+
+        client = MagicMock()
+        client.get_entity = AsyncMock(return_value=mock_entity)
+        client.iter_messages = mock_iter_messages
+
+        total_messages = 0
+        async for batch in get_messages_streaming(
+            client, chat_id=123, batch_size=10, max_messages=25
+        ):
+            total_messages += len(batch)
+
+        # Should stop at 25 messages (3 batches: 10 + 10 + 5)
+        assert total_messages == 25
+
+
+class TestGetAccountInfo:
+    """Tests for get_account_info function."""
+
+    @pytest.mark.asyncio
+    async def test_get_account_info_basic(self) -> None:
+        """Test getting basic account info."""
+        from telethon.tl.types import User
+
+        # Mock current user
+        mock_me = MagicMock(spec=User)
+        mock_me.id = 123456
+        mock_me.username = "testuser"
+        mock_me.first_name = "Test"
+        mock_me.last_name = "User"
+        mock_me.premium = False
+
+        # Create dialogs for counting
+        private_dialog = create_mock_dialog(1, "user", "Friend")
+        channel_dialog = create_mock_dialog(2, "channel", "Channel")
+        group_dialog = create_mock_dialog(3, "chat", "Group")
+
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
+            if folder == 0:
+                yield private_dialog
+                yield channel_dialog
+                yield group_dialog
+
+        client = MagicMock()
+        client.get_me = AsyncMock(return_value=mock_me)
+        client.iter_dialogs = mock_iter_dialogs
+
+        result = await get_account_info(client)
+
+        assert result.user_id == 123456
+        assert result.username == "testuser"
+        assert result.first_name == "Test"
+        assert result.last_name == "User"
+        assert result.is_premium is False
+        # Should count only channel and group (2), not private chat
+        assert result.chat_count == 2
+
+    @pytest.mark.asyncio
+    async def test_get_account_info_premium(self) -> None:
+        """Test getting account info for Premium user."""
+        from telethon.tl.types import User
+
+        mock_me = MagicMock(spec=User)
+        mock_me.id = 123456
+        mock_me.username = "premiumuser"
+        mock_me.first_name = "Premium"
+        mock_me.last_name = None
+        mock_me.premium = True
+
+        async def mock_iter_dialogs(folder: int = 0) -> AsyncIterator[MagicMock]:
+            return
+            yield  # Make it a generator
+
+        client = MagicMock()
+        client.get_me = AsyncMock(return_value=mock_me)
+        client.iter_dialogs = mock_iter_dialogs
+
+        result = await get_account_info(client)
+
+        assert result.is_premium is True
+        assert result.chat_limit == 1000  # Premium limit
+
+    @pytest.mark.asyncio
+    async def test_get_account_info_rate_limited(self) -> None:
+        """Test error handling when rate limited."""
+        from telethon.errors import FloodWaitError
+
+        client = MagicMock()
+        client.get_me = AsyncMock(side_effect=FloodWaitError(request=None, capture=60))
+
+        with pytest.raises(MessageFetchError, match="Rate limited"):
+            await get_account_info(client)
+
+
+class TestLeaveChat:
+    """Tests for leave_chat function."""
+
+    @pytest.mark.asyncio
+    async def test_leave_channel(self) -> None:
+        """Test leaving a channel."""
+        from telethon.tl.types import Channel
+
+        mock_channel = MagicMock(spec=Channel)
+        mock_channel.title = "Test Channel"
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=mock_channel)
+
+        result = await leave_chat(client, 123)
+
+        assert result is True
+        # Verify LeaveChannelRequest was called
+        client.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_leave_basic_group(self) -> None:
+        """Test leaving a basic group."""
+        from telethon.tl.types import Chat as TelegramChat
+        from telethon.tl.types import User
+
+        mock_group = MagicMock(spec=TelegramChat)
+        mock_group.title = "Test Group"
+
+        mock_me = MagicMock(spec=User)
+        mock_me.id = 456
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=mock_group)
+        client.get_me = AsyncMock(return_value=mock_me)
+
+        result = await leave_chat(client, 789)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_leave_chat_not_member(self) -> None:
+        """Test error when not a member of chat."""
+        from telethon.tl.types import Channel
+
+        mock_channel = MagicMock(spec=Channel)
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=mock_channel)
+        client.side_effect = Exception("not a member")
+
+        with pytest.raises(LeaveChatError, match="Not a member"):
+            await leave_chat(client, 123)
+
+    @pytest.mark.asyncio
+    async def test_leave_chat_rate_limited(self) -> None:
+        """Test error handling for rate limiting."""
+        from telethon.errors import FloodWaitError
+        from telethon.tl.types import Channel
+
+        mock_channel = MagicMock(spec=Channel)
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=mock_channel)
+        client.side_effect = FloodWaitError(request=None, capture=120)
+
+        with pytest.raises(LeaveChatError, match="Rate limited"):
+            await leave_chat(client, 123)
+
+
+class TestJoinChatWithRotation:
+    """Tests for join_chat_with_rotation function."""
+
+    @pytest.mark.asyncio
+    async def test_join_with_slots_available(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test joining when account has available slots."""
+        from telethon.tl.types import Channel
+
+        from chatfilter.models.account import AccountInfo
+
+        # Mock account info with available slots
+        mock_account = AccountInfo(
+            user_id=123,
+            username="test",
+            first_name="Test",
+            last_name=None,
+            is_premium=False,
+            chat_count=400,  # Below 500 limit
+        )
+
+        mock_channel = MagicMock(spec=Channel)
+        mock_channel.id = 999
+        mock_channel.title = "New Channel"
+        mock_channel.username = "newchannel"
+        mock_channel.megagroup = False
+        mock_channel.participants_count = 100
+
+        mock_updates = MagicMock()
+        mock_updates.chats = [mock_channel]
+
+        async def mock_get_account_info(client: object) -> AccountInfo:
+            return mock_account
+
+        async def mock_join_chat(client: object, chat_ref: str) -> Chat:
+            return Chat(
+                id=999,
+                title="New Channel",
+                chat_type=ChatType.CHANNEL,
+                username="newchannel",
+                member_count=100,
+            )
+
+        monkeypatch.setattr(
+            "chatfilter.telegram.client.get_account_info",
+            mock_get_account_info,
+        )
+        monkeypatch.setattr(
+            "chatfilter.telegram.client.join_chat",
+            mock_join_chat,
+        )
+
+        client = AsyncMock()
+
+        chat, left_ids = await join_chat_with_rotation(client, "@newchannel")
+
+        assert chat.id == 999
+        assert len(left_ids) == 0  # No chats left
+
+    @pytest.mark.asyncio
+    async def test_join_at_limit_with_rotation(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test joining when at limit and rotation list provided."""
+        from chatfilter.models.account import AccountInfo
+
+        # Mock account info at limit
+        mock_account = AccountInfo(
+            user_id=123,
+            username="test",
+            first_name="Test",
+            last_name=None,
+            is_premium=False,
+            chat_count=500,  # At 500 limit
+        )
+
+        left_chats = []
+
+        async def mock_get_account_info(client: object) -> AccountInfo:
+            return mock_account
+
+        async def mock_join_chat(client: object, chat_ref: str) -> Chat:
+            return Chat(
+                id=999,
+                title="New Channel",
+                chat_type=ChatType.CHANNEL,
+                username="newchannel",
+            )
+
+        async def mock_leave_chat(client: object, chat_id: int) -> bool:
+            left_chats.append(chat_id)
+            return True
+
+        monkeypatch.setattr(
+            "chatfilter.telegram.client.get_account_info",
+            mock_get_account_info,
+        )
+        monkeypatch.setattr(
+            "chatfilter.telegram.client.join_chat",
+            mock_join_chat,
+        )
+        monkeypatch.setattr(
+            "chatfilter.telegram.client.leave_chat",
+            mock_leave_chat,
+        )
+
+        client = AsyncMock()
+
+        chat, left_ids = await join_chat_with_rotation(
+            client, "@newchannel", chats_to_leave=[111, 222, 333]
+        )
+
+        assert chat.id == 999
+        assert len(left_ids) == 1  # Should have left 1 chat
+        assert 111 in left_ids
+
+    @pytest.mark.asyncio
+    async def test_join_at_limit_no_rotation_list(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test error when at limit and no rotation list provided."""
+        from chatfilter.models.account import AccountInfo
+
+        mock_account = AccountInfo(
+            user_id=123,
+            username="test",
+            first_name="Test",
+            last_name=None,
+            is_premium=False,
+            chat_count=500,  # At limit
+        )
+
+        async def mock_get_account_info(client: object) -> AccountInfo:
+            return mock_account
+
+        monkeypatch.setattr(
+            "chatfilter.telegram.client.get_account_info",
+            mock_get_account_info,
+        )
+
+        client = AsyncMock()
+
+        with pytest.raises(JoinChatError, match="At subscription limit"):
+            await join_chat_with_rotation(client, "@newchannel")
