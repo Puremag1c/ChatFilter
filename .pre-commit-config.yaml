@@ -37,3 +37,11 @@ repos:
           - pydantic>=2.5.0
           - pydantic-settings>=2.1.0
         args: [--config-file=pyproject.toml]
+
+  # Security scanning with bandit
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ['-c', 'pyproject.toml']
+        additional_dependencies: ['bandit[toml]']

@@ -13,6 +13,9 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,6 +38,16 @@ jobs:
           pyinstaller chatfilter.spec --clean --noconfirm
         shell: pwsh
 
+      - name: Install test dependencies
+        run: |
+          pip install httpx
+        shell: pwsh
+
+      - name: Run smoke tests
+        run: |
+          python tests/smoke_test.py --binary dist/ChatFilter/ChatFilter.exe --verbose
+        shell: pwsh
+
       - name: Create archive and checksum
         run: |
           Compress-Archive -Path "dist/ChatFilter" -DestinationPath "dist/ChatFilter-Windows.zip"
@@ -54,6 +67,9 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -122,6 +138,14 @@ jobs:
           xcrun stapler staple dist/ChatFilter.app
           rm dist/ChatFilter-notarization.zip
 
+      - name: Install test dependencies
+        run: |
+          pip install httpx
+
+      - name: Run smoke tests
+        run: |
+          python tests/smoke_test.py --binary dist/ChatFilter.app/Contents/MacOS/ChatFilter --verbose
+
       - name: Create archive and checksum
         run: |
           cd dist
@@ -145,11 +169,60 @@ jobs:
             security delete-keychain $KEYCHAIN_PATH
           fi
 
+  build-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build Linux executable
+        run: |
+          pyinstaller chatfilter.spec --clean --noconfirm
+
+      - name: Install test dependencies
+        run: |
+          pip install httpx
+
+      - name: Run smoke tests
+        run: |
+          python tests/smoke_test.py --binary dist/ChatFilter/ChatFilter --verbose
+
+      - name: Create archive and checksum
+        run: |
+          cd dist
+          tar -czf ChatFilter-Linux.tar.gz ChatFilter
+          shasum -a 256 ChatFilter-Linux.tar.gz | tee ChatFilter-Linux.tar.gz.sha256
+          cd ..
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: |
+            dist/ChatFilter-Linux.tar.gz
+            dist/ChatFilter-Linux.tar.gz.sha256
+
   release:
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -191,13 +264,25 @@ jobs:
           name: macos-release
           path: ./release-artifacts
 
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-release
+          path: ./release-artifacts
+
       - name: Generate checksums summary
         run: |
           cd release-artifacts
           echo "# SHA256 Checksums" > SHA256SUMS.txt
           echo "" >> SHA256SUMS.txt
+          echo "## Windows" >> SHA256SUMS.txt
           cat ChatFilter-Windows.zip.sha256 >> SHA256SUMS.txt
+          echo "" >> SHA256SUMS.txt
+          echo "## macOS" >> SHA256SUMS.txt
           cat ChatFilter-macOS.zip.sha256 >> SHA256SUMS.txt
+          echo "" >> SHA256SUMS.txt
+          echo "## Linux" >> SHA256SUMS.txt
+          cat ChatFilter-Linux.tar.gz.sha256 >> SHA256SUMS.txt
           echo "Generated SHA256SUMS.txt:"
           cat SHA256SUMS.txt
           cd ..
@@ -208,13 +293,15 @@ jobs:
           tag_name: v${{ steps.get_version.outputs.version }}
           name: Release v${{ steps.get_version.outputs.version }}
           body_path: /tmp/changelog.txt
-          draft: false
+          draft: true
           prerelease: false
           files: |
             release-artifacts/ChatFilter-Windows.zip
             release-artifacts/ChatFilter-Windows.zip.sha256
             release-artifacts/ChatFilter-macOS.zip
             release-artifacts/ChatFilter-macOS.zip.sha256
+            release-artifacts/ChatFilter-Linux.tar.gz
+            release-artifacts/ChatFilter-Linux.tar.gz.sha256
             release-artifacts/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
