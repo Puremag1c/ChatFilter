@@ -16,6 +16,89 @@ body {
     flex-direction: column;
 }
 
+/* ========== Accessibility Styles ========== */
+
+/* Skip to main content link - hidden until focused */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #2196F3;
+    color: white;
+    padding: 8px 16px;
+    text-decoration: none;
+    font-weight: 500;
+    z-index: 10000;
+    border-radius: 0 0 4px 0;
+}
+
+.skip-link:focus {
+    top: 0;
+    outline: 3px solid #FF9800;
+    outline-offset: 2px;
+}
+
+/* Enhanced focus indicators for keyboard navigation */
+*:focus {
+    outline: 2px solid #2196F3;
+    outline-offset: 2px;
+}
+
+/* Ensure visible focus for interactive elements */
+a:focus,
+button:focus,
+input:focus,
+select:focus,
+textarea:focus,
+[role="button"]:focus,
+[tabindex]:focus {
+    outline: 2px solid #2196F3;
+    outline-offset: 2px;
+}
+
+/* High contrast focus for critical actions */
+button.btn-primary:focus,
+button.btn-danger:focus,
+.toast-action:focus {
+    outline: 3px solid #FF9800;
+    outline-offset: 2px;
+}
+
+/* Focus visible for mouse users (removes outline on click) */
+*:focus:not(:focus-visible) {
+    outline: none;
+}
+
+*:focus-visible {
+    outline: 2px solid #2196F3;
+    outline-offset: 2px;
+}
+
+/* Screen reader only text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.sr-only-focusable:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}
+
+/* ========== End Accessibility Styles ========== */
+
 /* Header and Navigation */
 header {
     background-color: #2196F3;

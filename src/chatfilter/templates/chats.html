@@ -91,19 +91,21 @@
 
 {% block content %}
 <div class="page-header">
-    <h2>Select Chats for Analysis</h2>
+    <h1>Select Chats for Analysis</h1>
     <p class="subtitle">Choose which chats you want to analyze</p>
 </div>
 
 <section class="card">
-    <h3>Session</h3>
+    <h2>Session</h2>
     <div class="form-group">
+        <label for="session-select" class="sr-only">Select Telegram session</label>
         <select id="session-select"
                 hx-get="/api/chats"
                 hx-target="#chats-container"
                 hx-swap="innerHTML"
                 hx-include="this"
-                hx-indicator="#chats-loading">
+                hx-indicator="#chats-loading"
+                aria-label="Select Telegram session to load chats">
             <option value="">-- Select a session --</option>
             {% for session in sessions %}
             <option value="{{ session.session_id }}">{{ session.session_id }}</option>
@@ -113,10 +115,10 @@
 </section>
 
 <section class="card">
-    <h3>Chats</h3>
+    <h2>Chats</h2>
 
-    <div id="chats-container">
-        <div class="no-chats">
+    <div id="chats-container" role="region" aria-live="polite" aria-label="Chat list">
+        <div class="no-chats" role="status">
             <p>Select a session above to load chats</p>
         </div>
     </div>

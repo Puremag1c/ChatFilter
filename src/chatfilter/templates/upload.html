@@ -4,12 +4,12 @@
 
 {% block content %}
 <div class="page-header">
-    <h2>Telegram Sessions</h2>
+    <h1>Telegram Sessions</h1>
     <p class="subtitle">Upload your Telegram session to start analyzing chats</p>
 </div>
 
-<div class="alert alert-error">
-    <strong>⚠️ Critical Security Warning: Session File Risks</strong>
+<div class="alert alert-error" role="alert" aria-labelledby="security-warning-title">
+    <strong id="security-warning-title">⚠️ Critical Security Warning: Session File Risks</strong>
 
     <p style="margin-top: 0.75rem; margin-bottom: 0.75rem;">
         <strong>Session files grant complete, unrestricted access to your Telegram account.</strong>
@@ -172,14 +172,15 @@ with app:
 </section>
 
 <section class="card">
-    <h3>Upload New Session</h3>
+    <h2>Upload New Session</h2>
 
     <form id="upload-form"
           hx-post="/api/sessions/upload"
           hx-encoding="multipart/form-data"
           hx-target="#upload-result"
           hx-swap="innerHTML"
-          hx-indicator="#upload-spinner">
+          hx-indicator="#upload-spinner"
+          aria-label="Upload Telegram session form">
 
         <div class="form-group">
             <label for="session_name">Session Name</label>
@@ -189,8 +190,9 @@ with app:
                    required
                    placeholder="e.g., my_account"
                    pattern="[a-zA-Z0-9_-]+"
-                   title="Only letters, numbers, underscores, and hyphens allowed">
-            <small class="form-hint">A unique name to identify this session</small>
+                   aria-describedby="session-name-hint"
+                   aria-required="true">
+            <small id="session-name-hint" class="form-hint">A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed.</small>
         </div>
 
         <div class="form-group">
@@ -199,8 +201,10 @@ with app:
                    id="session_file"
                    name="session_file"
                    required
-                   accept=".session">
-            <small class="form-hint">Telethon session file (SQLite database)</small>
+                   accept=".session"
+                   aria-describedby="session-file-hint"
+                   aria-required="true">
+            <small id="session-file-hint" class="form-hint">Telethon session file (SQLite database)</small>
         </div>
 
         <div class="form-group">
@@ -209,36 +213,45 @@ with app:
                    id="config_file"
                    name="config_file"
                    required
-                   accept=".json">
-            <small class="form-hint">JSON with api_id and api_hash from my.telegram.org</small>
+                   accept=".json"
+                   aria-describedby="config-file-hint"
+                   aria-required="true">
+            <small id="config-file-hint" class="form-hint">JSON with api_id and api_hash from my.telegram.org</small>
         </div>
 
         <div class="form-group">
-            <label style="display: flex; align-items: flex-start; cursor: pointer; user-select: none;">
+            <label for="security_acknowledgment" style="display: flex; align-items: flex-start; cursor: pointer; user-select: none;">
                 <input type="checkbox"
                        id="security_acknowledgment"
                        name="security_acknowledgment"
                        required
+                       aria-required="true"
                        style="margin-right: 0.5rem; margin-top: 0.25rem; cursor: pointer;">
                 <span>I understand that session files provide complete access to my Telegram account and accept the security risks described above. I confirm this session was created on a trusted device and will be stored securely.</span>
             </label>
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary" aria-label="Upload session files">
                 <span class="btn-text">Upload Session</span>
-                <span id="upload-spinner" class="htmx-indicator spinner"></span>
+                <span id="upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="Upload in progress"></span>
             </button>
         </div>
     </form>
 
-    <div id="upload-result"></div>
+    <div id="upload-result" role="region" aria-live="polite" aria-atomic="true"></div>
 </section>
 
 <section class="card">
-    <h3>Registered Sessions</h3>
-    <div id="sessions-list" hx-get="/api/sessions" hx-trigger="load" hx-swap="innerHTML">
-        <p class="loading">Loading sessions...</p>
+    <h2>Registered Sessions</h2>
+    <div id="sessions-list"
+         hx-get="/api/sessions"
+         hx-trigger="load"
+         hx-swap="innerHTML"
+         role="region"
+         aria-live="polite"
+         aria-label="List of registered Telegram sessions">
+        <p class="loading" role="status">Loading sessions...</p>
     </div>
 </section>
 {% endblock %}

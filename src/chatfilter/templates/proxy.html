@@ -4,34 +4,36 @@
 
 {% block content %}
 <div class="page-header">
-    <h2>Proxy Settings</h2>
+    <h1>Proxy Settings</h1>
     <p class="subtitle">Configure proxy for Telegram connections</p>
 </div>
 
 <section class="card">
-    <h3>Proxy Configuration</h3>
+    <h2>Proxy Configuration</h2>
 
     <form id="proxy-form"
           hx-post="/api/proxy"
           hx-target="#proxy-result"
           hx-swap="innerHTML"
-          hx-indicator="#save-spinner">
+          hx-indicator="#save-spinner"
+          aria-label="Proxy configuration form">
 
         <div class="form-group">
-            <label class="checkbox-label">
+            <label for="enabled" class="checkbox-label">
                 <input type="checkbox"
                        id="enabled"
                        name="enabled"
                        value="true"
+                       aria-describedby="enabled-hint"
                        {% if config.enabled %}checked{% endif %}>
                 <span>Enable Proxy</span>
             </label>
-            <small class="form-hint">Enable to route Telegram traffic through a proxy server</small>
+            <small id="enabled-hint" class="form-hint">Enable to route Telegram traffic through a proxy server</small>
         </div>
 
         <div class="form-group">
             <label for="proxy_type">Proxy Type</label>
-            <select id="proxy_type" name="proxy_type">
+            <select id="proxy_type" name="proxy_type" aria-label="Select proxy type">
                 <option value="socks5" {% if config.proxy_type.value == 'socks5' %}selected{% endif %}>SOCKS5</option>
                 <option value="http" {% if config.proxy_type.value == 'http' %}selected{% endif %}>HTTP</option>
             </select>
@@ -44,7 +46,8 @@
                        id="host"
                        name="host"
                        value="{{ config.host }}"
-                       placeholder="proxy.example.com">
+                       placeholder="proxy.example.com"
+                       aria-label="Proxy server hostname or IP address">
             </div>
 
             <div class="form-group form-group-narrow">
@@ -55,7 +58,8 @@
                        value="{{ config.port }}"
                        min="1"
                        max="65535"
-                       placeholder="1080">
+                       placeholder="1080"
+                       aria-label="Proxy server port number">
             </div>
         </div>
 
@@ -66,7 +70,8 @@
                        id="username"
                        name="username"
                        value="{{ config.username }}"
-                       placeholder="Leave empty if not required">
+                       placeholder="Leave empty if not required"
+                       aria-label="Proxy authentication username">
             </div>
 
             <div class="form-group">
@@ -75,18 +80,19 @@
                        id="password"
                        name="password"
                        value="{{ config.password }}"
-                       placeholder="Leave empty if not required">
+                       placeholder="Leave empty if not required"
+                       aria-label="Proxy authentication password">
             </div>
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary" aria-label="Save proxy settings">
                 <span class="btn-text">Save Settings</span>
-                <span id="save-spinner" class="htmx-indicator spinner"></span>
+                <span id="save-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="Saving in progress"></span>
             </button>
         </div>
     </form>
 
-    <div id="proxy-result"></div>
+    <div id="proxy-result" role="region" aria-live="polite" aria-atomic="true"></div>
 </section>
 {% endblock %}

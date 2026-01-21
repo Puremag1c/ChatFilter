@@ -15,8 +15,11 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <nav>
+    <!-- Skip to main content link for keyboard navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header role="banner">
+        <nav role="navigation" aria-label="Main navigation">
             <a href="/" class="logo">ChatFilter</a>
             <ul class="nav-links">
                 <li><a href="/">Sessions</a></li>
@@ -25,29 +28,35 @@
                 <li><a href="/results">Results</a></li>
                 <li><a href="/proxy">Proxy</a></li>
             </ul>
-            <div class="telegram-status" id="telegram-status" title="Telegram Connection Status">
-                <span class="status-indicator" id="status-indicator"></span>
-                <span class="status-text" id="status-text">Checking...</span>
+            <div class="status-indicators">
+                <div class="network-status" id="network-status" role="status" aria-live="polite">
+                    <span class="status-indicator" id="network-indicator" aria-hidden="true"></span>
+                    <span class="status-text" id="network-text">Online</span>
+                </div>
+                <div class="telegram-status" id="telegram-status" role="status" aria-live="polite">
+                    <span class="status-indicator" id="status-indicator" aria-hidden="true"></span>
+                    <span class="status-text" id="status-text">Checking...</span>
+                </div>
             </div>
         </nav>
     </header>
-    <main>
+    <main id="main-content" role="main">
         {% block content %}{% endblock %}
     </main>
-    <footer>
+    <footer role="contentinfo">
         <p>ChatFilter v{{ version }}</p>
         <div class="footer-actions">
             <a href="/api/export/diagnostics?format=text"
                download
                class="diagnostic-button"
-               title="Export diagnostic information for troubleshooting">
+               aria-label="Export diagnostic information for troubleshooting">
                 Export Diagnostics
             </a>
         </div>
     </footer>
 
-    <!-- Toast notification container -->
-    <div id="toast-container"></div>
+    <!-- Toast notification container with ARIA live region -->
+    <div id="toast-container" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
     <!-- CSRF Token Configuration for HTMX -->
     <script>
@@ -150,10 +159,19 @@
                     info: 'ℹ'
                 };
 
+                const iconLabels = {
+                    error: 'Error',
+                    success: 'Success',
+                    warning: 'Warning',
+                    info: 'Information'
+                };
+
                 const actionsHTML = toast.actions.length > 0 ? `
                     <div class="toast-actions">
                         ${toast.actions.map(action => `
-                            <button class="toast-action ${action.class || ''}" onclick="ToastManager.handleAction('${toast.id}', '${action.action}')">
+                            <button class="toast-action ${action.class || ''}"
+                                    onclick="ToastManager.handleAction('${toast.id}', '${action.action}')"
+                                    aria-label="${this.escapeHtml(action.label)}">
                                 ${action.label}
                             </button>
                         `).join('')}
@@ -161,14 +179,14 @@
                 ` : '';
 
                 return `
-                    <div class="toast toast-${toast.type}" data-toast-id="${toast.id}">
-                        <div class="toast-icon">${icons[toast.type] || icons.info}</div>
+                    <div class="toast toast-${toast.type}" data-toast-id="${toast.id}" role="alert" aria-live="assertive">
+                        <div class="toast-icon" aria-label="${iconLabels[toast.type] || iconLabels.info}" role="img">${icons[toast.type] || icons.info}</div>
                         <div class="toast-content">
                             <div class="toast-title">${this.escapeHtml(toast.title)}</div>
                             ${toast.message ? `<div class="toast-message">${this.escapeHtml(toast.message)}</div>` : ''}
                             ${actionsHTML}
                         </div>
-                        <button class="toast-close" onclick="ToastManager.hide('${toast.id}')">&times;</button>
+                        <button class="toast-close" onclick="ToastManager.hide('${toast.id}')" aria-label="Close notification">&times;</button>
                     </div>
                 `;
             },

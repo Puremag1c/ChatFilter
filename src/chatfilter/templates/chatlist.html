@@ -124,16 +124,16 @@
 
 {% block content %}
 <div class="page-header">
-    <h2>Import Chat List</h2>
+    <h1>Import Chat List</h1>
     <p class="subtitle">Upload a file or enter a Google Sheets URL to import a list of chats for analysis</p>
 </div>
 
 <section class="card">
-    <h3>Import Source</h3>
+    <h2>Import Source</h2>
 
     <div class="import-methods">
         <div class="method-card">
-            <h4>Upload File</h4>
+            <h3>Upload File</h3>
             <p class="form-hint">Upload a text file with one chat per line, or a CSV/Excel file with chat usernames, links, or IDs.</p>
 
             <form id="file-upload-form"
@@ -141,40 +141,45 @@
                   hx-encoding="multipart/form-data"
                   hx-target="#import-result"
                   hx-swap="innerHTML"
-                  hx-indicator="#file-upload-spinner">
+                  hx-indicator="#file-upload-spinner"
+                  aria-label="Upload chat list file">
 
                 <div class="form-group">
+                    <label for="chatlist_file" class="sr-only">Select chat list file</label>
                     <input type="file"
                            id="chatlist_file"
                            name="chatlist_file"
                            required
-                           accept=".txt,.csv,.xlsx,.xls">
+                           accept=".txt,.csv,.xlsx,.xls"
+                           aria-required="true"
+                           aria-describedby="file-formats">
                 </div>
 
-                <div class="supported-formats">
-                    <span class="format-badge">.txt</span>
-                    <span class="format-badge">.csv</span>
-                    <span class="format-badge">.xlsx</span>
+                <div id="file-formats" class="supported-formats" role="list" aria-label="Supported file formats">
+                    <span class="format-badge" role="listitem">.txt</span>
+                    <span class="format-badge" role="listitem">.csv</span>
+                    <span class="format-badge" role="listitem">.xlsx</span>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" aria-label="Upload chat list file">
                         <span class="btn-text">Upload File</span>
-                        <span id="file-upload-spinner" class="htmx-indicator spinner"></span>
+                        <span id="file-upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="Upload in progress"></span>
                     </button>
                 </div>
             </form>
         </div>
 
         <div class="method-card">
-            <h4>Google Sheets</h4>
+            <h3>Google Sheets</h3>
             <p class="form-hint">Enter a link to a public Google Sheets document. The sheet must be shared with "Anyone with the link".</p>
 
             <form id="sheet-fetch-form"
                   hx-post="/api/chatlist/fetch-sheet"
                   hx-target="#import-result"
                   hx-swap="innerHTML"
-                  hx-indicator="#sheet-fetch-spinner">
+                  hx-indicator="#sheet-fetch-spinner"
+                  aria-label="Import chat list from Google Sheets">
 
                 <div class="form-group">
                     <input type="url"
