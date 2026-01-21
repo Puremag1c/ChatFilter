@@ -36,6 +36,7 @@ ENV/
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+.hypothesis/
 
 # Distribution
 *.manifest
