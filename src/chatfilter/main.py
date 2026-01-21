@@ -98,7 +98,7 @@ def main() -> None:
     """Run ChatFilter web application."""
     import argparse
 
-    import uvicorn
+    import uvicorn  # type: ignore[import-not-found]
 
     from chatfilter import __version__
     from chatfilter.config import Settings, get_settings, reset_settings
@@ -149,6 +149,11 @@ def main() -> None:
         help="Validate configuration and exit without starting server",
     )
     parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="Run startup diagnostics and exit (checks network, DNS, Telegram connectivity, permissions)",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"ChatFilter {__version__}",
@@ -172,6 +177,37 @@ def main() -> None:
         cli_overrides["data_dir"] = Path(args.data_dir)
 
     settings = Settings(**cli_overrides)
+
+    # Handle --self-test
+    if args.self_test:
+        import asyncio
+        import json
+
+        from chatfilter.self_test import SelfTest
+
+        print("=" * 80)
+        print("RUNNING SELF-TEST DIAGNOSTICS")
+        print("=" * 80)
+        print()
+
+        # Run self-test
+        self_test = SelfTest(settings)
+        asyncio.run(self_test.run_all_tests())
+
+        # Display results in table format
+        print(self_test.format_table())
+
+        # Also export JSON for programmatic consumption
+        json_output = self_test.to_dict()
+        print()
+        print("JSON OUTPUT:")
+        print(json.dumps(json_output, indent=2))
+
+        # Exit with appropriate code
+        if self_test.has_failures():
+            sys.exit(1)
+        else:
+            sys.exit(0)
 
     # Handle --validate or --check-config
     if args.validate or args.check_config:
