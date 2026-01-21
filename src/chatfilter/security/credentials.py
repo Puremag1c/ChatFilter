@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING
 
 from cryptography.fernet import Fernet
 
+from chatfilter.storage.helpers import atomic_write
+
 if TYPE_CHECKING:
     pass
 
@@ -236,8 +238,8 @@ class EncryptedFileBackend(CredentialStorageBackend):
 
         ensure_space_available(self._key_file, len(key))
 
-        # Write with restrictive permissions
-        self._key_file.write_bytes(key)
+        # Atomic write to prevent corruption on crash
+        atomic_write(self._key_file, key)
         self._key_file.chmod(0o600)
 
         logger.info("Generated new master encryption key")
@@ -290,8 +292,8 @@ class EncryptedFileBackend(CredentialStorageBackend):
 
             ensure_space_available(self._credentials_file, len(encrypted_data))
 
-            # Write with restrictive permissions
-            self._credentials_file.write_bytes(encrypted_data)
+            # Atomic write to prevent corruption on crash
+            atomic_write(self._credentials_file, encrypted_data)
             self._credentials_file.chmod(0o600)
         except Exception as e:
             raise CredentialStorageError(f"Failed to save encrypted credentials: {e}") from e

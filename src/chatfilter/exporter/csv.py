@@ -16,6 +16,8 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from chatfilter.storage.helpers import atomic_write
+
 if TYPE_CHECKING:
     from chatfilter.models import AnalysisResult
 
@@ -167,7 +169,7 @@ def export_to_csv(
         content_bytes = content.encode("utf-8")
         ensure_space_available(output, len(content_bytes))
 
-        # Safe to write now
-        output.write_text(content, encoding="utf-8")
+        # Atomic write to prevent corruption on crash
+        atomic_write(output, content)
 
     return content

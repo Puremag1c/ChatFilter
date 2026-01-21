@@ -13,6 +13,36 @@ from chatfilter.storage.file import FileStorage
 _default_storage = FileStorage()
 
 
+def atomic_write(
+    path: Path,
+    content: bytes | str,
+    *,
+    storage: FileStorage | None = None,
+) -> None:
+    """Write content to file atomically.
+
+    Writes to a temporary file first, then atomically renames it to the target path.
+    This ensures the file is never in a partially written state.
+
+    Args:
+        path: Destination path
+        content: Content to write (bytes or str)
+        storage: Storage instance (default: FileStorage)
+
+    Raises:
+        StoragePermissionError: If write permission denied
+        StorageError: If operation fails
+
+    Example:
+        ```python
+        atomic_write(path, "text content")
+        atomic_write(path, b"binary content")
+        ```
+    """
+    storage = storage or _default_storage
+    storage.save(path, content)
+
+
 def save_json(
     path: Path,
     data: Any,

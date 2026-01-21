@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from chatfilter.config import get_settings
+from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import TelegramClientLoader, TelegramConfigError
 
 logger = logging.getLogger(__name__)
@@ -421,8 +422,8 @@ async def upload_session(
                     {"request": request, "success": False, "error": str(e)},
                 )
 
-            # Save session file
-            session_path.write_bytes(session_content)
+            # Atomic write to prevent corruption on crash
+            atomic_write(session_path, session_content)
             secure_file_permissions(session_path)
 
             # Store credentials securely (NOT in plaintext)
@@ -442,7 +443,7 @@ async def upload_session(
 
             # Create migration marker to indicate we're using secure storage
             marker_file = session_dir / ".secure_storage"
-            marker_file.write_text(marker_text)
+            atomic_write(marker_file, marker_text)
 
             # Validate that TelegramClientLoader can use secure storage
             loader = TelegramClientLoader(session_path, use_secure_storage=True)

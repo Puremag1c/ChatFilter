@@ -16,6 +16,8 @@ import platformdirs
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from chatfilter.storage.helpers import atomic_write
+
 logger = logging.getLogger(__name__)
 
 
@@ -302,8 +304,10 @@ class Settings(BaseSettings):
         """Mark first run as complete by creating marker file with timestamp."""
         from datetime import UTC, datetime
 
-        self.first_run_marker_path.write_text(
-            f"ChatFilter initialized at {datetime.now(UTC).isoformat()}\n"
+        # Atomic write to prevent corruption on crash
+        atomic_write(
+            self.first_run_marker_path,
+            f"ChatFilter initialized at {datetime.now(UTC).isoformat()}\n",
         )
 
     def ensure_data_dirs(self) -> list[str]:
@@ -583,5 +587,6 @@ def save_proxy_config(config: ProxyConfig) -> None:
         config: ProxyConfig instance to save
     """
     config_path = get_proxy_config_path()
-    config_path.write_text(config.model_dump_json(indent=2))
+    # Atomic write to prevent corruption on crash
+    atomic_write(config_path, config.model_dump_json(indent=2))
     logger.info("Proxy configuration saved")
