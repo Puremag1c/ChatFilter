@@ -140,7 +140,7 @@ class TestGetChats:
             mock_session_ctx = AsyncMock()
             mock_session_ctx.__aenter__.return_value = mock_client
             mock_session_ctx.__aexit__.return_value = None
-            mock_session_manager.session.return_value = mock_session_ctx
+            mock_session_manager.session.return_value = mock_session_ctx  # type: ignore[attr-defined]
 
             mock_get_dialogs.return_value = mock_chats
 
@@ -232,7 +232,7 @@ class TestAnalyzeChat:
             mock_session_ctx = AsyncMock()
             mock_session_ctx.__aenter__.return_value = mock_client
             mock_session_ctx.__aexit__.return_value = None
-            mock_session_manager.session.return_value = mock_session_ctx
+            mock_session_manager.session.return_value = mock_session_ctx  # type: ignore[attr-defined]
 
             mock_get_messages.return_value = mock_messages
 
@@ -248,7 +248,17 @@ class TestAnalyzeChat:
             result = await service.analyze_chat("test_session", 456, message_limit=1000)
 
         assert result.chat == cached_chat
-        assert result.metrics == mock_metrics
+        # Check metrics fields (excluding duration_seconds which is dynamically measured)
+        assert result.metrics.message_count == mock_metrics.message_count
+        assert result.metrics.unique_authors == mock_metrics.unique_authors
+        assert result.metrics.history_hours == mock_metrics.history_hours
+        assert result.metrics.first_message_at == mock_metrics.first_message_at
+        assert result.metrics.last_message_at == mock_metrics.last_message_at
+        assert result.metrics.has_message_gaps == mock_metrics.has_message_gaps
+        assert result.metrics.clock_skew_seconds == mock_metrics.clock_skew_seconds
+        # Verify duration_seconds is tracked and is a positive number
+        assert result.metrics.duration_seconds is not None
+        assert result.metrics.duration_seconds > 0
         assert result.analyzed_at is not None
         mock_get_messages.assert_awaited_once_with(mock_client, 456, limit=1000)
 
@@ -279,7 +289,7 @@ class TestAnalyzeChat:
             mock_session_ctx = AsyncMock()
             mock_session_ctx.__aenter__.return_value = mock_client
             mock_session_ctx.__aexit__.return_value = None
-            mock_session_manager.session.return_value = mock_session_ctx
+            mock_session_manager.session.return_value = mock_session_ctx  # type: ignore[attr-defined]
 
             mock_get_messages.return_value = []
             mock_compute_metrics.return_value = ChatMetrics(

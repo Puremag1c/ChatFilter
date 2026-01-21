@@ -50,6 +50,7 @@
                     <th class="sortable numeric" data-sort="authors">Authors <span class="sort-icon"></span></th>
                     <th class="sortable numeric" data-sort="hours">History (h) <span class="sort-icon"></span></th>
                     <th class="sortable numeric" data-sort="rate">Msg/Hour <span class="sort-icon"></span></th>
+                    <th class="sortable numeric" data-sort="duration">Duration (s) <span class="sort-icon"></span></th>
                 </tr>
             </thead>
             <tbody>
@@ -60,7 +61,8 @@
                     data-messages="{{ result.metrics.message_count }}"
                     data-authors="{{ result.metrics.unique_authors }}"
                     data-hours="{{ result.metrics.history_hours }}"
-                    data-rate="{{ result.metrics.messages_per_hour }}">
+                    data-rate="{{ result.metrics.messages_per_hour }}"
+                    data-duration="{{ result.metrics.duration_seconds or 0 }}">
                     <td class="chat-title-cell">
                         <div class="chat-title" title="{{ result.chat.title }}">{{ result.chat.title }}</div>
                         {% if result.chat.username %}
@@ -76,6 +78,7 @@
                     <td class="numeric">{{ result.metrics.unique_authors }}</td>
                     <td class="numeric">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
                     <td class="numeric">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
+                    <td class="numeric">{{ "%.3f"|format(result.metrics.duration_seconds or 0) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

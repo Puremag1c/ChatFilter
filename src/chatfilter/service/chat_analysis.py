@@ -273,6 +273,10 @@ class ChatAnalysisService:
             MemoryError: If memory limit exceeded (when monitoring enabled)
             Exception: If fetch or analysis fails
         """
+        import time
+
+        start_time = time.perf_counter()
+
         self._ensure_loader(session_id)
 
         # Auto-detect streaming mode for large chats
@@ -406,9 +410,17 @@ class ChatAnalysisService:
                 memory_tracker.log_diff("start", "end")
                 log_memory_usage(f"Completed analysis for chat {chat_id}")
 
+            # Calculate analysis duration
+            duration_seconds = time.perf_counter() - start_time
+
+            # Add duration to metrics (use model_copy since ChatMetrics is frozen)
+            metrics_with_duration = metrics.model_copy(
+                update={"duration_seconds": duration_seconds}
+            )
+
             return AnalysisResult(
                 chat=chat,
-                metrics=metrics,
+                metrics=metrics_with_duration,
                 analyzed_at=datetime.now(UTC),
             )
 
