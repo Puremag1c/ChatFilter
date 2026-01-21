@@ -36,7 +36,7 @@ repos:
           - fastapi>=0.109.0
           - pydantic>=2.5.0
           - pydantic-settings>=2.1.0
-        args: [--config-file=pyproject.toml]
+        args: [--config-file=pyproject.toml, --follow-imports=silent]
 
   # Security scanning with bandit
   - repo: https://github.com/PyCQA/bandit

@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Annotated
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Form, HTTPException, Request, status
@@ -13,10 +14,14 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from chatfilter.analyzer.task_queue import (
+    BatchProgressCallback,
     TaskStatus,
     get_task_queue,
 )
 from chatfilter.models import AnalysisResult
+
+if TYPE_CHECKING:
+    from chatfilter.models import Chat
 from chatfilter.service.chat_analysis import SessionNotFoundError
 from chatfilter.web.routers.chats import get_chat_service, get_session_paths
 
@@ -36,7 +41,7 @@ class RealAnalysisExecutor:
         self,
         session_id: str,
         chat_id: int,
-    ) -> None:
+    ) -> Chat | None:
         """Get chat info - delegates to service layer."""
         return await self._service.get_chat_info(session_id, chat_id)
 
@@ -45,6 +50,11 @@ class RealAnalysisExecutor:
         session_id: str,
         chat_id: int,
         message_limit: int = 1000,
+        batch_size: int = 1000,
+        use_streaming: bool | None = None,
+        memory_limit_mb: float = 1024.0,
+        enable_memory_monitoring: bool = False,
+        batch_progress_callback: BatchProgressCallback | None = None,
     ) -> AnalysisResult:
         """Analyze a single chat.
 
@@ -52,8 +62,22 @@ class RealAnalysisExecutor:
             session_id: Session identifier
             chat_id: Chat ID to analyze
             message_limit: Maximum messages to fetch (default 1000)
+            batch_size: Batch size for streaming mode
+            use_streaming: Force streaming mode (None = auto-detect)
+            memory_limit_mb: Memory threshold in MB
+            enable_memory_monitoring: Enable memory monitoring
+            batch_progress_callback: Optional callback for batch progress updates
         """
-        return await self._service.analyze_chat(session_id, chat_id, message_limit)
+        return await self._service.analyze_chat(
+            session_id,
+            chat_id,
+            message_limit,
+            batch_size,
+            use_streaming,
+            memory_limit_mb,
+            enable_memory_monitoring,
+            batch_progress_callback,
+        )
 
 
 class StartAnalysisResponse(BaseModel):
@@ -172,7 +196,7 @@ async def start_analysis(
 async def _generate_sse_events(
     task_id: UUID,
     request: Request,
-) -> asyncio.AsyncGenerator[str, None]:
+) -> AsyncGenerator[str, None]:
     """Generate SSE events for task progress.
 
     Args:
@@ -276,11 +300,11 @@ async def get_progress_stream(
     """
     try:
         uuid_task_id = UUID(task_id)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid task ID format",
-        )
+        ) from err
 
     queue = get_task_queue()
     task = queue.get_task(uuid_task_id)
@@ -382,7 +406,7 @@ async def get_results(
 
 
 @router.get("/{task_id}/status")
-async def get_status(task_id: str) -> dict:
+async def get_status(task_id: str) -> dict[str, str | int | None]:
     """Get current task status (for polling fallback).
 
     Args:
@@ -396,11 +420,11 @@ async def get_status(task_id: str) -> dict:
     """
     try:
         uuid_task_id = UUID(task_id)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid task ID format",
-        )
+        ) from err
 
     queue = get_task_queue()
     task = queue.get_task(uuid_task_id)
@@ -422,7 +446,7 @@ async def get_status(task_id: str) -> dict:
 
 
 @router.post("/{task_id}/cancel")
-async def cancel_analysis(task_id: str) -> dict:
+async def cancel_analysis(task_id: str) -> dict[str, str | int]:
     """Cancel a running analysis task gracefully.
 
     Waits for current chat to finish before stopping.
@@ -438,11 +462,11 @@ async def cancel_analysis(task_id: str) -> dict:
     """
     try:
         uuid_task_id = UUID(task_id)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid task ID format",
-        )
+        ) from err
 
     queue = get_task_queue()
 
@@ -471,7 +495,7 @@ async def cancel_analysis(task_id: str) -> dict:
 @router.post("/{task_id}/force-cancel")
 async def force_cancel_analysis(
     task_id: str, reason: str = "User-requested forced cancellation"
-) -> dict:
+) -> dict[str, str | int]:
     """Forcefully cancel a running analysis task immediately.
 
     This is more aggressive than regular cancel - it immediately cancels
@@ -491,11 +515,11 @@ async def force_cancel_analysis(
     """
     try:
         uuid_task_id = UUID(task_id)
-    except ValueError:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid task ID format",
-        )
+        ) from err
 
     queue = get_task_queue()
 
