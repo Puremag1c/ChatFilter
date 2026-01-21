@@ -510,10 +510,45 @@ header .nav-links a:hover {
     transform: scale(1.1);
 }
 
-/* Hide theme and language toggles on mobile */
+/* Keyboard Shortcuts Button */
+.keyboard-shortcuts-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.keyboard-shortcuts-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.keyboard-shortcuts-btn:active {
+    transform: scale(0.95);
+}
+
+.keyboard-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform 0.3s ease;
+}
+
+.keyboard-shortcuts-btn:hover .keyboard-icon {
+    transform: translateY(-2px);
+}
+
+/* Hide theme, language and keyboard shortcuts toggles on mobile */
 @media (max-width: 768px) {
     .theme-toggle-btn,
-    .language-toggle-btn {
+    .language-toggle-btn,
+    .keyboard-shortcuts-btn {
         width: 36px;
         height: 36px;
     }
@@ -522,6 +557,7 @@ header .nav-links a:hover {
         font-size: 1.1rem;
     }
 
+    .keyboard-icon,
     .language-icon {
         font-size: 0.7rem;
     }
