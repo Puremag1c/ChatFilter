@@ -208,6 +208,7 @@
     let maxReconnectAttempts = 5;
     let isFinished = false;
     let connectionMode = 'sse'; // 'sse' or 'polling'
+    let lastSeenSequence = -1; // Track sequence to ignore out-of-order events
 
     // Exponential backoff: 1s, 2s, 4s, 8s, 16s
     function getReconnectDelay() {
@@ -387,6 +388,14 @@
 
             eventSource.addEventListener('init', function(e) {
                 const data = JSON.parse(e.data);
+                // Check sequence to ignore out-of-order events
+                if (data.sequence !== undefined && data.sequence <= lastSeenSequence) {
+                    console.log('Ignoring out-of-order init event:', data.sequence, '(last seen:', lastSeenSequence + ')');
+                    return;
+                }
+                if (data.sequence !== undefined) {
+                    lastSeenSequence = data.sequence;
+                }
                 progressTotal.textContent = data.total;
                 updateConnectionStatus('connected');
                 reconnectAttempts = 0; // Reset on successful connection
@@ -394,6 +403,14 @@
 
             eventSource.addEventListener('progress', function(e) {
                 const data = JSON.parse(e.data);
+                // Check sequence to ignore out-of-order events
+                if (data.sequence !== undefined && data.sequence <= lastSeenSequence) {
+                    console.log('Ignoring out-of-order progress event:', data.sequence, '(last seen:', lastSeenSequence + ')');
+                    return;
+                }
+                if (data.sequence !== undefined) {
+                    lastSeenSequence = data.sequence;
+                }
                 updateProgress(data);
                 updateConnectionStatus('connected');
                 reconnectAttempts = 0; // Reset on successful message
@@ -401,11 +418,27 @@
 
             eventSource.addEventListener('complete', function(e) {
                 const data = JSON.parse(e.data);
+                // Check sequence to ignore out-of-order events
+                if (data.sequence !== undefined && data.sequence <= lastSeenSequence) {
+                    console.log('Ignoring out-of-order complete event:', data.sequence, '(last seen:', lastSeenSequence + ')');
+                    return;
+                }
+                if (data.sequence !== undefined) {
+                    lastSeenSequence = data.sequence;
+                }
                 handleComplete(data);
             });
 
             eventSource.addEventListener('cancelled', function(e) {
                 const data = JSON.parse(e.data);
+                // Check sequence to ignore out-of-order events
+                if (data.sequence !== undefined && data.sequence <= lastSeenSequence) {
+                    console.log('Ignoring out-of-order cancelled event:', data.sequence, '(last seen:', lastSeenSequence + ')');
+                    return;
+                }
+                if (data.sequence !== undefined) {
+                    lastSeenSequence = data.sequence;
+                }
                 handleCancelled(data);
             });
 
@@ -413,6 +446,14 @@
                 let errorMsg = 'Analysis failed';
                 try {
                     const data = JSON.parse(e.data);
+                    // Check sequence to ignore out-of-order events
+                    if (data.sequence !== undefined && data.sequence <= lastSeenSequence) {
+                        console.log('Ignoring out-of-order error event:', data.sequence, '(last seen:', lastSeenSequence + ')');
+                        return;
+                    }
+                    if (data.sequence !== undefined) {
+                        lastSeenSequence = data.sequence;
+                    }
                     if (data.error) {
                         errorMsg = data.error;
                     }

@@ -296,7 +296,11 @@ async def _generate_sse_events(
     # Send initial event
     task = queue.get_task(task_id)
     if task:
-        init_data = {"total": len(task.chat_ids), "status": task.status.value}
+        init_data = {
+            "total": len(task.chat_ids),
+            "status": task.status.value,
+            "sequence": task.event_sequence,
+        }
         yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
     # Heartbeat interval for keepalive
@@ -320,22 +324,30 @@ async def _generate_sse_events(
                     # Task completed, send final event
                     task = queue.get_task(task_id)
                     if task and task.status == TaskStatus.COMPLETED:
-                        complete_data = {"results_count": len(task.results)}
+                        complete_data = {
+                            "results_count": len(task.results),
+                            "sequence": task.event_sequence,
+                        }
                         yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
                     elif task and task.status == TaskStatus.CANCELLED:
                         cancel_data = {
                             "results_count": len(task.results),
                             "message": "Analysis cancelled",
+                            "sequence": task.event_sequence,
                         }
                         yield f"event: cancelled\ndata: {json.dumps(cancel_data)}\n\n"
                     elif task and task.status == TaskStatus.TIMEOUT:
                         timeout_data = {
                             "results_count": len(task.results),
                             "error": task.error or "Task timed out",
+                            "sequence": task.event_sequence,
                         }
                         yield f"event: timeout\ndata: {json.dumps(timeout_data)}\n\n"
                     elif task and task.status == TaskStatus.FAILED:
-                        error_data = {"error": task.error or "Unknown error"}
+                        error_data = {
+                            "error": task.error or "Unknown error",
+                            "sequence": task.event_sequence,
+                        }
                         yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
                     break
 
@@ -344,6 +356,7 @@ async def _generate_sse_events(
                     "current": event.current,
                     "total": event.total,
                     "status": event.status.value,
+                    "sequence": event.sequence,
                     "chat_title": event.chat_title,
                     "message": event.message,
                 }

@@ -568,6 +568,7 @@ class TestTaskQueue:
                 status=TaskStatus.IN_PROGRESS,
                 current=i,
                 total=200,
+                sequence=i,
                 chat_title=f"Chat {i}",
             )
             await queue._publish_event(event)
@@ -614,6 +615,7 @@ class TestTaskQueue:
                 status=TaskStatus.IN_PROGRESS,
                 current=i,
                 total=200,
+                sequence=i,
                 chat_title=f"Chat {i}",
             )
             await queue._publish_event(event)
@@ -661,6 +663,7 @@ class TestTaskQueue:
                 status=TaskStatus.IN_PROGRESS,
                 current=i,
                 total=50,
+                sequence=i,
                 chat_title=f"Chat {i}",
             )
             await queue._publish_event(event)
@@ -707,6 +710,7 @@ class TestTaskQueue:
                 status=TaskStatus.IN_PROGRESS,
                 current=i,
                 total=200,
+                sequence=i,
                 chat_title=f"Chat {i}",
             )
             await queue._publish_event(event)

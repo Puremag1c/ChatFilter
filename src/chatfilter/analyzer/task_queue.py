@@ -73,6 +73,7 @@ class ProgressEvent:
     status: TaskStatus
     current: int  # Current chat index (0-based)
     total: int  # Total number of chats
+    sequence: int  # Monotonically increasing event sequence number for ordering
     chat_title: str | None = None  # Currently processing chat
     message: str | None = None  # Optional status message
     error: str | None = None  # Error message if failed
@@ -109,6 +110,7 @@ class AnalysisTask:
     error: str | None = None
     current_chat_index: int = 0
     last_progress_at: datetime | None = None  # Track last progress for deadlock detection
+    event_sequence: int = 0  # Monotonically increasing sequence for SSE event ordering
 
 
 class BatchProgressCallback(Protocol):
@@ -810,12 +812,14 @@ class TaskQueue:
                 if self._db:
                     self._db.save_task(task)
 
+                task.event_sequence += 1
                 await self._publish_event(
                     ProgressEvent(
                         task_id=task_id,
                         status=TaskStatus.TIMEOUT,
                         current=task.current_chat_index,
                         total=len(task.chat_ids),
+                        sequence=task.event_sequence,
                         error=task.error,
                     )
                 )
@@ -833,12 +837,14 @@ class TaskQueue:
                 if self._db:
                     self._db.save_task(task)
 
+                task.event_sequence += 1
                 await self._publish_event(
                     ProgressEvent(
                         task_id=task_id,
                         status=TaskStatus.CANCELLED,
                         current=task.current_chat_index,
                         total=len(task.chat_ids),
+                        sequence=task.event_sequence,
                         message="Task was force-cancelled",
                     )
                 )
@@ -892,12 +898,14 @@ class TaskQueue:
                 f"Resuming task {task_id} from checkpoint: "
                 f"{resume_index}/{len(task.chat_ids)} chats already analyzed"
             )
+            task.event_sequence += 1
             await self._publish_event(
                 ProgressEvent(
                     task_id=task_id,
                     status=TaskStatus.IN_PROGRESS,
                     current=resume_index,
                     total=len(task.chat_ids),
+                    sequence=task.event_sequence,
                     message=f"Resuming from checkpoint ({resume_index} chats already analyzed)...",
                 )
             )
@@ -909,12 +917,14 @@ class TaskQueue:
                 if task.status == TaskStatus.CANCELLED:
                     logger.info(f"Task {task_id} was cancelled, stopping execution")
                     partial_count = len(task.results)
+                    task.event_sequence += 1
                     await self._publish_event(
                         ProgressEvent(
                             task_id=task_id,
                             status=TaskStatus.CANCELLED,
                             current=i,
                             total=len(task.chat_ids),
+                            sequence=task.event_sequence,
                             message=f"Analysis cancelled. {partial_count} chats analyzed before cancellation.",
                         )
                     )
@@ -927,12 +937,14 @@ class TaskQueue:
                 chat_title = chat_info.title if chat_info else f"Chat {chat_id}"
 
                 # Publish progress event
+                task.event_sequence += 1
                 await self._publish_event(
                     ProgressEvent(
                         task_id=task_id,
                         status=TaskStatus.IN_PROGRESS,
                         current=i,
                         total=len(task.chat_ids),
+                        sequence=task.event_sequence,
                         chat_title=chat_title,
                         message=f"Analyzing {chat_title}...",
                     )
@@ -948,12 +960,14 @@ class TaskQueue:
                     current_chat_title: str = chat_title,
                 ) -> None:
                     """Report batch progress to subscribers."""
+                    task.event_sequence += 1
                     await self._publish_event(
                         ProgressEvent(
                             task_id=task_id,
                             status=TaskStatus.IN_PROGRESS,
                             current=current_index,
                             total=len(task.chat_ids),
+                            sequence=task.event_sequence,
                             chat_title=current_chat_title,
                             message=f"Processing batch {batch_number}...",
                             messages_processed=messages_processed,
@@ -1019,12 +1033,14 @@ class TaskQueue:
                 if self._db:
                     self._db.save_task(task)
 
+                task.event_sequence += 1
                 await self._publish_event(
                     ProgressEvent(
                         task_id=task_id,
                         status=TaskStatus.COMPLETED,
                         current=len(task.chat_ids),
                         total=len(task.chat_ids),
+                        sequence=task.event_sequence,
                         message=f"Analysis complete. {len(task.results)} chats analyzed.",
                     )
                 )
@@ -1049,12 +1065,14 @@ class TaskQueue:
                 if self._db:
                     self._db.save_task(task)
 
+                task.event_sequence += 1
                 await self._publish_event(
                     ProgressEvent(
                         task_id=task_id,
                         status=TaskStatus.FAILED,
                         current=task.current_chat_index,
                         total=len(task.chat_ids),
+                        sequence=task.event_sequence,
                         error=str(e),
                     )
                 )
