@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from chatfilter.analyzer.task_queue import (
     BatchProgressCallback,
+    QueueFullError,
     TaskStatus,
     get_task_queue,
 )
@@ -174,7 +175,20 @@ async def start_analysis(
         is_duplicate = True
     else:
         # Create new analysis task
-        task = queue.create_task(session_id, chat_ids, message_limit)
+        try:
+            task = queue.create_task(session_id, chat_ids, message_limit)
+        except QueueFullError as e:
+            # Queue is full - return error with helpful message
+            return templates.TemplateResponse(
+                "partials/analysis_progress.html",
+                {
+                    "request": request,
+                    "error": (
+                        f"Analysis queue is at capacity ({e.limit} concurrent tasks). "
+                        f"Please wait for some analyses to complete before starting new ones."
+                    ),
+                },
+            )
 
         # Start background analysis
         executor = RealAnalysisExecutor()

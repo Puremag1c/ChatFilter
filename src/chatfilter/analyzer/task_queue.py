@@ -35,6 +35,24 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+class QueueFullError(Exception):
+    """Raised when task queue has reached maximum concurrent tasks."""
+
+    def __init__(self, current: int, limit: int):
+        """Initialize error.
+
+        Args:
+            current: Current number of active tasks
+            limit: Maximum allowed concurrent tasks
+        """
+        self.current = current
+        self.limit = limit
+        super().__init__(
+            f"Task queue is full: {current}/{limit} concurrent tasks. "
+            f"Please wait for some tasks to complete before starting new ones."
+        )
+
+
 class TaskStatus(str, Enum):
     """Status of an analysis task."""
 
@@ -171,6 +189,7 @@ class TaskQueue:
         progress_stall_timeout_seconds: float = 600.0,  # 10 minutes of no progress
         stall_check_interval_seconds: float = 60.0,  # How often to check for stalls
         stale_task_threshold_hours: float = 24.0,  # Hours after which in-progress tasks are stale
+        max_concurrent_tasks: int = 10,  # Maximum number of concurrent active tasks
     ) -> None:
         """Initialize the task queue.
 
@@ -191,6 +210,8 @@ class TaskQueue:
                 Only used when stall detection is enabled.
             stale_task_threshold_hours: Hours after which in-progress tasks are considered stale
                 on recovery (default 24h). Stale tasks are marked as FAILED instead of PENDING.
+            max_concurrent_tasks: Maximum number of concurrent active (PENDING or IN_PROGRESS)
+                tasks allowed (default 10). Set to 0 to disable limit.
         """
         self._db = db
         self._tasks: dict[UUID, AnalysisTask] = {}
@@ -204,6 +225,7 @@ class TaskQueue:
         self._progress_stall_timeout_seconds = progress_stall_timeout_seconds
         self._stall_check_interval_seconds = stall_check_interval_seconds
         self._stale_task_threshold_hours = stale_task_threshold_hours
+        self._max_concurrent_tasks = max_concurrent_tasks
         self._monitor_task: asyncio.Task | None = None  # Background monitor for stalled tasks
 
         # Initialize memory monitor
@@ -313,6 +335,15 @@ class TaskQueue:
         except Exception as e:
             logger.exception(f"Failed to load incomplete tasks from database: {e}")
 
+    def count_active_tasks(self) -> int:
+        """Count the number of active (PENDING or IN_PROGRESS) tasks.
+
+        Returns:
+            Number of active tasks currently in the queue
+        """
+        active_statuses = {TaskStatus.PENDING, TaskStatus.IN_PROGRESS}
+        return sum(1 for task in self._tasks.values() if task.status in active_statuses)
+
     def create_task(
         self,
         session_id: str,
@@ -328,7 +359,19 @@ class TaskQueue:
 
         Returns:
             Created AnalysisTask with generated UUID
+
+        Raises:
+            QueueFullError: If maximum concurrent tasks limit is reached
         """
+        # Check concurrent task limit if enabled
+        if self._max_concurrent_tasks > 0:
+            active_count = self.count_active_tasks()
+            if active_count >= self._max_concurrent_tasks:
+                logger.warning(
+                    f"Task queue is full: {active_count}/{self._max_concurrent_tasks} concurrent tasks"
+                )
+                raise QueueFullError(active_count, self._max_concurrent_tasks)
+
         task = AnalysisTask(
             task_id=uuid4(),
             session_id=session_id,

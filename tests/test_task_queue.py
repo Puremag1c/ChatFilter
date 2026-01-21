@@ -10,6 +10,7 @@ import pytest
 
 from chatfilter.analyzer.task_queue import (
     ProgressEvent,
+    QueueFullError,
     TaskQueue,
     TaskStatus,
     get_task_queue,
@@ -542,6 +543,83 @@ class TestTaskQueue:
         found = queue.find_active_task("session1", [1, 2, 3], 1000)
 
         assert found is None
+
+
+class TestConcurrentTaskLimit:
+    """Tests for concurrent task limit functionality."""
+
+    def test_create_task_within_limit(self) -> None:
+        """Test creating tasks within the concurrent limit."""
+        queue = TaskQueue(max_concurrent_tasks=3)
+
+        # Create 3 tasks - should all succeed
+        task1 = queue.create_task("session1", [1, 2])
+        task2 = queue.create_task("session1", [3, 4])
+        task3 = queue.create_task("session1", [5, 6])
+
+        assert task1.status == TaskStatus.PENDING
+        assert task2.status == TaskStatus.PENDING
+        assert task3.status == TaskStatus.PENDING
+        assert queue.count_active_tasks() == 3
+
+    def test_create_task_exceeds_limit(self) -> None:
+        """Test creating task when limit is exceeded raises QueueFullError."""
+        queue = TaskQueue(max_concurrent_tasks=2)
+
+        # Create 2 tasks - should succeed
+        queue.create_task("session1", [1, 2])
+        queue.create_task("session1", [3, 4])
+
+        # Third task should fail
+        with pytest.raises(QueueFullError) as exc_info:
+            queue.create_task("session1", [5, 6])
+
+        assert exc_info.value.current == 2
+        assert exc_info.value.limit == 2
+        assert "2/2 concurrent tasks" in str(exc_info.value)
+
+    def test_create_task_after_completion(self) -> None:
+        """Test creating task after one completes."""
+        queue = TaskQueue(max_concurrent_tasks=2)
+
+        # Create 2 tasks
+        task1 = queue.create_task("session1", [1, 2])
+        _task2 = queue.create_task("session1", [3, 4])
+
+        # Complete one task
+        task1.status = TaskStatus.COMPLETED
+
+        # Should be able to create another task now
+        task3 = queue.create_task("session1", [5, 6])
+        assert task3.status == TaskStatus.PENDING
+        assert queue.count_active_tasks() == 2  # _task2 and task3
+
+    def test_create_task_disabled_limit(self) -> None:
+        """Test that limit=0 disables the check."""
+        queue = TaskQueue(max_concurrent_tasks=0)
+
+        # Should be able to create many tasks
+        for i in range(100):
+            queue.create_task("session1", [i])
+
+        assert queue.count_active_tasks() == 100
+
+    def test_count_active_tasks_excludes_completed(self) -> None:
+        """Test that completed tasks are not counted as active."""
+        queue = TaskQueue(max_concurrent_tasks=10)
+
+        task1 = queue.create_task("session1", [1])
+        task2 = queue.create_task("session1", [2])
+        _task3 = queue.create_task("session1", [3])
+
+        assert queue.count_active_tasks() == 3
+
+        # Mark tasks as completed/failed
+        task1.status = TaskStatus.COMPLETED
+        task2.status = TaskStatus.FAILED
+
+        # Only _task3 should be active
+        assert queue.count_active_tasks() == 1
 
 
 class TestGlobalTaskQueue:
