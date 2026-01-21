@@ -189,9 +189,113 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
+    .compare-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        padding: 2rem;
+    }
+    .compare-modal.show {
+        display: flex;
+    }
+    .compare-modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        max-width: 1200px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    }
+    .compare-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .compare-modal-header h2 {
+        margin: 0;
+        color: #333;
+    }
+    .compare-modal-close {
+        background: none;
+        border: none;
+        font-size: 2rem;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+    }
+    .compare-modal-close:hover {
+        background: #f8f9fa;
+        color: #333;
+    }
+    .chart-container {
+        margin-bottom: 2rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    .chart-container h3 {
+        margin: 0 0 1rem 0;
+        color: #555;
+        font-size: 1.1rem;
+    }
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+    }
+    .compare-selection-info {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: #e3f2fd;
+        border-radius: 4px;
+        color: #1565c0;
+        font-size: 0.875rem;
+    }
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+    .checkbox-cell input[type="checkbox"] {
+        cursor: pointer;
+        width: 18px;
+        height: 18px;
+    }
 
     /* Responsive improvements for results page */
     @media (max-width: 768px) {
+        .compare-modal {
+            padding: 1rem;
+        }
+        .compare-modal-content {
+            padding: 1.5rem;
+            max-height: 95vh;
+        }
+        .compare-modal-header h2 {
+            font-size: 1.25rem;
+        }
+        .chart-wrapper {
+            height: 250px;
+        }
+        .compare-selection-info {
+            font-size: 0.8125rem;
+        }
         .results-summary {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -362,6 +466,13 @@
             </button>
             <button type="button"
                     class="btn btn-primary"
+                    id="compare-selected-btn"
+                    disabled
+                    aria-label="Compare selected chats">
+                Compare Selected (<span id="selected-count">0</span>)
+            </button>
+            <button type="button"
+                    class="btn btn-primary"
                     id="export-csv-btn"
                     aria-label="Export results to CSV file">
                 Export CSV
@@ -373,6 +484,11 @@
         <table class="results-table" id="results-table" role="table" aria-label="Chat analysis results">
             <thead>
                 <tr>
+                    <th class="checkbox-cell" role="columnheader">
+                        <input type="checkbox"
+                               id="select-all-checkbox"
+                               aria-label="Select all chats">
+                    </th>
                     <th class="sortable" data-sort="title" aria-sort="none" role="columnheader">
                         <button type="button" class="sort-button" aria-label="Sort by chat name">
                             Chat <span class="sort-icon" aria-hidden="true"></span>
@@ -421,6 +537,12 @@
                     data-rate="{{ result.metrics.messages_per_hour }}"
                     data-active="{{ 'active' if result.is_active else 'inactive' }}"
                     data-username="{{ result.chat.username or '' }}">
+                    <td class="checkbox-cell">
+                        <input type="checkbox"
+                               class="chat-checkbox"
+                               data-chat-id="{{ result.chat.id }}"
+                               aria-label="Select {{ result.chat.title }}">
+                    </td>
                     <td class="chat-title-cell">
                         <div class="chat-title" title="{{ result.chat.title }}">{{ result.chat.title }}</div>
                         {% if result.chat.username %}
@@ -447,6 +569,18 @@
         </table>
     </div>
 </section>
+
+<!-- Comparison Modal -->
+<div class="compare-modal" id="compare-modal" role="dialog" aria-modal="true" aria-labelledby="compare-modal-title">
+    <div class="compare-modal-content">
+        <div class="compare-modal-header">
+            <h2 id="compare-modal-title">Compare Chat Metrics</h2>
+            <button class="compare-modal-close" onclick="closeCompareModal()" aria-label="Close comparison modal">&times;</button>
+        </div>
+        <div class="compare-selection-info" id="compare-selection-info"></div>
+        <div id="compare-charts-container"></div>
+    </div>
+</div>
 {% else %}
 <section class="card">
     <div class="empty-state">
@@ -459,6 +593,288 @@
 
 {% block scripts %}
 <script>
+// Global variables for comparison feature
+let comparisonCharts = [];
+
+function closeCompareModal() {
+    const modal = document.getElementById('compare-modal');
+    modal.classList.remove('show');
+
+    // Destroy existing charts
+    comparisonCharts.forEach(chart => chart.destroy());
+    comparisonCharts = [];
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.chat-checkbox:checked');
+    const count = checkboxes.length;
+    const selectedCountSpan = document.getElementById('selected-count');
+    const compareBtn = document.getElementById('compare-selected-btn');
+
+    if (selectedCountSpan) {
+        selectedCountSpan.textContent = count;
+    }
+
+    if (compareBtn) {
+        compareBtn.disabled = count < 2;
+    }
+}
+
+function getSelectedChatsData() {
+    const checkboxes = document.querySelectorAll('.chat-checkbox:checked');
+    const chatsData = [];
+
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        if (row) {
+            chatsData.push({
+                id: row.dataset.chatId,
+                title: row.dataset.title,
+                type: row.dataset.type,
+                messages: parseInt(row.dataset.messages) || 0,
+                authors: parseInt(row.dataset.authors) || 0,
+                hours: parseFloat(row.dataset.hours) || 0,
+                rate: parseFloat(row.dataset.rate) || 0,
+                active: row.dataset.active === 'active'
+            });
+        }
+    });
+
+    return chatsData;
+}
+
+function createComparisonCharts(chatsData) {
+    const container = document.getElementById('compare-charts-container');
+    const infoDiv = document.getElementById('compare-selection-info');
+
+    if (!container || !infoDiv) return;
+
+    // Clear previous content
+    container.innerHTML = '';
+    comparisonCharts.forEach(chart => chart.destroy());
+    comparisonCharts = [];
+
+    // Update info
+    infoDiv.textContent = `Comparing ${chatsData.length} chats: ${chatsData.map(c => c.title).join(', ')}`;
+
+    const chatLabels = chatsData.map(chat => chat.title.length > 20 ? chat.title.substring(0, 20) + '...' : chat.title);
+    const chatColors = [
+        'rgba(33, 150, 243, 0.8)',  // Blue
+        'rgba(76, 175, 80, 0.8)',   // Green
+        'rgba(255, 152, 0, 0.8)',   // Orange
+        'rgba(156, 39, 176, 0.8)',  // Purple
+        'rgba(244, 67, 54, 0.8)',   // Red
+        'rgba(0, 188, 212, 0.8)',   // Cyan
+        'rgba(255, 193, 7, 0.8)',   // Amber
+        'rgba(121, 85, 72, 0.8)'    // Brown
+    ];
+
+    // Chart 1: Message Count
+    const messagesDiv = document.createElement('div');
+    messagesDiv.className = 'chart-container';
+    messagesDiv.innerHTML = '<h3>Message Count</h3><div class="chart-wrapper"><canvas id="chart-messages"></canvas></div>';
+    container.appendChild(messagesDiv);
+
+    const messagesCtx = document.getElementById('chart-messages').getContext('2d');
+    comparisonCharts.push(new Chart(messagesCtx, {
+        type: 'bar',
+        data: {
+            labels: chatLabels,
+            datasets: [{
+                label: 'Messages',
+                data: chatsData.map(chat => chat.messages),
+                backgroundColor: chatColors.slice(0, chatsData.length),
+                borderColor: chatColors.slice(0, chatsData.length).map(c => c.replace('0.8', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Messages: ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    }));
+
+    // Chart 2: Unique Authors
+    const authorsDiv = document.createElement('div');
+    authorsDiv.className = 'chart-container';
+    authorsDiv.innerHTML = '<h3>Unique Authors</h3><div class="chart-wrapper"><canvas id="chart-authors"></canvas></div>';
+    container.appendChild(authorsDiv);
+
+    const authorsCtx = document.getElementById('chart-authors').getContext('2d');
+    comparisonCharts.push(new Chart(authorsCtx, {
+        type: 'bar',
+        data: {
+            labels: chatLabels,
+            datasets: [{
+                label: 'Authors',
+                data: chatsData.map(chat => chat.authors),
+                backgroundColor: chatColors.slice(0, chatsData.length),
+                borderColor: chatColors.slice(0, chatsData.length).map(c => c.replace('0.8', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Authors: ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    }));
+
+    // Chart 3: Messages per Hour
+    const rateDiv = document.createElement('div');
+    rateDiv.className = 'chart-container';
+    rateDiv.innerHTML = '<h3>Messages per Hour</h3><div class="chart-wrapper"><canvas id="chart-rate"></canvas></div>';
+    container.appendChild(rateDiv);
+
+    const rateCtx = document.getElementById('chart-rate').getContext('2d');
+    comparisonCharts.push(new Chart(rateCtx, {
+        type: 'bar',
+        data: {
+            labels: chatLabels,
+            datasets: [{
+                label: 'Msg/Hour',
+                data: chatsData.map(chat => chat.rate),
+                backgroundColor: chatColors.slice(0, chatsData.length),
+                borderColor: chatColors.slice(0, chatsData.length).map(c => c.replace('0.8', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Msg/Hour: ' + context.parsed.y.toFixed(2);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    }));
+
+    // Chart 4: History Duration (Hours)
+    const hoursDiv = document.createElement('div');
+    hoursDiv.className = 'chart-container';
+    hoursDiv.innerHTML = '<h3>History Duration (Hours)</h3><div class="chart-wrapper"><canvas id="chart-hours"></canvas></div>';
+    container.appendChild(hoursDiv);
+
+    const hoursCtx = document.getElementById('chart-hours').getContext('2d');
+    comparisonCharts.push(new Chart(hoursCtx, {
+        type: 'bar',
+        data: {
+            labels: chatLabels,
+            datasets: [{
+                label: 'Hours',
+                data: chatsData.map(chat => chat.hours),
+                backgroundColor: chatColors.slice(0, chatsData.length),
+                borderColor: chatColors.slice(0, chatsData.length).map(c => c.replace('0.8', '1')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Hours: ' + context.parsed.y.toFixed(1);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(1);
+                        }
+                    }
+                }
+            }
+        }
+    }));
+}
+
+function openCompareModal() {
+    const chatsData = getSelectedChatsData();
+
+    if (chatsData.length < 2) {
+        ToastManager.warning('Please select at least 2 chats to compare', {
+            title: 'Selection Required',
+            duration: 3000
+        });
+        return;
+    }
+
+    createComparisonCharts(chatsData);
+
+    const modal = document.getElementById('compare-modal');
+    modal.classList.add('show');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const table = document.getElementById('results-table');
     if (!table) return;
@@ -470,9 +886,62 @@ document.addEventListener('DOMContentLoaded', function() {
     const activityFilter = document.getElementById('activity-filter');
     const clearFiltersBtn = document.getElementById('clear-filters-btn');
     const filterCountBadge = document.getElementById('filter-count');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    const compareBtn = document.getElementById('compare-selected-btn');
 
     let currentSort = { column: null, direction: 'asc' };
     let searchDebounceTimer = null;
+
+    // Checkbox selection functionality
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const chatCheckboxes = document.querySelectorAll('.chat-checkbox');
+            chatCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateSelectedCount();
+        });
+    }
+
+    // Individual checkbox change handler
+    tbody.addEventListener('change', function(e) {
+        if (e.target.classList.contains('chat-checkbox')) {
+            updateSelectedCount();
+
+            // Update select-all checkbox state
+            const allCheckboxes = document.querySelectorAll('.chat-checkbox');
+            const checkedCheckboxes = document.querySelectorAll('.chat-checkbox:checked');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length === checkedCheckboxes.length && allCheckboxes.length > 0;
+                selectAllCheckbox.indeterminate = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
+            }
+        }
+    });
+
+    // Compare button click handler
+    if (compareBtn) {
+        compareBtn.addEventListener('click', openCompareModal);
+    }
+
+    // Close modal on background click
+    const compareModal = document.getElementById('compare-modal');
+    if (compareModal) {
+        compareModal.addEventListener('click', function(e) {
+            if (e.target === compareModal) {
+                closeCompareModal();
+            }
+        });
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('compare-modal');
+            if (modal && modal.classList.contains('show')) {
+                closeCompareModal();
+            }
+        }
+    });
 
     // Calculate and display summary stats
     function updateSummary() {
