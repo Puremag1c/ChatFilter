@@ -416,8 +416,22 @@
         }
     }
 
-    // Cancel button handler
+    // Cancel button handler with optimistic locking
     cancelBtn.addEventListener('click', function() {
+        // Try to acquire lock before showing confirmation
+        if (typeof OptimisticLock !== 'undefined' && !OptimisticLock.tryAcquireLock('analysis', taskId, 'cancel')) {
+            const lockInfo = OptimisticLock.getLockInfo('analysis', taskId, 'cancel');
+            const message = lockInfo
+                ? `Cancellation is already in progress in another tab (${Math.round((Date.now() - lockInfo.timestamp) / 1000)}s ago)`
+                : 'Cancellation is already in progress in another tab';
+
+            ToastManager.warning(message, {
+                title: 'Operation in Progress',
+                duration: 5000
+            });
+            return;
+        }
+
         if (confirm('Are you sure you want to cancel the analysis? Partial results will be saved.')) {
             cancelBtn.disabled = true;
             cancelBtn.textContent = 'Cancelling...';
@@ -430,11 +444,21 @@
                 if (data.status === 'cancelled') {
                     progressMessage.textContent = data.message;
                 }
+                // Release lock after successful cancellation
+                if (typeof OptimisticLock !== 'undefined') {
+                    OptimisticLock.releaseLock('analysis', taskId, 'cancel');
+                }
             })
             .catch(err => {
                 console.error('Failed to cancel:', err);
                 cancelBtn.disabled = false;
                 cancelBtn.textContent = 'Cancel';
+
+                // Release lock on error
+                if (typeof OptimisticLock !== 'undefined') {
+                    OptimisticLock.releaseLock('analysis', taskId, 'cancel');
+                }
+
                 ToastManager.error('Failed to cancel analysis. Please try again.', {
                     title: 'Cancellation Failed',
                     duration: 8000,
@@ -446,6 +470,11 @@
                     }]
                 });
             });
+        } else {
+            // User cancelled the confirmation, release the lock
+            if (typeof OptimisticLock !== 'undefined') {
+                OptimisticLock.releaseLock('analysis', taskId, 'cancel');
+            }
         }
     });
 

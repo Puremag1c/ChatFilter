@@ -20,6 +20,9 @@ class ChatMetrics(BaseModel):
         first_message_at: Timestamp of the oldest message.
         last_message_at: Timestamp of the newest message.
         messages_per_hour: Computed message rate (messages / hours).
+        has_message_gaps: Whether message ID sequence has gaps (deleted messages).
+                         When True, history_hours may be underestimated if
+                         first/last messages were deleted.
 
     Example:
         >>> from datetime import datetime, timezone
@@ -29,6 +32,7 @@ class ChatMetrics(BaseModel):
         ...     history_hours=24.5,
         ...     first_message_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
         ...     last_message_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
+        ...     has_message_gaps=False,
         ... )
         >>> metrics.unique_authors
         10
@@ -45,6 +49,7 @@ class ChatMetrics(BaseModel):
     history_hours: float
     first_message_at: datetime | None
     last_message_at: datetime | None
+    has_message_gaps: bool = False
 
     @field_validator("message_count", "unique_authors")
     @classmethod
@@ -86,6 +91,7 @@ class ChatMetrics(BaseModel):
             history_hours=0.0,
             first_message_at=None,
             last_message_at=None,
+            has_message_gaps=False,
         )
 
     @classmethod
@@ -96,6 +102,7 @@ class ChatMetrics(BaseModel):
         history_hours: float | None = None,
         first_message_at: datetime | None = None,
         last_message_at: datetime | None = None,
+        has_message_gaps: bool = False,
     ) -> ChatMetrics:
         """Create fake ChatMetrics for testing.
 
@@ -105,6 +112,7 @@ class ChatMetrics(BaseModel):
             history_hours: History length (default: random 1-168).
             first_message_at: First message time (default: calculated).
             last_message_at: Last message time (default: 1 hour ago).
+            has_message_gaps: Whether to set gaps flag (default: False).
 
         Returns:
             ChatMetrics instance with test data.
@@ -119,6 +127,7 @@ class ChatMetrics(BaseModel):
             history_hours=_hours,
             first_message_at=_first,
             last_message_at=_last,
+            has_message_gaps=has_message_gaps,
         )
 
 

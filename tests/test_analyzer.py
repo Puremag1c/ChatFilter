@@ -434,6 +434,76 @@ class TestEdgeCases:
         assert result.messages_per_hour == 0.0
 
 
+class TestMessageGapDetection:
+    """Tests for deleted message gap detection."""
+
+    def test_no_gaps_sequential_ids(self) -> None:
+        """Test that sequential message IDs result in no gaps detected."""
+        now = datetime.now(UTC)
+        messages = [
+            Message.fake(id=1, timestamp=now - timedelta(hours=2)),
+            Message.fake(id=2, timestamp=now - timedelta(hours=1)),
+            Message.fake(id=3, timestamp=now),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.has_message_gaps is False
+
+    def test_gaps_detected_with_missing_ids(self) -> None:
+        """Test that gaps in message IDs are detected (deleted messages)."""
+        now = datetime.now(UTC)
+        # Messages with IDs 1, 5, 10 - missing 2,3,4,6,7,8,9
+        messages = [
+            Message.fake(id=1, timestamp=now - timedelta(hours=2)),
+            Message.fake(id=5, timestamp=now - timedelta(hours=1)),
+            Message.fake(id=10, timestamp=now),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.has_message_gaps is True
+        # ID range is 10-1+1 = 10, but we only have 3 messages
+        assert result.message_count == 3
+
+    def test_single_message_has_no_gaps(self) -> None:
+        """Test that a single message cannot have gaps."""
+        now = datetime.now(UTC)
+        messages = [Message.fake(id=42, timestamp=now)]
+
+        result = compute_metrics(messages)
+
+        assert result.has_message_gaps is False
+
+    def test_empty_messages_has_no_gaps(self) -> None:
+        """Test that empty message list has no gaps."""
+        result = compute_metrics([])
+
+        assert result.has_message_gaps is False
+
+    def test_gaps_affect_history_hours_note(self) -> None:
+        """Test that gaps are noted even when history_hours seems accurate.
+
+        This is important because if the first or last message was deleted,
+        the history_hours calculation would be based on remaining messages
+        and would underestimate the true span.
+        """
+        now = datetime.now(UTC)
+        # IDs 100, 101, 105 - suggests messages before 100 and between 101-105 were deleted
+        messages = [
+            Message.fake(id=100, timestamp=now - timedelta(hours=2)),
+            Message.fake(id=101, timestamp=now - timedelta(hours=1)),
+            Message.fake(id=105, timestamp=now),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.has_message_gaps is True
+        # history_hours is calculated from timestamps we have
+        assert result.history_hours == pytest.approx(2.0, rel=0.01)
+        # But the gap flag warns users that the true history might be longer
+
+
 class TestStreamingMetricsAggregator:
     """Tests for StreamingMetricsAggregator class."""
 

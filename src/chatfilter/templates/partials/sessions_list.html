@@ -11,7 +11,8 @@
                     hx-delete="/api/sessions/{{ session.session_id }}"
                     hx-target="#session-{{ session.session_id }}"
                     hx-swap="outerHTML"
-                    hx-confirm="Are you sure you want to delete this session?">
+                    hx-confirm="Are you sure you want to delete this session?"
+                    data-lock="session:{{ session.session_id }}:delete">
                 Delete
             </button>
         </div>

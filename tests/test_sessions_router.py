@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
+    read_upload_with_size_limit,
     sanitize_session_name,
     validate_config_file_format,
     validate_session_file_format,
@@ -163,7 +164,7 @@ class TestValidateConfigFileFormat:
 
     def test_invalid_json(self) -> None:
         """Test rejection of invalid JSON."""
-        with pytest.raises(ValueError, match="Invalid JSON"):
+        with pytest.raises(ValueError, match="does not appear to be a JSON object"):
             validate_config_file_format(b"not json {")
 
     def test_missing_api_id(self) -> None:
@@ -188,6 +189,35 @@ class TestValidateConfigFileFormat:
         """Test rejection of empty api_hash."""
         content = json.dumps({"api_id": 12345, "api_hash": ""}).encode()
         with pytest.raises(ValueError, match="non-empty string"):
+            validate_config_file_format(content)
+
+    def test_empty_config_file(self) -> None:
+        """Test rejection of empty config file."""
+        with pytest.raises(ValueError, match="empty"):
+            validate_config_file_format(b"")
+
+    def test_whitespace_only_config(self) -> None:
+        """Test rejection of whitespace-only config file."""
+        with pytest.raises(ValueError, match="empty or contains only whitespace"):
+            validate_config_file_format(b"   \n\t  ")
+
+    def test_not_json_object_array(self) -> None:
+        """Test rejection of JSON array instead of object."""
+        content = b'["not", "an", "object"]'
+        with pytest.raises(ValueError, match="does not appear to be a JSON object"):
+            validate_config_file_format(content)
+
+    def test_not_json_object_string(self) -> None:
+        """Test rejection of JSON string instead of object."""
+        content = b'"just a string"'
+        with pytest.raises(ValueError, match="does not appear to be a JSON object"):
+            validate_config_file_format(content)
+
+    def test_invalid_utf8(self) -> None:
+        """Test rejection of invalid UTF-8 encoding."""
+        # Invalid UTF-8 sequence
+        content = b'\xff\xfe{invalid}'
+        with pytest.raises(ValueError, match="invalid UTF-8"):
             validate_config_file_format(content)
 
 
@@ -230,7 +260,7 @@ class TestSessionsAPIEndpoints:
             response = client.get("/api/sessions")
 
         assert response.status_code == 200
-        assert "No sessions uploaded" in response.text
+        assert "No Telegram Sessions" in response.text or "No sessions" in response.text.lower()
 
     def test_home_page_loads(self, client: TestClient) -> None:
         """Test that home page loads successfully."""
@@ -330,3 +360,67 @@ class TestSessionsAPIEndpoints:
         response = client.delete("/api/sessions/@#$%")
 
         assert response.status_code == 400
+
+    def test_upload_config_file_too_large(
+        self, client: TestClient, clean_data_dir: Path, tmp_path: Path
+    ) -> None:
+        """Test that config files exceeding size limit are rejected."""
+        # Create a valid session file
+        session_path = tmp_path / "test.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+        session_content = session_path.read_bytes()
+
+        # Create a config file that exceeds MAX_CONFIG_SIZE (1024 bytes)
+        large_config = {"api_id": 12345, "api_hash": "x" * 2000}
+        config_content = json.dumps(large_config).encode()
+
+        from unittest.mock import MagicMock
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.post(
+                "/api/sessions/upload",
+                data={"session_name": "test_session"},
+                files={
+                    "session_file": ("test.session", session_content, "application/octet-stream"),
+                    "config_file": ("config.json", config_content, "application/json"),
+                },
+            )
+
+        assert response.status_code == 200
+        assert "too large" in response.text.lower()
+
+    def test_upload_session_file_too_large(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that session files exceeding size limit are rejected."""
+        # Create a large fake session file (> 10 MB)
+        large_session = b"x" * (11 * 1024 * 1024)  # 11 MB
+
+        config_content = json.dumps({"api_id": 12345, "api_hash": "abc"}).encode()
+
+        from unittest.mock import MagicMock
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.post(
+                "/api/sessions/upload",
+                data={"session_name": "test_session"},
+                files={
+                    "session_file": ("test.session", large_session, "application/octet-stream"),
+                    "config_file": ("config.json", config_content, "application/json"),
+                },
+            )
+
+        assert response.status_code == 200
+        assert "too large" in response.text.lower()

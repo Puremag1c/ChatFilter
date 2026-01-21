@@ -20,12 +20,19 @@ def compute_metrics(messages: list[Message]) -> ChatMetrics:
     - history_hours: Time span from first to last message in hours
     - first_message_at: Timestamp of the earliest message
     - last_message_at: Timestamp of the latest message
+    - has_message_gaps: Whether message ID sequence has gaps (deleted messages)
 
     Note on anonymous authors:
         In Telegram channels and groups with anonymous admins, sender_id can be None.
         Anonymous messages use chat_id as their author_id, meaning all anonymous
         messages in a chat are counted as ONE author. This is a deliberate design
         decision to ensure consistent unique_authors counts without skipping messages.
+
+    Note on deleted messages:
+        Telegram message IDs are sequential within a chat. Gaps in the ID sequence
+        indicate deleted messages. If the first or last message was deleted,
+        history_hours may underestimate the true history span. The has_message_gaps
+        flag indicates when this limitation applies.
 
     Args:
         messages: List of Message models to analyze. Messages should be
@@ -44,6 +51,8 @@ def compute_metrics(messages: list[Message]) -> ChatMetrics:
         metrics = compute_metrics(messages)
         print(f"Unique authors: {metrics.unique_authors}")
         print(f"History span: {metrics.history_hours:.1f} hours")
+        if metrics.has_message_gaps:
+            print("Warning: History may be incomplete due to deleted messages")
         ```
     """
     if not messages:
@@ -62,12 +71,23 @@ def compute_metrics(messages: list[Message]) -> ChatMetrics:
     time_delta = last_message_at - first_message_at
     history_hours = time_delta.total_seconds() / 3600.0
 
+    # Detect gaps in message ID sequence
+    # Telegram message IDs are sequential, so gaps indicate deleted messages
+    has_message_gaps = False
+    if len(messages) >= 2:
+        message_ids = sorted(msg.id for msg in messages)
+        # Check if there are gaps in the sequence
+        # If we have N messages but the ID range is larger than N, there are gaps
+        id_range = message_ids[-1] - message_ids[0] + 1
+        has_message_gaps = id_range > len(messages)
+
     return ChatMetrics(
         message_count=len(messages),
         unique_authors=unique_authors,
         history_hours=history_hours,
         first_message_at=first_message_at,
         last_message_at=last_message_at,
+        has_message_gaps=has_message_gaps,
     )
 
 
@@ -98,6 +118,8 @@ class StreamingMetricsAggregator:
         self._author_ids: set[int] = set()
         self._first_message_at: datetime | None = None
         self._last_message_at: datetime | None = None
+        self._min_message_id: int | None = None
+        self._max_message_id: int | None = None
 
     def add_batch(self, messages: list[Message]) -> None:
         """Add a batch of messages to the aggregation.
@@ -127,6 +149,17 @@ class StreamingMetricsAggregator:
 
         if self._last_message_at is None or batch_last > self._last_message_at:
             self._last_message_at = batch_last
+
+        # Update message ID range
+        batch_message_ids = [msg.id for msg in messages]
+        batch_min_id = min(batch_message_ids)
+        batch_max_id = max(batch_message_ids)
+
+        if self._min_message_id is None or batch_min_id < self._min_message_id:
+            self._min_message_id = batch_min_id
+
+        if self._max_message_id is None or batch_max_id > self._max_message_id:
+            self._max_message_id = batch_max_id
 
         logger.debug(
             f"Aggregated batch: +{len(messages)} messages, "
@@ -160,12 +193,23 @@ class StreamingMetricsAggregator:
         time_delta = self._last_message_at - self._first_message_at
         history_hours = time_delta.total_seconds() / 3600.0
 
+        # Detect gaps in message ID sequence
+        has_message_gaps = False
+        if (
+            self._message_count >= 2
+            and self._min_message_id is not None
+            and self._max_message_id is not None
+        ):
+            id_range = self._max_message_id - self._min_message_id + 1
+            has_message_gaps = id_range > self._message_count
+
         return ChatMetrics(
             message_count=self._message_count,
             unique_authors=len(self._author_ids),
             history_hours=history_hours,
             first_message_at=self._first_message_at,
             last_message_at=self._last_message_at,
+            has_message_gaps=has_message_gaps,
         )
 
     def reset(self) -> None:
@@ -174,6 +218,8 @@ class StreamingMetricsAggregator:
         self._author_ids.clear()
         self._first_message_at = None
         self._last_message_at = None
+        self._min_message_id = None
+        self._max_message_id = None
 
     @property
     def message_count(self) -> int:

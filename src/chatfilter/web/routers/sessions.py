@@ -24,6 +24,8 @@ router = APIRouter(tags=["sessions"])
 # Maximum file sizes (security limit)
 MAX_SESSION_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_CONFIG_SIZE = 1024  # 1 KB
+# Chunk size for reading uploaded files (to prevent memory exhaustion)
+READ_CHUNK_SIZE = 8192  # 8 KB chunks
 
 
 class SessionListItem(BaseModel):
@@ -80,6 +82,47 @@ def secure_delete_file(file_path: Path) -> None:
         logger.warning(f"Failed to securely delete file, falling back to regular delete: {e}")
         # Fallback to regular deletion
         file_path.unlink(missing_ok=True)
+
+
+async def read_upload_with_size_limit(
+    upload_file: UploadFile, max_size: int, file_type: str = "file"
+) -> bytes:
+    """Read uploaded file with size limit enforcement.
+
+    Reads file in chunks to prevent loading large files into memory.
+    Raises ValueError if file exceeds size limit.
+
+    Args:
+        upload_file: FastAPI UploadFile object
+        max_size: Maximum allowed file size in bytes
+        file_type: Description of file type for error messages
+
+    Returns:
+        File content as bytes
+
+    Raises:
+        ValueError: If file size exceeds max_size
+    """
+    chunks = []
+    total_size = 0
+
+    # Read file in chunks to enforce size limit without loading entire file
+    while True:
+        chunk = await upload_file.read(READ_CHUNK_SIZE)
+        if not chunk:
+            break
+
+        total_size += len(chunk)
+        if total_size > max_size:
+            # Stop reading immediately to prevent memory exhaustion
+            raise ValueError(
+                f"{file_type.capitalize()} file too large "
+                f"(max {max_size:,} bytes, got {total_size:,}+ bytes)"
+            )
+
+        chunks.append(chunk)
+
+    return b"".join(chunks)
 
 
 def sanitize_session_name(name: str) -> str:
@@ -172,6 +215,9 @@ def validate_session_file_format(content: bytes) -> None:
 def validate_config_file_format(content: bytes) -> dict:
     """Validate that content is a valid Telegram config JSON.
 
+    Performs quick structural validation before parsing to prevent
+    expensive parsing of obviously invalid files.
+
     Args:
         content: File content as bytes
 
@@ -181,9 +227,31 @@ def validate_config_file_format(content: bytes) -> dict:
     Raises:
         ValueError: If file is not a valid config
     """
+    # Quick structural validation before attempting to parse
+    # This prevents expensive JSON parsing of obviously invalid files
+    if len(content) == 0:
+        raise ValueError("Config file is empty")
+
+    # Decode and trim
     try:
-        config = json.loads(content.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        text = content.decode("utf-8").strip()
+    except UnicodeDecodeError as e:
+        raise ValueError(f"Config file contains invalid UTF-8: {e}") from e
+
+    if not text:
+        raise ValueError("Config file is empty or contains only whitespace")
+
+    # Quick check: valid JSON objects must start with '{' and end with '}'
+    if not text.startswith("{") or not text.endswith("}"):
+        raise ValueError(
+            "Config file does not appear to be a JSON object "
+            "(must start with '{' and end with '}')"
+        )
+
+    # Now attempt full JSON parsing
+    try:
+        config = json.loads(text)
+    except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON format: {e}") from e
 
     if not isinstance(config, dict):
@@ -289,16 +357,15 @@ async def upload_session(
                 },
             )
 
-        # Read and validate session file
-        session_content = await session_file.read()
-        if len(session_content) > MAX_SESSION_SIZE:
+        # Read and validate session file with size limit enforcement
+        try:
+            session_content = await read_upload_with_size_limit(
+                session_file, MAX_SESSION_SIZE, "session"
+            )
+        except ValueError as e:
             return templates.TemplateResponse(
                 "partials/upload_result.html",
-                {
-                    "request": request,
-                    "success": False,
-                    "error": f"Session file too large (max {MAX_SESSION_SIZE // 1024 // 1024} MB)",
-                },
+                {"request": request, "success": False, "error": str(e)},
             )
 
         try:
@@ -309,16 +376,15 @@ async def upload_session(
                 {"request": request, "success": False, "error": f"Invalid session: {e}"},
             )
 
-        # Read and validate config file
-        config_content = await config_file.read()
-        if len(config_content) > MAX_CONFIG_SIZE:
+        # Read and validate config file with size limit enforcement
+        try:
+            config_content = await read_upload_with_size_limit(
+                config_file, MAX_CONFIG_SIZE, "config"
+            )
+        except ValueError as e:
             return templates.TemplateResponse(
                 "partials/upload_result.html",
-                {
-                    "request": request,
-                    "success": False,
-                    "error": f"Config file too large (max {MAX_CONFIG_SIZE} bytes)",
-                },
+                {"request": request, "success": False, "error": str(e)},
             )
 
         try:
