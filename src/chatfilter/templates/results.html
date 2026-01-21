@@ -140,6 +140,36 @@
     .empty-state p {
         margin-bottom: 1rem;
     }
+    .filter-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .filter-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        background-color: #2196F3;
+        color: white;
+    }
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+    .btn-secondary:hover {
+        background-color: #5a6268;
+    }
+    .btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 </style>
 {% endblock %}
 
@@ -195,9 +225,14 @@
                 <option value="inactive">Inactive</option>
             </select>
         </div>
-        <button type="button" class="btn btn-primary" id="export-csv-btn">
-            Export CSV
-        </button>
+        <div class="filter-actions">
+            <button type="button" class="btn btn-secondary" id="clear-filters-btn" disabled>
+                Clear Filters <span id="filter-count" class="filter-badge" style="display: none;">0</span>
+            </button>
+            <button type="button" class="btn btn-primary" id="export-csv-btn">
+                Export CSV
+            </button>
+        </div>
     </div>
 
     <div class="results-table-container">
@@ -271,8 +306,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchFilter = document.getElementById('search-filter');
     const typeFilter = document.getElementById('type-filter');
     const activityFilter = document.getElementById('activity-filter');
+    const clearFiltersBtn = document.getElementById('clear-filters-btn');
+    const filterCountBadge = document.getElementById('filter-count');
 
     let currentSort = { column: null, direction: 'asc' };
+    let searchDebounceTimer = null;
 
     // Calculate and display summary stats
     function updateSummary() {
@@ -301,6 +339,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial summary calculation
     updateSummary();
+
+    // Filter state persistence
+    function saveFilterState() {
+        const filterState = {
+            search: searchFilter.value,
+            type: typeFilter.value,
+            activity: activityFilter.value
+        };
+        localStorage.setItem('chatfilter_results_filters', JSON.stringify(filterState));
+    }
+
+    function loadFilterState() {
+        try {
+            const saved = localStorage.getItem('chatfilter_results_filters');
+            if (saved) {
+                const filterState = JSON.parse(saved);
+                searchFilter.value = filterState.search || '';
+                typeFilter.value = filterState.type || '';
+                activityFilter.value = filterState.activity || '';
+                applyFilters();
+            }
+        } catch (e) {
+            console.error('Failed to load filter state:', e);
+        }
+    }
+
+    // Update filter count badge
+    function updateFilterCount() {
+        let count = 0;
+        if (searchFilter.value) count++;
+        if (typeFilter.value) count++;
+        if (activityFilter.value) count++;
+
+        if (count > 0) {
+            filterCountBadge.textContent = count;
+            filterCountBadge.style.display = 'inline-block';
+            clearFiltersBtn.disabled = false;
+        } else {
+            filterCountBadge.style.display = 'none';
+            clearFiltersBtn.disabled = true;
+        }
+    }
+
+    // Clear all filters
+    function clearFilters() {
+        searchFilter.value = '';
+        typeFilter.value = '';
+        activityFilter.value = '';
+        applyFilters();
+        saveFilterState();
+    }
+
+    clearFiltersBtn.addEventListener('click', clearFilters);
+
+    // Load saved filters on page load
+    loadFilterState();
 
     // Sorting
     headers.forEach(header => {
@@ -361,9 +455,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         updateSummary();
+        updateFilterCount();
+        saveFilterState();
     }
 
-    searchFilter.addEventListener('input', applyFilters);
+    // Debounced search
+    searchFilter.addEventListener('input', function() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(applyFilters, 300);
+    });
+
     typeFilter.addEventListener('change', applyFilters);
     activityFilter.addEventListener('change', applyFilters);
 

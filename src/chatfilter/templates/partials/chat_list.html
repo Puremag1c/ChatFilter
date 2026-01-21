@@ -20,13 +20,39 @@
                placeholder="Search chats..."
                autocomplete="off">
     </div>
+    <div class="form-group">
+        <select id="chat-type-filter">
+            <option value="">All Types</option>
+            <option value="private">Private</option>
+            <option value="group">Group</option>
+            <option value="supergroup">Supergroup</option>
+            <option value="channel">Channel</option>
+            <option value="forum">Forum</option>
+        </select>
+    </div>
 </div>
 
 <div class="chat-actions">
     <button type="button" class="btn btn-sm btn-secondary" id="select-all">Select All</button>
     <button type="button" class="btn btn-sm btn-secondary" id="select-none">Select None</button>
+    <button type="button" class="btn btn-sm btn-secondary" id="clear-chat-filters" disabled>
+        Clear Filters <span id="chat-filter-count" class="filter-badge" style="display: none;">0</span>
+    </button>
     <span id="selection-count" class="selection-count">0 of {{ total_count }} chats</span>
 </div>
+
+<style>
+    .filter-badge {
+        display: inline-block;
+        padding: 0.2rem 0.4rem;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        background-color: #2196F3;
+        color: white;
+        margin-left: 0.25rem;
+    }
+</style>
 {% endif %}
 
 {% if is_initial_load %}
@@ -44,7 +70,8 @@
         {% for chat in chats %}
         <label class="chat-item"
                data-title="{{ chat.title }}"
-               data-username="{{ chat.username or '' }}">
+               data-username="{{ chat.username or '' }}"
+               data-type="{{ chat.chat_type.value }}">
             <input type="checkbox"
                    class="chat-checkbox"
                    name="chat_ids"

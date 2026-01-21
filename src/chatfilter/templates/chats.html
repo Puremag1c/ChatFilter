@@ -140,16 +140,21 @@ function initChatList() {
     const selectAllBtn = container.querySelector('#select-all');
     const selectNoneBtn = container.querySelector('#select-none');
     const searchInput = container.querySelector('#chat-search');
+    const typeFilter = container.querySelector('#chat-type-filter');
+    const clearFiltersBtn = container.querySelector('#clear-chat-filters');
+    const filterCountBadge = container.querySelector('#chat-filter-count');
     const chatItems = container.querySelectorAll('.chat-item');
     const checkboxes = container.querySelectorAll('.chat-checkbox');
     const countDisplay = container.querySelector('#selection-count');
 
     if (!selectAllBtn) return;
 
+    let searchDebounceTimer = null;
+
     function updateCount() {
         const checked = container.querySelectorAll('.chat-checkbox:checked').length;
-        const total = checkboxes.length;
-        countDisplay.textContent = checked + ' of ' + total + ' selected';
+        const visible = container.querySelectorAll('.chat-item:not([style*="display: none"])').length;
+        countDisplay.textContent = checked + ' of ' + visible + ' selected';
 
         // Update visual selection state
         chatItems.forEach(item => {
@@ -160,6 +165,69 @@ function initChatList() {
                 item.classList.remove('selected');
             }
         });
+    }
+
+    function updateFilterCount() {
+        let count = 0;
+        if (searchInput && searchInput.value) count++;
+        if (typeFilter && typeFilter.value) count++;
+
+        if (count > 0 && filterCountBadge && clearFiltersBtn) {
+            filterCountBadge.textContent = count;
+            filterCountBadge.style.display = 'inline-block';
+            clearFiltersBtn.disabled = false;
+        } else if (filterCountBadge && clearFiltersBtn) {
+            filterCountBadge.style.display = 'none';
+            clearFiltersBtn.disabled = true;
+        }
+    }
+
+    function saveFilterState() {
+        const filterState = {
+            search: searchInput ? searchInput.value : '',
+            type: typeFilter ? typeFilter.value : ''
+        };
+        localStorage.setItem('chatfilter_chat_filters', JSON.stringify(filterState));
+    }
+
+    function loadFilterState() {
+        try {
+            const saved = localStorage.getItem('chatfilter_chat_filters');
+            if (saved) {
+                const filterState = JSON.parse(saved);
+                if (searchInput) searchInput.value = filterState.search || '';
+                if (typeFilter) typeFilter.value = filterState.type || '';
+                applyFilters();
+            }
+        } catch (e) {
+            console.error('Failed to load filter state:', e);
+        }
+    }
+
+    function applyFilters() {
+        const query = searchInput ? searchInput.value.toLowerCase() : '';
+        const type = typeFilter ? typeFilter.value : '';
+
+        chatItems.forEach(item => {
+            const title = item.dataset.title.toLowerCase();
+            const username = (item.dataset.username || '').toLowerCase();
+            const itemType = item.dataset.type || '';
+
+            const matchesSearch = !query || title.includes(query) || username.includes(query);
+            const matchesType = !type || itemType === type;
+
+            item.style.display = (matchesSearch && matchesType) ? '' : 'none';
+        });
+
+        updateCount();
+        updateFilterCount();
+        saveFilterState();
+    }
+
+    function clearFilters() {
+        if (searchInput) searchInput.value = '';
+        if (typeFilter) typeFilter.value = '';
+        applyFilters();
     }
 
     selectAllBtn.addEventListener('click', function() {
@@ -179,16 +247,20 @@ function initChatList() {
 
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-            chatItems.forEach(item => {
-                const title = item.dataset.title.toLowerCase();
-                const username = (item.dataset.username || '').toLowerCase();
-                const visible = title.includes(query) || username.includes(query);
-                item.style.display = visible ? '' : 'none';
-            });
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(applyFilters, 300);
         });
     }
 
+    if (typeFilter) {
+        typeFilter.addEventListener('change', applyFilters);
+    }
+
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', clearFilters);
+    }
+
+    loadFilterState();
     updateCount();
 }
 
