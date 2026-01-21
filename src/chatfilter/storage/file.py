@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
 import logging
 import os
 import shutil
 import tempfile
-import weakref
 from pathlib import Path
 
 from chatfilter.storage.base import Storage
@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 # Global registry for temporary files cleanup on abnormal exit
-_temp_files_registry: weakref.WeakSet[Path] = weakref.WeakSet()
+# Note: Using set instead of WeakSet because Path objects don't support weak references
+_temp_files_registry: set[Path] = set()
 
 
 def _cleanup_temp_files() -> None:
@@ -117,10 +118,7 @@ class FileStorage(Storage):
             StorageError: If operation fails
         """
         # Convert string to bytes if needed
-        if isinstance(content, str):
-            content_bytes = content.encode("utf-8")
-        else:
-            content_bytes = content
+        content_bytes = content.encode("utf-8") if isinstance(content, str) else content
 
         # Ensure parent directory exists
         try:
@@ -155,6 +153,8 @@ class FileStorage(Storage):
 
             # Atomic rename
             tmp_path.replace(path)
+            # Remove from registry after successful rename
+            _temp_files_registry.discard(tmp_path)
             logger.debug(f"Saved {len(content_bytes)} bytes to {path}")
 
         except PermissionError as e:
@@ -163,11 +163,11 @@ class FileStorage(Storage):
             raise StorageError(f"Failed to write {path}: {e}") from e
         finally:
             # Clean up temp file if it still exists (i.e., rename didn't happen)
-            if tmp_path is not None and tmp_path.exists():
-                try:
-                    tmp_path.unlink()
-                except OSError:
-                    pass  # Best effort cleanup
+            if tmp_path is not None:
+                _temp_files_registry.discard(tmp_path)
+                if tmp_path.exists():
+                    with contextlib.suppress(OSError):
+                        tmp_path.unlink()
 
     def load(self, path: Path) -> bytes:
         """Load content from file.
