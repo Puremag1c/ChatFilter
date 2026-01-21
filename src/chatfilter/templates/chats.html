@@ -26,6 +26,15 @@
         border: 1px solid #ddd;
         border-radius: 6px;
     }
+    /* Virtual scrolling support */
+    .chat-list.virtual-scroll {
+        position: relative;
+    }
+    .chat-list.virtual-scroll .chat-item {
+        position: absolute;
+        left: 0;
+        right: 0;
+    }
     .chat-item {
         display: flex;
         align-items: center;
@@ -260,13 +269,16 @@
 
 {% block scripts %}
 <script>
+// Global virtual chat list instance
+let virtualChatListInstance = null;
+
 document.addEventListener('htmx:afterSwap', function(event) {
     if (event.detail.target.id === 'chats-container') {
         initChatList();
     }
 });
 
-function initChatList() {
+async function initChatList() {
     const container = document.getElementById('chats-container');
     const selectAllBtn = container.querySelector('#select-all');
     const selectNoneBtn = container.querySelector('#select-none');
@@ -280,6 +292,19 @@ function initChatList() {
 
     if (!selectAllBtn) return;
 
+    // Check if we should use virtual scrolling
+    const totalCountText = countDisplay ? countDisplay.textContent : '';
+    const totalMatch = totalCountText.match(/(\d+)\s+chats?$/);
+    const totalCount = totalMatch ? parseInt(totalMatch[1]) : chatItems.length;
+
+    // Use virtual scrolling for lists with more than 100 chats
+    const VIRTUAL_SCROLL_THRESHOLD = 100;
+    if (totalCount > VIRTUAL_SCROLL_THRESHOLD && typeof VirtualChatList !== 'undefined') {
+        await initVirtualChatList(container, selectAllBtn, selectNoneBtn, searchInput, typeFilter, clearFiltersBtn, filterCountBadge, countDisplay);
+        return;
+    }
+
+    // Standard initialization for small lists
     let searchDebounceTimer = null;
 
     function updateCount() {
@@ -513,5 +538,156 @@ async function checkOrphanedAnalysis() {
 
 // Run on page load
 document.addEventListener('DOMContentLoaded', checkOrphanedAnalysis);
+
+/**
+ * Initialize virtual scrolling for large chat lists
+ */
+async function initVirtualChatList(container, selectAllBtn, selectNoneBtn, searchInput, typeFilter, clearFiltersBtn, filterCountBadge, countDisplay) {
+    const sessionSelect = document.getElementById('session-select');
+    const sessionId = sessionSelect ? sessionSelect.value : '';
+
+    if (!sessionId) {
+        console.error('No session ID found for virtual scrolling');
+        return;
+    }
+
+    // Show loading indicator
+    const chatListContainer = container.querySelector('#chat-list');
+    if (!chatListContainer) return;
+
+    chatListContainer.innerHTML = '<div style="padding: 2rem; text-align: center;">Loading chats for virtual scrolling...</div>';
+
+    try {
+        // Fetch all chats via JSON API
+        const response = await fetch(`/api/chats/json?session-select=${encodeURIComponent(sessionId)}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch chats: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const chats = data.chats || [];
+        const totalCount = data.total_count || chats.length;
+
+        // Clear the chat list container
+        chatListContainer.innerHTML = '';
+
+        // Initialize virtual chat list
+        if (virtualChatListInstance) {
+            virtualChatListInstance.destroy();
+        }
+
+        virtualChatListInstance = new VirtualChatList();
+        virtualChatListInstance.init(chatListContainer, chats, {
+            itemHeight: 70,
+            onSelectionChange: (selectedIds) => {
+                // Update selection count
+                const visibleCount = virtualChatListInstance.getVisibleCount();
+                countDisplay.textContent = `${selectedIds.size} of ${visibleCount} selected`;
+
+                // Update hidden inputs for form submission
+                updateHiddenInputs(selectedIds);
+            }
+        });
+
+        // Setup event listeners for controls
+        selectAllBtn.addEventListener('click', () => {
+            virtualChatListInstance.selectAll();
+        });
+
+        selectNoneBtn.addEventListener('click', () => {
+            virtualChatListInstance.selectNone();
+        });
+
+        if (searchInput) {
+            let searchDebounceTimer = null;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchDebounceTimer);
+                searchDebounceTimer = setTimeout(() => {
+                    virtualChatListInstance.applyFilters(
+                        searchInput.value,
+                        typeFilter ? typeFilter.value : ''
+                    );
+                    updateSelectionCount();
+                    updateFilterCount();
+                }, 300);
+            });
+        }
+
+        if (typeFilter) {
+            typeFilter.addEventListener('change', () => {
+                virtualChatListInstance.applyFilters(
+                    searchInput ? searchInput.value : '',
+                    typeFilter.value
+                );
+                updateSelectionCount();
+                updateFilterCount();
+            });
+        }
+
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (typeFilter) typeFilter.value = '';
+                virtualChatListInstance.applyFilters('', '');
+                updateSelectionCount();
+                updateFilterCount();
+            });
+        }
+
+        function updateSelectionCount() {
+            const selectedCount = virtualChatListInstance.getSelectionCount();
+            const visibleCount = virtualChatListInstance.getVisibleCount();
+            countDisplay.textContent = `${selectedCount} of ${visibleCount} selected`;
+        }
+
+        function updateFilterCount() {
+            if (!filterCountBadge || !clearFiltersBtn) return;
+
+            let count = 0;
+            if (searchInput && searchInput.value) count++;
+            if (typeFilter && typeFilter.value) count++;
+
+            if (count > 0) {
+                filterCountBadge.textContent = count;
+                filterCountBadge.style.display = 'inline-block';
+                clearFiltersBtn.disabled = false;
+            } else {
+                filterCountBadge.style.display = 'none';
+                clearFiltersBtn.disabled = true;
+            }
+        }
+
+        function updateHiddenInputs(selectedIds) {
+            // Remove existing hidden inputs
+            const form = document.getElementById('analysis-form');
+            if (!form) return;
+
+            const existingInputs = form.querySelectorAll('input[name="chat_ids"][type="hidden"]');
+            existingInputs.forEach(input => input.remove());
+
+            // Add new hidden inputs for selected chats
+            selectedIds.forEach(chatId => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'chat_ids';
+                input.value = chatId;
+                form.appendChild(input);
+            });
+        }
+
+        // Initial count update
+        updateSelectionCount();
+        updateFilterCount();
+
+    } catch (error) {
+        console.error('Failed to initialize virtual chat list:', error);
+        chatListContainer.innerHTML = `
+            <div class="alert alert-error">
+                <p>Failed to load chats for virtual scrolling. Please try refreshing the page.</p>
+                <button onclick="window.location.reload()" class="btn btn-sm btn-primary">Refresh Page</button>
+            </div>
+        `;
+    }
+}
 </script>
 {% endblock %}

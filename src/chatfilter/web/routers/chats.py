@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
@@ -269,3 +270,76 @@ async def get_chats(
                     "session_id": session_id,
                 },
             )
+
+
+@router.get("/api/chats/json")
+async def get_chats_json(
+    web_session: WebSession,
+    session_id: str = Query(alias="session-select"),
+) -> dict[str, Any]:
+    """Fetch all chats from a session and return as JSON.
+
+    This endpoint is used for virtual scrolling to fetch all chats at once.
+    Returns chat data in JSON format for client-side rendering.
+
+    Args:
+        web_session: User's web session (injected dependency)
+        session_id: Telegram session identifier
+
+    Returns:
+        Dict with chats list and total_count
+    """
+    if not session_id:
+        return {"chats": [], "total_count": 0, "session_id": ""}
+
+    # Store selected Telegram session in user's web session
+    web_session.set("selected_telegram_session", session_id)
+
+    service = get_chat_service()
+
+    try:
+        # Fetch all chats (use a high limit to get everything)
+        chats, total_count = await service.get_chats_paginated(session_id, offset=0, limit=10000)
+
+        # Convert chats to JSON-serializable format
+        chats_data = [
+            {
+                "id": str(chat.id),
+                "title": chat.title,
+                "username": chat.username,
+                "chat_type": chat.chat_type.value if chat.chat_type else "",
+                "member_count": chat.member_count,
+            }
+            for chat in chats
+        ]
+
+        return {
+            "chats": chats_data,
+            "total_count": total_count,
+            "session_id": session_id,
+        }
+
+    except SessionNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from None
+    except SessionInvalidError as e:
+        logger.error(f"Invalid session '{session_id}': {e}")
+        cleanup_invalid_session(session_id)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session is invalid and has been removed",
+        ) from None
+    except SessionReauthRequiredError as e:
+        logger.warning(f"Session '{session_id}' requires re-authorization: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has expired and requires re-authorization",
+        ) from None
+    except Exception:
+        logger.exception(f"Failed to fetch chats from session '{session_id}'")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to connect to Telegram. Please check your session.",
+        ) from None

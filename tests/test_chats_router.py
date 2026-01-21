@@ -138,3 +138,84 @@ class TestChatsAPI:
         assert "Chat 80" in response.text
         # Should not have load more button on last page
         # Note: The response might not contain "Load More" if has_more is False
+
+    def test_get_chats_json_no_session(self) -> None:
+        """Test JSON endpoint with no session selected."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/api/chats/json?session-select=")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["chats"] == []
+        assert data["total_count"] == 0
+        assert data["session_id"] == ""
+
+    def test_get_chats_json_session_not_found(self) -> None:
+        """Test JSON endpoint returns 404 for non-existent session."""
+        from chatfilter.service.chat_analysis import SessionNotFoundError
+
+        app = create_app()
+        client = TestClient(app)
+
+        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+            mock_service = mock_get_service.return_value
+            mock_service.get_chats_paginated = AsyncMock(
+                side_effect=SessionNotFoundError("Session 'nonexistent' not found")
+            )
+
+            response = client.get("/api/chats/json?session-select=nonexistent")
+
+        assert response.status_code == 404
+
+    def test_get_chats_json_success(self) -> None:
+        """Test JSON endpoint returns all chats successfully."""
+        # Mock data - large list for virtual scrolling
+        mock_chats = [
+            Chat(
+                id=i,
+                title=f"Chat {i}",
+                chat_type=ChatType.GROUP,
+                username=f"chat{i}" if i % 2 == 0 else None,
+                member_count=100 + i if i % 3 == 0 else None,
+            )
+            for i in range(1, 201)  # 200 chats
+        ]
+
+        app = create_app()
+        client = TestClient(app)
+
+        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+            mock_service = mock_get_service.return_value
+            mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, len(mock_chats)))
+
+            response = client.get("/api/chats/json?session-select=test_session")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert len(data["chats"]) == 200
+        assert data["total_count"] == 200
+        assert data["session_id"] == "test_session"
+
+        # Verify chat data structure
+        first_chat = data["chats"][0]
+        assert "id" in first_chat
+        assert "title" in first_chat
+        assert "chat_type" in first_chat
+        assert first_chat["title"] == "Chat 1"
+        assert first_chat["chat_type"] == "group"
+
+        # Verify chats with username
+        chat_with_username = data["chats"][1]  # id=2, even number
+        assert chat_with_username["username"] == "chat2"
+
+        # Verify chats with member_count
+        chat_with_members = data["chats"][2]  # id=3, divisible by 3
+        assert chat_with_members["member_count"] == 103
+
+        # Verify service was called with high limit to fetch all chats
+        mock_service.get_chats_paginated.assert_awaited_once_with(
+            "test_session", offset=0, limit=10000
+        )
