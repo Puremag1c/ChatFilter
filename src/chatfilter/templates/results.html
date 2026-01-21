@@ -278,6 +278,55 @@
         height: 18px;
     }
 
+    /* Clipboard copy button styles */
+    .btn-copy {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        color: #666;
+        font-size: 1rem;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .btn-copy:hover {
+        background: #f0f0f0;
+        color: #2196F3;
+    }
+    .btn-copy:active {
+        transform: scale(0.95);
+    }
+    .btn-copy.copied {
+        color: #4caf50;
+    }
+    .copy-cell {
+        width: 50px;
+        text-align: center;
+    }
+    .summary-stat {
+        position: relative;
+    }
+    .summary-stat .btn-copy {
+        position: absolute;
+        top: 0.25rem;
+        right: 0.25rem;
+        padding: 0.125rem 0.25rem;
+        font-size: 0.875rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .summary-stat:hover .btn-copy {
+        opacity: 1;
+    }
+    .btn-copy-selected {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
     /* Responsive improvements for results page */
     @media (max-width: 768px) {
         .compare-modal {
@@ -412,6 +461,7 @@
 <section class="card">
     <div class="results-summary" role="region" aria-label="Analysis statistics">
         <div class="summary-stat">
+            <button type="button" class="btn-copy" onclick="copySummaryStats()" aria-label="Copy all statistics" title="Copy all statistics">📋</button>
             <div class="value" aria-label="{{ results|length }} chats analyzed">{{ results|length }}</div>
             <div class="label">Chats Analyzed</div>
         </div>
@@ -463,6 +513,13 @@
                     disabled
                     aria-label="Clear all filters">
                 Clear Filters <span id="filter-count" class="filter-badge" style="display: none;" aria-label="Number of active filters">0</span>
+            </button>
+            <button type="button"
+                    class="btn btn-secondary"
+                    id="copy-selected-btn"
+                    disabled
+                    aria-label="Copy selected rows">
+                <span class="btn-copy-selected">📋 Copy Selected</span>
             </button>
             <button type="button"
                     class="btn btn-primary"
@@ -524,6 +581,9 @@
                             Activity <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
+                    <th class="copy-cell" role="columnheader">
+                        Copy
+                    </th>
                 </tr>
             </thead>
             <tbody id="results-tbody">
@@ -563,6 +623,11 @@
                             {{ 'Active' if result.is_active else 'Inactive' }}
                         </span>
                     </td>
+                    <td class="copy-cell">
+                        <button type="button" class="btn-copy" onclick="copyRowData(this)" aria-label="Copy row data" title="Copy row data">
+                            📋
+                        </button>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -575,7 +640,12 @@
     <div class="compare-modal-content">
         <div class="compare-modal-header">
             <h2 id="compare-modal-title">Compare Chat Metrics</h2>
-            <button class="compare-modal-close" onclick="closeCompareModal()" aria-label="Close comparison modal">&times;</button>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button type="button" class="btn btn-secondary" onclick="copyComparisonData()" aria-label="Copy comparison data" title="Copy comparison data">
+                    📋 Copy Data
+                </button>
+                <button class="compare-modal-close" onclick="closeCompareModal()" aria-label="Close comparison modal">&times;</button>
+            </div>
         </div>
         <div class="compare-selection-info" id="compare-selection-info"></div>
         <div id="compare-charts-container"></div>
@@ -596,6 +666,183 @@
 // Global variables for comparison feature
 let comparisonCharts = [];
 
+// Clipboard helper function with fallback
+async function copyToClipboard(text, button = null) {
+    try {
+        // Modern Clipboard API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            showCopySuccess(button);
+            ToastManager.success('Copied to clipboard!', {
+                title: 'Success',
+                duration: 2000
+            });
+            return true;
+        }
+
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+
+        if (successful) {
+            showCopySuccess(button);
+            ToastManager.success('Copied to clipboard!', {
+                title: 'Success',
+                duration: 2000
+            });
+            return true;
+        }
+        throw new Error('Copy command failed');
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        ToastManager.error('Failed to copy to clipboard. Please try again.', {
+            title: 'Copy Failed',
+            duration: 3000
+        });
+        return false;
+    }
+}
+
+// Visual feedback for successful copy
+function showCopySuccess(button) {
+    if (!button) return;
+
+    const originalText = button.textContent;
+    button.classList.add('copied');
+    button.textContent = '✓';
+
+    setTimeout(() => {
+        button.classList.remove('copied');
+        button.textContent = originalText;
+    }, 1500);
+}
+
+// Copy individual row data
+function copyRowData(button) {
+    const row = button.closest('tr');
+    if (!row) return;
+
+    const data = {
+        chatId: row.dataset.chatId,
+        title: row.dataset.title,
+        type: row.dataset.type,
+        messages: parseInt(row.dataset.messages),
+        authors: parseInt(row.dataset.authors),
+        hours: parseFloat(row.dataset.hours),
+        rate: parseFloat(row.dataset.rate),
+        active: row.dataset.active,
+        username: row.dataset.username || ''
+    };
+
+    // Format as readable text
+    const text = `${data.title}${data.username ? ' (@' + data.username + ')' : ''}
+Type: ${data.type}
+Messages: ${data.messages.toLocaleString()}
+Authors: ${data.authors.toLocaleString()}
+History: ${data.hours.toFixed(1)} hours
+Rate: ${data.rate.toFixed(2)} msg/hour
+Status: ${data.active}`;
+
+    copyToClipboard(text, button);
+}
+
+// Copy selected rows
+function copySelectedRows() {
+    const checkboxes = document.querySelectorAll('.chat-checkbox:checked');
+    if (checkboxes.length === 0) {
+        ToastManager.warning('No rows selected', {
+            title: 'Selection Required',
+            duration: 2000
+        });
+        return;
+    }
+
+    const rows = [];
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        if (row) {
+            const data = {
+                title: row.dataset.title,
+                username: row.dataset.username || '',
+                type: row.dataset.type,
+                messages: parseInt(row.dataset.messages),
+                authors: parseInt(row.dataset.authors),
+                hours: parseFloat(row.dataset.hours),
+                rate: parseFloat(row.dataset.rate),
+                active: row.dataset.active
+            };
+            rows.push(data);
+        }
+    });
+
+    // Format as tab-separated values (TSV) for easy pasting into spreadsheets
+    let text = 'Chat\tType\tMessages\tAuthors\tHistory (h)\tMsg/Hour\tStatus\n';
+    rows.forEach(data => {
+        const chatName = data.title + (data.username ? ' (@' + data.username + ')' : '');
+        text += `${chatName}\t${data.type}\t${data.messages}\t${data.authors}\t${data.hours.toFixed(1)}\t${data.rate.toFixed(2)}\t${data.active}\n`;
+    });
+
+    copyToClipboard(text);
+}
+
+// Copy summary statistics
+function copySummaryStats() {
+    const chatsAnalyzed = document.querySelector('.results-summary .summary-stat:nth-child(1) .value').textContent;
+    const totalMessages = document.getElementById('total-messages').textContent;
+    const totalAuthors = document.getElementById('total-authors').textContent;
+    const activeChats = document.getElementById('active-chats').textContent;
+
+    const text = `Analysis Results Summary
+Chats Analyzed: ${chatsAnalyzed}
+Total Messages: ${totalMessages}
+Unique Authors: ${totalAuthors}
+Active (7d): ${activeChats}`;
+
+    copyToClipboard(text);
+}
+
+// Copy comparison data
+function copyComparisonData() {
+    const chatsData = getSelectedChatsData();
+    if (chatsData.length === 0) {
+        ToastManager.warning('No comparison data available', {
+            title: 'No Data',
+            duration: 2000
+        });
+        return;
+    }
+
+    // Format as JSON for easy parsing
+    const jsonData = {
+        comparison: chatsData.map(chat => ({
+            title: chat.title,
+            type: chat.type,
+            messages: chat.messages,
+            authors: chat.authors,
+            hours: chat.hours,
+            rate: chat.rate,
+            active: chat.active
+        }))
+    };
+
+    // Also create a readable text version
+    let text = 'Chat Comparison Data\n\n';
+    text += 'Chat\tMessages\tAuthors\tHours\tMsg/Hour\tStatus\n';
+    chatsData.forEach(chat => {
+        text += `${chat.title}\t${chat.messages}\t${chat.authors}\t${chat.hours.toFixed(1)}\t${chat.rate.toFixed(2)}\t${chat.active ? 'Active' : 'Inactive'}\n`;
+    });
+    text += '\n\nJSON Format:\n' + JSON.stringify(jsonData, null, 2);
+
+    copyToClipboard(text);
+}
+
 function closeCompareModal() {
     const modal = document.getElementById('compare-modal');
     modal.classList.remove('show');
@@ -610,6 +857,7 @@ function updateSelectedCount() {
     const count = checkboxes.length;
     const selectedCountSpan = document.getElementById('selected-count');
     const compareBtn = document.getElementById('compare-selected-btn');
+    const copySelectedBtn = document.getElementById('copy-selected-btn');
 
     if (selectedCountSpan) {
         selectedCountSpan.textContent = count;
@@ -617,6 +865,10 @@ function updateSelectedCount() {
 
     if (compareBtn) {
         compareBtn.disabled = count < 2;
+    }
+
+    if (copySelectedBtn) {
+        copySelectedBtn.disabled = count === 0;
     }
 }
 
@@ -921,6 +1173,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Compare button click handler
     if (compareBtn) {
         compareBtn.addEventListener('click', openCompareModal);
+    }
+
+    // Copy selected button click handler
+    const copySelectedBtn = document.getElementById('copy-selected-btn');
+    if (copySelectedBtn) {
+        copySelectedBtn.addEventListener('click', copySelectedRows);
     }
 
     // Close modal on background click
