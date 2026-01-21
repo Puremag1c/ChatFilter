@@ -22,7 +22,7 @@ from telethon.errors import (
 )
 from telethon.tl.functions.channels import GetFullChannelRequest, JoinChannelRequest
 from telethon.tl.functions.messages import GetForumTopicsRequest, ImportChatInviteRequest
-from telethon.tl.types import Channel, User
+from telethon.tl.types import Channel, MessageService, User
 from telethon.tl.types import Chat as TelegramChat
 
 from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
@@ -764,9 +764,20 @@ def _telethon_message_to_model(msg: TelegramMessage, chat_id: int) -> Message | 
         chat_id: Chat ID this message belongs to
 
     Returns:
-        Message model or None if message is empty/deleted or has no sender
+        Message model or None if message is empty/deleted, is a service message,
+        or has no sender
+
+    Note:
+        Service messages (join, leave, pin, etc.) are filtered out as they are
+        system-generated events rather than user-authored content. This ensures
+        metrics reflect actual user participation.
     """
     from datetime import UTC
+
+    # Skip service messages (join/leave/pin/etc.)
+    # MessageService represents system-generated events, not user messages
+    if isinstance(msg, MessageService):
+        return None
 
     # Skip empty/deleted messages (Telethon represents them as MessageEmpty)
     # Check if this is a MessageEmpty (deleted message)

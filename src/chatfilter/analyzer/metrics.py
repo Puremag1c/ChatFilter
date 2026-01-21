@@ -34,6 +34,15 @@ def compute_metrics(messages: list[Message]) -> ChatMetrics:
         history_hours may underestimate the true history span. The has_message_gaps
         flag indicates when this limitation applies.
 
+    Note on edge cases:
+        1. Deleted accounts: Messages from deleted Telegram accounts are counted by
+           their original user ID. Each deleted account represents a unique author.
+        2. Forwarded messages: The forwarder (who sent the message to this chat) is
+           counted as the author, not the original message creator. This reflects
+           actual participation in the chat.
+        3. Service messages: System-generated messages (join, leave, pin, etc.) are
+           filtered out during message conversion and never reach this function.
+
     Args:
         messages: List of Message models to analyze. Messages should be
             sorted by timestamp but the function handles unsorted input.

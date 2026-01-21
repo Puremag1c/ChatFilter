@@ -433,6 +433,102 @@ class TestEdgeCases:
         assert result.history_hours == 0.0
         assert result.messages_per_hour == 0.0
 
+    def test_deleted_accounts_counted_by_id(self) -> None:
+        """Test that deleted accounts are counted as separate unique authors by their ID.
+
+        When a Telegram user deletes their account, the account is marked as deleted
+        but the user_id is preserved. Each deleted account should count as a unique
+        author based on their ID, not all grouped together as one "Deleted Account".
+        This provides accurate statistics about historical chat participation.
+        """
+        now = datetime.now(UTC)
+        messages = [
+            # Two messages from deleted account with ID 100
+            Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=3)),
+            Message.fake(id=2, author_id=100, timestamp=now - timedelta(hours=2)),
+            # Two messages from deleted account with ID 200
+            Message.fake(id=3, author_id=200, timestamp=now - timedelta(hours=1)),
+            Message.fake(id=4, author_id=200, timestamp=now),
+            # One message from active account
+            Message.fake(id=5, author_id=300, timestamp=now),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 5
+        # Each deleted account is counted separately: 100, 200, 300 = 3 unique authors
+        assert result.unique_authors == 3
+
+    def test_multiple_deleted_accounts_are_distinct(self) -> None:
+        """Test that multiple deleted accounts are counted as distinct authors.
+
+        This verifies that we don't merge all deleted accounts into one "Deleted Account"
+        entity, but instead treat each deleted user's ID as a unique author.
+        """
+        now = datetime.now(UTC)
+        # 5 messages from 5 different deleted accounts
+        messages = [
+            Message.fake(id=i + 1, author_id=1000 + i, timestamp=now - timedelta(hours=5 - i))
+            for i in range(5)
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 5
+        assert result.unique_authors == 5  # All 5 deleted accounts counted separately
+
+    def test_forwarded_messages_count_forwarder(self) -> None:
+        """Test that forwarded messages count the forwarder, not the original author.
+
+        When a message is forwarded to a chat, the author_id represents the person
+        who forwarded it (the forwarder), not the original author. This is correct
+        behavior because:
+        1. The forwarder is actively participating in this specific chat
+        2. The original author may not even be a member of this chat
+        3. It matches what users see in the Telegram UI
+
+        Note: Our Message model only stores author_id (the forwarder). The original
+        author info from Telegram's fwd_from field is not captured because we don't
+        need it for unique_authors counting.
+        """
+        now = datetime.now(UTC)
+        messages = [
+            # User 100 sends 2 original messages
+            Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=4)),
+            Message.fake(id=2, author_id=100, timestamp=now - timedelta(hours=3)),
+            # User 200 forwards a message (from someone else, but author_id=200)
+            # In Telegram, this would have fwd_from.from_id=999, but we store author_id=200
+            Message.fake(id=3, author_id=200, timestamp=now - timedelta(hours=2)),
+            # User 200 forwards another message
+            Message.fake(id=4, author_id=200, timestamp=now - timedelta(hours=1)),
+            # User 300 sends an original message
+            Message.fake(id=5, author_id=300, timestamp=now),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 5
+        # Forwarders are counted: 100, 200, 300 = 3 unique authors
+        # Original authors of forwarded messages are NOT counted
+        assert result.unique_authors == 3
+
+    def test_same_user_forwarding_and_posting(self) -> None:
+        """Test that a user forwarding and posting original messages counts as one author."""
+        now = datetime.now(UTC)
+        messages = [
+            # User 100 posts original message
+            Message.fake(id=1, author_id=100, timestamp=now - timedelta(hours=2)),
+            # User 100 forwards a message (author_id is still 100)
+            Message.fake(id=2, author_id=100, timestamp=now - timedelta(hours=1)),
+            # User 100 posts another original message
+            Message.fake(id=3, author_id=100, timestamp=now),
+        ]
+
+        result = compute_metrics(messages)
+
+        assert result.message_count == 3
+        assert result.unique_authors == 1  # Only one author: 100
+
 
 class TestMessageGapDetection:
     """Tests for deleted message gap detection."""

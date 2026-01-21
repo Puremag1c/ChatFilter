@@ -837,6 +837,54 @@ class TestTelethonMessageToModel:
         assert result.timestamp.tzinfo is not None
         assert result.timestamp == test_date
 
+    def test_service_message_returns_none(self) -> None:
+        """Test that service messages (join/leave/pin) are filtered out."""
+        from telethon.tl.types import MessageService
+
+        # Create a mock MessageService (system-generated event)
+        msg = MessageService(
+            id=7,
+            peer_id=MagicMock(),
+            date=datetime.now(UTC),
+            action=MagicMock(),  # MessageAction (join/leave/pin/etc)
+        )
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is None
+
+    def test_service_message_join_returns_none(self) -> None:
+        """Test that user join service messages are filtered out."""
+        from telethon.tl.types import MessageActionChatJoinedByLink, MessageService
+
+        # Create a mock join message
+        msg = MessageService(
+            id=8,
+            peer_id=MagicMock(),
+            date=datetime.now(UTC),
+            action=MessageActionChatJoinedByLink(inviter_id=123),
+        )
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is None
+
+    def test_service_message_pin_returns_none(self) -> None:
+        """Test that pin message service messages are filtered out."""
+        from telethon.tl.types import MessageActionPinMessage, MessageService
+
+        # Create a mock pin message
+        msg = MessageService(
+            id=9,
+            peer_id=MagicMock(),
+            date=datetime.now(UTC),
+            action=MessageActionPinMessage(),
+        )
+
+        result = _telethon_message_to_model(msg, chat_id=123)
+
+        assert result is None
+
 
 class TestGetMessages:
     """Tests for get_messages function."""
