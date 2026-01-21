@@ -10,7 +10,16 @@ from collections.abc import Callable
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
-from telethon.errors import FloodWaitError
+from telethon.errors import (  # type: ignore[import-untyped]
+    FileMigrateError,
+    FloodWaitError,
+    NetworkMigrateError,
+    PhoneMigrateError,
+    RpcCallFailError,
+    ServerError,
+    StatsMigrateError,
+    UserMigrateError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +35,22 @@ DEFAULT_JITTER = 0.1  # 10% jitter
 
 # Exceptions that should trigger retry
 RETRYABLE_EXCEPTIONS = (
+    # Network errors
     ConnectionError,
     TimeoutError,
     asyncio.TimeoutError,
     OSError,
     ssl.SSLError,
+    # DC migration errors - Telethon handles these automatically, but they can
+    # cause temporary failures during the migration window
+    FileMigrateError,
+    NetworkMigrateError,
+    PhoneMigrateError,
+    UserMigrateError,
+    StatsMigrateError,
+    # RPC/Server errors - transient failures that should be retried
+    RpcCallFailError,
+    ServerError,
 )
 
 # Exceptions that should never be retried

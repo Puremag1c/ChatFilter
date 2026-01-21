@@ -104,6 +104,15 @@ ERROR_MESSAGES = {
     "NetworkError": "Network connection error. Please check your internet connection and try again.",
     "TimeoutError": "Request timed out. Please try again.",
     "ConnectionError": "Failed to connect to Telegram servers. Please check your connection and try again.",
+    # DC Migration Errors (usually handled automatically, users should retry)
+    "FileMigrateError": "The file has been migrated to another data center. Please try again.",
+    "NetworkMigrateError": "Network migration in progress. Please try again in a moment.",
+    "PhoneMigrateError": "Your account is being migrated to another data center. Please try again.",
+    "UserMigrateError": "Your account is being migrated to another data center. Please try again.",
+    "StatsMigrateError": "Statistics are being migrated to another data center. Please try again.",
+    # RPC & Server Errors
+    "RpcCallFailError": "Telegram server request failed. Please try again.",
+    "ServerError": "Telegram server encountered an error. Please try again.",
     # Invalid Input Errors
     "UsernameInvalidError": "Invalid username. Please check the username and try again.",
     "UsernameNotOccupiedError": "Username not found. Please verify the username is correct.",
@@ -265,8 +274,19 @@ def get_error_category(error: Exception) -> str:
     if error_class in {"FloodWaitError", "SlowModeWaitError"}:
         return "rate_limit"
 
-    # Network & Connection
-    if error_class in {"NetworkError", "TimeoutError", "ConnectionError"}:
+    # Network & Connection (including DC migration and RPC errors)
+    if error_class in {
+        "NetworkError",
+        "TimeoutError",
+        "ConnectionError",
+        "FileMigrateError",
+        "NetworkMigrateError",
+        "PhoneMigrateError",
+        "UserMigrateError",
+        "StatsMigrateError",
+        "RpcCallFailError",
+        "ServerError",
+    }:
         return "network"
 
     # Invalid Input
