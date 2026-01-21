@@ -184,6 +184,35 @@ from chatfilter.web.app import create_app
 app = create_app(cors_origins=["https://yourdomain.com"])
 ```
 
+### Network and Firewall Configuration
+
+ChatFilter connects to Telegram servers using the MTProto protocol. If you're running ChatFilter in a corporate environment with firewall restrictions, you may need to:
+
+- Allow outbound connections to Telegram servers (port 443)
+- Configure proxy settings to bypass firewall restrictions
+- Whitelist Telegram domains and IP ranges
+
+For detailed information about network requirements, firewall configuration, and proxy setup, see [Network and Firewall Documentation](docs/NETWORK_AND_FIREWALL.md).
+
+**Quick Proxy Setup:**
+
+If direct connection to Telegram is blocked, you can configure a SOCKS5 or HTTP proxy:
+
+1. Start ChatFilter and open the web interface
+2. Navigate to **Settings** → **Proxy**
+3. Configure your proxy details (host, port, type)
+4. Save and test the connection
+
+Or edit `data/config/proxy.json` directly:
+```json
+{
+  "enabled": true,
+  "proxy_type": "socks5",
+  "host": "proxy.example.com",
+  "port": 1080
+}
+```
+
 ### Examples
 
 Run on custom port:
