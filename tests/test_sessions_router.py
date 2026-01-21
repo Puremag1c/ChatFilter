@@ -18,6 +18,63 @@ from chatfilter.web.routers.sessions import (
 )
 
 
+class TestReadUploadWithSizeLimit:
+    """Tests for chunked file reading with size limits."""
+
+    @pytest.mark.asyncio
+    async def test_read_small_file(self) -> None:
+        """Test reading a file within size limit."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        # Create a mock UploadFile
+        content = b"small file content"
+        mock_file = MagicMock()
+        mock_file.read = AsyncMock(side_effect=[content, b""])
+
+        result = await read_upload_with_size_limit(mock_file, 1024, "test")
+        assert result == content
+
+    @pytest.mark.asyncio
+    async def test_read_file_exceeds_limit(self) -> None:
+        """Test that reading a file exceeding size limit raises ValueError."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        # Create a mock UploadFile that returns chunks exceeding the limit
+        chunk = b"x" * 100
+        mock_file = MagicMock()
+        # Simulate reading chunks that exceed the 50 byte limit
+        mock_file.read = AsyncMock(side_effect=[chunk, chunk, b""])
+
+        with pytest.raises(ValueError, match="too large"):
+            await read_upload_with_size_limit(mock_file, 50, "test")
+
+    @pytest.mark.asyncio
+    async def test_read_exact_limit(self) -> None:
+        """Test reading a file exactly at the size limit."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        content = b"x" * 100
+        mock_file = MagicMock()
+        mock_file.read = AsyncMock(side_effect=[content, b""])
+
+        result = await read_upload_with_size_limit(mock_file, 100, "test")
+        assert result == content
+        assert len(result) == 100
+
+    @pytest.mark.asyncio
+    async def test_read_chunked_file(self) -> None:
+        """Test reading a file in multiple chunks."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        # Simulate a file read in 3 chunks
+        chunks = [b"chunk1", b"chunk2", b"chunk3", b""]
+        mock_file = MagicMock()
+        mock_file.read = AsyncMock(side_effect=chunks)
+
+        result = await read_upload_with_size_limit(mock_file, 1024, "test")
+        assert result == b"chunk1chunk2chunk3"
+
+
 class TestSanitizeSessionName:
     """Tests for session name sanitization."""
 
@@ -62,12 +119,8 @@ class TestValidateSessionFileFormat:
         conn = sqlite3.connect(session_path)
         cursor = conn.cursor()
         # Create required Telethon 1.x tables
-        cursor.execute(
-            "CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)"
-        )
-        cursor.execute(
-            "CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)"
-        )
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
         cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
         conn.commit()
         conn.close()
@@ -123,8 +176,7 @@ class TestValidateSessionFileFormat:
 
         content = db_path.read_bytes()
         with pytest.raises(
-            ValueError,
-            match="Telethon 2.x.*incompatible.*Telethon 1.x.*different session formats"
+            ValueError, match="Telethon 2.x.*incompatible.*Telethon 1.x.*different session formats"
         ):
             validate_session_file_format(content)
 
@@ -216,7 +268,7 @@ class TestValidateConfigFileFormat:
     def test_invalid_utf8(self) -> None:
         """Test rejection of invalid UTF-8 encoding."""
         # Invalid UTF-8 sequence
-        content = b'\xff\xfe{invalid}'
+        content = b"\xff\xfe{invalid}"
         with pytest.raises(ValueError, match="invalid UTF-8"):
             validate_config_file_format(content)
 
@@ -341,9 +393,7 @@ class TestSessionsAPIEndpoints:
         assert response.status_code == 200
         assert "Invalid config" in response.text or "api_hash" in response.text
 
-    def test_delete_session_not_found(
-        self, client: TestClient, clean_data_dir: Path
-    ) -> None:
+    def test_delete_session_not_found(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test deleting non-existent session."""
         from unittest.mock import MagicMock
 
@@ -398,9 +448,7 @@ class TestSessionsAPIEndpoints:
         assert response.status_code == 200
         assert "too large" in response.text.lower()
 
-    def test_upload_session_file_too_large(
-        self, client: TestClient, clean_data_dir: Path
-    ) -> None:
+    def test_upload_session_file_too_large(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test that session files exceeding size limit are rejected."""
         # Create a large fake session file (> 10 MB)
         large_session = b"x" * (11 * 1024 * 1024)  # 11 MB
