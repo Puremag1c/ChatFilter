@@ -6,6 +6,7 @@ components work together correctly.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,19 @@ from fastapi.testclient import TestClient
 from chatfilter.config import Settings, reset_settings
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 from chatfilter.web.app import create_app
+
+
+def extract_csrf_token(html: str) -> str | None:
+    """Extract CSRF token from HTML meta tag.
+
+    Args:
+        html: HTML content containing meta tag with csrf-token
+
+    Returns:
+        CSRF token string or None if not found
+    """
+    match = re.search(r'<meta name="csrf-token" content="([^"]+)"', html)
+    return match.group(1) if match else None
 
 
 @pytest.fixture
@@ -239,20 +253,25 @@ class TestE2EIntegration:
             isolated_tmp_dir: Isolated temp directory
             telegram_config_file: Config file fixture
         """
+        # Get CSRF token from home page
+        home_response = e2e_app.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None, "CSRF token not found in home page"
+
         # Create invalid session file (not SQLite)
         invalid_session = isolated_tmp_dir / "invalid.session"
         invalid_session.write_text("This is not a valid SQLite file")
 
-        with invalid_session.open("rb") as session_f:
-            with telegram_config_file.open("rb") as config_f:
-                response = e2e_app.post(
-                    "/api/sessions/upload",
-                    data={"session_name": "invalid_session"},
-                    files={
-                        "session_file": ("invalid.session", session_f, "application/octet-stream"),
-                        "config_file": ("config.json", config_f, "application/json"),
-                    },
-                )
+        with invalid_session.open("rb") as session_f, telegram_config_file.open("rb") as config_f:
+            response = e2e_app.post(
+                "/api/sessions/upload",
+                data={"session_name": "invalid_session"},
+                files={
+                    "session_file": ("invalid.session", session_f, "application/octet-stream"),
+                    "config_file": ("config.json", config_f, "application/json"),
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
 
         # The endpoint returns HTML (HTMX), check for error in response
         assert response.status_code == 200  # HTMX returns 200 with error HTML
@@ -273,7 +292,7 @@ class TestE2EIntegration:
         Args:
             e2e_app: Test client
         """
-        export_data = {"results": []}
+        export_data: dict[str, list[Any]] = {"results": []}
 
         response = e2e_app.post(
             "/api/export/csv?filename=empty.csv",
