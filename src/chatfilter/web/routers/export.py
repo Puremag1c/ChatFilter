@@ -1,4 +1,4 @@
-"""Export endpoints for downloading analysis results."""
+"""Export endpoints for downloading analysis results and diagnostics."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import secrets
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -124,5 +124,52 @@ async def export_csv(
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="{unique_filename}"',
+        },
+    )
+
+
+@router.get("/diagnostics")
+async def export_diagnostics(
+    request: Request,
+    format: Annotated[str, Query()] = "text",
+) -> Response:
+    """Export diagnostic information for troubleshooting and support.
+
+    Collects system information, configuration, logs, and disk space
+    in a single file for easy sharing with support.
+
+    Args:
+        request: FastAPI request object (for accessing app settings)
+        format: Export format - "text" (human-readable) or "json" (default: text)
+
+    Returns:
+        Downloadable file containing diagnostic information
+
+    Example:
+        GET /api/export/diagnostics?format=text
+        GET /api/export/diagnostics?format=json
+    """
+    from chatfilter.diagnostics import export_diagnostics_to_json, export_diagnostics_to_text
+
+    settings = request.app.state.settings
+
+    if format == "json":
+        content = export_diagnostics_to_json(settings)
+        media_type = "application/json; charset=utf-8"
+        extension = "json"
+    else:
+        content = export_diagnostics_to_text(settings)
+        media_type = "text/plain; charset=utf-8"
+        extension = "txt"
+
+    # Generate unique filename
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    filename = f"chatfilter_diagnostics_{timestamp}.{extension}"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
