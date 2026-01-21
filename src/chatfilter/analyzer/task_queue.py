@@ -83,6 +83,17 @@ class ProgressEvent:
 
 
 @dataclass
+class SubscriberHealth:
+    """Track health metrics for a subscriber to detect slow/hung clients."""
+
+    queue: asyncio.Queue[ProgressEvent | None]
+    consecutive_full_count: int = 0  # Consecutive times queue was full
+    total_events_dropped: int = 0  # Total events dropped for this subscriber
+    last_full_time: datetime | None = None  # Last time queue was full
+    is_disconnected: bool = False  # True if forcibly disconnected
+
+
+@dataclass
 class AnalysisTask:
     """Represents an analysis task in the queue."""
 
@@ -191,6 +202,8 @@ class TaskQueue:
         stall_check_interval_seconds: float = 60.0,  # How often to check for stalls
         stale_task_threshold_hours: float = 24.0,  # Hours after which in-progress tasks are stale
         max_concurrent_tasks: int = 10,  # Maximum number of concurrent active tasks
+        max_consecutive_full_queue: int = 10,  # Disconnect after N consecutive full queues
+        subscriber_disconnect_threshold: int = 50,  # Disconnect after N dropped events
     ) -> None:
         """Initialize the task queue.
 
@@ -213,10 +226,14 @@ class TaskQueue:
                 on recovery (default 24h). Stale tasks are marked as FAILED instead of PENDING.
             max_concurrent_tasks: Maximum number of concurrent active (PENDING or IN_PROGRESS)
                 tasks allowed (default 10). Set to 0 to disable limit.
+            max_consecutive_full_queue: Disconnect client after N consecutive full queue events
+                (default 10). Prevents slow/hung clients from consuming resources. Set to 0 to disable.
+            subscriber_disconnect_threshold: Disconnect client after N total dropped events
+                (default 50). Prevents persistently slow clients from staying connected. Set to 0 to disable.
         """
         self._db = db
         self._tasks: dict[UUID, AnalysisTask] = {}
-        self._subscribers: dict[UUID, list[asyncio.Queue[ProgressEvent | None]]] = {}
+        self._subscribers: dict[UUID, list[SubscriberHealth]] = {}
         self._running_tasks: dict[
             UUID, asyncio.Task[None]
         ] = {}  # Track asyncio tasks for cancellation
@@ -229,6 +246,8 @@ class TaskQueue:
         self._stall_check_interval_seconds = stall_check_interval_seconds
         self._stale_task_threshold_hours = stale_task_threshold_hours
         self._max_concurrent_tasks = max_concurrent_tasks
+        self._max_consecutive_full_queue = max_consecutive_full_queue
+        self._subscriber_disconnect_threshold = subscriber_disconnect_threshold
         self._monitor_task: asyncio.Task[None] | None = None  # Background monitor for stalled tasks
 
         # Initialize memory monitor
@@ -484,8 +503,10 @@ class TaskQueue:
             raise KeyError(f"Task {task_id} not found")
 
         queue: asyncio.Queue[ProgressEvent | None] = asyncio.Queue(maxsize=100)
+        health = SubscriberHealth(queue=queue)
+
         async with self._lock:
-            self._subscribers[task_id].append(queue)
+            self._subscribers[task_id].append(health)
 
         logger.debug(f"New subscriber for task {task_id}")
         return queue
@@ -503,11 +524,12 @@ class TaskQueue:
         """
         async with self._lock:
             if task_id in self._subscribers:
-                try:
-                    self._subscribers[task_id].remove(queue)
-                    logger.debug(f"Unsubscribed from task {task_id}")
-                except ValueError:
-                    pass
+                # Find and remove subscriber health by queue reference
+                for health in self._subscribers[task_id][:]:  # Copy list to iterate safely
+                    if health.queue is queue:
+                        self._subscribers[task_id].remove(health)
+                        logger.debug(f"Unsubscribed from task {task_id}")
+                        break
 
     async def _publish_event(self, event: ProgressEvent) -> None:
         """Publish a progress event to all subscribers.
@@ -522,17 +544,78 @@ class TaskQueue:
 
         async with self._lock:
             subscribers = self._subscribers.get(event.task_id, [])
-            for queue in subscribers:
+            subscribers_to_remove: list[SubscriberHealth] = []
+
+            for health in subscribers:
+                # Skip already disconnected subscribers
+                if health.is_disconnected:
+                    continue
+
                 try:
                     # Non-blocking put with backpressure handling
-                    queue.put_nowait(event)
+                    health.queue.put_nowait(event)
+                    # Queue accepted event - reset consecutive counter
+                    health.consecutive_full_count = 0
+
                 except asyncio.QueueFull:
-                    # Drop oldest event to prevent memory issues
-                    try:
-                        queue.get_nowait()
-                        queue.put_nowait(event)
-                    except asyncio.QueueEmpty:
-                        pass
+                    # Queue is full - track this for backpressure
+                    health.consecutive_full_count += 1
+                    health.total_events_dropped += 1
+                    health.last_full_time = datetime.now(UTC)
+
+                    # Check if client should be forcibly disconnected
+                    should_disconnect = False
+                    disconnect_reason = ""
+
+                    if (
+                        self._max_consecutive_full_queue > 0
+                        and health.consecutive_full_count >= self._max_consecutive_full_queue
+                    ):
+                        should_disconnect = True
+                        disconnect_reason = (
+                            f"consecutive full queue ({health.consecutive_full_count} times)"
+                        )
+
+                    elif (
+                        self._subscriber_disconnect_threshold > 0
+                        and health.total_events_dropped >= self._subscriber_disconnect_threshold
+                    ):
+                        should_disconnect = True
+                        disconnect_reason = f"total dropped events ({health.total_events_dropped})"
+
+                    if should_disconnect:
+                        health.is_disconnected = True
+                        subscribers_to_remove.append(health)
+                        logger.warning(
+                            f"Forcibly disconnecting slow SSE client for task {event.task_id}: "
+                            f"{disconnect_reason}. This prevents memory leaks from clients that "
+                            f"read events slower than they're generated."
+                        )
+                        # Send a final None to signal disconnection
+                        # Clear space in queue if needed to ensure None is delivered
+                        try:
+                            health.queue.put_nowait(None)
+                        except asyncio.QueueFull:
+                            # Queue is full, clear oldest event and add None
+                            with contextlib.suppress(asyncio.QueueEmpty):
+                                health.queue.get_nowait()
+                            # Try again to send None
+                            with contextlib.suppress(asyncio.QueueFull):
+                                health.queue.put_nowait(None)
+                    else:
+                        # Drop oldest event to prevent memory issues
+                        try:
+                            health.queue.get_nowait()
+                            health.queue.put_nowait(event)
+                        except asyncio.QueueEmpty:
+                            # Queue was emptied concurrently, try to add event again
+                            with contextlib.suppress(asyncio.QueueFull):
+                                health.queue.put_nowait(event)
+
+            # Remove disconnected subscribers
+            for health in subscribers_to_remove:
+                with contextlib.suppress(ValueError):
+                    subscribers.remove(health)
 
     async def _signal_completion(self, task_id: UUID) -> None:
         """Signal task completion to all subscribers.
@@ -542,9 +625,9 @@ class TaskQueue:
         """
         async with self._lock:
             subscribers = self._subscribers.get(task_id, [])
-            for queue in subscribers:
+            for health in subscribers:
                 with contextlib.suppress(asyncio.QueueFull):
-                    queue.put_nowait(None)
+                    health.queue.put_nowait(None)
 
     def _ensure_monitor_started(self) -> None:
         """Ensure the stall monitor task is running.

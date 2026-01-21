@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -543,6 +544,192 @@ class TestTaskQueue:
         found = queue.find_active_task("session1", [1, 2, 3], 1000)
 
         assert found is None
+
+    @pytest.mark.asyncio
+    async def test_sse_backpressure_consecutive_full_queue(self) -> None:
+        """Test that slow SSE clients are forcibly disconnected after consecutive full queues."""
+        # Create queue with aggressive backpressure settings
+        queue = TaskQueue(
+            max_consecutive_full_queue=5,  # Disconnect after 5 consecutive full queues
+            subscriber_disconnect_threshold=0,  # Disable total dropped events threshold
+        )
+
+        task = queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.IN_PROGRESS
+
+        # Subscribe but don't consume events (simulate slow/hung client)
+        progress_queue = await queue.subscribe(task.task_id)
+
+        # Publish enough events to fill the queue (maxsize=100) and trigger consecutive full
+        # Queue has maxsize=100, so we need 100 events to fill it, then 5 more to trigger disconnect
+        for i in range(110):
+            event = ProgressEvent(
+                task_id=task.task_id,
+                status=TaskStatus.IN_PROGRESS,
+                current=i,
+                total=200,
+                chat_title=f"Chat {i}",
+            )
+            await queue._publish_event(event)
+
+        # Verify the subscriber was forcibly disconnected
+        # The queue should receive a None event signaling disconnection
+        none_received = False
+        try:
+            while not progress_queue.empty():
+                event = progress_queue.get_nowait()
+                if event is None:
+                    none_received = True
+                    break
+        except asyncio.QueueEmpty:
+            pass
+
+        assert none_received, "Slow client should receive None event signaling forced disconnect"
+
+        # Verify subscriber was removed from the list
+        async with queue._lock:
+            subscribers = queue._subscribers.get(task.task_id, [])
+            assert len(subscribers) == 0, "Disconnected subscriber should be removed"
+
+    @pytest.mark.asyncio
+    async def test_sse_backpressure_total_dropped_events(self) -> None:
+        """Test that clients are disconnected after exceeding total dropped events threshold."""
+        # Create queue with total dropped events threshold
+        queue = TaskQueue(
+            max_consecutive_full_queue=0,  # Disable consecutive full queue check
+            subscriber_disconnect_threshold=30,  # Disconnect after 30 total dropped events
+        )
+
+        task = queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.IN_PROGRESS
+
+        # Subscribe but don't consume events (simulate slow client)
+        progress_queue = await queue.subscribe(task.task_id)
+
+        # Publish events to fill the queue and trigger dropped events
+        # Fill queue (100 events), then 30 more to trigger disconnect
+        for i in range(135):
+            event = ProgressEvent(
+                task_id=task.task_id,
+                status=TaskStatus.IN_PROGRESS,
+                current=i,
+                total=200,
+                chat_title=f"Chat {i}",
+            )
+            await queue._publish_event(event)
+
+            # Occasionally consume an event to reset consecutive counter
+            # This ensures we test the total_dropped threshold, not consecutive
+            if i == 50 or i == 100:
+                with contextlib.suppress(asyncio.QueueEmpty):
+                    progress_queue.get_nowait()
+
+        # Verify the subscriber was disconnected
+        none_received = False
+        try:
+            while not progress_queue.empty():
+                event = progress_queue.get_nowait()
+                if event is None:
+                    none_received = True
+                    break
+        except asyncio.QueueEmpty:
+            pass
+
+        assert none_received, (
+            "Client should be disconnected after exceeding dropped events threshold"
+        )
+
+    @pytest.mark.asyncio
+    async def test_sse_backpressure_healthy_client_not_disconnected(self) -> None:
+        """Test that healthy clients that consume events are not disconnected."""
+        queue = TaskQueue(
+            max_consecutive_full_queue=10,
+            subscriber_disconnect_threshold=50,
+        )
+
+        task = queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.IN_PROGRESS
+
+        # Subscribe and actively consume events (simulate healthy client)
+        progress_queue = await queue.subscribe(task.task_id)
+
+        # Publish events and consume them
+        events_received = []
+        for i in range(50):
+            event = ProgressEvent(
+                task_id=task.task_id,
+                status=TaskStatus.IN_PROGRESS,
+                current=i,
+                total=50,
+                chat_title=f"Chat {i}",
+            )
+            await queue._publish_event(event)
+
+            # Consume the event immediately (healthy client)
+            try:
+                received = progress_queue.get_nowait()
+                events_received.append(received)
+            except asyncio.QueueEmpty:
+                pass
+
+        # Verify all events were received and no None was sent
+        assert len(events_received) > 0, "Healthy client should receive events"
+        assert all(e is not None for e in events_received), (
+            "Healthy client should not be disconnected"
+        )
+
+        # Verify subscriber is still active
+        async with queue._lock:
+            subscribers = queue._subscribers.get(task.task_id, [])
+            assert len(subscribers) == 1, "Healthy subscriber should remain active"
+            assert not subscribers[0].is_disconnected, (
+                "Healthy client should not be marked as disconnected"
+            )
+
+    @pytest.mark.asyncio
+    async def test_sse_backpressure_disabled(self) -> None:
+        """Test that backpressure disconnect can be disabled."""
+        queue = TaskQueue(
+            max_consecutive_full_queue=0,  # Disabled
+            subscriber_disconnect_threshold=0,  # Disabled
+        )
+
+        task = queue.create_task("session1", [1, 2, 3])
+        task.status = TaskStatus.IN_PROGRESS
+
+        # Subscribe but don't consume events
+        progress_queue = await queue.subscribe(task.task_id)
+
+        # Publish many events (more than would normally trigger disconnect)
+        for i in range(200):
+            event = ProgressEvent(
+                task_id=task.task_id,
+                status=TaskStatus.IN_PROGRESS,
+                current=i,
+                total=200,
+                chat_title=f"Chat {i}",
+            )
+            await queue._publish_event(event)
+
+        # Verify subscriber was NOT disconnected (no None in queue)
+        none_received = False
+        try:
+            while not progress_queue.empty():
+                event = progress_queue.get_nowait()
+                if event is None:
+                    none_received = True
+                    break
+        except asyncio.QueueEmpty:
+            pass
+
+        assert not none_received, "Client should not be disconnected when backpressure is disabled"
+
+        # Verify subscriber is still in the list
+        async with queue._lock:
+            subscribers = queue._subscribers.get(task.task_id, [])
+            assert len(subscribers) == 1, (
+                "Subscriber should remain active when backpressure disabled"
+            )
 
 
 class TestConcurrentTaskLimit:
