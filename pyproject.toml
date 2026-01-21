@@ -25,6 +25,7 @@ dependencies = [
     "cryptography>=41.0.0",
     "keyring>=25.0.0",
     "babel>=2.14.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
