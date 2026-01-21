@@ -48,7 +48,7 @@ class TestHealthEndpoint:
         data = response.json()
 
         assert "uptime_seconds" in data
-        assert isinstance(data["uptime_seconds"], (int, float))
+        assert isinstance(data["uptime_seconds"], int | float)
         assert data["uptime_seconds"] >= 0
 
     def test_health_returns_disk_space(self) -> None:
@@ -77,6 +77,44 @@ class TestHealthEndpoint:
         if data.get("telegram"):
             assert "connected" in data["telegram"]
             assert "sessions_count" in data["telegram"]
+
+
+class TestTelegramStatusEndpoint:
+    """Tests for /api/telegram/status endpoint."""
+
+    def test_telegram_status_returns_200(self) -> None:
+        """Test telegram status endpoint returns 200 OK."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/api/telegram/status")
+
+        assert response.status_code == 200
+
+    def test_telegram_status_returns_valid_structure(self) -> None:
+        """Test telegram status endpoint returns valid structure."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/api/telegram/status")
+        data = response.json()
+
+        assert "connected" in data
+        assert "sessions_count" in data
+        assert isinstance(data["connected"], bool)
+        assert isinstance(data["sessions_count"], int)
+
+    def test_telegram_status_without_session_manager(self) -> None:
+        """Test telegram status when session manager is not available."""
+        app = create_app()
+        client = TestClient(app)
+
+        response = client.get("/api/telegram/status")
+        data = response.json()
+
+        # When session manager is not initialized, should return disconnected
+        assert data["connected"] is False
+        assert data["sessions_count"] == 0
 
 
 class TestReadyEndpoint:
@@ -383,10 +421,7 @@ class TestExportCsvEndpoint:
         request_data = {"results": []}
 
         # Make multiple rapid requests (simulating concurrent downloads)
-        responses = [
-            client.post("/api/export/csv", json=request_data)
-            for _ in range(5)
-        ]
+        responses = [client.post("/api/export/csv", json=request_data) for _ in range(5)]
 
         # Extract filenames from Content-Disposition headers
         filenames = []

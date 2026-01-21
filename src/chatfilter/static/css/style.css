@@ -56,6 +56,80 @@ header .nav-links a:hover {
     color: white;
 }
 
+/* Telegram Status Indicator */
+.telegram-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    transition: background-color 0.2s;
+}
+
+.telegram-status:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #666;
+    transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.telegram-status.status-connected .status-indicator {
+    background-color: #4caf50;
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.6);
+    animation: pulse-green 2s infinite;
+}
+
+.telegram-status.status-disconnected .status-indicator {
+    background-color: #ff9800;
+}
+
+.telegram-status.status-error .status-indicator {
+    background-color: #f44336;
+    animation: pulse-red 1s infinite;
+}
+
+.status-text {
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+@keyframes pulse-green {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes pulse-red {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .telegram-status {
+        padding: 0.4rem 0.75rem;
+    }
+
+    .status-text {
+        font-size: 0.75rem;
+    }
+}
+
 main {
     flex: 1;
     padding: 2rem;

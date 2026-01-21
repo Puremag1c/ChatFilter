@@ -113,9 +113,7 @@ async def health_check(request: Request) -> HealthResponse:
             if session_manager:
                 sessions = session_manager.list_sessions()
                 connected_count = sum(
-                    1
-                    for sid in sessions
-                    if await session_manager.is_healthy(sid)
+                    1 for sid in sessions if await session_manager.is_healthy(sid)
                 )
                 telegram_status = TelegramStatus(
                     connected=connected_count > 0,
@@ -156,6 +154,55 @@ async def health_check(request: Request) -> HealthResponse:
         telegram=telegram_status,
         disk=disk,
     )
+
+
+@router.get("/api/telegram/status", response_model=TelegramStatus)
+async def telegram_status(request: Request) -> TelegramStatus:
+    """Get current Telegram connection status.
+
+    Returns lightweight status information suitable for polling:
+    - Whether any sessions are connected
+    - Count of connected sessions
+    - Error message if connection failed
+
+    This endpoint is optimized for frequent polling by the UI status indicator.
+
+    Returns:
+        TelegramStatus with current connection state
+    """
+    try:
+        # Access session manager if available
+        if hasattr(request.app.state, "app_state") and hasattr(
+            request.app.state.app_state, "session_manager"
+        ):
+            session_manager = request.app.state.app_state.session_manager
+            if session_manager:
+                sessions = session_manager.list_sessions()
+                connected_count = sum(
+                    1 for sid in sessions if await session_manager.is_healthy(sid)
+                )
+                return TelegramStatus(
+                    connected=connected_count > 0,
+                    sessions_count=connected_count,
+                )
+            else:
+                return TelegramStatus(
+                    connected=False,
+                    sessions_count=0,
+                    error="Session manager not initialized",
+                )
+        else:
+            return TelegramStatus(
+                connected=False,
+                sessions_count=0,
+                error="Session manager not available",
+            )
+    except Exception as e:
+        return TelegramStatus(
+            connected=False,
+            sessions_count=0,
+            error=str(e),
+        )
 
 
 @router.get("/ready", response_model=ReadyResponse)

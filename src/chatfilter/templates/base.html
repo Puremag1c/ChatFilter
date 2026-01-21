@@ -21,6 +21,10 @@
                 <li><a href="/results">Results</a></li>
                 <li><a href="/proxy">Proxy</a></li>
             </ul>
+            <div class="telegram-status" id="telegram-status" title="Telegram Connection Status">
+                <span class="status-indicator" id="status-indicator"></span>
+                <span class="status-text" id="status-text">Checking...</span>
+            </div>
         </nav>
     </header>
     <main>
@@ -386,6 +390,176 @@
         // document.body.addEventListener('htmx:afterSwap', function(event) {
         //     console.log('HTMX swap successful:', event.detail);
         // });
+    </script>
+
+    <!-- Telegram Connection Status Monitor -->
+    <script>
+        const TelegramStatusMonitor = {
+            pollInterval: 5000, // Poll every 5 seconds
+            timeoutId: null,
+            lastStatus: null,
+            consecutiveErrors: 0,
+            maxErrors: 3,
+
+            async checkStatus() {
+                try {
+                    const response = await fetch('/api/telegram/status');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    this.consecutiveErrors = 0;
+                    this.updateUI(data);
+                    this.notifyStatusChange(data);
+
+                } catch (error) {
+                    console.error('Failed to fetch Telegram status:', error);
+                    this.consecutiveErrors++;
+
+                    // Show error state in UI
+                    this.updateUI({
+                        connected: false,
+                        sessions_count: 0,
+                        error: this.consecutiveErrors >= this.maxErrors
+                            ? 'Connection monitor offline'
+                            : 'Checking...'
+                    });
+
+                    // Show toast notification after multiple failures
+                    if (this.consecutiveErrors === this.maxErrors) {
+                        ToastManager.warning(
+                            'Unable to check Telegram connection status',
+                            {
+                                title: 'Status Monitor',
+                                duration: 5000
+                            }
+                        );
+                    }
+                }
+
+                // Schedule next poll
+                this.timeoutId = setTimeout(() => this.checkStatus(), this.pollInterval);
+            },
+
+            updateUI(status) {
+                const indicator = document.getElementById('status-indicator');
+                const text = document.getElementById('status-text');
+                const container = document.getElementById('telegram-status');
+
+                if (!indicator || !text || !container) return;
+
+                // Remove all status classes
+                container.classList.remove('status-connected', 'status-disconnected', 'status-error');
+
+                if (status.error) {
+                    // Error state
+                    container.classList.add('status-error');
+                    text.textContent = 'Error';
+                    container.title = `Telegram Status: Error - ${status.error}`;
+                } else if (status.connected) {
+                    // Connected state
+                    container.classList.add('status-connected');
+                    const sessionsText = status.sessions_count === 1
+                        ? '1 session'
+                        : `${status.sessions_count} sessions`;
+                    text.textContent = `Connected (${sessionsText})`;
+                    container.title = `Telegram Status: Connected with ${sessionsText}`;
+                } else {
+                    // Disconnected state
+                    container.classList.add('status-disconnected');
+                    text.textContent = 'Disconnected';
+                    container.title = 'Telegram Status: No active sessions';
+                }
+            },
+
+            notifyStatusChange(newStatus) {
+                // Only notify on actual state changes
+                if (!this.lastStatus) {
+                    this.lastStatus = newStatus;
+                    return;
+                }
+
+                const wasConnected = this.lastStatus.connected;
+                const isConnected = newStatus.connected;
+
+                if (wasConnected !== isConnected) {
+                    if (isConnected) {
+                        ToastManager.success(
+                            `Connected with ${newStatus.sessions_count} session${newStatus.sessions_count !== 1 ? 's' : ''}`,
+                            {
+                                title: 'Telegram Connected',
+                                duration: 3000
+                            }
+                        );
+
+                        // Broadcast to other tabs
+                        if (typeof TabSync !== 'undefined') {
+                            TabSync.broadcast('telegram-status', { connected: true });
+                        }
+                    } else {
+                        ToastManager.warning(
+                            'No active Telegram sessions',
+                            {
+                                title: 'Telegram Disconnected',
+                                duration: 5000
+                            }
+                        );
+
+                        // Broadcast to other tabs
+                        if (typeof TabSync !== 'undefined') {
+                            TabSync.broadcast('telegram-status', { connected: false });
+                        }
+                    }
+                }
+
+                this.lastStatus = newStatus;
+            },
+
+            start() {
+                console.log('Starting Telegram status monitor');
+                this.checkStatus();
+
+                // Listen for status updates from other tabs
+                if (typeof TabSync !== 'undefined') {
+                    TabSync.on('telegram-status', (data) => {
+                        console.log('Received status update from another tab:', data);
+                        // Immediately check status to sync with other tabs
+                        this.checkStatus();
+                    });
+                }
+            },
+
+            stop() {
+                console.log('Stopping Telegram status monitor');
+                if (this.timeoutId) {
+                    clearTimeout(this.timeoutId);
+                    this.timeoutId = null;
+                }
+            }
+        };
+
+        // Start monitoring when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            TelegramStatusMonitor.start();
+        });
+
+        // Stop monitoring when page unloads
+        window.addEventListener('beforeunload', function() {
+            TelegramStatusMonitor.stop();
+        });
+
+        // Handle page visibility changes (pause when hidden to save resources)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                TelegramStatusMonitor.stop();
+            } else {
+                TelegramStatusMonitor.start();
+            }
+        });
+
+        // Make monitor globally accessible for debugging
+        window.TelegramStatusMonitor = TelegramStatusMonitor;
     </script>
 
     {% block scripts %}{% endblock %}
