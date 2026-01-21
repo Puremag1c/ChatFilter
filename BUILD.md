@@ -85,6 +85,95 @@ dist/
 └── ChatFilter.app/                    # macOS application bundle
 ```
 
+## Creating Portable ZIP Distributions
+
+For users who prefer not to install software, you can create portable ZIP packages that include the executable and documentation.
+
+### Quick Start
+
+**Windows (using batch script):**
+```cmd
+REM Build and package in one step
+scripts\package_portable_windows.bat --build
+
+REM Or package existing build
+scripts\package_portable_windows.bat
+```
+
+**All Platforms (using Python script):**
+```bash
+# Install tomllib for Python < 3.11
+pip install tomli  # Only if using Python 3.10 or earlier
+
+# Build and package
+python scripts/package_portable.py --build
+
+# Package existing build for specific platform
+python scripts/package_portable.py --platform windows
+python scripts/package_portable.py --platform macos
+python scripts/package_portable.py --platform linux
+
+# Specify version manually
+python scripts/package_portable.py --version 1.2.3
+```
+
+### What Gets Packaged
+
+The portable distribution includes:
+- Main executable (ChatFilter.exe / ChatFilter.app / ChatFilter)
+- All dependencies in `_internal/` directory
+- `README.txt` - User instructions for portable version
+- `.env.example` - Configuration template
+- SHA256 checksum file for verification
+
+### Output Location
+
+Packages are created in the `packages/` directory:
+```
+packages/
+├── ChatFilter-Windows-Portable-v0.1.0.zip
+├── ChatFilter-Windows-Portable-v0.1.0.zip.sha256
+├── ChatFilter-Macos-Portable-v0.1.0.tar.gz
+├── ChatFilter-Macos-Portable-v0.1.0.tar.gz.sha256
+└── ...
+```
+
+### Distribution Workflow
+
+1. **Build** the application for your target platform
+2. **Package** into portable archive:
+   ```bash
+   python scripts/package_portable.py --platform windows
+   ```
+3. **Test** the package on a clean system:
+   - Extract the archive
+   - Run the executable without Python installed
+   - Verify all features work
+   - Check README.txt is clear and accurate
+4. **Verify** the SHA256 checksum matches
+5. **Upload** to GitHub Releases or distribution platform
+6. **Update** documentation with download links
+
+### Benefits of Portable Version
+
+- **No Installation**: Extract and run immediately
+- **No Admin Rights**: Can run from user folders or USB drives
+- **Easy Testing**: Quick evaluation without commitment
+- **Clean Removal**: Just delete the folder
+- **Multiple Versions**: Run different versions side-by-side
+
+### Portable vs Installer
+
+| Feature | Portable ZIP | Installer (planned) |
+|---------|-------------|---------------------|
+| Installation | Not required | Required |
+| Admin rights | Not required | May be required |
+| Start menu | No | Yes |
+| File associations | No | Yes |
+| Auto-updates | No | Yes (planned) |
+| Uninstall | Delete folder | Proper uninstaller |
+| Use case | Testing, temporary | Production use |
+
 ## Testing the Build
 
 ### Automated Smoke Tests
