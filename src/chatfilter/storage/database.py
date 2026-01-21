@@ -4,11 +4,13 @@ import json
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
 from chatfilter.analyzer.task_queue import AnalysisTask, TaskStatus
-from chatfilter.models.analysis import AnalysisResult
+from chatfilter.models.analysis import AnalysisResult, ChatMetrics
+from chatfilter.models.chat import Chat
 
 
 class TaskDatabase:
@@ -24,13 +26,51 @@ class TaskDatabase:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize_schema()
 
+    @staticmethod
+    def _datetime_to_str(dt: datetime | None) -> str | None:
+        """Convert datetime to ISO 8601 string for database storage.
+
+        Args:
+            dt: Datetime object to convert
+
+        Returns:
+            ISO 8601 string or None
+        """
+        return dt.isoformat() if dt is not None else None
+
+    @staticmethod
+    def _str_to_datetime(s: str | None) -> datetime | None:
+        """Convert ISO 8601 string from database to datetime.
+
+        Args:
+            s: ISO 8601 string to convert
+
+        Returns:
+            Datetime object or None
+        """
+        return datetime.fromisoformat(s) if s is not None else None
+
+    @staticmethod
+    def _str_to_datetime_required(s: str | None) -> datetime:
+        """Convert ISO 8601 string from database to datetime for required fields.
+
+        Args:
+            s: ISO 8601 string to convert
+
+        Returns:
+            Datetime object
+
+        Raises:
+            ValueError: If string is None or empty
+        """
+        if not s:
+            raise ValueError("Required datetime field is missing from database")
+        return datetime.fromisoformat(s)
+
     @contextmanager
     def _connection(self) -> Generator[sqlite3.Connection, None, None]:
         """Context manager for database connections."""
-        conn = sqlite3.connect(
-            self.db_path,
-            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-        )
+        conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         # Enable foreign key constraints (required for CASCADE DELETE)
         conn.execute("PRAGMA foreign_keys = ON")
@@ -104,9 +144,9 @@ class TaskDatabase:
                     json.dumps(task.chat_ids),
                     task.message_limit,
                     task.status.value,
-                    task.created_at,
-                    task.started_at,
-                    task.completed_at,
+                    self._datetime_to_str(task.created_at),
+                    self._datetime_to_str(task.started_at),
+                    self._datetime_to_str(task.completed_at),
                     task.error,
                     task.current_chat_index,
                 ),
@@ -140,9 +180,9 @@ class TaskDatabase:
                 chat_ids=json.loads(row["chat_ids"]),
                 message_limit=row["message_limit"],
                 status=TaskStatus(row["status"]),
-                created_at=row["created_at"],
-                started_at=row["started_at"],
-                completed_at=row["completed_at"],
+                created_at=self._str_to_datetime_required(row["created_at"]),
+                started_at=self._str_to_datetime(row["started_at"]),
+                completed_at=self._str_to_datetime(row["completed_at"]),
                 results=results,
                 error=row["error"],
                 current_chat_index=row["current_chat_index"],
@@ -210,7 +250,7 @@ class TaskDatabase:
                 SELECT task_id FROM tasks
                 WHERE status IN ({placeholders})
                 ORDER BY completed_at DESC, created_at DESC
-            """
+            """  # nosec B608 - placeholders are safe, values are parameterized
 
             # Add pagination if specified
             if limit is not None:
@@ -249,7 +289,7 @@ class TaskDatabase:
             query = f"""
                 SELECT COUNT(*) as count FROM tasks
                 WHERE status IN ({placeholders})
-            """
+            """  # nosec B608 - placeholders are safe, values are parameterized
             cursor = conn.execute(
                 query,
                 [status.value for status in status_filter],
@@ -276,7 +316,7 @@ class TaskDatabase:
                     result.chat.model_dump_json(),
                     # Exclude computed fields from serialization
                     result.metrics.model_dump_json(exclude={"messages_per_hour"}),
-                    result.analyzed_at,
+                    self._datetime_to_str(result.analyzed_at),
                 ),
             )
 
@@ -290,8 +330,6 @@ class TaskDatabase:
         Returns:
             List of analysis results
         """
-        from chatfilter.models.analysis import Chat, ChatMetrics
-
         cursor = conn.execute(
             """
             SELECT chat_data, metrics_data, analyzed_at
@@ -310,7 +348,7 @@ class TaskDatabase:
                 AnalysisResult(
                     chat=chat,
                     metrics=metrics,
-                    analyzed_at=row["analyzed_at"],
+                    analyzed_at=self._str_to_datetime_required(row["analyzed_at"]),
                 )
             )
 
