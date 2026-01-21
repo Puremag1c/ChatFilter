@@ -28,6 +28,7 @@ from chatfilter.web.routers.chats import router as chats_router
 from chatfilter.web.routers.export import router as export_router
 from chatfilter.web.routers.health import router as health_router
 from chatfilter.web.routers.history import router as history_router
+from chatfilter.web.routers.monitoring import router as monitoring_router
 from chatfilter.web.routers.pages import router as pages_router
 from chatfilter.web.routers.proxy import router as proxy_router
 from chatfilter.web.routers.sessions import router as sessions_router
@@ -266,7 +267,8 @@ def create_app(
 
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(CSRFProtectionMiddleware)
-    app.add_middleware(RequestLoggingMiddleware)
+    # Enable body logging in verbose mode (sanitized for security)
+    app.add_middleware(RequestLoggingMiddleware, log_bodies=settings.verbose)
     app.add_middleware(LocaleMiddleware)
     app.add_middleware(SessionMiddleware)
     app.add_middleware(RequestIDMiddleware)
@@ -300,6 +302,7 @@ def create_app(
     app.include_router(chatlist_router)
     app.include_router(chats_router)
     app.include_router(analysis_router)
+    app.include_router(monitoring_router)
     app.include_router(proxy_router)
     app.include_router(pages_router)
 

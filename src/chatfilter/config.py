@@ -242,6 +242,28 @@ class Settings(BaseSettings):
         le=20,
         description="Number of backup log files to keep",
     )
+    log_format: str = Field(
+        default="text",
+        description="Log format: 'text' for human-readable, 'json' for structured logging",
+    )
+    verbose: bool = Field(
+        default=False,
+        description="Enable verbose logging (detailed operation logs)",
+    )
+    log_module_levels: dict[str, str] = Field(
+        default_factory=dict,
+        description="Per-module log levels (e.g., {'chatfilter.telegram': 'DEBUG'})",
+    )
+
+    @field_validator("log_format")
+    @classmethod
+    def validate_log_format(cls, v: str) -> str:
+        """Validate log format is supported."""
+        valid_formats = {"text", "json"}
+        v_lower = v.lower()
+        if v_lower not in valid_formats:
+            raise ValueError(f"Invalid log format: {v}. Must be one of: {', '.join(valid_formats)}")
+        return v_lower
 
     # CORS origins for separated frontend/backend architecture
     # Include common development ports for frontend frameworks
@@ -600,11 +622,15 @@ class Settings(BaseSettings):
         print(f"  Port: {self.port}")
         print(f"  Debug: {self.debug}")
         print(f"  Log Level: {self.log_level}")
+        print(f"  Log Format: {self.log_format}")
+        print(f"  Verbose: {self.verbose}")
         print(f"  Log to File: {self.log_to_file}")
         if self.log_to_file:
             print(f"  Log File: {self.log_file_path}")
             print(f"  Log Max Size: {self.log_file_max_bytes / (1024 * 1024):.1f} MB")
             print(f"  Log Backup Count: {self.log_file_backup_count}")
+        if self.log_module_levels:
+            print(f"  Module Log Levels: {self.log_module_levels}")
         print(f"  Data Directory: {self.data_dir}")
         print(f"  Config Directory: {self.config_dir}")
         print(f"  Sessions Directory: {self.sessions_dir}")

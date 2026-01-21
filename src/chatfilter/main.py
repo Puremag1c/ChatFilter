@@ -11,10 +11,13 @@ from pathlib import Path
 def setup_logging(
     level: str = "INFO",
     debug: bool = False,
+    verbose: bool = False,
     log_to_file: bool = True,
     log_file_path: Path | None = None,
     log_file_max_bytes: int = 10 * 1024 * 1024,
     log_file_backup_count: int = 5,
+    log_format: str = "text",
+    module_levels: dict[str, str] | None = None,
 ) -> None:
     """Configure logging for the application with console and optional file output.
 
@@ -23,16 +26,25 @@ def setup_logging(
     - Optional rotating file handler for persistent logs
     - Consistent timestamp format
     - Module-level granularity
+    - Optional JSON format for log aggregators
+    - Per-module log level configuration
 
     Args:
         level: Log level string (DEBUG, INFO, WARNING, ERROR)
         debug: If True, overrides level to DEBUG
+        verbose: If True, enables verbose logging (more detailed operation logs)
         log_to_file: Enable file logging in addition to console
         log_file_path: Path to log file (if None and log_to_file=True, uses default)
         log_file_max_bytes: Maximum size per log file before rotation
         log_file_backup_count: Number of rotated backup files to keep
+        log_format: Log format ('text' for human-readable, 'json' for structured)
+        module_levels: Dict of module names to log levels (e.g., {'chatfilter.telegram': 'DEBUG'})
     """
-    effective_level = logging.DEBUG if debug else getattr(logging, level.upper(), logging.INFO)
+    # Determine effective level: debug or verbose both enable DEBUG
+    if debug or verbose:
+        effective_level = logging.DEBUG
+    else:
+        effective_level = getattr(logging, level.upper(), logging.INFO)
 
     # Create root logger
     root_logger = logging.getLogger()
@@ -41,18 +53,24 @@ def setup_logging(
     # Clear any existing handlers to avoid duplicates
     root_logger.handlers.clear()
 
-    # Import filters and formatter
+    # Import filters and formatters
     from chatfilter.utils.logging import (
+        ChatContextFilter,
         CorrelationIDFilter,
+        JSONFormatter,
         LogSanitizer,
         SanitizingFormatter,
+        configure_module_levels,
     )
 
-    # Define consistent format with correlation ID support
-    # Use SanitizingFormatter to sanitize complete output including exception tracebacks
-    log_format = "%(asctime)s [%(levelname)s] [%(correlation_id)s] %(name)s: %(message)s"
-    date_format = "%Y-%m-%d %H:%M:%S"
-    formatter = SanitizingFormatter(log_format, datefmt=date_format)
+    # Create appropriate formatter based on log_format
+    if log_format == "json":
+        formatter: logging.Formatter = JSONFormatter(sanitize=True)
+    else:
+        # Text format with correlation ID and chat ID support
+        text_format = "%(asctime)s [%(levelname)s] [%(correlation_id)s] [chat:%(chat_id)s] %(name)s: %(message)s"
+        date_format = "%Y-%m-%d %H:%M:%S"
+        formatter = SanitizingFormatter(text_format, datefmt=date_format)
 
     # Console handler - always enabled
     console_handler = logging.StreamHandler(sys.stdout)
@@ -61,6 +79,7 @@ def setup_logging(
     # Add filters to handler (filters are not inherited by child loggers)
     console_handler.addFilter(LogSanitizer())
     console_handler.addFilter(CorrelationIDFilter())
+    console_handler.addFilter(ChatContextFilter())
     root_logger.addHandler(console_handler)
 
     # File handler - optional with rotation
@@ -81,6 +100,7 @@ def setup_logging(
             # Add filters to handler
             file_handler.addFilter(LogSanitizer())
             file_handler.addFilter(CorrelationIDFilter())
+            file_handler.addFilter(ChatContextFilter())
             root_logger.addHandler(file_handler)
 
             # Log to confirm file logging is active
@@ -92,6 +112,15 @@ def setup_logging(
         except (OSError, PermissionError) as e:
             # Graceful degradation - continue with console-only logging
             logging.warning(f"Failed to initialize file logging: {e}. Using console-only logging.")
+
+    # Configure per-module log levels
+    if module_levels:
+        configure_module_levels(module_levels)
+        logging.debug(f"Configured module log levels: {module_levels}")
+
+    # Log verbose mode if enabled
+    if verbose and not debug:
+        logging.info("Verbose logging enabled")
 
 
 def main() -> None:
@@ -139,6 +168,19 @@ def main() -> None:
         help=f"Logging level (default: {env_settings.log_level}, env: CHATFILTER_LOG_LEVEL)",
     )
     parser.add_argument(
+        "--log-format",
+        default=env_settings.log_format,
+        choices=["text", "json"],
+        help=f"Log format: 'text' for human-readable, 'json' for structured (default: {env_settings.log_format}, env: CHATFILTER_LOG_FORMAT)",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=env_settings.verbose,
+        help="Enable verbose logging with detailed operation information (env: CHATFILTER_VERBOSE)",
+    )
+    parser.add_argument(
         "--check-config",
         action="store_true",
         help="Validate configuration and exit (deprecated, use --validate)",
@@ -170,6 +212,8 @@ def main() -> None:
         "port": args.port,
         "debug": args.debug,
         "log_level": args.log_level,
+        "log_format": args.log_format,
+        "verbose": args.verbose,
     }
     if args.data_dir:
         from pathlib import Path
@@ -236,10 +280,13 @@ def main() -> None:
     setup_logging(
         level=settings.log_level,
         debug=settings.debug,
+        verbose=settings.verbose,
         log_to_file=settings.log_to_file,
         log_file_path=settings.log_file_path if settings.log_to_file else None,
         log_file_max_bytes=settings.log_file_max_bytes,
         log_file_backup_count=settings.log_file_backup_count,
+        log_format=settings.log_format,
+        module_levels=settings.log_module_levels if settings.log_module_levels else None,
     )
 
     # Validate configuration before starting server (fail-fast)
@@ -311,6 +358,9 @@ def main() -> None:
     print(f"Sessions dir:  {settings.sessions_dir}")
     print(f"Exports dir:   {settings.exports_dir}")
     print(f"Log level:     {settings.log_level}")
+    print(f"Log format:    {settings.log_format}")
+    if settings.verbose:
+        print("Verbose:       enabled")
     if settings.log_to_file:
         print(f"Log file:      {settings.log_file_path}")
     print("=" * 60)

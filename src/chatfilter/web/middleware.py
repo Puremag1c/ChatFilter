@@ -72,12 +72,28 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware that logs request/response info without body content.
+    """Middleware that logs request/response info with optional body logging.
 
     Logs:
     - Request: method, path, client IP, request ID
     - Response: status code, duration
+    - Optionally: request/response bodies (sanitized) in verbose mode
+
+    Args:
+        app: FastAPI application
+        log_bodies: If True, log request/response bodies (sanitized)
+        max_body_size: Maximum body size to log (default 10KB)
     """
+
+    def __init__(
+        self,
+        app: FastAPI,
+        log_bodies: bool = False,
+        max_body_size: int = 10 * 1024,  # 10KB
+    ) -> None:
+        super().__init__(app)
+        self.log_bodies = log_bodies
+        self.max_body_size = max_body_size
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -89,15 +105,30 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         # Log request (without body for privacy/security)
         client_ip = request.client.host if request.client else "unknown"
-        logger.info(
-            "Request started",
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.url.path,
-                "client_ip": client_ip,
-            },
-        )
+
+        extra: dict[str, object] = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "client_ip": client_ip,
+        }
+
+        # Log request body in verbose mode (sanitized)
+        if self.log_bodies and request.method in ("POST", "PUT", "PATCH"):
+            try:
+                body = await request.body()
+                if body and len(body) <= self.max_body_size:
+                    # Import sanitize_text for body sanitization
+                    from chatfilter.utils.logging import sanitize_text
+
+                    body_str = body.decode("utf-8", errors="replace")
+                    extra["request_body"] = sanitize_text(body_str[: self.max_body_size])
+                elif body:
+                    extra["request_body"] = f"<truncated: {len(body)} bytes>"
+            except Exception:
+                extra["request_body"] = "<error reading body>"
+
+        logger.info("Request started", extra=extra)
 
         response = await call_next(request)
 
@@ -105,16 +136,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         duration_ms = (time.perf_counter() - start_time) * 1000
 
         # Log response
-        logger.info(
-            "Request completed",
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "duration_ms": round(duration_ms, 2),
-            },
-        )
+        response_extra: dict[str, object] = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": round(duration_ms, 2),
+        }
+
+        logger.info("Request completed", extra=response_extra)
 
         return response
 

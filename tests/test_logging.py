@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
+import time
 from collections.abc import Generator
 from pathlib import Path
 
@@ -521,3 +523,318 @@ def test_sanitizing_formatter_directly() -> None:
     formatted = formatter.format(record)
     assert "1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789" not in formatted
     assert "***SESSION_TOKEN***" in formatted
+
+
+# --- New tests for enhanced logging features ---
+
+
+def test_json_formatter() -> None:
+    """Test JSONFormatter outputs valid JSON with required fields."""
+    from chatfilter.utils.logging import JSONFormatter
+
+    formatter = JSONFormatter(sanitize=True)
+
+    record = logging.LogRecord(
+        name="test.module",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="Test message",
+        args=(),
+        exc_info=None,
+    )
+    record.correlation_id = "abc123"
+    record.chat_id = "12345"
+
+    formatted = formatter.format(record)
+
+    # Should be valid JSON
+    data = json.loads(formatted)
+
+    # Check required fields
+    assert "timestamp" in data
+    assert data["level"] == "INFO"
+    assert data["logger"] == "test.module"
+    assert data["message"] == "Test message"
+    assert data["correlation_id"] == "abc123"
+    assert data["chat_id"] == "12345"
+
+
+def test_json_formatter_sanitizes_sensitive_data() -> None:
+    """Test JSONFormatter sanitizes sensitive data in messages."""
+    from chatfilter.utils.logging import JSONFormatter
+
+    formatter = JSONFormatter(sanitize=True)
+
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="Token: 1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
+        args=(),
+        exc_info=None,
+    )
+
+    formatted = formatter.format(record)
+    data = json.loads(formatted)
+
+    # Sensitive data should be masked
+    assert "1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789" not in data["message"]
+    assert "***SESSION_TOKEN***" in data["message"]
+
+
+def test_json_formatter_includes_extra_fields() -> None:
+    """Test JSONFormatter includes extra fields from log record."""
+    from chatfilter.utils.logging import JSONFormatter
+
+    formatter = JSONFormatter(sanitize=False)
+
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="Test message",
+        args=(),
+        exc_info=None,
+    )
+    # Add extra field
+    record.duration_ms = 123.45
+    record.status_code = 200
+
+    formatted = formatter.format(record)
+    data = json.loads(formatted)
+
+    # Extra fields should be included
+    assert data["duration_ms"] == 123.45
+    assert data["status_code"] == 200
+
+
+def test_chat_context_filter() -> None:
+    """Test ChatContextFilter adds chat_id to log records."""
+    from typing import Any
+
+    from chatfilter.utils.logging import ChatContextFilter, clear_chat_id, set_chat_id
+
+    filter_instance = ChatContextFilter()
+
+    # Test without chat ID
+    clear_chat_id()
+    record: Any = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="Test",
+        args=(),
+        exc_info=None,
+    )
+    filter_instance.filter(record)
+    assert record.chat_id == "-"
+
+    # Test with chat ID
+    set_chat_id(12345)
+    record = logging.LogRecord(
+        name="test",
+        level=logging.INFO,
+        pathname="test.py",
+        lineno=1,
+        msg="Test",
+        args=(),
+        exc_info=None,
+    )
+    filter_instance.filter(record)
+    assert record.chat_id == "12345"
+
+    # Cleanup
+    clear_chat_id()
+
+
+def test_chat_context_functions() -> None:
+    """Test chat context set/get/clear functions."""
+    from chatfilter.utils.logging import clear_chat_id, get_chat_id, set_chat_id
+
+    # Initially no chat ID
+    clear_chat_id()
+    assert get_chat_id() is None
+
+    # Set chat ID
+    set_chat_id(12345)
+    assert get_chat_id() == 12345
+
+    # Set string chat ID
+    set_chat_id("channel_123")
+    assert get_chat_id() == "channel_123"
+
+    # Clear
+    clear_chat_id()
+    assert get_chat_id() is None
+
+
+def test_timing_context() -> None:
+    """Test TimingContext measures operation duration."""
+    from chatfilter.utils.logging import TimingContext
+
+    with TimingContext("test_operation") as timing:
+        time.sleep(0.01)  # 10ms
+
+    # Should have recorded duration
+    assert timing.duration_ms >= 10  # At least 10ms
+    assert timing.duration_ms < 1000  # Less than 1 second
+    assert timing.duration_s >= 0.01
+
+
+def test_timing_context_decorator() -> None:
+    """Test TimingContext decorator works for functions."""
+    from chatfilter.utils.logging import TimingContext
+
+    @TimingContext.decorator("decorated_operation")
+    def slow_function() -> str:
+        time.sleep(0.01)
+        return "done"
+
+    result = slow_function()
+    assert result == "done"
+
+
+def test_module_log_levels() -> None:
+    """Test per-module log level configuration."""
+    from chatfilter.utils.logging import (
+        configure_module_levels,
+        get_module_log_level,
+        set_module_log_level,
+    )
+
+    # Set individual module level
+    set_module_log_level("test.module1", "DEBUG")
+    assert get_module_log_level("test.module1") == logging.DEBUG
+
+    set_module_log_level("test.module2", logging.WARNING)
+    assert get_module_log_level("test.module2") == logging.WARNING
+
+    # Configure multiple modules at once
+    configure_module_levels(
+        {
+            "test.module3": "ERROR",
+            "test.module4": "INFO",
+        }
+    )
+    assert get_module_log_level("test.module3") == logging.ERROR
+    assert get_module_log_level("test.module4") == logging.INFO
+
+    # Unknown module returns None
+    assert get_module_log_level("unknown.module") is None
+
+
+def test_setup_logging_with_json_format() -> None:
+    """Test setup_logging with JSON format."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = Path(tmpdir) / "test.log"
+
+        setup_logging(
+            level="INFO",
+            debug=False,
+            log_to_file=True,
+            log_file_path=log_file,
+            log_format="json",
+        )
+
+        test_logger = logging.getLogger("json_format_test")
+        test_logger.info("Test JSON log message")
+
+        content = log_file.read_text()
+        lines = content.strip().split("\n")
+
+        # At least one line should be valid JSON
+        found_json = False
+        for line in lines:
+            try:
+                data = json.loads(line)
+                if data.get("message") == "Test JSON log message":
+                    found_json = True
+                    assert data["level"] == "INFO"
+                    assert data["logger"] == "json_format_test"
+                    break
+            except json.JSONDecodeError:
+                continue
+
+        assert found_json, "Did not find JSON log entry"
+
+
+def test_setup_logging_with_verbose_mode() -> None:
+    """Test setup_logging with verbose mode enables DEBUG level."""
+    setup_logging(
+        level="INFO",  # Would normally be INFO
+        debug=False,
+        verbose=True,  # Should override to DEBUG
+        log_to_file=False,
+    )
+
+    root_logger = logging.getLogger()
+    assert root_logger.level == logging.DEBUG
+
+
+def test_setup_logging_with_module_levels() -> None:
+    """Test setup_logging configures per-module log levels."""
+    from chatfilter.utils.logging import get_module_log_level
+
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=False,
+        module_levels={
+            "chatfilter.telegram": "DEBUG",
+            "chatfilter.web": "WARNING",
+        },
+    )
+
+    assert get_module_log_level("chatfilter.telegram") == logging.DEBUG
+    assert get_module_log_level("chatfilter.web") == logging.WARNING
+
+
+def test_verbose_logger() -> None:
+    """Test get_verbose_logger creates logger with optional verbose mode."""
+    from chatfilter.utils.logging import get_verbose_logger
+
+    # Normal logger (level inherited from root, just verify it returns a logger)
+    normal_logger = get_verbose_logger("test.normal", verbose=False)
+    assert isinstance(normal_logger, logging.Logger)
+
+    # Verbose logger explicitly sets DEBUG
+    verbose_logger = get_verbose_logger("test.verbose", verbose=True)
+    assert verbose_logger.level == logging.DEBUG
+
+
+def test_log_format_with_chat_id() -> None:
+    """Test that logs include chat ID when set."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_file = Path(tmpdir) / "test.log"
+
+        setup_logging(
+            level="INFO",
+            debug=False,
+            log_to_file=True,
+            log_file_path=log_file,
+            log_format="text",
+        )
+
+        from chatfilter.utils.logging import clear_chat_id, set_chat_id
+
+        test_logger = logging.getLogger("chat_context_test")
+
+        # Log without chat ID
+        clear_chat_id()
+        test_logger.info("Message without chat")
+
+        # Log with chat ID
+        set_chat_id(12345)
+        test_logger.info("Message with chat")
+
+        clear_chat_id()
+
+        content = log_file.read_text()
+
+        # Should contain chat context markers
+        assert "[chat:-]" in content
+        assert "[chat:12345]" in content
