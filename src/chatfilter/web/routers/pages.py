@@ -88,10 +88,18 @@ async def results_page(
     from chatfilter import __version__
     from chatfilter.analyzer.task_queue import TaskStatus, get_task_queue
     from chatfilter.web.app import get_templates
+    from chatfilter.web.session import get_session
 
     templates = get_templates()
     results = []
     error = None
+
+    # Clear orphaned task notification if viewing results for that task
+    if task_id:
+        session = get_session(request)
+        current_task_id = session.get("current_task_id")
+        if current_task_id == task_id:
+            session.delete("current_task_id")
 
     if task_id:
         try:

@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from chatfilter.models import Chat
 from chatfilter.service.chat_analysis import SessionNotFoundError
 from chatfilter.web.routers.chats import get_chat_service, get_session_paths
+from chatfilter.web.session import get_session, set_session_cookie
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +226,11 @@ async def start_analysis(
 
         logger.info(f"Started analysis task {task.task_id} for {len(chat_ids)} chats")
 
-    return templates.TemplateResponse(
+    # Store task_id in session for orphaned result detection
+    session = get_session(request)
+    session.set("current_task_id", str(task.task_id))
+
+    response = templates.TemplateResponse(
         "partials/analysis_progress.html",
         {
             "request": request,
@@ -234,6 +239,8 @@ async def start_analysis(
             "is_duplicate": is_duplicate,
         },
     )
+    set_session_cookie(response, session)
+    return response
 
 
 async def _generate_sse_events(
@@ -387,6 +394,12 @@ async def get_results(
 
     templates = get_templates()
 
+    # Clear orphaned task notification when viewing results
+    session = get_session(request)
+    current_task_id = session.get("current_task_id")
+    if current_task_id == task_id:
+        session.delete("current_task_id")
+
     try:
         uuid_task_id = UUID(task_id)
     except ValueError:
@@ -436,7 +449,7 @@ async def get_results(
         )
 
     # For COMPLETED or CANCELLED, show results (partial results for cancelled)
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "partials/analysis_results.html",
         {
             "request": request,
@@ -446,6 +459,8 @@ async def get_results(
             "is_partial": task.status == TaskStatus.CANCELLED,
         },
     )
+    set_session_cookie(response, session)
+    return response
 
 
 @router.get("/{task_id}/status")
@@ -587,3 +602,91 @@ async def force_cancel_analysis(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot force-cancel task with status: {task.status.value}",
             )
+
+
+@router.get("/check-orphaned")
+async def check_orphaned_task(request: Request) -> dict[str, str | int | None]:
+    """Check if there's a completed task in session that user hasn't seen.
+
+    This endpoint is called on page load to detect if analysis completed
+    while the user was away (browser closed, network disconnected, etc.).
+
+    Returns:
+        Task info if completed task exists and hasn't been acknowledged,
+        or empty dict if no orphaned task
+    """
+    session = get_session(request)
+    task_id_str = session.get("current_task_id")
+
+    if not task_id_str:
+        return {}
+
+    # Check if user has already been notified about this completion
+    notified_tasks = session.get("notified_task_ids", set())
+    if task_id_str in notified_tasks:
+        return {}
+
+    try:
+        task_id = UUID(task_id_str)
+    except ValueError:
+        # Invalid task ID in session, clear it
+        session.delete("current_task_id")
+        return {}
+
+    queue = get_task_queue()
+    task = queue.get_task(task_id)
+
+    if task is None:
+        # Task no longer exists, clear from session
+        session.delete("current_task_id")
+        return {}
+
+    # Check if task is in a terminal state
+    terminal_states = [
+        TaskStatus.COMPLETED,
+        TaskStatus.FAILED,
+        TaskStatus.CANCELLED,
+        TaskStatus.TIMEOUT,
+    ]
+
+    if task.status in terminal_states:
+        # Mark as notified so we don't show the notification again
+        if isinstance(notified_tasks, set):
+            notified_tasks.add(task_id_str)
+        else:
+            notified_tasks = {task_id_str}
+        session.set("notified_task_ids", notified_tasks)
+
+        return {
+            "task_id": str(task.task_id),
+            "status": task.status.value,
+            "results_count": len(task.results),
+            "error": task.error,
+            "total_chats": len(task.chat_ids),
+        }
+
+    # Task is still pending or in progress
+    return {}
+
+
+@router.post("/{task_id}/dismiss-notification")
+async def dismiss_orphaned_notification(task_id: str, request: Request) -> dict[str, str]:
+    """Dismiss the orphaned task notification.
+
+    Called when user explicitly dismisses the notification or views results.
+
+    Args:
+        task_id: Task UUID string
+        request: FastAPI request
+
+    Returns:
+        Status message
+    """
+    session = get_session(request)
+
+    # Clear current_task_id if it matches
+    current_task_id = session.get("current_task_id")
+    if current_task_id == task_id:
+        session.delete("current_task_id")
+
+    return {"status": "dismissed"}

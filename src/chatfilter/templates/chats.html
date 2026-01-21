@@ -444,5 +444,74 @@ if (sessionSelect) {
         }
     });
 }
+
+// Check for orphaned completed analysis on page load
+async function checkOrphanedAnalysis() {
+    try {
+        const response = await fetch('/api/analysis/check-orphaned');
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        // If no orphaned task, return
+        if (!data || !data.task_id) return;
+
+        // Show notification based on task status
+        const taskId = data.task_id;
+        const status = data.status;
+        const resultsCount = data.results_count || 0;
+        const totalChats = data.total_chats || 0;
+        const error = data.error;
+
+        let title, message, type;
+
+        if (status === 'completed') {
+            title = 'Analysis Complete';
+            message = `Your analysis of ${totalChats} chat(s) completed while you were away. ${resultsCount} result(s) available.`;
+            type = 'success';
+        } else if (status === 'failed') {
+            title = 'Analysis Failed';
+            message = `Your analysis failed: ${error || 'Unknown error'}`;
+            type = 'error';
+        } else if (status === 'cancelled') {
+            title = 'Analysis Cancelled';
+            message = `Your analysis was cancelled. ${resultsCount} partial result(s) available.`;
+            type = 'warning';
+        } else if (status === 'timeout') {
+            title = 'Analysis Timeout';
+            message = `Your analysis timed out. ${resultsCount} partial result(s) available.`;
+            type = 'warning';
+        } else {
+            return; // Unknown status
+        }
+
+        // Show modal with action buttons
+        const confirmed = await ModalManager.confirm({
+            type: type === 'error' ? 'error' : 'info',
+            icon: type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️',
+            title: title,
+            message: message,
+            confirmText: resultsCount > 0 ? 'View Results' : 'Dismiss',
+            cancelText: 'Dismiss',
+            showCancel: resultsCount > 0
+        });
+
+        if (confirmed && resultsCount > 0) {
+            // Navigate to results page or show results
+            window.location.href = `/results?task_id=${taskId}`;
+        } else {
+            // Dismiss notification
+            await fetch(`/api/analysis/${taskId}/dismiss-notification`, {
+                method: 'POST'
+            });
+        }
+
+    } catch (error) {
+        console.error('Failed to check orphaned analysis:', error);
+    }
+}
+
+// Run on page load
+document.addEventListener('DOMContentLoaded', checkOrphanedAnalysis);
 </script>
 {% endblock %}
