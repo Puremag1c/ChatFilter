@@ -28,6 +28,7 @@ class Chat(BaseModel):
         username: Optional public username (@username).
         member_count: Number of members (if available).
         is_archived: Whether the chat is archived (in folder 1).
+        slowmode_seconds: Slow mode delay in seconds (None if disabled or unavailable).
 
     Example:
         >>> chat = Chat(id=123, title="Test Chat", chat_type=ChatType.GROUP)
@@ -47,6 +48,7 @@ class Chat(BaseModel):
     username: str | None = None
     member_count: int | None = None
     is_archived: bool = False
+    slowmode_seconds: int | None = None
 
     @field_validator("id")
     @classmethod
@@ -64,6 +66,14 @@ class Chat(BaseModel):
             raise ValueError("member_count cannot be negative")
         return v
 
+    @field_validator("slowmode_seconds")
+    @classmethod
+    def slowmode_seconds_must_be_non_negative(cls, v: int | None) -> int | None:
+        """Validate that slowmode_seconds is non-negative if provided."""
+        if v is not None and v < 0:
+            raise ValueError("slowmode_seconds cannot be negative")
+        return v
+
     @classmethod
     def fake(
         cls,
@@ -73,6 +83,7 @@ class Chat(BaseModel):
         username: str | None = None,
         member_count: int | None = None,
         is_archived: bool = False,
+        slowmode_seconds: int | None = None,
     ) -> Chat:
         """Create a fake Chat for testing.
 
@@ -83,6 +94,7 @@ class Chat(BaseModel):
             username: Optional username.
             member_count: Optional member count.
             is_archived: Whether the chat is archived (default: False).
+            slowmode_seconds: Optional slowmode delay in seconds.
 
         Returns:
             Chat instance with test data.
@@ -99,4 +111,5 @@ class Chat(BaseModel):
             username=username,
             member_count=member_count,
             is_archived=is_archived,
+            slowmode_seconds=slowmode_seconds,
         )

@@ -20,7 +20,7 @@ from telethon.errors import (
     FloodWaitError,
     UserBannedInChannelError,
 )
-from telethon.tl.functions.channels import JoinChannelRequest
+from telethon.tl.functions.channels import GetFullChannelRequest, JoinChannelRequest
 from telethon.tl.functions.messages import GetForumTopicsRequest, ImportChatInviteRequest
 from telethon.tl.types import Channel, User
 from telethon.tl.types import Chat as TelegramChat
@@ -436,6 +436,10 @@ class TelegramClientLoader:
         self,
         proxy: ProxyConfig | None = None,
         use_saved_proxy: bool = True,
+        *,
+        timeout: float | None = None,
+        connection_retries: int | None = None,
+        retry_delay: int | None = None,
     ) -> TelegramClientType:
         """Create and return a Telethon client instance.
 
@@ -448,6 +452,11 @@ class TelegramClientLoader:
             use_saved_proxy: If True and no explicit proxy provided,
                 loads proxy settings from data/config/proxy.json.
                 Set to False to disable proxy entirely.
+            timeout: Timeout in seconds for network operations (default: 30s).
+                Increased from Telethon default of 10s to handle slow connections
+                and MTProto handshake through proxies.
+            connection_retries: Number of retries for connection attempts (default: 5).
+            retry_delay: Delay in seconds between retry attempts (default: 1).
 
         Returns:
             TelegramClient instance (not connected yet)
@@ -495,11 +504,22 @@ class TelegramClientLoader:
                 effective_proxy.password or None,
             )
 
+        # Load default timeouts from settings if not explicitly provided
+        from chatfilter.config import get_settings
+
+        settings = get_settings()
+        effective_timeout = timeout if timeout is not None else int(settings.connect_timeout)
+        effective_connection_retries = connection_retries if connection_retries is not None else 5
+        effective_retry_delay = retry_delay if retry_delay is not None else 1
+
         return TelegramClient(
             session_name,
             self._config.api_id,
             self._config.api_hash,
             proxy=telethon_proxy,
+            timeout=effective_timeout,
+            connection_retries=effective_connection_retries,
+            retry_delay=effective_retry_delay,
         )
 
 
@@ -549,6 +569,48 @@ def _dialog_to_chat(dialog: Dialog, is_archived: bool = False) -> Chat | None:
         member_count=member_count,
         is_archived=is_archived,
     )
+
+
+@with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
+async def get_chat_slowmode(client: TelegramClientType, chat_id: int) -> int | None:
+    """Get slowmode delay in seconds for a chat.
+
+    Args:
+        client: Telethon client
+        chat_id: Chat ID (can be negative or positive)
+
+    Returns:
+        Slowmode delay in seconds, or None if:
+        - Chat is not a channel/supergroup
+        - Slowmode is disabled (0 seconds)
+        - Cannot access full channel info
+
+    Note:
+        Only channels and supergroups can have slowmode.
+        Private chats and basic groups return None.
+    """
+    try:
+        # Get the entity first
+        entity = await client.get_entity(chat_id)
+
+        # Only channels/supergroups can have slowmode
+        if not isinstance(entity, Channel):
+            return None
+
+        # Get full channel info
+        full_channel_result = await client(GetFullChannelRequest(channel=entity))
+        full_chat = full_channel_result.full_chat
+
+        # Get slowmode_seconds (None if not set, 0 if disabled)
+        slowmode = getattr(full_chat, "slowmode_seconds", None)
+
+        # Return None if slowmode is 0 (disabled) or None (not available)
+        return slowmode if slowmode else None
+
+    except Exception as e:
+        # Log but don't fail - slowmode is optional metadata
+        logger.debug(f"Could not fetch slowmode for chat {chat_id}: {e}")
+        return None
 
 
 @with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)

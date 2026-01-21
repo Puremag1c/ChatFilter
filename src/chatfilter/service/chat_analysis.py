@@ -16,6 +16,7 @@ from chatfilter.analyzer.metrics import StreamingMetricsAggregator
 from chatfilter.models import AnalysisResult, Chat, ChatType
 from chatfilter.telegram.client import (
     TelegramClientLoader,
+    get_chat_slowmode,
     get_dialogs,
     get_messages,
     get_messages_streaming,
@@ -338,6 +339,20 @@ class ChatAnalysisService:
                     id=chat_id,
                     title=f"Chat {chat_id}",
                     chat_type=ChatType.GROUP,
+                )
+
+            # Enrich chat with slowmode info if available
+            slowmode_seconds = await get_chat_slowmode(client, chat_id)
+            if slowmode_seconds is not None:
+                # Create new Chat instance with slowmode info (Chat is frozen/immutable)
+                chat = Chat(
+                    id=chat.id,
+                    title=chat.title,
+                    chat_type=chat.chat_type,
+                    username=chat.username,
+                    member_count=chat.member_count,
+                    is_archived=chat.is_archived,
+                    slowmode_seconds=slowmode_seconds,
                 )
 
             # Log final memory usage

@@ -62,8 +62,9 @@ class TestToCsvRows:
         assert data_row[0] == "https://t.me/testchat"  # chat_link
         assert data_row[1] == "Test Chat"  # chat_title
         assert data_row[2] == "group"  # chat_type
-        assert data_row[3] == "100"  # message_count
-        assert data_row[4] == "10"  # unique_authors
+        assert data_row[3] == ""  # slowmode_seconds (None)
+        assert data_row[4] == "100"  # message_count
+        assert data_row[5] == "10"  # unique_authors
 
     def test_multiple_results(self) -> None:
         """Test converting multiple results."""
@@ -108,7 +109,7 @@ class TestToCsvRows:
         result = create_test_result(history_hours=24.5678)
         rows = list(to_csv_rows([result]))
 
-        assert rows[1][5] == "24.57"  # Rounded to 2 decimal places
+        assert rows[1][6] == "24.57"  # Rounded to 2 decimal places
 
     def test_messages_per_hour_formatting(self) -> None:
         """Test that messages per hour is formatted correctly."""
@@ -116,7 +117,7 @@ class TestToCsvRows:
         rows = list(to_csv_rows([result]))
 
         # 100 / 24 = 4.166...
-        assert rows[1][6] == "4.17"
+        assert rows[1][7] == "4.17"
 
 
 class TestExportToCsv:
