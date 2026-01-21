@@ -1,6 +1,28 @@
 {% if success %}
 <div class="alert alert-success">
     {{ message }}
+    {% if duplicate_sessions %}
+    <div class="alert alert-warning" style="margin-top: 1rem; border-left: 4px solid #f59e0b;">
+        <strong>⚠️ Multiple Sessions from Same Account Detected</strong>
+        <div style="margin-top: 0.5rem;">
+            <p>This session belongs to the same Telegram account as:</p>
+            <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                {% for dup_session in duplicate_sessions %}
+                <li><strong>{{ dup_session }}</strong></li>
+                {% endfor %}
+            </ul>
+            <p style="margin-top: 0.5rem; font-size: 0.9em;">
+                <strong>Important:</strong> When using multiple sessions from the same Telegram account simultaneously
+                (e.g., from different devices), Telegram may automatically revoke one or more sessions without warning.
+                This is a Telegram security feature and cannot be prevented by this application.
+            </p>
+            <p style="margin-top: 0.5rem; font-size: 0.9em; color: #dc2626;">
+                <strong>Recommendation:</strong> Use only one session per Telegram account at a time, or be prepared
+                for sessions to be revoked if Telegram detects concurrent usage.
+            </p>
+        </div>
+    </div>
+    {% endif %}
     <script>
         // Show success toast notification
         ToastManager.success('Session uploaded successfully!', {

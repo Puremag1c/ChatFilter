@@ -213,7 +213,7 @@ def validate_session_file_format(content: bytes) -> None:
             raise ValueError("Invalid database file") from e
 
 
-def validate_config_file_format(content: bytes) -> dict:
+def validate_config_file_format(content: bytes) -> dict[str, str | int]:
     """Validate that content is a valid Telegram config JSON.
 
     Performs quick structural validation before parsing to prevent
@@ -279,6 +279,116 @@ def validate_config_file_format(content: bytes) -> dict:
         raise ValueError("api_hash must be a non-empty string")
 
     return config
+
+
+async def get_account_info_from_session(
+    session_path: Path, api_id: int, api_hash: str
+) -> dict[str, int | str] | None:
+    """Extract account info from a session by connecting to Telegram.
+
+    Args:
+        session_path: Path to the session file
+        api_id: Telegram API ID
+        api_hash: Telegram API hash
+
+    Returns:
+        Dict with user_id, phone, first_name, last_name if successful, None otherwise
+    """
+    import asyncio
+
+    from telethon import TelegramClient  # type: ignore[import-untyped]
+
+    try:
+        # Create a temporary client to get account info
+        client = TelegramClient(str(session_path), api_id, api_hash)
+
+        # Connect with a timeout to avoid hanging
+        await asyncio.wait_for(client.connect(), timeout=10.0)
+
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            return None
+
+        # Get user info
+        me = await asyncio.wait_for(client.get_me(), timeout=10.0)
+        await client.disconnect()
+
+        return {
+            "user_id": me.id,
+            "phone": me.phone or "",
+            "first_name": me.first_name or "",
+            "last_name": me.last_name or "",
+        }
+    except Exception as e:
+        logger.warning(f"Failed to extract account info from session: {e}")
+        return None
+
+
+def save_account_info(session_dir: Path, account_info: dict[str, int | str]) -> None:
+    """Save account info metadata to session directory.
+
+    Args:
+        session_dir: Session directory path
+        account_info: Account info dict with user_id, phone, etc.
+    """
+    metadata_file = session_dir / ".account_info.json"
+    metadata_content = json.dumps(account_info, indent=2).encode("utf-8")
+    atomic_write(metadata_file, metadata_content)
+    secure_file_permissions(metadata_file)
+
+
+def load_account_info(session_dir: Path) -> dict[str, int | str] | None:
+    """Load account info metadata from session directory.
+
+    Args:
+        session_dir: Session directory path
+
+    Returns:
+        Account info dict or None if not found
+    """
+    metadata_file = session_dir / ".account_info.json"
+    if not metadata_file.exists():
+        return None
+
+    try:
+        with metadata_file.open("r") as f:
+            data = json.load(f)
+            # Type narrowing: ensure it's a dict before returning
+            if isinstance(data, dict):
+                return data
+            return None
+    except Exception as e:
+        logger.warning(f"Failed to load account info from {metadata_file}: {e}")
+        return None
+
+
+def find_duplicate_accounts(target_user_id: int, exclude_session: str | None = None) -> list[str]:
+    """Find all sessions that belong to the same Telegram account.
+
+    Args:
+        target_user_id: The user_id to search for
+        exclude_session: Optional session name to exclude from search
+
+    Returns:
+        List of session names that have the same user_id
+    """
+    duplicates = []
+    data_dir = ensure_data_dir()
+
+    for session_dir in data_dir.iterdir():
+        if not session_dir.is_dir():
+            continue
+
+        # Skip the excluded session
+        if exclude_session and session_dir.name == exclude_session:
+            continue
+
+        # Load account info
+        account_info = load_account_info(session_dir)
+        if account_info and account_info.get("user_id") == target_user_id:
+            duplicates.append(session_dir.name)
+
+    return duplicates
 
 
 def list_stored_sessions() -> list[SessionListItem]:
@@ -395,6 +505,37 @@ async def upload_session(
                 {"request": request, "success": False, "error": f"Invalid config: {e}"},
             )
 
+        # Extract account info from session to check for duplicates
+        import tempfile
+
+        account_info = None
+        duplicate_sessions = []
+
+        # Create a temporary session file to test connection
+        with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
+            tmp_session.write(session_content)
+            tmp_session.flush()
+            tmp_session_path = Path(tmp_session.name)
+
+        try:
+            api_id = int(config_data["api_id"])
+            api_hash = str(config_data["api_hash"])
+
+            # Try to get account info from the session
+            account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+
+            if account_info:
+                # Check for duplicate accounts
+                user_id = account_info["user_id"]
+                if isinstance(user_id, int):
+                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+        finally:
+            # Clean up temporary session file
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                tmp_session_path.unlink()
+
         # Create session directory and save files
         session_dir.mkdir(parents=True, exist_ok=True)
         session_path = session_dir / "session.session"
@@ -449,6 +590,14 @@ async def upload_session(
             loader = TelegramClientLoader(session_path, use_secure_storage=True)
             loader.validate()
 
+            # Save account info if we successfully extracted it
+            if account_info:
+                save_account_info(session_dir, account_info)
+                logger.info(
+                    f"Saved account info for session '{safe_name}': "
+                    f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
+                )
+
         except TelegramConfigError as e:
             # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
@@ -471,13 +620,18 @@ async def upload_session(
 
         logger.info(f"Session '{safe_name}' uploaded successfully")
 
+        # Prepare response with duplicate account warning if needed
+        response_data = {
+            "request": request,
+            "success": True,
+            "message": f"Session '{safe_name}' uploaded successfully",
+            "duplicate_sessions": duplicate_sessions,
+            "account_info": account_info,
+        }
+
         return templates.TemplateResponse(
             "partials/upload_result.html",
-            {
-                "request": request,
-                "success": True,
-                "message": f"Session '{safe_name}' uploaded successfully",
-            },
+            response_data,
         )
 
     except Exception:
