@@ -34,6 +34,7 @@ dev = [
     "pytest-timeout>=2.2.0",
     "ruff>=0.1.0",
     "mypy>=1.8.0",
+    "types-cryptography",
     "pre-commit>=3.6.0",
     "bandit[toml]>=1.7.0",
     "safety>=3.0.0",
@@ -77,6 +78,36 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["keyring", "keyring.*", "cryptography", "cryptography.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/chatfilter"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 80.0
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
 
 [tool.bandit]
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]

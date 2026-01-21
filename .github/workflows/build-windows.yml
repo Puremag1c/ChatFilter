@@ -15,6 +15,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    env:
+      HAS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
 
     steps:
       - name: Checkout code
@@ -49,6 +51,70 @@ jobs:
             Get-ChildItem "dist/ChatFilter" | Format-Table Name, Length
           } else {
             Write-Error "Executable not found!"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Import code signing certificate
+        if: github.event_name != 'pull_request' && env.HAS_CERTIFICATE == 'true'
+        run: |
+          # Decode base64 certificate to PFX file
+          $certBytes = [System.Convert]::FromBase64String("${{ secrets.WINDOWS_CERTIFICATE }}")
+          $certPath = "certificate.pfx"
+          [IO.File]::WriteAllBytes($certPath, $certBytes)
+
+          # Import certificate to CurrentUser store
+          $securePwd = ConvertTo-SecureString -String "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" -AsPlainText -Force
+          Import-PfxCertificate -FilePath $certPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePwd
+
+          Write-Host "✓ Certificate imported successfully"
+        shell: pwsh
+
+      - name: Sign Windows executable
+        if: github.event_name != 'pull_request' && env.HAS_CERTIFICATE == 'true'
+        run: |
+          # Sign the main executable with retry logic for timestamp failures
+          $maxRetries = 3
+          $retryCount = 0
+          $signed = $false
+
+          while (-not $signed -and $retryCount -lt $maxRetries) {
+            try {
+              Write-Host "Signing attempt $($retryCount + 1) of $maxRetries..."
+
+              signtool sign /fd SHA256 /td SHA256 `
+                /tr http://timestamp.digicert.com `
+                /n "${{ secrets.WINDOWS_CODESIGN_NAME }}" `
+                /d "ChatFilter - Telegram chat filtering and analysis tool" `
+                dist\ChatFilter\ChatFilter.exe
+
+              $signed = $true
+              Write-Host "✓ Executable signed successfully"
+            }
+            catch {
+              $retryCount++
+              if ($retryCount -lt $maxRetries) {
+                $waitTime = [math]::Pow(2, $retryCount)
+                Write-Host "Signing failed, retrying in $waitTime seconds..."
+                Start-Sleep -Seconds $waitTime
+              } else {
+                Write-Error "Failed to sign executable after $maxRetries attempts"
+                throw
+              }
+            }
+          }
+        shell: pwsh
+
+      - name: Verify code signature
+        if: github.event_name != 'pull_request' && env.HAS_CERTIFICATE == 'true'
+        run: |
+          # Verify the signature
+          signtool verify /pa /v dist\ChatFilter\ChatFilter.exe
+
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ Signature verified successfully"
+          } else {
+            Write-Error "Signature verification failed!"
             exit 1
           }
         shell: pwsh

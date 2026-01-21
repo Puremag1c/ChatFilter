@@ -13,6 +13,12 @@ RUNTIME PATH RESOLUTION:
 - Data files (templates, static, certificates) are extracted to sys._MEIPASS/chatfilter/
 - User data (sessions, configs, databases) uses platformdirs for the appropriate
   user data directory (NOT bundled in the executable)
+
+CODE SIGNING (Windows):
+- Code signing happens POST-BUILD using SignTool in GitHub Actions workflow
+- See .github/workflows/build-windows.yml for signing implementation
+- See docs/WINDOWS_CODESIGN_SETUP.md for certificate setup instructions
+- Signing requires: WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD, WINDOWS_CODESIGN_NAME secrets
 """
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -173,10 +179,10 @@ exe = EXE(
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
-    codesign_identity=None,
+    codesign_identity=None,  # Code signing done post-build (see .github/workflows/build-windows.yml)
     entitlements_file=None,
     version='file_version_info.txt',  # Windows version metadata (increases legitimacy)
-    icon=None,  # TODO: Add icon file (e.g., 'icon.ico') to reduce AV false positives
+    icon=None,  # TODO: Add icon file (e.g., 'icon.ico') to improve trust and recognition
 )
 
 # COLLECT: collect all files into distribution directory

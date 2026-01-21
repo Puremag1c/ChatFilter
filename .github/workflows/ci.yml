@@ -85,8 +85,8 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          echo "Running pytest..."
-          pytest --cov=src/chatfilter --cov-report=xml --cov-report=term-missing
+          echo "Running pytest with coverage threshold..."
+          pytest --cov=src/chatfilter --cov-report=xml --cov-report=term-missing --cov-fail-under=80
 
       - name: Upload coverage to artifacts
         if: matrix.python-version == '3.11'

@@ -31,6 +31,11 @@ You only need to do this once. Windows will remember your choice for future runs
 - No telemetry or network calls except to Telegram API
 - Open-source under MIT license
 
+**Signed Builds:**
+The Windows builds support optional code signing with Standard or EV Code Signing certificates. Official builds from GitHub Actions with proper secrets configured can be code-signed to prevent SmartScreen warnings entirely. However, code signing certificates cost $150-500 annually, so unsigned builds are provided by default.
+
+**For maintainers:** See [docs/WINDOWS_CODESIGN_SETUP.md](docs/WINDOWS_CODESIGN_SETUP.md) for setup instructions.
+
 #### macOS Gatekeeper Warning
 
 When opening `ChatFilter.app` for the first time, macOS Gatekeeper may block the application if it's not properly signed and notarized. You might see errors like:
