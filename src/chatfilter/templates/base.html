@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ locale }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://unpkg.com/hyperlist@1.0.0/dist/hyperlist.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="/static/js/i18n.js"></script>
+    <script src="/static/js/language-switcher.js"></script>
     <script src="/static/js/theme-switcher.js"></script>
     <script src="/static/js/tab-sync.js"></script>
     <script src="/static/js/tab-activity.js"></script>
@@ -50,6 +52,9 @@
                 </div>
                 <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle dark mode" data-tooltip="Switch between light and dark theme" data-tooltip-position="bottom">
                     <span class="theme-icon" aria-hidden="true">🌙</span>
+                </button>
+                <button id="language-toggle" class="language-toggle-btn" aria-label="Switch language" data-tooltip="Switch between English and Russian" data-tooltip-position="bottom">
+                    <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
                 </button>
             </div>
         </nav>

@@ -261,9 +261,13 @@ def create_app(
     # Session middleware manages session cookies (must run before CSRF)
     # CSRF protection validates tokens (must run after Session)
     # SecurityHeaders adds security headers to all responses
+    # LocaleMiddleware detects and sets user's preferred language
+    from chatfilter.i18n.middleware import LocaleMiddleware
+
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(CSRFProtectionMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(LocaleMiddleware)
     app.add_middleware(SessionMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(GracefulShutdownMiddleware)
@@ -303,17 +307,39 @@ def create_app(
 
 
 def get_templates() -> Jinja2Templates:
-    """Get Jinja2 templates instance.
+    """Get Jinja2 templates instance with i18n support.
 
     Returns:
-        Configured Jinja2Templates for rendering HTML
+        Configured Jinja2Templates for rendering HTML with translations
 
     Raises:
         FileNotFoundError: If templates directory doesn't exist
     """
     if not TEMPLATES_DIR.exists():
         raise FileNotFoundError(f"Templates directory not found: {TEMPLATES_DIR}")
-    return Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+    # Configure Jinja2 i18n extension
+    templates.env.add_extension("jinja2.ext.i18n")
+
+    # Install translation functions
+    # These will be updated per-request with the correct locale
+    from chatfilter.i18n.translations import get_current_locale, get_translations
+
+    def install_translations() -> None:
+        """Install translations for current locale into Jinja2 environment."""
+        locale = get_current_locale()
+        translations = get_translations(locale)
+        templates.env.install_gettext_translations(translations)
+
+    # Install default translations (will be overridden per request)
+    install_translations()
+
+    # Store the installer function for use in template context
+    templates.env.globals["install_translations"] = install_translations
+
+    return templates
 
 
 # Default app instance for uvicorn

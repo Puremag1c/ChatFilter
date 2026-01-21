@@ -1,0 +1,91 @@
+{
+  "common": {
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information",
+    "loading": "Loading...",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "nav": {
+    "sessions": "Sessions",
+    "chats": "Chats",
+    "import": "Import",
+    "results": "Results",
+    "history": "History",
+    "proxy": "Proxy"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting",
+    "error": "Error",
+    "ready": "Ready",
+    "processing": "Processing",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "toast": {
+    "error_title": "Error",
+    "success_title": "Success",
+    "warning_title": "Warning",
+    "info_title": "Information"
+  },
+  "errors": {
+    "connection_failed": "Connection failed",
+    "server_error": "Server error occurred",
+    "network_error": "Network error. Please check your connection.",
+    "request_timeout": "Request timed out. Please try again.",
+    "unknown_error": "An unknown error occurred",
+    "load_failed": "Failed to load data",
+    "save_failed": "Failed to save changes",
+    "delete_failed": "Failed to delete",
+    "validation_error": "Validation error"
+  },
+  "monitor": {
+    "connection_offline": "Connection monitor offline",
+    "unable_to_check": "Unable to check Telegram connection",
+    "session_count": "{count} session",
+    "session_count_plural": "{count} sessions"
+  },
+  "telegram": {
+    "status_connected": "Telegram Connected",
+    "status_disconnected": "Telegram Disconnected",
+    "session_active": "Session active",
+    "session_inactive": "Session inactive"
+  },
+  "sync": {
+    "selection_synced": "Session selection synced from another tab",
+    "data_updated": "Data updated from another tab"
+  },
+  "modal": {
+    "confirm_action": "Confirm Action",
+    "are_you_sure": "Are you sure?",
+    "cannot_be_undone": "This action cannot be undone."
+  },
+  "analysis": {
+    "complete": "Analysis Complete",
+    "failed": "Analysis Failed",
+    "in_progress": "Analysis in progress",
+    "select_chats": "Select chats for analysis",
+    "no_results": "No results found"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "common": {
+    "error": "Ошибка",
+    "success": "Успешно",
+    "warning": "Предупреждение",
+    "info": "Информация",
+    "loading": "Загрузка...",
+    "confirm": "Подтвердить",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "back": "Назад",
+    "next": "Далее",
+    "previous": "Предыдущий",
+    "search": "Поиск",
+    "filter": "Фильтр",
+    "export": "Экспорт",
+    "import": "Импорт",
+    "refresh": "Обновить",
+    "retry": "Повторить",
+    "yes": "Да",
+    "no": "Нет"
+  },
+  "nav": {
+    "sessions": "Сессии",
+    "chats": "Чаты",
+    "import": "Импорт",
+    "results": "Результаты",
+    "history": "История",
+    "proxy": "Прокси"
+  },
+  "status": {
+    "online": "Онлайн",
+    "offline": "Оффлайн",
+    "connected": "Подключено",
+    "disconnected": "Отключено",
+    "connecting": "Подключение",
+    "error": "Ошибка",
+    "ready": "Готов",
+    "processing": "Обработка",
+    "completed": "Завершено",
+    "failed": "Не удалось"
+  },
+  "toast": {
+    "error_title": "Ошибка",
+    "success_title": "Успешно",
+    "warning_title": "Предупреждение",
+    "info_title": "Информация"
+  },
+  "errors": {
+    "connection_failed": "Не удалось подключиться",
+    "server_error": "Произошла ошибка сервера",
+    "network_error": "Ошибка сети. Проверьте подключение.",
+    "request_timeout": "Превышено время ожидания. Попробуйте снова.",
+    "unknown_error": "Произошла неизвестная ошибка",
+    "load_failed": "Не удалось загрузить данные",
+    "save_failed": "Не удалось сохранить изменения",
+    "delete_failed": "Не удалось удалить",
+    "validation_error": "Ошибка валидации"
+  },
+  "monitor": {
+    "connection_offline": "Монитор подключения оффлайн",
+    "unable_to_check": "Не удается проверить подключение к Telegram",
+    "session_count": "{count} сессия",
+    "session_count_plural": "{count} сессий"
+  },
+  "telegram": {
+    "status_connected": "Telegram Подключен",
+    "status_disconnected": "Telegram Отключен",
+    "session_active": "Сессия активна",
+    "session_inactive": "Сессия неактивна"
+  },
+  "sync": {
+    "selection_synced": "Выбор сессии синхронизирован с другой вкладки",
+    "data_updated": "Данные обновлены с другой вкладки"
+  },
+  "modal": {
+    "confirm_action": "Подтвердить действие",
+    "are_you_sure": "Вы уверены?",
+    "cannot_be_undone": "Это действие нельзя отменить."
+  },
+  "analysis": {
+    "complete": "Анализ завершен",
+    "failed": "Анализ не удался",
+    "in_progress": "Идет анализ",
+    "select_chats": "Выберите чаты для анализа",
+    "no_results": "Результаты не найдены"
+  }
+}

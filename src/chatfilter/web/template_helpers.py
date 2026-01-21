@@ -12,22 +12,31 @@ if TYPE_CHECKING:
 
 
 def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
-    """Get template context with CSRF token and other common data.
+    """Get template context with CSRF token, i18n support, and other common data.
 
-    This helper ensures CSRF tokens are available in all templates.
+    This helper ensures CSRF tokens and i18n functions are available in all templates.
 
     Args:
         request: FastAPI request object
         **kwargs: Additional context variables
 
     Returns:
-        Context dictionary with request, csrf_token, and any provided kwargs
+        Context dictionary with request, csrf_token, locale, and any provided kwargs
     """
+    from chatfilter.i18n.translations import get_current_locale, get_translations
+
     session = get_session(request)
     csrf_token = get_csrf_token(session)
+
+    # Get current locale for this request
+    locale = get_current_locale()
+    translations = get_translations(locale)
 
     return {
         "request": request,
         "csrf_token": csrf_token,
+        "locale": locale,
+        "gettext": translations.gettext,
+        "ngettext": translations.ngettext,
         **kwargs,
     }

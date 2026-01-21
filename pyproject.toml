@@ -24,6 +24,7 @@ dependencies = [
     "platformdirs>=4.0.0",
     "cryptography>=41.0.0",
     "keyring>=25.0.0",
+    "babel>=2.14.0",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +37,7 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.8.0",
     "types-cryptography",
+    "types-babel>=2.11.0",
     "pre-commit>=3.6.0",
     "bandit[toml]>=1.7.0",
     "safety>=3.0.0",
