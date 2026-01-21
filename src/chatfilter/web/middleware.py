@@ -7,13 +7,18 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
+from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from chatfilter.utils.network import get_network_monitor
 from chatfilter.web.csrf import CSRF_FORM_FIELD, CSRF_HEADER_NAME, validate_csrf_token
 from chatfilter.web.session import get_session, set_session_cookie
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +247,85 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "connect-src 'self'; "
             "frame-ancestors 'none';"
         )
+
+        return response
+
+
+class NetworkStatusMiddleware(BaseHTTPMiddleware):
+    """Middleware for network status awareness and graceful degradation.
+
+    Features:
+    - Adds network status information to request.state
+    - Optionally blocks requests when network is offline
+    - Adds X-Network-Status header to responses
+    - Provides graceful degradation support
+
+    The middleware checks network connectivity and makes the status
+    available to route handlers via request.state.network_status.
+
+    Args:
+        check_on_requests: If True, check network status on each request.
+            If False, use cached status (faster but less accurate).
+        block_when_offline: If True, return 503 for requests when offline.
+            If False, allow requests to proceed (graceful degradation).
+        exempt_paths: List of paths exempt from offline blocking (e.g., /health).
+    """
+
+    def __init__(
+        self,
+        app: FastAPI,
+        check_on_requests: bool = False,
+        block_when_offline: bool = False,
+        exempt_paths: set[str] | None = None,
+    ) -> None:
+        super().__init__(app)
+        self.check_on_requests = check_on_requests
+        self.block_when_offline = block_when_offline
+        self.exempt_paths = exempt_paths or {"/health", "/static"}
+        self.network_monitor = get_network_monitor()
+
+    def _is_exempt(self, path: str) -> bool:
+        """Check if path is exempt from offline blocking."""
+        return path in self.exempt_paths or any(path.startswith(p) for p in self.exempt_paths)
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # Check network status
+        force_check = self.check_on_requests
+        status = await self.network_monitor.get_status(force_check=force_check)
+
+        # Store status in request state for route handlers
+        request.state.network_status = status
+
+        # If offline and blocking is enabled, return 503
+        if (
+            not status.is_online
+            and self.block_when_offline
+            and not self._is_exempt(request.url.path)
+        ):
+            logger.warning(
+                f"Blocking request due to network offline: {request.method} {request.url.path}",
+                extra={"request_id": get_request_id()},
+            )
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "Network connection unavailable. Please check your internet connection.",
+                    "error_type": "network_offline",
+                    "retry_suggested": True,
+                },
+                headers={
+                    "X-Network-Status": "offline",
+                    "Retry-After": "30",  # Suggest retry in 30 seconds
+                },
+            )
+
+        # Proceed with request
+        response = await call_next(request)
+
+        # Add network status to response headers
+        response.headers["X-Network-Status"] = "online" if status.is_online else "offline"
 
         return response
 

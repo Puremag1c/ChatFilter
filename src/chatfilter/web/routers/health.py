@@ -9,6 +9,8 @@ from typing import Literal
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
+from chatfilter.utils.network import get_network_monitor
+
 router = APIRouter(tags=["health"])
 
 # Track application start time
@@ -32,6 +34,14 @@ class DiskSpace(BaseModel):
     percent_used: float = Field(description="Percentage of disk space used")
 
 
+class NetworkHealth(BaseModel):
+    """Network connectivity health information."""
+
+    online: bool = Field(description="Whether network is currently reachable")
+    check_duration_ms: float | None = Field(description="Time taken for connectivity check")
+    error: str | None = Field(description="Error message if offline", default=None)
+
+
 class HealthResponse(BaseModel):
     """Health check response model."""
 
@@ -40,6 +50,7 @@ class HealthResponse(BaseModel):
     uptime_seconds: float
     telegram: TelegramStatus | None = None
     disk: DiskSpace
+    network: NetworkHealth
 
 
 class ReadyResponse(BaseModel):
@@ -80,12 +91,13 @@ async def health_check(request: Request) -> HealthResponse:
     - Overall health status (ok/degraded/unhealthy)
     - Application version
     - Uptime since startup
+    - Network connectivity status
     - Telegram connection status (if available)
     - Disk space availability
 
     The status is determined by:
-    - ok: All systems operational, disk space > 10%
-    - degraded: Minor issues (no telegram connections, disk space 5-10%)
+    - ok: All systems operational, network online, disk space > 10%
+    - degraded: Minor issues (network offline, no telegram connections, disk space 5-10%)
     - unhealthy: Critical issues (disk space < 5%)
 
     Returns:
@@ -101,6 +113,15 @@ async def health_check(request: Request) -> HealthResponse:
 
     # Check disk space
     disk = get_disk_space(str(settings.data_dir))
+
+    # Check network connectivity
+    network_monitor = get_network_monitor()
+    network_status = await network_monitor.get_status(force_check=True)
+    network_health = NetworkHealth(
+        online=network_status.is_online,
+        check_duration_ms=network_status.check_duration_ms,
+        error=network_status.error_message if not network_status.is_online else None,
+    )
 
     # Check Telegram connection status
     telegram_status: TelegramStatus | None = None
@@ -143,7 +164,11 @@ async def health_check(request: Request) -> HealthResponse:
     status: Literal["ok", "degraded", "unhealthy"]
     if disk.percent_used >= 95:
         status = "unhealthy"
-    elif disk.percent_used >= 90 or (telegram_status and not telegram_status.connected):
+    elif (
+        disk.percent_used >= 90
+        or (telegram_status and not telegram_status.connected)
+        or not network_health.online
+    ):
         status = "degraded"
     else:
         status = "ok"
@@ -154,6 +179,7 @@ async def health_check(request: Request) -> HealthResponse:
         uptime_seconds=round(uptime, 2),
         telegram=telegram_status,
         disk=disk,
+        network=network_health,
     )
 
 
