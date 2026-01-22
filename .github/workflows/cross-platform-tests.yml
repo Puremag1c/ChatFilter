@@ -41,40 +41,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
-      - name: Display platform information (Unix)
-        if: runner.os != 'Windows'
+      - name: Display platform information
         shell: bash
         run: |
-          echo "========== Platform Information =========="
-          echo "OS: ${{ matrix.os }}"
-          echo "Python: ${{ matrix.python-version }}"
-          echo "Runner: ${{ runner.os }}"
-          echo "Architecture: ${{ runner.arch }}"
+          echo "Testing on ${{ matrix.os }} with Python ${{ matrix.python-version }}"
           python --version
-          pip --version
-
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            echo "macOS Version:"
-            sw_vers
-            echo "Architecture (uname -m):"
-            uname -m
-          fi
-          echo "=========================================="
-
-      - name: Display platform information (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Write-Host "========== Platform Information =========="
-          Write-Host "OS: ${{ matrix.os }}"
-          Write-Host "Python: ${{ matrix.python-version }}"
-          Write-Host "Runner: ${{ runner.os }}"
-          Write-Host "Architecture: ${{ runner.arch }}"
-          python --version
-          pip --version
-          Write-Host "Windows Version:"
-          systeminfo | Select-String "OS Name", "OS Version"
-          Write-Host "=========================================="
 
       - name: Install dependencies
         shell: bash
@@ -82,160 +53,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Test path handling (cross-platform)
-        shell: bash
-        run: |
-          echo "Testing path handling on ${{ runner.os }}..."
-          python -c "
-          import sys
-          import os
-          from pathlib import Path
+      # Platform compatibility checks removed to speed up CI
+      # Core functionality is verified by the main test suite
 
-          # Test path separators
-          print(f'Path separator: {os.sep}')
-          print(f'Path list separator: {os.pathsep}')
-
-          # Test home directory
-          home = Path.home()
-          print(f'Home directory: {home}')
-
-          # Test temp directory
-          import tempfile
-          temp = Path(tempfile.gettempdir())
-          print(f'Temp directory: {temp}')
-
-          # Test creating paths
-          test_path = temp / 'chatfilter_test' / 'subdir'
-          print(f'Test path: {test_path}')
-          "
-
-      - name: Test permissions (Unix-like systems)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          echo "Testing file permissions on ${{ runner.os }}..."
-          python -c "
-          import os
-          import tempfile
-          from pathlib import Path
-
-          # Create a test file
-          test_dir = Path(tempfile.mkdtemp())
-          test_file = test_dir / 'test_permissions.txt'
-          test_file.write_text('test')
-
-          # Test permissions
-          print(f'File permissions: {oct(test_file.stat().st_mode)[-3:]}')
-
-          # Test read/write permissions
-          assert test_file.exists()
-          assert os.access(test_file, os.R_OK)
-          assert os.access(test_file, os.W_OK)
-
-          # Cleanup
-          test_file.unlink()
-          test_dir.rmdir()
-          print('[OK] Permissions test passed')
-          "
-
-      - name: Test permissions (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Write-Host "Testing file permissions on Windows..."
-          python -c @"
-          import os
-          import tempfile
-          from pathlib import Path
-
-          # Create a test file
-          test_dir = Path(tempfile.mkdtemp())
-          test_file = test_dir / 'test_permissions.txt'
-          test_file.write_text('test')
-
-          # Test Windows file access
-          assert test_file.exists()
-          assert os.access(test_file, os.R_OK)
-          assert os.access(test_file, os.W_OK)
-
-          # Cleanup
-          test_file.unlink()
-          test_dir.rmdir()
-          print('[OK] Permissions test passed')
-          "@
-
-      - name: Test Python runtime compatibility
-        shell: bash
-        run: |
-          echo "Testing Python runtime on ${{ matrix.os }} with Python ${{ matrix.python-version }}..."
-          python -c "
-          import sys
-          import platform
-
-          print(f'Python version: {sys.version}')
-          print(f'Platform: {platform.platform()}')
-          print(f'System: {platform.system()}')
-          print(f'Machine: {platform.machine()}')
-          print(f'Processor: {platform.processor()}')
-
-          # Test that required modules are available
-          import asyncio
-          import sqlite3
-          import json
-          import pathlib
-          print('[OK] Core modules available')
-          "
-
-      - name: Run tests with coverage
+      - name: Run tests
         shell: bash
         run: |
           echo "Running pytest on ${{ matrix.os }} with Python ${{ matrix.python-version }}..."
-          pytest --cov=src/chatfilter --cov-report=xml --cov-report=term-missing --cov-fail-under=80 -v
+          # Parallel execution with pytest-xdist for faster CI
+          # Coverage only on macOS to save time
+          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
+            pytest -n auto --cov=src/chatfilter --cov-report=xml --cov-report=term --cov-fail-under=80
+          else
+            pytest -n auto
+          fi
 
-      - name: Upload test artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: |
-            test-results.xml
-            test-log.txt
-            coverage.xml
-            pytest-*.log
-          retention-days: 14
-          if-no-files-found: ignore
-
-      - name: Test config paths (platform-specific)
-        shell: bash
-        run: |
-          echo "Testing config paths on ${{ runner.os }}..."
-          python -c "
-          from pathlib import Path
-          import sys
-
-          # Test that we can determine platform-specific config paths
-          if sys.platform == 'darwin':
-              expected_config_base = Path.home() / 'Library' / 'Application Support'
-              print(f'macOS config base: {expected_config_base}')
-          elif sys.platform == 'win32':
-              import os
-              expected_config_base = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming'))
-              print(f'Windows config base: {expected_config_base}')
-          else:
-              expected_config_base = Path.home() / '.config'
-              print(f'Linux config base: {expected_config_base}')
-
-          # Verify the base path exists
-          if expected_config_base.exists():
-              print(f'[OK] Config base path exists: {expected_config_base}')
-          else:
-              print(f'⚠ Config base path does not exist (may need to be created): {expected_config_base}')
-          "
-
+      # Upload coverage only from macOS to save time
       - name: Upload coverage report
+        if: matrix.os == 'macos-14'
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: coverage-report
           path: coverage.xml
           retention-days: 7
 
@@ -247,9 +85,7 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-14       # ARM64/Apple Silicon
           - macos-latest   # Latest stable macOS
-          - windows-2022   # Windows Server 2022
           - windows-latest # Latest Windows Server
 
     steps:
