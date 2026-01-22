@@ -1,6 +1,9 @@
 """Tests for first-run detection and setup."""
 
+import sys
 from pathlib import Path
+
+import pytest
 
 from chatfilter.config import Settings, reset_settings
 
@@ -55,6 +58,10 @@ class TestFirstRun:
         assert errors == []
         assert settings.log_dir.exists()
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Unix file permissions not applicable on Windows",
+    )
     def test_ensure_data_dirs_handles_permission_errors_gracefully(self, tmp_path: Path) -> None:
         """Test that ensure_data_dirs handles permission errors gracefully."""
         reset_settings()

@@ -166,7 +166,8 @@ def test_sanitize_config():
     assert config["port"] == 8000
     assert config["debug"] is True
     assert config["log_level"] == "INFO"
-    assert config["data_dir"] == "/data"
+    # Use str(Path) to get platform-appropriate path separator
+    assert config["data_dir"] == str(mock_settings.data_dir)
 
     # Verify sensitive fields are NOT present (they shouldn't be in the function)
     # The function should only include non-sensitive configuration

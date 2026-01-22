@@ -108,7 +108,7 @@ class TestSaveProxyConfig:
         # Verify config was saved to file
         config_path = config_dir / "proxy.json"
         assert config_path.exists()
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.enabled is True
         assert saved_config.proxy_type == ProxyType.SOCKS5
         assert saved_config.host == "proxy.example.com"
@@ -152,7 +152,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.proxy_type == ProxyType.HTTP
         assert saved_config.port == 8080
 
@@ -189,7 +189,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.enabled is False
 
     def test_save_invalid_proxy_type(
@@ -312,7 +312,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.port == 1
 
     def test_save_port_at_upper_boundary(
@@ -349,7 +349,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.port == 65535
 
     def test_save_strips_whitespace_from_host(
@@ -386,7 +386,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.host == "proxy.example.com"
 
     def test_save_strips_whitespace_from_username(
@@ -424,7 +424,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.username == "testuser"
 
     def test_save_empty_host(self, client: TestClient, csrf_token: str, tmp_path: Path) -> None:
@@ -458,7 +458,7 @@ class TestSaveProxyConfig:
 
         assert response.status_code == 200
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.host == ""
 
     def test_save_case_insensitive_proxy_type(
@@ -495,7 +495,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.proxy_type == ProxyType.SOCKS5
 
     def test_save_without_credentials(
@@ -532,7 +532,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.username == ""
         assert saved_config.password == ""
 
@@ -614,7 +614,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         # Verify updated config
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.proxy_type == ProxyType.SOCKS5
         assert saved_config.host == "new-proxy.example.com"
         assert saved_config.port == 9050
@@ -642,7 +642,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.enabled is False  # Default
         assert saved_config.proxy_type == ProxyType.SOCKS5  # Default
         assert saved_config.port == 1080  # Default
@@ -683,7 +683,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         # Password should NOT be stripped
         assert saved_config.password == "  pass with spaces  "
 
@@ -749,7 +749,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.host == "proxy.例え.com"
 
     def test_save_with_ip_address(
@@ -786,7 +786,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.host == "192.168.1.100"
 
     def test_save_with_special_characters_in_password(
@@ -827,7 +827,7 @@ class TestSaveProxyConfig:
         assert response.status_code == 200
 
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.password == special_password
 
     def test_multiple_saves_sequential(
@@ -878,7 +878,7 @@ class TestSaveProxyConfig:
 
         # Verify final state
         config_path = config_dir / "proxy.json"
-        saved_config = ProxyConfig.model_validate_json(config_path.read_text())
+        saved_config = ProxyConfig.model_validate_json(config_path.read_text(encoding="utf-8"))
         assert saved_config.proxy_type == ProxyType.HTTP
         assert saved_config.host == "proxy2.example.com"
         assert saved_config.port == 8080
@@ -954,6 +954,7 @@ class TestProxyConfigIntegration:
 
         # Verify config persists by loading from disk multiple times
         for _ in range(3):
-            config = ProxyConfig.model_validate_json((config_dir / "proxy.json").read_text())
+            config_text = (config_dir / "proxy.json").read_text(encoding="utf-8")
+            config = ProxyConfig.model_validate_json(config_text)
             assert config.host == "persistent-proxy.example.com"
             assert config.port == 8888

@@ -230,6 +230,10 @@ class TestSetupLogging:
         content = log_file.read_text()
         assert "Test message for file logging" in content
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Unix file permissions not applicable on Windows",
+    )
     def test_setup_logging_file_permission_error_graceful_degradation(self, tmp_path: Path) -> None:
         """Test that permission errors on file logging degrade gracefully to console-only."""
         # Create a read-only directory
@@ -776,13 +780,14 @@ class TestMain:
         captured = capsys.readouterr()
         assert "ChatFilter v0.1.0" in captured.out
         assert "Server:        http://127.0.0.1:8080" in captured.out
-        assert "Data dir:      /tmp/data" in captured.out
-        assert "Sessions dir:  /tmp/data/sessions" in captured.out
-        assert "Exports dir:   /tmp/data/exports" in captured.out
+        # Use str(Path) to get platform-appropriate path separator
+        assert f"Data dir:      {mock_settings.data_dir}" in captured.out
+        assert f"Sessions dir:  {mock_settings.sessions_dir}" in captured.out
+        assert f"Exports dir:   {mock_settings.exports_dir}" in captured.out
         assert "Log level:     DEBUG" in captured.out
         assert "Log format:    json" in captured.out
         assert "Verbose:       enabled" in captured.out
-        assert "Log file:      /tmp/data/logs/app.log" in captured.out
+        assert f"Log file:      {mock_settings.log_file_path}" in captured.out
 
 
 # ============================================================================

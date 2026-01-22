@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,10 @@ class TestConfigValidation:
         assert any("not a directory" in err for err in errors)
         assert any("Fix:" in err for err in errors)
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Unix file permissions not applicable on Windows",
+    )
     def test_readonly_parent_directory(self, tmp_path: Path) -> None:
         """Test that read-only parent directory fails validation."""
         readonly_dir = tmp_path / "readonly"

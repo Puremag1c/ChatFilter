@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -330,7 +331,9 @@ class TestEncryptedFileBackend:
 
         assert len(key) == 44  # Fernet key is 44 bytes
         assert backend._key_file.exists()
-        assert backend._key_file.stat().st_mode & 0o777 == 0o600
+        # Unix file permissions not applicable on Windows
+        if sys.platform != "win32":
+            assert backend._key_file.stat().st_mode & 0o777 == 0o600
 
     def test_get_or_create_key_returns_existing_key(self, tmp_path: Path):
         """Test that existing key is returned if it exists."""
@@ -352,7 +355,9 @@ class TestEncryptedFileBackend:
         backend._get_or_create_key()
 
         assert storage_dir.exists()
-        assert storage_dir.stat().st_mode & 0o777 == 0o700
+        # Unix file permissions not applicable on Windows
+        if sys.platform != "win32":
+            assert storage_dir.stat().st_mode & 0o777 == 0o700
 
     def test_get_fernet_returns_fernet_instance(self, tmp_path: Path):
         """Test that _get_fernet returns a valid Fernet instance."""
@@ -369,7 +374,9 @@ class TestEncryptedFileBackend:
         backend.store_credentials("test-session", 12345, "abc123hash")
 
         assert backend._credentials_file.exists()
-        assert backend._credentials_file.stat().st_mode & 0o777 == 0o600
+        # Unix file permissions not applicable on Windows
+        if sys.platform != "win32":
+            assert backend._credentials_file.stat().st_mode & 0o777 == 0o600
 
     def test_store_and_retrieve_credentials(self, tmp_path: Path):
         """Test storing and retrieving credentials."""
@@ -504,6 +511,10 @@ class TestEncryptedFileBackend:
 
         assert credentials == {}
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Unix file permissions not applicable on Windows",
+    )
     def test_save_credentials_file_error_handling(self, tmp_path: Path):
         """Test error handling when saving credentials file fails."""
         backend = EncryptedFileBackend(tmp_path)
@@ -903,6 +914,10 @@ class TestSecureCredentialManager:
 class TestSecurityProperties:
     """Tests for security-related properties of credential storage."""
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Unix file permissions not applicable on Windows",
+    )
     def test_encrypted_file_backend_file_permissions(self, tmp_path: Path):
         """Test that encrypted files have restrictive permissions."""
         backend = EncryptedFileBackend(tmp_path)
@@ -916,6 +931,10 @@ class TestSecurityProperties:
         key_perms = backend._key_file.stat().st_mode & 0o777
         assert key_perms == 0o600
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Unix file permissions not applicable on Windows",
+    )
     def test_encrypted_file_backend_directory_permissions(self, tmp_path: Path):
         """Test that storage directory has restrictive permissions."""
         backend = EncryptedFileBackend(tmp_path)
@@ -1005,6 +1024,10 @@ class TestErrorScenarios:
             assert api_id == 12345
             assert api_hash == "abc123hash"
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows Credential Manager has strict size limits for credential names",
+    )
     def test_very_long_session_id(self, tmp_path: Path):
         """Test handling of very long session ID."""
         manager = SecureCredentialManager(tmp_path)
@@ -1027,6 +1050,10 @@ class TestErrorScenarios:
         assert api_id == 12345
         assert api_hash == "abc123hash"
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Windows Credential Manager has strict size limits for credential values",
+    )
     def test_very_long_api_hash(self, tmp_path: Path):
         """Test handling of very long api_hash value."""
         manager = SecureCredentialManager(tmp_path)

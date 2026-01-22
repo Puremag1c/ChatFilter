@@ -163,12 +163,18 @@ def validate_session_file_format(content: bytes) -> None:
     # Check for required Telethon tables by creating a temp database
     import tempfile
 
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=True) as tmp:
+    # Use delete=False and manually delete on Windows, as NamedTemporaryFile
+    # with delete=True keeps the file locked and prevents SQLite from opening it.
+    # We can't use a context manager here because we need to close the file
+    # before SQLite can access it on Windows.
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)  # noqa: SIM115
+    tmp_path = Path(tmp.name)
+    try:
         tmp.write(content)
-        tmp.flush()
+        tmp.close()  # Close before SQLite can access it (required on Windows)
 
         try:
-            conn = sqlite3.connect(tmp.name)
+            conn = sqlite3.connect(str(tmp_path))
             cursor = conn.cursor()
 
             # Get all tables in the database
@@ -211,6 +217,9 @@ def validate_session_file_format(content: bytes) -> None:
             # Log the actual database error for debugging
             logger.error(f"SQLite database validation error: {e}")
             raise ValueError("Invalid database file") from e
+    finally:
+        # Always clean up the temp file
+        tmp_path.unlink(missing_ok=True)
 
 
 def validate_config_file_format(content: bytes) -> dict[str, str | int]:

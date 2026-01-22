@@ -24,6 +24,11 @@ def reset_logging() -> Generator[None, None, None]:
 
     yield
 
+    # Close all current handlers to release file locks (required on Windows)
+    for handler in root_logger.handlers[:]:
+        handler.close()
+        root_logger.removeHandler(handler)
+
     # Restore original state
     root_logger.handlers = original_handlers
     root_logger.setLevel(original_level)

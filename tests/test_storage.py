@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -184,6 +185,10 @@ class TestFileStorage:
         temp_files = list(tmp_path.glob(".*.tmp"))
         assert len(temp_files) == 0
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Unix file permissions not applicable on Windows",
+    )
     def test_temp_file_cleanup_on_error(self, tmp_path: Path) -> None:
         """Test that temp files are cleaned up even when save fails."""
         storage = FileStorage()

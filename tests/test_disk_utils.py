@@ -110,17 +110,19 @@ def test_format_bytes() -> None:
 
 def test_disk_space_error_message() -> None:
     """Test DiskSpaceError message formatting."""
+    test_path = Path("/tmp/test.txt")
     error = DiskSpaceError(
         required=200 * 1024 * 1024,  # 200 MB
         available=50 * 1024 * 1024,  # 50 MB
-        path=Path("/tmp/test.txt"),
+        path=test_path,
     )
 
     msg = str(error)
     assert "Insufficient disk space" in msg
     assert "200" in msg  # Required MB
     assert "50" in msg  # Available MB
-    assert "/tmp/test.txt" in msg
+    # Use str(path) to get platform-appropriate path separator
+    assert str(test_path) in msg
 
 
 def test_ensure_space_available_with_real_write(tmp_path: Path) -> None:

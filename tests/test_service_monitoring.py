@@ -1281,6 +1281,7 @@ class TestEdgeCasesAndErrors:
             assert result.unique_authors == 2  # Only 2 unique authors
 
     @pytest.mark.asyncio
+    @pytest.mark.forked  # Isolate to prevent xdist worker crashes
     async def test_sync_chat_cleanup_old_snapshots(
         self,
         monitoring_service: MonitoringService,
