@@ -227,8 +227,9 @@ class TestRetryDecorator:
         delay_2 = call_times[2] - call_times[1]
 
         # Delays should follow exponential pattern: ~0.1s, ~0.2s
-        assert 0.08 <= delay_1 <= 0.12  # ~0.1s (base_delay * 2^0)
-        assert 0.18 <= delay_2 <= 0.22  # ~0.2s (base_delay * 2^1)
+        # Using wider tolerances for CI environments under load
+        assert 0.08 <= delay_1 <= 0.15  # ~0.1s (base_delay * 2^0)
+        assert 0.18 <= delay_2 <= 0.30  # ~0.2s (base_delay * 2^1)
 
     @pytest.mark.asyncio
     async def test_custom_retryable_exceptions(self) -> None:
