@@ -146,7 +146,7 @@ jobs:
           # Cleanup
           test_file.unlink()
           test_dir.rmdir()
-          print('✓ Permissions test passed')
+          print('[OK] Permissions test passed')
           "
 
       - name: Test permissions (Windows)
@@ -172,7 +172,7 @@ jobs:
           # Cleanup
           test_file.unlink()
           test_dir.rmdir()
-          print('✓ Permissions test passed')
+          print('[OK] Permissions test passed')
           "@
 
       - name: Test Python runtime compatibility
@@ -194,7 +194,7 @@ jobs:
           import sqlite3
           import json
           import pathlib
-          print('✓ Core modules available')
+          print('[OK] Core modules available')
           "
 
       - name: Run tests with coverage
@@ -238,7 +238,7 @@ jobs:
 
           # Verify the base path exists
           if expected_config_base.exists():
-              print(f'✓ Config base path exists: {expected_config_base}')
+              print(f'[OK] Config base path exists: {expected_config_base}')
           else:
               print(f'⚠ Config base path does not exist (may need to be created): {expected_config_base}')
           "
