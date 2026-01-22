@@ -18,29 +18,18 @@ jobs:
     strategy:
       fail-fast: false  # Continue testing other platforms even if one fails
       matrix:
-        # Cross-platform testing matrix
+        # Reduced cross-platform matrix - binary artifacts are self-contained
         os:
-          # macOS versions - includes ARM64 (Apple Silicon) support
-          - macos-11      # macOS 11 Big Sur (Intel)
-          - macos-12      # macOS 12 Monterey (Intel)
-          - macos-13      # macOS 13 Ventura (Intel)
+          # macOS versions - ARM64 (Apple Silicon) support
           - macos-14      # macOS 14 Sonoma (ARM64/Apple Silicon)
-          - macos-latest  # Latest stable macOS (currently 14)
+          - macos-latest  # Latest stable macOS
 
           # Windows versions
-          - windows-2019  # Windows Server 2019 (similar to Windows 10)
           - windows-2022  # Windows Server 2022 (similar to Windows 11)
           - windows-latest  # Latest Windows Server
 
-        python-version: ['3.11', '3.12']
-
-        # Exclude some combinations to reduce CI time
-        exclude:
-          # Skip Python 3.12 on older macOS to focus testing
-          - os: macos-11
-            python-version: '3.12'
-          - os: macos-12
-            python-version: '3.12'
+        # Single Python version - end users receive compiled binaries
+        python-version: ['3.12']
 
     steps:
       - name: Checkout code
@@ -244,7 +233,6 @@ jobs:
           "
 
       - name: Upload coverage report
-        if: matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}
@@ -259,8 +247,10 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-14      # ARM64/Apple Silicon
-          - windows-2022  # Latest Windows
+          - macos-14       # ARM64/Apple Silicon
+          - macos-latest   # Latest stable macOS
+          - windows-2022   # Windows Server 2022
+          - windows-latest # Latest Windows Server
 
     steps:
       - name: Checkout code
@@ -269,7 +259,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
@@ -311,6 +301,6 @@ jobs:
           echo "✓ All cross-platform tests passed successfully"
           echo ""
           echo "Tested platforms:"
-          echo "  - macOS 11, 12, 13, 14 (Intel + ARM64)"
-          echo "  - Windows Server 2019, 2022 (Win 10/11 equivalent)"
-          echo "  - Python 3.11, 3.12"
+          echo "  - macOS 14 and latest (ARM64/Apple Silicon)"
+          echo "  - Windows Server 2022 and latest"
+          echo "  - Python 3.12"
