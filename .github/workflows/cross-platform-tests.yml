@@ -52,7 +52,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
-      - name: Display platform information
+      - name: Display platform information (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           echo "========== Platform Information =========="
@@ -68,11 +69,23 @@ jobs:
             sw_vers
             echo "Architecture (uname -m):"
             uname -m
-          elif [[ "$RUNNER_OS" == "Windows" ]]; then
-            echo "Windows Version:"
-            systeminfo | findstr /B /C:"OS Name" /C:"OS Version"
           fi
           echo "=========================================="
+
+      - name: Display platform information (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "========== Platform Information =========="
+          Write-Host "OS: ${{ matrix.os }}"
+          Write-Host "Python: ${{ matrix.python-version }}"
+          Write-Host "Runner: ${{ runner.os }}"
+          Write-Host "Architecture: ${{ runner.arch }}"
+          python --version
+          pip --version
+          Write-Host "Windows Version:"
+          systeminfo | Select-String "OS Name", "OS Version"
+          Write-Host "=========================================="
 
       - name: Install dependencies
         shell: bash
@@ -266,11 +279,8 @@ jobs:
           pip install -e ".[dev]"
           pip install httpx
 
-      - name: Run smoke test
-        shell: bash
-        run: |
-          echo "Running smoke test on ${{ runner.os }}..."
-          python tests/smoke_test.py --verbose
+      # Smoke test requires a compiled binary - skip in CI
+      # To test compiled binaries, run: python tests/smoke_test.py --binary path/to/binary
 
       - name: Test CLI entry points
         shell: bash
