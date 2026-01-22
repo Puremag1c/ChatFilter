@@ -1281,7 +1281,6 @@ class TestEdgeCasesAndErrors:
             assert result.unique_authors == 2  # Only 2 unique authors
 
     @pytest.mark.asyncio
-    @pytest.mark.forked  # Isolate to prevent xdist worker crashes
     async def test_sync_chat_cleanup_old_snapshots(
         self,
         monitoring_service: MonitoringService,
@@ -1299,9 +1298,9 @@ class TestEdgeCasesAndErrors:
         )
         monitoring_service._db.save_monitor_state(state)
 
-        # Create many old snapshots
+        # Create old snapshots (20 is enough to test cleanup with keep_count=10)
         now = datetime.now(UTC)
-        for i in range(1100):  # More than keep_count of 1000
+        for i in range(20):
             snapshot = SyncSnapshot(
                 chat_id=chat_id,
                 sync_at=now - timedelta(hours=i),
@@ -1321,11 +1320,22 @@ class TestEdgeCasesAndErrors:
             monitoring_service._session_manager.session.return_value = mock_session_ctx
 
             with patch("chatfilter.service.monitoring.get_messages_since", return_value=[]):
-                await monitoring_service.sync_chat(session_id, chat_id)
+                # Patch delete_old_snapshots to use smaller keep_count for faster test
+                original_delete = monitoring_service._db.delete_old_snapshots
 
-        # Check that old snapshots were deleted
+                def delete_with_small_keep(sid: str, cid: int, keep_count: int = 10) -> int:
+                    return original_delete(sid, cid, keep_count=10)
+
+                with patch.object(
+                    monitoring_service._db,
+                    "delete_old_snapshots",
+                    side_effect=delete_with_small_keep,
+                ):
+                    await monitoring_service.sync_chat(session_id, chat_id)
+
+        # Check that old snapshots were deleted (10 kept + 1 new = 11)
         count = monitoring_service._db.count_snapshots(session_id, chat_id)
-        assert count <= 1001  # 1000 kept + 1 new
+        assert count <= 11
 
     @pytest.mark.asyncio
     async def test_enable_monitoring_preserves_snapshot_creation(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import tempfile
 import time
 from collections.abc import Generator
@@ -34,6 +35,27 @@ def reset_logging() -> Generator[None, None, None]:
     root_logger.setLevel(original_level)
 
 
+@pytest.fixture
+def log_temp_dir() -> Generator[Path, None, None]:
+    """Create a temp directory that handles Windows file locking for log files.
+
+    On Windows, file handlers must be closed before the temp directory can be deleted.
+    This fixture ensures proper cleanup order by closing handlers before rmtree.
+    """
+    tmpdir = tempfile.mkdtemp()
+    try:
+        yield Path(tmpdir)
+    finally:
+        # Close all file handlers before deleting the directory (required on Windows)
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]:
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
+                root_logger.removeHandler(handler)
+        # Now safe to delete the directory
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
 def test_setup_logging_console_only() -> None:
     """Test logging setup with console output only."""
     setup_logging(level="INFO", debug=False, log_to_file=False)
@@ -56,71 +78,69 @@ def test_setup_logging_debug_mode() -> None:
     assert root_logger.level == logging.DEBUG
 
 
-def test_setup_logging_with_file() -> None:
+def test_setup_logging_with_file(log_temp_dir: Path) -> None:
     """Test logging setup with file handler."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-            log_file_max_bytes=1024,
-            log_file_backup_count=3,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+        log_file_max_bytes=1024,
+        log_file_backup_count=3,
+    )
 
-        root_logger = logging.getLogger()
+    root_logger = logging.getLogger()
 
-        # Should have two handlers (console + file)
-        assert len(root_logger.handlers) == 2
+    # Should have two handlers (console + file)
+    assert len(root_logger.handlers) == 2
 
-        # Find the file handler
-        file_handlers = [
-            h for h in root_logger.handlers if isinstance(h, logging.handlers.RotatingFileHandler)
-        ]
-        assert len(file_handlers) == 1
+    # Find the file handler
+    file_handlers = [
+        h for h in root_logger.handlers if isinstance(h, logging.handlers.RotatingFileHandler)
+    ]
+    assert len(file_handlers) == 1
 
-        file_handler = file_handlers[0]
-        assert file_handler.maxBytes == 1024
-        assert file_handler.backupCount == 3
+    file_handler = file_handlers[0]
+    assert file_handler.maxBytes == 1024
+    assert file_handler.backupCount == 3
 
-        # Test that logging actually writes to file
-        test_logger = logging.getLogger("test")
-        test_logger.info("Test message")
+    # Test that logging actually writes to file
+    test_logger = logging.getLogger("test")
+    test_logger.info("Test message")
 
-        assert log_file.exists()
-        content = log_file.read_text()
-        assert "Test message" in content
-        assert "[INFO]" in content
+    assert log_file.exists()
+    content = log_file.read_text()
+    assert "Test message" in content
+    assert "[INFO]" in content
 
 
-def test_setup_logging_file_rotation() -> None:
+def test_setup_logging_file_rotation(log_temp_dir: Path) -> None:
     """Test that log rotation works correctly."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        # Set very small max bytes to trigger rotation
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-            log_file_max_bytes=100,  # Very small to trigger rotation
-            log_file_backup_count=2,
-        )
+    # Set very small max bytes to trigger rotation
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+        log_file_max_bytes=100,  # Very small to trigger rotation
+        log_file_backup_count=2,
+    )
 
-        test_logger = logging.getLogger("rotation_test")
+    test_logger = logging.getLogger("rotation_test")
 
-        # Write enough logs to trigger rotation
-        for i in range(20):
-            test_logger.info(f"This is a longer test message number {i} to trigger rotation")
+    # Write enough logs to trigger rotation
+    for i in range(20):
+        test_logger.info(f"This is a longer test message number {i} to trigger rotation")
 
-        # Check that rotation occurred
-        # Should have main log file and at least one backup
-        log_files = list(Path(tmpdir).glob("test.log*"))
-        assert len(log_files) > 1  # Main file + backups
-        assert log_file.exists()
+    # Check that rotation occurred
+    # Should have main log file and at least one backup
+    log_files = list(log_temp_dir.glob("test.log*"))
+    assert len(log_files) > 1  # Main file + backups
+    assert log_file.exists()
 
 
 def test_setup_logging_invalid_path() -> None:
@@ -142,60 +162,58 @@ def test_setup_logging_invalid_path() -> None:
     assert len(root_logger.handlers) >= 1
 
 
-def test_setup_logging_format() -> None:
+def test_setup_logging_format(log_temp_dir: Path) -> None:
     """Test that log format is correct."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("format_test")
-        test_logger.info("Format test message")
+    test_logger = logging.getLogger("format_test")
+    test_logger.info("Format test message")
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Check format includes all expected parts
-        assert "format_test" in content  # Logger name
-        assert "[INFO]" in content  # Log level
-        assert "Format test message" in content  # Message
-        # Check timestamp format (YYYY-MM-DD HH:MM:SS)
-        import re
+    # Check format includes all expected parts
+    assert "format_test" in content  # Logger name
+    assert "[INFO]" in content  # Log level
+    assert "Format test message" in content  # Message
+    # Check timestamp format (YYYY-MM-DD HH:MM:SS)
+    import re
 
-        timestamp_pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
-        assert re.search(timestamp_pattern, content)
+    timestamp_pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"
+    assert re.search(timestamp_pattern, content)
 
 
-def test_logging_levels() -> None:
+def test_logging_levels(log_temp_dir: Path) -> None:
     """Test different logging levels."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        # Set to WARNING level
-        setup_logging(
-            level="WARNING",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    # Set to WARNING level
+    setup_logging(
+        level="WARNING",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("level_test")
+    test_logger = logging.getLogger("level_test")
 
-        test_logger.debug("Debug message")  # Should not appear
-        test_logger.info("Info message")  # Should not appear
-        test_logger.warning("Warning message")  # Should appear
-        test_logger.error("Error message")  # Should appear
+    test_logger.debug("Debug message")  # Should not appear
+    test_logger.info("Info message")  # Should not appear
+    test_logger.warning("Warning message")  # Should appear
+    test_logger.error("Error message")  # Should appear
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        assert "Debug message" not in content
-        assert "Info message" not in content
-        assert "Warning message" in content
-        assert "Error message" in content
+    assert "Debug message" not in content
+    assert "Info message" not in content
+    assert "Warning message" in content
+    assert "Error message" in content
 
 
 def test_setup_logging_clears_existing_handlers() -> None:
@@ -213,186 +231,180 @@ def test_setup_logging_clears_existing_handlers() -> None:
     assert dummy_handler not in root_logger.handlers
 
 
-def test_log_sanitization_session_tokens() -> None:
+def test_log_sanitization_session_tokens(log_temp_dir: Path) -> None:
     """Test that session tokens are sanitized from logs."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("sanitization_test")
+    test_logger = logging.getLogger("sanitization_test")
 
-        # Log messages with sensitive data
-        test_logger.info("Telegram session: 1234567890:AbCdEfGhIjKlMnOpQrStUvWxYz0123456")
-        test_logger.info("API key: api_key=sk_test_1234567890abcdefghijklmnop")
-        test_logger.info("Password: password=MySecretPass123")
+    # Log messages with sensitive data
+    test_logger.info("Telegram session: 1234567890:AbCdEfGhIjKlMnOpQrStUvWxYz0123456")
+    test_logger.info("API key: api_key=sk_test_1234567890abcdefghijklmnop")
+    test_logger.info("Password: password=MySecretPass123")
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Verify sensitive data is masked
-        assert "1234567890:AbCdEfGhIjKlMnOpQrStUvWxYz0123456" not in content
-        assert "***SESSION_TOKEN***" in content
+    # Verify sensitive data is masked
+    assert "1234567890:AbCdEfGhIjKlMnOpQrStUvWxYz0123456" not in content
+    assert "***SESSION_TOKEN***" in content
 
-        assert "sk_test_1234567890abcdefghijklmnop" not in content
-        assert "***TOKEN***" in content
+    assert "sk_test_1234567890abcdefghijklmnop" not in content
+    assert "***TOKEN***" in content
 
-        assert "MySecretPass123" not in content
-        assert "***PASSWORD***" in content
+    assert "MySecretPass123" not in content
+    assert "***PASSWORD***" in content
 
 
-def test_log_sanitization_phone_numbers() -> None:
+def test_log_sanitization_phone_numbers(log_temp_dir: Path) -> None:
     """Test that phone numbers are sanitized from logs."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("phone_test")
+    test_logger = logging.getLogger("phone_test")
 
-        # Log phone numbers
-        test_logger.info("User phone: +12345678901")
-        test_logger.info("Contact: +441234567890")
+    # Log phone numbers
+    test_logger.info("User phone: +12345678901")
+    test_logger.info("Contact: +441234567890")
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Verify phone numbers are masked
-        assert "+12345678901" not in content
-        assert "+441234567890" not in content
-        assert "***PHONE***" in content
+    # Verify phone numbers are masked
+    assert "+12345678901" not in content
+    assert "+441234567890" not in content
+    assert "***PHONE***" in content
 
 
-def test_log_sanitization_ip_addresses() -> None:
+def test_log_sanitization_ip_addresses(log_temp_dir: Path) -> None:
     """Test that IP addresses (IPv4 and IPv6) are sanitized from logs."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("ip_test")
+    test_logger = logging.getLogger("ip_test")
 
-        # Log IPv4 addresses
-        test_logger.info("Client IP: 192.168.1.100")
-        test_logger.info("Server at 10.0.0.1 responded")
-        test_logger.info("Connection from 203.0.113.42")
+    # Log IPv4 addresses
+    test_logger.info("Client IP: 192.168.1.100")
+    test_logger.info("Server at 10.0.0.1 responded")
+    test_logger.info("Connection from 203.0.113.42")
 
-        # Log IPv6 addresses
-        test_logger.info("IPv6 client: 2001:0db8:85a3:0000:0000:8a2e:0370:7334")
-        test_logger.info("Compressed IPv6: fe80::1")
-        test_logger.info("Another IPv6: 2001:db8::8a2e:370:7334")
+    # Log IPv6 addresses
+    test_logger.info("IPv6 client: 2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+    test_logger.info("Compressed IPv6: fe80::1")
+    test_logger.info("Another IPv6: 2001:db8::8a2e:370:7334")
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Verify IPv4 addresses are masked
-        assert "192.168.1.100" not in content
-        assert "10.0.0.1" not in content
-        assert "203.0.113.42" not in content
+    # Verify IPv4 addresses are masked
+    assert "192.168.1.100" not in content
+    assert "10.0.0.1" not in content
+    assert "203.0.113.42" not in content
 
-        # Verify IPv6 addresses are masked
-        assert "2001:0db8:85a3:0000:0000:8a2e:0370:7334" not in content
-        assert "fe80::1" not in content
-        assert "2001:db8::8a2e:370:7334" not in content
+    # Verify IPv6 addresses are masked
+    assert "2001:0db8:85a3:0000:0000:8a2e:0370:7334" not in content
+    assert "fe80::1" not in content
+    assert "2001:db8::8a2e:370:7334" not in content
 
-        # Verify all are replaced with mask
-        assert "***IP***" in content
+    # Verify all are replaced with mask
+    assert "***IP***" in content
 
 
-def test_log_sanitization_bot_tokens() -> None:
+def test_log_sanitization_bot_tokens(log_temp_dir: Path) -> None:
     """Test that bot tokens are sanitized from logs."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("bot_token_test")
+    test_logger = logging.getLogger("bot_token_test")
 
-        # Log bot token
-        test_logger.info("Bot token: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567")
+    # Log bot token
+    test_logger.info("Bot token: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567")
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Verify bot token is masked
-        assert "123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567" not in content
-        assert "***BOT_TOKEN***" in content
+    # Verify bot token is masked
+    assert "123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567" not in content
+    assert "***BOT_TOKEN***" in content
 
 
-def test_log_sanitization_api_hash() -> None:
+def test_log_sanitization_api_hash(log_temp_dir: Path) -> None:
     """Test that api_hash values are sanitized from logs."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("api_hash_test")
+    test_logger = logging.getLogger("api_hash_test")
 
-        # Log api_hash in various formats
-        test_logger.info("api_hash=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0")
-        test_logger.info("Config: api-hash: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0")
-        test_logger.info('api_hash="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"')
+    # Log api_hash in various formats
+    test_logger.info("api_hash=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0")
+    test_logger.info("Config: api-hash: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0")
+    test_logger.info('api_hash="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0"')
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Verify api_hash is masked
-        assert "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0" not in content
-        assert "***TOKEN***" in content
+    # Verify api_hash is masked
+    assert "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0" not in content
+    assert "***TOKEN***" in content
 
 
-def test_correlation_id_in_logs() -> None:
+def test_correlation_id_in_logs(log_temp_dir: Path) -> None:
     """Test that correlation IDs appear in log messages."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        from chatfilter.utils.logging import clear_correlation_id, set_correlation_id
+    from chatfilter.utils.logging import clear_correlation_id, set_correlation_id
 
-        test_logger = logging.getLogger("correlation_test")
+    test_logger = logging.getLogger("correlation_test")
 
-        # Test without correlation ID
-        clear_correlation_id()
-        test_logger.info("Message without correlation ID")
+    # Test without correlation ID
+    clear_correlation_id()
+    test_logger.info("Message without correlation ID")
 
-        # Test with correlation ID
-        set_correlation_id("abc123def456")
-        test_logger.info("Message with correlation ID")
+    # Test with correlation ID
+    set_correlation_id("abc123def456")
+    test_logger.info("Message with correlation ID")
 
-        # Clear correlation ID
-        clear_correlation_id()
+    # Clear correlation ID
+    clear_correlation_id()
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Check that correlation ID appears in the right place
-        assert "[-]" in content  # No correlation ID
-        assert "[abc123def456]" in content  # With correlation ID
+    # Check that correlation ID appears in the right place
+    assert "[-]" in content  # No correlation ID
+    assert "[abc123def456]" in content  # With correlation ID
 
 
 def test_correlation_id_context_isolation() -> None:
@@ -435,63 +447,61 @@ def test_generate_correlation_id() -> None:
     assert all(c in "0123456789abcdef" for c in id2)
 
 
-def test_exception_traceback_sanitization() -> None:
+def test_exception_traceback_sanitization(log_temp_dir: Path) -> None:
     """Test that exception tracebacks are sanitized when logged."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("exception_test")
+    test_logger = logging.getLogger("exception_test")
 
-        # Create an exception with a session token in the message
-        session_token = "1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
-        try:
-            raise ValueError(f"Failed to connect with session: {session_token}")
-        except ValueError:
-            test_logger.exception("Connection error occurred")
+    # Create an exception with a session token in the message
+    session_token = "1234567890123:AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
+    try:
+        raise ValueError(f"Failed to connect with session: {session_token}")
+    except ValueError:
+        test_logger.exception("Connection error occurred")
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # The session token should be masked in the exception message
-        assert session_token not in content
-        assert "***SESSION_TOKEN***" in content
-        # The exception should still be logged (just sanitized)
-        assert "ValueError" in content
-        assert "Connection error occurred" in content
+    # The session token should be masked in the exception message
+    assert session_token not in content
+    assert "***SESSION_TOKEN***" in content
+    # The exception should still be logged (just sanitized)
+    assert "ValueError" in content
+    assert "Connection error occurred" in content
 
 
-def test_exception_with_bot_token_sanitization() -> None:
+def test_exception_with_bot_token_sanitization(log_temp_dir: Path) -> None:
     """Test that bot tokens in exceptions are sanitized."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+    )
 
-        test_logger = logging.getLogger("bot_exception_test")
+    test_logger = logging.getLogger("bot_exception_test")
 
-        # Create an exception with a bot token
-        bot_token = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567"
-        try:
-            raise RuntimeError(f"Bot authentication failed: {bot_token}")
-        except RuntimeError:
-            test_logger.exception("Bot error")
+    # Create an exception with a bot token
+    bot_token = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz-1234567"
+    try:
+        raise RuntimeError(f"Bot authentication failed: {bot_token}")
+    except RuntimeError:
+        test_logger.exception("Bot error")
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # The bot token should be masked
-        assert bot_token not in content
-        assert "***BOT_TOKEN***" in content
+    # The bot token should be masked
+    assert bot_token not in content
+    assert "***BOT_TOKEN***" in content
 
 
 def test_sanitize_text_function() -> None:
@@ -732,39 +742,38 @@ def test_module_log_levels() -> None:
     assert get_module_log_level("unknown.module") is None
 
 
-def test_setup_logging_with_json_format() -> None:
+def test_setup_logging_with_json_format(log_temp_dir: Path) -> None:
     """Test setup_logging with JSON format."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-            log_format="json",
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+        log_format="json",
+    )
 
-        test_logger = logging.getLogger("json_format_test")
-        test_logger.info("Test JSON log message")
+    test_logger = logging.getLogger("json_format_test")
+    test_logger.info("Test JSON log message")
 
-        content = log_file.read_text()
-        lines = content.strip().split("\n")
+    content = log_file.read_text()
+    lines = content.strip().split("\n")
 
-        # At least one line should be valid JSON
-        found_json = False
-        for line in lines:
-            try:
-                data = json.loads(line)
-                if data.get("message") == "Test JSON log message":
-                    found_json = True
-                    assert data["level"] == "INFO"
-                    assert data["logger"] == "json_format_test"
-                    break
-            except json.JSONDecodeError:
-                continue
+    # At least one line should be valid JSON
+    found_json = False
+    for line in lines:
+        try:
+            data = json.loads(line)
+            if data.get("message") == "Test JSON log message":
+                found_json = True
+                assert data["level"] == "INFO"
+                assert data["logger"] == "json_format_test"
+                break
+        except json.JSONDecodeError:
+            continue
 
-        assert found_json, "Did not find JSON log entry"
+    assert found_json, "Did not find JSON log entry"
 
 
 def test_setup_logging_with_verbose_mode() -> None:
@@ -811,35 +820,34 @@ def test_verbose_logger() -> None:
     assert verbose_logger.level == logging.DEBUG
 
 
-def test_log_format_with_chat_id() -> None:
+def test_log_format_with_chat_id(log_temp_dir: Path) -> None:
     """Test that logs include chat ID when set."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_file = Path(tmpdir) / "test.log"
+    log_file = log_temp_dir / "test.log"
 
-        setup_logging(
-            level="INFO",
-            debug=False,
-            log_to_file=True,
-            log_file_path=log_file,
-            log_format="text",
-        )
+    setup_logging(
+        level="INFO",
+        debug=False,
+        log_to_file=True,
+        log_file_path=log_file,
+        log_format="text",
+    )
 
-        from chatfilter.utils.logging import clear_chat_id, set_chat_id
+    from chatfilter.utils.logging import clear_chat_id, set_chat_id
 
-        test_logger = logging.getLogger("chat_context_test")
+    test_logger = logging.getLogger("chat_context_test")
 
-        # Log without chat ID
-        clear_chat_id()
-        test_logger.info("Message without chat")
+    # Log without chat ID
+    clear_chat_id()
+    test_logger.info("Message without chat")
 
-        # Log with chat ID
-        set_chat_id(12345)
-        test_logger.info("Message with chat")
+    # Log with chat ID
+    set_chat_id(12345)
+    test_logger.info("Message with chat")
 
-        clear_chat_id()
+    clear_chat_id()
 
-        content = log_file.read_text()
+    content = log_file.read_text()
 
-        # Should contain chat context markers
-        assert "[chat:-]" in content
-        assert "[chat:12345]" in content
+    # Should contain chat context markers
+    assert "[chat:-]" in content
+    assert "[chat:12345]" in content
