@@ -147,8 +147,8 @@ class StartAnalysisResponse(BaseModel):
 async def start_analysis(
     request: Request,
     background_tasks: BackgroundTasks,
-    session_id: Annotated[str, Form()],
-    chat_ids: Annotated[list[int], Form()],
+    session_id: Annotated[str, Form()] = "",
+    chat_ids: Annotated[list[int] | None, Form()] = None,
     message_limit: Annotated[int, Form()] = 1000,
 ) -> HTMLResponse:
     """Start analysis of selected chats.
@@ -168,6 +168,10 @@ async def start_analysis(
     from chatfilter.web.app import get_templates
 
     templates = get_templates()
+
+    # Handle None or empty chat_ids
+    if chat_ids is None:
+        chat_ids = []
 
     if not session_id:
         return templates.TemplateResponse(

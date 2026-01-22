@@ -187,7 +187,7 @@ async def upload_chat_list(
 @router.post("/api/chatlist/fetch-sheet", response_class=HTMLResponse)
 async def fetch_google_sheet_endpoint(
     request: Request,
-    sheet_url: Annotated[str, Form()],
+    sheet_url: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     """Fetch and parse a Google Sheet.
 

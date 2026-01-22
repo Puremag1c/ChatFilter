@@ -404,8 +404,6 @@ class TestStartAnalysisEndpoint:
 
     def test_start_analysis_no_chats(self, client: TestClient, csrf_token: str) -> None:
         """Test starting analysis with no chats selected."""
-        # Empty list in form data is treated as missing by FastAPI, which returns 422
-        # This is expected validation behavior - the endpoint requires at least one chat_id
         response = client.post(
             "/api/analysis/start",
             data={
@@ -416,8 +414,9 @@ class TestStartAnalysisEndpoint:
             headers={"X-CSRF-Token": csrf_token},
         )
 
-        # FastAPI returns 422 for missing required field (empty list = missing)
-        assert response.status_code == 422
+        # Handler validates empty chat_ids and returns 200 with error message
+        assert response.status_code == 200
+        assert "No chats selected" in response.text
 
     def test_start_analysis_message_limit_too_low(
         self, client: TestClient, csrf_token: str
