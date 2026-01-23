@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 
-{% block title %}Proxy Settings - ChatFilter{% endblock %}
+{% block title %}{{ _("Proxy Settings") }} - ChatFilter{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>Proxy Settings</h1>
-    <p class="subtitle">Configure proxy for Telegram connections</p>
+    <h1>{{ _("Proxy Settings") }}</h1>
+    <p class="subtitle">{{ _("Configure proxy for Telegram connections") }}</p>
 </div>
 
 <section class="card">
-    <h2>Proxy Configuration</h2>
+    <h2>{{ _("Proxy Configuration") }}</h2>
 
     <form id="proxy-form"
           hx-post="/api/proxy"
           hx-target="#proxy-result"
           hx-swap="innerHTML"
           hx-indicator="#save-spinner"
-          aria-label="Proxy configuration form">
+          aria-label="{{ _("Proxy configuration form") }}">
 
         <div class="form-group">
             <label for="enabled" class="checkbox-label">
@@ -26,14 +26,14 @@
                        value="true"
                        aria-describedby="enabled-hint"
                        {% if config.enabled %}checked{% endif %}>
-                <span>Enable Proxy</span>
+                <span>{{ _("Enable Proxy") }}</span>
             </label>
-            <small id="enabled-hint" class="form-hint">Enable to route Telegram traffic through a proxy server</small>
+            <small id="enabled-hint" class="form-hint">{{ _("Enable to route Telegram traffic through a proxy server") }}</small>
         </div>
 
         <div class="form-group">
-            <label for="proxy_type">Proxy Type</label>
-            <select id="proxy_type" name="proxy_type" aria-label="Select proxy type">
+            <label for="proxy_type">{{ _("Proxy Type") }}</label>
+            <select id="proxy_type" name="proxy_type" aria-label="{{ _("Select proxy type") }}">
                 <option value="socks5" {% if config.proxy_type.value == 'socks5' %}selected{% endif %}>SOCKS5</option>
                 <option value="http" {% if config.proxy_type.value == 'http' %}selected{% endif %}>HTTP</option>
             </select>
@@ -41,17 +41,17 @@
 
         <div class="form-row">
             <div class="form-group form-group-wide">
-                <label for="host">Host</label>
+                <label for="host">{{ _("Host") }}</label>
                 <input type="text"
                        id="host"
                        name="host"
                        value="{{ config.host }}"
-                       placeholder="proxy.example.com"
-                       aria-label="Proxy server hostname or IP address">
+                       placeholder="{{ _("proxy.example.com") }}"
+                       aria-label="{{ _("Proxy server hostname or IP address") }}">
             </div>
 
             <div class="form-group form-group-narrow">
-                <label for="port">Port</label>
+                <label for="port">{{ _("Port") }}</label>
                 <input type="number"
                        id="port"
                        name="port"
@@ -59,36 +59,36 @@
                        min="1"
                        max="65535"
                        placeholder="1080"
-                       aria-label="Proxy server port number">
+                       aria-label="{{ _("Proxy server port number") }}">
             </div>
         </div>
 
         <div class="form-row">
             <div class="form-group">
-                <label for="username">Username (optional)</label>
+                <label for="username">{{ _("Username (optional)") }}</label>
                 <input type="text"
                        id="username"
                        name="username"
                        value="{{ config.username }}"
-                       placeholder="Leave empty if not required"
-                       aria-label="Proxy authentication username">
+                       placeholder="{{ _("Leave empty if not required") }}"
+                       aria-label="{{ _("Proxy authentication username") }}">
             </div>
 
             <div class="form-group">
-                <label for="password">Password (optional)</label>
+                <label for="password">{{ _("Password (optional)") }}</label>
                 <input type="password"
                        id="password"
                        name="password"
                        value="{{ config.password }}"
-                       placeholder="Leave empty if not required"
-                       aria-label="Proxy authentication password">
+                       placeholder="{{ _("Leave empty if not required") }}"
+                       aria-label="{{ _("Proxy authentication password") }}">
             </div>
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary" aria-label="Save proxy settings">
-                <span class="btn-text">Save Settings</span>
-                <span id="save-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="Saving in progress"></span>
+            <button type="submit" class="btn btn-primary" aria-label="{{ _("Save proxy settings") }}">
+                <span class="btn-text">{{ _("Save Settings") }}</span>
+                <span id="save-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="{{ _("Saving in progress") }}"></span>
             </button>
         </div>
     </form>

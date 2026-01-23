@@ -25,39 +25,39 @@
 </head>
 <body>
     <!-- Skip to main content link for keyboard navigation -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#main-content" class="skip-link">{{ _("Skip to main content") }}</a>
 
     <header role="banner">
-        <nav role="navigation" aria-label="Main navigation">
+        <nav role="navigation" aria-label="{{ _("Main navigation") }}">
             <a href="/" class="logo">ChatFilter</a>
             <ul class="nav-links">
-                <li><a href="/" data-tooltip="Manage your Telegram session files" data-tooltip-position="bottom">Sessions</a></li>
-                <li><a href="/chats" data-tooltip="Select chats to analyze from your Telegram account" data-tooltip-position="bottom">Chats</a></li>
-                <li><a href="/chatlist" data-tooltip="Import a list of chats from a file or Google Sheets" data-tooltip-position="bottom">Import</a></li>
-                <li><a href="/results" data-tooltip="View analysis results and export data" data-tooltip-position="bottom">Results</a></li>
-                <li><a href="/history" data-tooltip="Browse your past analysis history" data-tooltip-position="bottom">History</a></li>
-                <li><a href="/proxy" data-tooltip="Use Telegram proxy to access chats" data-tooltip-position="bottom">Proxy</a></li>
+                <li><a href="/" data-tooltip="{{ _("Manage your Telegram session files") }}" data-tooltip-position="bottom">{{ _("Sessions") }}</a></li>
+                <li><a href="/chats" data-tooltip="{{ _("Select chats to analyze from your Telegram account") }}" data-tooltip-position="bottom">{{ _("Chats") }}</a></li>
+                <li><a href="/chatlist" data-tooltip="{{ _("Import a list of chats from a file or Google Sheets") }}" data-tooltip-position="bottom">{{ _("Import") }}</a></li>
+                <li><a href="/results" data-tooltip="{{ _("View analysis results and export data") }}" data-tooltip-position="bottom">{{ _("Results") }}</a></li>
+                <li><a href="/history" data-tooltip="{{ _("Browse your past analysis history") }}" data-tooltip-position="bottom">{{ _("History") }}</a></li>
+                <li><a href="/proxy" data-tooltip="{{ _("Use Telegram proxy to access chats") }}" data-tooltip-position="bottom">{{ _("Proxy") }}</a></li>
             </ul>
             <div class="status-indicators">
-                <div class="network-status" id="network-status" role="status" aria-live="polite" data-tooltip="Shows your internet connection status" data-tooltip-position="bottom">
+                <div class="network-status" id="network-status" role="status" aria-live="polite" data-tooltip="{{ _("Shows your internet connection status") }}" data-tooltip-position="bottom">
                     <span class="status-indicator" id="network-indicator" aria-hidden="true"></span>
-                    <span class="status-text" id="network-text">Online</span>
+                    <span class="status-text" id="network-text">{{ _("Online") }}</span>
                 </div>
-                <div class="telegram-status" id="telegram-status" role="status" aria-live="polite" data-tooltip="Shows Telegram connection status and active session count" data-tooltip-position="bottom">
+                <div class="telegram-status" id="telegram-status" role="status" aria-live="polite" data-tooltip="{{ _("Shows Telegram connection status and active session count") }}" data-tooltip-position="bottom">
                     <span class="status-indicator" id="status-indicator" aria-hidden="true"></span>
-                    <span class="status-text" id="status-text">Checking...</span>
+                    <span class="status-text" id="status-text">{{ _("Checking...") }}</span>
                 </div>
-                <div class="user-indicator" id="user-indicator" role="status" aria-live="polite" data-tooltip="Currently logged in Telegram user" data-tooltip-position="bottom">
+                <div class="user-indicator" id="user-indicator" role="status" aria-live="polite" data-tooltip="{{ _("Currently logged in Telegram user") }}" data-tooltip-position="bottom">
                     <span class="user-avatar" aria-hidden="true"></span>
-                    <span class="user-text" id="user-text">No User</span>
+                    <span class="user-text" id="user-text">{{ _("No User") }}</span>
                 </div>
-                <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle dark mode" data-tooltip="Switch between light and dark theme" data-tooltip-position="bottom">
+                <button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}" data-tooltip="{{ _("Switch between light and dark theme") }}" data-tooltip-position="bottom">
                     <span class="theme-icon" aria-hidden="true">🌙</span>
                 </button>
-                <button id="language-toggle" class="language-toggle-btn" aria-label="Switch language" data-tooltip="Switch between English and Russian" data-tooltip-position="bottom">
+                <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}" data-tooltip="{{ _("Switch between English and Russian") }}" data-tooltip-position="bottom">
                     <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
                 </button>
-                <button id="keyboard-shortcuts-btn" class="keyboard-shortcuts-btn" aria-label="Show keyboard shortcuts" data-tooltip="Press ? to view keyboard shortcuts" data-tooltip-position="bottom" onclick="KeyboardShortcuts.toggleHelpModal()">
+                <button id="keyboard-shortcuts-btn" class="keyboard-shortcuts-btn" aria-label="{{ _("Show keyboard shortcuts") }}" data-tooltip="{{ _("Press ? to view keyboard shortcuts") }}" data-tooltip-position="bottom" onclick="KeyboardShortcuts.toggleHelpModal()">
                     <span class="keyboard-icon" aria-hidden="true">⌨️</span>
                 </button>
             </div>
@@ -72,10 +72,10 @@
             <a href="/api/export/diagnostics?format=text"
                download
                class="diagnostic-button"
-               aria-label="Export diagnostic information for troubleshooting"
-               data-tooltip="Download diagnostic information for troubleshooting issues"
+               aria-label="{{ _("Export diagnostic information for troubleshooting") }}"
+               data-tooltip="{{ _("Download diagnostic information for troubleshooting issues") }}"
                data-tooltip-position="top">
-                Export Diagnostics
+                {{ _("Export Diagnostics") }}
             </a>
         </div>
     </footer>

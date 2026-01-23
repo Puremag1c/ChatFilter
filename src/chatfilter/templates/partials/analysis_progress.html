@@ -3,14 +3,14 @@
     <div><strong>{{ error }}</strong></div>
     {% if error_action %}
     <div style="margin-top: 0.5rem; padding-left: 1rem; border-left: 3px solid rgba(255,255,255,0.3);">
-        <div style="font-weight: 500; margin-bottom: 0.25rem;">What to do:</div>
+        <div style="font-weight: 500; margin-bottom: 0.25rem;">{{ _("What to do:") }}</div>
         <div>{{ error_action }}</div>
     </div>
     {% endif %}
     {% if error_action_type == 'reauth' %}
     <div style="margin-top: 0.75rem;">
         <a href="/sessions" class="btn btn-sm btn-primary">
-            Go to Sessions Page
+            {{ _("Go to Sessions Page") }}
         </a>
     </div>
     {% endif %}
@@ -24,14 +24,14 @@
             <line x1="12" y1="8" x2="12" y2="12"></line>
             <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
-        <span>Analysis for these chats is already in progress. Showing current status...</span>
+        <span>{{ _("Analysis for these chats is already in progress. Showing current status...") }}</span>
     </div>
     {% endif %}
     <div class="progress-header">
-        <h4>Analyzing {{ total_chats }} chat{% if total_chats != 1 %}s{% endif %}...</h4>
+        <h4>{{ ngettext("Analyzing %(num)s chat...", "Analyzing %(num)s chats...", total_chats) }}</h4>
         <div class="progress-header-right">
-            <span class="progress-status" id="progress-status">Starting...</span>
-            <button id="cancel-btn" class="btn-cancel">Cancel</button>
+            <span class="progress-status" id="progress-status">{{ _("Starting...") }}</span>
+            <button id="cancel-btn" class="btn-cancel" aria-label="{{ _('Cancel analysis') }}">{{ _("Cancel") }}</button>
         </div>
     </div>
 
@@ -40,7 +40,7 @@
     </div>
 
     <div class="progress-details">
-        <span id="progress-current">0</span> / <span id="progress-total">{{ total_chats }}</span> chats
+        <span id="progress-current">0</span> / <span id="progress-total">{{ total_chats }}</span> {{ _("chats") }}
         <span id="progress-chat-title" class="current-chat"></span>
     </div>
 

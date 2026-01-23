@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Select Chats - ChatFilter{% endblock %}
+{% block title %}{{ _("Select Chats") }} - ChatFilter{% endblock %}
 
 {% block head %}
 <style>
@@ -163,24 +163,24 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Select Chats for Analysis</h1>
-    <p class="subtitle">Choose which chats you want to analyze</p>
+    <h1>{{ _("Select Chats for Analysis") }}</h1>
+    <p class="subtitle">{{ _("Choose which chats you want to analyze") }}</p>
 </div>
 
 <section class="card">
-    <h2>Session</h2>
+    <h2>{{ _("Session") }}</h2>
     <div class="form-group">
-        <label for="session-select" class="sr-only">Select Telegram session</label>
+        <label for="session-select" class="sr-only">{{ _("Select Telegram session") }}</label>
         <select id="session-select"
                 hx-get="/api/chats"
                 hx-target="#chats-container"
                 hx-swap="innerHTML"
                 hx-include="this"
                 hx-indicator="#chats-loading"
-                aria-label="Select Telegram session to load chats"
-                data-tooltip="Choose a Telegram session to load your chats and groups"
+                aria-label="{{ _("Select Telegram session to load chats") }}"
+                data-tooltip="{{ _("Choose a Telegram session to load your chats and groups") }}"
                 data-tooltip-position="bottom">
-            <option value="">-- Select a session --</option>
+            <option value="">-- {{ _("Select a session") }} --</option>
             {% for session in sessions %}
             <option value="{{ session.session_id }}">{{ session.session_id }}</option>
             {% endfor %}
@@ -192,17 +192,17 @@
 </section>
 
 <section class="card">
-    <h2>Chats</h2>
+    <h2>{{ _("Chats") }}</h2>
 
-    <div id="chats-container" role="region" aria-live="polite" aria-label="Chat list">
+    <div id="chats-container" role="region" aria-live="polite" aria-label="{{ _("Chat list") }}">
         <div class="no-chats" role="status">
-            <p>Select a session above to load chats</p>
+            <p>{{ _("Select a session above to load chats") }}</p>
         </div>
     </div>
 
     <div id="chats-loading" class="htmx-indicator">
         <div class="skeleton-container" aria-busy="true" role="status">
-            <span class="skeleton-sr-text">Loading chats...</span>
+            <span class="skeleton-sr-text">{{ _("Loading chats...") }}</span>
             <div class="skeleton-chat-list">
                 <div class="skeleton-chat-item">
                     <div class="skeleton skeleton-chat-checkbox"></div>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Analysis History - ChatFilter{% endblock %}
+{% block title %}{{ _("Analysis History") }} - ChatFilter{% endblock %}
 
 {% block head %}
 <style>
@@ -247,8 +247,8 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Analysis History</h1>
-    <p class="subtitle">Browse and view your past chat analyses</p>
+    <h1>{{ _("Analysis History") }}</h1>
+    <p class="subtitle">{{ _("Browse and view your past chat analyses") }}</p>
 </div>
 
 <section class="card">
@@ -256,43 +256,43 @@
     <div class="history-stats" id="history-stats">
         <div class="stat-card">
             <div class="value" id="stat-total">-</div>
-            <div class="label">Total</div>
+            <div class="label">{{ _("Total") }}</div>
         </div>
         <div class="stat-card">
             <div class="value" id="stat-completed">-</div>
-            <div class="label">Completed</div>
+            <div class="label">{{ _("Completed") }}</div>
         </div>
         <div class="stat-card">
             <div class="value" id="stat-failed">-</div>
-            <div class="label">Failed</div>
+            <div class="label">{{ _("Failed") }}</div>
         </div>
         <div class="stat-card">
             <div class="value" id="stat-cancelled">-</div>
-            <div class="label">Cancelled</div>
+            <div class="label">{{ _("Cancelled") }}</div>
         </div>
         <div class="stat-card">
             <div class="value" id="stat-timeout">-</div>
-            <div class="label">Timeout</div>
+            <div class="label">{{ _("Timeout") }}</div>
         </div>
     </div>
 
     <!-- Filters -->
     <div class="history-filters">
         <div class="form-group">
-            <label for="status-filter" class="sr-only">Filter by status</label>
-            <select id="status-filter" aria-label="Filter by analysis status">
-                <option value="">All Analyses</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="timeout">Timeout</option>
+            <label for="status-filter" class="sr-only">{{ _("Filter by status") }}</label>
+            <select id="status-filter" aria-label="{{ _("Filter by analysis status") }}">
+                <option value="">{{ _("All Analyses") }}</option>
+                <option value="completed">{{ _("Completed") }}</option>
+                <option value="failed">{{ _("Failed") }}</option>
+                <option value="cancelled">{{ _("Cancelled") }}</option>
+                <option value="timeout">{{ _("Timeout") }}</option>
             </select>
         </div>
     </div>
 
     <!-- Loading state -->
     <div id="loading-state" class="loading-spinner" style="display: none;">
-        Loading history...
+        {{ _("Loading history...") }}
     </div>
 
     <!-- History list -->
@@ -301,18 +301,18 @@
     <!-- Empty state -->
     <div id="empty-state" class="empty-state" style="display: none;">
         <div class="empty-state-icon">📊</div>
-        <h2>No Analysis History</h2>
-        <p>You haven't run any analyses yet. Start analyzing your chats to see results here.</p>
-        <a href="/chats" class="btn btn-primary">Start Analysis</a>
+        <h2>{{ _("No Analysis History") }}</h2>
+        <p>{{ _("You haven't run any analyses yet. Start analyzing your chats to see results here.") }}</p>
+        <a href="/chats" class="btn btn-primary">{{ _("Start Analysis") }}</a>
     </div>
 
     <!-- Pagination -->
     <div id="pagination" class="pagination" style="display: none;">
-        <button id="prev-btn" aria-label="Previous page">← Previous</button>
+        <button id="prev-btn" aria-label="{{ _("Previous page") }}">← {{ _("Previous") }}</button>
         <div class="page-info">
-            Page <span id="current-page">1</span> of <span id="total-pages">1</span>
+            {{ _("Page") }} <span id="current-page">1</span> {{ _("of") }} <span id="total-pages">1</span>
         </div>
-        <button id="next-btn" aria-label="Next page">Next →</button>
+        <button id="next-btn" aria-label="{{ _("Next page") }}">{{ _("Next") }} →</button>
     </div>
 </section>
 {% endblock %}

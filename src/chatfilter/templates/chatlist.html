@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Import Chat List - ChatFilter{% endblock %}
+{% block title %}{{ _("Import Chat List") }} - ChatFilter{% endblock %}
 
 {% block head %}
 <style>
@@ -124,17 +124,17 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Import Chat List</h1>
-    <p class="subtitle">Upload a file or enter a Google Sheets URL to import a list of chats for analysis</p>
+    <h1>{{ _("Import Chat List") }}</h1>
+    <p class="subtitle">{{ _("Upload a file or enter a Google Sheets URL to import a list of chats for analysis") }}</p>
 </div>
 
 <section class="card">
-    <h2>Import Source</h2>
+    <h2>{{ _("Import Source") }}</h2>
 
     <div class="import-methods">
         <div class="method-card">
-            <h3 data-tooltip="Upload a file containing a list of chats to analyze" data-tooltip-position="right">Upload File</h3>
-            <p class="form-hint">Upload a text file with one chat per line, or a CSV/Excel file with chat usernames, links, or IDs.</p>
+            <h3 data-tooltip="{{ _("Upload a file containing a list of chats to analyze") }}" data-tooltip-position="right">{{ _("Upload File") }}</h3>
+            <p class="form-hint">{{ _("Upload a text file with one chat per line, or a CSV/Excel file with chat usernames, links, or IDs.") }}</p>
 
             <form id="file-upload-form"
                   hx-post="/api/chatlist/upload"
@@ -142,10 +142,10 @@
                   hx-target="#import-result"
                   hx-swap="innerHTML"
                   hx-indicator="#file-upload-spinner, #import-loading"
-                  aria-label="Upload chat list file">
+                  aria-label="{{ _("Upload chat list file") }}">
 
                 <div class="form-group">
-                    <label for="chatlist_file" class="sr-only">Select chat list file</label>
+                    <label for="chatlist_file" class="sr-only">{{ _("Select chat list file") }}</label>
                     <input type="file"
                            id="chatlist_file"
                            name="chatlist_file"
@@ -153,11 +153,11 @@
                            accept=".txt,.csv,.xlsx,.xls"
                            aria-required="true"
                            aria-describedby="file-formats"
-                           data-tooltip="Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
+                           data-tooltip="{{ _("Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs") }}"
                            data-tooltip-position="top">
                 </div>
 
-                <div id="file-formats" class="supported-formats" role="list" aria-label="Supported file formats">
+                <div id="file-formats" class="supported-formats" role="list" aria-label="{{ _("Supported file formats") }}">
                     <span class="format-badge" role="listitem">.txt</span>
                     <span class="format-badge" role="listitem">.csv</span>
                     <span class="format-badge" role="listitem">.xlsx</span>
@@ -166,26 +166,26 @@
                 <div class="form-actions">
                     <button type="submit"
                             class="btn btn-primary"
-                            aria-label="Upload chat list file"
-                            data-tooltip="Upload and parse the selected file"
+                            aria-label="{{ _("Upload chat list file") }}"
+                            data-tooltip="{{ _("Upload and parse the selected file") }}"
                             data-tooltip-position="top">
-                        <span class="btn-text">Upload File</span>
-                        <span id="file-upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="Upload in progress"></span>
+                        <span class="btn-text">{{ _("Upload File") }}</span>
+                        <span id="file-upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="{{ _("Upload in progress") }}"></span>
                     </button>
                 </div>
             </form>
         </div>
 
         <div class="method-card">
-            <h3 data-tooltip="Import chats from a public Google Sheets document" data-tooltip-position="right">Google Sheets</h3>
-            <p class="form-hint">Enter a link to a public Google Sheets document. The sheet must be shared with "Anyone with the link".</p>
+            <h3 data-tooltip="{{ _("Import chats from a public Google Sheets document") }}" data-tooltip-position="right">{{ _("Google Sheets") }}</h3>
+            <p class="form-hint">{{ _("Enter a link to a public Google Sheets document. The sheet must be shared with \"Anyone with the link\".") }}</p>
 
             <form id="sheet-fetch-form"
                   hx-post="/api/chatlist/fetch-sheet"
                   hx-target="#import-result"
                   hx-swap="innerHTML"
                   hx-indicator="#sheet-fetch-spinner, #import-loading"
-                  aria-label="Import chat list from Google Sheets">
+                  aria-label="{{ _("Import chat list from Google Sheets") }}">
 
                 <div class="form-group">
                     <input type="url"
@@ -193,16 +193,16 @@
                            name="sheet_url"
                            required
                            placeholder="https://docs.google.com/spreadsheets/d/..."
-                           data-tooltip="Enter the full URL of a public Google Sheets document"
+                           data-tooltip="{{ _("Enter the full URL of a public Google Sheets document") }}"
                            data-tooltip-position="top">
                 </div>
 
                 <div class="form-actions">
                     <button type="submit"
                             class="btn btn-primary"
-                            data-tooltip="Fetch and import chats from the Google Sheets URL"
+                            data-tooltip="{{ _("Fetch and import chats from the Google Sheets URL") }}"
                             data-tooltip-position="top">
-                        <span class="btn-text">Fetch Sheet</span>
+                        <span class="btn-text">{{ _("Fetch Sheet") }}</span>
                         <span id="sheet-fetch-spinner" class="htmx-indicator spinner"></span>
                     </button>
                 </div>
@@ -212,14 +212,14 @@
 </section>
 
 <section class="card">
-    <h3>Imported Chats</h3>
+    <h3>{{ _("Imported Chats") }}</h3>
     <div id="import-result">
-        <p class="empty-state">Import a file or Google Sheet to see the list of chats</p>
+        <p class="empty-state">{{ _("Import a file or Google Sheet to see the list of chats") }}</p>
     </div>
 
     <div id="import-loading" class="htmx-indicator">
         <div class="skeleton-container" aria-busy="true" role="status">
-            <span class="skeleton-sr-text">Loading imported chats...</span>
+            <span class="skeleton-sr-text">{{ _("Loading imported chats...") }}</span>
             <div class="skeleton-import-list">
                 <div class="skeleton-import-item">
                     <div class="skeleton skeleton-import-checkbox"></div>
@@ -262,9 +262,9 @@
 </section>
 
 <section class="card">
-    <h3>File Format Examples</h3>
+    <h3>{{ _("File Format Examples") }}</h3>
     <div class="method-card">
-        <h4>Text File (.txt)</h4>
+        <h4>{{ _("Text File (.txt)") }}</h4>
         <pre style="background: #f1f1f1; padding: 1rem; border-radius: 4px; font-size: 0.875rem;">
 # One chat per line
 @channel_name
@@ -275,7 +275,7 @@ t.me/username
     </div>
 
     <div class="method-card" style="margin-top: 1rem;">
-        <h4>CSV File (.csv)</h4>
+        <h4>{{ _("CSV File (.csv)") }}</h4>
         <pre style="background: #f1f1f1; padding: 1rem; border-radius: 4px; font-size: 0.875rem;">
 username,description
 @channel1,First channel

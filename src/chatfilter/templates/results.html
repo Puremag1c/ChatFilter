@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Analysis Results - ChatFilter{% endblock %}
+{% block title %}{{ _("Analysis Results") }} - ChatFilter{% endblock %}
 
 {% block head %}
 <style>
@@ -449,8 +449,8 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Analysis Results</h1>
-    <p class="subtitle">View and export your chat analysis results</p>
+    <h1>{{ _("Analysis Results") }}</h1>
+    <p class="subtitle">{{ _("View and export your chat analysis results") }}</p>
 </div>
 
 {% if error %}
@@ -459,75 +459,74 @@
 </div>
 {% elif results %}
 <section class="card">
-    <div class="results-summary" role="region" aria-label="Analysis statistics">
+    <div class="results-summary" role="region" aria-label="{{ _("Analysis statistics") }}">
         <div class="summary-stat">
-            <button type="button" class="btn-copy" onclick="copySummaryStats()" aria-label="Copy all statistics" title="Copy all statistics">📋</button>
-            <div class="value" aria-label="{{ results|length }} chats analyzed">{{ results|length }}</div>
-            <div class="label">Chats Analyzed</div>
+            <button type="button" class="btn-copy" onclick="copySummaryStats()" aria-label="{{ _("Copy all statistics") }}" title="{{ _("Copy all statistics") }}">📋</button>
+            <div class="value" aria-label="{{ _("%(count)s chats analyzed", count=results|length) }}">{{ results|length }}</div>
+            <div class="label">{{ _("Chats Analyzed") }}</div>
         </div>
         <div class="summary-stat">
-            <div class="value" id="total-messages" aria-label="Total messages">0</div>
-            <div class="label">Total Messages</div>
+            <div class="value" id="total-messages" aria-label="{{ _("Total messages") }}">0</div>
+            <div class="label">{{ _("Total Messages") }}</div>
         </div>
         <div class="summary-stat">
-            <div class="value" id="total-authors" aria-label="Unique authors">0</div>
-            <div class="label">Unique Authors</div>
+            <div class="value" id="total-authors" aria-label="{{ _("Unique authors") }}">0</div>
+            <div class="label">{{ _("Unique Authors") }}</div>
         </div>
         <div class="summary-stat">
-            <div class="value" id="active-chats" aria-label="Active chats in last 7 days">0</div>
-            <div class="label">Active (7d)</div>
+            <div class="value" id="active-chats" aria-label="{{ _("Active chats in last 7 days") }}">0</div>
+            <div class="label">{{ _("Active (7d)") }}</div>
         </div>
     </div>
 
     {% set clock_skew_results = results | selectattr('metrics.clock_skew_seconds', 'ne', None) | list %}
     {% if clock_skew_results %}
     <div class="alert alert-warning clock-skew-warning" role="alert" style="margin: 1.5rem 0;">
-        <strong>⚠️ Clock Skew Detected</strong>
+        <strong>⚠️ {{ _("Clock Skew Detected") }}</strong>
         <p>
-            Your system clock appears to be incorrect, which may affect time-based calculations
-            (messages per hour, history length). {{ clock_skew_results|length }} chat(s) affected:
+            {{ _("Your system clock appears to be incorrect, which may affect time-based calculations (messages per hour, history length).") }} {{ _("%(count)s chat(s) affected:", count=clock_skew_results|length) }}
         </p>
         <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
             {% for result in clock_skew_results %}
             <li>
                 <strong>{{ result.chat.title }}</strong>:
                 {% if result.metrics.clock_skew_seconds > 0 %}
-                    System clock is {{ (result.metrics.clock_skew_seconds / 60) | round(1) }} minutes ahead of Telegram server time
+                    {{ _("System clock is %(minutes)s minutes ahead of Telegram server time", minutes=(result.metrics.clock_skew_seconds / 60) | round(1)) }}
                 {% else %}
-                    System clock is {{ (result.metrics.clock_skew_seconds | abs / 60) | round(1) }} minutes behind Telegram server time
+                    {{ _("System clock is %(minutes)s minutes behind Telegram server time", minutes=(result.metrics.clock_skew_seconds | abs / 60) | round(1)) }}
                 {% endif %}
             </li>
             {% endfor %}
         </ul>
-        <p style="margin-top: 0.5rem;"><small>Please check your system time settings and synchronize with a reliable time server (e.g., NTP).</small></p>
+        <p style="margin-top: 0.5rem;"><small>{{ _("Please check your system time settings and synchronize with a reliable time server (e.g., NTP).") }}</small></p>
     </div>
     {% endif %}
 
-    <div class="results-filters" role="region" aria-label="Result filters">
+    <div class="results-filters" role="region" aria-label="{{ _("Result filters") }}">
         <div class="form-group">
-            <label for="search-filter" class="sr-only">Search chats</label>
+            <label for="search-filter" class="sr-only">{{ _("Search chats") }}</label>
             <input type="text"
                    id="search-filter"
-                   placeholder="Search chats..."
-                   aria-label="Search chats by title or username">
+                   placeholder="{{ _("Search chats...") }}"
+                   aria-label="{{ _("Search chats by title or username") }}">
         </div>
         <div class="form-group">
-            <label for="type-filter" class="sr-only">Filter by chat type</label>
-            <select id="type-filter" aria-label="Filter by chat type">
-                <option value="">All Types</option>
-                <option value="private">Private</option>
-                <option value="group">Group</option>
-                <option value="supergroup">Supergroup</option>
-                <option value="channel">Channel</option>
-                <option value="forum">Forum</option>
+            <label for="type-filter" class="sr-only">{{ _("Filter by chat type") }}</label>
+            <select id="type-filter" aria-label="{{ _("Filter by chat type") }}">
+                <option value="">{{ _("All Types") }}</option>
+                <option value="private">{{ _("Private") }}</option>
+                <option value="group">{{ _("Group") }}</option>
+                <option value="supergroup">{{ _("Supergroup") }}</option>
+                <option value="channel">{{ _("Channel") }}</option>
+                <option value="forum">{{ _("Forum") }}</option>
             </select>
         </div>
         <div class="form-group">
-            <label for="activity-filter" class="sr-only">Filter by activity</label>
-            <select id="activity-filter" aria-label="Filter by activity status">
-                <option value="">All Activity</option>
-                <option value="active">Active (7d)</option>
-                <option value="inactive">Inactive</option>
+            <label for="activity-filter" class="sr-only">{{ _("Filter by activity") }}</label>
+            <select id="activity-filter" aria-label="{{ _("Filter by activity status") }}">
+                <option value="">{{ _("All Activity") }}</option>
+                <option value="active">{{ _("Active (7d)") }}</option>
+                <option value="inactive">{{ _("Inactive") }}</option>
             </select>
         </div>
         <div class="filter-actions">
@@ -535,78 +534,78 @@
                     class="btn btn-secondary"
                     id="clear-filters-btn"
                     disabled
-                    aria-label="Clear all filters">
-                Clear Filters <span id="filter-count" class="filter-badge" style="display: none;" aria-label="Number of active filters">0</span>
+                    aria-label="{{ _("Clear all filters") }}">
+                {{ _("Clear Filters") }} <span id="filter-count" class="filter-badge" style="display: none;" aria-label="{{ _("Number of active filters") }}">0</span>
             </button>
             <button type="button"
                     class="btn btn-secondary"
                     id="copy-selected-btn"
                     disabled
-                    aria-label="Copy selected rows">
-                <span class="btn-copy-selected">📋 Copy Selected</span>
+                    aria-label="{{ _("Copy selected rows") }}">
+                <span class="btn-copy-selected">📋 {{ _("Copy Selected") }}</span>
             </button>
             <button type="button"
                     class="btn btn-primary"
                     id="compare-selected-btn"
                     disabled
-                    aria-label="Compare selected chats">
-                Compare Selected (<span id="selected-count">0</span>)
+                    aria-label="{{ _("Compare selected chats") }}">
+                {{ _("Compare Selected") }} (<span id="selected-count">0</span>)
             </button>
             <button type="button"
                     class="btn btn-primary"
                     id="export-csv-btn"
-                    aria-label="Export results to CSV file">
-                Export CSV
+                    aria-label="{{ _("Export results to CSV file") }}">
+                {{ _("Export CSV") }}
             </button>
         </div>
     </div>
 
-    <div class="results-table-container" role="region" aria-label="Analysis results table">
-        <table class="results-table" id="results-table" role="table" aria-label="Chat analysis results">
+    <div class="results-table-container" role="region" aria-label="{{ _("Analysis results table") }}">
+        <table class="results-table" id="results-table" role="table" aria-label="{{ _("Chat analysis results") }}">
             <thead>
                 <tr>
                     <th class="checkbox-cell" role="columnheader">
                         <input type="checkbox"
                                id="select-all-checkbox"
-                               aria-label="Select all chats">
+                               aria-label="{{ _("Select all chats") }}">
                     </th>
                     <th class="sortable" data-sort="title" aria-sort="none" role="columnheader">
-                        <button type="button" class="sort-button" aria-label="Sort by chat name">
-                            Chat <span class="sort-icon" aria-hidden="true"></span>
+                        <button type="button" class="sort-button" aria-label="{{ _("Sort by chat name") }}">
+                            {{ _("Chat") }} <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
                     <th class="sortable" data-sort="type" aria-sort="none" role="columnheader">
-                        <button type="button" class="sort-button" aria-label="Sort by chat type">
-                            Type <span class="sort-icon" aria-hidden="true"></span>
+                        <button type="button" class="sort-button" aria-label="{{ _("Sort by chat type") }}">
+                            {{ _("Type") }} <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
                     <th class="sortable numeric" data-sort="messages" aria-sort="none" role="columnheader">
-                        <button type="button" class="sort-button" aria-label="Sort by message count">
-                            Messages <span class="sort-icon" aria-hidden="true"></span>
+                        <button type="button" class="sort-button" aria-label="{{ _("Sort by message count") }}">
+                            {{ _("Messages") }} <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
                     <th class="sortable numeric" data-sort="authors" aria-sort="none" role="columnheader">
-                        <button type="button" class="sort-button" aria-label="Sort by author count">
-                            Authors <span class="sort-icon" aria-hidden="true"></span>
+                        <button type="button" class="sort-button" aria-label="{{ _("Sort by author count") }}">
+                            {{ _("Authors") }} <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
                     <th class="sortable numeric" data-sort="hours" aria-sort="none" role="columnheader">
-                        <button type="button" class="sort-button" aria-label="Sort by history hours">
-                            History (h) <span class="sort-icon" aria-hidden="true"></span>
+                        <button type="button" class="sort-button" aria-label="{{ _("Sort by history hours") }}">
+                            {{ _("History (h)") }} <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
                     <th class="sortable numeric" data-sort="rate" aria-sort="none" role="columnheader">
-                        <button type="button" class="sort-button" aria-label="Sort by messages per hour">
-                            Msg/Hour <span class="sort-icon" aria-hidden="true"></span>
+                        <button type="button" class="sort-button" aria-label="{{ _("Sort by messages per hour") }}">
+                            {{ _("Msg/Hour") }} <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
                     <th class="sortable" data-sort="active" aria-sort="none" role="columnheader">
-                        <button type="button" class="sort-button" aria-label="Sort by activity status">
-                            Activity <span class="sort-icon" aria-hidden="true"></span>
+                        <button type="button" class="sort-button" aria-label="{{ _("Sort by activity status") }}">
+                            {{ _("Activity") }} <span class="sort-icon" aria-hidden="true"></span>
                         </button>
                     </th>
                     <th class="copy-cell" role="columnheader">
-                        Copy
+                        {{ _("Copy") }}
                     </th>
                 </tr>
             </thead>
@@ -625,30 +624,30 @@
                         <input type="checkbox"
                                class="chat-checkbox"
                                data-chat-id="{{ result.chat.id }}"
-                               aria-label="Select {{ result.chat.title }}">
+                               aria-label="{{ _("Select %(title)s", title=result.chat.title) }}">
                     </td>
                     <td class="chat-title-cell">
                         <div class="chat-title" title="{{ result.chat.title }}">{{ result.chat.title }}</div>
                         {% if result.chat.username %}
-                        <div class="chat-username" aria-label="Username">@{{ result.chat.username }}</div>
+                        <div class="chat-username" aria-label="{{ _("Username") }}">@{{ result.chat.username }}</div>
                         {% endif %}
                     </td>
                     <td>
-                        <span class="chat-type {{ result.chat.chat_type.value }}" role="text" aria-label="Chat type: {{ result.chat.chat_type.value }}">
+                        <span class="chat-type {{ result.chat.chat_type.value }}" role="text" aria-label="{{ _("Chat type: %(type)s", type=result.chat.chat_type.value) }}">
                             {{ result.chat.chat_type.value }}
                         </span>
                     </td>
-                    <td class="numeric" aria-label="{{ result.metrics.message_count }} messages">{{ result.metrics.message_count }}</td>
-                    <td class="numeric" aria-label="{{ result.metrics.unique_authors }} authors">{{ result.metrics.unique_authors }}</td>
-                    <td class="numeric" aria-label="{{ "%.1f"|format(result.metrics.history_hours) }} hours">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
-                    <td class="numeric" aria-label="{{ "%.2f"|format(result.metrics.messages_per_hour) }} messages per hour">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
+                    <td class="numeric" aria-label="{{ _("%(count)s messages", count=result.metrics.message_count) }}">{{ result.metrics.message_count }}</td>
+                    <td class="numeric" aria-label="{{ _("%(count)s authors", count=result.metrics.unique_authors) }}">{{ result.metrics.unique_authors }}</td>
+                    <td class="numeric" aria-label="{{ _("%(hours)s hours", hours="%.1f"|format(result.metrics.history_hours)) }}">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
+                    <td class="numeric" aria-label="{{ _("%(rate)s messages per hour", rate="%.2f"|format(result.metrics.messages_per_hour)) }}">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
                     <td>
-                        <span class="activity-badge {{ 'active' if result.is_active else 'inactive' }}" role="status" aria-label="{{ 'Active in last 7 days' if result.is_active else 'Inactive' }}">
-                            {{ 'Active' if result.is_active else 'Inactive' }}
+                        <span class="activity-badge {{ 'active' if result.is_active else 'inactive' }}" role="status" aria-label="{{ _("Active in last 7 days") if result.is_active else _("Inactive") }}">
+                            {{ _("Active") if result.is_active else _("Inactive") }}
                         </span>
                     </td>
                     <td class="copy-cell">
-                        <button type="button" class="btn-copy" onclick="copyRowData(this)" aria-label="Copy row data" title="Copy row data">
+                        <button type="button" class="btn-copy" onclick="copyRowData(this)" aria-label="{{ _("Copy row data") }}" title="{{ _("Copy row data") }}">
                             📋
                         </button>
                     </td>
@@ -663,12 +662,12 @@
 <div class="compare-modal" id="compare-modal" role="dialog" aria-modal="true" aria-labelledby="compare-modal-title">
     <div class="compare-modal-content">
         <div class="compare-modal-header">
-            <h2 id="compare-modal-title">Compare Chat Metrics</h2>
+            <h2 id="compare-modal-title">{{ _("Compare Chat Metrics") }}</h2>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <button type="button" class="btn btn-secondary" onclick="copyComparisonData()" aria-label="Copy comparison data" title="Copy comparison data">
-                    📋 Copy Data
+                <button type="button" class="btn btn-secondary" onclick="copyComparisonData()" aria-label="{{ _("Copy comparison data") }}" title="{{ _("Copy comparison data") }}">
+                    📋 {{ _("Copy Data") }}
                 </button>
-                <button class="compare-modal-close" onclick="closeCompareModal()" aria-label="Close comparison modal">&times;</button>
+                <button class="compare-modal-close" onclick="closeCompareModal()" aria-label="{{ _("Close comparison modal") }}">&times;</button>
             </div>
         </div>
         <div class="compare-selection-info" id="compare-selection-info"></div>
@@ -678,8 +677,8 @@
 {% else %}
 <section class="card">
     <div class="empty-state">
-        <p>No analysis results yet.</p>
-        <a href="/chats" class="btn btn-primary">Start Analysis</a>
+        <p>{{ _("No analysis results yet.") }}</p>
+        <a href="/chats" class="btn btn-primary">{{ _("Start Analysis") }}</a>
     </div>
 </section>
 {% endif %}

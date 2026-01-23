@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-01-21 14:50+0300\n"
+"POT-Creation-Date: 2026-01-23 10:46+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,3 +16,1179 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.14.0\n"
+
+#: src/chatfilter/templates/base.html:28
+msgid "Skip to main content"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:31
+msgid "Main navigation"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:34
+msgid "Manage your Telegram session files"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:34
+msgid "Sessions"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:35
+msgid "Select chats to analyze from your Telegram account"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:35
+#: src/chatfilter/templates/chats.html:195
+msgid "Chats"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:36
+msgid "Import a list of chats from a file or Google Sheets"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:36
+msgid "Import"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:37
+msgid "View analysis results and export data"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:37
+msgid "Results"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:38
+msgid "Browse your past analysis history"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:38
+msgid "History"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:39
+msgid "Use Telegram proxy to access chats"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:39
+msgid "Proxy"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:42
+msgid "Shows your internet connection status"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:44
+msgid "Online"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:46
+msgid "Shows Telegram connection status and active session count"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:48
+msgid "Checking..."
+msgstr ""
+
+#: src/chatfilter/templates/base.html:50
+msgid "Currently logged in Telegram user"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:52
+msgid "No User"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:54
+msgid "Toggle dark mode"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:54
+msgid "Switch between light and dark theme"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:57
+msgid "Switch language"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:57
+msgid "Switch between English and Russian"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:60
+msgid "Show keyboard shortcuts"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:60
+msgid "Press ? to view keyboard shortcuts"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:75
+msgid "Export diagnostic information for troubleshooting"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:76
+msgid "Download diagnostic information for troubleshooting issues"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:78
+msgid "Export Diagnostics"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:3
+#: src/chatfilter/templates/chatlist.html:127
+msgid "Import Chat List"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:128
+msgid ""
+"Upload a file or enter a Google Sheets URL to import a list of chats for "
+"analysis"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:132
+msgid "Import Source"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:136
+msgid "Upload a file containing a list of chats to analyze"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:136
+#: src/chatfilter/templates/chatlist.html:172
+msgid "Upload File"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:137
+msgid ""
+"Upload a text file with one chat per line, or a CSV/Excel file with chat "
+"usernames, links, or IDs."
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:145
+#: src/chatfilter/templates/chatlist.html:169
+msgid "Upload chat list file"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:148
+msgid "Select chat list file"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:156
+msgid "Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:160
+msgid "Supported file formats"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:170
+msgid "Upload and parse the selected file"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:173
+#: src/chatfilter/templates/upload.html:253
+msgid "Upload in progress"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:180
+msgid "Import chats from a public Google Sheets document"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:180
+msgid "Google Sheets"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:181
+msgid ""
+"Enter a link to a public Google Sheets document. The sheet must be shared"
+" with \"Anyone with the link\"."
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:188
+msgid "Import chat list from Google Sheets"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:196
+msgid "Enter the full URL of a public Google Sheets document"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:203
+msgid "Fetch and import chats from the Google Sheets URL"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:205
+msgid "Fetch Sheet"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:215
+msgid "Imported Chats"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:217
+msgid "Import a file or Google Sheet to see the list of chats"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:222
+msgid "Loading imported chats..."
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:265
+msgid "File Format Examples"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:267
+msgid "Text File (.txt)"
+msgstr ""
+
+#: src/chatfilter/templates/chatlist.html:278
+msgid "CSV File (.csv)"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:3
+msgid "Select Chats"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:166
+msgid "Select Chats for Analysis"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:167
+msgid "Choose which chats you want to analyze"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:171
+msgid "Session"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:173
+msgid "Select Telegram session"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:180
+msgid "Select Telegram session to load chats"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:181
+msgid "Choose a Telegram session to load your chats and groups"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:183
+msgid "Select a session"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:197
+msgid "Chat list"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:199
+msgid "Select a session above to load chats"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:205
+msgid "Loading chats..."
+msgstr ""
+
+#: src/chatfilter/templates/history.html:3
+#: src/chatfilter/templates/history.html:250
+msgid "Analysis History"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:251
+msgid "Browse and view your past chat analyses"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:259
+msgid "Total"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:263
+#: src/chatfilter/templates/history.html:285
+msgid "Completed"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:267
+#: src/chatfilter/templates/history.html:286
+msgid "Failed"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:271
+#: src/chatfilter/templates/history.html:287
+msgid "Cancelled"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:275
+#: src/chatfilter/templates/history.html:288
+msgid "Timeout"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:282
+msgid "Filter by status"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:283
+msgid "Filter by analysis status"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:284
+msgid "All Analyses"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:295
+msgid "Loading history..."
+msgstr ""
+
+#: src/chatfilter/templates/history.html:304
+msgid "No Analysis History"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:305
+msgid ""
+"You haven't run any analyses yet. Start analyzing your chats to see "
+"results here."
+msgstr ""
+
+#: src/chatfilter/templates/history.html:306
+#: src/chatfilter/templates/partials/chat_list.html:171
+#: src/chatfilter/templates/results.html:681
+msgid "Start Analysis"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:311
+msgid "Previous page"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:311
+msgid "Previous"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:313
+msgid "Page"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:313
+msgid "of"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:315
+msgid "Next page"
+msgstr ""
+
+#: src/chatfilter/templates/history.html:315
+msgid "Next"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:3 src/chatfilter/templates/proxy.html:7
+msgid "Proxy Settings"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:8
+msgid "Configure proxy for Telegram connections"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:12
+msgid "Proxy Configuration"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:19
+msgid "Proxy configuration form"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:29
+msgid "Enable Proxy"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:31
+msgid "Enable to route Telegram traffic through a proxy server"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:35
+msgid "Proxy Type"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:36
+msgid "Select proxy type"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:44
+msgid "Host"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:49
+msgid "proxy.example.com"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:50
+msgid "Proxy server hostname or IP address"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:54
+msgid "Port"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:62
+msgid "Proxy server port number"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:68
+msgid "Username (optional)"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:73
+#: src/chatfilter/templates/proxy.html:83
+msgid "Leave empty if not required"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:74
+msgid "Proxy authentication username"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:78
+msgid "Password (optional)"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:84
+msgid "Proxy authentication password"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:89
+msgid "Save proxy settings"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:90
+msgid "Save Settings"
+msgstr ""
+
+#: src/chatfilter/templates/proxy.html:91
+msgid "Saving in progress"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:3
+#: src/chatfilter/templates/results.html:452
+msgid "Analysis Results"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:453
+msgid "View and export your chat analysis results"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:462
+msgid "Analysis statistics"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:464
+msgid "Copy all statistics"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:465
+#, python-format
+msgid "%(count)s chats analyzed"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:466
+msgid "Chats Analyzed"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:469
+msgid "Total messages"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:470
+msgid "Total Messages"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:473
+msgid "Unique authors"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:474
+msgid "Unique Authors"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:477
+msgid "Active chats in last 7 days"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:478
+#: src/chatfilter/templates/results.html:528
+msgid "Active (7d)"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:485
+msgid "Clock Skew Detected"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:487
+msgid ""
+"Your system clock appears to be incorrect, which may affect time-based "
+"calculations (messages per hour, history length)."
+msgstr ""
+
+#: src/chatfilter/templates/results.html:487
+#, python-format
+msgid "%(count)s chat(s) affected:"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:494
+#, python-format
+msgid "System clock is %(minutes)s minutes ahead of Telegram server time"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:496
+#, python-format
+msgid "System clock is %(minutes)s minutes behind Telegram server time"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:501
+msgid ""
+"Please check your system time settings and synchronize with a reliable "
+"time server (e.g., NTP)."
+msgstr ""
+
+#: src/chatfilter/templates/results.html:505
+msgid "Result filters"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:507
+msgid "Search chats"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:35
+#: src/chatfilter/templates/results.html:510
+msgid "Search chats..."
+msgstr ""
+
+#: src/chatfilter/templates/results.html:511
+msgid "Search chats by title or username"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:514
+#: src/chatfilter/templates/results.html:515
+msgid "Filter by chat type"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:44
+#: src/chatfilter/templates/results.html:516
+msgid "All Types"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:45
+#: src/chatfilter/templates/results.html:517
+msgid "Private"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:46
+#: src/chatfilter/templates/results.html:518
+msgid "Group"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:47
+#: src/chatfilter/templates/results.html:519
+msgid "Supergroup"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:48
+#: src/chatfilter/templates/results.html:520
+msgid "Channel"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:49
+#: src/chatfilter/templates/results.html:521
+msgid "Forum"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:525
+msgid "Filter by activity"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:526
+msgid "Filter by activity status"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:527
+msgid "All Activity"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:529
+#: src/chatfilter/templates/results.html:645
+#: src/chatfilter/templates/results.html:646
+msgid "Inactive"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:537
+msgid "Clear all filters"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:71
+#: src/chatfilter/templates/results.html:538
+msgid "Clear Filters"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:538
+msgid "Number of active filters"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:544
+msgid "Copy selected rows"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:545
+msgid "Copy Selected"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:551
+msgid "Compare selected chats"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:552
+msgid "Compare Selected"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:557
+msgid "Export results to CSV file"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:558
+msgid "Export CSV"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:563
+msgid "Analysis results table"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:564
+msgid "Chat analysis results"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:570
+msgid "Select all chats"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:573
+msgid "Sort by chat name"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:574
+msgid "Chat"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:578
+msgid "Sort by chat type"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:579
+msgid "Type"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:583
+msgid "Sort by message count"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:584
+msgid "Messages"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:588
+msgid "Sort by author count"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:589
+msgid "Authors"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:593
+msgid "Sort by history hours"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:594
+msgid "History (h)"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:598
+msgid "Sort by messages per hour"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:599
+msgid "Msg/Hour"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:603
+msgid "Sort by activity status"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:604
+msgid "Activity"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:608
+msgid "Copy"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:627
+#, python-format
+msgid "Select %(title)s"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:632
+msgid "Username"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:636
+#, python-format
+msgid "Chat type: %(type)s"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:640
+#, python-format
+msgid "%(count)s messages"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:641
+#, python-format
+msgid "%(count)s authors"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:642
+#, python-format
+msgid "%(hours)s hours"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:643
+#, python-format
+msgid "%(rate)s messages per hour"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:645
+msgid "Active in last 7 days"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:646
+msgid "Active"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:650
+msgid "Copy row data"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:665
+msgid "Compare Chat Metrics"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:667
+msgid "Copy comparison data"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:668
+msgid "Copy Data"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:670
+msgid "Close comparison modal"
+msgstr ""
+
+#: src/chatfilter/templates/results.html:680
+msgid "No analysis results yet."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:3
+#: src/chatfilter/templates/upload.html:252
+msgid "Upload Session"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:7
+msgid "Telegram Sessions"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:8
+msgid "Upload your Telegram session to start analyzing chats"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:12
+msgid "⚠️ Critical Security Warning: Session File Risks"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:15
+msgid ""
+"Session files grant complete, unrestricted access to your Telegram "
+"account."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:16
+msgid "Before uploading, understand these critical risks:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:20
+msgid "Full Account Control:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:20
+msgid ""
+"Anyone with your session file can read all messages, send messages as "
+"you, join/leave groups, and perform any action you can perform in "
+"Telegram"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:21
+msgid "No Additional Authentication:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:21
+msgid ""
+"Session files bypass 2FA and password protection - no further credentials"
+" are needed to use your account"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:22
+msgid "Persistent Access:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:22
+msgid ""
+"Sessions remain valid until you explicitly log out from all devices in "
+"Telegram or change your 2FA password"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:23
+msgid "Undetectable Usage:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:23
+msgid ""
+"Telegram does not notify you when a session is used from a different "
+"location or device"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:24
+msgid "Theft Risk:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:24
+msgid ""
+"If your session file is compromised (stolen, leaked, or accessed by "
+"malware), attackers gain immediate full access to your account"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:28
+msgid "Best Practices:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:28
+msgid "Only create and upload session files on trusted devices."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:29
+msgid ""
+"Never share session files with anyone. Store them securely with "
+"restricted file permissions."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:30
+msgid ""
+"If you suspect a session may be compromised, immediately log out from all"
+" devices in Telegram settings."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:35
+msgid "First Time Setup Guide"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:36
+msgid "To use ChatFilter, you need two things:"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:36
+msgid "API credentials"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:36
+msgid "and a"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:36
+msgid "session file"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:36
+msgid "Follow the steps below to obtain them."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:39
+msgid "Learn how to get your Telegram API credentials from my.telegram.org"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:39
+msgid "Step 1: Get API Credentials (api_id and api_hash)"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:60
+msgid ""
+"Instructions for creating a Telegram session file using Telethon or "
+"Pyrogram"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:60
+msgid "Step 2: Create a Session File"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:122
+msgid "How to create a config.json file with your API credentials"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:122
+msgid "Step 3: Create Config File"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:134
+msgid "Final step: upload your session and config files to ChatFilter"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:134
+msgid "Step 4: Upload Your Files"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:146
+msgid "Common issues and solutions for Two-Factor Authentication"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:146
+msgid "Troubleshooting: Two-Factor Authentication (2FA)"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:175
+msgid "Upload New Session"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:183
+msgid "Upload Telegram session form"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:187
+msgid "A unique identifier for this Telegram session"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:188
+msgid "Session Name"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:193
+msgid "e.g., my_account"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:197
+msgid "Choose a unique name using only letters, numbers, underscores, and hyphens"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:199
+msgid ""
+"A unique name to identify this session. Only letters, numbers, "
+"underscores, and hyphens allowed."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:204
+msgid "Upload the .session file created with Telethon or Pyrogram"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:205
+msgid "Session File (.session)"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:213
+msgid "Select the .session file created using Telethon or Pyrogram"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:215
+msgid "Telethon session file (SQLite database)"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:220
+msgid "Upload JSON file containing your Telegram API credentials"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:221
+msgid "Config File (.json)"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:229
+msgid "Select the config.json file with your api_id and api_hash"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:231
+msgid "JSON with api_id and api_hash from my.telegram.org"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:242
+msgid ""
+"I understand that session files provide complete access to my Telegram "
+"account and accept the security risks described above. I confirm this "
+"session was created on a trusted device and will be stored securely."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:249
+msgid "Upload session files"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:250
+msgid "Upload your session and config files to start using ChatFilter"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:262
+msgid "Registered Sessions"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:269
+msgid "List of registered Telegram sessions"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:271
+msgid "Loading sessions..."
+msgstr ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:6
+#: src/chatfilter/templates/partials/chat_list.html:6
+msgid "What to do:"
+msgstr ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:13
+#: src/chatfilter/templates/partials/chat_list.html:24
+msgid "Go to Sessions Page"
+msgstr ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:27
+msgid "Analysis for these chats is already in progress. Showing current status..."
+msgstr ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:31
+#, python-format
+msgid "Analyzing %(num)s chat..."
+msgid_plural "Analyzing %(num)s chats..."
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:33
+msgid "Starting..."
+msgstr ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:34
+msgid "Cancel analysis"
+msgstr ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:34
+msgid "Cancel"
+msgstr ""
+
+#: src/chatfilter/templates/partials/analysis_progress.html:43
+msgid "chats"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:17
+msgid "Try loading chats again"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:19
+msgid "Retry"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:37
+msgid "Search chats by name or username"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:42
+msgid "Filter chats by type (private, group, channel, etc.)"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:58
+msgid "Select all visible chats"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:59
+msgid "Select All"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:63
+msgid "Deselect all chats"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:64
+msgid "Select None"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:69
+msgid "Remove all active filters"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:73
+#, python-format
+msgid "0 of %(total)s chats"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:119
+#, python-format
+msgid "%(count)s members"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:136
+#: src/chatfilter/templates/partials/chat_list.html:200
+msgid "Load more chats from this session"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:138
+#: src/chatfilter/templates/partials/chat_list.html:202
+#, python-format
+msgid "Load More Chats (%(remaining)s remaining)"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:146
+msgid "Configure how many messages to analyze from each chat"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:147
+msgid "Analysis Settings"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:150
+msgid "Set the number of recent messages to fetch and analyze"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:151
+msgid "Messages per chat"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:160
+msgid "Higher values take longer but provide more comprehensive analysis"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:162
+msgid "Number of recent messages to analyze (10-10000)"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:169
+msgid "Begin analyzing the selected chats"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:211
+msgid "No Chats Found"
+msgstr ""
+
+#: src/chatfilter/templates/partials/chat_list.html:212
+msgid ""
+"This Telegram session doesn't have any chats available for analysis. Try "
+"selecting a different session or verify that your session has active "
+"chats."
+msgstr ""
+
+#: src/chatfilter/templates/partials/sessions_list.html:13
+msgid "Delete session"
+msgstr ""
+
+#: src/chatfilter/templates/partials/sessions_list.html:14
+msgid "Delete"
+msgstr ""
+
+#: src/chatfilter/templates/partials/sessions_list.html:23
+msgid "No Telegram Sessions"
+msgstr ""
+
+#: src/chatfilter/templates/partials/sessions_list.html:24
+msgid ""
+"You haven't uploaded any Telegram session files yet. Upload a session "
+"file to start analyzing your chats."
+msgstr ""

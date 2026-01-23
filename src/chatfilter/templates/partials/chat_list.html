@@ -3,7 +3,7 @@
     <div><strong>{{ error }}</strong></div>
     {% if error_action %}
     <div style="margin-top: 0.5rem; padding-left: 1rem; border-left: 3px solid rgba(255,255,255,0.3);">
-        <div style="font-weight: 500; margin-bottom: 0.25rem;">What to do:</div>
+        <div style="font-weight: 500; margin-bottom: 0.25rem;">{{ _("What to do:") }}</div>
         <div>{{ error_action }}</div>
     </div>
     {% endif %}
@@ -14,14 +14,14 @@
                 hx-get="/api/chats?session-select={{ session_id }}"
                 hx-target="#chats-container"
                 hx-swap="innerHTML"
-                data-tooltip="Try loading chats again"
+                data-tooltip="{{ _('Try loading chats again') }}"
                 data-tooltip-position="bottom">
-            Retry
+            {{ _("Retry") }}
         </button>
         {% endif %}
         {% if error_action_type == 'reauth' %}
         <a href="/sessions" class="btn btn-sm btn-primary">
-            Go to Sessions Page
+            {{ _("Go to Sessions Page") }}
         </a>
         {% endif %}
     </div>
@@ -32,21 +32,21 @@
     <div class="form-group">
         <input type="text"
                id="chat-search"
-               placeholder="Search chats..."
+               placeholder="{{ _('Search chats...') }}"
                autocomplete="off"
-               data-tooltip="Search chats by name or username"
+               data-tooltip="{{ _('Search chats by name or username') }}"
                data-tooltip-position="bottom">
     </div>
     <div class="form-group">
         <select id="chat-type-filter"
-                data-tooltip="Filter chats by type (private, group, channel, etc.)"
+                data-tooltip="{{ _('Filter chats by type (private, group, channel, etc.)') }}"
                 data-tooltip-position="bottom">
-            <option value="">All Types</option>
-            <option value="private">Private</option>
-            <option value="group">Group</option>
-            <option value="supergroup">Supergroup</option>
-            <option value="channel">Channel</option>
-            <option value="forum">Forum</option>
+            <option value="">{{ _("All Types") }}</option>
+            <option value="private">{{ _("Private") }}</option>
+            <option value="group">{{ _("Group") }}</option>
+            <option value="supergroup">{{ _("Supergroup") }}</option>
+            <option value="channel">{{ _("Channel") }}</option>
+            <option value="forum">{{ _("Forum") }}</option>
         </select>
     </div>
 </div>
@@ -55,22 +55,22 @@
     <button type="button"
             class="btn btn-sm btn-secondary"
             id="select-all"
-            data-tooltip="Select all visible chats"
-            data-tooltip-position="bottom">Select All</button>
+            data-tooltip="{{ _('Select all visible chats') }}"
+            data-tooltip-position="bottom">{{ _("Select All") }}</button>
     <button type="button"
             class="btn btn-sm btn-secondary"
             id="select-none"
-            data-tooltip="Deselect all chats"
-            data-tooltip-position="bottom">Select None</button>
+            data-tooltip="{{ _('Deselect all chats') }}"
+            data-tooltip-position="bottom">{{ _("Select None") }}</button>
     <button type="button"
             class="btn btn-sm btn-secondary"
             id="clear-chat-filters"
             disabled
-            data-tooltip="Remove all active filters"
+            data-tooltip="{{ _('Remove all active filters') }}"
             data-tooltip-position="bottom">
-        Clear Filters <span id="chat-filter-count" class="filter-badge" style="display: none;">0</span>
+        {{ _("Clear Filters") }} <span id="chat-filter-count" class="filter-badge" style="display: none;">0</span>
     </button>
-    <span id="selection-count" class="selection-count">0 of {{ total_count }} chats</span>
+    <span id="selection-count" class="selection-count">{{ _("0 of %(total)s chats", total=total_count) }}</span>
 </div>
 
 <style>
@@ -116,7 +116,7 @@
                     <span>@{{ chat.username }}</span>
                     {% endif %}
                     {% if chat.member_count %}
-                    <span>{{ chat.member_count }} members</span>
+                    <span>{{ _("%(count)s members", count=chat.member_count) }}</span>
                     {% endif %}
                 </div>
             </div>
@@ -133,9 +133,9 @@
                 hx-target="#load-more-container"
                 hx-swap="outerHTML"
                 hx-indicator="#load-more-spinner"
-                data-tooltip="Load more chats from this session"
+                data-tooltip="{{ _('Load more chats from this session') }}"
                 data-tooltip-position="top">
-            Load More Chats ({{ remaining }} remaining)
+            {{ _("Load More Chats (%(remaining)s remaining)", remaining=remaining) }}
             <span id="load-more-spinner" class="htmx-indicator spinner"></span>
         </button>
     </div>
@@ -143,12 +143,12 @@
 
     <div class="analysis-settings" style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 6px;">
         <h4 style="margin-bottom: 0.75rem; font-size: 1rem;"
-            data-tooltip="Configure how many messages to analyze from each chat"
-            data-tooltip-position="right">Analysis Settings</h4>
+            data-tooltip="{{ _('Configure how many messages to analyze from each chat') }}"
+            data-tooltip-position="right">{{ _("Analysis Settings") }}</h4>
         <div class="form-group" style="margin-bottom: 0;">
             <label for="message_limit"
-                   data-tooltip="Set the number of recent messages to fetch and analyze"
-                   data-tooltip-position="right">Messages per chat</label>
+                   data-tooltip="{{ _('Set the number of recent messages to fetch and analyze') }}"
+                   data-tooltip-position="right">{{ _("Messages per chat") }}</label>
             <input type="number"
                    id="message_limit"
                    name="message_limit"
@@ -157,18 +157,18 @@
                    max="10000"
                    step="100"
                    style="max-width: 200px;"
-                   data-tooltip="Higher values take longer but provide more comprehensive analysis"
+                   data-tooltip="{{ _('Higher values take longer but provide more comprehensive analysis') }}"
                    data-tooltip-position="top">
-            <small class="form-hint">Number of recent messages to analyze (10-10000)</small>
+            <small class="form-hint">{{ _("Number of recent messages to analyze (10-10000)") }}</small>
         </div>
     </div>
 
     <div class="form-actions" style="margin-top: 1.5rem;">
         <button type="submit"
                 class="btn btn-primary"
-                data-tooltip="Begin analyzing the selected chats"
+                data-tooltip="{{ _('Begin analyzing the selected chats') }}"
                 data-tooltip-position="top">
-            <span class="btn-text">Start Analysis</span>
+            <span class="btn-text">{{ _("Start Analysis") }}</span>
             <span id="analysis-spinner" class="htmx-indicator spinner"></span>
         </button>
     </div>
@@ -197,9 +197,9 @@
             hx-target="#load-more-container"
             hx-swap="outerHTML"
             hx-indicator="#load-more-spinner"
-            data-tooltip="Load more chats from this session"
+            data-tooltip="{{ _('Load more chats from this session') }}"
             data-tooltip-position="top">
-        Load More Chats ({{ remaining }} remaining)
+        {{ _("Load More Chats (%(remaining)s remaining)", remaining=remaining) }}
         <span id="load-more-spinner" class="htmx-indicator spinner"></span>
     </button>
 </div>
@@ -208,7 +208,7 @@
 {% else %}
 <div class="no-chats">
     <div class="empty-state-icon">💬</div>
-    <h3>No Chats Found</h3>
-    <p>This Telegram session doesn't have any chats available for analysis. Try selecting a different session or verify that your session has active chats.</p>
+    <h3>{{ _("No Chats Found") }}</h3>
+    <p>{{ _("This Telegram session doesn't have any chats available for analysis. Try selecting a different session or verify that your session has active chats.") }}</p>
 </div>
 {% endif %}

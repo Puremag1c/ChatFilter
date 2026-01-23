@@ -1,42 +1,42 @@
 {% extends "base.html" %}
 
-{% block title %}Upload Session - ChatFilter{% endblock %}
+{% block title %}{{ _("Upload Session") }} - ChatFilter{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>Telegram Sessions</h1>
-    <p class="subtitle">Upload your Telegram session to start analyzing chats</p>
+    <h1>{{ _("Telegram Sessions") }}</h1>
+    <p class="subtitle">{{ _("Upload your Telegram session to start analyzing chats") }}</p>
 </div>
 
 <div class="alert alert-error" role="alert" aria-labelledby="security-warning-title">
-    <strong id="security-warning-title">⚠️ Critical Security Warning: Session File Risks</strong>
+    <strong id="security-warning-title">{{ _("⚠️ Critical Security Warning: Session File Risks") }}</strong>
 
     <p style="margin-top: 0.75rem; margin-bottom: 0.75rem;">
-        <strong>Session files grant complete, unrestricted access to your Telegram account.</strong>
-        Before uploading, understand these critical risks:
+        <strong>{{ _("Session files grant complete, unrestricted access to your Telegram account.") }}</strong>
+        {{ _("Before uploading, understand these critical risks:") }}
     </p>
 
     <ul style="margin-left: 1.5rem; margin-bottom: 0.75rem;">
-        <li><strong>Full Account Control:</strong> Anyone with your session file can read all messages, send messages as you, join/leave groups, and perform any action you can perform in Telegram</li>
-        <li><strong>No Additional Authentication:</strong> Session files bypass 2FA and password protection - no further credentials are needed to use your account</li>
-        <li><strong>Persistent Access:</strong> Sessions remain valid until you explicitly log out from all devices in Telegram or change your 2FA password</li>
-        <li><strong>Undetectable Usage:</strong> Telegram does not notify you when a session is used from a different location or device</li>
-        <li><strong>Theft Risk:</strong> If your session file is compromised (stolen, leaked, or accessed by malware), attackers gain immediate full access to your account</li>
+        <li><strong>{{ _("Full Account Control:") }}</strong> {{ _("Anyone with your session file can read all messages, send messages as you, join/leave groups, and perform any action you can perform in Telegram") }}</li>
+        <li><strong>{{ _("No Additional Authentication:") }}</strong> {{ _("Session files bypass 2FA and password protection - no further credentials are needed to use your account") }}</li>
+        <li><strong>{{ _("Persistent Access:") }}</strong> {{ _("Sessions remain valid until you explicitly log out from all devices in Telegram or change your 2FA password") }}</li>
+        <li><strong>{{ _("Undetectable Usage:") }}</strong> {{ _("Telegram does not notify you when a session is used from a different location or device") }}</li>
+        <li><strong>{{ _("Theft Risk:") }}</strong> {{ _("If your session file is compromised (stolen, leaked, or accessed by malware), attackers gain immediate full access to your account") }}</li>
     </ul>
 
     <p style="margin-bottom: 0;">
-        <strong>Best Practices:</strong> Only create and upload session files on trusted devices.
-        Never share session files with anyone. Store them securely with restricted file permissions.
-        If you suspect a session may be compromised, immediately log out from all devices in Telegram settings.
+        <strong>{{ _("Best Practices:") }}</strong> {{ _("Only create and upload session files on trusted devices.") }}
+        {{ _("Never share session files with anyone. Store them securely with restricted file permissions.") }}
+        {{ _("If you suspect a session may be compromised, immediately log out from all devices in Telegram settings.") }}
     </p>
 </div>
 
 <section class="card onboarding">
-    <h3>First Time Setup Guide</h3>
-    <p>To use ChatFilter, you need two things: <strong>API credentials</strong> and a <strong>session file</strong>. Follow the steps below to obtain them.</p>
+    <h3>{{ _("First Time Setup Guide") }}</h3>
+    <p>{{ _("To use ChatFilter, you need two things:") }} <strong>{{ _("API credentials") }}</strong> {{ _("and a") }} <strong>{{ _("session file") }}</strong>. {{ _("Follow the steps below to obtain them.") }}</p>
 
     <details class="onboarding-section">
-        <summary data-tooltip="Learn how to get your Telegram API credentials from my.telegram.org" data-tooltip-position="right"><strong>Step 1: Get API Credentials (api_id and api_hash)</strong></summary>
+        <summary data-tooltip="{{ _("Learn how to get your Telegram API credentials from my.telegram.org") }}" data-tooltip-position="right"><strong>{{ _("Step 1: Get API Credentials (api_id and api_hash)") }}</strong></summary>
         <div class="onboarding-content">
             <ol>
                 <li>Go to <a href="https://my.telegram.org/apps" target="_blank" rel="noopener">https://my.telegram.org/apps</a></li>
@@ -57,7 +57,7 @@
     </details>
 
     <details class="onboarding-section">
-        <summary data-tooltip="Instructions for creating a Telegram session file using Telethon or Pyrogram" data-tooltip-position="right"><strong>Step 2: Create a Session File</strong></summary>
+        <summary data-tooltip="{{ _("Instructions for creating a Telegram session file using Telethon or Pyrogram") }}" data-tooltip-position="right"><strong>{{ _("Step 2: Create a Session File") }}</strong></summary>
         <div class="onboarding-content">
             <p>You need to create a Telegram session file using either Telethon or Pyrogram. Here's how:</p>
 
@@ -119,7 +119,7 @@ with app:
     </details>
 
     <details class="onboarding-section">
-        <summary data-tooltip="How to create a config.json file with your API credentials" data-tooltip-position="right"><strong>Step 3: Create Config File</strong></summary>
+        <summary data-tooltip="{{ _("How to create a config.json file with your API credentials") }}" data-tooltip-position="right"><strong>{{ _("Step 3: Create Config File") }}</strong></summary>
         <div class="onboarding-content">
             <p>Create a JSON file (<code>config.json</code>) with your API credentials:</p>
             <pre><code>{
@@ -131,7 +131,7 @@ with app:
     </details>
 
     <details class="onboarding-section">
-        <summary data-tooltip="Final step: upload your session and config files to ChatFilter" data-tooltip-position="right"><strong>Step 4: Upload Your Files</strong></summary>
+        <summary data-tooltip="{{ _("Final step: upload your session and config files to ChatFilter") }}" data-tooltip-position="right"><strong>{{ _("Step 4: Upload Your Files") }}</strong></summary>
         <div class="onboarding-content">
             <p>Now you're ready to upload:</p>
             <ul>
@@ -143,7 +143,7 @@ with app:
     </details>
 
     <details class="onboarding-section">
-        <summary data-tooltip="Common issues and solutions for Two-Factor Authentication" data-tooltip-position="right"><strong>Troubleshooting: Two-Factor Authentication (2FA)</strong></summary>
+        <summary data-tooltip="{{ _("Common issues and solutions for Two-Factor Authentication") }}" data-tooltip-position="right"><strong>{{ _("Troubleshooting: Two-Factor Authentication (2FA)") }}</strong></summary>
         <div class="onboarding-content">
             <p><strong>Issue:</strong> You see an error like "Two-factor authentication (2FA) is required" when trying to use your session.</p>
 
@@ -172,7 +172,7 @@ with app:
 </section>
 
 <section class="card">
-    <h2>Upload New Session</h2>
+    <h2>{{ _("Upload New Session") }}</h2>
 
     <form id="upload-form"
           hx-post="/api/sessions/upload"
@@ -180,29 +180,29 @@ with app:
           hx-target="#upload-result"
           hx-swap="innerHTML"
           hx-indicator="#upload-spinner"
-          aria-label="Upload Telegram session form">
+          aria-label="{{ _("Upload Telegram session form") }}">
 
         <div class="form-group">
             <label for="session_name"
-                   data-tooltip="A unique identifier for this Telegram session"
-                   data-tooltip-position="right">Session Name</label>
+                   data-tooltip="{{ _("A unique identifier for this Telegram session") }}"
+                   data-tooltip-position="right">{{ _("Session Name") }}</label>
             <input type="text"
                    id="session_name"
                    name="session_name"
                    required
-                   placeholder="e.g., my_account"
+                   placeholder="{{ _("e.g., my_account") }}"
                    pattern="[a-zA-Z0-9_-]+"
                    aria-describedby="session-name-hint"
                    aria-required="true"
-                   data-tooltip="Choose a unique name using only letters, numbers, underscores, and hyphens"
+                   data-tooltip="{{ _("Choose a unique name using only letters, numbers, underscores, and hyphens") }}"
                    data-tooltip-position="top">
-            <small id="session-name-hint" class="form-hint">A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed.</small>
+            <small id="session-name-hint" class="form-hint">{{ _("A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed.") }}</small>
         </div>
 
         <div class="form-group">
             <label for="session_file"
-                   data-tooltip="Upload the .session file created with Telethon or Pyrogram"
-                   data-tooltip-position="right">Session File (.session)</label>
+                   data-tooltip="{{ _("Upload the .session file created with Telethon or Pyrogram") }}"
+                   data-tooltip-position="right">{{ _("Session File (.session)") }}</label>
             <input type="file"
                    id="session_file"
                    name="session_file"
@@ -210,15 +210,15 @@ with app:
                    accept=".session"
                    aria-describedby="session-file-hint"
                    aria-required="true"
-                   data-tooltip="Select the .session file created using Telethon or Pyrogram"
+                   data-tooltip="{{ _("Select the .session file created using Telethon or Pyrogram") }}"
                    data-tooltip-position="top">
-            <small id="session-file-hint" class="form-hint">Telethon session file (SQLite database)</small>
+            <small id="session-file-hint" class="form-hint">{{ _("Telethon session file (SQLite database)") }}</small>
         </div>
 
         <div class="form-group">
             <label for="config_file"
-                   data-tooltip="Upload JSON file containing your Telegram API credentials"
-                   data-tooltip-position="right">Config File (.json)</label>
+                   data-tooltip="{{ _("Upload JSON file containing your Telegram API credentials") }}"
+                   data-tooltip-position="right">{{ _("Config File (.json)") }}</label>
             <input type="file"
                    id="config_file"
                    name="config_file"
@@ -226,9 +226,9 @@ with app:
                    accept=".json"
                    aria-describedby="config-file-hint"
                    aria-required="true"
-                   data-tooltip="Select the config.json file with your api_id and api_hash"
+                   data-tooltip="{{ _("Select the config.json file with your api_id and api_hash") }}"
                    data-tooltip-position="top">
-            <small id="config-file-hint" class="form-hint">JSON with api_id and api_hash from my.telegram.org</small>
+            <small id="config-file-hint" class="form-hint">{{ _("JSON with api_id and api_hash from my.telegram.org") }}</small>
         </div>
 
         <div class="form-group">
@@ -239,18 +239,18 @@ with app:
                        required
                        aria-required="true"
                        style="margin-right: 0.5rem; margin-top: 0.25rem; cursor: pointer;">
-                <span>I understand that session files provide complete access to my Telegram account and accept the security risks described above. I confirm this session was created on a trusted device and will be stored securely.</span>
+                <span>{{ _("I understand that session files provide complete access to my Telegram account and accept the security risks described above. I confirm this session was created on a trusted device and will be stored securely.") }}</span>
             </label>
         </div>
 
         <div class="form-actions">
             <button type="submit"
                     class="btn btn-primary"
-                    aria-label="Upload session files"
-                    data-tooltip="Upload your session and config files to start using ChatFilter"
+                    aria-label="{{ _("Upload session files") }}"
+                    data-tooltip="{{ _("Upload your session and config files to start using ChatFilter") }}"
                     data-tooltip-position="top">
-                <span class="btn-text">Upload Session</span>
-                <span id="upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="Upload in progress"></span>
+                <span class="btn-text">{{ _("Upload Session") }}</span>
+                <span id="upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="{{ _("Upload in progress") }}"></span>
             </button>
         </div>
     </form>
@@ -259,16 +259,16 @@ with app:
 </section>
 
 <section class="card">
-    <h2>Registered Sessions</h2>
+    <h2>{{ _("Registered Sessions") }}</h2>
     <div id="sessions-list"
          hx-get="/api/sessions"
          hx-trigger="load"
          hx-swap="innerHTML"
          role="region"
          aria-live="polite"
-         aria-label="List of registered Telegram sessions">
+         aria-label="{{ _("List of registered Telegram sessions") }}">
         <div class="skeleton-container" aria-busy="true" role="status">
-            <span class="skeleton-sr-text">Loading sessions...</span>
+            <span class="skeleton-sr-text">{{ _("Loading sessions...") }}</span>
             <div class="skeleton-session-list">
                 <div class="skeleton-session-item">
                     <div class="skeleton-session-info">

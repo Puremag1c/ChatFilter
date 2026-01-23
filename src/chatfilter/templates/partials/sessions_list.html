@@ -9,8 +9,9 @@
         <div class="session-actions">
             <button class="btn btn-sm btn-danger session-delete-btn"
                     data-session-id="{{ session.session_id }}"
-                    data-lock="session:{{ session.session_id }}:delete">
-                Delete
+                    data-lock="session:{{ session.session_id }}:delete"
+                    aria-label="{{ _('Delete session') }}">
+                {{ _("Delete") }}
             </button>
         </div>
     </div>
@@ -19,7 +20,7 @@
 {% else %}
 <div class="empty-state">
     <div class="empty-state-icon">📱</div>
-    <h3>No Telegram Sessions</h3>
-    <p>You haven't uploaded any Telegram session files yet. Upload a session file to start analyzing your chats.</p>
+    <h3>{{ _("No Telegram Sessions") }}</h3>
+    <p>{{ _("You haven't uploaded any Telegram session files yet. Upload a session file to start analyzing your chats.") }}</p>
 </div>
 {% endif %}
