@@ -70,6 +70,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      CODESIGN_ENABLED: ${{ secrets.MACOS_CERTIFICATE != '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -91,7 +93,7 @@ jobs:
           pyinstaller chatfilter.spec --clean --noconfirm
 
       - name: Import code signing certificate
-        if: github.event_name != 'pull_request'
+        if: env.CODESIGN_ENABLED == 'true'
         env:
           CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE }}
           CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -109,7 +111,7 @@ jobs:
           security default-keychain -s $KEYCHAIN_PATH
 
       - name: Code sign app bundle
-        if: github.event_name != 'pull_request'
+        if: env.CODESIGN_ENABLED == 'true'
         env:
           CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
         run: |
@@ -120,7 +122,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 dist/ChatFilter.app
 
       - name: Notarize app bundle
-        if: github.event_name != 'pull_request'
+        if: env.CODESIGN_ENABLED == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
@@ -162,7 +164,7 @@ jobs:
             dist/ChatFilter-macOS.zip.sha256
 
       - name: Cleanup keychain
-        if: always() && github.event_name != 'pull_request'
+        if: always() && env.CODESIGN_ENABLED == 'true'
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
           if [ -f "$KEYCHAIN_PATH" ]; then
