@@ -141,6 +141,8 @@ class SmokeTestRunner:
         """Test that web server starts and responds to health check."""
         import random
         import signal
+        import threading
+        from collections import deque
 
         # Use random port to avoid conflicts
         port = random.randint(49152, 65535)
@@ -174,6 +176,31 @@ class SmokeTestRunner:
                 env=env,
             )
 
+            # Drain stdout/stderr in background threads to prevent blocking
+            # On Windows, pipe buffers are small (~4KB) and can cause the process to block
+            stdout_lines: deque[str] = deque(maxlen=1000)
+            stderr_lines: deque[str] = deque(maxlen=1000)
+            drain_stop = threading.Event()
+
+            def drain_pipe(pipe, output_deque):
+                """Read lines from pipe until EOF or stop event."""
+                try:
+                    for line in iter(pipe.readline, ""):
+                        if drain_stop.is_set():
+                            break
+                        output_deque.append(line)
+                except Exception:
+                    pass
+
+            stdout_thread = threading.Thread(
+                target=drain_pipe, args=(process.stdout, stdout_lines), daemon=True
+            )
+            stderr_thread = threading.Thread(
+                target=drain_pipe, args=(process.stderr, stderr_lines), daemon=True
+            )
+            stdout_thread.start()
+            stderr_thread.start()
+
             try:
                 # Wait for server to start
                 max_wait = 30  # seconds
@@ -182,10 +209,14 @@ class SmokeTestRunner:
 
                 while time.time() - start_time < max_wait:
                     if process.poll() is not None:
-                        # Process died
-                        stdout, stderr = process.communicate()
+                        # Process died - wait for drain threads to finish
+                        drain_stop.set()
+                        stdout_thread.join(timeout=1)
+                        stderr_thread.join(timeout=1)
                         raise AssertionError(
-                            f"Server process died unexpectedly\nstdout: {stdout}\nstderr: {stderr}"
+                            f"Server process died unexpectedly\n"
+                            f"stdout: {''.join(stdout_lines)}\n"
+                            f"stderr: {''.join(stderr_lines)}"
                         )
 
                     try:
@@ -202,33 +233,15 @@ class SmokeTestRunner:
                         continue
 
                 if not server_ready:
-                    # Capture any available output for debugging
-                    # Use non-blocking read to avoid hanging
-                    import select
-
-                    stdout_content = ""
-                    stderr_content = ""
-
-                    # On Windows, select doesn't work on pipes, so we need a different approach
-                    if sys.platform == "win32":
-                        # Kill process first to release the pipes
-                        process.terminate()
-                        try:
-                            stdout_content, stderr_content = process.communicate(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            process.kill()
-                            stdout_content, stderr_content = process.communicate()
-                    else:
-                        # Unix: try non-blocking read
-                        if process.stdout and select.select([process.stdout], [], [], 0)[0]:
-                            stdout_content = process.stdout.read() or ""
-                        if process.stderr and select.select([process.stderr], [], [], 0)[0]:
-                            stderr_content = process.stderr.read() or ""
+                    # Stop drain threads and collect output
+                    drain_stop.set()
+                    stdout_thread.join(timeout=1)
+                    stderr_thread.join(timeout=1)
 
                     raise AssertionError(
                         f"Server did not respond within {max_wait}s\n"
-                        f"stdout: {stdout_content}\n"
-                        f"stderr: {stderr_content}"
+                        f"stdout: {''.join(stdout_lines)}\n"
+                        f"stderr: {''.join(stderr_lines)}"
                     )
 
                 # Test health endpoint
@@ -256,6 +269,9 @@ class SmokeTestRunner:
                     self.log(f"Root page status: {response.status_code}")
 
             finally:
+                # Stop drain threads
+                drain_stop.set()
+
                 # Gracefully shutdown server
                 self.log("Shutting down server")
                 try:
@@ -275,6 +291,10 @@ class SmokeTestRunner:
                 except Exception as e:
                     self.log(f"Error during shutdown: {e}")
                     process.kill()
+
+                # Wait for drain threads to finish
+                stdout_thread.join(timeout=1)
+                stderr_thread.join(timeout=1)
 
     def test_invalid_args_exit_code(self) -> None:
         """Test that invalid arguments return non-zero exit code."""
