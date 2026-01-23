@@ -32,8 +32,11 @@ APP_NAME = 'ChatFilter'
 APP_VERSION = '0.1.0'
 MAIN_SCRIPT = 'src/chatfilter/main.py'
 
-# Collect all submodules for packages that use dynamic imports
-hiddenimports = [
+# Collect all chatfilter submodules (loaded dynamically by uvicorn)
+hiddenimports = collect_submodules('chatfilter')
+
+# Add external dependencies that use dynamic imports
+hiddenimports += [
     # Telethon and crypto dependencies (critical for Telegram client)
     'telethon',
     'telethon.crypto',
