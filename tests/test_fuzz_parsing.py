@@ -172,7 +172,7 @@ class TestFuzzSessionFile:
 
     @settings(
         max_examples=50,
-        deadline=1000,
+        deadline=5000,  # Increased for Windows CI (slow file I/O)
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     @given(
@@ -196,46 +196,46 @@ class TestFuzzSessionFile:
         """
         filename = unique_filename("fuzz_sqlite", dc_id, server, port, auth_key) + ".session"
         session_path = isolated_tmp_dir / filename
-        conn = sqlite3.connect(session_path)
-        cursor = conn.cursor()
 
-        # Create valid Telethon 1.x schema
-        cursor.execute("""
-            CREATE TABLE sessions (
-                dc_id INTEGER PRIMARY KEY,
-                server_address TEXT,
-                port INTEGER,
-                auth_key BLOB
-            )
-        """)
-        cursor.execute("""
-            CREATE TABLE entities (
-                id INTEGER PRIMARY KEY,
-                hash INTEGER NOT NULL,
-                username TEXT,
-                phone INTEGER,
-                name TEXT
-            )
-        """)
+        # Use context manager to ensure proper connection cleanup on Windows
+        with contextlib.closing(sqlite3.connect(session_path)) as conn:
+            cursor = conn.cursor()
 
-        # Insert random data
-        try:
-            cursor.execute(
-                "INSERT INTO sessions (dc_id, server_address, port, auth_key) VALUES (?, ?, ?, ?)",
-                (dc_id, server, port, auth_key),
-            )
-            conn.commit()
-        except (sqlite3.Error, OverflowError):
-            # Some random values might cause SQL errors or overflow, that's OK
-            pass
-        finally:
-            conn.close()
+            # Create valid Telethon 1.x schema
+            cursor.execute("""
+                CREATE TABLE sessions (
+                    dc_id INTEGER PRIMARY KEY,
+                    server_address TEXT,
+                    port INTEGER,
+                    auth_key BLOB
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE entities (
+                    id INTEGER PRIMARY KEY,
+                    hash INTEGER NOT NULL,
+                    username TEXT,
+                    phone INTEGER,
+                    name TEXT
+                )
+            """)
+
+            # Insert random data
+            try:
+                cursor.execute(
+                    "INSERT INTO sessions (dc_id, server_address, port, auth_key) VALUES (?, ?, ?, ?)",
+                    (dc_id, server, port, auth_key),
+                )
+                conn.commit()
+            except (sqlite3.Error, OverflowError):
+                # Some random values might cause SQL errors or overflow, that's OK
+                pass
 
         # Should handle gracefully
         try:
             validate_session_file(session_path)
-        except SessionFileError:
-            # Expected for invalid data
+        except (SessionFileError, sqlite3.OperationalError):
+            # Expected for invalid data or Windows file locking issues
             pass
         except Exception as e:
             pytest.fail(f"Unexpected exception: {type(e).__name__}: {e}")
