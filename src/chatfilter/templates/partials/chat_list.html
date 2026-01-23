@@ -70,7 +70,7 @@
             data-tooltip-position="bottom">
         {{ _("Clear Filters") }} <span id="chat-filter-count" class="filter-badge" style="display: none;">0</span>
     </button>
-    <span id="selection-count" class="selection-count">{{ _("0 of %(total)s chats", total=total_count) }}</span>
+    <span id="selection-count" class="selection-count">{{ _("0 of %(total)s chats")|format(total=total_count) }}</span>
 </div>
 
 <style>
@@ -116,7 +116,7 @@
                     <span>@{{ chat.username }}</span>
                     {% endif %}
                     {% if chat.member_count %}
-                    <span>{{ _("%(count)s members", count=chat.member_count) }}</span>
+                    <span>{{ _("%(count)s members")|format(count=chat.member_count) }}</span>
                     {% endif %}
                 </div>
             </div>
@@ -135,7 +135,7 @@
                 hx-indicator="#load-more-spinner"
                 data-tooltip="{{ _('Load more chats from this session') }}"
                 data-tooltip-position="top">
-            {{ _("Load More Chats (%(remaining)s remaining)", remaining=remaining) }}
+            {{ _("Load More Chats (%(remaining)s remaining)")|format(remaining=remaining) }}
             <span id="load-more-spinner" class="htmx-indicator spinner"></span>
         </button>
     </div>
@@ -199,7 +199,7 @@
             hx-indicator="#load-more-spinner"
             data-tooltip="{{ _('Load more chats from this session') }}"
             data-tooltip-position="top">
-        {{ _("Load More Chats (%(remaining)s remaining)", remaining=remaining) }}
+        {{ _("Load More Chats (%(remaining)s remaining)")|format(remaining=remaining) }}
         <span id="load-more-spinner" class="htmx-indicator spinner"></span>
     </button>
 </div>

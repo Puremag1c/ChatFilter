@@ -462,7 +462,7 @@
     <div class="results-summary" role="region" aria-label="{{ _("Analysis statistics") }}">
         <div class="summary-stat">
             <button type="button" class="btn-copy" onclick="copySummaryStats()" aria-label="{{ _("Copy all statistics") }}" title="{{ _("Copy all statistics") }}">📋</button>
-            <div class="value" aria-label="{{ _("%(count)s chats analyzed", count=results|length) }}">{{ results|length }}</div>
+            <div class="value" aria-label="{{ _("%(count)s chats analyzed")|format(count=results|length) }}">{{ results|length }}</div>
             <div class="label">{{ _("Chats Analyzed") }}</div>
         </div>
         <div class="summary-stat">
@@ -484,16 +484,16 @@
     <div class="alert alert-warning clock-skew-warning" role="alert" style="margin: 1.5rem 0;">
         <strong>⚠️ {{ _("Clock Skew Detected") }}</strong>
         <p>
-            {{ _("Your system clock appears to be incorrect, which may affect time-based calculations (messages per hour, history length).") }} {{ _("%(count)s chat(s) affected:", count=clock_skew_results|length) }}
+            {{ _("Your system clock appears to be incorrect, which may affect time-based calculations (messages per hour, history length).") }} {{ _("%(count)s chat(s) affected:")|format(count=clock_skew_results|length) }}
         </p>
         <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
             {% for result in clock_skew_results %}
             <li>
                 <strong>{{ result.chat.title }}</strong>:
                 {% if result.metrics.clock_skew_seconds > 0 %}
-                    {{ _("System clock is %(minutes)s minutes ahead of Telegram server time", minutes=(result.metrics.clock_skew_seconds / 60) | round(1)) }}
+                    {{ _("System clock is %(minutes)s minutes ahead of Telegram server time")|format(minutes=(result.metrics.clock_skew_seconds / 60) | round(1)) }}
                 {% else %}
-                    {{ _("System clock is %(minutes)s minutes behind Telegram server time", minutes=(result.metrics.clock_skew_seconds | abs / 60) | round(1)) }}
+                    {{ _("System clock is %(minutes)s minutes behind Telegram server time")|format(minutes=(result.metrics.clock_skew_seconds | abs / 60) | round(1)) }}
                 {% endif %}
             </li>
             {% endfor %}
@@ -624,7 +624,7 @@
                         <input type="checkbox"
                                class="chat-checkbox"
                                data-chat-id="{{ result.chat.id }}"
-                               aria-label="{{ _("Select %(title)s", title=result.chat.title) }}">
+                               aria-label="{{ _("Select %(title)s")|format(title=result.chat.title) }}">
                     </td>
                     <td class="chat-title-cell">
                         <div class="chat-title" title="{{ result.chat.title }}">{{ result.chat.title }}</div>
@@ -633,14 +633,14 @@
                         {% endif %}
                     </td>
                     <td>
-                        <span class="chat-type {{ result.chat.chat_type.value }}" role="text" aria-label="{{ _("Chat type: %(type)s", type=result.chat.chat_type.value) }}">
+                        <span class="chat-type {{ result.chat.chat_type.value }}" role="text" aria-label="{{ _("Chat type: %(type)s")|format(type=result.chat.chat_type.value) }}">
                             {{ result.chat.chat_type.value }}
                         </span>
                     </td>
-                    <td class="numeric" aria-label="{{ _("%(count)s messages", count=result.metrics.message_count) }}">{{ result.metrics.message_count }}</td>
-                    <td class="numeric" aria-label="{{ _("%(count)s authors", count=result.metrics.unique_authors) }}">{{ result.metrics.unique_authors }}</td>
-                    <td class="numeric" aria-label="{{ _("%(hours)s hours", hours="%.1f"|format(result.metrics.history_hours)) }}">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
-                    <td class="numeric" aria-label="{{ _("%(rate)s messages per hour", rate="%.2f"|format(result.metrics.messages_per_hour)) }}">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
+                    <td class="numeric" aria-label="{{ _("%(count)s messages")|format(count=result.metrics.message_count) }}">{{ result.metrics.message_count }}</td>
+                    <td class="numeric" aria-label="{{ _("%(count)s authors")|format(count=result.metrics.unique_authors) }}">{{ result.metrics.unique_authors }}</td>
+                    <td class="numeric" aria-label="{{ _("%(hours)s hours")|format(hours="%.1f"|format(result.metrics.history_hours)) }}">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
+                    <td class="numeric" aria-label="{{ _("%(rate)s messages per hour")|format(rate="%.2f"|format(result.metrics.messages_per_hour)) }}">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
                     <td>
                         <span class="activity-badge {{ 'active' if result.is_active else 'inactive' }}" role="status" aria-label="{{ _("Active in last 7 days") if result.is_active else _("Inactive") }}">
                             {{ _("Active") if result.is_active else _("Inactive") }}

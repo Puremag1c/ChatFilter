@@ -21,6 +21,25 @@ def mock_chat_service() -> MagicMock:
     return MagicMock()
 
 
+@pytest.fixture(autouse=True)
+def reset_global_state() -> None:
+    """Reset global singleton state before each test.
+
+    This ensures that mocking works correctly by clearing cached instances.
+    """
+    import chatfilter.web.routers.chats as chats_module
+
+    # Clear global state before test
+    chats_module._chat_service = None
+    chats_module._session_manager = None
+
+    yield
+
+    # Clear global state after test
+    chats_module._chat_service = None
+    chats_module._session_manager = None
+
+
 @pytest.fixture
 def client() -> TestClient:
     """Create test client."""
