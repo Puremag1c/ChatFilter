@@ -202,7 +202,34 @@ class SmokeTestRunner:
                         continue
 
                 if not server_ready:
-                    raise AssertionError(f"Server did not respond within {max_wait}s")
+                    # Capture any available output for debugging
+                    # Use non-blocking read to avoid hanging
+                    import select
+
+                    stdout_content = ""
+                    stderr_content = ""
+
+                    # On Windows, select doesn't work on pipes, so we need a different approach
+                    if sys.platform == "win32":
+                        # Kill process first to release the pipes
+                        process.terminate()
+                        try:
+                            stdout_content, stderr_content = process.communicate(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            stdout_content, stderr_content = process.communicate()
+                    else:
+                        # Unix: try non-blocking read
+                        if process.stdout and select.select([process.stdout], [], [], 0)[0]:
+                            stdout_content = process.stdout.read() or ""
+                        if process.stderr and select.select([process.stderr], [], [], 0)[0]:
+                            stderr_content = process.stderr.read() or ""
+
+                    raise AssertionError(
+                        f"Server did not respond within {max_wait}s\n"
+                        f"stdout: {stdout_content}\n"
+                        f"stderr: {stderr_content}"
+                    )
 
                 # Test health endpoint
                 response = httpx.get(f"http://{host}:{port}/health", timeout=5.0)
