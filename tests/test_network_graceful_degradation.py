@@ -37,7 +37,8 @@ class TestDNSCheckStrategy:
             assert status.is_online is True
             assert status.error_message is None
             assert status.check_duration_ms is not None
-            assert status.check_duration_ms > 0
+            # Duration can be 0.0 on fast systems with mocked calls
+            assert status.check_duration_ms >= 0
 
     @pytest.mark.asyncio
     async def test_dns_check_offline(self) -> None:
