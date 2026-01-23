@@ -29,7 +29,7 @@ block_cipher = None
 
 # Application metadata
 APP_NAME = 'ChatFilter'
-APP_VERSION = '0.1.0'
+APP_VERSION = '0.2.0'
 MAIN_SCRIPT = 'src/chatfilter/main.py'
 
 # Collect all chatfilter submodules (loaded dynamically by uvicorn)
@@ -102,6 +102,10 @@ hiddenimports += [
 
     # Platform directories (user data paths)
     'platformdirs',
+
+    # Templating engine (required by starlette Jinja2Templates)
+    'jinja2',
+    'markupsafe',
 
     # Standard library that may not be auto-detected
     'asyncio',
