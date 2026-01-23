@@ -42,7 +42,22 @@
         const currentLocale = getCurrentLocale();
         const nextLocale = getNextLocale(currentLocale);
 
-        // Switch language using i18n utility
+        // Try to set cookie first
+        const cookieBeforeSet = document.cookie;
+        document.cookie = `lang=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
+        const cookieAfterSet = document.cookie;
+
+        // Check if cookie was actually set (it won't be if there's an HttpOnly cookie)
+        const cookieWasSet = cookieAfterSet.includes(`lang=${nextLocale}`);
+
+        if (!cookieWasSet) {
+            // Cookie couldn't be set (probably HttpOnly), use query parameter instead
+            console.warn('Language cookie is HttpOnly, using query parameter fallback');
+            window.location.href = `${window.location.pathname}?lang=${nextLocale}`;
+            return;
+        }
+
+        // Cookie was set successfully, use normal flow with i18n
         if (window.i18n) {
             window.i18n.setLocale(nextLocale).then(() => {
                 // Reload page to apply new locale on server-rendered content
@@ -53,8 +68,7 @@
                 window.location.reload();
             });
         } else {
-            // If i18n not loaded yet, just set cookie and reload
-            document.cookie = `lang=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
+            // If i18n not loaded yet, just reload
             window.location.reload();
         }
     }
