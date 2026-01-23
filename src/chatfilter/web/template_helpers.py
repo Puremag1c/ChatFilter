@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from chatfilter.web.csrf import get_csrf_token
 from chatfilter.web.session import get_session
@@ -35,8 +35,10 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
 
     # Install translations for Jinja2 _() function
     # This must be done before each render to use the correct locale
+    # Note: install_gettext_translations is added by jinja2.ext.i18n extension
     templates = get_templates()
-    templates.env.install_gettext_translations(translations)
+    env = cast(Any, templates.env)
+    env.install_gettext_translations(translations)
 
     return {
         "request": request,

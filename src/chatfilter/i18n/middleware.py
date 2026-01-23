@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -101,9 +101,11 @@ class LocaleMiddleware(BaseHTTPMiddleware):
         # Lazy import to avoid circular dependency
         from chatfilter.web.app import get_templates
 
+        # Note: install_gettext_translations is added by jinja2.ext.i18n extension
         translations = get_translations(locale)
         templates = get_templates()
-        templates.env.install_gettext_translations(translations)
+        env = cast(Any, templates.env)
+        env.install_gettext_translations(translations)
 
     def _parse_accept_language(self, accept_language: str) -> str | None:
         """Parse Accept-Language header and return best matching locale.
