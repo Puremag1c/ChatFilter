@@ -24,6 +24,7 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         Context dictionary with request, csrf_token, locale, and any provided kwargs
     """
     from chatfilter.i18n.translations import get_current_locale, get_translations
+    from chatfilter.web.app import get_templates
 
     session = get_session(request)
     csrf_token = get_csrf_token(session)
@@ -31,6 +32,11 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
     # Get current locale for this request
     locale = get_current_locale()
     translations = get_translations(locale)
+
+    # Install translations for Jinja2 _() function
+    # This must be done before each render to use the correct locale
+    templates = get_templates()
+    templates.env.install_gettext_translations(translations)
 
     return {
         "request": request,
