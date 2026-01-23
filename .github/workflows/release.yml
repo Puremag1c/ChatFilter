@@ -88,7 +88,7 @@ jobs:
 
       - name: Build macOS app
         run: |
-          pyinstaller chatfilter.spec --target-arch universal2 --clean --noconfirm
+          pyinstaller chatfilter.spec --clean --noconfirm
 
       - name: Import code signing certificate
         if: github.event_name != 'pull_request'
