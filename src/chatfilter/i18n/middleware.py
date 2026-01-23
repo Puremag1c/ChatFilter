@@ -49,15 +49,19 @@ class LocaleMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
 
-        # If locale was set via query param, set it in cookie for future requests
-        if "lang" in request.query_params:
-            response.set_cookie(
-                key="lang",
-                value=locale,
-                max_age=31536000,  # 1 year
-                httponly=True,
-                samesite="lax",
-            )
+        # Always set the language cookie to ensure JavaScript can read/write it.
+        # This is needed because:
+        # 1. The language switcher button uses JavaScript to change the cookie
+        # 2. Previously, cookies set via ?lang= query param were HttpOnly,
+        #    which prevented JavaScript from overwriting them
+        # 3. By always setting httponly=False, we "heal" any existing HttpOnly cookies
+        response.set_cookie(
+            key="lang",
+            value=locale,
+            max_age=31536000,  # 1 year
+            httponly=False,
+            samesite="lax",
+        )
 
         return response
 
