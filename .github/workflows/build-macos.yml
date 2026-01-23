@@ -32,10 +32,11 @@ jobs:
           pip install -e .
           pip install pyinstaller
 
-      - name: Build macOS app bundle (universal binary)
+      - name: Build macOS app bundle
         run: |
+          # Note: --target-arch cannot be used with .spec files
+          # Build uses native architecture of the runner (arm64 on macos-latest)
           pyinstaller chatfilter.spec \
-            --target-arch universal2 \
             --clean \
             --noconfirm
 
@@ -44,8 +45,8 @@ jobs:
           if [ -d "dist/ChatFilter.app" ]; then
             echo "✓ App bundle created successfully"
             du -sh dist/ChatFilter.app
-            echo "Architecture:"
-            lipo -info dist/ChatFilter.app/Contents/MacOS/ChatFilter
+            echo "Architecture (arm64 on Apple Silicon runner):"
+            file dist/ChatFilter.app/Contents/MacOS/ChatFilter
           else
             echo "App bundle not found!"
             exit 1
