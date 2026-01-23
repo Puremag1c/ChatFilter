@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-01-23
+
+### Added
+- Russian language support (i18n) for web interface templates
+- Network connectivity monitoring with graceful degradation
+- Automatic update checking from GitHub releases
+
+### Changed
+- Upgraded CI to Python 3.12
+- Optimized CI pipeline for faster builds (~30min vs 2.5h)
+- Improved smoke tests with better output capture and diagnostics
+
+### Fixed
+- Windows CI compatibility: emoji encoding, pipe buffer blocking, timer resolution
+- Test stability improvements across all platforms
+- PyInstaller build now includes all required submodules
+- Jinja2 template dependency for i18n support
+
+## [0.2.0] - 2026-01-21
+
+### Added
+- Encrypted storage with Fernet symmetric encryption
+- Machine-derived encryption keys for portable security
+- Key rotation support with versioned file format
+
+### Fixed
+- Session management reliability improvements
+
 ## [0.1.0] - 2026-01-20
 
 ### Added
@@ -26,5 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Puremag1c/ChatFilter/releases/tag/v0.1.0

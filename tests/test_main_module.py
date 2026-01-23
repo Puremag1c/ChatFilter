@@ -390,7 +390,7 @@ class TestMain:
 
         captured = capsys.readouterr()
         assert "ChatFilter" in captured.out
-        assert "0.2.0" in captured.out
+        assert "0.3.0" in captured.out
 
     def test_main_help_argument_exits(self) -> None:
         """Test that --help prints help and exits."""
@@ -778,7 +778,7 @@ class TestMain:
             main()
 
         captured = capsys.readouterr()
-        assert "ChatFilter v0.2.0" in captured.out
+        assert "ChatFilter v0.3.0" in captured.out
         assert "Server:        http://127.0.0.1:8080" in captured.out
         # Use str(Path) to get platform-appropriate path separator
         assert f"Data dir:      {mock_settings.data_dir}" in captured.out
