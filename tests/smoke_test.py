@@ -27,7 +27,7 @@ from pathlib import Path
 try:
     import httpx
 except ImportError:
-    print("❌ httpx is required for smoke tests. Install with: pip install httpx")
+    print("[ERROR] httpx is required for smoke tests. Install with: pip install httpx")
     sys.exit(1)
 
 
@@ -60,19 +60,19 @@ class SmokeTestRunner:
         Returns:
             True if test passed, False otherwise
         """
-        print(f"\n🧪 {name}")
+        print(f"\n[TEST] {name}")
         try:
             func()
             self.test_results.append((name, True, ""))
-            print(f"✅ {name} PASSED")
+            print(f"[PASS] {name} PASSED")
             return True
         except AssertionError as e:
             self.test_results.append((name, False, str(e)))
-            print(f"❌ {name} FAILED: {e}")
+            print(f"[FAIL] {name} FAILED: {e}")
             return False
         except Exception as e:
             self.test_results.append((name, False, f"Unexpected error: {e}"))
-            print(f"❌ {name} FAILED: Unexpected error: {e}")
+            print(f"[FAIL] {name} FAILED: Unexpected error: {e}")
             return False
 
     def test_binary_exists(self) -> None:
@@ -308,7 +308,7 @@ class SmokeTestRunner:
             True if all tests passed, False otherwise
         """
         print(f"\n{'=' * 60}")
-        print(f"🚀 Running smoke tests for: {self.binary_path}")
+        print(f"Running smoke tests for: {self.binary_path}")
         print(f"{'=' * 60}")
 
         # Run tests in order
@@ -326,14 +326,14 @@ class SmokeTestRunner:
 
         # Print summary
         print(f"\n{'=' * 60}")
-        print("📊 Test Summary")
+        print("Test Summary")
         print(f"{'=' * 60}")
 
         passed = sum(1 for _, result, _ in self.test_results if result)
         total = len(self.test_results)
 
         for name, result, error in self.test_results:
-            status = "✅ PASS" if result else "❌ FAIL"
+            status = "[PASS]" if result else "[FAIL]"
             print(f"{status} - {name}")
             if error:
                 print(f"         {error}")
@@ -341,10 +341,10 @@ class SmokeTestRunner:
         print(f"\n{passed}/{total} tests passed")
 
         if passed == total:
-            print("\n🎉 All smoke tests passed!")
+            print("\n*** All smoke tests passed! ***")
             return True
         else:
-            print(f"\n⚠️  {total - passed} test(s) failed")
+            print(f"\n[WARNING] {total - passed} test(s) failed")
             return False
 
 
