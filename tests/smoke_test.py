@@ -213,8 +213,10 @@ class SmokeTestRunner:
                     )
 
                 data = response.json()
-                if data.get("status") != "healthy":
-                    raise AssertionError(f"Health check status is not 'healthy': {data}")
+                # Accept both 'healthy' and 'degraded' status
+                # 'degraded' is expected in CI when no Telegram sessions are configured
+                if data.get("status") not in ("healthy", "degraded"):
+                    raise AssertionError(f"Health check status is unexpected: {data}")
 
                 if "version" not in data:
                     raise AssertionError(f"Health check response missing 'version': {data}")
