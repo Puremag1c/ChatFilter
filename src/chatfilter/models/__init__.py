@@ -14,6 +14,7 @@ Models:
     SyncSnapshot: Point-in-time metrics snapshot for trend tracking
     MonitoringSummary: Summary of monitoring status for API responses
     GrowthMetrics: Growth metrics over a time period
+    ProxyEntry: Proxy configuration entry for the proxy pool
 """
 
 from .account import (
@@ -27,6 +28,7 @@ from .analysis import AnalysisResult, ChatMetrics
 from .chat import Chat, ChatType
 from .message import Message
 from .monitoring import ChatMonitorState, GrowthMetrics, MonitoringSummary, SyncSnapshot
+from .proxy import ProxyEntry
 
 __all__ = [
     "AccountInfo",
@@ -40,6 +42,7 @@ __all__ = [
     "Message",
     "MonitoringSummary",
     "PREMIUM_CHAT_LIMIT",
+    "ProxyEntry",
     "STANDARD_CHAT_LIMIT",
     "SyncSnapshot",
     "WARNING_THRESHOLD",
