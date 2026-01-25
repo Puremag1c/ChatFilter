@@ -409,6 +409,76 @@ def find_duplicate_accounts(target_user_id: int, exclude_session: str | None = N
     return duplicates
 
 
+def migrate_legacy_sessions() -> list[str]:
+    """Migrate legacy sessions (v0.4) to per-session config format (v0.5).
+
+    Legacy sessions have:
+    - session.session file
+    - .secure_storage marker (or credentials in keyring)
+    - No config.json
+
+    Migration creates config.json with api_id, api_hash from keyring
+    and proxy_id=null.
+
+    Returns:
+        List of migrated session IDs
+    """
+    from chatfilter.security import CredentialNotFoundError, SecureCredentialManager
+
+    migrated = []
+    data_dir = ensure_data_dir()
+
+    for session_dir in data_dir.iterdir():
+        if not session_dir.is_dir():
+            continue
+
+        session_file = session_dir / "session.session"
+        config_file = session_dir / "config.json"
+
+        # Skip if not a valid session directory
+        if not session_file.exists():
+            continue
+
+        # Skip if already has config.json (already migrated or new format)
+        if config_file.exists():
+            continue
+
+        session_id = session_dir.name
+        logger.info(f"Found legacy session without config.json: {session_id}")
+
+        # Try to read credentials from keyring
+        try:
+            manager = SecureCredentialManager(data_dir)
+            api_id, api_hash, proxy_id = manager.retrieve_credentials(session_id)
+
+            # Create config.json with credentials
+            config_data: dict[str, int | str | None] = {
+                "api_id": api_id,
+                "api_hash": api_hash,
+                "proxy_id": proxy_id,  # Will be None for legacy sessions
+            }
+
+            config_content = json.dumps(config_data, indent=2).encode("utf-8")
+            atomic_write(config_file, config_content)
+            secure_file_permissions(config_file)
+
+            migrated.append(session_id)
+            logger.info(f"Migrated legacy session '{session_id}' to per-session config format")
+
+        except CredentialNotFoundError:
+            logger.warning(
+                f"Legacy session '{session_id}' has no credentials in keyring. "
+                f"Session will be invisible until credentials are configured."
+            )
+        except Exception as e:
+            logger.error(f"Failed to migrate legacy session '{session_id}': {e}")
+
+    if migrated:
+        logger.info(f"Migrated {len(migrated)} legacy sessions: {migrated}")
+
+    return migrated
+
+
 def list_stored_sessions() -> list[SessionListItem]:
     """List all stored sessions.
 
@@ -606,6 +676,20 @@ async def upload_session(
             manager.store_credentials(safe_name, api_id, api_hash)
 
             logger.info(f"Stored credentials securely for session: {safe_name}")
+
+            # Create per-session config.json for v0.5 format
+            # proxy_id is initially null - user must configure it
+            session_config: dict[str, int | str | None] = {
+                "api_id": api_id,
+                "api_hash": api_hash,
+                "proxy_id": None,  # Not configured until user selects
+            }
+            session_config_path = session_dir / "config.json"
+            session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
+            atomic_write(session_config_path, session_config_content)
+            secure_file_permissions(session_config_path)
+
+            logger.info(f"Created per-session config for session: {safe_name}")
 
             # Create migration marker to indicate we're using secure storage
             marker_file = session_dir / ".secure_storage"

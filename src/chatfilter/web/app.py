@@ -109,6 +109,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         session_cleanup_days=settings.session_cleanup_days,
     )
 
+    # Migrate legacy sessions (v0.4 -> v0.5 per-session config)
+    from chatfilter.web.routers.sessions import migrate_legacy_sessions
+
+    migrated_sessions = migrate_legacy_sessions()
+    if migrated_sessions:
+        logger.info(f"Migrated {len(migrated_sessions)} legacy sessions to new config format")
+
     task_db = TaskDatabase(db_path)
     task_queue = get_task_queue(
         db=task_db,
@@ -334,7 +341,7 @@ def get_templates() -> Jinja2Templates:
         """Install translations for current locale into Jinja2 environment."""
         locale = get_current_locale()
         translations = get_translations(locale)
-        templates.env.install_gettext_translations(translations)  # type: ignore[attr-defined]
+        templates.env.install_gettext_translations(translations)
 
     # Install default translations (will be overridden per request)
     install_translations()

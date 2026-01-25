@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
+    migrate_legacy_sessions,
     read_upload_with_size_limit,
     sanitize_session_name,
     validate_config_file_format,
@@ -568,3 +569,156 @@ class TestSessionsAPIEndpoints:
 
         assert response.status_code == 200
         assert "too large" in response.text.lower()
+
+
+class TestMigrateLegacySessions:
+    """Tests for legacy session migration (v0.4 -> v0.5)."""
+
+    @pytest.fixture
+    def legacy_session_dir(self, tmp_path: Path) -> Iterator[Path]:
+        """Create a legacy session directory structure for testing.
+
+        Legacy sessions have:
+        - session.session file
+        - .secure_storage marker
+        - Credentials in keyring (mocked)
+        - No config.json
+        """
+        sessions_dir = tmp_path / "sessions"
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a legacy session directory
+        session_dir = sessions_dir / "legacy_session"
+        session_dir.mkdir()
+
+        # Create a valid session file (SQLite)
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create .secure_storage marker (indicating credentials in keyring)
+        secure_marker = session_dir / ".secure_storage"
+        secure_marker.write_text("Credentials in secure storage")
+
+        yield sessions_dir
+
+        # Cleanup
+        if sessions_dir.exists():
+            shutil.rmtree(sessions_dir)
+
+    def test_migrate_legacy_session_creates_config(self, legacy_session_dir: Path) -> None:
+        """Test that migration creates config.json from keyring credentials."""
+        from unittest.mock import MagicMock, patch
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = legacy_session_dir
+
+        # Mock SecureCredentialManager to return test credentials
+        mock_manager = MagicMock()
+        mock_manager.retrieve_credentials.return_value = (12345, "test_api_hash", None)
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.security.SecureCredentialManager",
+                return_value=mock_manager,
+            ),
+        ):
+            migrated = migrate_legacy_sessions()
+
+        # Should have migrated 1 session
+        assert len(migrated) == 1
+        assert "legacy_session" in migrated
+
+        # config.json should now exist
+        config_path = legacy_session_dir / "legacy_session" / "config.json"
+        assert config_path.exists()
+
+        # Verify config.json contents
+        config_data = json.loads(config_path.read_text())
+        assert config_data["api_id"] == 12345
+        assert config_data["api_hash"] == "test_api_hash"
+        assert config_data["proxy_id"] is None
+
+    def test_migrate_skips_already_migrated(self, legacy_session_dir: Path) -> None:
+        """Test that migration skips sessions that already have config.json."""
+        from unittest.mock import MagicMock, patch
+
+        # Create config.json manually (already migrated)
+        config_path = legacy_session_dir / "legacy_session" / "config.json"
+        config_path.write_text(json.dumps({"api_id": 99999, "api_hash": "existing"}))
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = legacy_session_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            migrated = migrate_legacy_sessions()
+
+        # Should not have migrated anything
+        assert len(migrated) == 0
+
+        # Original config.json should be unchanged
+        config_data = json.loads(config_path.read_text())
+        assert config_data["api_id"] == 99999
+        assert config_data["api_hash"] == "existing"
+
+    def test_migrate_handles_missing_credentials(
+        self, legacy_session_dir: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that migration handles sessions without credentials gracefully."""
+        from unittest.mock import MagicMock, patch
+
+        from chatfilter.security import CredentialNotFoundError
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = legacy_session_dir
+
+        # Mock SecureCredentialManager to raise CredentialNotFoundError
+        mock_manager = MagicMock()
+        mock_manager.retrieve_credentials.side_effect = CredentialNotFoundError("No credentials")
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.security.SecureCredentialManager",
+                return_value=mock_manager,
+            ),
+            caplog.at_level("WARNING"),
+        ):
+            migrated = migrate_legacy_sessions()
+
+        # Should not have migrated anything
+        assert len(migrated) == 0
+
+        # config.json should NOT exist
+        config_path = legacy_session_dir / "legacy_session" / "config.json"
+        assert not config_path.exists()
+
+        # Warning should be logged
+        assert any("no credentials in keyring" in r.message.lower() for r in caplog.records)
+
+    def test_migrate_skips_non_session_directories(self, tmp_path: Path) -> None:
+        """Test that migration skips directories without session.session file."""
+        from unittest.mock import MagicMock, patch
+
+        sessions_dir = tmp_path / "sessions"
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a directory without session.session file
+        non_session_dir = sessions_dir / "not_a_session"
+        non_session_dir.mkdir()
+        (non_session_dir / "some_file.txt").write_text("random file")
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = sessions_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            migrated = migrate_legacy_sessions()
+
+        # Should not have migrated anything
+        assert len(migrated) == 0
