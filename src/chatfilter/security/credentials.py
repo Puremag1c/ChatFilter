@@ -36,6 +36,7 @@ KEYRING_SERVICE = "ChatFilter"
 # Environment variable names
 ENV_API_ID_PREFIX = "CHATFILTER_API_ID"
 ENV_API_HASH_PREFIX = "CHATFILTER_API_HASH"
+ENV_PROXY_ID_PREFIX = "CHATFILTER_PROXY_ID"
 
 
 class CredentialStorageError(Exception):
@@ -49,27 +50,34 @@ class CredentialNotFoundError(CredentialStorageError):
 class CredentialStorageBackend:
     """Base class for credential storage backends."""
 
-    def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
+    def store_credentials(
+        self,
+        session_id: str,
+        api_id: int,
+        api_hash: str,
+        proxy_id: str | None = None,
+    ) -> None:
         """Store API credentials securely.
 
         Args:
             session_id: Unique session identifier
             api_id: Telegram API ID
             api_hash: Telegram API hash
+            proxy_id: Optional proxy identifier
 
         Raises:
             CredentialStorageError: If storage fails
         """
         raise NotImplementedError
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
         """Retrieve API credentials.
 
         Args:
             session_id: Unique session identifier
 
         Returns:
-            Tuple of (api_id, api_hash)
+            Tuple of (api_id, api_hash, proxy_id)
 
         Raises:
             CredentialNotFoundError: If credentials not found
@@ -132,7 +140,13 @@ class KeyringBackend(CredentialStorageBackend):
         except Exception:
             return False
 
-    def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
+    def store_credentials(
+        self,
+        session_id: str,
+        api_id: int,
+        api_hash: str,
+        proxy_id: str | None = None,
+    ) -> None:
         """Store credentials in OS keyring."""
         if not self.is_available():
             raise CredentialStorageError("Keyring backend not available")
@@ -152,11 +166,17 @@ class KeyringBackend(CredentialStorageBackend):
                 f"{session_id}:api_hash",
                 api_hash,
             )
+            # Store proxy_id (empty string if None, to distinguish from missing)
+            keyring.set_password(
+                KEYRING_SERVICE,
+                f"{session_id}:proxy_id",
+                proxy_id or "",
+            )
             logger.info(f"Stored credentials in OS keyring for session: {session_id}")
         except Exception as e:
             raise CredentialStorageError(f"Failed to store in keyring: {e}") from e
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
         """Retrieve credentials from OS keyring."""
         if not self.is_available():
             raise CredentialStorageError("Keyring backend not available")
@@ -184,7 +204,16 @@ class KeyringBackend(CredentialStorageBackend):
             except ValueError as e:
                 raise CredentialStorageError(f"Invalid api_id in keyring: {api_id_str}") from e
 
-            return api_id, api_hash
+            # Get proxy_id (may be None for old credentials, or empty string)
+            proxy_id = keyring.get_password(
+                KEYRING_SERVICE,
+                f"{session_id}:proxy_id",
+            )
+            # Convert empty string to None
+            if proxy_id == "":
+                proxy_id = None
+
+            return api_id, api_hash, proxy_id
 
         except CredentialNotFoundError:
             raise
@@ -204,6 +233,7 @@ class KeyringBackend(CredentialStorageBackend):
         try:
             keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_id")
             keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_hash")
+            keyring.delete_password(KEYRING_SERVICE, f"{session_id}:proxy_id")
             logger.info(f"Deleted credentials from keyring for session: {session_id}")
         except Exception as e:
             # Don't fail if already deleted
@@ -311,17 +341,26 @@ class EncryptedFileBackend(CredentialStorageBackend):
         except Exception as e:
             raise CredentialStorageError(f"Failed to save encrypted credentials: {e}") from e
 
-    def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
+    def store_credentials(
+        self,
+        session_id: str,
+        api_id: int,
+        api_hash: str,
+        proxy_id: str | None = None,
+    ) -> None:
         """Store credentials in encrypted file."""
         credentials = self._load_credentials_file()
-        credentials[session_id] = {
+        cred_data: dict[str, str] = {
             "api_id": str(api_id),
             "api_hash": api_hash,
         }
+        if proxy_id is not None:
+            cred_data["proxy_id"] = proxy_id
+        credentials[session_id] = cred_data
         self._save_credentials_file(credentials)
         logger.info(f"Stored credentials in encrypted file for session: {session_id}")
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
         """Retrieve credentials from encrypted file."""
         credentials = self._load_credentials_file()
 
@@ -334,7 +373,8 @@ class EncryptedFileBackend(CredentialStorageBackend):
         try:
             api_id = int(session_creds["api_id"])
             api_hash = session_creds["api_hash"]
-            return api_id, api_hash
+            proxy_id = session_creds.get("proxy_id")  # May be missing in old credentials
+            return api_id, api_hash, proxy_id
         except (KeyError, ValueError) as e:
             raise CredentialStorageError(
                 f"Invalid credentials format for session: {session_id}"
@@ -356,6 +396,7 @@ class EnvironmentBackend(CredentialStorageBackend):
     Reads credentials from environment variables:
     - CHATFILTER_API_ID_{SESSION_ID}
     - CHATFILTER_API_HASH_{SESSION_ID}
+    - CHATFILTER_PROXY_ID_{SESSION_ID} (optional)
 
     This backend is read-only and cannot store credentials.
     """
@@ -364,17 +405,24 @@ class EnvironmentBackend(CredentialStorageBackend):
         """Environment backend is always available (read-only)."""
         return True
 
-    def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
+    def store_credentials(
+        self,
+        session_id: str,
+        api_id: int,
+        api_hash: str,
+        proxy_id: str | None = None,
+    ) -> None:
         """Environment backend is read-only."""
         raise CredentialStorageError("Cannot store credentials in environment backend (read-only)")
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
         """Retrieve credentials from environment variables."""
         # Normalize session_id for env var (replace hyphens with underscores, uppercase)
         env_suffix = session_id.replace("-", "_").upper()
 
         api_id_env = f"{ENV_API_ID_PREFIX}_{env_suffix}"
         api_hash_env = f"{ENV_API_HASH_PREFIX}_{env_suffix}"
+        proxy_id_env = f"{ENV_PROXY_ID_PREFIX}_{env_suffix}"
 
         api_id_str = os.getenv(api_id_env)
         api_hash = os.getenv(api_hash_env)
@@ -389,7 +437,10 @@ class EnvironmentBackend(CredentialStorageBackend):
         except ValueError as e:
             raise CredentialStorageError(f"Invalid api_id in environment: {api_id_str}") from e
 
-        return api_id, api_hash
+        # proxy_id is optional
+        proxy_id = os.getenv(proxy_id_env)
+
+        return api_id, api_hash, proxy_id
 
     def delete_credentials(self, session_id: str) -> None:
         """Environment backend is read-only."""
@@ -434,20 +485,27 @@ class SecureCredentialManager:
                 "For better security, ensure keyring is properly configured."
             )
 
-    def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
+    def store_credentials(
+        self,
+        session_id: str,
+        api_id: int,
+        api_hash: str,
+        proxy_id: str | None = None,
+    ) -> None:
         """Store API credentials securely.
 
         Args:
             session_id: Unique session identifier
             api_id: Telegram API ID
             api_hash: Telegram API hash
+            proxy_id: Optional proxy identifier
 
         Raises:
             CredentialStorageError: If storage fails
         """
-        self._storage_backend.store_credentials(session_id, api_id, api_hash)
+        self._storage_backend.store_credentials(session_id, api_id, api_hash, proxy_id)
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
         """Retrieve API credentials.
 
         Attempts backends in order: environment, keyring, encrypted file.
@@ -456,7 +514,7 @@ class SecureCredentialManager:
             session_id: Unique session identifier
 
         Returns:
-            Tuple of (api_id, api_hash)
+            Tuple of (api_id, api_hash, proxy_id)
 
         Raises:
             CredentialNotFoundError: If credentials not found in any backend

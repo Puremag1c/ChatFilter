@@ -80,8 +80,8 @@ class TestTelegramConfig:
             def __init__(self, storage_dir: Path) -> None:
                 pass
 
-            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
-                return (99999, "secure_hash_from_keyring")
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
+                return (99999, "secure_hash_from_keyring", "proxy-123")
 
         monkeypatch.setattr(
             "chatfilter.security.SecureCredentialManager",

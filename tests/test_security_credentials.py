@@ -31,7 +31,7 @@ class TestCredentialStorageBackend:
         backend = CredentialStorageBackend()
 
         with pytest.raises(NotImplementedError):
-            backend.store_credentials("test-session", 12345, "abc123")
+            backend.store_credentials("test-session", 12345, "abc123", None)
 
     def test_base_retrieve_credentials_not_implemented(self):
         """Test that base class retrieve_credentials raises NotImplementedError."""
@@ -136,13 +136,16 @@ class TestKeyringBackend:
         backend = KeyringBackend()
         backend._keyring = mock_keyring
 
-        backend.store_credentials("test-session", 12345, "abc123hash")
+        backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
 
         # Verify set_password was called correctly
-        assert mock_keyring.set_password.call_count == 2
+        assert mock_keyring.set_password.call_count == 3
         mock_keyring.set_password.assert_any_call(KEYRING_SERVICE, "test-session:api_id", "12345")
         mock_keyring.set_password.assert_any_call(
             KEYRING_SERVICE, "test-session:api_hash", "abc123hash"
+        )
+        mock_keyring.set_password.assert_any_call(
+            KEYRING_SERVICE, "test-session:proxy_id", "proxy-123"
         )
 
     def test_store_credentials_with_special_characters_in_session_id(self):
@@ -191,15 +194,17 @@ class TestKeyringBackend:
         mock_keyring.get_password.side_effect = lambda service, key: {
             "test-session:api_id": "12345",
             "test-session:api_hash": "abc123hash",
+            "test-session:proxy_id": "proxy-123",
         }.get(key)
 
         backend = KeyringBackend()
         backend._keyring = mock_keyring
 
-        api_id, api_hash = backend.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = backend.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
     def test_retrieve_credentials_not_found_api_id_none(self):
         """Test retrieve_credentials raises error when api_id not found."""
@@ -287,9 +292,10 @@ class TestKeyringBackend:
         backend.delete_credentials("test-session")
 
         # Verify delete_password was called correctly
-        assert mock_keyring.delete_password.call_count == 2
+        assert mock_keyring.delete_password.call_count == 3
         mock_keyring.delete_password.assert_any_call(KEYRING_SERVICE, "test-session:api_id")
         mock_keyring.delete_password.assert_any_call(KEYRING_SERVICE, "test-session:api_hash")
+        mock_keyring.delete_password.assert_any_call(KEYRING_SERVICE, "test-session:proxy_id")
 
     def test_delete_credentials_handles_error_gracefully(self):
         """Test delete_credentials doesn't raise error if credentials don't exist."""
@@ -382,39 +388,41 @@ class TestEncryptedFileBackend:
         """Test storing and retrieving credentials."""
         backend = EncryptedFileBackend(tmp_path)
 
-        backend.store_credentials("test-session", 12345, "abc123hash")
-        api_id, api_hash = backend.retrieve_credentials("test-session")
+        backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
+        api_id, api_hash, proxy_id = backend.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
     def test_store_multiple_sessions(self, tmp_path: Path):
         """Test storing credentials for multiple sessions."""
         backend = EncryptedFileBackend(tmp_path)
 
-        backend.store_credentials("session1", 11111, "hash1")
-        backend.store_credentials("session2", 22222, "hash2")
-        backend.store_credentials("session3", 33333, "hash3")
+        backend.store_credentials("session1", 11111, "hash1", "proxy1")
+        backend.store_credentials("session2", 22222, "hash2", "proxy2")
+        backend.store_credentials("session3", 33333, "hash3")  # No proxy_id
 
-        api_id1, api_hash1 = backend.retrieve_credentials("session1")
-        api_id2, api_hash2 = backend.retrieve_credentials("session2")
-        api_id3, api_hash3 = backend.retrieve_credentials("session3")
+        api_id1, api_hash1, proxy_id1 = backend.retrieve_credentials("session1")
+        api_id2, api_hash2, proxy_id2 = backend.retrieve_credentials("session2")
+        api_id3, api_hash3, proxy_id3 = backend.retrieve_credentials("session3")
 
-        assert api_id1 == 11111 and api_hash1 == "hash1"
-        assert api_id2 == 22222 and api_hash2 == "hash2"
-        assert api_id3 == 33333 and api_hash3 == "hash3"
+        assert api_id1 == 11111 and api_hash1 == "hash1" and proxy_id1 == "proxy1"
+        assert api_id2 == 22222 and api_hash2 == "hash2" and proxy_id2 == "proxy2"
+        assert api_id3 == 33333 and api_hash3 == "hash3" and proxy_id3 is None
 
     def test_store_credentials_updates_existing_session(self, tmp_path: Path):
         """Test that storing credentials updates existing session."""
         backend = EncryptedFileBackend(tmp_path)
 
-        backend.store_credentials("test-session", 12345, "original_hash")
-        backend.store_credentials("test-session", 99999, "new_hash")
+        backend.store_credentials("test-session", 12345, "original_hash", "proxy1")
+        backend.store_credentials("test-session", 99999, "new_hash", "proxy2")
 
-        api_id, api_hash = backend.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = backend.retrieve_credentials("test-session")
 
         assert api_id == 99999
         assert api_hash == "new_hash"
+        assert proxy_id == "proxy2"
 
     def test_retrieve_credentials_not_found(self, tmp_path: Path):
         """Test retrieving non-existent credentials raises error."""
@@ -486,15 +494,16 @@ class TestEncryptedFileBackend:
         """Test that deleting one session doesn't affect others."""
         backend = EncryptedFileBackend(tmp_path)
 
-        backend.store_credentials("session1", 11111, "hash1")
-        backend.store_credentials("session2", 22222, "hash2")
+        backend.store_credentials("session1", 11111, "hash1", "proxy1")
+        backend.store_credentials("session2", 22222, "hash2", "proxy2")
 
         backend.delete_credentials("session1")
 
         # session2 should still exist
-        api_id, api_hash = backend.retrieve_credentials("session2")
+        api_id, api_hash, proxy_id = backend.retrieve_credentials("session2")
         assert api_id == 22222
         assert api_hash == "hash2"
+        assert proxy_id == "proxy2"
 
     def test_delete_credentials_nonexistent_session(self, tmp_path: Path):
         """Test deleting non-existent session doesn't raise error."""
@@ -549,14 +558,15 @@ class TestEncryptedFileBackend:
     def test_encryption_key_persistence(self, tmp_path: Path):
         """Test that encryption key is persisted and reused."""
         backend1 = EncryptedFileBackend(tmp_path)
-        backend1.store_credentials("test-session", 12345, "abc123hash")
+        backend1.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
 
         # Create new backend instance
         backend2 = EncryptedFileBackend(tmp_path)
-        api_id, api_hash = backend2.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = backend2.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
 
 class TestEnvironmentBackend:
@@ -585,16 +595,19 @@ class TestEnvironmentBackend:
         """Test successfully retrieving credentials from environment."""
         os.environ["CHATFILTER_API_ID_TEST_SESSION"] = "12345"
         os.environ["CHATFILTER_API_HASH_TEST_SESSION"] = "abc123hash"
+        os.environ["CHATFILTER_PROXY_ID_TEST_SESSION"] = "proxy-123"
 
         try:
             backend = EnvironmentBackend()
-            api_id, api_hash = backend.retrieve_credentials("test-session")
+            api_id, api_hash, proxy_id = backend.retrieve_credentials("test-session")
 
             assert api_id == 12345
             assert api_hash == "abc123hash"
+            assert proxy_id == "proxy-123"
         finally:
             os.environ.pop("CHATFILTER_API_ID_TEST_SESSION", None)
             os.environ.pop("CHATFILTER_API_HASH_TEST_SESSION", None)
+            os.environ.pop("CHATFILTER_PROXY_ID_TEST_SESSION", None)
 
     def test_retrieve_credentials_with_hyphens_in_session_id(self):
         """Test session ID normalization with hyphens."""
@@ -603,10 +616,11 @@ class TestEnvironmentBackend:
 
         try:
             backend = EnvironmentBackend()
-            api_id, api_hash = backend.retrieve_credentials("my-session")
+            api_id, api_hash, proxy_id = backend.retrieve_credentials("my-session")
 
             assert api_id == 12345
             assert api_hash == "abc123hash"
+            assert proxy_id is None  # No proxy_id set
         finally:
             os.environ.pop("CHATFILTER_API_ID_MY_SESSION", None)
             os.environ.pop("CHATFILTER_API_HASH_MY_SESSION", None)
@@ -618,10 +632,11 @@ class TestEnvironmentBackend:
 
         try:
             backend = EnvironmentBackend()
-            api_id, api_hash = backend.retrieve_credentials("mysession")
+            api_id, api_hash, proxy_id = backend.retrieve_credentials("mysession")
 
             assert api_id == 12345
             assert api_hash == "abc123hash"
+            assert proxy_id is None  # No proxy_id set
         finally:
             os.environ.pop("CHATFILTER_API_ID_MYSESSION", None)
             os.environ.pop("CHATFILTER_API_HASH_MYSESSION", None)
@@ -695,26 +710,28 @@ class TestSecureCredentialManager:
         manager = SecureCredentialManager(tmp_path)
         manager._storage_backend = MagicMock()
 
-        manager.store_credentials("test-session", 12345, "abc123hash")
+        manager.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
 
         manager._storage_backend.store_credentials.assert_called_once_with(
-            "test-session", 12345, "abc123hash"
+            "test-session", 12345, "abc123hash", "proxy-123"
         )
 
     def test_retrieve_credentials_tries_environment_first(self, tmp_path: Path):
         """Test that environment backend is tried first."""
         os.environ["CHATFILTER_API_ID_TEST_SESSION"] = "12345"
         os.environ["CHATFILTER_API_HASH_TEST_SESSION"] = "abc123hash"
+        os.environ["CHATFILTER_PROXY_ID_TEST_SESSION"] = "proxy-123"
 
         try:
             manager = SecureCredentialManager(tmp_path)
             manager._keyring_backend = MagicMock()
             manager._file_backend = MagicMock()
 
-            api_id, api_hash = manager.retrieve_credentials("test-session")
+            api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
             assert api_id == 12345
             assert api_hash == "abc123hash"
+            assert proxy_id == "proxy-123"
 
             # Other backends should not be called
             manager._keyring_backend.retrieve_credentials.assert_not_called()
@@ -722,6 +739,7 @@ class TestSecureCredentialManager:
         finally:
             os.environ.pop("CHATFILTER_API_ID_TEST_SESSION", None)
             os.environ.pop("CHATFILTER_API_HASH_TEST_SESSION", None)
+            os.environ.pop("CHATFILTER_PROXY_ID_TEST_SESSION", None)
 
     def test_retrieve_credentials_tries_keyring_second(self, tmp_path: Path):
         """Test that keyring is tried after environment."""
@@ -730,23 +748,24 @@ class TestSecureCredentialManager:
         # Mock keyring backend
         mock_keyring = MagicMock()
         mock_keyring.is_available.return_value = True
-        mock_keyring.retrieve_credentials.return_value = (12345, "abc123hash")
+        mock_keyring.retrieve_credentials.return_value = (12345, "abc123hash", "proxy-123")
         manager._keyring_backend = mock_keyring
 
         # Mock env backend to fail
         manager._env_backend = MagicMock()
         manager._env_backend.retrieve_credentials.side_effect = CredentialNotFoundError()
 
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
         mock_keyring.retrieve_credentials.assert_called_once()
 
     def test_retrieve_credentials_tries_file_backend_last(self, tmp_path: Path):
         """Test that file backend is tried last."""
         manager = SecureCredentialManager(tmp_path)
-        manager._file_backend.store_credentials("test-session", 12345, "abc123hash")
+        manager._file_backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
 
         # Mock env and keyring to fail
         manager._env_backend = MagicMock()
@@ -757,10 +776,11 @@ class TestSecureCredentialManager:
         mock_keyring.retrieve_credentials.side_effect = CredentialNotFoundError()
         manager._keyring_backend = mock_keyring
 
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
     def test_retrieve_credentials_not_found_in_any_backend(self, tmp_path: Path):
         """Test error when credentials not found in any backend."""
@@ -772,16 +792,17 @@ class TestSecureCredentialManager:
     def test_retrieve_credentials_skips_keyring_if_not_available(self, tmp_path: Path):
         """Test that keyring is skipped if not available."""
         manager = SecureCredentialManager(tmp_path)
-        manager._file_backend.store_credentials("test-session", 12345, "abc123hash")
+        manager._file_backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
 
         # Mock keyring as unavailable
         mock_keyring = MagicMock()
         mock_keyring.is_available.return_value = False
         manager._keyring_backend = mock_keyring
 
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == 12345
+        assert proxy_id == "proxy-123"
         # Keyring should not be called
         mock_keyring.retrieve_credentials.assert_not_called()
 
@@ -866,23 +887,25 @@ class TestSecureCredentialManager:
         """Test integration of storing and retrieving credentials."""
         manager = SecureCredentialManager(tmp_path)
 
-        manager.store_credentials("test-session", 12345, "abc123hash")
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        manager.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
     def test_integration_store_retrieve_delete(self, tmp_path: Path):
         """Test full lifecycle of credentials."""
         manager = SecureCredentialManager(tmp_path)
 
         # Store
-        manager.store_credentials("test-session", 12345, "abc123hash")
+        manager.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
         assert manager.has_credentials("test-session") is True
 
         # Retrieve
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
         assert api_id == 12345
+        assert proxy_id == "proxy-123"
 
         # Delete
         manager.delete_credentials("test-session")
@@ -1000,11 +1023,12 @@ class TestErrorScenarios:
         manager = SecureCredentialManager(tmp_path)
 
         # Should work (no validation on session_id)
-        manager.store_credentials("", 12345, "abc123hash")
-        api_id, api_hash = manager.retrieve_credentials("")
+        manager.store_credentials("", 12345, "abc123hash", "proxy-123")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("")
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
     def test_special_characters_in_session_id(self, tmp_path: Path):
         """Test handling of special characters in session ID."""
@@ -1019,10 +1043,11 @@ class TestErrorScenarios:
         ]
 
         for session_id in session_ids:
-            manager.store_credentials(session_id, 12345, "abc123hash")
-            api_id, api_hash = manager.retrieve_credentials(session_id)
+            manager.store_credentials(session_id, 12345, "abc123hash", "proxy-123")
+            api_id, api_hash, proxy_id = manager.retrieve_credentials(session_id)
             assert api_id == 12345
             assert api_hash == "abc123hash"
+            assert proxy_id == "proxy-123"
 
     @pytest.mark.skipif(
         sys.platform == "win32",
@@ -1033,22 +1058,24 @@ class TestErrorScenarios:
         manager = SecureCredentialManager(tmp_path)
         long_session_id = "x" * 1000
 
-        manager.store_credentials(long_session_id, 12345, "abc123hash")
-        api_id, api_hash = manager.retrieve_credentials(long_session_id)
+        manager.store_credentials(long_session_id, 12345, "abc123hash", "proxy-123")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials(long_session_id)
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
     def test_unicode_in_session_id(self, tmp_path: Path):
         """Test handling of unicode characters in session ID."""
         manager = SecureCredentialManager(tmp_path)
 
         unicode_session_id = "session-日本語-中文-العربية"
-        manager.store_credentials(unicode_session_id, 12345, "abc123hash")
-        api_id, api_hash = manager.retrieve_credentials(unicode_session_id)
+        manager.store_credentials(unicode_session_id, 12345, "abc123hash", "proxy-123")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials(unicode_session_id)
 
         assert api_id == 12345
         assert api_hash == "abc123hash"
+        assert proxy_id == "proxy-123"
 
     @pytest.mark.skipif(
         sys.platform == "win32",
@@ -1059,31 +1086,34 @@ class TestErrorScenarios:
         manager = SecureCredentialManager(tmp_path)
         long_hash = "a" * 10000
 
-        manager.store_credentials("test-session", 12345, long_hash)
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        manager.store_credentials("test-session", 12345, long_hash, "proxy-123")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == long_hash
+        assert proxy_id == "proxy-123"
 
     def test_zero_api_id(self, tmp_path: Path):
         """Test handling of zero as api_id."""
         manager = SecureCredentialManager(tmp_path)
 
         manager.store_credentials("test-session", 0, "abc123hash")
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == 0
         assert api_hash == "abc123hash"
+        assert proxy_id is None
 
     def test_negative_api_id(self, tmp_path: Path):
         """Test handling of negative api_id."""
         manager = SecureCredentialManager(tmp_path)
 
         manager.store_credentials("test-session", -12345, "abc123hash")
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == -12345
         assert api_hash == "abc123hash"
+        assert proxy_id is None
 
     def test_very_large_api_id(self, tmp_path: Path):
         """Test handling of very large api_id."""
@@ -1091,17 +1121,19 @@ class TestErrorScenarios:
         large_id = 999999999999999999
 
         manager.store_credentials("test-session", large_id, "abc123hash")
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == large_id
         assert api_hash == "abc123hash"
+        assert proxy_id is None
 
     def test_empty_api_hash(self, tmp_path: Path):
         """Test handling of empty api_hash."""
         manager = SecureCredentialManager(tmp_path)
 
         manager.store_credentials("test-session", 12345, "")
-        api_id, api_hash = manager.retrieve_credentials("test-session")
+        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
         assert api_id == 12345
         assert api_hash == ""
+        assert proxy_id is None

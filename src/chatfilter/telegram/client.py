@@ -101,7 +101,7 @@ class TelegramConfig:
 
         try:
             manager = SecureCredentialManager(storage_dir)
-            api_id, api_hash = manager.retrieve_credentials(session_id)
+            api_id, api_hash, _proxy_id = manager.retrieve_credentials(session_id)
             return cls(api_id=api_id, api_hash=api_hash)
         except CredentialNotFoundError as e:
             raise TelegramConfigError(
