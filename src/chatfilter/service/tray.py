@@ -146,16 +146,37 @@ def _log_platform_info(pystray_module: Any) -> None:
 _running_icon: Any = None
 
 
-def _generate_icon_from_emoji() -> Any:
-    """Generate a tray icon from emoji 📊 using Pillow.
+def _load_tray_icon() -> Any:
+    """Load tray icon from static/images/tray-icon.png.
 
-    Creates a simple icon with a bar chart representation.
-    This is a temporary solution until custom icon is provided.
+    Falls back to generating an icon if the file is not found.
 
     Returns:
         PIL Image suitable for system tray icon.
     """
-    # Lazy import PIL only when actually creating the icon
+    from PIL import Image
+
+    from chatfilter.utils.paths import get_base_path
+
+    icon_path = get_base_path() / "static" / "images" / "tray-icon.png"
+
+    if icon_path.exists():
+        logger.debug(f"Loading tray icon from {icon_path}")
+        return Image.open(icon_path)
+    else:
+        logger.warning(f"Tray icon not found at {icon_path}, generating fallback")
+        return _generate_fallback_icon()
+
+
+def _generate_fallback_icon() -> Any:
+    """Generate a fallback tray icon using Pillow.
+
+    Creates a simple icon with a bar chart representation.
+    Used only when tray-icon.png is not available.
+
+    Returns:
+        PIL Image suitable for system tray icon.
+    """
     from PIL import Image, ImageDraw
 
     # Create a 64x64 RGBA image with transparent background
@@ -163,7 +184,7 @@ def _generate_icon_from_emoji() -> Any:
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
 
-    # Draw a simple bar chart representation (📊 emoji style)
+    # Draw a simple bar chart representation
     # Background circle
     padding = 2
     draw.ellipse(
@@ -229,8 +250,8 @@ def create_tray_icon(
             logger.info("Sending SIGINT for graceful shutdown")
             os.kill(os.getpid(), signal.SIGINT)
 
-    # Generate icon image
-    icon_image = _generate_icon_from_emoji()
+    # Load icon image from file (with fallback to generated)
+    icon_image = _load_tray_icon()
 
     # Create menu
     menu = Menu(

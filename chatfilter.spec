@@ -29,8 +29,21 @@ block_cipher = None
 
 # Application metadata
 APP_NAME = 'ChatFilter'
-APP_VERSION = '0.2.0'
 MAIN_SCRIPT = 'src/chatfilter/main.py'
+
+# Read version from chatfilter/__init__.py to stay in sync with pyproject.toml
+def get_version():
+    """Extract version from chatfilter/__init__.py."""
+    init_path = Path('src/chatfilter/__init__.py')
+    if init_path.exists():
+        content = init_path.read_text()
+        for line in content.splitlines():
+            if line.startswith('__version__'):
+                # Parse: __version__ = "0.4.5"
+                return line.split('=')[1].strip().strip('"\'')
+    return '0.0.0'
+
+APP_VERSION = get_version()
 
 # Collect all chatfilter submodules (loaded dynamically by uvicorn)
 hiddenimports = collect_submodules('chatfilter')
@@ -196,7 +209,7 @@ exe = EXE(
     codesign_identity=None,  # Code signing done post-build (see .github/workflows/build-windows.yml)
     entitlements_file=None,
     version='file_version_info.txt',  # Windows version metadata (increases legitimacy)
-    icon=None,  # TODO: Add icon file (e.g., 'icon.ico') to improve trust and recognition
+    icon='src/chatfilter/static/images/logo.ico',  # Windows application icon
 )
 
 # COLLECT: collect all files into distribution directory
@@ -218,7 +231,7 @@ if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
         name=f'{APP_NAME}.app',
-        icon=None,  # TODO: Add icon file (e.g., 'icon.icns') for macOS
+        icon='src/chatfilter/static/images/logo.icns',  # macOS application icon
         bundle_identifier=f'com.chatfilter.{APP_NAME.lower()}',
         info_plist={
             'NSPrincipalClass': 'NSApplication',
