@@ -31,6 +31,23 @@
     </p>
 </div>
 
+<section class="card">
+    <h2>{{ _("Create New Session") }}</h2>
+    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        {{ _("Authenticate with your phone number to create a new session directly in the browser.") }}
+    </p>
+
+    <div id="auth-form-container"
+         hx-get="/api/sessions/auth/form"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="skeleton-container" aria-busy="true" role="status">
+            <span class="skeleton-sr-text">{{ _("Loading form...") }}</span>
+            <div class="skeleton skeleton-form" style="height: 300px;"></div>
+        </div>
+    </div>
+</section>
+
 <section class="card onboarding">
     <h3>{{ _("First Time Setup Guide") }}</h3>
     <p>{{ _("To use ChatFilter, you need two things:") }} <strong>{{ _("API credentials") }}</strong> {{ _("and a") }} <strong>{{ _("session file") }}</strong>. {{ _("Follow the steps below to obtain them.") }}</p>

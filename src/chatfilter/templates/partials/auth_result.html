@@ -1,0 +1,63 @@
+{# Auth Flow - Result Display #}
+{% if success %}
+<div class="auth-result auth-result-success">
+    <div class="alert alert-success">
+        <strong>{{ message }}</strong>
+    </div>
+
+    {% if account_info %}
+    <div class="account-info-card" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+        <h4 style="margin: 0 0 0.5rem 0;">{{ _("Account Information") }}</h4>
+        <p style="margin: 0; font-size: 0.9rem;">
+            <strong>{{ _("Name:") }}</strong> {{ account_info.first_name }}{% if account_info.last_name %} {{ account_info.last_name }}{% endif %}<br>
+            {% if account_info.phone %}
+            <strong>{{ _("Phone:") }}</strong> {{ account_info.phone }}<br>
+            {% endif %}
+            <strong>{{ _("User ID:") }}</strong> {{ account_info.user_id }}
+        </p>
+    </div>
+    {% endif %}
+
+    {% if duplicate_sessions %}
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <strong>{{ _("Warning: Duplicate Account Detected") }}</strong>
+        <p style="margin: 0.5rem 0 0 0;">
+            {{ _("This account is already registered in these sessions:") }}
+            <strong>{{ duplicate_sessions | join(", ") }}</strong>
+        </p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.875rem;">
+            {{ _("Using multiple sessions for the same account may cause conflicts. Consider removing duplicate sessions.") }}
+        </p>
+    </div>
+    {% endif %}
+
+    <div class="form-actions" style="margin-top: 1rem;">
+        <button type="button" class="btn btn-secondary" onclick="location.reload()">
+            {{ _("Create Another Session") }}
+        </button>
+        <a href="/upload" class="btn btn-primary">
+            {{ _("Go to Sessions") }}
+        </a>
+    </div>
+</div>
+
+<script>
+    // Trigger sessions list refresh
+    if (typeof htmx !== 'undefined') {
+        htmx.trigger(document.body, 'refreshSessions');
+    }
+</script>
+{% else %}
+<div class="auth-result auth-result-error">
+    <div class="alert alert-error">
+        <strong>{{ _("Authentication Failed") }}</strong>
+        <p style="margin: 0.5rem 0 0 0;">{{ error }}</p>
+    </div>
+
+    <div class="form-actions" style="margin-top: 1rem;">
+        <button type="button" class="btn btn-primary" onclick="location.reload()">
+            {{ _("Try Again") }}
+        </button>
+    </div>
+</div>
+{% endif %}

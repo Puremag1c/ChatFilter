@@ -8,7 +8,7 @@ import re
 import shutil
 import sqlite3
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse
@@ -17,6 +17,11 @@ from pydantic import BaseModel
 from chatfilter.config import get_settings
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import TelegramClientLoader, TelegramConfigError
+
+if TYPE_CHECKING:
+    from starlette.templating import Jinja2Templates
+
+    from chatfilter.web.auth_state import AuthState, AuthStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -1101,6 +1106,628 @@ async def update_session_config(
         content='<div class="alert alert-success">Configuration saved</div>',
         headers={"HX-Trigger": "refreshSessions"},
     )
+
+
+# =============================================================================
+# Session Auth Flow (Create New Session from Phone)
+# =============================================================================
+
+
+@router.get("/api/sessions/auth/form", response_class=HTMLResponse)
+async def get_auth_form(request: Request) -> HTMLResponse:
+    """Get the auth flow start form.
+
+    Returns HTML form for starting a new session auth flow.
+    """
+    from chatfilter.storage.proxy_pool import load_proxy_pool
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+    proxies = load_proxy_pool()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/auth_start_form.html",
+        context={"proxies": proxies},
+    )
+
+
+@router.post("/api/sessions/auth/start", response_class=HTMLResponse)
+async def start_auth_flow(
+    request: Request,
+    session_name: Annotated[str, Form()],
+    phone: Annotated[str, Form()],
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+    proxy_id: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Start a new session auth flow by sending code to phone.
+
+    Creates a temporary Telethon client and sends verification code.
+    Returns HTML partial with code input form or error message.
+    """
+    import asyncio
+    import tempfile
+
+    from telethon import TelegramClient
+    from telethon.errors import (
+        ApiIdInvalidError,
+        FloodWaitError,
+        PhoneNumberBannedError,
+        PhoneNumberInvalidError,
+    )
+
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import get_auth_state_manager
+
+    templates = get_templates()
+
+    # Validate session name
+    try:
+        safe_name = sanitize_session_name(session_name)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": str(e)},
+        )
+
+    # Check if session already exists
+    session_dir = ensure_data_dir() / safe_name
+    if session_dir.exists():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": f"Session '{safe_name}' already exists"},
+        )
+
+    # Validate api_hash format
+    api_hash = api_hash.strip()
+    if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Invalid API hash format. Must be a 32-character hexadecimal string.",
+            },
+        )
+
+    # Validate phone format (basic: must start with + and have digits)
+    phone = phone.strip()
+    if not phone.startswith("+") or not phone[1:].replace(" ", "").replace("-", "").isdigit():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Invalid phone number format. Must start with + and country code (e.g., +1234567890).",
+            },
+        )
+
+    # Validate proxy exists and get it
+    try:
+        proxy_entry = get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": "Selected proxy not found."},
+        )
+
+    # Create temporary session file for auth flow
+    temp_dir = tempfile.mkdtemp(prefix="chatfilter_auth_")
+    temp_session_path = Path(temp_dir) / "auth_session"
+
+    try:
+        # Create Telethon client with proxy
+        telethon_proxy = proxy_entry.to_telethon_proxy()
+        client = TelegramClient(
+            str(temp_session_path),
+            api_id,
+            api_hash,
+            proxy=telethon_proxy,
+        )
+
+        # Connect and send code
+        await asyncio.wait_for(client.connect(), timeout=30.0)
+
+        # Send verification code
+        sent_code = await asyncio.wait_for(
+            client.send_code_request(phone),
+            timeout=30.0,
+        )
+
+        phone_code_hash = sent_code.phone_code_hash
+
+        # Store auth state in memory
+        auth_manager = get_auth_state_manager()
+        auth_state = await auth_manager.create_auth_state(
+            session_name=safe_name,
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_id=proxy_id,
+            phone=phone,
+            phone_code_hash=phone_code_hash,
+            client=client,
+        )
+
+        # Store temp dir path for cleanup later
+        auth_state.temp_dir = temp_dir  # type: ignore[attr-defined]
+
+        logger.info(f"Auth flow started for '{safe_name}', code sent to {phone}")
+
+        # Return code input form
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_state.auth_id,
+                "phone": phone,
+                "session_name": safe_name,
+            },
+        )
+
+    except PhoneNumberInvalidError:
+        # Clean up
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": "Invalid phone number."},
+        )
+    except PhoneNumberBannedError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": "This phone number is banned by Telegram."},
+        )
+    except ApiIdInvalidError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": "Invalid API ID or API Hash."},
+        )
+    except FloodWaitError as e:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": f"Too many requests. Please wait {e.seconds} seconds before trying again.",
+            },
+        )
+    except TimeoutError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Connection timeout. Please check your proxy settings and try again.",
+            },
+        )
+    except Exception as e:
+        logger.exception(f"Failed to start auth flow for '{safe_name}'")
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": f"Failed to send code: {e}"},
+        )
+
+
+@router.post("/api/sessions/auth/code", response_class=HTMLResponse)
+async def submit_auth_code(
+    request: Request,
+    auth_id: Annotated[str, Form()],
+    code: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Submit verification code to complete auth or request 2FA.
+
+    Returns HTML partial with:
+    - Success message if auth completed
+    - 2FA form if password required
+    - Error message if code invalid
+    """
+    import asyncio
+
+    from telethon.errors import (
+        PhoneCodeEmptyError,
+        PhoneCodeExpiredError,
+        PhoneCodeInvalidError,
+        SessionPasswordNeededError,
+    )
+
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import AuthStep, get_auth_state_manager
+
+    templates = get_templates()
+    auth_manager = get_auth_state_manager()
+
+    # Get auth state
+    auth_state = await auth_manager.get_auth_state(auth_id)
+    if not auth_state:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Auth session expired or not found. Please start over.",
+            },
+        )
+
+    # Validate code format (digits only)
+    code = code.strip().replace(" ", "").replace("-", "")
+    if not code.isdigit() or len(code) < 5:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": auth_state.session_name,
+                "error": "Invalid code format. Please enter the numeric code you received.",
+            },
+        )
+
+    client = auth_state.client
+    if not client or not client.is_connected():
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Connection lost. Please start over.",
+            },
+        )
+
+    try:
+        # Try to sign in with code
+        await asyncio.wait_for(
+            client.sign_in(
+                phone=auth_state.phone,
+                code=code,
+                phone_code_hash=auth_state.phone_code_hash,
+            ),
+            timeout=30.0,
+        )
+
+        # Success! Save the session
+        return await _complete_auth_flow(request, auth_state, templates, auth_manager)
+
+    except SessionPasswordNeededError:
+        # 2FA required
+        await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
+        logger.info(f"2FA required for auth '{auth_id}'")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": auth_state.session_name,
+            },
+        )
+
+    except PhoneCodeInvalidError:
+        await auth_manager.update_auth_state(auth_id, step=AuthStep.CODE_INVALID)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": auth_state.session_name,
+                "error": "Invalid code. Please check and try again.",
+            },
+        )
+
+    except PhoneCodeExpiredError:
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Code has expired. Please start over.",
+            },
+        )
+
+    except PhoneCodeEmptyError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": auth_state.session_name,
+                "error": "Please enter the verification code.",
+            },
+        )
+
+    except TimeoutError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": auth_state.session_name,
+                "error": "Request timeout. Please try again.",
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to verify code for auth '{auth_id}'")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": auth_state.session_name,
+                "error": f"Failed to verify code: {e}",
+            },
+        )
+
+
+@router.post("/api/sessions/auth/2fa", response_class=HTMLResponse)
+async def submit_auth_2fa(
+    request: Request,
+    auth_id: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Submit 2FA password to complete auth.
+
+    Returns HTML partial with success message or error.
+    """
+    import asyncio
+
+    from telethon.errors import PasswordHashInvalidError
+
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import AuthStep, get_auth_state_manager
+
+    templates = get_templates()
+    auth_manager = get_auth_state_manager()
+
+    # Get auth state
+    auth_state = await auth_manager.get_auth_state(auth_id)
+    if not auth_state:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Auth session expired or not found. Please start over.",
+            },
+        )
+
+    if auth_state.step != AuthStep.NEED_2FA:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Invalid auth state. Please start over.",
+            },
+        )
+
+    client = auth_state.client
+    if not client or not client.is_connected():
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": "Connection lost. Please start over.",
+            },
+        )
+
+    try:
+        # Try to sign in with 2FA password
+        await asyncio.wait_for(
+            client.sign_in(password=password),
+            timeout=30.0,
+        )
+
+        # Success! Save the session
+        return await _complete_auth_flow(request, auth_state, templates, auth_manager)
+
+    except PasswordHashInvalidError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": auth_state.session_name,
+                "error": "Incorrect password. Please try again.",
+            },
+        )
+
+    except TimeoutError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": auth_state.session_name,
+                "error": "Request timeout. Please try again.",
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to verify 2FA for auth '{auth_id}'")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": auth_state.session_name,
+                "error": f"Failed to verify password: {e}",
+            },
+        )
+
+
+async def _complete_auth_flow(
+    request: Request,
+    auth_state: AuthState,
+    templates: Jinja2Templates,
+    auth_manager: AuthStateManager,
+) -> HTMLResponse:
+    """Complete auth flow by saving session and credentials.
+
+    Args:
+        request: FastAPI request
+        auth_state: Current auth state
+        templates: Jinja2 templates
+        auth_manager: Auth state manager
+
+    Returns:
+        HTML response with success or error message
+    """
+    import shutil
+
+    from chatfilter.security import SecureCredentialManager
+
+    client = auth_state.client
+    if client is None:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": "Client connection lost. Please start over."},
+        )
+
+    session_name = auth_state.session_name
+    api_id = auth_state.api_id
+    api_hash = auth_state.api_hash
+    proxy_id = auth_state.proxy_id
+
+    try:
+        # Get account info
+        me = await client.get_me()
+        account_info = {
+            "user_id": me.id,
+            "phone": me.phone or "",
+            "first_name": me.first_name or "",
+            "last_name": me.last_name or "",
+        }
+
+        # Check for duplicates
+        duplicate_sessions = []
+        if isinstance(me.id, int):
+            duplicate_sessions = find_duplicate_accounts(me.id, exclude_session=session_name)
+
+        # Create session directory
+        session_dir = ensure_data_dir() / session_name
+        session_dir.mkdir(parents=True, exist_ok=True)
+        session_path = session_dir / "session.session"
+
+        # Disconnect client before copying session file
+        await client.disconnect()
+
+        # Copy session file from temp location
+        temp_dir = getattr(auth_state, "temp_dir", None)
+        if temp_dir:
+            temp_session_file = Path(temp_dir) / "auth_session.session"
+            if temp_session_file.exists():
+                shutil.copy2(temp_session_file, session_path)
+                secure_file_permissions(session_path)
+
+        # Store credentials securely
+        storage_dir = session_dir.parent
+        manager = SecureCredentialManager(storage_dir)
+        manager.store_credentials(session_name, api_id, api_hash)
+
+        # Create per-session config.json
+        session_config: dict[str, int | str | None] = {
+            "api_id": api_id,
+            "api_hash": api_hash,
+            "proxy_id": proxy_id,
+        }
+        session_config_path = session_dir / "config.json"
+        session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
+        atomic_write(session_config_path, session_config_content)
+        secure_file_permissions(session_config_path)
+
+        # Create secure storage marker
+        marker_text = (
+            "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
+            "Do not create a plaintext config.json file.\n"
+        )
+        marker_file = session_dir / ".secure_storage"
+        atomic_write(marker_file, marker_text)
+
+        # Save account info
+        save_account_info(session_dir, account_info)
+
+        # Clean up temp dir
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+        # Remove auth state
+        await auth_manager.remove_auth_state(auth_state.auth_id)
+
+        logger.info(f"Session '{session_name}' created successfully via auth flow")
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": True,
+                "message": f"Session '{session_name}' created successfully!",
+                "account_info": account_info,
+                "duplicate_sessions": duplicate_sessions,
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to complete auth flow for '{session_name}'")
+        # Clean up on failure
+        session_dir = ensure_data_dir() / session_name
+        if session_dir.exists():
+            shutil.rmtree(session_dir, ignore_errors=True)
+        temp_dir = getattr(auth_state, "temp_dir", None)
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        await auth_manager.remove_auth_state(auth_state.auth_id)
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": f"Failed to save session: {e}"},
+        )
 
 
 @router.post("/api/sessions/import/save", response_class=HTMLResponse)
