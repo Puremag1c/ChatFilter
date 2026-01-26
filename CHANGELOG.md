@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-01-26
+
+### Fixed
+- **P0: Proxy storage path**: Fixed "Read-only file system" error on macOS by using `settings.config_dir` instead of app bundle path for proxy storage
+- **P1: Tray icon AppTranslocation**: Disabled tray icon when running from macOS App Translocation to prevent "Application Not Responding"
+- **P1: Infinite loading spinner**: Added HTMX error handlers to show error message instead of spinning forever when API calls fail
+
+### Changed
+- Proxy pool now stores data in user config directory (`~/Library/Application Support/ChatFilter/config/proxies.json`)
+- Legacy proxy migration checks both old app bundle location and new config directory
+
 ## [0.4.7] - 2026-01-26
 
 ### Fixed
