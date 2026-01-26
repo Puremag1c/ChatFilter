@@ -1,6 +1,7 @@
 """CRUD functions for proxy pool management.
 
-Provides load/save operations for the proxy pool stored in data/config/proxies.json.
+Provides load/save operations for the proxy pool stored in user's config directory.
+Uses platform-specific paths via settings.config_dir (not relative to app bundle).
 All write operations use atomic writes to prevent data corruption.
 """
 
@@ -9,7 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from chatfilter.config import ProxyType
+from chatfilter.config import ProxyType, get_settings
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.helpers import load_json, save_json
@@ -17,26 +18,36 @@ from chatfilter.utils.paths import get_application_path
 
 logger = logging.getLogger(__name__)
 
-PROXIES_FILE = "data/config/proxies.json"
-LEGACY_PROXY_FILE = "data/config/proxy.json"
+PROXIES_FILENAME = "proxies.json"
+LEGACY_PROXY_FILENAME = "proxy.json"
 
 
 def _get_proxies_path() -> Path:
     """Get the path to the proxies.json file.
 
     Returns:
-        Path to data/config/proxies.json relative to application root.
+        Path to proxies.json in user's config directory.
+        On macOS: ~/Library/Application Support/ChatFilter/config/proxies.json
+        On Windows: %APPDATA%/ChatFilter/config/proxies.json
+        On Linux: ~/.local/share/chatfilter/config/proxies.json
     """
-    return get_application_path() / PROXIES_FILE
+    return get_settings().config_dir / PROXIES_FILENAME
 
 
 def _get_legacy_proxy_path() -> Path:
-    """Get the path to the legacy proxy.json file.
+    """Get the path to the legacy proxy.json file (for migration only).
+
+    Checks both old location (app bundle) and new location (user config dir).
 
     Returns:
-        Path to data/config/proxy.json relative to application root.
+        Path to legacy proxy.json if found, otherwise path in config_dir.
     """
-    return get_application_path() / LEGACY_PROXY_FILE
+    # First check old location (app bundle) for migration
+    old_path = get_application_path() / "data" / "config" / LEGACY_PROXY_FILENAME
+    if old_path.exists():
+        return old_path
+    # Fallback to config_dir
+    return get_settings().config_dir / LEGACY_PROXY_FILENAME
 
 
 def _migrate_legacy_proxy() -> None:

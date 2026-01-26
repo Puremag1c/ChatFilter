@@ -75,6 +75,26 @@ def _load_pystray() -> Any:
     return _pystray
 
 
+def _is_app_translocation() -> bool:
+    """Check if app is running from macOS App Translocation.
+
+    App Translocation is a macOS security feature that runs apps from a
+    randomized read-only location when downloaded from the internet.
+    This can cause issues with NSStatusItem (tray icon) initialization.
+
+    Returns:
+        True if running from App Translocation path.
+    """
+    if platform.system() != "Darwin":
+        return False
+
+    import sys
+
+    executable = sys.executable
+    # App Translocation paths contain "AppTranslocation" in /private/var/folders
+    return "/AppTranslocation/" in executable or "/private/var/folders/" in executable
+
+
 def _is_gui_available() -> bool:
     """Check if a GUI environment is available for displaying tray icon.
 
@@ -102,6 +122,15 @@ def _is_gui_available() -> bool:
 
         if ssh_connection and not os.environ.get("DISPLAY"):
             logger.debug("SSH session without X forwarding — headless macOS detected")
+            return False
+
+        # Check for App Translocation - tray icon may hang in this environment
+        if _is_app_translocation():
+            logger.warning(
+                "App running from macOS App Translocation. "
+                "Tray icon disabled to prevent 'Application Not Responding'. "
+                "Move app to /Applications to enable tray icon."
+            )
             return False
 
         return True

@@ -20,6 +20,7 @@
          hx-get="/api/sessions"
          hx-trigger="load, refreshSessions from:body"
          hx-swap="innerHTML"
+         hx-on:htmx:response-error="this.innerHTML = '<div class=\'alert alert-error\'><strong>{{ _("Error") }}:</strong> {{ _("Failed to load accounts. Please refresh the page.") }}</div>'"
          role="region"
          aria-live="polite"
          aria-label="{{ _("List of Telegram accounts") }}">
