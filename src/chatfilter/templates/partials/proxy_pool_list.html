@@ -66,8 +66,8 @@
                                 data-proxy-id="{{ proxy.id }}"
                                 data-proxy-name="{{ proxy.name }}"
                                 hx-post="/api/proxies/{{ proxy.id }}/retest"
-                                hx-target="#proxy-list"
-                                hx-swap="innerHTML"
+                                hx-swap="none"
+                                hx-on::after-request="htmx.trigger('#proxy-list', 'refresh')"
                                 hx-indicator="#proxy-retest-spinner-{{ proxy.id }}"
                                 title="{{ _("Test proxy connection") }}"
                                 aria-label="{{ _('Retest proxy') }} {{ proxy.name }}">

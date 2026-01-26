@@ -129,9 +129,17 @@ hiddenimports += [
     # System tray support
     'pystray',
     'pystray._base',
+    'pystray._darwin',  # macOS backend
     'PIL',
     'PIL.Image',
     'PIL.ImageDraw',
+
+    # macOS pyobjc (required for pystray on macOS)
+    'AppKit',
+    'Foundation',
+    'objc',
+    'PyObjCTools',
+    'PyObjCTools.Conversion',
 ]
 
 # Collect data files from dependencies
@@ -237,5 +245,12 @@ if sys.platform == 'darwin':
             'NSPrincipalClass': 'NSApplication',
             'CFBundleShortVersionString': APP_VERSION,
             'CFBundleVersion': APP_VERSION,
+            # High resolution display support
+            'NSHighResolutionCapable': True,
+            # LSUIElement=False: show app in Dock (required for menu bar interaction on some macOS versions)
+            # Set to True if you want menu-bar-only app without Dock icon
+            'LSUIElement': False,
+            # Enable system status bar (menu bar) access
+            'NSSystemStatusBarUsageDescription': 'ChatFilter uses the menu bar for quick access and status display.',
         },
     )
