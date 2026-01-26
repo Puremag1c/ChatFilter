@@ -1,10 +1,48 @@
 {# Session configuration form partial #}
-{# Receives: session_id, current_proxy_id, proxies #}
+{# Receives: session_id, current_api_id, current_api_hash, current_proxy_id, proxies #}
 <form class="session-config-form"
       hx-put="/api/sessions/{{ session_id }}/config"
       hx-target="#session-config-result-{{ session_id }}"
       hx-swap="innerHTML"
       hx-indicator="#session-config-spinner-{{ session_id }}">
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="session-api-id-{{ session_id }}"
+                   data-tooltip="{{ _('Your Telegram API ID from my.telegram.org') }}"
+                   data-tooltip-position="right">{{ _("API ID") }}</label>
+            <input type="number"
+                   id="session-api-id-{{ session_id }}"
+                   name="api_id"
+                   class="form-control"
+                   required
+                   value="{{ current_api_id or '' }}"
+                   placeholder="{{ _('e.g., 12345678') }}"
+                   min="1"
+                   aria-describedby="session-api-id-hint-{{ session_id }}"
+                   aria-required="true">
+            <small id="session-api-id-hint-{{ session_id }}" class="form-hint">{{ _("Numeric ID from my.telegram.org/apps") }}</small>
+        </div>
+
+        <div class="form-group">
+            <label for="session-api-hash-{{ session_id }}"
+                   data-tooltip="{{ _('Your Telegram API Hash from my.telegram.org') }}"
+                   data-tooltip-position="right">{{ _("API Hash") }}</label>
+            <input type="text"
+                   id="session-api-hash-{{ session_id }}"
+                   name="api_hash"
+                   class="form-control"
+                   required
+                   value="{{ current_api_hash or '' }}"
+                   placeholder="{{ _('e.g., 0123456789abcdef...') }}"
+                   pattern="[a-fA-F0-9]+"
+                   minlength="32"
+                   maxlength="32"
+                   aria-describedby="session-api-hash-hint-{{ session_id }}"
+                   aria-required="true">
+            <small id="session-api-hash-hint-{{ session_id }}" class="form-hint">{{ _("32-character hex string from my.telegram.org/apps") }}</small>
+        </div>
+    </div>
 
     <div class="form-group">
         <label for="session-proxy-{{ session_id }}"
@@ -13,8 +51,10 @@
         <select id="session-proxy-{{ session_id }}"
                 name="proxy_id"
                 class="form-control"
-                aria-describedby="session-proxy-hint-{{ session_id }}">
-            <option value="">{{ _("-- No proxy --") }}</option>
+                required
+                aria-describedby="session-proxy-hint-{{ session_id }}"
+                aria-required="true">
+            <option value="">{{ _("-- Select a proxy --") }}</option>
             {% for proxy in proxies %}
             <option value="{{ proxy.id }}"{% if proxy.id == current_proxy_id %} selected{% endif %}>
                 {{ proxy.name }} ({{ proxy.type }}://{{ proxy.host }}:{{ proxy.port }})
@@ -22,9 +62,9 @@
             {% endfor %}
         </select>
         <small id="session-proxy-hint-{{ session_id }}" class="form-hint">
-            {{ _("Select a proxy to use for this session's Telegram connection.") }}
+            {{ _("A proxy is required for Telegram connection.") }}
             {% if not proxies %}
-            <a href="/proxies">{{ _("Add a proxy first") }}</a>
+            <a href="/proxy">{{ _("Add a proxy first") }}</a>
             {% endif %}
         </small>
     </div>

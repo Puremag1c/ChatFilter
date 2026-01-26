@@ -962,10 +962,14 @@ async def get_session_config(
         )
 
     # Load current config
+    current_api_id = None
+    current_api_hash = None
     current_proxy_id = None
     try:
         with config_file.open("r", encoding="utf-8") as f:
             config = json.load(f)
+            current_api_id = config.get("api_id")
+            current_api_hash = config.get("api_hash")
             current_proxy_id = config.get("proxy_id")
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to read config for session {safe_name}: {e}")
@@ -978,6 +982,8 @@ async def get_session_config(
         name="partials/session_config.html",
         context={
             "session_id": safe_name,
+            "current_api_id": current_api_id,
+            "current_api_hash": current_api_hash,
             "current_proxy_id": current_proxy_id,
             "proxies": proxies,
         },
@@ -988,11 +994,14 @@ async def get_session_config(
 async def update_session_config(
     request: Request,
     session_id: str,
-    proxy_id: Annotated[str, Form()] = "",
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+    proxy_id: Annotated[str, Form()],
 ) -> HTMLResponse:
     """Update session configuration.
 
-    Updates the proxy_id for a session.
+    Updates api_id, api_hash, and proxy_id for a session.
+    All fields are required.
     """
     try:
         safe_name = sanitize_session_name(session_id)
@@ -1011,18 +1020,38 @@ async def update_session_config(
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
-    # Validate proxy_id if provided
-    if proxy_id:
-        from chatfilter.storage.errors import StorageNotFoundError
-        from chatfilter.storage.proxy_pool import get_proxy_by_id
+    # Validate api_id
+    if api_id < 1:
+        return HTMLResponse(
+            content='<div class="alert alert-error">API ID must be a positive number</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
-        try:
-            get_proxy_by_id(proxy_id)
-        except StorageNotFoundError:
-            return HTMLResponse(
-                content='<div class="alert alert-error">Selected proxy not found in pool</div>',
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
+    # Validate api_hash format (32-char hex string)
+    api_hash = api_hash.strip()
+    if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+        return HTMLResponse(
+            content='<div class="alert alert-error">API hash must be a 32-character hexadecimal string</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate proxy_id (required)
+    if not proxy_id:
+        return HTMLResponse(
+            content='<div class="alert alert-error">Proxy selection is required</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+    try:
+        get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        return HTMLResponse(
+            content='<div class="alert alert-error">Selected proxy not found in pool</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     # Load existing config
     try:
@@ -1035,21 +1064,37 @@ async def update_session_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    # Update proxy_id (None if empty string)
-    config["proxy_id"] = proxy_id if proxy_id else None
+    # Update all config fields
+    config["api_id"] = api_id
+    config["api_hash"] = api_hash
+    config["proxy_id"] = proxy_id
 
     # Save updated config
     try:
         config_content = json.dumps(config, indent=2).encode("utf-8")
         atomic_write(config_file, config_content)
         secure_file_permissions(config_file)
-        logger.info(f"Updated proxy_id for session '{safe_name}': {proxy_id or 'None'}")
+        logger.info(
+            f"Updated config for session '{safe_name}': api_id={api_id}, proxy_id={proxy_id}"
+        )
     except Exception:
         logger.exception(f"Failed to save config for session {safe_name}")
         return HTMLResponse(
             content='<div class="alert alert-error">Failed to save session config</div>',
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+    # Also update secure credential storage
+    try:
+        from chatfilter.security import SecureCredentialManager
+
+        storage_dir = session_dir.parent
+        manager = SecureCredentialManager(storage_dir)
+        manager.store_credentials(safe_name, api_id, api_hash)
+        logger.info(f"Updated credentials in secure storage for session: {safe_name}")
+    except Exception as e:
+        logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
+        # Non-fatal: config.json is the primary source
 
     # Return success message with HX-Trigger to refresh sessions list
     return HTMLResponse(

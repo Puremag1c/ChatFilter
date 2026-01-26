@@ -848,10 +848,15 @@ class TestSessionConfigAPI:
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
             ),
+            patch("chatfilter.security.SecureCredentialManager"),
         ):
             response = client.put(
                 "/api/sessions/test_session/config",
-                data={"proxy_id": test_proxy_id},
+                data={
+                    "api_id": "12345678",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                    "proxy_id": test_proxy_id,
+                },
                 headers={"X-CSRF-Token": csrf_token},
             )
 
@@ -862,18 +867,14 @@ class TestSessionConfigAPI:
         config_path = session_with_config / "config.json"
         config_data = json.loads(config_path.read_text())
         assert config_data["proxy_id"] == test_proxy_id
+        assert config_data["api_id"] == 12345678
+        assert config_data["api_hash"] == "0123456789abcdef0123456789abcdef"
 
-    def test_update_session_config_clear_proxy(
+    def test_update_session_config_proxy_required(
         self, client: TestClient, clean_data_dir: Path, session_with_config: Path
     ) -> None:
-        """Test clearing session proxy configuration."""
+        """Test that proxy selection is required."""
         from unittest.mock import MagicMock, patch
-
-        # First set a proxy
-        config_path = session_with_config / "config.json"
-        config_data = json.loads(config_path.read_text())
-        config_data["proxy_id"] = "some-proxy-id"
-        config_path.write_text(json.dumps(config_data))
 
         # Get CSRF token
         home_response = client.get("/")
@@ -886,15 +887,16 @@ class TestSessionConfigAPI:
         with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.put(
                 "/api/sessions/test_session/config",
-                data={"proxy_id": ""},
+                data={
+                    "api_id": "12345678",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                    "proxy_id": "",
+                },
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        assert response.status_code == 200
-
-        # Verify proxy was cleared
-        config_data = json.loads(config_path.read_text())
-        assert config_data["proxy_id"] is None
+        assert response.status_code == 400
+        assert "required" in response.text.lower()
 
     def test_update_session_config_proxy_not_found(
         self, client: TestClient, clean_data_dir: Path, session_with_config: Path
@@ -921,7 +923,11 @@ class TestSessionConfigAPI:
         ):
             response = client.put(
                 "/api/sessions/test_session/config",
-                data={"proxy_id": "nonexistent-proxy"},
+                data={
+                    "api_id": "12345678",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                    "proxy_id": "nonexistent-proxy",
+                },
                 headers={"X-CSRF-Token": csrf_token},
             )
 
@@ -932,6 +938,7 @@ class TestSessionConfigAPI:
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test updating config for non-existent session."""
+        import uuid
         from unittest.mock import MagicMock, patch
 
         # Get CSRF token
@@ -942,10 +949,16 @@ class TestSessionConfigAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
+        test_proxy_id = str(uuid.uuid4())
+
         with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.put(
                 "/api/sessions/nonexistent/config",
-                data={"proxy_id": ""},
+                data={
+                    "api_id": "12345678",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                    "proxy_id": test_proxy_id,
+                },
                 headers={"X-CSRF-Token": csrf_token},
             )
 
