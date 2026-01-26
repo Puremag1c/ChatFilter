@@ -54,6 +54,47 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_gui_available() -> bool:
+    """Check if a GUI environment is available for displaying tray icon.
+
+    Returns:
+        True if GUI is likely available, False for headless environments.
+    """
+    system = platform.system()
+
+    if system == "Linux":
+        # Check for X11 or Wayland display
+        display = os.environ.get("DISPLAY")
+        wayland = os.environ.get("WAYLAND_DISPLAY")
+
+        if not display and not wayland:
+            logger.debug("No DISPLAY or WAYLAND_DISPLAY set — headless Linux detected")
+            return False
+
+        logger.debug(f"Linux display: DISPLAY={display}, WAYLAND_DISPLAY={wayland}")
+        return True
+
+    elif system == "Darwin":
+        # macOS: check if running in a GUI session
+        # SSH sessions without screen sharing won't have access to WindowServer
+        ssh_connection = os.environ.get("SSH_CONNECTION")
+
+        if ssh_connection and not os.environ.get("DISPLAY"):
+            logger.debug("SSH session without X forwarding — headless macOS detected")
+            return False
+
+        return True
+
+    elif system == "Windows":
+        # Windows: check if running as a service or in non-interactive session
+        # For now, assume GUI is available on Windows
+        # Service detection would require win32 API which may not be available
+        return True
+
+    # Unknown platform — try anyway, let pystray handle it
+    return True
+
+
 def _log_platform_info() -> None:
     """Log platform-specific tray icon information for debugging."""
     system = platform.system()
@@ -189,15 +230,26 @@ def start_tray_icon(
     Creates and starts the tray icon using run_detached(), which runs
     the icon in a separate thread without blocking the main thread.
 
+    On headless environments (no GUI), logs a warning and skips tray creation.
+    The application continues to work normally without the tray icon.
+
     Args:
         host: Server host for "Open in Browser" action.
         port: Server port for "Open in Browser" action.
         on_exit: Optional callback to execute on exit.
 
     Returns:
-        The running Icon instance, or None if tray is not supported.
+        The running Icon instance, or None if tray is not supported
+        or running in a headless environment.
     """
     global _running_icon
+
+    # Check for headless environment before attempting tray creation
+    if not _is_gui_available():
+        logger.warning(
+            "No GUI environment detected — tray icon disabled. Application continues without tray."
+        )
+        return None
 
     try:
         _log_platform_info()
@@ -207,7 +259,7 @@ def start_tray_icon(
         logger.info("Tray icon started")
         return icon
     except Exception as e:
-        logger.warning(f"Failed to start tray icon: {e}")
+        logger.warning(f"Failed to start tray icon: {e}. Application continues without tray.")
         return None
 
 
