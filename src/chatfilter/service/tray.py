@@ -91,8 +91,9 @@ def _is_app_translocation() -> bool:
     import sys
 
     executable = sys.executable
-    # App Translocation paths contain "AppTranslocation" in /private/var/folders
-    return "/AppTranslocation/" in executable or "/private/var/folders/" in executable
+    # App Translocation paths contain "AppTranslocation" in the path
+    # Example: /private/var/folders/.../AppTranslocation/.../ChatFilter.app/...
+    return "/AppTranslocation/" in executable
 
 
 def _is_gui_available() -> bool:
