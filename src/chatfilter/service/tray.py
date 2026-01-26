@@ -43,15 +43,36 @@ import platform
 import signal
 import webbrowser
 from collections.abc import Callable
-from typing import TYPE_CHECKING
-
-from PIL import Image, ImageDraw
-from pystray import Icon, Menu, MenuItem
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from pystray import Icon as IconType
 
 logger = logging.getLogger(__name__)
+
+# Lazy-loaded pystray module (imported only when GUI is available)
+_pystray: Any = None
+
+
+def _load_pystray() -> Any:
+    """Lazily load pystray module.
+
+    This avoids import-time errors on headless systems where pystray
+    tries to connect to X11/Wayland during module initialization.
+
+    Returns:
+        The pystray module, or None if import fails.
+    """
+    global _pystray
+    if _pystray is None:
+        try:
+            import pystray
+
+            _pystray = pystray
+        except Exception as e:
+            logger.warning(f"Failed to import pystray: {e}")
+            return None
+    return _pystray
 
 
 def _is_gui_available() -> bool:
@@ -95,7 +116,7 @@ def _is_gui_available() -> bool:
     return True
 
 
-def _log_platform_info() -> None:
+def _log_platform_info(pystray_module: Any) -> None:
     """Log platform-specific tray icon information for debugging."""
     system = platform.system()
 
@@ -115,16 +136,17 @@ def _log_platform_info() -> None:
         logger.debug(f"Tray backend: Unknown platform ({system})")
 
     # Log feature availability
+    Icon = pystray_module.Icon
     has_menu = getattr(Icon, "HAS_MENU", True)  # Default True for older pystray
     has_default = getattr(Icon, "HAS_DEFAULT_ACTION", True)
     logger.debug(f"Tray features: menu={has_menu}, default_action={has_default}")
 
 
 # Global reference to the running tray icon
-_running_icon: Icon | None = None
+_running_icon: Any = None
 
 
-def _generate_icon_from_emoji() -> Image.Image:
+def _generate_icon_from_emoji() -> Any:
     """Generate a tray icon from emoji 📊 using Pillow.
 
     Creates a simple icon with a bar chart representation.
@@ -133,6 +155,9 @@ def _generate_icon_from_emoji() -> Image.Image:
     Returns:
         PIL Image suitable for system tray icon.
     """
+    # Lazy import PIL only when actually creating the icon
+    from PIL import Image, ImageDraw
+
     # Create a 64x64 RGBA image with transparent background
     size = 64
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -166,13 +191,15 @@ def _generate_icon_from_emoji() -> Image.Image:
 
 
 def create_tray_icon(
+    pystray_module: Any,
     host: str = "127.0.0.1",
     port: int = 8000,
     on_exit: Callable[[], None] | None = None,
-) -> Icon:
+) -> Any:
     """Create and configure the system tray icon.
 
     Args:
+        pystray_module: The loaded pystray module.
         host: Server host for "Open in Browser" action.
         port: Server port for "Open in Browser" action.
         on_exit: Optional callback to execute on exit. If None, stops the icon.
@@ -180,14 +207,18 @@ def create_tray_icon(
     Returns:
         Configured pystray Icon instance (not yet running).
     """
+    Icon = pystray_module.Icon
+    Menu = pystray_module.Menu
+    MenuItem = pystray_module.MenuItem
+
     url = f"http://{host}:{port}"
 
-    def open_browser(icon: IconType, item: MenuItem) -> None:
+    def open_browser(icon: IconType, item: Any) -> None:
         """Open ChatFilter in the default web browser."""
         logger.info(f"Opening browser: {url}")
         webbrowser.open(url)
 
-    def exit_app(icon: IconType, item: MenuItem) -> None:
+    def exit_app(icon: IconType, item: Any) -> None:
         """Exit the application by triggering graceful shutdown."""
         logger.info("Exit requested from tray menu")
         icon.stop()
@@ -224,7 +255,7 @@ def start_tray_icon(
     host: str = "127.0.0.1",
     port: int = 8000,
     on_exit: Callable[[], None] | None = None,
-) -> Icon | None:
+) -> Any:
     """Start the system tray icon in a background thread.
 
     Creates and starts the tray icon using run_detached(), which runs
@@ -251,9 +282,15 @@ def start_tray_icon(
         )
         return None
 
+    # Lazy load pystray only when GUI is available
+    pystray_module = _load_pystray()
+    if pystray_module is None:
+        logger.warning("pystray module not available. Application continues without tray.")
+        return None
+
     try:
-        _log_platform_info()
-        icon = create_tray_icon(host=host, port=port, on_exit=on_exit)
+        _log_platform_info(pystray_module)
+        icon = create_tray_icon(pystray_module, host=host, port=port, on_exit=on_exit)
         icon.run_detached()
         _running_icon = icon
         logger.info("Tray icon started")
