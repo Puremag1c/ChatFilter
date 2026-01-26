@@ -199,19 +199,11 @@ For detailed information about network requirements, firewall configuration, and
 If direct connection to Telegram is blocked, you can configure a SOCKS5 or HTTP proxy:
 
 1. Start ChatFilter and open the web interface
-2. Navigate to **Settings** → **Proxy**
-3. Configure your proxy details (host, port, type)
-4. Save and test the connection
+2. Navigate to **Proxies** in the navigation menu
+3. Click **Add Proxy** and configure your proxy details (name, host, port, type)
+4. Assign the proxy to your session(s)
 
-Or edit `data/config/proxy.json` directly:
-```json
-{
-  "enabled": true,
-  "proxy_type": "socks5",
-  "host": "proxy.example.com",
-  "port": 1080
-}
-```
+Proxies are automatically health-checked and disabled if they become unavailable.
 
 ### Examples
 

@@ -122,40 +122,20 @@ ChatFilter supports SOCKS5 and HTTP proxies to bypass firewall restrictions. Thi
 
 1. Start ChatFilter: `chatfilter`
 2. Open web interface: `http://127.0.0.1:8000`
-3. Navigate to **Settings** → **Proxy**
-4. Configure proxy settings:
+3. Navigate to **Proxies** in the navigation menu
+4. Click **Add Proxy** and configure:
+   - **Name:** A friendly name for the proxy (e.g., "Office Proxy")
    - **Type:** SOCKS5 or HTTP
    - **Host:** Proxy server hostname/IP
    - **Port:** Proxy server port (default: 1080 for SOCKS5, 8080 for HTTP)
    - **Username/Password:** If proxy requires authentication
-5. Click **Save** and **Test Connection**
+5. Click **Save** to add the proxy
+6. Assign the proxy to your session(s) on the Sessions page
 
-#### Method 2: Configuration File
-
-Create or edit `data/config/proxy.json`:
-
-```json
-{
-  "enabled": true,
-  "proxy_type": "socks5",
-  "host": "proxy.example.com",
-  "port": 1080,
-  "username": "optional_username",
-  "password": "optional_password"
-}
-```
-
-**For HTTP proxy:**
-```json
-{
-  "enabled": true,
-  "proxy_type": "http",
-  "host": "proxy.example.com",
-  "port": 8080,
-  "username": "",
-  "password": ""
-}
-```
+**Features:**
+- Multiple proxies can be configured and managed
+- Health monitoring automatically disables failing proxies
+- Proxies can be retested and re-enabled after fixing issues
 
 #### Method 3: Programmatic Configuration
 
@@ -196,9 +176,9 @@ If your organization requires using a corporate proxy:
    - Authentication credentials (if required)
 
 2. **Configure ChatFilter:**
-   - Use web interface or edit `proxy.json` with provided details
-   - Enable proxy: `"enabled": true`
-   - Test connection after configuration
+   - Open the web interface and navigate to **Proxies**
+   - Click **Add Proxy** and enter the details provided by IT
+   - Save the proxy and assign it to your session(s)
 
 3. **Common corporate proxy ports:**
    - HTTP proxy: 8080, 3128, 8888
