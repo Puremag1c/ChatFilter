@@ -361,7 +361,7 @@
                 // Refresh sessions list
                 const sessionsList = document.getElementById('sessions-list');
                 if (sessionsList && typeof htmx !== 'undefined') {
-                    htmx.trigger(sessionsList, 'refresh');
+                    htmx.trigger(sessionsList, 'refreshSessions');
                 }
             }
         }

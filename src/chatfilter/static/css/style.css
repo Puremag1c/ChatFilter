@@ -2946,3 +2946,269 @@ body:has(.update-notification.show) {
 }
 
 /* ========== End Proxy Pool Table ==========*/
+
+/* ========== Accounts Page Styles ========== */
+
+/* Card header with actions (title + button) */
+.card-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.card-header-actions h2 {
+    margin: 0;
+}
+
+/* Accounts Table */
+.accounts-table-container {
+    overflow-x: auto;
+}
+
+.accounts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+}
+
+.accounts-table th,
+.accounts-table td {
+    padding: 0.875rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.accounts-table th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--bg-secondary);
+}
+
+.accounts-table tbody tr:hover {
+    background: var(--bg-secondary);
+}
+
+.account-row.removing {
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.account-name {
+    font-weight: 500;
+}
+
+.account-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.account-status .status-icon {
+    font-size: 0.75rem;
+}
+
+.account-status.status-disconnected,
+.account-status.status-ready {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.account-status.status-connected {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.account-status.status-not_configured {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.account-status.status-proxy_missing,
+.account-status.status-error {
+    background: var(--error-bg);
+    color: var(--error);
+}
+
+.account-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.config-row {
+    background: var(--bg-secondary);
+}
+
+.config-row td {
+    padding: 0;
+}
+
+.config-row .session-config-panel {
+    padding: 1rem 1.5rem;
+}
+
+/* Modal Improvements */
+.modal-lg {
+    max-width: 600px;
+    width: 95%;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.modal-close-btn:hover {
+    color: var(--text-primary);
+}
+
+.modal-header {
+    position: relative;
+    padding-right: 2.5rem;
+}
+
+/* Modal Tabs */
+.modal-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-light);
+    margin: 0 -1.5rem;
+    padding: 0 1.5rem;
+}
+
+.modal-tab {
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: none;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.modal-tab:hover {
+    color: var(--text-primary);
+}
+
+.modal-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.tab-content {
+    display: none;
+    padding-top: 1rem;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.tab-description {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+/* Responsive Accounts Table */
+@media (max-width: 640px) {
+    .accounts-table {
+        font-size: 0.875rem;
+    }
+
+    .accounts-table th,
+    .accounts-table td {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .accounts-table thead {
+        display: none;
+    }
+
+    .accounts-table tbody tr.account-row {
+        display: block;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--border-light);
+        border-radius: 8px;
+        padding: 0.75rem;
+    }
+
+    .accounts-table tbody tr.config-row {
+        display: none;
+    }
+
+    .accounts-table tbody tr.config-row[style*="table-row"] {
+        display: block;
+        margin-top: -0.75rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--border-light);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+    }
+
+    .accounts-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: none;
+    }
+
+    .account-name-cell {
+        font-weight: 600;
+    }
+
+    .account-actions-cell {
+        justify-content: flex-end;
+        padding-top: 0.75rem !important;
+        border-top: 1px solid var(--border-light);
+        margin-top: 0.5rem;
+    }
+
+    .modal-tabs {
+        margin: 0 -1rem;
+        padding: 0 1rem;
+    }
+
+    .modal-tab {
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Skeleton for accounts table */
+.skeleton-accounts-table {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.skeleton-accounts-table .skeleton-row {
+    height: 3rem;
+    border-radius: 4px;
+}
+
+/* ========== End Accounts Page Styles ==========*/

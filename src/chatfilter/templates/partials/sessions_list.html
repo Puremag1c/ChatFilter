@@ -1,42 +1,71 @@
 {% if sessions %}
-<div class="sessions-list">
-    {% for session in sessions %}
-    <div class="session-item" id="session-{{ session.session_id }}">
-        <div class="session-header">
-            <div class="session-info">
-                <span class="session-name">{{ session.session_id }}</span>
-                <span class="session-status {{ session.state }}">
-                    {%- if session.state == 'not_configured' -%}
-                        {{ _("Not configured") }}
-                    {%- elif session.state == 'proxy_missing' -%}
-                        {{ _("Proxy missing") }}
-                    {%- else -%}
-                        {{ session.state }}
-                    {%- endif -%}
-                </span>
-            </div>
-            <div class="session-actions">
-                <button class="btn btn-sm btn-secondary session-config-btn"
-                        data-session-id="{{ session.session_id }}"
-                        hx-get="/api/sessions/{{ session.session_id }}/config"
-                        hx-target="#session-config-{{ session.session_id }}"
-                        hx-swap="innerHTML"
-                        aria-label="{{ _('Configure session') }}"
-                        aria-expanded="false"
-                        aria-controls="session-config-{{ session.session_id }}">
-                    {{ _("Configure") }}
-                </button>
-                <button class="btn btn-sm btn-danger session-delete-btn"
-                        data-session-id="{{ session.session_id }}"
-                        data-lock="session:{{ session.session_id }}:delete"
-                        aria-label="{{ _('Delete session') }}">
-                    {{ _("Delete") }}
-                </button>
-            </div>
-        </div>
-        <div class="session-config-panel" id="session-config-{{ session.session_id }}" style="display: none;"></div>
-    </div>
-    {% endfor %}
+<div class="accounts-table-container">
+    <table class="accounts-table" role="grid">
+        <thead>
+            <tr>
+                <th scope="col">{{ _("Account") }}</th>
+                <th scope="col">{{ _("Status") }}</th>
+                <th scope="col">{{ _("Actions") }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for session in sessions %}
+            <tr id="session-{{ session.session_id }}" class="account-row">
+                <td class="account-name-cell">
+                    <span class="account-name">{{ session.session_id }}</span>
+                </td>
+                <td class="account-status-cell">
+                    <span class="account-status status-{{ session.state }}">
+                        {%- if session.state == 'disconnected' -%}
+                            <span class="status-icon" aria-hidden="true">✓</span>
+                            {{ _("Ready") }}
+                        {%- elif session.state == 'not_configured' -%}
+                            <span class="status-icon" aria-hidden="true">⚠</span>
+                            {{ _("Not configured") }}
+                        {%- elif session.state == 'proxy_missing' -%}
+                            <span class="status-icon" aria-hidden="true">✗</span>
+                            {{ _("Proxy missing") }}
+                        {%- elif session.state == 'connected' -%}
+                            <span class="status-icon" aria-hidden="true">●</span>
+                            {{ _("Connected") }}
+                        {%- elif session.state == 'error' -%}
+                            <span class="status-icon" aria-hidden="true">✗</span>
+                            {{ _("Error") }}
+                        {%- else -%}
+                            <span class="status-icon" aria-hidden="true">?</span>
+                            {{ session.state }}
+                        {%- endif -%}
+                    </span>
+                </td>
+                <td class="account-actions-cell">
+                    <div class="account-actions">
+                        <button class="btn btn-sm btn-secondary session-config-btn"
+                                data-session-id="{{ session.session_id }}"
+                                hx-get="/api/sessions/{{ session.session_id }}/config"
+                                hx-target="#session-config-{{ session.session_id }}"
+                                hx-swap="innerHTML"
+                                aria-label="{{ _('Configure account') }}"
+                                aria-expanded="false"
+                                aria-controls="session-config-{{ session.session_id }}">
+                            {{ _("Edit") }}
+                        </button>
+                        <button class="btn btn-sm btn-danger session-delete-btn"
+                                data-session-id="{{ session.session_id }}"
+                                data-lock="session:{{ session.session_id }}:delete"
+                                aria-label="{{ _('Delete account') }}">
+                            {{ _("Delete") }}
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            <tr class="config-row" id="session-config-row-{{ session.session_id }}" style="display: none;">
+                <td colspan="3">
+                    <div class="session-config-panel" id="session-config-{{ session.session_id }}"></div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
 <script>
@@ -47,9 +76,10 @@
             const panel = evt.detail.target;
             const sessionId = panel.id.replace('session-config-', '');
             const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
+            const configRow = document.getElementById('session-config-row-' + sessionId);
 
             if (panel.innerHTML.trim()) {
-                panel.style.display = 'block';
+                if (configRow) configRow.style.display = 'table-row';
                 if (btn) btn.setAttribute('aria-expanded', 'true');
             }
         }
@@ -62,10 +92,11 @@
 
         const sessionId = configBtn.dataset.sessionId;
         const panel = document.getElementById('session-config-' + sessionId);
+        const configRow = document.getElementById('session-config-row-' + sessionId);
 
-        if (panel && panel.style.display !== 'none' && panel.innerHTML.trim()) {
+        if (panel && configRow && configRow.style.display !== 'none' && panel.innerHTML.trim()) {
             // Panel is visible, hide it
-            panel.style.display = 'none';
+            configRow.style.display = 'none';
             panel.innerHTML = '';
             configBtn.setAttribute('aria-expanded', 'false');
             e.preventDefault();
@@ -79,7 +110,7 @@
 {% else %}
 <div class="empty-state">
     <div class="empty-state-icon">📱</div>
-    <h3>{{ _("No Telegram Sessions") }}</h3>
-    <p>{{ _("You haven't uploaded any Telegram session files yet. Upload a session file to start analyzing your chats.") }}</p>
+    <h3>{{ _("No Telegram Accounts") }}</h3>
+    <p>{{ _("You haven't added any Telegram accounts yet. Click \"Add Account\" above to get started.") }}</p>
 </div>
 {% endif %}

@@ -367,7 +367,7 @@ class TestSessionsAPIEndpoints:
             response = client.get("/api/sessions")
 
         assert response.status_code == 200
-        assert "No Telegram Sessions" in response.text or "No sessions" in response.text.lower()
+        assert "No Telegram Accounts" in response.text or "no accounts" in response.text.lower()
 
     def test_home_page_loads(self, client: TestClient) -> None:
         """Test that home page loads successfully."""

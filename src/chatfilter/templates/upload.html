@@ -1,434 +1,261 @@
 {% extends "base.html" %}
 
-{% block title %}{{ _("Upload Session") }} - ChatFilter{% endblock %}
+{% block title %}{{ _("Telegram Sessions") }} - ChatFilter{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>{{ _("Telegram Sessions") }}</h1>
-    <p class="subtitle">{{ _("Upload your Telegram session to start analyzing chats") }}</p>
-</div>
-
-<div class="alert alert-error" role="alert" aria-labelledby="security-warning-title">
-    <strong id="security-warning-title">{{ _("⚠️ Critical Security Warning: Session File Risks") }}</strong>
-
-    <p style="margin-top: 0.75rem; margin-bottom: 0.75rem;">
-        <strong>{{ _("Session files grant complete, unrestricted access to your Telegram account.") }}</strong>
-        {{ _("Before uploading, understand these critical risks:") }}
-    </p>
-
-    <ul style="margin-left: 1.5rem; margin-bottom: 0.75rem;">
-        <li><strong>{{ _("Full Account Control:") }}</strong> {{ _("Anyone with your session file can read all messages, send messages as you, join/leave groups, and perform any action you can perform in Telegram") }}</li>
-        <li><strong>{{ _("No Additional Authentication:") }}</strong> {{ _("Session files bypass 2FA and password protection - no further credentials are needed to use your account") }}</li>
-        <li><strong>{{ _("Persistent Access:") }}</strong> {{ _("Sessions remain valid until you explicitly log out from all devices in Telegram or change your 2FA password") }}</li>
-        <li><strong>{{ _("Undetectable Usage:") }}</strong> {{ _("Telegram does not notify you when a session is used from a different location or device") }}</li>
-        <li><strong>{{ _("Theft Risk:") }}</strong> {{ _("If your session file is compromised (stolen, leaked, or accessed by malware), attackers gain immediate full access to your account") }}</li>
-    </ul>
-
-    <p style="margin-bottom: 0;">
-        <strong>{{ _("Best Practices:") }}</strong> {{ _("Only create and upload session files on trusted devices.") }}
-        {{ _("Never share session files with anyone. Store them securely with restricted file permissions.") }}
-        {{ _("If you suspect a session may be compromised, immediately log out from all devices in Telegram settings.") }}
-    </p>
+    <h1>{{ _("Telegram Accounts") }}</h1>
+    <p class="subtitle">{{ _("Manage your Telegram sessions for chat analysis") }}</p>
 </div>
 
 <section class="card">
-    <h2>{{ _("Create New Session") }}</h2>
-    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
-        {{ _("Authenticate with your phone number to create a new session directly in the browser.") }}
-    </p>
-
-    <div id="auth-form-container"
-         hx-get="/api/sessions/auth/form"
-         hx-trigger="load"
-         hx-swap="innerHTML">
-        <div class="skeleton-container" aria-busy="true" role="status">
-            <span class="skeleton-sr-text">{{ _("Loading form...") }}</span>
-            <div class="skeleton skeleton-form" style="height: 300px;"></div>
-        </div>
+    <div class="card-header-actions">
+        <h2>{{ _("Accounts") }}</h2>
+        <button class="btn btn-primary" id="add-account-btn" aria-label="{{ _('Add new account') }}">
+            + {{ _("Add Account") }}
+        </button>
     </div>
-</section>
 
-<section class="card onboarding">
-    <h3>{{ _("First Time Setup Guide") }}</h3>
-    <p>{{ _("To use ChatFilter, you need two things:") }} <strong>{{ _("API credentials") }}</strong> {{ _("and a") }} <strong>{{ _("session file") }}</strong>. {{ _("Follow the steps below to obtain them.") }}</p>
-
-    <details class="onboarding-section">
-        <summary data-tooltip="{{ _("Learn how to get your Telegram API credentials from my.telegram.org") }}" data-tooltip-position="right"><strong>{{ _("Step 1: Get API Credentials (api_id and api_hash)") }}</strong></summary>
-        <div class="onboarding-content">
-            <ol>
-                <li>Go to <a href="https://my.telegram.org/apps" target="_blank" rel="noopener">https://my.telegram.org/apps</a></li>
-                <li>Sign in with your phone number (you'll receive a confirmation code via Telegram)</li>
-                <li>Fill in the application registration form:
-                    <ul>
-                        <li><strong>App title:</strong> Any name (e.g., "My Chat Filter")</li>
-                        <li><strong>Short name:</strong> A short identifier (e.g., "chatfilter")</li>
-                        <li><strong>Platform:</strong> Select "Desktop"</li>
-                        <li><strong>Description:</strong> Optional description of your app</li>
-                    </ul>
-                </li>
-                <li>Click "Create application"</li>
-                <li>You'll receive your <code>api_id</code> (a number) and <code>api_hash</code> (a long string)</li>
-                <li>Save these credentials - you'll need them in the next step</li>
-            </ol>
-        </div>
-    </details>
-
-    <details class="onboarding-section">
-        <summary data-tooltip="{{ _("Instructions for creating a Telegram session file using Telethon or Pyrogram") }}" data-tooltip-position="right"><strong>{{ _("Step 2: Create a Session File") }}</strong></summary>
-        <div class="onboarding-content">
-            <p>You need to create a Telegram session file using either Telethon or Pyrogram. Here's how:</p>
-
-            <h4>Option A: Using Telethon (Recommended)</h4>
-            <ol>
-                <li>Install Telethon:
-                    <pre><code>pip install telethon</code></pre>
-                </li>
-                <li>Create a Python script (<code>create_session.py</code>):
-                    <pre><code>from telethon.sync import TelegramClient
-
-# Replace with your credentials from Step 1
-api_id = 12345678  # Your api_id (number)
-api_hash = 'your_api_hash_here'  # Your api_hash (string)
-session_name = 'my_session'  # Choose a name for your session
-
-# Create the session
-client = TelegramClient(session_name, api_id, api_hash)
-client.start()
-print(f"Session created: {session_name}.session")
-client.disconnect()</code></pre>
-                </li>
-                <li>Run the script:
-                    <pre><code>python create_session.py</code></pre>
-                </li>
-                <li>Enter your phone number and the confirmation code you receive via Telegram</li>
-                <li><strong>If you have Two-Factor Authentication (2FA) enabled:</strong> You'll be prompted to enter your 2FA password. This is required for the session to work properly.</li>
-                <li>A <code>.session</code> file will be created in the same directory</li>
-            </ol>
-
-            <div class="alert alert-info">
-                <strong>Important:</strong> If your Telegram account has Two-Factor Authentication (2FA) enabled, you MUST enter your 2FA password during session creation. Without this, the session file will not be able to access your account.
-            </div>
-
-            <h4>Option B: Using Pyrogram</h4>
-            <ol>
-                <li>Install Pyrogram:
-                    <pre><code>pip install pyrogram</code></pre>
-                </li>
-                <li>Create a Python script:
-                    <pre><code>from pyrogram import Client
-
-api_id = 12345678  # Your api_id
-api_hash = 'your_api_hash_here'  # Your api_hash
-session_name = 'my_session'
-
-app = Client(session_name, api_id=api_id, api_hash=api_hash)
-
-with app:
-    print(f"Session created: {session_name}.session")
-    me = app.get_me()
-    print(f"Logged in as: {me.first_name}")</code></pre>
-                </li>
-                <li>Run the script and follow the authentication prompts</li>
-                <li><strong>If you have Two-Factor Authentication (2FA) enabled:</strong> You'll be prompted to enter your 2FA password during authentication.</li>
-                <li>A <code>.session</code> file will be created</li>
-            </ol>
-        </div>
-    </details>
-
-    <details class="onboarding-section">
-        <summary data-tooltip="{{ _("How to create a config.json file with your API credentials") }}" data-tooltip-position="right"><strong>{{ _("Step 3: Create Config File") }}</strong></summary>
-        <div class="onboarding-content">
-            <p>Create a JSON file (<code>config.json</code>) with your API credentials:</p>
-            <pre><code>{
-    "api_id": 12345678,
-    "api_hash": "your_api_hash_here"
-}</code></pre>
-            <p><strong>Important:</strong> Replace the values with your actual credentials from Step 1.</p>
-        </div>
-    </details>
-
-    <details class="onboarding-section">
-        <summary data-tooltip="{{ _("Final step: upload your session and config files to ChatFilter") }}" data-tooltip-position="right"><strong>{{ _("Step 4: Upload Your Files") }}</strong></summary>
-        <div class="onboarding-content">
-            <p>Now you're ready to upload:</p>
-            <ul>
-                <li>Your <code>.session</code> file created in Step 2</li>
-                <li>Your <code>config.json</code> file created in Step 3</li>
-            </ul>
-            <p>Use the upload form below to add them to ChatFilter. Give your session a memorable name to identify it later.</p>
-        </div>
-    </details>
-
-    <details class="onboarding-section">
-        <summary data-tooltip="{{ _("Common issues and solutions for Two-Factor Authentication") }}" data-tooltip-position="right"><strong>{{ _("Troubleshooting: Two-Factor Authentication (2FA)") }}</strong></summary>
-        <div class="onboarding-content">
-            <p><strong>Issue:</strong> You see an error like "Two-factor authentication (2FA) is required" when trying to use your session.</p>
-
-            <p><strong>Cause:</strong> Your Telegram account has 2FA (also called "Two-Step Verification") enabled. This is an additional security layer that requires a password.</p>
-
-            <p><strong>Solution:</strong> You must create a new session file and enter your 2FA password during the authentication process:</p>
-            <ol>
-                <li>Delete the current session file (if any)</li>
-                <li>Run the session creation script again (see Step 2 above)</li>
-                <li>When prompted, enter:
-                    <ul>
-                        <li>Your phone number</li>
-                        <li>The confirmation code sent via Telegram</li>
-                        <li><strong>Your 2FA password</strong> (the password you set up in Telegram Settings → Privacy and Security → Two-Step Verification)</li>
-                    </ul>
-                </li>
-                <li>The new session file will include your 2FA authorization</li>
-                <li>Upload the new session file to ChatFilter</li>
-            </ol>
-
-            <p><strong>Note:</strong> Your 2FA password is NOT stored in the session file. The session file only contains an authorization token that proves you've successfully authenticated with 2FA. This token allows ChatFilter to access your account without needing to ask for your password again.</p>
-
-            <p><strong>Security:</strong> If you ever change your 2FA password or log out from all devices in Telegram, you'll need to create a new session file.</p>
-        </div>
-    </details>
-</section>
-
-<section class="card">
-    <h2>{{ _("Quick Import") }}</h2>
-    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
-        {{ _("Already have a .session file? Drop it here and configure the settings.") }}
-    </p>
-
-    {% include "partials/session_import.html" %}
-</section>
-
-<section class="card">
-    <h2>{{ _("Upload with Config File") }}</h2>
-    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
-        {{ _("Have both session and config files ready? Upload them together.") }}
-    </p>
-
-    <form id="upload-form"
-          hx-post="/api/sessions/upload"
-          hx-encoding="multipart/form-data"
-          hx-target="#upload-result"
-          hx-swap="innerHTML"
-          hx-indicator="#upload-spinner"
-          aria-label="{{ _("Upload Telegram session form") }}">
-
-        <div class="form-group">
-            <label for="session_name"
-                   data-tooltip="{{ _("A unique identifier for this Telegram session") }}"
-                   data-tooltip-position="right">{{ _("Session Name") }}</label>
-            <input type="text"
-                   id="session_name"
-                   name="session_name"
-                   required
-                   placeholder="{{ _("e.g., my_account") }}"
-                   pattern="[a-zA-Z0-9_-]+"
-                   aria-describedby="session-name-hint"
-                   aria-required="true"
-                   data-tooltip="{{ _("Choose a unique name using only letters, numbers, underscores, and hyphens") }}"
-                   data-tooltip-position="top">
-            <small id="session-name-hint" class="form-hint">{{ _("A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed.") }}</small>
-        </div>
-
-        <div class="form-group">
-            <label for="session_file"
-                   data-tooltip="{{ _("Upload the .session file created with Telethon or Pyrogram") }}"
-                   data-tooltip-position="right">{{ _("Session File (.session)") }}</label>
-            <input type="file"
-                   id="session_file"
-                   name="session_file"
-                   required
-                   accept=".session"
-                   aria-describedby="session-file-hint"
-                   aria-required="true"
-                   data-tooltip="{{ _("Select the .session file created using Telethon or Pyrogram") }}"
-                   data-tooltip-position="top">
-            <small id="session-file-hint" class="form-hint">{{ _("Telethon session file (SQLite database)") }}</small>
-        </div>
-
-        <div class="form-group">
-            <label for="config_file"
-                   data-tooltip="{{ _("Upload JSON file containing your Telegram API credentials") }}"
-                   data-tooltip-position="right">{{ _("Config File (.json)") }}</label>
-            <input type="file"
-                   id="config_file"
-                   name="config_file"
-                   required
-                   accept=".json"
-                   aria-describedby="config-file-hint"
-                   aria-required="true"
-                   data-tooltip="{{ _("Select the config.json file with your api_id and api_hash") }}"
-                   data-tooltip-position="top">
-            <small id="config-file-hint" class="form-hint">{{ _("JSON with api_id and api_hash from my.telegram.org") }}</small>
-        </div>
-
-        <div class="form-group">
-            <label for="security_acknowledgment" style="display: flex; align-items: flex-start; cursor: pointer; user-select: none;">
-                <input type="checkbox"
-                       id="security_acknowledgment"
-                       name="security_acknowledgment"
-                       required
-                       aria-required="true"
-                       style="margin-right: 0.5rem; margin-top: 0.25rem; cursor: pointer;">
-                <span>{{ _("I understand that session files provide complete access to my Telegram account and accept the security risks described above. I confirm this session was created on a trusted device and will be stored securely.") }}</span>
-            </label>
-        </div>
-
-        <div class="form-actions">
-            <button type="submit"
-                    class="btn btn-primary"
-                    aria-label="{{ _("Upload session files") }}"
-                    data-tooltip="{{ _("Upload your session and config files to start using ChatFilter") }}"
-                    data-tooltip-position="top">
-                <span class="btn-text">{{ _("Upload Session") }}</span>
-                <span id="upload-spinner" class="htmx-indicator spinner" role="status" aria-live="polite" aria-label="{{ _("Upload in progress") }}"></span>
-            </button>
-        </div>
-    </form>
-
-    <div id="upload-result" role="region" aria-live="polite" aria-atomic="true"></div>
-</section>
-
-<section class="card">
-    <h2>{{ _("Registered Sessions") }}</h2>
     <div id="sessions-list"
          hx-get="/api/sessions"
          hx-trigger="load, refreshSessions from:body"
          hx-swap="innerHTML"
          role="region"
          aria-live="polite"
-         aria-label="{{ _("List of registered Telegram sessions") }}">
+         aria-label="{{ _("List of Telegram accounts") }}">
         <div class="skeleton-container" aria-busy="true" role="status">
-            <span class="skeleton-sr-text">{{ _("Loading sessions...") }}</span>
-            <div class="skeleton-session-list">
-                <div class="skeleton-session-item">
-                    <div class="skeleton-session-info">
-                        <div class="skeleton skeleton-session-name"></div>
-                        <div class="skeleton skeleton-session-status"></div>
-                    </div>
-                    <div class="skeleton-session-actions">
-                        <div class="skeleton skeleton-button"></div>
-                    </div>
-                </div>
-                <div class="skeleton-session-item">
-                    <div class="skeleton-session-info">
-                        <div class="skeleton skeleton-session-name"></div>
-                        <div class="skeleton skeleton-session-status"></div>
-                    </div>
-                    <div class="skeleton-session-actions">
-                        <div class="skeleton skeleton-button"></div>
-                    </div>
-                </div>
-                <div class="skeleton-session-item">
-                    <div class="skeleton-session-info">
-                        <div class="skeleton skeleton-session-name"></div>
-                        <div class="skeleton skeleton-session-status"></div>
-                    </div>
-                    <div class="skeleton-session-actions">
-                        <div class="skeleton skeleton-button"></div>
-                    </div>
-                </div>
+            <span class="skeleton-sr-text">{{ _("Loading accounts...") }}</span>
+            <div class="skeleton-accounts-table">
+                <div class="skeleton skeleton-row"></div>
+                <div class="skeleton skeleton-row"></div>
+                <div class="skeleton skeleton-row"></div>
             </div>
         </div>
     </div>
 </section>
+
+{# Add Account Modal #}
+<div class="modal-overlay" id="add-account-modal" role="dialog" aria-modal="true" aria-labelledby="add-account-title">
+    <div class="modal-dialog modal-dialog-form modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title" id="add-account-title">{{ _("Add Telegram Account") }}</h2>
+            <button class="modal-close-btn" id="close-add-account-modal" aria-label="{{ _('Close modal') }}">&times;</button>
+        </div>
+
+        <div class="modal-tabs">
+            <button class="modal-tab active" data-tab="phone-auth" aria-selected="true">
+                {{ _("Phone Authorization") }}
+            </button>
+            <button class="modal-tab" data-tab="upload-session" aria-selected="false">
+                {{ _("Upload Session") }}
+            </button>
+        </div>
+
+        <div class="modal-body">
+            {# Tab 1: Phone Authorization #}
+            <div class="tab-content active" id="tab-phone-auth">
+                <p class="tab-description">{{ _("Authenticate with your phone number to create a new session.") }}</p>
+
+                <div id="auth-form-container"
+                     hx-get="/api/sessions/auth/form"
+                     hx-trigger="modal-opened"
+                     hx-swap="innerHTML">
+                    <div class="skeleton-container" aria-busy="true">
+                        <div class="skeleton skeleton-form" style="height: 280px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            {# Tab 2: Upload Session File #}
+            <div class="tab-content" id="tab-upload-session">
+                <p class="tab-description">{{ _("Already have a .session file? Upload it here with your API credentials.") }}</p>
+
+                <div id="session-import-container">
+                    {% include "partials/session_import.html" %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Handle session deletion with modal confirmation
-    document.addEventListener('DOMContentLoaded', function() {
-        // Use event delegation for dynamically loaded session delete buttons
-        document.body.addEventListener('click', async function(e) {
-            const deleteBtn = e.target.closest('.session-delete-btn');
-            if (!deleteBtn) return;
+(function() {
+    const addAccountBtn = document.getElementById('add-account-btn');
+    const modal = document.getElementById('add-account-modal');
+    const closeBtn = document.getElementById('close-add-account-modal');
+    const tabs = document.querySelectorAll('.modal-tab');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-            e.preventDefault();
-            const sessionId = deleteBtn.dataset.sessionId;
-            const lockKey = deleteBtn.dataset.lock;
+    // Open modal
+    addAccountBtn.addEventListener('click', function() {
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
 
-            // Check optimistic lock
-            if (typeof OptimisticLock !== 'undefined' && !OptimisticLock.tryAcquireLock('session', sessionId, 'delete')) {
-                const lockInfo = OptimisticLock.getLockInfo('session', sessionId, 'delete');
-                const message = lockInfo
-                    ? `Deletion is already in progress in another tab (${Math.round((Date.now() - lockInfo.timestamp) / 1000)}s ago)`
-                    : 'Deletion is already in progress in another tab';
+        // Trigger HTMX to load auth form
+        htmx.trigger(document.getElementById('auth-form-container'), 'modal-opened');
 
-                ToastManager.warning(message, {
-                    title: 'Operation in Progress',
-                    duration: 5000
-                });
-                return;
-            }
+        // Focus first input in active tab
+        setTimeout(() => {
+            const activeTab = document.querySelector('.tab-content.active');
+            const firstInput = activeTab.querySelector('input:not([type="hidden"]), select');
+            if (firstInput) firstInput.focus();
+        }, 100);
+    });
 
-            // Show modal confirmation
-            const confirmed = await ModalManager.confirm({
-                type: 'danger',
-                icon: '🗑️',
-                title: 'Delete Telegram Session',
-                message: `Are you sure you want to delete the session "${sessionId}"? This action cannot be undone. All session data and credentials will be permanently removed.`,
-                confirmText: 'Delete Session',
-                cancelText: 'Cancel',
-                confirmClass: 'danger'
+    // Close modal
+    function closeModal() {
+        modal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    closeBtn.addEventListener('click', closeModal);
+
+    // Close on overlay click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('show')) {
+            closeModal();
+        }
+    });
+
+    // Tab switching
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+
+            // Update tab buttons
+            tabs.forEach(t => {
+                t.classList.remove('active');
+                t.setAttribute('aria-selected', 'false');
             });
+            this.classList.add('active');
+            this.setAttribute('aria-selected', 'true');
 
-            if (!confirmed) {
-                // User cancelled, release lock
-                if (typeof OptimisticLock !== 'undefined') {
-                    OptimisticLock.releaseLock('session', sessionId, 'delete');
-                }
-                return;
-            }
+            // Update tab content
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById('tab-' + targetTab).classList.add('active');
 
-            // User confirmed, proceed with deletion
-            try {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                const response = await fetch(`/api/sessions/${sessionId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRF-Token': csrfToken
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                // Remove the session element from the DOM
-                const sessionElement = document.getElementById(`session-${sessionId}`);
-                if (sessionElement) {
-                    sessionElement.remove();
-                }
-
-                // Show success message
-                ToastManager.success(`Session "${sessionId}" has been deleted successfully.`, {
-                    title: 'Session Deleted',
-                    duration: 5000
-                });
-
-                // Release lock
-                if (typeof OptimisticLock !== 'undefined') {
-                    OptimisticLock.releaseLock('session', sessionId, 'delete');
-                }
-
-            } catch (error) {
-                console.error('Failed to delete session:', error);
-
-                // Release lock on error
-                if (typeof OptimisticLock !== 'undefined') {
-                    OptimisticLock.releaseLock('session', sessionId, 'delete');
-                }
-
-                ToastManager.error(`Failed to delete session: ${error.message}`, {
-                    title: 'Deletion Failed',
-                    duration: 8000,
-                    actions: [{
-                        label: 'Retry',
-                        class: 'retry',
-                        action: 'retry',
-                        callback: () => deleteBtn.click()
-                    }]
-                });
-            }
+            // Focus first input in new tab
+            const activeContent = document.getElementById('tab-' + targetTab);
+            const firstInput = activeContent.querySelector('input:not([type="hidden"]), select');
+            if (firstInput) firstInput.focus();
         });
     });
+
+    // Close modal on successful session creation
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        const resultDiv = e.detail.target;
+
+        // Check for success in auth result or upload result
+        if ((resultDiv.id === 'auth-flow-result' || resultDiv.id === 'import-save-result') &&
+            resultDiv.querySelector('.alert-success')) {
+            // Close modal after short delay
+            setTimeout(() => {
+                closeModal();
+                // Refresh sessions list
+                htmx.trigger(document.getElementById('sessions-list'), 'refreshSessions');
+            }, 1500);
+        }
+    });
+
+    // Handle session deletion with modal confirmation
+    document.body.addEventListener('click', async function(e) {
+        const deleteBtn = e.target.closest('.session-delete-btn');
+        if (!deleteBtn) return;
+
+        e.preventDefault();
+        const sessionId = deleteBtn.dataset.sessionId;
+        const lockKey = deleteBtn.dataset.lock;
+
+        // Check optimistic lock
+        if (typeof OptimisticLock !== 'undefined' && !OptimisticLock.tryAcquireLock('session', sessionId, 'delete')) {
+            const lockInfo = OptimisticLock.getLockInfo('session', sessionId, 'delete');
+            const message = lockInfo
+                ? `Deletion is already in progress in another tab (${Math.round((Date.now() - lockInfo.timestamp) / 1000)}s ago)`
+                : 'Deletion is already in progress in another tab';
+
+            ToastManager.warning(message, {
+                title: 'Operation in Progress',
+                duration: 5000
+            });
+            return;
+        }
+
+        // Show modal confirmation
+        const confirmed = await ModalManager.confirm({
+            type: 'danger',
+            icon: '🗑️',
+            title: 'Delete Telegram Account',
+            message: `Are you sure you want to delete the account "${sessionId}"? This action cannot be undone. All session data and credentials will be permanently removed.`,
+            confirmText: 'Delete Account',
+            cancelText: 'Cancel',
+            confirmClass: 'danger'
+        });
+
+        if (!confirmed) {
+            if (typeof OptimisticLock !== 'undefined') {
+                OptimisticLock.releaseLock('session', sessionId, 'delete');
+            }
+            return;
+        }
+
+        // Proceed with deletion
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const response = await fetch(`/api/sessions/${sessionId}`, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-Token': csrfToken }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // Remove element from DOM
+            const sessionElement = document.getElementById(`session-${sessionId}`);
+            if (sessionElement) {
+                sessionElement.classList.add('removing');
+                setTimeout(() => sessionElement.remove(), 300);
+            }
+
+            ToastManager.success(`Account "${sessionId}" has been deleted.`, {
+                title: 'Account Deleted',
+                duration: 5000
+            });
+
+            if (typeof OptimisticLock !== 'undefined') {
+                OptimisticLock.releaseLock('session', sessionId, 'delete');
+            }
+
+        } catch (error) {
+            console.error('Failed to delete session:', error);
+
+            if (typeof OptimisticLock !== 'undefined') {
+                OptimisticLock.releaseLock('session', sessionId, 'delete');
+            }
+
+            ToastManager.error(`Failed to delete account: ${error.message}`, {
+                title: 'Deletion Failed',
+                duration: 8000,
+                actions: [{
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => deleteBtn.click()
+                }]
+            });
+        }
+    });
+})();
 </script>
 {% endblock %}
