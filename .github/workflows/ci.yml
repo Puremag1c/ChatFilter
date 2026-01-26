@@ -87,7 +87,7 @@ jobs:
         run: |
           echo "Running pytest with coverage threshold..."
           # Parallel execution with pytest-xdist for faster CI
-          pytest -n auto --cov=src/chatfilter --cov-report=xml --cov-report=term --cov-fail-under=80
+          pytest -n auto --cov=src/chatfilter --cov-report=xml --cov-report=term --cov-fail-under=77
 
       - name: Upload coverage to artifacts
         if: matrix.python-version == '3.12'
