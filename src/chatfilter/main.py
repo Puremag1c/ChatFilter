@@ -321,25 +321,25 @@ def main() -> None:
         print("\nRun with --validate to check configuration without starting the server")
         sys.exit(1)
 
-    # Early warning for read-only locations
-    from chatfilter.config import _is_path_in_readonly_location
+    # Auto-switch data_dir if in read-only location (e.g., macOS AppTranslocation)
+    from chatfilter.config import _get_default_data_dir, _is_path_in_readonly_location
 
     is_readonly, readonly_reason = _is_path_in_readonly_location(settings.data_dir)
     if is_readonly:
+        safe_data_dir = _get_default_data_dir()
         print()
         print("=" * 60)
-        print("WARNING: Data directory is in a read-only location")
+        print("NOTICE: Auto-relocating data directory")
         print("=" * 60)
-        print(f"  Location: {settings.data_dir}")
-        print(f"  Reason: {readonly_reason}")
-        print()
-        print("  This may cause permission errors during operation.")
-        print("  Consider using a writable location:")
-        print()
-        print("    chatfilter --data-dir ~/ChatFilter")
-        print()
+        print(f"  Original: {settings.data_dir}")
+        print(f"  Reason:   {readonly_reason}")
+        print(f"  New:      {safe_data_dir}")
         print("=" * 60)
         print()
+
+        # Recreate settings with safe data_dir
+        cli_overrides["data_dir"] = safe_data_dir
+        settings = Settings(**cli_overrides)
 
     # Check if this is the first run
     is_first_run = settings.is_first_run()

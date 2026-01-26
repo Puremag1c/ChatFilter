@@ -276,8 +276,9 @@ def start_tray_icon(
     host: str = "127.0.0.1",
     port: int = 8000,
     on_exit: Callable[[], None] | None = None,
+    timeout: float = 5.0,
 ) -> Any:
-    """Start the system tray icon in a background thread.
+    """Start the system tray icon in a background thread with timeout.
 
     Creates and starts the tray icon using run_detached(), which runs
     the icon in a separate thread without blocking the main thread.
@@ -285,15 +286,22 @@ def start_tray_icon(
     On headless environments (no GUI), logs a warning and skips tray creation.
     The application continues to work normally without the tray icon.
 
+    If tray initialization takes longer than timeout, the function returns
+    None and the app continues without tray support (graceful degradation).
+
     Args:
         host: Server host for "Open in Browser" action.
         port: Server port for "Open in Browser" action.
         on_exit: Optional callback to execute on exit.
+        timeout: Maximum seconds to wait for tray initialization (default: 5.0).
 
     Returns:
-        The running Icon instance, or None if tray is not supported
-        or running in a headless environment.
+        The running Icon instance, or None if tray is not supported,
+        running in a headless environment, or initialization timed out.
     """
+    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import TimeoutError as FuturesTimeoutError
+
     global _running_icon
 
     # Check for headless environment before attempting tray creation
@@ -309,13 +317,29 @@ def start_tray_icon(
         logger.warning("pystray module not available. Application continues without tray.")
         return None
 
-    try:
+    def _init_tray() -> Any:
+        """Initialize tray in a separate thread to detect hangs."""
         _log_platform_info(pystray_module)
         icon = create_tray_icon(pystray_module, host=host, port=port, on_exit=on_exit)
         icon.run_detached()
-        _running_icon = icon
-        logger.info("Tray icon started")
         return icon
+
+    try:
+        # Run tray initialization with timeout to prevent app hangs
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_init_tray)
+            try:
+                icon = future.result(timeout=timeout)
+                _running_icon = icon
+                logger.info("Tray icon started")
+                return icon
+            except FuturesTimeoutError:
+                logger.warning(
+                    f"Tray initialization timed out after {timeout}s. "
+                    "This may happen on macOS with AppTranslocation or sandboxed environments. "
+                    "Application continues without tray."
+                )
+                return None
     except Exception as e:
         logger.warning(f"Failed to start tray icon: {e}. Application continues without tray.")
         return None
