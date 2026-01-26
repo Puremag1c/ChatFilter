@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from chatfilter.config import ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.helpers import load_json, save_json
@@ -17,6 +18,7 @@ from chatfilter.utils.paths import get_application_path
 logger = logging.getLogger(__name__)
 
 PROXIES_FILE = "data/config/proxies.json"
+LEGACY_PROXY_FILE = "data/config/proxy.json"
 
 
 def _get_proxies_path() -> Path:
@@ -28,8 +30,73 @@ def _get_proxies_path() -> Path:
     return get_application_path() / PROXIES_FILE
 
 
+def _get_legacy_proxy_path() -> Path:
+    """Get the path to the legacy proxy.json file.
+
+    Returns:
+        Path to data/config/proxy.json relative to application root.
+    """
+    return get_application_path() / LEGACY_PROXY_FILE
+
+
+def _migrate_legacy_proxy() -> None:
+    """Migrate legacy proxy.json to proxies.json format.
+
+    If proxy.json exists but proxies.json does not, creates a new proxy pool
+    with a single entry from the legacy config, named "Default".
+
+    This runs automatically on first load_proxy_pool() call.
+    """
+    proxies_path = _get_proxies_path()
+    legacy_path = _get_legacy_proxy_path()
+
+    # Only migrate if legacy exists and new doesn't
+    if not legacy_path.exists() or proxies_path.exists():
+        return
+
+    try:
+        legacy_data = load_json(legacy_path)
+    except Exception as e:
+        logger.warning(f"Failed to read legacy proxy.json during migration: {e}")
+        return
+
+    if not isinstance(legacy_data, dict):
+        logger.warning("Invalid legacy proxy.json format (expected dict), skipping migration")
+        return
+
+    # Map legacy proxy_type to ProxyType enum
+    proxy_type_str = legacy_data.get("proxy_type", "socks5")
+    try:
+        proxy_type = ProxyType(proxy_type_str)
+    except ValueError:
+        logger.warning(f"Unknown proxy type '{proxy_type_str}', defaulting to socks5")
+        proxy_type = ProxyType.SOCKS5
+
+    # Create ProxyEntry from legacy data
+    try:
+        proxy = ProxyEntry(
+            name="Default",
+            type=proxy_type,
+            host=legacy_data.get("host", "127.0.0.1"),
+            port=legacy_data.get("port", 1080),
+            username=legacy_data.get("username", ""),
+            password=legacy_data.get("password", ""),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to create ProxyEntry from legacy config: {e}")
+        return
+
+    # Save to new format
+    proxies_path.parent.mkdir(parents=True, exist_ok=True)
+    save_json(proxies_path, [proxy.model_dump()])
+
+    logger.info(f"Migrated legacy proxy.json to proxies.json: {proxy.name} ({proxy.id})")
+
+
 def load_proxy_pool() -> list[ProxyEntry]:
     """Load all proxies from the pool.
+
+    Automatically migrates legacy proxy.json on first call if needed.
 
     Returns:
         List of ProxyEntry objects. Empty list if file doesn't exist.
@@ -38,6 +105,9 @@ def load_proxy_pool() -> list[ProxyEntry]:
         StorageCorruptedError: If JSON is invalid.
         pydantic.ValidationError: If proxy data is invalid.
     """
+    # Migrate legacy config if needed
+    _migrate_legacy_proxy()
+
     path = _get_proxies_path()
 
     if not path.exists():
