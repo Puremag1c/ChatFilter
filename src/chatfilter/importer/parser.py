@@ -236,7 +236,7 @@ def parse_xlsx(file: BinaryIO) -> list[ChatListEntry]:
         ParseError: If parsing fails.
     """
     try:
-        from openpyxl import load_workbook  # type: ignore[import-untyped]
+        from openpyxl import load_workbook
     except ImportError as e:
         raise ParseError("openpyxl is required for Excel file support") from e
 

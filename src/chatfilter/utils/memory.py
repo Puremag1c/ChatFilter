@@ -38,7 +38,7 @@ def get_memory_usage() -> MemoryStats:
         ImportError: If psutil is not available
     """
     try:
-        import psutil  # type: ignore[import-untyped]
+        import psutil
     except ImportError:
         raise ImportError(
             "psutil is required for memory monitoring. Install with: pip install psutil"
