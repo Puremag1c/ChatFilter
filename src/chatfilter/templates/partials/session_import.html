@@ -1,0 +1,370 @@
+{# Session Import Drop Zone with Configuration Form #}
+<div id="session-import-container">
+    {# Step 1: File Drop Zone #}
+    <div id="import-step-file" class="import-step">
+        <div class="import-drop-zone"
+             id="session-drop-zone"
+             role="button"
+             tabindex="0"
+             aria-label="{{ _('Drop session file here or click to browse') }}">
+            <input type="file"
+                   id="session-file-input"
+                   name="session_file"
+                   accept=".session"
+                   aria-hidden="true">
+
+            <div class="drop-zone-icon">📁</div>
+            <div class="drop-zone-title">{{ _("Drop your .session file here") }}</div>
+            <div class="drop-zone-subtitle">{{ _("or click to browse") }}</div>
+
+            <div class="drop-zone-or">{{ _("or") }}</div>
+
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('session-file-input').click()">
+                {{ _("Choose File") }}
+            </button>
+
+            <div id="drop-zone-file-info" class="drop-zone-file-info" style="display: none;">
+                <span class="drop-zone-file-name" id="selected-file-name"></span>
+                <span class="drop-zone-file-size" id="selected-file-size"></span>
+                <button type="button" class="drop-zone-clear" id="clear-file-btn" aria-label="{{ _('Clear selected file') }}">&times;</button>
+            </div>
+
+            <div id="drop-zone-error" class="drop-zone-error" style="display: none;"></div>
+        </div>
+
+        <div id="import-validation-result"></div>
+    </div>
+
+    {# Step 2: Configuration Form (shown after successful validation) #}
+    <div id="import-step-config" class="import-step" style="display: none;">
+        <div class="alert alert-info">
+            <strong>{{ _("Session file validated successfully!") }}</strong>
+            {{ _("Now configure the session settings below.") }}
+        </div>
+
+        <form id="session-config-form"
+              hx-post="/api/sessions/import/save"
+              hx-encoding="multipart/form-data"
+              hx-target="#import-save-result"
+              hx-swap="innerHTML"
+              hx-indicator="#save-spinner">
+
+            <input type="hidden" id="validated-session-data" name="session_data" value="">
+
+            <div class="form-group">
+                <label for="import-session-name"
+                       data-tooltip="{{ _('A unique identifier for this Telegram session') }}"
+                       data-tooltip-position="right">{{ _("Session Name") }}</label>
+                <input type="text"
+                       id="import-session-name"
+                       name="session_name"
+                       required
+                       placeholder="{{ _('e.g., my_account') }}"
+                       pattern="[a-zA-Z0-9_-]+"
+                       aria-describedby="import-session-name-hint"
+                       aria-required="true">
+                <small id="import-session-name-hint" class="form-hint">{{ _("A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed.") }}</small>
+            </div>
+
+            <div class="import-config-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="import-api-id"
+                               data-tooltip="{{ _('Your Telegram API ID from my.telegram.org') }}"
+                               data-tooltip-position="right">{{ _("API ID") }}</label>
+                        <input type="number"
+                               id="import-api-id"
+                               name="api_id"
+                               required
+                               placeholder="{{ _('e.g., 12345678') }}"
+                               min="1"
+                               aria-describedby="import-api-id-hint"
+                               aria-required="true">
+                        <small id="import-api-id-hint" class="form-hint">{{ _("Numeric ID from my.telegram.org/apps") }}</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="import-api-hash"
+                               data-tooltip="{{ _('Your Telegram API Hash from my.telegram.org') }}"
+                               data-tooltip-position="right">{{ _("API Hash") }}</label>
+                        <input type="text"
+                               id="import-api-hash"
+                               name="api_hash"
+                               required
+                               placeholder="{{ _('e.g., 0123456789abcdef...') }}"
+                               pattern="[a-fA-F0-9]+"
+                               minlength="32"
+                               maxlength="32"
+                               aria-describedby="import-api-hash-hint"
+                               aria-required="true">
+                        <small id="import-api-hash-hint" class="form-hint">{{ _("32-character hex string from my.telegram.org/apps") }}</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="import-proxy-id"
+                           data-tooltip="{{ _('Select a proxy for this session') }}"
+                           data-tooltip-position="right">{{ _("Proxy") }}</label>
+                    <select id="import-proxy-id"
+                            name="proxy_id"
+                            required
+                            aria-describedby="import-proxy-id-hint"
+                            aria-required="true">
+                        <option value="">{{ _("-- Select a proxy --") }}</option>
+                        {% for proxy in proxies %}
+                        <option value="{{ proxy.id }}">{{ proxy.name }} ({{ proxy.type }}://{{ proxy.host }}:{{ proxy.port }})</option>
+                        {% endfor %}
+                    </select>
+                    <small id="import-proxy-id-hint" class="form-hint">
+                        {{ _("A proxy is required for Telegram connection.") }}
+                        {% if not proxies %}
+                        <a href="/proxy">{{ _("Add a proxy first") }}</a>
+                        {% endif %}
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="import-security-acknowledgment" style="display: flex; align-items: flex-start; cursor: pointer; user-select: none;">
+                        <input type="checkbox"
+                               id="import-security-acknowledgment"
+                               name="security_acknowledgment"
+                               required
+                               aria-required="true"
+                               style="margin-right: 0.5rem; margin-top: 0.25rem; cursor: pointer;">
+                        <span>{{ _("I understand that session files provide complete access to my Telegram account and accept the security risks. I confirm this session was created on a trusted device and will be stored securely.") }}</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary" id="import-back-btn">
+                    {{ _("Back") }}
+                </button>
+                <button type="submit" class="btn btn-primary" id="import-save-btn">
+                    <span class="btn-text">{{ _("Save Session") }}</span>
+                    <span id="save-spinner" class="htmx-indicator spinner" role="status" aria-live="polite"></span>
+                </button>
+            </div>
+        </form>
+
+        <div id="import-save-result" role="region" aria-live="polite" aria-atomic="true"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const dropZone = document.getElementById('session-drop-zone');
+    const fileInput = document.getElementById('session-file-input');
+    const fileInfo = document.getElementById('drop-zone-file-info');
+    const fileName = document.getElementById('selected-file-name');
+    const fileSize = document.getElementById('selected-file-size');
+    const clearBtn = document.getElementById('clear-file-btn');
+    const errorDiv = document.getElementById('drop-zone-error');
+    const validationResult = document.getElementById('import-validation-result');
+
+    const stepFile = document.getElementById('import-step-file');
+    const stepConfig = document.getElementById('import-step-config');
+    const sessionNameInput = document.getElementById('import-session-name');
+    const validatedDataInput = document.getElementById('validated-session-data');
+    const backBtn = document.getElementById('import-back-btn');
+    const configForm = document.getElementById('session-config-form');
+
+    let selectedFile = null;
+
+    // Format file size
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Show error
+    function showError(message) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        dropZone.classList.add('has-error');
+        dropZone.classList.remove('has-file');
+    }
+
+    // Clear error
+    function clearError() {
+        errorDiv.style.display = 'none';
+        dropZone.classList.remove('has-error');
+    }
+
+    // Handle file selection
+    function handleFile(file) {
+        clearError();
+
+        // Validate file extension
+        if (!file.name.endsWith('.session')) {
+            showError('{{ _("Invalid file type. Please select a .session file.") }}');
+            return;
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showError('{{ _("File is too large. Maximum size is 10 MB.") }}');
+            return;
+        }
+
+        selectedFile = file;
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        fileInfo.style.display = 'flex';
+        dropZone.classList.add('has-file');
+
+        // Auto-suggest session name from filename
+        const suggestedName = file.name.replace(/\.session$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+        if (suggestedName) {
+            sessionNameInput.value = suggestedName;
+        }
+
+        // Validate the session file
+        validateSessionFile(file);
+    }
+
+    // Validate session file on server
+    async function validateSessionFile(file) {
+        const formData = new FormData();
+        formData.append('session_file', file);
+
+        validationResult.innerHTML = '<div class="alert alert-info">{{ _("Validating session file...") }}</div>';
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const response = await fetch('/api/sessions/import/validate', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-Token': csrfToken
+                },
+                body: formData
+            });
+
+            const html = await response.text();
+            validationResult.innerHTML = html;
+
+            if (response.ok) {
+                // Store the file for later submission
+                // We need to re-attach the file to the config form
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+
+                // Create a hidden file input in the config form
+                let hiddenFileInput = document.getElementById('config-session-file');
+                if (!hiddenFileInput) {
+                    hiddenFileInput = document.createElement('input');
+                    hiddenFileInput.type = 'file';
+                    hiddenFileInput.id = 'config-session-file';
+                    hiddenFileInput.name = 'session_file';
+                    hiddenFileInput.style.display = 'none';
+                    configForm.appendChild(hiddenFileInput);
+                }
+                hiddenFileInput.files = dataTransfer.files;
+
+                // Show config step after short delay
+                setTimeout(() => {
+                    stepFile.style.display = 'none';
+                    stepConfig.style.display = 'block';
+                    sessionNameInput.focus();
+                }, 500);
+            }
+        } catch (error) {
+            validationResult.innerHTML = '<div class="alert alert-error">{{ _("Failed to validate session file. Please try again.") }}</div>';
+            console.error('Validation error:', error);
+        }
+    }
+
+    // Clear file selection
+    function clearFile() {
+        selectedFile = null;
+        fileInput.value = '';
+        fileInfo.style.display = 'none';
+        dropZone.classList.remove('has-file');
+        clearError();
+        validationResult.innerHTML = '';
+    }
+
+    // Drag and drop events
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFile(files[0]);
+        }
+    });
+
+    // Click to open file dialog
+    dropZone.addEventListener('click', (e) => {
+        if (e.target !== clearBtn && !e.target.closest('.drop-zone-clear') && !e.target.closest('.btn')) {
+            fileInput.click();
+        }
+    });
+
+    // Keyboard support
+    dropZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            handleFile(fileInput.files[0]);
+        }
+    });
+
+    // Clear button
+    clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearFile();
+    });
+
+    // Back button
+    backBtn.addEventListener('click', () => {
+        stepConfig.style.display = 'none';
+        stepFile.style.display = 'block';
+    });
+
+    // Handle form submission success
+    document.body.addEventListener('htmx:afterSwap', (e) => {
+        if (e.detail.target.id === 'import-save-result') {
+            // Check if save was successful by looking for success class
+            const resultDiv = e.detail.target;
+            if (resultDiv.querySelector('.alert-success')) {
+                // Clear form and reset
+                clearFile();
+                configForm.reset();
+                stepConfig.style.display = 'none';
+                stepFile.style.display = 'block';
+
+                // Refresh sessions list
+                const sessionsList = document.getElementById('sessions-list');
+                if (sessionsList && typeof htmx !== 'undefined') {
+                    htmx.trigger(sessionsList, 'refresh');
+                }
+            }
+        }
+    });
+})();
+</script>

@@ -1,0 +1,11 @@
+{# Session import validation result #}
+{% if success %}
+<div class="alert alert-success">
+    <strong>{{ _("Session file is valid!") }}</strong>
+    {{ _("Proceed to configure the session settings.") }}
+</div>
+{% else %}
+<div class="alert alert-error">
+    <strong>{{ _("Validation failed:") }}</strong> {{ error }}
+</div>
+{% endif %}
