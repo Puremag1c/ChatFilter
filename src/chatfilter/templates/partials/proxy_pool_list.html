@@ -3,6 +3,7 @@
     <table class="proxy-pool-table" role="table" aria-label="{{ _("Proxy servers list") }}">
         <thead>
             <tr>
+                <th scope="col">{{ _("Status") }}</th>
                 <th scope="col">{{ _("Name") }}</th>
                 <th scope="col">{{ _("Type") }}</th>
                 <th scope="col">{{ _("Address") }}</th>
@@ -13,7 +14,25 @@
         </thead>
         <tbody>
             {% for proxy in proxies %}
-            <tr id="proxy-row-{{ proxy.id }}">
+            <tr id="proxy-row-{{ proxy.id }}" class="{% if not proxy.is_available %}proxy-disabled{% endif %}">
+                <td data-label="{{ _("Status") }}">
+                    {% if proxy.status == 'working' %}
+                    <span class="proxy-status-badge proxy-status-working" title="{{ _("Working - last checked") }}: {{ proxy.last_ping_at.strftime('%H:%M') if proxy.last_ping_at else _('Never') }}">
+                        <span class="status-icon">&#x1F7E2;</span>
+                        <span class="status-text">{{ _("Working") }}</span>
+                    </span>
+                    {% elif proxy.status == 'no_ping' %}
+                    <span class="proxy-status-badge proxy-status-no-ping" title="{{ _("Failed") }}: {{ proxy.consecutive_failures }}x {{ _("consecutive failures") }}">
+                        <span class="status-icon">&#x1F534;</span>
+                        <span class="status-text">{{ _("No ping") }}</span>
+                    </span>
+                    {% else %}
+                    <span class="proxy-status-badge proxy-status-untested" title="{{ _("Not yet tested") }}">
+                        <span class="status-icon">&#x26AA;</span>
+                        <span class="status-text">{{ _("Untested") }}</span>
+                    </span>
+                    {% endif %}
+                </td>
                 <td data-label="{{ _("Name") }}">
                     <span class="proxy-name">{{ proxy.name }}</span>
                 </td>
@@ -26,12 +45,12 @@
                 <td data-label="{{ _("Auth") }}">
                     {% if proxy.has_auth %}
                     <span class="auth-badge auth-yes" title="{{ _("Authentication required") }}">
-                        <span class="auth-icon">🔐</span>
+                        <span class="auth-icon">&#x1F510;</span>
                         <span class="auth-text">{{ proxy.username }}</span>
                     </span>
                     {% else %}
                     <span class="auth-badge auth-no" title="{{ _("No authentication") }}">
-                        <span class="auth-icon">🔓</span>
+                        <span class="auth-icon">&#x1F513;</span>
                         <span class="auth-text">{{ _("None") }}</span>
                     </span>
                     {% endif %}
@@ -43,6 +62,18 @@
                 </td>
                 <td data-label="{{ _("Actions") }}">
                     <div class="proxy-actions">
+                        <button class="btn btn-sm btn-secondary proxy-retest-btn"
+                                data-proxy-id="{{ proxy.id }}"
+                                data-proxy-name="{{ proxy.name }}"
+                                hx-post="/api/proxies/{{ proxy.id }}/retest"
+                                hx-target="#proxy-list"
+                                hx-swap="innerHTML"
+                                hx-indicator="#proxy-retest-spinner-{{ proxy.id }}"
+                                title="{{ _("Test proxy connection") }}"
+                                aria-label="{{ _('Retest proxy') }} {{ proxy.name }}">
+                            <span class="btn-text">{{ _("Test") }}</span>
+                            <span id="proxy-retest-spinner-{{ proxy.id }}" class="htmx-indicator spinner-sm"></span>
+                        </button>
                         <button class="btn btn-sm btn-secondary proxy-edit-btn"
                                 data-proxy-id="{{ proxy.id }}"
                                 data-proxy-name="{{ proxy.name }}"
@@ -71,7 +102,7 @@
 </div>
 {% else %}
 <div class="empty-state">
-    <div class="empty-state-icon">🌐</div>
+    <div class="empty-state-icon">&#x1F310;</div>
     <h3>{{ _("No Proxies Configured") }}</h3>
     <p>{{ _("Add a proxy server to route Telegram connections through it.") }}</p>
 </div>

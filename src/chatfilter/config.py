@@ -677,6 +677,14 @@ class ProxyType(str, Enum):
     HTTP = "http"
 
 
+class ProxyStatus(str, Enum):
+    """Proxy health status."""
+
+    WORKING = "working"  # Last ping successful
+    NO_PING = "no_ping"  # Last ping failed, temporarily disabled
+    UNTESTED = "untested"  # Never tested (new proxy)
+
+
 class ProxyConfig(BaseModel):
     """Proxy configuration settings."""
 

@@ -49,11 +49,13 @@ class AppState:
         from typing import TYPE_CHECKING
 
         if TYPE_CHECKING:
+            from chatfilter.service.proxy_health import ProxyHealthMonitor
             from chatfilter.telegram.session_manager import SessionManager
 
         self.shutting_down = False
         self.active_connections = 0
         self.session_manager: SessionManager | None = None  # Will be set during startup
+        self.proxy_health_monitor: ProxyHealthMonitor | None = None  # Will be set during startup
 
 
 @asynccontextmanager
@@ -132,6 +134,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     session_manager.start_monitor()
     logger.info("Telegram session manager initialized with connection monitoring")
 
+    # Start proxy health monitor
+    from chatfilter.service.proxy_health import get_proxy_health_monitor
+
+    proxy_health_monitor = get_proxy_health_monitor()
+    proxy_health_monitor.start()
+    app.state.app_state.proxy_health_monitor = proxy_health_monitor
+    logger.info("Proxy health monitor started")
+
     logger.info("Application startup complete")
 
     # Auto-open browser after server is ready
@@ -186,7 +196,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.error(f"Error clearing tasks during shutdown: {e}")
 
-    # 4. Stop connection monitor and disconnect all Telegram sessions
+    # 4. Stop proxy health monitor
+    if app.state.app_state.proxy_health_monitor:
+        logger.info("Stopping proxy health monitor")
+        try:
+            await app.state.app_state.proxy_health_monitor.stop()
+            logger.info("Proxy health monitor stopped")
+        except Exception as e:
+            logger.error(f"Error stopping proxy health monitor: {e}")
+
+    # 5. Stop connection monitor and disconnect all Telegram sessions
     if app.state.app_state.session_manager:
         logger.info("Stopping connection monitor")
         try:
@@ -202,7 +221,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"Error disconnecting sessions during shutdown: {e}")
 
-    # 5. Clear service caches to free memory
+    # 6. Clear service caches to free memory
     try:
         from chatfilter.web.dependencies import get_chat_analysis_service
 

@@ -56,9 +56,15 @@
                 aria-required="true">
             <option value="">{{ _("-- Select a proxy --") }}</option>
             {% for proxy in proxies %}
+            {% if proxy.is_available %}
             <option value="{{ proxy.id }}"{% if proxy.id == current_proxy_id %} selected{% endif %}>
-                {{ proxy.name }} ({{ proxy.type }}://{{ proxy.host }}:{{ proxy.port }})
+                {% if proxy.status.value == 'working' %}&#x1F7E2;{% elif proxy.status.value == 'untested' %}&#x26AA;{% endif %} {{ proxy.name }} ({{ proxy.type.value }}://{{ proxy.host }}:{{ proxy.port }})
             </option>
+            {% else %}
+            <option value="{{ proxy.id }}"{% if proxy.id == current_proxy_id %} selected{% endif %} class="proxy-option-disabled">
+                &#x1F534; {{ proxy.name }} ({{ _("unavailable") }})
+            </option>
+            {% endif %}
             {% endfor %}
         </select>
         <small id="session-proxy-hint-{{ session_id }}" class="form-hint">
@@ -67,6 +73,12 @@
             <a href="/proxy">{{ _("Add a proxy first") }}</a>
             {% endif %}
         </small>
+        {% set selected_proxy = proxies | selectattr('id', 'equalto', current_proxy_id) | first %}
+        {% if selected_proxy and not selected_proxy.is_available %}
+        <div class="alert alert-warning mt-2">
+            &#x26A0; {{ _("The selected proxy is currently unavailable. Consider selecting a working proxy.") }}
+        </div>
+        {% endif %}
     </div>
 
     <div class="form-actions">

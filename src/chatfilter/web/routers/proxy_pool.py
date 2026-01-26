@@ -41,6 +41,12 @@ class ProxyResponse(BaseModel):
     port: int
     username: str = ""
     has_auth: bool
+    # Health monitoring fields
+    status: str
+    last_ping_at: str | None = None
+    last_success_at: str | None = None
+    consecutive_failures: int = 0
+    is_available: bool = True
 
 
 class ProxyListResponse(BaseModel):
@@ -89,6 +95,14 @@ class ProxyDeleteResponse(BaseModel):
     sessions_using_proxy: list[str] | None = None
 
 
+class ProxyRetestResponse(BaseModel):
+    """Response model for proxy retest."""
+
+    success: bool
+    proxy: ProxyResponse | None = None
+    error: str | None = None
+
+
 def _proxy_to_response(proxy: ProxyEntry) -> ProxyResponse:
     """Convert ProxyEntry to ProxyResponse."""
     return ProxyResponse(
@@ -99,6 +113,11 @@ def _proxy_to_response(proxy: ProxyEntry) -> ProxyResponse:
         port=proxy.port,
         username=proxy.username,
         has_auth=proxy.has_auth,
+        status=proxy.status.value,
+        last_ping_at=proxy.last_ping_at.isoformat() if proxy.last_ping_at else None,
+        last_success_at=proxy.last_success_at.isoformat() if proxy.last_success_at else None,
+        consecutive_failures=proxy.consecutive_failures,
+        is_available=proxy.is_available,
     )
 
 
@@ -324,6 +343,47 @@ async def delete_proxy(proxy_id: str) -> ProxyDeleteResponse:
         )
 
 
+@router.post("/api/proxies/{proxy_id}/retest", response_model=ProxyRetestResponse)
+async def retest_proxy_endpoint(proxy_id: str) -> ProxyRetestResponse:
+    """Retest a proxy's health and update its status.
+
+    Resets the failure counter, then performs a health check.
+    Used to re-enable a disabled proxy after fixing connection issues.
+
+    Args:
+        proxy_id: UUID of the proxy to retest.
+
+    Returns:
+        ProxyRetestResponse with updated proxy status or error.
+    """
+    from chatfilter.service.proxy_health import retest_proxy
+
+    try:
+        updated_proxy = await retest_proxy(proxy_id)
+
+        if updated_proxy is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Proxy not found: {proxy_id}",
+            )
+
+        logger.info(f"Retested proxy: {updated_proxy.name} - status: {updated_proxy.status.value}")
+
+        return ProxyRetestResponse(
+            success=True,
+            proxy=_proxy_to_response(updated_proxy),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to retest proxy {proxy_id}")
+        return ProxyRetestResponse(
+            success=False,
+            error=f"Failed to retest proxy: {e}",
+        )
+
+
 @router.get("/api/proxies/list", response_class=HTMLResponse)
 async def list_proxies_html(request: Request) -> HTMLResponse:
     """List all proxies as HTML partial for HTMX.
@@ -337,7 +397,7 @@ async def list_proxies_html(request: Request) -> HTMLResponse:
     try:
         proxies = load_proxy_pool()
 
-        # Build response with usage count for each proxy
+        # Build response with usage count and health status for each proxy
         proxies_with_usage = []
         for proxy in proxies:
             usage_count = len(_get_sessions_using_proxy(proxy.id))
@@ -351,6 +411,12 @@ async def list_proxies_html(request: Request) -> HTMLResponse:
                     "username": proxy.username,
                     "has_auth": proxy.has_auth,
                     "usage_count": usage_count,
+                    # Health status fields
+                    "status": proxy.status.value,
+                    "last_ping_at": proxy.last_ping_at,
+                    "last_success_at": proxy.last_success_at,
+                    "consecutive_failures": proxy.consecutive_failures,
+                    "is_available": proxy.is_available,
                 }
             )
 

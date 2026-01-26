@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from chatfilter.config import ProxyType
+from chatfilter.config import ProxyStatus, ProxyType
 
 
 class ProxyEntry(BaseModel):
     """A proxy configuration entry in the proxy pool.
 
     Each proxy entry has a unique ID and can be used to connect
-    Telegram sessions through different proxies.
+    Telegram sessions through different proxies. Includes health
+    monitoring status for automatic availability management.
 
     Attributes:
         id: Unique identifier (UUID4, auto-generated).
@@ -23,6 +25,10 @@ class ProxyEntry(BaseModel):
         port: Proxy server port (1-65535).
         username: Optional authentication username.
         password: Optional authentication password.
+        status: Health status (working, no_ping, untested).
+        last_ping_at: Timestamp of last health check attempt.
+        last_success_at: Timestamp of last successful health check.
+        consecutive_failures: Count of consecutive failed health checks.
 
     Example:
         >>> proxy = ProxyEntry(
@@ -35,6 +41,8 @@ class ProxyEntry(BaseModel):
         'a1b2c3d4-...'
         >>> proxy.has_auth
         False
+        >>> proxy.is_available
+        True
     """
 
     model_config = ConfigDict(
@@ -50,6 +58,12 @@ class ProxyEntry(BaseModel):
     port: int = Field(..., ge=1, le=65535)
     username: str = ""
     password: str = ""
+
+    # Health monitoring fields
+    status: ProxyStatus = Field(default=ProxyStatus.UNTESTED)
+    last_ping_at: datetime | None = Field(default=None)
+    last_success_at: datetime | None = Field(default=None)
+    consecutive_failures: int = Field(default=0, ge=0)
 
     @field_validator("name")
     @classmethod
@@ -105,6 +119,31 @@ class ProxyEntry(BaseModel):
                 raise ValueError(f"Invalid proxy type: {v}. Must be 'socks5' or 'http'.") from e
         raise ValueError(f"type must be a string or ProxyType, got {type(v)}")
 
+    @field_validator("status", mode="before")
+    @classmethod
+    def coerce_proxy_status(cls, v: str | ProxyStatus) -> ProxyStatus:
+        """Coerce string to ProxyStatus enum for JSON deserialization.
+
+        Args:
+            v: Either a string ('working', 'no_ping', 'untested') or ProxyStatus enum.
+
+        Returns:
+            ProxyStatus enum value.
+
+        Raises:
+            ValueError: If string doesn't match a valid proxy status.
+        """
+        if isinstance(v, ProxyStatus):
+            return v
+        if isinstance(v, str):
+            try:
+                return ProxyStatus(v.lower())
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid proxy status: {v}. Must be 'working', 'no_ping', or 'untested'."
+                ) from e
+        raise ValueError(f"status must be a string or ProxyStatus, got {type(v)}")
+
     @property
     def has_auth(self) -> bool:
         """Check if proxy has authentication credentials.
@@ -113,6 +152,92 @@ class ProxyEntry(BaseModel):
             True if username is provided.
         """
         return bool(self.username)
+
+    @property
+    def is_available(self) -> bool:
+        """Check if proxy is available for use (working or untested).
+
+        Returns:
+            True if proxy can be used for new connections.
+        """
+        return self.status != ProxyStatus.NO_PING
+
+    def with_health_update(
+        self,
+        *,
+        success: bool,
+        ping_time: datetime | None = None,
+    ) -> ProxyEntry:
+        """Create a new ProxyEntry with updated health status.
+
+        Since ProxyEntry is immutable (frozen=True), this returns a new instance.
+
+        Args:
+            success: Whether the ping was successful.
+            ping_time: When the ping was performed (defaults to now).
+
+        Returns:
+            New ProxyEntry with updated health fields.
+        """
+        from datetime import UTC
+
+        now = ping_time or datetime.now(UTC)
+
+        if success:
+            return ProxyEntry(
+                id=self.id,
+                name=self.name,
+                type=self.type,
+                host=self.host,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                status=ProxyStatus.WORKING,
+                last_ping_at=now,
+                last_success_at=now,
+                consecutive_failures=0,
+            )
+        else:
+            new_failures = self.consecutive_failures + 1
+            # Auto-disable after 3 consecutive failures
+            new_status = ProxyStatus.NO_PING if new_failures >= 3 else self.status
+            # Keep status as working if less than 3 failures
+            if new_status == ProxyStatus.UNTESTED:
+                new_status = ProxyStatus.UNTESTED  # Keep untested until first success
+
+            return ProxyEntry(
+                id=self.id,
+                name=self.name,
+                type=self.type,
+                host=self.host,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                status=new_status,
+                last_ping_at=now,
+                last_success_at=self.last_success_at,
+                consecutive_failures=new_failures,
+            )
+
+    def with_status_reset(self) -> ProxyEntry:
+        """Create a new ProxyEntry with reset health status for retesting.
+
+        Returns:
+            New ProxyEntry with status reset to UNTESTED and counters cleared.
+        """
+        return ProxyEntry(
+            id=self.id,
+            name=self.name,
+            type=self.type,
+            host=self.host,
+            port=self.port,
+            username=self.username,
+            password=self.password,
+            status=ProxyStatus.UNTESTED,
+            last_ping_at=self.last_ping_at,  # Keep last ping time
+            last_success_at=self.last_success_at,  # Keep last success time
+            consecutive_failures=0,
+        )
 
     def to_telethon_proxy(self) -> tuple[int, str, int, bool, str | None, str | None]:
         """Convert to Telethon proxy format.

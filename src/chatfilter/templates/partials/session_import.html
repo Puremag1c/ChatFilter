@@ -112,7 +112,15 @@
                             aria-required="true">
                         <option value="">{{ _("-- Select a proxy --") }}</option>
                         {% for proxy in proxies %}
-                        <option value="{{ proxy.id }}">{{ proxy.name }} ({{ proxy.type }}://{{ proxy.host }}:{{ proxy.port }})</option>
+                        {% if proxy.is_available %}
+                        <option value="{{ proxy.id }}">
+                            {% if proxy.status.value == 'working' %}&#x1F7E2;{% elif proxy.status.value == 'untested' %}&#x26AA;{% endif %} {{ proxy.name }} ({{ proxy.type.value }}://{{ proxy.host }}:{{ proxy.port }})
+                        </option>
+                        {% else %}
+                        <option value="{{ proxy.id }}" class="proxy-option-disabled">
+                            &#x1F534; {{ proxy.name }} ({{ _("unavailable") }})
+                        </option>
+                        {% endif %}
                         {% endfor %}
                     </select>
                     <small id="import-proxy-id-hint" class="form-hint">
