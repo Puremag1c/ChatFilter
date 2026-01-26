@@ -872,3 +872,427 @@ async def delete_session(session_id: str) -> HTMLResponse:
 
     # Return empty response - HTMX will remove the element
     return HTMLResponse(content="", status_code=200)
+
+
+@router.post("/api/sessions/import/validate", response_class=HTMLResponse)
+async def validate_import_session(
+    request: Request,
+    session_file: Annotated[UploadFile, File()],
+) -> HTMLResponse:
+    """Validate a session file for import.
+
+    Returns HTML partial with validation result.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        # Read and validate session file with size limit enforcement
+        try:
+            session_content = await read_upload_with_size_limit(
+                session_file, MAX_SESSION_SIZE, "session"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        # Validate session file format
+        try:
+            validate_session_file_format(session_content)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        # Validation successful
+        logger.info("Session file validated successfully for import")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/import_validation_result.html",
+            context={"success": True},
+        )
+
+    except Exception:
+        logger.exception("Unexpected error during session validation")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/import_validation_result.html",
+            context={
+                "success": False,
+                "error": "An unexpected error occurred during validation.",
+            },
+        )
+
+
+@router.get("/api/sessions/{session_id}/config", response_class=HTMLResponse)
+async def get_session_config(
+    request: Request,
+    session_id: str,
+) -> HTMLResponse:
+    """Get session configuration form.
+
+    Returns HTML partial with proxy dropdown showing current selection.
+    """
+    from chatfilter.storage.proxy_pool import load_proxy_pool
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid session name",
+        ) from e
+
+    session_dir = ensure_data_dir() / safe_name
+    config_file = session_dir / "config.json"
+
+    if not session_dir.exists() or not config_file.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    # Load current config
+    current_proxy_id = None
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+            current_proxy_id = config.get("proxy_id")
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"Failed to read config for session {safe_name}: {e}")
+
+    # Load proxy pool
+    proxies = load_proxy_pool()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_config.html",
+        context={
+            "session_id": safe_name,
+            "current_proxy_id": current_proxy_id,
+            "proxies": proxies,
+        },
+    )
+
+
+@router.put("/api/sessions/{session_id}/config", response_class=HTMLResponse)
+async def update_session_config(
+    request: Request,
+    session_id: str,
+    proxy_id: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    """Update session configuration.
+
+    Updates the proxy_id for a session.
+    """
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{e}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    config_file = session_dir / "config.json"
+
+    if not session_dir.exists() or not config_file.exists():
+        return HTMLResponse(
+            content='<div class="alert alert-error">Session not found</div>',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Validate proxy_id if provided
+    if proxy_id:
+        from chatfilter.storage.errors import StorageNotFoundError
+        from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+        try:
+            get_proxy_by_id(proxy_id)
+        except StorageNotFoundError:
+            return HTMLResponse(
+                content='<div class="alert alert-error">Selected proxy not found in pool</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+    # Load existing config
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"Failed to read config for session {safe_name}: {e}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to read session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Update proxy_id (None if empty string)
+    config["proxy_id"] = proxy_id if proxy_id else None
+
+    # Save updated config
+    try:
+        config_content = json.dumps(config, indent=2).encode("utf-8")
+        atomic_write(config_file, config_content)
+        secure_file_permissions(config_file)
+        logger.info(f"Updated proxy_id for session '{safe_name}': {proxy_id or 'None'}")
+    except Exception:
+        logger.exception(f"Failed to save config for session {safe_name}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to save session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Return success message with HX-Trigger to refresh sessions list
+    return HTMLResponse(
+        content='<div class="alert alert-success">Configuration saved</div>',
+        headers={"HX-Trigger": "refreshSessions"},
+    )
+
+
+@router.post("/api/sessions/import/save", response_class=HTMLResponse)
+async def save_import_session(
+    request: Request,
+    session_name: Annotated[str, Form()],
+    session_file: Annotated[UploadFile, File()],
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+    proxy_id: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Save an imported session with configuration.
+
+    Returns HTML partial with save result.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        # Sanitize session name (path traversal protection)
+        try:
+            safe_name = sanitize_session_name(session_name)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        # Check if session already exists
+        session_dir = ensure_data_dir() / safe_name
+        if session_dir.exists():
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": f"Session '{safe_name}' already exists",
+                },
+            )
+
+        # Read and validate session file
+        try:
+            session_content = await read_upload_with_size_limit(
+                session_file, MAX_SESSION_SIZE, "session"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            validate_session_file_format(session_content)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": f"Invalid session: {e}"},
+            )
+
+        # Validate api_hash format (32-char hex string)
+        api_hash = api_hash.strip()
+        if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": "Invalid API hash format. Must be a 32-character hexadecimal string.",
+                },
+            )
+
+        # Validate proxy exists
+        from chatfilter.storage.errors import StorageNotFoundError
+        from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+        try:
+            get_proxy_by_id(proxy_id)
+        except StorageNotFoundError:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": "Selected proxy not found. Please select a valid proxy.",
+                },
+            )
+
+        # Extract account info from session to check for duplicates
+        import tempfile
+
+        account_info = None
+        duplicate_sessions = []
+
+        # Create a temporary session file to test connection
+        with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
+            tmp_session.write(session_content)
+            tmp_session.flush()
+            tmp_session_path = Path(tmp_session.name)
+
+        try:
+            # Try to get account info from the session
+            account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+
+            if account_info:
+                # Check for duplicate accounts
+                user_id = account_info["user_id"]
+                if isinstance(user_id, int):
+                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+        finally:
+            # Clean up temporary session file
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                tmp_session_path.unlink()
+
+        # Create session directory and save files
+        session_dir.mkdir(parents=True, exist_ok=True)
+        session_path = session_dir / "session.session"
+
+        try:
+            # Check disk space before writing session file
+            from chatfilter.utils.disk import DiskSpaceError, ensure_space_available
+
+            marker_text = (
+                "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
+                "Do not create a plaintext config.json file.\n"
+            )
+
+            # Calculate total space needed (session file + marker file)
+            total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
+
+            try:
+                ensure_space_available(session_path, total_bytes_needed)
+            except DiskSpaceError as e:
+                # Clean up directory if it was just created
+                if session_dir.exists():
+                    shutil.rmtree(session_dir, ignore_errors=True)
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": str(e)},
+                )
+
+            # Atomic write to prevent corruption on crash
+            atomic_write(session_path, session_content)
+            secure_file_permissions(session_path)
+
+            # Store credentials securely (NOT in plaintext)
+            from chatfilter.security import SecureCredentialManager
+
+            # Get storage directory (parent of session_dir)
+            storage_dir = session_dir.parent
+
+            # Store credentials in secure storage
+            manager = SecureCredentialManager(storage_dir)
+            manager.store_credentials(safe_name, api_id, api_hash)
+
+            logger.info(f"Stored credentials securely for session: {safe_name}")
+
+            # Create per-session config.json for v0.5 format
+            session_config: dict[str, int | str | None] = {
+                "api_id": api_id,
+                "api_hash": api_hash,
+                "proxy_id": proxy_id,
+            }
+            session_config_path = session_dir / "config.json"
+            session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
+            atomic_write(session_config_path, session_config_content)
+            secure_file_permissions(session_config_path)
+
+            logger.info(f"Created per-session config for session: {safe_name}")
+
+            # Create migration marker to indicate we're using secure storage
+            marker_file = session_dir / ".secure_storage"
+            atomic_write(marker_file, marker_text)
+
+            # Validate that TelegramClientLoader can use secure storage
+            loader = TelegramClientLoader(session_path, use_secure_storage=True)
+            loader.validate()
+
+            # Save account info if we successfully extracted it
+            if account_info:
+                save_account_info(session_dir, account_info)
+                logger.info(
+                    f"Saved account info for session '{safe_name}': "
+                    f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
+                )
+
+        except TelegramConfigError as e:
+            # Clean up on failure
+            shutil.rmtree(session_dir, ignore_errors=True)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": f"Config validation failed: {e}"},
+            )
+        except Exception:
+            # Clean up on failure
+            shutil.rmtree(session_dir, ignore_errors=True)
+            logger.exception("Failed to save session files")
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": "Failed to save session files. Please try again.",
+                },
+            )
+
+        logger.info(f"Session '{safe_name}' imported successfully")
+
+        # Prepare response with duplicate account warning if needed
+        response_data = {
+            "request": request,
+            "success": True,
+            "message": f"Session '{safe_name}' imported successfully",
+            "duplicate_sessions": duplicate_sessions,
+            "account_info": account_info,
+        }
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/upload_result.html",
+            context=response_data,
+        )
+
+    except Exception:
+        logger.exception("Unexpected error during session import")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/upload_result.html",
+            context={
+                "success": False,
+                "error": "An unexpected error occurred during import. Please try again.",
+            },
+        )

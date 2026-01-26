@@ -172,7 +172,19 @@ with app:
 </section>
 
 <section class="card">
-    <h2>{{ _("Upload New Session") }}</h2>
+    <h2>{{ _("Quick Import") }}</h2>
+    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        {{ _("Already have a .session file? Drop it here and configure the settings.") }}
+    </p>
+
+    {% include "partials/session_import.html" %}
+</section>
+
+<section class="card">
+    <h2>{{ _("Upload with Config File") }}</h2>
+    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+        {{ _("Have both session and config files ready? Upload them together.") }}
+    </p>
 
     <form id="upload-form"
           hx-post="/api/sessions/upload"
@@ -262,7 +274,7 @@ with app:
     <h2>{{ _("Registered Sessions") }}</h2>
     <div id="sessions-list"
          hx-get="/api/sessions"
-         hx-trigger="load"
+         hx-trigger="load, refreshSessions from:body"
          hx-swap="innerHTML"
          role="region"
          aria-live="polite"

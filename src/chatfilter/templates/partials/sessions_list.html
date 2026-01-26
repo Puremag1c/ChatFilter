@@ -2,29 +2,80 @@
 <div class="sessions-list">
     {% for session in sessions %}
     <div class="session-item" id="session-{{ session.session_id }}">
-        <div class="session-info">
-            <span class="session-name">{{ session.session_id }}</span>
-            <span class="session-status {{ session.state }}">
-                {%- if session.state == 'not_configured' -%}
-                    {{ _("Not configured") }}
-                {%- elif session.state == 'proxy_missing' -%}
-                    {{ _("Proxy missing") }}
-                {%- else -%}
-                    {{ session.state }}
-                {%- endif -%}
-            </span>
+        <div class="session-header">
+            <div class="session-info">
+                <span class="session-name">{{ session.session_id }}</span>
+                <span class="session-status {{ session.state }}">
+                    {%- if session.state == 'not_configured' -%}
+                        {{ _("Not configured") }}
+                    {%- elif session.state == 'proxy_missing' -%}
+                        {{ _("Proxy missing") }}
+                    {%- else -%}
+                        {{ session.state }}
+                    {%- endif -%}
+                </span>
+            </div>
+            <div class="session-actions">
+                <button class="btn btn-sm btn-secondary session-config-btn"
+                        data-session-id="{{ session.session_id }}"
+                        hx-get="/api/sessions/{{ session.session_id }}/config"
+                        hx-target="#session-config-{{ session.session_id }}"
+                        hx-swap="innerHTML"
+                        aria-label="{{ _('Configure session') }}"
+                        aria-expanded="false"
+                        aria-controls="session-config-{{ session.session_id }}">
+                    {{ _("Configure") }}
+                </button>
+                <button class="btn btn-sm btn-danger session-delete-btn"
+                        data-session-id="{{ session.session_id }}"
+                        data-lock="session:{{ session.session_id }}:delete"
+                        aria-label="{{ _('Delete session') }}">
+                    {{ _("Delete") }}
+                </button>
+            </div>
         </div>
-        <div class="session-actions">
-            <button class="btn btn-sm btn-danger session-delete-btn"
-                    data-session-id="{{ session.session_id }}"
-                    data-lock="session:{{ session.session_id }}:delete"
-                    aria-label="{{ _('Delete session') }}">
-                {{ _("Delete") }}
-            </button>
-        </div>
+        <div class="session-config-panel" id="session-config-{{ session.session_id }}" style="display: none;"></div>
     </div>
     {% endfor %}
 </div>
+
+<script>
+(function() {
+    // Toggle config panel visibility when HTMX loads content
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.classList.contains('session-config-panel')) {
+            const panel = evt.detail.target;
+            const sessionId = panel.id.replace('session-config-', '');
+            const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
+
+            if (panel.innerHTML.trim()) {
+                panel.style.display = 'block';
+                if (btn) btn.setAttribute('aria-expanded', 'true');
+            }
+        }
+    });
+
+    // Toggle panel on button click (hide if already shown)
+    document.body.addEventListener('click', function(e) {
+        const configBtn = e.target.closest('.session-config-btn');
+        if (!configBtn) return;
+
+        const sessionId = configBtn.dataset.sessionId;
+        const panel = document.getElementById('session-config-' + sessionId);
+
+        if (panel && panel.style.display !== 'none' && panel.innerHTML.trim()) {
+            // Panel is visible, hide it
+            panel.style.display = 'none';
+            panel.innerHTML = '';
+            configBtn.setAttribute('aria-expanded', 'false');
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        // Otherwise let HTMX handle it (fetch and show)
+    });
+})();
+</script>
 {% else %}
 <div class="empty-state">
     <div class="empty-state-icon">📱</div>

@@ -1,0 +1,40 @@
+{# Session configuration form partial #}
+{# Receives: session_id, current_proxy_id, proxies #}
+<form class="session-config-form"
+      hx-put="/api/sessions/{{ session_id }}/config"
+      hx-target="#session-config-result-{{ session_id }}"
+      hx-swap="innerHTML"
+      hx-indicator="#session-config-spinner-{{ session_id }}">
+
+    <div class="form-group">
+        <label for="session-proxy-{{ session_id }}"
+               data-tooltip="{{ _('Select a proxy for this session') }}"
+               data-tooltip-position="right">{{ _("Proxy") }}</label>
+        <select id="session-proxy-{{ session_id }}"
+                name="proxy_id"
+                class="form-control"
+                aria-describedby="session-proxy-hint-{{ session_id }}">
+            <option value="">{{ _("-- No proxy --") }}</option>
+            {% for proxy in proxies %}
+            <option value="{{ proxy.id }}"{% if proxy.id == current_proxy_id %} selected{% endif %}>
+                {{ proxy.name }} ({{ proxy.type }}://{{ proxy.host }}:{{ proxy.port }})
+            </option>
+            {% endfor %}
+        </select>
+        <small id="session-proxy-hint-{{ session_id }}" class="form-hint">
+            {{ _("Select a proxy to use for this session's Telegram connection.") }}
+            {% if not proxies %}
+            <a href="/proxies">{{ _("Add a proxy first") }}</a>
+            {% endif %}
+        </small>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-sm btn-primary">
+            <span class="btn-text">{{ _("Save") }}</span>
+            <span id="session-config-spinner-{{ session_id }}" class="htmx-indicator spinner"></span>
+        </button>
+    </div>
+
+    <div id="session-config-result-{{ session_id }}" class="session-config-result" role="region" aria-live="polite"></div>
+</form>
