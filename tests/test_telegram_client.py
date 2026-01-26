@@ -346,15 +346,44 @@ class TestValidateSessionFile:
 class TestTelegramClientLoader:
     """Tests for TelegramClientLoader class."""
 
-    def test_validate_success(self, tmp_path: Path) -> None:
-        """Test successful validation of both files."""
-        session_path = tmp_path / "test.session"
-        config_path = tmp_path / "config.json"
+    def test_validate_success(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test successful validation of both files.
+
+        Note: Since validate() now requires proxy_id and proxy in pool,
+        we manually set proxy_id and mock get_proxy_by_id for this test.
+        """
+        import uuid
+
+        from chatfilter.models.proxy import ProxyEntry
+
+        session_dir = tmp_path / "test_session"
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        config_path = session_dir / "config.json"
 
         create_valid_session(session_path)
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
+        valid_proxy_id = str(uuid.uuid4())
+
+        # Mock get_proxy_by_id to return a valid proxy
+        def mock_get_proxy_by_id(proxy_id: str) -> ProxyEntry:
+            return ProxyEntry(
+                id=proxy_id,
+                name="Test Proxy",
+                type=ProxyType.SOCKS5,
+                host="proxy.example.com",
+                port=1080,
+            )
+
+        monkeypatch.setattr(
+            "chatfilter.storage.proxy_pool.get_proxy_by_id",
+            mock_get_proxy_by_id,
+        )
+
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
+        # Manually set proxy_id since legacy config doesn't have it
+        loader._proxy_id = valid_proxy_id
         loader.validate()  # Should not raise
 
     def test_validate_invalid_config(self, tmp_path: Path) -> None:
@@ -387,42 +416,33 @@ class TestTelegramClientLoader:
         Note: We use a fresh session path because Telethon's TelegramClient
         modifies the session file on creation. Using a path without .session
         extension lets Telethon create its own fresh session.
+
+        This test uses explicit proxy to bypass proxy_id validation.
         """
         session_path = tmp_path / "new_session"  # No .session extension
         config_path = tmp_path / "config.json"
 
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        # Create a valid session for validation, but use a new path for client
-        validation_session = tmp_path / "valid.session"
-        create_valid_session(validation_session)
-
-        # Mock settings
+        # Mock settings for timeout config
         class MockSettings:
             connect_timeout = 30
 
         monkeypatch.setattr("chatfilter.config.get_settings", lambda: MockSettings())
-        monkeypatch.setattr("chatfilter.telegram.client.load_proxy_config", lambda: None)
 
-        # Test with the valid session for validation
-        loader = TelegramClientLoader(validation_session, config_path, use_secure_storage=False)
-        loader.validate()  # Should pass
+        # Create loader and manually set config to skip validation
+        # (which would require proxy_id and proxy in pool)
+        loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
+        loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
-        # For actual client creation, use a fresh session path
-        # (Telethon will create its own session file)
-        loader_for_client = TelegramClientLoader(
-            session_path, config_path, use_secure_storage=False
-        )
-        loader_for_client._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
-
-        # Sessions require explicit proxy, provide a minimal one
+        # Sessions require explicit proxy when using create_client without validate()
         proxy = ProxyConfig(
             enabled=True,
             proxy_type=ProxyType.SOCKS5,
             host="proxy.example.com",
             port=1080,
         )
-        client = loader_for_client.create_client(proxy=proxy)
+        client = loader.create_client(proxy=proxy)
 
         # Check that we got a TelegramClient instance
         from telethon import TelegramClient
@@ -619,12 +639,18 @@ class TestTelegramClientLoader:
     def test_validate_with_secure_storage_and_fallback(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test validation with secure storage fallback to plaintext config."""
+        """Test validation with secure storage fallback to plaintext config.
+
+        Note: Since validate() now requires proxy_id and proxy in pool,
+        we test the fallback behavior by checking that credentials are loaded
+        from plaintext. The proxy validation will fail (as expected for legacy
+        sessions without proxy), which is caught by a separate test.
+        """
         sessions_dir = tmp_path / "sessions"
         session_dir = sessions_dir / "test_session"
         session_dir.mkdir(parents=True)
 
-        session_path = session_dir / "test.session"
+        session_path = session_dir / "session.session"
         config_path = session_dir / "config.json"
 
         create_valid_session(session_path)
@@ -637,8 +663,11 @@ class TestTelegramClientLoader:
             def __init__(self, storage_dir: Path) -> None:
                 pass
 
-            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
                 raise CredentialNotFoundError("Not found")
+
+            def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
+                pass  # Mock store_credentials for migration
 
         monkeypatch.setattr(
             "chatfilter.security.SecureCredentialManager",
@@ -647,11 +676,15 @@ class TestTelegramClientLoader:
 
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=True)
 
-        # Should fall back to plaintext config
-        loader.validate()
+        # validate() will fall back to plaintext config but fail on proxy_id check
+        # Since this test is about the fallback behavior, we catch the expected error
+        with pytest.raises(SessionBlockedError, match="has no proxy configured"):
+            loader.validate()
 
+        # Verify that config was loaded from plaintext despite proxy error
         assert loader._config is not None
         assert loader._config.api_id == 12345
+        assert loader._proxy_id is None  # Legacy mode has no proxy_id
 
     def test_validate_with_secure_storage_no_fallback(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -694,6 +727,180 @@ class TestTelegramClientLoader:
 
         with pytest.raises(TelegramConfigError, match="No config_path provided"):
             loader.validate()
+
+    def test_validate_raises_error_when_api_id_is_zero(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that validate() raises SessionBlockedError when api_id is 0."""
+        session_dir = tmp_path / "test_session"
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        create_valid_session(session_path)
+
+        # Mock SecureCredentialManager to return api_id=0
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
+                return (0, "valid_api_hash", "proxy-123")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        loader = TelegramClientLoader(session_path, use_secure_storage=True)
+
+        with pytest.raises(SessionBlockedError, match="has no api_id configured"):
+            loader.validate()
+
+    def test_validate_raises_error_when_api_hash_is_empty(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that validate() raises SessionBlockedError when api_hash is empty."""
+        session_dir = tmp_path / "test_session"
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        create_valid_session(session_path)
+
+        # Mock SecureCredentialManager to return empty api_hash
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
+                return (12345, "", "proxy-123")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        loader = TelegramClientLoader(session_path, use_secure_storage=True)
+
+        with pytest.raises(SessionBlockedError, match="has no api_hash configured"):
+            loader.validate()
+
+    def test_validate_raises_error_when_proxy_id_is_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that validate() raises SessionBlockedError when proxy_id is None."""
+        session_dir = tmp_path / "test_session"
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        create_valid_session(session_path)
+
+        # Mock SecureCredentialManager to return None for proxy_id
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
+                return (12345, "valid_api_hash", None)
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        loader = TelegramClientLoader(session_path, use_secure_storage=True)
+
+        with pytest.raises(SessionBlockedError, match="has no proxy configured"):
+            loader.validate()
+
+    def test_validate_raises_error_when_proxy_not_in_pool(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that validate() raises SessionBlockedError when proxy_id not found in pool."""
+        session_dir = tmp_path / "test_session"
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        create_valid_session(session_path)
+
+        # Mock SecureCredentialManager
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
+                return (12345, "valid_api_hash", "nonexistent-proxy-id")
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        # Mock get_proxy_by_id to raise StorageNotFoundError
+        from chatfilter.storage.errors import StorageNotFoundError
+
+        def mock_get_proxy_by_id(proxy_id: str) -> None:
+            raise StorageNotFoundError(f"Proxy not found: {proxy_id}")
+
+        monkeypatch.setattr(
+            "chatfilter.storage.proxy_pool.get_proxy_by_id",
+            mock_get_proxy_by_id,
+        )
+
+        loader = TelegramClientLoader(session_path, use_secure_storage=True)
+
+        with pytest.raises(SessionBlockedError, match="not found in proxy pool"):
+            loader.validate()
+
+    def test_validate_succeeds_with_all_required_fields(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that validate() succeeds when all required fields are valid."""
+        import uuid
+
+        session_dir = tmp_path / "test_session"
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        create_valid_session(session_path)
+
+        valid_proxy_id = str(uuid.uuid4())
+
+        # Mock SecureCredentialManager
+        class MockManager:
+            def __init__(self, storage_dir: Path) -> None:
+                pass
+
+            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
+                return (12345, "valid_api_hash", valid_proxy_id)
+
+        monkeypatch.setattr(
+            "chatfilter.security.SecureCredentialManager",
+            MockManager,
+        )
+
+        # Mock get_proxy_by_id to return a valid proxy
+        from chatfilter.config import ProxyType
+        from chatfilter.models.proxy import ProxyEntry
+
+        def mock_get_proxy_by_id(proxy_id: str) -> ProxyEntry:
+            return ProxyEntry(
+                id=proxy_id,
+                name="Test Proxy",
+                type=ProxyType.SOCKS5,
+                host="proxy.example.com",
+                port=1080,
+            )
+
+        monkeypatch.setattr(
+            "chatfilter.storage.proxy_pool.get_proxy_by_id",
+            mock_get_proxy_by_id,
+        )
+
+        loader = TelegramClientLoader(session_path, use_secure_storage=True)
+
+        # Should not raise
+        loader.validate()
+
+        # Verify internal state
+        assert loader._config is not None
+        assert loader._config.api_id == 12345
+        assert loader._config.api_hash == "valid_api_hash"
+        assert loader._proxy_id == valid_proxy_id
 
 
 def create_mock_dialog(
