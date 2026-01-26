@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Proxy pool now stores data in user config directory (`~/Library/Application Support/ChatFilter/config/proxies.json`)
 - Legacy proxy migration checks both old app bundle location and new config directory
+- Bundled htmx, hyperlist, chart.js locally instead of CDN (fixes offline/firewall issues)
 
 ## [0.4.7] - 2026-01-26
 
