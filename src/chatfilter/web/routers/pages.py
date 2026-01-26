@@ -14,13 +14,16 @@ router = APIRouter(tags=["pages"])
 async def index(request: Request) -> HTMLResponse:
     """Home page - session upload."""
     from chatfilter import __version__
+    from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
 
     templates = get_templates()
+    proxies = load_proxy_pool()
+
     return templates.TemplateResponse(
         request=request,
         name="upload.html",
-        context=get_template_context(request, version=__version__),
+        context=get_template_context(request, version=__version__, proxies=proxies),
     )
 
 
@@ -153,5 +156,27 @@ async def history_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="history.html",
+        context=get_template_context(request, version=__version__),
+    )
+
+
+@router.get("/proxies", response_class=HTMLResponse)
+async def proxies_page(request: Request) -> HTMLResponse:
+    """Proxy pool management page.
+
+    Args:
+        request: FastAPI request
+
+    Returns:
+        HTML page with proxy pool list and management form
+    """
+    from chatfilter import __version__
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="proxies.html",
         context=get_template_context(request, version=__version__),
     )

@@ -2518,3 +2518,338 @@ body:has(.update-notification.show) {
 }
 
 /* ========== End Update Notification Banner ========== */
+
+/* ========== Session Import Drop Zone ========== */
+
+.import-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background: var(--bg-card);
+}
+
+.import-drop-zone:hover {
+    border-color: var(--primary);
+    background: var(--bg-card-hover);
+}
+
+.import-drop-zone.drag-over {
+    border-color: var(--primary);
+    background: var(--info-bg);
+    border-style: solid;
+}
+
+.import-drop-zone.has-file {
+    border-color: var(--success);
+    background: var(--success-bg);
+}
+
+.import-drop-zone.has-error {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+}
+
+.drop-zone-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.6;
+}
+
+.import-drop-zone.drag-over .drop-zone-icon,
+.import-drop-zone:hover .drop-zone-icon {
+    opacity: 1;
+}
+
+.drop-zone-title {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.drop-zone-subtitle {
+    font-size: 0.9375rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.drop-zone-or {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    margin: 1rem 0;
+}
+
+.drop-zone-file-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
+    border-radius: 6px;
+    border: 1px solid var(--border-light);
+}
+
+.drop-zone-file-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.drop-zone-file-size {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.drop-zone-clear {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.drop-zone-clear:hover {
+    color: var(--danger);
+}
+
+.drop-zone-error {
+    color: var(--danger-text);
+    font-size: 0.875rem;
+    margin-top: 0.75rem;
+}
+
+/* Hidden file input */
+.import-drop-zone input[type="file"] {
+    display: none;
+}
+
+/* Import config form */
+.import-config-form {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.import-config-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .import-drop-zone {
+        padding: 2rem 1rem;
+    }
+
+    .drop-zone-icon {
+        font-size: 2.5rem;
+    }
+
+    .drop-zone-title {
+        font-size: 1rem;
+    }
+
+    .import-config-form .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ========== End Session Import Drop Zone ==========*/
+
+/* ========== Proxy Pool Table ========== */
+.proxy-pool-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.proxy-pool-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+}
+
+.proxy-pool-table th,
+.proxy-pool-table td {
+    padding: 0.875rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.proxy-pool-table th {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: var(--bg-card);
+}
+
+.proxy-pool-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.proxy-pool-table tbody tr:hover {
+    background: var(--bg-card-hover);
+}
+
+.proxy-pool-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.proxy-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.proxy-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.proxy-type-socks5 {
+    background: var(--info-bg);
+    color: var(--info-text);
+}
+
+.proxy-type-http {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+}
+
+.proxy-address {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    font-size: 0.875rem;
+    background: var(--bg-code);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: var(--text-primary);
+}
+
+.auth-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.auth-badge .auth-icon {
+    font-size: 0.875rem;
+}
+
+.auth-badge.auth-yes .auth-text {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.auth-badge.auth-no .auth-text {
+    color: var(--text-muted);
+}
+
+.usage-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: var(--bg-skeleton);
+    color: var(--text-secondary);
+}
+
+.usage-count.usage-active {
+    background: var(--success-bg);
+    color: var(--success-text);
+}
+
+.proxy-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Loading state */
+.loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+/* Card header */
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.card-header h2 {
+    margin: 0;
+}
+
+/* Responsive proxy table */
+@media (max-width: 768px) {
+    .proxy-pool-table {
+        font-size: 0.875rem;
+    }
+
+    .proxy-pool-table th,
+    .proxy-pool-table td {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .proxy-pool-table thead {
+        display: none;
+    }
+
+    .proxy-pool-table tbody tr {
+        display: block;
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-light);
+        border-radius: 8px;
+        padding: 0.75rem;
+    }
+
+    .proxy-pool-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .proxy-pool-table tbody td:last-child {
+        border-bottom: none;
+    }
+
+    .proxy-pool-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 500;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .proxy-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+/* ========== End Proxy Pool Table ==========*/

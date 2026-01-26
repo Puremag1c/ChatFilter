@@ -1,0 +1,70 @@
+{% if proxies %}
+<div class="proxy-pool-table-container">
+    <table class="proxy-pool-table" role="table" aria-label="{{ _("Proxy servers list") }}">
+        <thead>
+            <tr>
+                <th scope="col">{{ _("Name") }}</th>
+                <th scope="col">{{ _("Type") }}</th>
+                <th scope="col">{{ _("Address") }}</th>
+                <th scope="col">{{ _("Auth") }}</th>
+                <th scope="col">{{ _("Sessions") }}</th>
+                <th scope="col">{{ _("Actions") }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for proxy in proxies %}
+            <tr id="proxy-row-{{ proxy.id }}">
+                <td data-label="{{ _("Name") }}">
+                    <span class="proxy-name">{{ proxy.name }}</span>
+                </td>
+                <td data-label="{{ _("Type") }}">
+                    <span class="proxy-type-badge proxy-type-{{ proxy.type }}">{{ proxy.type | upper }}</span>
+                </td>
+                <td data-label="{{ _("Address") }}">
+                    <code class="proxy-address">{{ proxy.host }}:{{ proxy.port }}</code>
+                </td>
+                <td data-label="{{ _("Auth") }}">
+                    {% if proxy.has_auth %}
+                    <span class="auth-badge auth-yes" title="{{ _("Authentication required") }}">
+                        <span class="auth-icon">🔐</span>
+                        <span class="auth-text">{{ proxy.username }}</span>
+                    </span>
+                    {% else %}
+                    <span class="auth-badge auth-no" title="{{ _("No authentication") }}">
+                        <span class="auth-icon">🔓</span>
+                        <span class="auth-text">{{ _("None") }}</span>
+                    </span>
+                    {% endif %}
+                </td>
+                <td data-label="{{ _("Sessions") }}">
+                    <span class="usage-count {% if proxy.usage_count > 0 %}usage-active{% endif %}">
+                        {{ proxy.usage_count }}
+                    </span>
+                </td>
+                <td data-label="{{ _("Actions") }}">
+                    <div class="proxy-actions">
+                        <button class="btn btn-sm btn-danger proxy-delete-btn"
+                                data-proxy-id="{{ proxy.id }}"
+                                data-proxy-name="{{ proxy.name }}"
+                                {% if proxy.usage_count > 0 %}
+                                title="{{ _("Cannot delete: proxy is in use by sessions") }}"
+                                {% else %}
+                                title="{{ _("Delete this proxy") }}"
+                                {% endif %}
+                                aria-label="{{ _('Delete proxy') }} {{ proxy.name }}">
+                            {{ _("Delete") }}
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">🌐</div>
+    <h3>{{ _("No Proxies Configured") }}</h3>
+    <p>{{ _("Add a proxy server to route Telegram connections through it.") }}</p>
+</div>
+{% endif %}
