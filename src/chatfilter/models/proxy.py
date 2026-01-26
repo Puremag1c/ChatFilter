@@ -82,6 +82,29 @@ class ProxyEntry(BaseModel):
             raise ValueError("id must be a valid UUID") from e
         return v
 
+    @field_validator("type", mode="before")
+    @classmethod
+    def coerce_proxy_type(cls, v: str | ProxyType) -> ProxyType:
+        """Coerce string to ProxyType enum for JSON deserialization.
+
+        Args:
+            v: Either a string ('socks5', 'http') or ProxyType enum.
+
+        Returns:
+            ProxyType enum value.
+
+        Raises:
+            ValueError: If string doesn't match a valid proxy type.
+        """
+        if isinstance(v, ProxyType):
+            return v
+        if isinstance(v, str):
+            try:
+                return ProxyType(v.lower())
+            except ValueError as e:
+                raise ValueError(f"Invalid proxy type: {v}. Must be 'socks5' or 'http'.") from e
+        raise ValueError(f"type must be a string or ProxyType, got {type(v)}")
+
     @property
     def has_auth(self) -> bool:
         """Check if proxy has authentication credentials.
