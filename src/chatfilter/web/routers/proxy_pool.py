@@ -18,7 +18,13 @@ from pydantic import BaseModel, Field
 from chatfilter.config import ProxyType, get_settings
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.errors import StorageNotFoundError
-from chatfilter.storage.proxy_pool import add_proxy, load_proxy_pool, remove_proxy
+from chatfilter.storage.proxy_pool import (
+    add_proxy,
+    get_proxy_by_id,
+    load_proxy_pool,
+    remove_proxy,
+    update_proxy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +59,17 @@ class ProxyCreateRequest(BaseModel):
     port: int = Field(..., ge=1, le=65535)
     username: str = ""
     password: str = ""
+
+
+class ProxyUpdateRequest(BaseModel):
+    """Request model for updating an existing proxy."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    type: str = Field(..., description="Proxy type: socks5 or http")
+    host: str = Field(..., min_length=1, max_length=255)
+    port: int = Field(..., ge=1, le=65535)
+    username: str = ""
+    password: str | None = None  # None means keep existing password
 
 
 class ProxyCreateResponse(BaseModel):
@@ -194,6 +211,72 @@ async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
         return ProxyCreateResponse(
             success=False,
             error=f"Failed to create proxy: {e}",
+        )
+
+
+@router.put("/api/proxies/{proxy_id}", response_model=ProxyCreateResponse)
+async def update_proxy_endpoint(proxy_id: str, request: ProxyUpdateRequest) -> ProxyCreateResponse:
+    """Update an existing proxy in the pool.
+
+    Args:
+        proxy_id: UUID of the proxy to update.
+        request: Proxy update request with name, type, host, port, and optional auth.
+
+    Returns:
+        ProxyCreateResponse with updated proxy or error.
+    """
+    try:
+        # Validate proxy type
+        try:
+            proxy_type = ProxyType(request.type.lower())
+        except ValueError:
+            return ProxyCreateResponse(
+                success=False,
+                error=f"Invalid proxy type: {request.type}. Must be 'socks5' or 'http'.",
+            )
+
+        # Get existing proxy to preserve password if not provided
+        existing_proxy = get_proxy_by_id(proxy_id)
+
+        # Use existing password if new one not provided
+        password = request.password if request.password is not None else existing_proxy.password
+
+        # Create updated proxy entry
+        updated_proxy = ProxyEntry(
+            id=proxy_id,
+            name=request.name,
+            type=proxy_type,
+            host=request.host,
+            port=request.port,
+            username=request.username,
+            password=password,
+        )
+
+        # Update in pool
+        result = update_proxy(proxy_id, updated_proxy)
+
+        logger.info(f"Updated proxy: {result.name} ({result.id})")
+
+        return ProxyCreateResponse(
+            success=True,
+            proxy=_proxy_to_response(result),
+        )
+
+    except StorageNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proxy not found: {proxy_id}",
+        ) from None
+    except ValueError as e:
+        return ProxyCreateResponse(
+            success=False,
+            error=str(e),
+        )
+    except Exception as e:
+        logger.exception(f"Failed to update proxy {proxy_id}")
+        return ProxyCreateResponse(
+            success=False,
+            error=f"Failed to update proxy: {e}",
         )
 
 

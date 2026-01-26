@@ -43,6 +43,17 @@
                 </td>
                 <td data-label="{{ _("Actions") }}">
                     <div class="proxy-actions">
+                        <button class="btn btn-sm btn-secondary proxy-edit-btn"
+                                data-proxy-id="{{ proxy.id }}"
+                                data-proxy-name="{{ proxy.name }}"
+                                data-proxy-type="{{ proxy.type }}"
+                                data-proxy-host="{{ proxy.host }}"
+                                data-proxy-port="{{ proxy.port }}"
+                                data-proxy-username="{{ proxy.username }}"
+                                title="{{ _("Edit this proxy") }}"
+                                aria-label="{{ _('Edit proxy') }} {{ proxy.name }}">
+                            {{ _("Edit") }}
+                        </button>
                         <button class="btn btn-sm btn-danger proxy-delete-btn"
                                 data-proxy-id="{{ proxy.id }}"
                                 data-proxy-name="{{ proxy.name }}"

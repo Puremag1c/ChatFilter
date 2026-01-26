@@ -9,96 +9,14 @@
 </div>
 
 <section class="card">
-    <div class="card-header">
-        <h2>{{ _("Add New Proxy") }}</h2>
-    </div>
-
-    <form id="add-proxy-form"
-          hx-post="/api/proxies"
-          hx-target="#add-proxy-result"
-          hx-swap="innerHTML"
-          hx-indicator="#add-spinner"
-          hx-on::after-request="if(event.detail.successful && event.detail.xhr.status === 200) { htmx.trigger('#proxy-list', 'refresh'); this.reset(); }"
-          aria-label="{{ _("Add new proxy form") }}">
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="name">{{ _("Name") }}</label>
-                <input type="text"
-                       id="name"
-                       name="name"
-                       required
-                       placeholder="{{ _("My Proxy") }}"
-                       aria-label="{{ _("Proxy name for identification") }}">
-            </div>
-
-            <div class="form-group">
-                <label for="type">{{ _("Type") }}</label>
-                <select id="type" name="type" required aria-label="{{ _("Select proxy type") }}">
-                    <option value="socks5">SOCKS5</option>
-                    <option value="http">HTTP</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group form-group-wide">
-                <label for="host">{{ _("Host") }}</label>
-                <input type="text"
-                       id="host"
-                       name="host"
-                       required
-                       placeholder="{{ _("proxy.example.com") }}"
-                       aria-label="{{ _("Proxy server hostname or IP address") }}">
-            </div>
-
-            <div class="form-group form-group-narrow">
-                <label for="port">{{ _("Port") }}</label>
-                <input type="number"
-                       id="port"
-                       name="port"
-                       required
-                       min="1"
-                       max="65535"
-                       placeholder="1080"
-                       aria-label="{{ _("Proxy server port number") }}">
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="username">{{ _("Username (optional)") }}</label>
-                <input type="text"
-                       id="username"
-                       name="username"
-                       placeholder="{{ _("Leave empty if not required") }}"
-                       aria-label="{{ _("Proxy authentication username") }}">
-            </div>
-
-            <div class="form-group">
-                <label for="password">{{ _("Password (optional)") }}</label>
-                <input type="password"
-                       id="password"
-                       name="password"
-                       placeholder="{{ _("Leave empty if not required") }}"
-                       aria-label="{{ _("Proxy authentication password") }}">
-            </div>
-        </div>
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary" aria-label="{{ _("Add proxy to pool") }}">
-                <span class="btn-text">{{ _("Add Proxy") }}</span>
-                <span id="add-spinner" class="htmx-indicator spinner" role="status" aria-live="polite"></span>
-            </button>
-        </div>
-    </form>
-
-    <div id="add-proxy-result" role="region" aria-live="polite" aria-atomic="true"></div>
-</section>
-
-<section class="card">
-    <div class="card-header">
+    <div class="card-header proxy-list-header">
         <h2>{{ _("Proxy List") }}</h2>
+        <button type="button"
+                class="btn btn-primary"
+                id="add-proxy-btn"
+                aria-label="{{ _("Add new proxy") }}">
+            {{ _("Add Proxy") }}
+        </button>
     </div>
 
     <div id="proxy-list"
@@ -114,13 +32,362 @@
         </div>
     </div>
 </section>
+
+<!-- Proxy Form Modal -->
+<div id="proxy-form-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="proxy-modal-title">
+    <div class="modal-dialog modal-dialog-form">
+        <div class="modal-header">
+            <span class="modal-icon info" aria-hidden="true">🌐</span>
+            <h2 class="modal-title" id="proxy-modal-title">{{ _("Add Proxy") }}</h2>
+        </div>
+        <form id="proxy-form" class="modal-body">
+            <input type="hidden" id="proxy-id" name="proxy_id" value="">
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="proxy-name">{{ _("Name") }} <span class="required">*</span></label>
+                    <input type="text"
+                           id="proxy-name"
+                           name="name"
+                           required
+                           minlength="1"
+                           maxlength="100"
+                           placeholder="{{ _("My Proxy") }}"
+                           aria-describedby="proxy-name-error"
+                           aria-label="{{ _("Proxy name for identification") }}">
+                    <span id="proxy-name-error" class="field-error" role="alert"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="proxy-type">{{ _("Type") }} <span class="required">*</span></label>
+                    <select id="proxy-type" name="type" required aria-label="{{ _("Select proxy type") }}">
+                        <option value="socks5">SOCKS5</option>
+                        <option value="http">HTTP</option>
+                    </select>
+                    <span id="proxy-type-error" class="field-error" role="alert"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group form-group-wide">
+                    <label for="proxy-host">{{ _("Host") }} <span class="required">*</span></label>
+                    <input type="text"
+                           id="proxy-host"
+                           name="host"
+                           required
+                           minlength="1"
+                           maxlength="255"
+                           placeholder="{{ _("proxy.example.com") }}"
+                           aria-describedby="proxy-host-error"
+                           aria-label="{{ _("Proxy server hostname or IP address") }}">
+                    <span id="proxy-host-error" class="field-error" role="alert"></span>
+                </div>
+
+                <div class="form-group form-group-narrow">
+                    <label for="proxy-port">{{ _("Port") }} <span class="required">*</span></label>
+                    <input type="number"
+                           id="proxy-port"
+                           name="port"
+                           required
+                           min="1"
+                           max="65535"
+                           placeholder="1080"
+                           aria-describedby="proxy-port-error"
+                           aria-label="{{ _("Proxy server port number") }}">
+                    <span id="proxy-port-error" class="field-error" role="alert"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="proxy-username">{{ _("Username (optional)") }}</label>
+                    <input type="text"
+                           id="proxy-username"
+                           name="username"
+                           maxlength="255"
+                           placeholder="{{ _("Leave empty if not required") }}"
+                           aria-label="{{ _("Proxy authentication username") }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="proxy-password">{{ _("Password (optional)") }}</label>
+                    <input type="password"
+                           id="proxy-password"
+                           name="password"
+                           maxlength="255"
+                           placeholder="{{ _("Leave empty if not required") }}"
+                           aria-label="{{ _("Proxy authentication password") }}">
+                </div>
+            </div>
+        </form>
+        <div class="modal-footer">
+            <button type="button" class="modal-button secondary" id="proxy-form-cancel">
+                {{ _("Cancel") }}
+            </button>
+            <button type="submit" form="proxy-form" class="modal-button primary" id="proxy-form-submit">
+                <span class="btn-text">{{ _("Save") }}</span>
+                <span class="spinner htmx-indicator" id="proxy-form-spinner"></span>
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    const ProxyFormModal = {
+        overlay: null,
+        form: null,
+        titleEl: null,
+        submitBtn: null,
+        cancelBtn: null,
+        isEditing: false,
+        editingProxyId: null,
+
+        init() {
+            this.overlay = document.getElementById('proxy-form-overlay');
+            this.form = document.getElementById('proxy-form');
+            this.titleEl = document.getElementById('proxy-modal-title');
+            this.submitBtn = document.getElementById('proxy-form-submit');
+            this.cancelBtn = document.getElementById('proxy-form-cancel');
+
+            // Open modal for adding
+            document.getElementById('add-proxy-btn').addEventListener('click', () => this.openForAdd());
+
+            // Close modal handlers
+            this.cancelBtn.addEventListener('click', () => this.close());
+            this.overlay.addEventListener('click', (e) => {
+                if (e.target === this.overlay) this.close();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.overlay.classList.contains('show')) {
+                    this.close();
+                }
+            });
+
+            // Form submission
+            this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+            // Real-time validation
+            this.form.querySelectorAll('input[required], select[required]').forEach(input => {
+                input.addEventListener('blur', () => this.validateField(input));
+                input.addEventListener('input', () => this.clearFieldError(input));
+            });
+        },
+
+        openForAdd() {
+            this.isEditing = false;
+            this.editingProxyId = null;
+            this.titleEl.textContent = '{{ _("Add Proxy") }}';
+            this.submitBtn.querySelector('.btn-text').textContent = '{{ _("Add Proxy") }}';
+            this.form.reset();
+            document.getElementById('proxy-id').value = '';
+            this.clearAllErrors();
+            this.show();
+        },
+
+        openForEdit(proxy) {
+            this.isEditing = true;
+            this.editingProxyId = proxy.id;
+            this.titleEl.textContent = '{{ _("Edit Proxy") }}';
+            this.submitBtn.querySelector('.btn-text').textContent = '{{ _("Save Changes") }}';
+
+            // Fill form with proxy data
+            document.getElementById('proxy-id').value = proxy.id;
+            document.getElementById('proxy-name').value = proxy.name;
+            document.getElementById('proxy-type').value = proxy.type;
+            document.getElementById('proxy-host').value = proxy.host;
+            document.getElementById('proxy-port').value = proxy.port;
+            document.getElementById('proxy-username').value = proxy.username || '';
+            document.getElementById('proxy-password').value = ''; // Don't fill password for security
+
+            this.clearAllErrors();
+            this.show();
+        },
+
+        show() {
+            this.overlay.classList.add('show');
+            document.getElementById('proxy-name').focus();
+            // Trap focus within modal
+            this.trapFocus();
+        },
+
+        close() {
+            this.overlay.classList.remove('show');
+            this.form.reset();
+            this.clearAllErrors();
+        },
+
+        trapFocus() {
+            const focusableElements = this.overlay.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (focusableElements.length === 0) return;
+
+            const firstFocusable = focusableElements[0];
+            const lastFocusable = focusableElements[focusableElements.length - 1];
+
+            this.overlay.addEventListener('keydown', function trapHandler(e) {
+                if (e.key !== 'Tab') return;
+                if (e.shiftKey) {
+                    if (document.activeElement === firstFocusable) {
+                        lastFocusable.focus();
+                        e.preventDefault();
+                    }
+                } else {
+                    if (document.activeElement === lastFocusable) {
+                        firstFocusable.focus();
+                        e.preventDefault();
+                    }
+                }
+            });
+        },
+
+        validateField(input) {
+            const errorEl = document.getElementById(`${input.id}-error`);
+            let error = '';
+
+            if (input.validity.valueMissing) {
+                error = '{{ _("This field is required") }}';
+            } else if (input.validity.tooShort) {
+                error = `{{ _("Minimum length is") }} ${input.minLength} {{ _("characters") }}`;
+            } else if (input.validity.tooLong) {
+                error = `{{ _("Maximum length is") }} ${input.maxLength} {{ _("characters") }}`;
+            } else if (input.validity.rangeUnderflow) {
+                error = `{{ _("Minimum value is") }} ${input.min}`;
+            } else if (input.validity.rangeOverflow) {
+                error = `{{ _("Maximum value is") }} ${input.max}`;
+            } else if (input.id === 'proxy-host' && input.value.includes(' ')) {
+                error = '{{ _("Host cannot contain spaces") }}';
+            }
+
+            if (errorEl) {
+                errorEl.textContent = error;
+                input.classList.toggle('invalid', !!error);
+            }
+
+            return !error;
+        },
+
+        clearFieldError(input) {
+            const errorEl = document.getElementById(`${input.id}-error`);
+            if (errorEl) errorEl.textContent = '';
+            input.classList.remove('invalid');
+        },
+
+        clearAllErrors() {
+            this.form.querySelectorAll('.field-error').forEach(el => el.textContent = '');
+            this.form.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
+        },
+
+        validateForm() {
+            let isValid = true;
+            this.form.querySelectorAll('input[required], select[required]').forEach(input => {
+                if (!this.validateField(input)) {
+                    isValid = false;
+                }
+            });
+
+            // Additional custom validation for host
+            const hostInput = document.getElementById('proxy-host');
+            if (hostInput.value.includes(' ')) {
+                const errorEl = document.getElementById('proxy-host-error');
+                if (errorEl) errorEl.textContent = '{{ _("Host cannot contain spaces") }}';
+                hostInput.classList.add('invalid');
+                isValid = false;
+            }
+
+            return isValid;
+        },
+
+        async handleSubmit(e) {
+            e.preventDefault();
+
+            if (!this.validateForm()) {
+                ToastManager.warning('{{ _("Please fix the errors in the form") }}', {
+                    title: '{{ _("Validation Error") }}',
+                    duration: 3000
+                });
+                return;
+            }
+
+            const formData = {
+                name: document.getElementById('proxy-name').value.trim(),
+                type: document.getElementById('proxy-type').value,
+                host: document.getElementById('proxy-host').value.trim(),
+                port: parseInt(document.getElementById('proxy-port').value, 10),
+                username: document.getElementById('proxy-username').value.trim(),
+                password: document.getElementById('proxy-password').value
+            };
+
+            this.submitBtn.disabled = true;
+            document.getElementById('proxy-form-spinner').style.display = 'inline-block';
+
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                const url = this.isEditing ? `/api/proxies/${this.editingProxyId}` : '/api/proxies';
+                const method = this.isEditing ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || '{{ _("Operation failed") }}');
+                }
+
+                this.close();
+                htmx.trigger('#proxy-list', 'refresh');
+
+                const successMsg = this.isEditing
+                    ? '{{ _("Proxy updated successfully") }}'
+                    : '{{ _("Proxy added successfully") }}';
+                ToastManager.success(successMsg, {
+                    title: this.isEditing ? '{{ _("Proxy Updated") }}' : '{{ _("Proxy Added") }}',
+                    duration: 3000
+                });
+
+            } catch (error) {
+                console.error('Failed to save proxy:', error);
+                ToastManager.error(error.message, {
+                    title: '{{ _("Save Failed") }}',
+                    duration: 8000
+                });
+            } finally {
+                this.submitBtn.disabled = false;
+                document.getElementById('proxy-form-spinner').style.display = 'none';
+            }
+        }
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
-        // Handle proxy deletion with modal confirmation
+        ProxyFormModal.init();
+
+        // Handle proxy edit button
         document.body.addEventListener('click', async function(e) {
+            const editBtn = e.target.closest('.proxy-edit-btn');
+            if (editBtn) {
+                e.preventDefault();
+                const proxyData = {
+                    id: editBtn.dataset.proxyId,
+                    name: editBtn.dataset.proxyName,
+                    type: editBtn.dataset.proxyType,
+                    host: editBtn.dataset.proxyHost,
+                    port: editBtn.dataset.proxyPort,
+                    username: editBtn.dataset.proxyUsername || ''
+                };
+                ProxyFormModal.openForEdit(proxyData);
+                return;
+            }
+
+            // Handle proxy deletion with modal confirmation
             const deleteBtn = e.target.closest('.proxy-delete-btn');
             if (!deleteBtn) return;
 

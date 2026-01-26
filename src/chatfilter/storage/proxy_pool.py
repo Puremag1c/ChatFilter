@@ -214,3 +214,37 @@ def remove_proxy(proxy_id: str) -> None:
 
     save_proxy_pool(proxies)
     logger.info(f"Removed proxy from pool: {proxy_id}")
+
+
+def update_proxy(proxy_id: str, updated_proxy: ProxyEntry) -> ProxyEntry:
+    """Update an existing proxy in the pool.
+
+    Args:
+        proxy_id: UUID of the proxy to update.
+        updated_proxy: New ProxyEntry data (must have same ID).
+
+    Returns:
+        The updated proxy entry.
+
+    Raises:
+        StorageNotFoundError: If proxy not found.
+        ValueError: If proxy_id doesn't match updated_proxy.id.
+    """
+    if proxy_id != updated_proxy.id:
+        raise ValueError("proxy_id must match updated_proxy.id")
+
+    proxies = load_proxy_pool()
+    found = False
+
+    for i, proxy in enumerate(proxies):
+        if proxy.id == proxy_id:
+            proxies[i] = updated_proxy
+            found = True
+            break
+
+    if not found:
+        raise StorageNotFoundError(f"Proxy not found: {proxy_id}")
+
+    save_proxy_pool(proxies)
+    logger.info(f"Updated proxy in pool: {updated_proxy.name} ({proxy_id})")
+    return updated_proxy
