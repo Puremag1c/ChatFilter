@@ -284,8 +284,8 @@ async def update_proxy_endpoint(proxy_id: str, request: ProxyUpdateRequest) -> P
 async def delete_proxy(proxy_id: str) -> ProxyDeleteResponse:
     """Delete a proxy from the pool.
 
-    Validates that the proxy is not currently in use by any session.
-    If the proxy is in use, returns an error with the list of sessions using it.
+    If the proxy is in use by sessions, they will lose their proxy configuration.
+    The frontend should warn the user before deletion if sessions are affected.
 
     Args:
         proxy_id: UUID of the proxy to delete.
@@ -294,15 +294,11 @@ async def delete_proxy(proxy_id: str) -> ProxyDeleteResponse:
         ProxyDeleteResponse with success status or error.
     """
     try:
-        # Check if proxy is in use by any session
+        # Log if proxy is in use (sessions will be affected)
         sessions_using = _get_sessions_using_proxy(proxy_id)
-
         if sessions_using:
-            logger.warning(f"Cannot delete proxy {proxy_id}: in use by sessions {sessions_using}")
-            return ProxyDeleteResponse(
-                success=False,
-                error="Proxy is in use by one or more sessions",
-                sessions_using_proxy=sessions_using,
+            logger.warning(
+                f"Deleting proxy {proxy_id} that is in use by {len(sessions_using)} sessions: {sessions_using}"
             )
 
         # Remove from pool

@@ -387,26 +387,29 @@
                 return;
             }
 
-            // Handle proxy deletion with modal confirmation
+            // Handle proxy deletion with conditional confirmation
             const deleteBtn = e.target.closest('.proxy-delete-btn');
             if (!deleteBtn) return;
 
             e.preventDefault();
             const proxyId = deleteBtn.dataset.proxyId;
             const proxyName = deleteBtn.dataset.proxyName;
+            const usageCount = parseInt(deleteBtn.dataset.proxyUsageCount || '0', 10);
 
-            // Show modal confirmation
-            const confirmed = await ModalManager.confirm({
-                type: 'danger',
-                icon: '🗑️',
-                title: '{{ _("Delete Proxy") }}',
-                message: `{{ _("Are you sure you want to delete proxy") }} "${proxyName}"? {{ _("This action cannot be undone.") }}`,
-                confirmText: '{{ _("Delete") }}',
-                cancelText: '{{ _("Cancel") }}',
-                confirmClass: 'danger'
-            });
+            // Show confirmation only if proxy is used by sessions
+            if (usageCount > 0) {
+                const confirmed = await ModalManager.confirm({
+                    type: 'danger',
+                    icon: '⚠️',
+                    title: '{{ _("Delete Proxy") }}',
+                    message: `{{ _("This proxy is used by") }} ${usageCount} {{ _("session(s). They will be blocked. Continue?") }}`,
+                    confirmText: '{{ _("Delete") }}',
+                    cancelText: '{{ _("Cancel") }}',
+                    confirmClass: 'danger'
+                });
 
-            if (!confirmed) return;
+                if (!confirmed) return;
+            }
 
             try {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -420,18 +423,7 @@
                 const data = await response.json();
 
                 if (!response.ok || !data.success) {
-                    if (data.sessions_using_proxy && data.sessions_using_proxy.length > 0) {
-                        ToastManager.error(
-                            `{{ _("Proxy is used by sessions:") }} ${data.sessions_using_proxy.join(', ')}`,
-                            {
-                                title: '{{ _("Cannot Delete Proxy") }}',
-                                duration: 8000
-                            }
-                        );
-                    } else {
-                        throw new Error(data.error || 'Delete failed');
-                    }
-                    return;
+                    throw new Error(data.error || 'Delete failed');
                 }
 
                 // Refresh the list

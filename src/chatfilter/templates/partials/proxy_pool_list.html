@@ -57,11 +57,8 @@
                         <button class="btn btn-sm btn-danger proxy-delete-btn"
                                 data-proxy-id="{{ proxy.id }}"
                                 data-proxy-name="{{ proxy.name }}"
-                                {% if proxy.usage_count > 0 %}
-                                title="{{ _("Cannot delete: proxy is in use by sessions") }}"
-                                {% else %}
+                                data-proxy-usage-count="{{ proxy.usage_count }}"
                                 title="{{ _("Delete this proxy") }}"
-                                {% endif %}
                                 aria-label="{{ _('Delete proxy') }} {{ proxy.name }}">
                             {{ _("Delete") }}
                         </button>

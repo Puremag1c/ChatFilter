@@ -408,12 +408,15 @@ class TestDeleteProxy:
         mock_remove.assert_called_once_with(proxy_id)
 
     def test_delete_proxy_in_use(self, client: TestClient, csrf_token: str):
-        """Test deleting a proxy that is in use returns error."""
+        """Test deleting a proxy that is in use succeeds (with warning)."""
         proxy_id = "11111111-1111-1111-1111-111111111111"
 
-        with patch(
-            "chatfilter.web.routers.proxy_pool._get_sessions_using_proxy",
-            return_value=["session1", "session2"],
+        with (
+            patch(
+                "chatfilter.web.routers.proxy_pool._get_sessions_using_proxy",
+                return_value=["session1", "session2"],
+            ),
+            patch("chatfilter.web.routers.proxy_pool.remove_proxy") as mock_remove,
         ):
             response = client.delete(
                 f"/api/proxies/{proxy_id}",
@@ -422,9 +425,8 @@ class TestDeleteProxy:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["success"] is False
-        assert "in use" in data["error"]
-        assert data["sessions_using_proxy"] == ["session1", "session2"]
+        assert data["success"] is True
+        mock_remove.assert_called_once_with(proxy_id)
 
     def test_delete_proxy_not_found(self, client: TestClient, csrf_token: str):
         """Test deleting a non-existent proxy returns 404."""
