@@ -530,14 +530,16 @@ class TestMain:
                 "chatfilter.config._is_path_in_readonly_location",
                 return_value=(False, None),
             ),
+            pytest.raises(SystemExit) as exc_info,
         ):
             mock_settings_class.return_value = mock_settings
             main()
 
-            # Check that Settings was called with CLI overrides
-            call_kwargs = mock_settings_class.call_args[1]
-            assert call_kwargs["host"] == "0.0.0.0"
-            assert call_kwargs["port"] == 9000
+        # Check that Settings was called with CLI overrides
+        call_kwargs = mock_settings_class.call_args[1]
+        assert call_kwargs["host"] == "0.0.0.0"
+        assert call_kwargs["port"] == 9000
+        assert exc_info.value.code == 0
 
     def test_main_calls_setup_logging(self, mock_settings) -> None:
         """Test that main calls setup_logging with correct parameters."""
@@ -556,14 +558,16 @@ class TestMain:
                 "chatfilter.config._is_path_in_readonly_location",
                 return_value=(False, None),
             ),
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
-            mock_setup_logging.assert_called_once()
-            call_kwargs = mock_setup_logging.call_args[1]
-            assert call_kwargs["level"] == "DEBUG"
-            assert call_kwargs["debug"] is True
-            assert call_kwargs["verbose"] is False
+        mock_setup_logging.assert_called_once()
+        call_kwargs = mock_setup_logging.call_args[1]
+        assert call_kwargs["level"] == "DEBUG"
+        assert call_kwargs["debug"] is True
+        assert call_kwargs["verbose"] is False
+        assert exc_info.value.code == 0
 
     def test_main_validation_failure_before_server_start(self, mock_settings, capsys) -> None:
         """Test that validation errors prevent server from starting."""
@@ -594,6 +598,7 @@ class TestMain:
             patch("chatfilter.main.setup_logging"),
             patch("chatfilter.config._is_path_in_readonly_location") as mock_readonly,
             patch("uvicorn.run"),
+            pytest.raises(SystemExit) as exc_info,
         ):
             mock_readonly.return_value = (True, "System directory")
             main()
@@ -601,6 +606,7 @@ class TestMain:
         captured = capsys.readouterr()
         assert "WARNING: Data directory is in a read-only location" in captured.out
         assert "System directory" in captured.out
+        assert exc_info.value.code == 0
 
     def test_main_ensure_data_dirs_errors_exit(self, mock_settings, capsys) -> None:
         """Test that errors creating data directories cause exit."""
@@ -641,6 +647,7 @@ class TestMain:
                 return_value=(False, None),
             ),
             patch("uvicorn.run"),
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
@@ -648,6 +655,7 @@ class TestMain:
         assert "Welcome! This is your first run." in captured.out
         assert "FIRST RUN SETUP GUIDE" in captured.out
         assert "https://my.telegram.org/apps" in captured.out
+        assert exc_info.value.code == 0
 
     def test_main_first_run_marks_complete(self, mock_settings) -> None:
         """Test that first run is marked as complete after successful setup."""
@@ -662,10 +670,12 @@ class TestMain:
                 return_value=(False, None),
             ),
             patch("uvicorn.run"),
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
         mock_settings.mark_first_run_complete.assert_called_once()
+        assert exc_info.value.code == 0
 
     def test_main_not_first_run_no_welcome_banner(self, mock_settings, capsys) -> None:
         """Test that subsequent runs don't show the welcome banner."""
@@ -680,12 +690,14 @@ class TestMain:
                 return_value=(False, None),
             ),
             patch("uvicorn.run"),
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
         captured = capsys.readouterr()
         assert "Welcome! This is your first run." not in captured.out
         assert "FIRST RUN SETUP GUIDE" not in captured.out
+        assert exc_info.value.code == 0
 
     def test_main_uvicorn_called_with_correct_params(self, mock_settings) -> None:
         """Test that uvicorn.run is called with correct parameters."""
@@ -702,15 +714,17 @@ class TestMain:
                 return_value=(False, None),
             ),
             patch("uvicorn.run") as mock_uvicorn_run,
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
-            mock_uvicorn_run.assert_called_once()
-            call_kwargs = mock_uvicorn_run.call_args[1]
-            assert call_kwargs["host"] == "0.0.0.0"
-            assert call_kwargs["port"] == 9090
-            assert call_kwargs["reload"] is False
-            assert call_kwargs["log_level"] == "info"
+        mock_uvicorn_run.assert_called_once()
+        call_kwargs = mock_uvicorn_run.call_args[1]
+        assert call_kwargs["host"] == "0.0.0.0"
+        assert call_kwargs["port"] == 9090
+        assert call_kwargs["reload"] is False
+        assert call_kwargs["log_level"] == "info"
+        assert exc_info.value.code == 0
 
     def test_main_uvicorn_debug_mode_enables_reload(self, mock_settings) -> None:
         """Test that debug mode enables uvicorn reload."""
@@ -725,12 +739,14 @@ class TestMain:
                 return_value=(False, None),
             ),
             patch("uvicorn.run") as mock_uvicorn_run,
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
-            call_kwargs = mock_uvicorn_run.call_args[1]
-            assert call_kwargs["reload"] is True
-            assert call_kwargs["log_level"] == "debug"
+        call_kwargs = mock_uvicorn_run.call_args[1]
+        assert call_kwargs["reload"] is True
+        assert call_kwargs["log_level"] == "debug"
+        assert exc_info.value.code == 0
 
     def test_main_keyboard_interrupt_graceful_shutdown(self, mock_settings, capsys) -> None:
         """Test that KeyboardInterrupt is handled gracefully."""
@@ -775,6 +791,7 @@ class TestMain:
                 return_value=(False, None),
             ),
             patch("uvicorn.run"),
+            pytest.raises(SystemExit) as exc_info,
         ):
             main()
 
@@ -789,6 +806,7 @@ class TestMain:
         assert "Log format:    json" in captured.out
         assert "Verbose:       enabled" in captured.out
         assert f"Log file:      {mock_settings.log_file_path}" in captured.out
+        assert exc_info.value.code == 0
 
 
 # ============================================================================
