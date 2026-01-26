@@ -4,7 +4,15 @@
     <div class="session-item" id="session-{{ session.session_id }}">
         <div class="session-info">
             <span class="session-name">{{ session.session_id }}</span>
-            <span class="session-status {{ session.state }}">{{ session.state }}</span>
+            <span class="session-status {{ session.state }}">
+                {%- if session.state == 'not_configured' -%}
+                    {{ _("Not configured") }}
+                {%- elif session.state == 'proxy_missing' -%}
+                    {{ _("Proxy missing") }}
+                {%- else -%}
+                    {{ session.state }}
+                {%- endif -%}
+            </span>
         </div>
         <div class="session-actions">
             <button class="btn btn-sm btn-danger session-delete-btn"

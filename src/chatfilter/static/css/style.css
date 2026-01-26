@@ -1124,6 +1124,14 @@ footer .diagnostic-button:hover {
     color: var(--danger);
 }
 
+.session-status.not_configured {
+    color: var(--warning);
+}
+
+.session-status.proxy_missing {
+    color: var(--danger);
+}
+
 .session-actions {
     display: flex;
     gap: 0.5rem;

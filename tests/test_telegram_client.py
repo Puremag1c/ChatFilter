@@ -16,6 +16,7 @@ from chatfilter.telegram.client import (
     JoinChatError,
     LeaveChatError,
     MessageFetchError,
+    SessionBlockedError,
     SessionFileError,
     TelegramClientLoader,
     TelegramConfig,
@@ -414,7 +415,14 @@ class TestTelegramClientLoader:
         )
         loader_for_client._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
-        client = loader_for_client.create_client()
+        # Sessions require explicit proxy, provide a minimal one
+        proxy = ProxyConfig(
+            enabled=True,
+            proxy_type=ProxyType.SOCKS5,
+            host="proxy.example.com",
+            port=1080,
+        )
+        client = loader_for_client.create_client(proxy=proxy)
 
         # Check that we got a TelegramClient instance
         from telethon import TelegramClient
@@ -529,11 +537,12 @@ class TestTelegramClientLoader:
 
         assert client._proxy is None
 
-    def test_create_client_without_saved_proxy(
+    def test_create_client_without_proxy_raises_error(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test creating client with use_saved_proxy=False."""
-        session_path = tmp_path / "new_session"
+        """Test that creating client without proxy_id raises SessionBlockedError."""
+        session_path = tmp_path / "test_session" / "session.session"
+        session_path.parent.mkdir(parents=True)
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
@@ -545,11 +554,11 @@ class TestTelegramClientLoader:
 
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
+        loader._proxy_id = None  # No proxy configured
 
-        # Even if saved proxy exists, use_saved_proxy=False should skip it
-        client = loader.create_client(use_saved_proxy=False)
-
-        assert client._proxy is None
+        # Should raise SessionBlockedError when proxy_id is not set
+        with pytest.raises(SessionBlockedError, match="has no proxy configured"):
+            loader.create_client()
 
     def test_create_client_with_custom_timeout(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -559,14 +568,17 @@ class TestTelegramClientLoader:
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
 
-        # Mock load_proxy_config to avoid filesystem access
-        monkeypatch.setattr("chatfilter.telegram.client.load_proxy_config", lambda: None)
-
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
-        # Create client with custom timeout
-        client = loader.create_client(timeout=45, connection_retries=10, retry_delay=2)
+        # Create client with custom timeout and explicit proxy
+        proxy = ProxyConfig(
+            enabled=True,
+            proxy_type=ProxyType.SOCKS5,
+            host="proxy.example.com",
+            port=1080,
+        )
+        client = loader.create_client(proxy=proxy, timeout=45, connection_retries=10, retry_delay=2)
 
         # Verify timeout is set
         assert client._timeout == 45
@@ -592,11 +604,14 @@ class TestTelegramClientLoader:
         loader = TelegramClientLoader(session_path, config_path, use_secure_storage=False)
         loader._config = TelegramConfig(api_id=12345, api_hash="abcdef123456")
 
-        # Mock load_proxy_config to avoid filesystem access
-        monkeypatch.setattr("chatfilter.telegram.client.load_proxy_config", lambda: None)
-
-        # Create client without specifying timeout (should use settings default)
-        client = loader.create_client()
+        # Create client with explicit proxy (required) but without specifying timeout
+        proxy = ProxyConfig(
+            enabled=True,
+            proxy_type=ProxyType.SOCKS5,
+            host="proxy.example.com",
+            port=1080,
+        )
+        client = loader.create_client(proxy=proxy)
 
         # Verify timeout is set to settings default (30 seconds)
         assert client._timeout == 30

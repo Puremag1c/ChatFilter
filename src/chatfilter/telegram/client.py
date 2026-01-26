@@ -34,7 +34,7 @@ from telethon.tl.functions.messages import (
 from telethon.tl.types import Channel, MessageService, User
 from telethon.tl.types import Chat as TelegramChat
 
-from chatfilter.config import ProxyConfig, ProxyType, load_proxy_config
+from chatfilter.config import ProxyConfig, ProxyType
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.models.message import Message
 from chatfilter.telegram.rate_limiter import get_rate_limiter
@@ -465,7 +465,6 @@ class TelegramClientLoader:
     def create_client(
         self,
         proxy: ProxyConfig | None = None,
-        use_saved_proxy: bool = True,
         *,
         timeout: float | None = None,
         connection_retries: int | None = None,
@@ -476,12 +475,12 @@ class TelegramClientLoader:
         Validates files if not already validated. The returned client
         should be used as an async context manager.
 
+        Sessions require a proxy_id to be configured. If no proxy is configured,
+        SessionBlockedError will be raised.
+
         Args:
-            proxy: Explicit proxy configuration to use. If None and
-                use_saved_proxy is True, loads config from saved settings.
-            use_saved_proxy: If True and no explicit proxy provided,
-                loads proxy settings from data/config/proxy.json.
-                Set to False to disable proxy entirely.
+            proxy: Explicit proxy configuration to use. If None, uses the
+                session's configured proxy_id from the proxy pool.
             timeout: Timeout in seconds for network operations (default: 30s).
                 Increased from Telethon default of 10s to handle slow connections
                 and MTProto handshake through proxies.
@@ -495,6 +494,7 @@ class TelegramClientLoader:
             FileNotFoundError: If session or config file doesn't exist
             SessionFileError: If session file is invalid
             TelegramConfigError: If config file is invalid
+            SessionBlockedError: If session has no proxy configured or proxy not found
 
         Example:
             ```python
@@ -548,22 +548,13 @@ class TelegramClientLoader:
                     f"Session '{session_id}' requires proxy '{self._proxy_id}' which is not found in proxy pool. "
                     f"Please add the proxy to the pool or update the session configuration."
                 ) from e
-        elif use_saved_proxy:
-            # Fallback to global proxy config
-            effective_proxy = load_proxy_config()
-            if effective_proxy is not None and effective_proxy.enabled and effective_proxy.host:
-                proxy_type_map = {
-                    ProxyType.SOCKS5: socks.SOCKS5,
-                    ProxyType.HTTP: socks.HTTP,
-                }
-                telethon_proxy = (
-                    proxy_type_map[effective_proxy.proxy_type],
-                    effective_proxy.host,
-                    effective_proxy.port,
-                    True,  # rdns (resolve DNS remotely)
-                    effective_proxy.username or None,
-                    effective_proxy.password or None,
-                )
+        else:
+            # Session has no proxy_id configured - this is required
+            session_id = self._session_path.parent.name
+            raise SessionBlockedError(
+                f"Session '{session_id}' has no proxy configured. "
+                f"Please configure a proxy for this session before connecting."
+            )
 
         # Load default timeouts from settings if not explicitly provided
         from chatfilter.config import get_settings

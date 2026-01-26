@@ -479,8 +479,67 @@ def migrate_legacy_sessions() -> list[str]:
     return migrated
 
 
+def get_session_config_status(session_dir: Path) -> str:
+    """Check session configuration status.
+
+    Validates that the session has required configuration:
+    - api_id and api_hash must be set
+    - proxy_id must be set (sessions require proxy for operation)
+    - If proxy_id is set, the proxy must exist in the pool
+
+    Args:
+        session_dir: Path to session directory
+
+    Returns:
+        Status string:
+        - "disconnected": Configuration is valid
+        - "not_configured": Missing api_id, api_hash, or proxy_id
+        - "proxy_missing": proxy_id is set but proxy not found in pool
+    """
+    config_file = session_dir / "config.json"
+
+    if not config_file.exists():
+        return "not_configured"
+
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"Failed to read config for session {session_dir.name}: {e}")
+        return "not_configured"
+
+    # Check required fields
+    api_id = config.get("api_id")
+    api_hash = config.get("api_hash")
+    proxy_id = config.get("proxy_id")
+
+    # api_id and api_hash are required
+    if not api_id or not api_hash:
+        return "not_configured"
+
+    # proxy_id is required for session to be connectable
+    if not proxy_id:
+        return "not_configured"
+
+    # Verify proxy exists in pool
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+    try:
+        get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        return "proxy_missing"
+
+    return "disconnected"
+
+
 def list_stored_sessions() -> list[SessionListItem]:
     """List all stored sessions.
+
+    Each session is validated for configuration status:
+    - "disconnected": Ready to connect
+    - "not_configured": Missing required configuration (api_id, api_hash, or proxy_id)
+    - "proxy_missing": proxy_id references a proxy that no longer exists in pool
 
     Returns:
         List of session info items
@@ -494,10 +553,11 @@ def list_stored_sessions() -> list[SessionListItem]:
             config_file = session_dir / "config.json"
 
             if session_file.exists() and config_file.exists():
+                state = get_session_config_status(session_dir)
                 sessions.append(
                     SessionListItem(
                         session_id=session_dir.name,
-                        state="disconnected",  # All sessions start disconnected
+                        state=state,
                     )
                 )
 
