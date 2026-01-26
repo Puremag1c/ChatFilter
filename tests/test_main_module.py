@@ -590,21 +590,23 @@ class TestMain:
         assert "Configuration validation failed" in captured.out
         assert "Port in use" in captured.out
 
-    def test_main_readonly_data_dir_warning(self, mock_settings, capsys) -> None:
-        """Test that readonly data directory shows warning."""
+    def test_main_readonly_data_dir_auto_relocates(self, mock_settings, capsys) -> None:
+        """Test that readonly data directory auto-relocates to safe location."""
         with (
             patch.object(sys, "argv", ["chatfilter"]),
             mock_main_dependencies(mock_settings),
             patch("chatfilter.main.setup_logging"),
             patch("chatfilter.config._is_path_in_readonly_location") as mock_readonly,
+            patch("chatfilter.config._get_default_data_dir") as mock_default_dir,
             patch("uvicorn.run"),
             pytest.raises(SystemExit) as exc_info,
         ):
             mock_readonly.return_value = (True, "System directory")
+            mock_default_dir.return_value = Path("/safe/data/dir")
             main()
 
         captured = capsys.readouterr()
-        assert "WARNING: Data directory is in a read-only location" in captured.out
+        assert "NOTICE: Auto-relocating data directory" in captured.out
         assert "System directory" in captured.out
         assert exc_info.value.code == 0
 

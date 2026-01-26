@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-01-26
+
+### Fixed
+- **macOS AppTranslocation**: Data directory now auto-relocates to `~/Library/Application Support/ChatFilter` when running from read-only locations (downloaded .app from DMG)
+- **Tray icon timeout**: Added 5-second timeout for tray initialization to prevent "Application Not Responding" on macOS
+
+### Added
+- **Proxy health monitoring**: Background task pings proxies every 5 minutes, auto-disables after 3 failures
+- **Proxy status indicators**: Working (🟢), No ping (🔴), Untested (⚪) shown in proxy list
+- **Retest button**: Manual proxy health check with instant status update
+
+### Changed
+- **Sessions page UX overhaul**: Single "Add Account" button with modal for upload or phone auth
+- **Account list**: Shows status (Working/Not authorized/Disabled), proxy assignment, edit/delete actions
+- **Merged proxy pages**: Combined `/proxy` and `/proxies` into single `/proxies` page
+- Removed legacy global proxy support (`proxy.json`), all proxies now use pool
+
+## [0.4.6] - 2026-01-26
+
+### Fixed
+- PyInstaller spec version sync with package version
+- Added proper app icons for macOS/Windows builds
+- Lazy import pystray to prevent crashes on headless systems
+
+## [0.4.5] - 2026-01-25
+
+### Added
+- Phone-based session creation with code/2FA authentication flow
+- Session config form with api_id, api_hash, proxy selection
+- Proxy pool UI with add/edit modal and delete confirmation
+- System tray icon integration (macOS menu bar, Windows system tray, Linux AppIndicator)
+- Headless environment detection for graceful tray skip
+
+### Fixed
+- Proxy JSON deserialization type coercion
+
 ## [0.4.0] - 2026-01-24
 
 ### Changed
@@ -72,7 +108,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.6...v0.4.7
+[0.4.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.5...v0.4.6
+[0.4.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.0...v0.4.5
 [0.4.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.1.0...v0.2.0
