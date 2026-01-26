@@ -2,10 +2,33 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+
+def _ensure_stdio() -> None:
+    """Ensure stdout/stderr exist for headless operation (Windows pythonw).
+
+    On Windows, when running with pythonw.exe (no console), sys.stdout
+    and sys.stderr are None. This causes print() and logging to fail.
+    Redirect to StringIO to prevent crashes.
+
+    Note: Type stubs claim sys.stdout is always TextIO, but pythonw sets it to None.
+    """
+    # Runtime check - getattr avoids mypy's type narrowing
+    stdout = getattr(sys, "stdout", None)
+    stderr = getattr(sys, "stderr", None)
+    if stdout is None:
+        object.__setattr__(sys, "stdout", io.StringIO())
+    if stderr is None:
+        object.__setattr__(sys, "stderr", io.StringIO())
+
+
+# Call immediately on import to protect all print() calls
+_ensure_stdio()
 
 
 def setup_logging(
@@ -397,6 +420,13 @@ def main() -> None:
     if is_first_run and not dir_errors:
         settings.mark_first_run_complete()
 
+    # Start system tray icon (runs in background thread)
+    from chatfilter.service.tray import start_tray_icon, stop_tray_icon
+
+    tray_icon = start_tray_icon(host=settings.host, port=settings.port)
+    if tray_icon:
+        print("Tray icon:     active")
+
     try:
         uvicorn.run(
             "chatfilter.web.app:app",
@@ -412,6 +442,9 @@ def main() -> None:
         )
     except KeyboardInterrupt:
         print("\nShutting down...")
+    finally:
+        # Ensure tray icon is stopped on exit
+        stop_tray_icon()
         sys.exit(0)
 
 

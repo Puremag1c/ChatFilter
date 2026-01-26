@@ -112,6 +112,13 @@ hiddenimports += [
     'pathlib',
     'tempfile',
     'csv',
+
+    # System tray support
+    'pystray',
+    'pystray._base',
+    'PIL',
+    'PIL.Image',
+    'PIL.ImageDraw',
 ]
 
 # Collect data files from dependencies
@@ -182,7 +189,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,  # UPX disabled: reduces antivirus false positives
-    console=True,  # Console application (web server)
+    console=False,  # GUI application (tray icon, no console window)
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
