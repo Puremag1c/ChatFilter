@@ -58,6 +58,13 @@ class SessionFileError(Exception):
     """Raised when session file is invalid, incompatible, or locked."""
 
 
+class SessionBlockedError(Exception):
+    """Raised when session cannot connect due to missing required configuration.
+
+    This includes cases where proxy_id is set but the proxy is not found in pool.
+    """
+
+
 @dataclass(frozen=True)
 class TelegramConfig:
     """Telegram API configuration with secure storage support.
@@ -384,6 +391,7 @@ class TelegramClientLoader:
         self._config_path = config_path
         self._use_secure_storage = use_secure_storage
         self._config: TelegramConfig | None = None
+        self._proxy_id: str | None = None
 
     @property
     def session_path(self) -> Path:
@@ -415,10 +423,15 @@ class TelegramClientLoader:
             storage_dir = self._session_path.parent.parent
 
             try:
-                self._config = TelegramConfig.from_secure_storage(session_id, storage_dir)
+                from chatfilter.security import CredentialNotFoundError, SecureCredentialManager
+
+                manager = SecureCredentialManager(storage_dir)
+                api_id, api_hash, proxy_id = manager.retrieve_credentials(session_id)
+                self._config = TelegramConfig(api_id=api_id, api_hash=api_hash)
+                self._proxy_id = proxy_id
                 logger.debug(f"Loaded credentials from secure storage for: {session_id}")
                 return
-            except TelegramConfigError as e:
+            except CredentialNotFoundError as e:
                 # If secure storage fails and we have a config_path, try plaintext
                 if self._config_path and self._config_path.exists():
                     logger.warning(f"Secure storage failed ({e}), falling back to plaintext config")
@@ -426,9 +439,15 @@ class TelegramClientLoader:
                         self._config_path,
                         migrate_to_secure=True,  # Auto-migrate
                     )
+                    self._proxy_id = None  # Legacy mode has no proxy_id
                     return
                 # No fallback available
-                raise
+                raise TelegramConfigError(
+                    f"Credentials not found in secure storage for session '{session_id}'. "
+                    f"Please ensure credentials are properly configured."
+                ) from e
+            except Exception as e:
+                raise TelegramConfigError(f"Failed to load credentials: {e}") from e
 
         # Legacy mode: use plaintext config
         if self._config_path is not None:
@@ -497,23 +516,54 @@ class TelegramClientLoader:
 
         # Resolve proxy configuration
         telethon_proxy = None
-        effective_proxy = proxy
-        if effective_proxy is None and use_saved_proxy:
-            effective_proxy = load_proxy_config()
 
-        if effective_proxy is not None and effective_proxy.enabled and effective_proxy.host:
-            proxy_type_map = {
-                ProxyType.SOCKS5: socks.SOCKS5,
-                ProxyType.HTTP: socks.HTTP,
-            }
-            telethon_proxy = (
-                proxy_type_map[effective_proxy.proxy_type],
-                effective_proxy.host,
-                effective_proxy.port,
-                True,  # rdns (resolve DNS remotely)
-                effective_proxy.username or None,
-                effective_proxy.password or None,
-            )
+        # Priority: 1) explicit proxy arg, 2) session's proxy_id from pool, 3) global proxy config
+        if proxy is not None:
+            # Explicit proxy passed - use it directly
+            if proxy.enabled and proxy.host:
+                proxy_type_map = {
+                    ProxyType.SOCKS5: socks.SOCKS5,
+                    ProxyType.HTTP: socks.HTTP,
+                }
+                telethon_proxy = (
+                    proxy_type_map[proxy.proxy_type],
+                    proxy.host,
+                    proxy.port,
+                    True,  # rdns (resolve DNS remotely)
+                    proxy.username or None,
+                    proxy.password or None,
+                )
+        elif self._proxy_id is not None:
+            # Session has a specific proxy_id - load from pool
+            from chatfilter.storage.errors import StorageNotFoundError
+            from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+            try:
+                proxy_entry = get_proxy_by_id(self._proxy_id)
+                telethon_proxy = proxy_entry.to_telethon_proxy()
+                logger.debug(f"Using proxy from pool: {proxy_entry.name} ({proxy_entry.id})")
+            except StorageNotFoundError as e:
+                session_id = self._session_path.parent.name
+                raise SessionBlockedError(
+                    f"Session '{session_id}' requires proxy '{self._proxy_id}' which is not found in proxy pool. "
+                    f"Please add the proxy to the pool or update the session configuration."
+                ) from e
+        elif use_saved_proxy:
+            # Fallback to global proxy config
+            effective_proxy = load_proxy_config()
+            if effective_proxy is not None and effective_proxy.enabled and effective_proxy.host:
+                proxy_type_map = {
+                    ProxyType.SOCKS5: socks.SOCKS5,
+                    ProxyType.HTTP: socks.HTTP,
+                }
+                telethon_proxy = (
+                    proxy_type_map[effective_proxy.proxy_type],
+                    effective_proxy.host,
+                    effective_proxy.port,
+                    True,  # rdns (resolve DNS remotely)
+                    effective_proxy.username or None,
+                    effective_proxy.password or None,
+                )
 
         # Load default timeouts from settings if not explicitly provided
         from chatfilter.config import get_settings
