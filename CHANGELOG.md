@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.12] - 2026-01-27
+
+### Fixed
+- **Auto-open browser**: Actually removed auto-open browser on startup (was documented in 0.4.11 but code remained)
+- **Proxy settings lost on import**: Fixed proxy_id not being saved when importing or uploading sessions
+
 ## [0.4.11] - 2026-01-27
 
 ### Added
