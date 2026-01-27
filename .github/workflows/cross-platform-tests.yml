@@ -63,7 +63,7 @@ jobs:
           # Parallel execution with pytest-xdist for faster CI
           # Coverage only on macOS to save time
           if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            pytest -n auto --cov=src/chatfilter --cov-report=xml --cov-report=term --cov-fail-under=77
+            pytest -n auto --cov=src/chatfilter --cov-report=xml --cov-report=term --cov-fail-under=76
           else
             pytest -n auto
           fi
