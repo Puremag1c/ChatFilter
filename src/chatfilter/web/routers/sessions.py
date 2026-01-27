@@ -736,9 +736,9 @@ async def upload_session(
             # Get storage directory (parent of session_dir)
             storage_dir = session_dir.parent
 
-            # Store credentials in secure storage
+            # Store credentials in secure storage (without proxy_id - user must configure it)
             manager = SecureCredentialManager(storage_dir)
-            manager.store_credentials(safe_name, api_id, api_hash)
+            manager.store_credentials(safe_name, api_id, api_hash, None)
 
             logger.info(f"Stored credentials securely for session: {safe_name}")
 
@@ -1095,7 +1095,7 @@ async def update_session_config(
 
         storage_dir = session_dir.parent
         manager = SecureCredentialManager(storage_dir)
-        manager.store_credentials(safe_name, api_id, api_hash)
+        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
         logger.info(f"Updated credentials in secure storage for session: {safe_name}")
     except Exception as e:
         logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
@@ -1885,9 +1885,9 @@ async def save_import_session(
             # Get storage directory (parent of session_dir)
             storage_dir = session_dir.parent
 
-            # Store credentials in secure storage
+            # Store credentials in secure storage (with proxy_id from form)
             manager = SecureCredentialManager(storage_dir)
-            manager.store_credentials(safe_name, api_id, api_hash)
+            manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
 
             logger.info(f"Stored credentials securely for session: {safe_name}")
 
