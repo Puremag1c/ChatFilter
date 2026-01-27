@@ -99,7 +99,7 @@ def _migrate_legacy_proxy() -> None:
 
     # Save to new format
     proxies_path.parent.mkdir(parents=True, exist_ok=True)
-    save_json(proxies_path, [proxy.model_dump()])
+    save_json(proxies_path, [proxy.model_dump(mode="json")])
 
     logger.info(f"Migrated legacy proxy.json to proxies.json: {proxy.name} ({proxy.id})")
 
@@ -153,7 +153,8 @@ def save_proxy_pool(proxies: list[ProxyEntry]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
     # Convert to list of dicts for JSON serialization
-    data = [proxy.model_dump() for proxy in proxies]
+    # mode='json' ensures datetime objects are serialized as ISO strings
+    data = [proxy.model_dump(mode="json") for proxy in proxies]
 
     save_json(path, data)
     logger.debug(f"Saved {len(proxies)} proxies to pool")

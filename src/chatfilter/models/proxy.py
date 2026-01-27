@@ -4,10 +4,26 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 
 from chatfilter.config import ProxyStatus, ProxyType
+
+
+def _parse_datetime(v: str | datetime | None) -> datetime | None:
+    """Parse ISO string to datetime for JSON deserialization."""
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v
+    if isinstance(v, str):
+        return datetime.fromisoformat(v.replace("Z", "+00:00"))
+    raise ValueError(f"Expected datetime, ISO string, or None, got {type(v)}")
+
+
+# Type alias for datetime fields that accept ISO strings
+FlexibleDatetime = Annotated[datetime | None, BeforeValidator(_parse_datetime)]
 
 
 class ProxyEntry(BaseModel):
@@ -61,8 +77,8 @@ class ProxyEntry(BaseModel):
 
     # Health monitoring fields
     status: ProxyStatus = Field(default=ProxyStatus.UNTESTED)
-    last_ping_at: datetime | None = Field(default=None)
-    last_success_at: datetime | None = Field(default=None)
+    last_ping_at: FlexibleDatetime = Field(default=None)
+    last_success_at: FlexibleDatetime = Field(default=None)
     consecutive_failures: int = Field(default=0, ge=0)
 
     @field_validator("name")
