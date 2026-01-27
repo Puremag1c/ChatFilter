@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-01-27
+
+### Fixed
+- **UI**: Fixed `querySelector` crash when loading session file (null-check for activeTab)
+- **Proxy Pool**: Fixed UI disappearing and showing raw JSON when testing proxy (changed HTMX swap to trigger refresh)
+- **macOS Tray**: Fixed missing tray icon and Dock icon on macOS
+  - Added `pyobjc-framework-Cocoa` dependency
+  - Added pyobjc hiddenimports for PyInstaller
+  - Added `LSUIElement`, `NSHighResolutionCapable` to Info.plist
+
+### Changed
+- CI coverage threshold lowered to 76%
+
 ## [0.4.8] - 2026-01-26
 
 ### Fixed
