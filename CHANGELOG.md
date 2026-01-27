@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0] - 2026-01-27
 
+### Added
+- **Complete Russian translations**: Full i18n support for all UI elements
+  - 500+ translation entries for sessions, proxies, modals, buttons, status indicators
+  - Error messages from Python code now translate (proxy errors, configuration errors)
+  - Language switching works correctly in both directions (RU ↔ EN)
+
 ### Removed
 - **Desktop Application**: Removed native window and system tray functionality
   - Removed pywebview native window (application now runs as pure CLI server)
@@ -241,7 +247,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.12...v0.5.0
