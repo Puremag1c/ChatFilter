@@ -966,3 +966,430 @@ class TestSessionConfigAPI:
             )
 
         assert response.status_code == 404
+
+
+class TestSessionConnectDisconnectAPI:
+    """Tests for session connect/disconnect API endpoints."""
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        """Create test client."""
+        app = create_app(debug=True)
+        return TestClient(app)
+
+    @pytest.fixture
+    def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
+        """Create clean data directory for tests."""
+        data_dir = tmp_path / "sessions"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        yield data_dir
+        if data_dir.exists():
+            shutil.rmtree(data_dir)
+
+    @pytest.fixture
+    def configured_session(self, clean_data_dir: Path) -> Path:
+        """Create a fully configured session directory."""
+        import uuid
+
+        session_dir = clean_data_dir / "test_session"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session file
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create config.json with valid proxy_id
+        config_data = {
+            "api_id": 12345,
+            "api_hash": "0123456789abcdef0123456789abcdef",
+            "proxy_id": str(uuid.uuid4()),
+        }
+        config_path = session_dir / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        return session_dir
+
+    @pytest.fixture
+    def unconfigured_session(self, clean_data_dir: Path) -> Path:
+        """Create a session without proxy configured."""
+        session_dir = clean_data_dir / "unconfigured_session"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session file
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create config.json without proxy_id
+        config_data = {
+            "api_id": 12345,
+            "api_hash": "0123456789abcdef0123456789abcdef",
+            "proxy_id": None,
+        }
+        config_path = session_dir / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        return session_dir
+
+    def test_connect_session_not_found(self, client: TestClient, clean_data_dir: Path) -> None:
+        """Test connecting non-existent session returns 404."""
+        from unittest.mock import MagicMock, patch
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.post(
+                "/api/sessions/nonexistent/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 404
+
+    def test_connect_session_invalid_name(self, client: TestClient, clean_data_dir: Path) -> None:
+        """Test connecting with invalid session name returns 400."""
+        from unittest.mock import MagicMock, patch
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.post(
+                "/api/sessions/.../connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+
+    def test_connect_session_not_configured(
+        self, client: TestClient, clean_data_dir: Path, unconfigured_session: Path
+    ) -> None:
+        """Test connecting unconfigured session returns 400."""
+        from unittest.mock import MagicMock, patch
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.post(
+                "/api/sessions/unconfigured_session/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+        assert "not configured" in response.text.lower()
+
+    def test_connect_session_proxy_missing(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test connecting session with missing proxy returns 400."""
+        from unittest.mock import MagicMock, patch
+
+        from chatfilter.storage.errors import StorageNotFoundError
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                side_effect=StorageNotFoundError("Not found"),
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/test_session/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+        assert "proxy" in response.text.lower()
+
+    def test_connect_session_success(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test successful session connection."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+        from chatfilter.telegram.session_manager import SessionInfo, SessionState
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        # Read the proxy_id from config
+        config_path = configured_session / "config.json"
+        config_data = json.loads(config_path.read_text())
+        test_proxy_id = config_data["proxy_id"]
+
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.connect = AsyncMock()
+        mock_session_manager.get_info.return_value = SessionInfo(
+            session_id="test_session",
+            state=SessionState.CONNECTED,
+        )
+
+        # Mock loader
+        mock_loader = MagicMock()
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+            patch(
+                "chatfilter.telegram.client.TelegramClientLoader",
+                return_value=mock_loader,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/test_session/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 200
+        assert "Disconnect" in response.text
+        assert "HX-Trigger" in response.headers
+        assert response.headers["HX-Trigger"] == "refreshSessions"
+
+    def test_connect_session_failure(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test session connection failure returns error state."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+        from chatfilter.telegram.session_manager import SessionConnectError
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        # Read the proxy_id from config
+        config_path = configured_session / "config.json"
+        config_data = json.loads(config_path.read_text())
+        test_proxy_id = config_data["proxy_id"]
+
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock session manager to raise error
+        mock_session_manager = MagicMock()
+        mock_session_manager.connect = AsyncMock(
+            side_effect=SessionConnectError("Connection failed")
+        )
+
+        # Mock loader
+        mock_loader = MagicMock()
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+            patch(
+                "chatfilter.telegram.client.TelegramClientLoader",
+                return_value=mock_loader,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/test_session/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 200
+        assert "Retry" in response.text or "error" in response.text.lower()
+
+    def test_disconnect_session_invalid_name(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test disconnecting with invalid session name returns 400."""
+        from unittest.mock import MagicMock, patch
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.post(
+                "/api/sessions/.../disconnect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+
+    def test_disconnect_session_success(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test successful session disconnection."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        # Read the proxy_id from config
+        config_path = configured_session / "config.json"
+        config_data = json.loads(config_path.read_text())
+        test_proxy_id = config_data["proxy_id"]
+
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.disconnect = AsyncMock()
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/test_session/disconnect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 200
+        assert "Connect" in response.text
+        assert "HX-Trigger" in response.headers
+        assert response.headers["HX-Trigger"] == "refreshSessions"
+        mock_session_manager.disconnect.assert_called_once_with("test_session")
+
+    def test_disconnect_session_not_connected(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test disconnecting session that's not connected still succeeds."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        # Read the proxy_id from config
+        config_path = configured_session / "config.json"
+        config_data = json.loads(config_path.read_text())
+        test_proxy_id = config_data["proxy_id"]
+
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock session manager - disconnect is safe even when not connected
+        mock_session_manager = MagicMock()
+        mock_session_manager.disconnect = AsyncMock()
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/test_session/disconnect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # Should succeed - disconnect is idempotent
+        assert response.status_code == 200
+        assert "Connect" in response.text
