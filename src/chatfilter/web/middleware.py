@@ -264,10 +264,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Content Security Policy - allows inline styles/scripts for HTMX
-        # Note: This is permissive for HTMX functionality but still provides protection
+        # Note: 'unsafe-eval' required for htmx.min.js and chart.umd.min.js
+        # which use new Function() for dynamic code generation
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; "
             "font-src 'self'; "
