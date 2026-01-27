@@ -474,21 +474,20 @@ def main() -> None:
         )
         webview.start()  # Blocks until window is closed
     except ImportError:
-        # Fallback to browser if pywebview not available
+        # Fallback: run headless if pywebview not available
+        # User can open browser via tray icon "Open in Browser" menu
         import contextlib
-        import webbrowser
 
-        print(f"pywebview not available, opening browser: {url}")
-        webbrowser.open(url)
-        # Keep running until Ctrl+C
+        print(f"pywebview not available, running headless. URL: {url}")
+        print("Use tray icon menu to open in browser, or Ctrl+C to stop.")
         with contextlib.suppress(KeyboardInterrupt):
             server_thread.join()
     except Exception as e:
-        logging.warning(f"Failed to start webview: {e}, falling back to browser")
+        logging.warning(f"Failed to start webview: {e}, running headless")
         import contextlib
-        import webbrowser
 
-        webbrowser.open(url)
+        print(f"Running headless. URL: {url}")
+        print("Use tray icon menu to open in browser, or Ctrl+C to stop.")
         with contextlib.suppress(KeyboardInterrupt):
             server_thread.join()
     finally:

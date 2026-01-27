@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.11] - 2026-01-27
+
+### Added
+- **Native Window**: Application now runs in native window using pywebview
+  - Replaces browser-based UI with native macOS/Windows/Linux window
+  - uvicorn server runs in background thread
+  - Fallback to headless mode if pywebview unavailable
+
+### Changed
+- **No auto-open browser**: Removed automatic browser launch on startup
+  - Use tray icon menu "Open in Browser" to access web UI
+  - Native window opens automatically instead
+
 ## [0.4.10] - 2026-01-27
 
 ### Fixed
@@ -141,7 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.10...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.11...HEAD
+[0.4.11]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.7...v0.4.8
