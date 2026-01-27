@@ -15,16 +15,12 @@ from chatfilter.service.monitoring import (
     get_monitoring_service,
     reset_monitoring_service,
 )
-from chatfilter.service.tray import create_tray_icon, start_tray_icon, stop_tray_icon
 
 __all__ = [
     "ChatAnalysisService",
     "MonitoringError",
     "MonitoringService",
     "MonitorNotFoundError",
-    "create_tray_icon",
     "get_monitoring_service",
     "reset_monitoring_service",
-    "start_tray_icon",
-    "stop_tray_icon",
 ]

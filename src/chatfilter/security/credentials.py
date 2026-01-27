@@ -474,16 +474,10 @@ class SecureCredentialManager:
         self._keyring_backend = KeyringBackend()
         self._file_backend = EncryptedFileBackend(storage_dir)
 
-        # Determine preferred storage backend
-        if self._keyring_backend.is_available():
-            self._storage_backend = self._keyring_backend
-            logger.info("Using OS keyring for credential storage")
-        else:
-            self._storage_backend = self._file_backend
-            logger.warning(
-                "OS keyring not available, using encrypted file backend. "
-                "For better security, ensure keyring is properly configured."
-            )
+        # Use encrypted file backend by default (no keychain prompts)
+        # Keyring causes repeated password prompts on macOS which is bad UX
+        self._storage_backend = self._file_backend
+        logger.info("Using encrypted file backend for credential storage")
 
     def store_credentials(
         self,

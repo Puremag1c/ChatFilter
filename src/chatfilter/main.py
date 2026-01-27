@@ -2,33 +2,10 @@
 
 from __future__ import annotations
 
-import io
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-
-
-def _ensure_stdio() -> None:
-    """Ensure stdout/stderr exist for headless operation (Windows pythonw).
-
-    On Windows, when running with pythonw.exe (no console), sys.stdout
-    and sys.stderr are None. This causes print() and logging to fail.
-    Redirect to StringIO to prevent crashes.
-
-    Note: Type stubs claim sys.stdout is always TextIO, but pythonw sets it to None.
-    """
-    # Runtime check - getattr avoids mypy's type narrowing
-    stdout = getattr(sys, "stdout", None)
-    stderr = getattr(sys, "stderr", None)
-    if stdout is None:
-        object.__setattr__(sys, "stdout", io.StringIO())
-    if stderr is None:
-        object.__setattr__(sys, "stderr", io.StringIO())
-
-
-# Call immediately on import to protect all print() calls
-_ensure_stdio()
 
 
 def setup_logging(
@@ -420,79 +397,24 @@ def main() -> None:
     if is_first_run and not dir_errors:
         settings.mark_first_run_complete()
 
-    # Run application with native window (pywebview) or browser mode
-    import threading
+    # Run uvicorn server (blocks until Ctrl+C)
+    print(f"\nServer running at http://{settings.host}:{settings.port}")
+    print("Press Ctrl+C to stop\n")
 
-    def run_server() -> None:
-        """Run uvicorn server in background thread."""
+    try:
         uvicorn.run(
             "chatfilter.web.app:app",
             host=settings.host,
             port=settings.port,
-            reload=False,  # Disable reload in threaded mode
+            reload=settings.debug,
             log_level="debug" if settings.debug else "info",
             timeout_keep_alive=5,
             timeout_graceful_shutdown=30,
         )
-
-    # Start server in background thread
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-
-    # Wait for server to start
-    import time
-
-    url = f"http://{settings.host}:{settings.port}"
-    for _ in range(50):  # Wait up to 5 seconds
-        try:
-            import socket
-
-            with socket.create_connection((settings.host, settings.port), timeout=0.1):
-                break
-        except (OSError, ConnectionRefusedError):
-            time.sleep(0.1)
-
-    # Start system tray icon
-    from chatfilter.service.tray import start_tray_icon, stop_tray_icon
-
-    tray_icon = start_tray_icon(host=settings.host, port=settings.port)
-    if tray_icon:
-        print("Tray icon:     active")
-
-    # Run native window with pywebview (main thread - required for macOS)
-    try:
-        import webview
-
-        print(f"Opening window: {url}")
-        webview.create_window(
-            title=f"ChatFilter v{__version__}",
-            url=url,
-            width=1200,
-            height=800,
-            resizable=True,
-            min_size=(800, 600),
-        )
-        webview.start()  # Blocks until window is closed
-    except ImportError:
-        # Fallback: run headless if pywebview not available
-        # User can open browser via tray icon "Open in Browser" menu
-        import contextlib
-
-        print(f"pywebview not available, running headless. URL: {url}")
-        print("Use tray icon menu to open in browser, or Ctrl+C to stop.")
-        with contextlib.suppress(KeyboardInterrupt):
-            server_thread.join()
-    except Exception as e:
-        logging.warning(f"Failed to start webview: {e}, running headless")
-        import contextlib
-
-        print(f"Running headless. URL: {url}")
-        print("Use tray icon menu to open in browser, or Ctrl+C to stop.")
-        with contextlib.suppress(KeyboardInterrupt):
-            server_thread.join()
+    except KeyboardInterrupt:
+        pass
     finally:
         print("\nShutting down...")
-        stop_tray_icon()
         sys.exit(0)
 
 

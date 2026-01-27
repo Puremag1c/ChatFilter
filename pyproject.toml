@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chatfilter"
-version = "0.5.2"
+version = "0.6.0"
 description = "Telegram chat filtering and analysis tool"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,12 +27,6 @@ dependencies = [
     "babel>=2.14.0",
     "python-multipart>=0.0.9",
     "jinja2>=3.1.0",
-    "pystray>=0.19.0",
-    "Pillow>=10.0.0",
-    "pywebview>=5.0.0",
-    # macOS: pyobjc for system tray and webview
-    "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
-    "pyobjc-framework-WebKit>=10.0; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]
@@ -56,11 +50,6 @@ dev = [
 
 [project.scripts]
 chatfilter = "chatfilter.main:main"
-
-[project.gui-scripts]
-# Windows: runs with pythonw.exe (no console window)
-# macOS/Linux: behaves same as console script
-chatfilter-gui = "chatfilter.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/chatfilter"]
@@ -131,14 +120,6 @@ module = ["socks", "socks.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["pystray", "pystray.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["PIL", "PIL.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = ["uvicorn", "uvicorn.*"]
 ignore_missing_imports = true
 
@@ -155,10 +136,6 @@ ignore_missing_imports = true
 module = ["openpyxl", "openpyxl.*"]
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = ["webview", "webview.*"]
-ignore_missing_imports = true
-
 [tool.coverage.run]
 source = ["src/chatfilter"]
 omit = [
@@ -167,8 +144,6 @@ omit = [
     "*/__pycache__/*",
     "*/venv/*",
     "*/.venv/*",
-    # GUI/platform-specific code that requires manual testing
-    "*/service/tray.py",
     # Auth state management (tested via integration tests)
     "*/web/auth_state.py",
 ]

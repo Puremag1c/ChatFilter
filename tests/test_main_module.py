@@ -79,54 +79,19 @@ def mock_settings():
 def mock_main_dependencies(mock_settings_obj, capture_uvicorn_call: MagicMock | None = None):
     """Context manager to mock all main() dependencies.
 
-    Mocks configuration, GUI components (pywebview, tray), and threading
-    to allow tests to run in headless CI environments.
+    Mocks configuration and uvicorn to allow tests to run in CI environments.
 
     Args:
         mock_settings_obj: Mock settings object
         capture_uvicorn_call: Optional MagicMock to capture uvicorn.run call args
     """
-    # Mock webview module to prevent GUI window creation
-    mock_webview = MagicMock()
-    mock_webview.create_window = MagicMock()
-    mock_webview.start = MagicMock()
-
-    # Mock tray icon
-    mock_tray = MagicMock(return_value=None)
-    mock_stop_tray = MagicMock()
-
-    # Mock uvicorn.run - this gets called inside the thread target
     mock_uvicorn = capture_uvicorn_call if capture_uvicorn_call else MagicMock()
-
-    # Create a mock thread that calls target synchronously (for testing)
-    class MockThread:
-        def __init__(self, target=None, daemon=None, **kwargs):
-            self.target = target
-            self.daemon = daemon
-
-        def start(self):
-            # Call target synchronously so uvicorn.run mock gets invoked
-            if self.target:
-                self.target()
-
-        def join(self, timeout=None):
-            pass
-
-    # Mock socket to skip server wait loop
-    mock_socket_conn = MagicMock()
-    mock_socket_conn.__enter__ = MagicMock()
-    mock_socket_conn.__exit__ = MagicMock()
 
     with (
         patch("chatfilter.config.get_settings", return_value=mock_settings_obj),
         patch("chatfilter.config.Settings", return_value=mock_settings_obj),
         patch("chatfilter.config.reset_settings"),
-        patch.dict("sys.modules", {"webview": mock_webview}),
-        patch("chatfilter.service.tray.start_tray_icon", mock_tray),
-        patch("chatfilter.service.tray.stop_tray_icon", mock_stop_tray),
-        patch("threading.Thread", MockThread),
         patch("uvicorn.run", mock_uvicorn),
-        patch("socket.create_connection", return_value=mock_socket_conn),
     ):
         yield mock_uvicorn
 
@@ -565,11 +530,6 @@ class TestMain:
 
     def test_main_cli_overrides_env_settings(self, mock_settings) -> None:
         """Test that CLI arguments override environment settings."""
-        # Create mock thread class
-        mock_thread = MagicMock()
-        mock_thread.start = MagicMock()
-        mock_thread.join = MagicMock()
-
         with (
             patch.object(sys, "argv", ["chatfilter", "--host", "0.0.0.0", "--port", "9000"]),
             patch("chatfilter.config.get_settings", return_value=mock_settings),
@@ -579,13 +539,7 @@ class TestMain:
                 "chatfilter.config._is_path_in_readonly_location",
                 return_value=(False, None),
             ),
-            # Mock GUI components for headless testing
-            patch.dict("sys.modules", {"webview": MagicMock()}),
-            patch("chatfilter.service.tray.start_tray_icon", return_value=None),
-            patch("chatfilter.service.tray.stop_tray_icon"),
-            patch("threading.Thread", return_value=mock_thread),
             patch("uvicorn.run"),
-            patch("socket.create_connection"),
             pytest.raises(SystemExit) as exc_info,
         ):
             mock_settings_class.return_value = mock_settings
@@ -778,11 +732,7 @@ class TestMain:
         assert exc_info.value.code == 0
 
     def test_main_uvicorn_debug_mode_sets_log_level(self, mock_settings) -> None:
-        """Test that debug mode sets uvicorn log level to debug.
-
-        Note: reload is always False because uvicorn runs in a background thread
-        for pywebview integration, and reload doesn't work in threaded mode.
-        """
+        """Test that debug mode sets uvicorn log level to debug and enables reload."""
         mock_settings.debug = True
 
         with (
@@ -798,37 +748,21 @@ class TestMain:
             main()
 
         call_kwargs = mock_uvicorn_run.call_args[1]
-        assert call_kwargs["reload"] is False  # Always False in threaded mode
+        assert call_kwargs["reload"] is True  # Enabled in debug mode
         assert call_kwargs["log_level"] == "debug"
         assert exc_info.value.code == 0
 
     def test_main_keyboard_interrupt_graceful_shutdown(self, mock_settings, capsys) -> None:
         """Test that KeyboardInterrupt is handled gracefully.
 
-        Note: KeyboardInterrupt now comes from webview.start() which blocks main thread.
-        The mock webview raises KeyboardInterrupt to simulate user closing window.
+        KeyboardInterrupt comes from uvicorn.run() when user presses Ctrl+C.
         """
-        # Create mock webview that raises KeyboardInterrupt on start()
-        mock_webview = MagicMock()
-        mock_webview.create_window = MagicMock()
-        mock_webview.start = MagicMock(side_effect=KeyboardInterrupt())
-
-        # Create mock thread
-        mock_thread = MagicMock()
-        mock_thread.start = MagicMock()
-        mock_thread.join = MagicMock()
-
         with (
             patch.object(sys, "argv", ["chatfilter"]),
             patch("chatfilter.config.get_settings", return_value=mock_settings),
             patch("chatfilter.config.Settings", return_value=mock_settings),
             patch("chatfilter.config.reset_settings"),
-            patch.dict("sys.modules", {"webview": mock_webview}),
-            patch("chatfilter.service.tray.start_tray_icon", return_value=None),
-            patch("chatfilter.service.tray.stop_tray_icon"),
-            patch("threading.Thread", return_value=mock_thread),
-            patch("uvicorn.run"),
-            patch("socket.create_connection"),
+            patch("uvicorn.run", side_effect=KeyboardInterrupt()),
             patch("chatfilter.main.setup_logging"),
             patch(
                 "chatfilter.config._is_path_in_readonly_location",

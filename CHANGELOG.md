@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-01-27
+
+### Removed
+- **Desktop Application**: Removed native window and system tray functionality
+  - Removed pywebview native window (application now runs as pure CLI server)
+  - Removed pystray system tray icon
+  - Removed PyInstaller binary builds for Windows, macOS, and Linux
+  - Distribution is now Python package only (`pip install chatfilter`)
+- **Dependencies**: Removed 6 desktop-related dependencies
+  - pystray, Pillow, pywebview
+  - pyobjc-framework-Cocoa, pyobjc-framework-WebKit (macOS only)
+- **Build Infrastructure**: Removed binary build system
+  - Removed chatfilter.spec, build.sh, entitlements.plist
+  - Removed GitHub Actions workflows for binary builds
+
+### Changed
+- **CLI Mode**: `chatfilter` command now runs uvicorn directly
+  - Blocks until Ctrl+C (no background threading)
+  - Hot reload enabled in debug mode (`--debug`)
+  - Prints URL to console on startup
+- **Installation**: Install via `pip install chatfilter`
+  - Lighter package without GUI dependencies
+  - Works on any Python 3.11+ environment
+- **Credential Storage**: Switched from OS keychain to encrypted file backend
+  - No more repeated password prompts on macOS
+  - Credentials stored in encrypted files in data directory
+
+### Migration
+Users upgrading from 0.5.x desktop app:
+1. Uninstall the desktop application
+2. Install via pip: `pip install chatfilter`
+3. Run: `chatfilter --port 8000`
+4. Open browser manually: http://127.0.0.1:8000
+
 ## [0.5.2] - 2026-01-27
 
 ### Fixed

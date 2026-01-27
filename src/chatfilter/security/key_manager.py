@@ -330,15 +330,8 @@ class KeyManager:
                 except KeyManagerError:
                     pass
 
-            # Try OS keyring (secure system storage)
-            if HAS_KEYRING:
-                try:
-                    backend = KeyringBackend()
-                    return cls(backend)
-                except KeyManagerError:
-                    pass
-
-            # Fall back to machine-derived (legacy)
+            # Use machine-derived keys (no keychain prompts on macOS)
+            # Keyring causes repeated password prompts which is bad UX
             backend = MachineKeyBackend()
             return cls(backend)
 
