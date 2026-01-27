@@ -420,30 +420,79 @@ def main() -> None:
     if is_first_run and not dir_errors:
         settings.mark_first_run_complete()
 
-    # Start system tray icon (runs in background thread)
+    # Run application with native window (pywebview) or browser mode
+    import threading
+
+    def run_server() -> None:
+        """Run uvicorn server in background thread."""
+        uvicorn.run(
+            "chatfilter.web.app:app",
+            host=settings.host,
+            port=settings.port,
+            reload=False,  # Disable reload in threaded mode
+            log_level="debug" if settings.debug else "info",
+            timeout_keep_alive=5,
+            timeout_graceful_shutdown=30,
+        )
+
+    # Start server in background thread
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
+
+    # Wait for server to start
+    import time
+
+    url = f"http://{settings.host}:{settings.port}"
+    for _ in range(50):  # Wait up to 5 seconds
+        try:
+            import socket
+
+            with socket.create_connection((settings.host, settings.port), timeout=0.1):
+                break
+        except (OSError, ConnectionRefusedError):
+            time.sleep(0.1)
+
+    # Start system tray icon
     from chatfilter.service.tray import start_tray_icon, stop_tray_icon
 
     tray_icon = start_tray_icon(host=settings.host, port=settings.port)
     if tray_icon:
         print("Tray icon:     active")
 
+    # Run native window with pywebview (main thread - required for macOS)
     try:
-        uvicorn.run(
-            "chatfilter.web.app:app",
-            host=settings.host,
-            port=settings.port,
-            reload=settings.debug,
-            log_level="debug" if settings.debug else "info",
-            # Timeout configuration for HTTP requests
-            # Keep-alive: idle connection timeout
-            timeout_keep_alive=5,
-            # Graceful shutdown: time to wait for requests to complete before forcing shutdown
-            timeout_graceful_shutdown=30,
+        import webview
+
+        print(f"Opening window: {url}")
+        webview.create_window(
+            title=f"ChatFilter v{__version__}",
+            url=url,
+            width=1200,
+            height=800,
+            resizable=True,
+            min_size=(800, 600),
         )
-    except KeyboardInterrupt:
-        print("\nShutting down...")
+        webview.start()  # Blocks until window is closed
+    except ImportError:
+        # Fallback to browser if pywebview not available
+        import contextlib
+        import webbrowser
+
+        print(f"pywebview not available, opening browser: {url}")
+        webbrowser.open(url)
+        # Keep running until Ctrl+C
+        with contextlib.suppress(KeyboardInterrupt):
+            server_thread.join()
+    except Exception as e:
+        logging.warning(f"Failed to start webview: {e}, falling back to browser")
+        import contextlib
+        import webbrowser
+
+        webbrowser.open(url)
+        with contextlib.suppress(KeyboardInterrupt):
+            server_thread.join()
     finally:
-        # Ensure tray icon is stopped on exit
+        print("\nShutting down...")
         stop_tray_icon()
         sys.exit(0)
 

@@ -352,32 +352,14 @@ def start_tray_icon(
     system = platform.system()
 
     if system == "Darwin":
-        # macOS: run_detached() MUST be called from main thread
-        # NSStatusItem requires main thread for initialization.
-        # Do NOT use ThreadPoolExecutor - it breaks macOS tray icon.
-        # See: https://pystray.readthedocs.io/en/latest/usage.html
+        # macOS: run_detached() from main thread
+        # When using pywebview, NSApplication is already set up correctly
+        # Just call run_detached() - pywebview handles the run loop
         try:
-            # Set NSApplicationActivationPolicy to allow menu bar icon
-            # Without this, non-.app bundle Python processes can't show status items
-            try:
-                from AppKit import (  # type: ignore[import-not-found]
-                    NSApplication,
-                    NSApplicationActivationPolicyAccessory,
-                )
-
-                app = NSApplication.sharedApplication()
-                # Accessory = no dock icon, but can have menu bar items
-                app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-                logger.debug("Set NSApplicationActivationPolicyAccessory for menu bar access")
-            except ImportError:
-                logger.warning("AppKit not available, menu bar icon may not appear")
-            except Exception as e:
-                logger.warning(f"Failed to set activation policy: {e}")
-
             icon = create_tray_icon(pystray_module, host=host, port=port, on_exit=on_exit)
             icon.run_detached()
             _running_icon = icon
-            logger.info("Tray icon started (macOS main thread)")
+            logger.info("Tray icon started (macOS with pywebview)")
             return icon
         except Exception as e:
             logger.warning(

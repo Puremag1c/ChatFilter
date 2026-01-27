@@ -29,8 +29,10 @@ dependencies = [
     "jinja2>=3.1.0",
     "pystray>=0.19.0",
     "Pillow>=10.0.0",
-    # macOS: pyobjc for system tray (pystray backend)
+    "pywebview>=5.0.0",
+    # macOS: pyobjc for system tray and webview
     "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
+    "pyobjc-framework-WebKit>=10.0; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]
@@ -151,6 +153,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["openpyxl", "openpyxl.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["webview", "webview.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
