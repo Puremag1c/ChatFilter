@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-01-27
+
+### Added
+- **Session Connect/Disconnect**: Added explicit connect/disconnect buttons for each session
+  - Connect button for disconnected sessions
+  - Disconnect button for connected sessions
+  - Retry button for error states (proxy error, flood wait)
+  - Disabled state for banned accounts and unconfigured sessions
+- **Extended Session Status**: More detailed session status indicators
+  - Connected, Disconnected, Connecting, Disconnecting states
+  - Banned (account blocked by Telegram)
+  - Flood Wait (temporary rate limit)
+  - Proxy Error (proxy connection failed)
+  - Not Configured, Proxy Missing states
+  - Error messages shown in tooltip on hover
+
+### Removed
+- **Keyboard Shortcuts**: Removed keyboard shortcuts feature and help modal
+  - Removed `static/js/keyboard-shortcuts.js` (671 lines)
+  - Removed keyboard shortcuts button from header
+- **Header Status Indicators**: Removed global Telegram status from header
+  - Removed "Telegram Connection Status" indicator
+  - Removed "User logged in" indicator
+  - These were redundant with per-session status display
+
+### Changed
+- **Code Cleanup**: Removed duplicate helper functions
+  - Consolidated `get_session_manager()` and `get_chat_service()` functions
+  - Removed duplicates from `routers/chats.py` (now uses `dependencies.py`)
+
 ## [0.4.12] - 2026-01-27
 
 ### Fixed
@@ -160,7 +190,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.11...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.12...v0.5.0
+[0.4.12]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.8...v0.4.9
