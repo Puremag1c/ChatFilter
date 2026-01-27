@@ -71,12 +71,12 @@ def get_chat_analysis_service() -> ChatAnalysisService:
     """Get or create the chat analysis service instance."""
     global _chat_service
     if _chat_service is None:
-        from pathlib import Path
+        from chatfilter.config import get_settings
 
-        data_dir = Path.cwd() / "data" / "sessions"
+        settings = get_settings()
         _chat_service = ChatAnalysisService(
             session_manager=get_session_manager(),
-            data_dir=data_dir,
+            data_dir=settings.sessions_dir,
         )
     return _chat_service
 

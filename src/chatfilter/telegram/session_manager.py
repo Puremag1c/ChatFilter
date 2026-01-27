@@ -220,7 +220,9 @@ class SessionManager:
     async def _do_connect(self, client: TelegramClient, session_id: str, timeout: float) -> None:
         """Execute connection with retry logic and timeout.
 
-        This method wraps client.connect() with automatic retry on network errors.
+        This method wraps client.connect() with automatic retry on network errors,
+        and validates the account is active by calling get_me().
+
         It will retry ConnectionError, TimeoutError, OSError, and SSL errors.
 
         Args:
@@ -231,9 +233,16 @@ class SessionManager:
         Raises:
             asyncio.TimeoutError: If connection times out after all retries
             ConnectionError, OSError: If connection fails after all retries
+            UserDeactivatedBanError: If account is deactivated/banned
         """
         try:
             await asyncio.wait_for(client.connect(), timeout=timeout)
+            # Validate account is fully active by testing dialogs access
+            # get_me() alone is not enough - some deactivated accounts can still
+            # authenticate but fail on GetDialogsRequest
+            # Using iter_dialogs with limit=1 is a lightweight check
+            async for _ in client.iter_dialogs(limit=1):
+                break  # Just need to verify we can access dialogs
         except TimeoutError as e:
             # Convert asyncio.TimeoutError to TimeoutError for retry decorator
             raise TimeoutError(

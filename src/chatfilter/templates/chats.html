@@ -172,6 +172,7 @@
     <div class="form-group">
         <label for="session-select" class="sr-only">{{ _("Select Telegram session") }}</label>
         <select id="session-select"
+                name="session-select"
                 hx-get="/api/chats"
                 hx-target="#chats-container"
                 hx-swap="innerHTML"
