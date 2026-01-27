@@ -320,8 +320,12 @@ def create_app(
     return app
 
 
+# Singleton for Jinja2Templates instance
+_templates_instance: Jinja2Templates | None = None
+
+
 def get_templates() -> Jinja2Templates:
-    """Get Jinja2 templates instance with i18n support.
+    """Get Jinja2 templates instance with i18n support (singleton).
 
     Returns:
         Configured Jinja2Templates for rendering HTML with translations
@@ -329,6 +333,11 @@ def get_templates() -> Jinja2Templates:
     Raises:
         FileNotFoundError: If templates directory doesn't exist
     """
+    global _templates_instance
+
+    if _templates_instance is not None:
+        return _templates_instance
+
     if not TEMPLATES_DIR.exists():
         raise FileNotFoundError(f"Templates directory not found: {TEMPLATES_DIR}")
 
@@ -353,6 +362,7 @@ def get_templates() -> Jinja2Templates:
     # Store the installer function for use in template context
     templates.env.globals["install_translations"] = install_translations
 
+    _templates_instance = templates
     return templates
 
 

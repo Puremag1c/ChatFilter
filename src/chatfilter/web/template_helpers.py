@@ -40,10 +40,15 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
     env = cast(Any, templates.env)
     env.install_gettext_translations(translations)
 
+    # Create translation function for this request's locale
+    def _(message: str) -> str:
+        return translations.gettext(message)
+
     return {
         "request": request,
         "csrf_token": csrf_token,
         "locale": locale,
+        "_": _,  # Pass translation function directly to override Jinja2 i18n
         "gettext": translations.gettext,
         "ngettext": translations.ngettext,
         **kwargs,

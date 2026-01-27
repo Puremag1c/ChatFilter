@@ -35,6 +35,7 @@ from telethon.tl.types import Channel, MessageService, User
 from telethon.tl.types import Chat as TelegramChat
 
 from chatfilter.config import ProxyConfig, ProxyType
+from chatfilter.i18n.translations import _ as gettext
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.models.message import Message
 from chatfilter.telegram.rate_limiter import get_rate_limiter
@@ -476,22 +477,28 @@ class TelegramClientLoader:
         # Check api_id is valid
         if not self._config.api_id:
             raise SessionBlockedError(
-                f"Session '{session_id}' has no api_id configured. "
-                f"Please configure api_id before connecting."
+                gettext(
+                    "Session '{session_id}' has no api_id configured. "
+                    "Please configure api_id before connecting."
+                ).format(session_id=session_id)
             )
 
         # Check api_hash is valid
         if not self._config.api_hash or not self._config.api_hash.strip():
             raise SessionBlockedError(
-                f"Session '{session_id}' has no api_hash configured. "
-                f"Please configure api_hash before connecting."
+                gettext(
+                    "Session '{session_id}' has no api_hash configured. "
+                    "Please configure api_hash before connecting."
+                ).format(session_id=session_id)
             )
 
         # Check proxy_id is set
         if not self._proxy_id:
             raise SessionBlockedError(
-                f"Session '{session_id}' has no proxy configured. "
-                f"Please configure a proxy for this session before connecting."
+                gettext(
+                    "Session '{session_id}' has no proxy configured. "
+                    "Please configure a proxy for this session before connecting."
+                ).format(session_id=session_id)
             )
 
         # Verify proxy exists in pool
@@ -502,9 +509,11 @@ class TelegramClientLoader:
             get_proxy_by_id(self._proxy_id)
         except StorageNotFoundError as e:
             raise SessionBlockedError(
-                f"Session '{session_id}' requires proxy '{self._proxy_id}' which is not found "
-                f"in proxy pool. Please add the proxy to the pool or update the session "
-                f"configuration."
+                gettext(
+                    "Session '{session_id}' requires proxy '{proxy_id}' which is not found "
+                    "in proxy pool. Please add the proxy to the pool or update the session "
+                    "configuration."
+                ).format(session_id=session_id, proxy_id=self._proxy_id)
             ) from e
 
         logger.debug(
@@ -601,15 +610,20 @@ class TelegramClientLoader:
             except StorageNotFoundError as e:
                 session_id = self._session_path.parent.name
                 raise SessionBlockedError(
-                    f"Session '{session_id}' requires proxy '{self._proxy_id}' which is not found in proxy pool. "
-                    f"Please add the proxy to the pool or update the session configuration."
+                    gettext(
+                        "Session '{session_id}' requires proxy '{proxy_id}' which is not found "
+                        "in proxy pool. Please add the proxy to the pool or update the session "
+                        "configuration."
+                    ).format(session_id=session_id, proxy_id=self._proxy_id)
                 ) from e
         else:
             # Session has no proxy_id configured - this is required
             session_id = self._session_path.parent.name
             raise SessionBlockedError(
-                f"Session '{session_id}' has no proxy configured. "
-                f"Please configure a proxy for this session before connecting."
+                gettext(
+                    "Session '{session_id}' has no proxy configured. "
+                    "Please configure a proxy for this session before connecting."
+                ).format(session_id=session_id)
             )
 
         # Load default timeouts from settings if not explicitly provided

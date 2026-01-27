@@ -1225,3 +1225,495 @@ msgid ""
 msgstr ""
 "Вы ещё не загрузили файлы сессий Telegram. Загрузите файл сессии, чтобы "
 "начать анализ ваших чатов."
+
+#: src/chatfilter/templates/upload.html:7
+msgid "Telegram Accounts"
+msgstr "Аккаунты Telegram"
+
+#: src/chatfilter/templates/upload.html:8
+msgid "Manage your Telegram sessions for chat analysis"
+msgstr "Управление сессиями Telegram для анализа чатов"
+
+#: src/chatfilter/templates/upload.html:13
+msgid "Accounts"
+msgstr "Аккаунты"
+
+#: src/chatfilter/templates/upload.html:15
+msgid "Add Account"
+msgstr "Добавить аккаунт"
+
+#: src/chatfilter/templates/upload.html:14
+msgid "Add new account"
+msgstr "Добавить новый аккаунт"
+
+#: src/chatfilter/templates/upload.html:43
+msgid "Close modal"
+msgstr "Закрыть"
+
+#: src/chatfilter/templates/upload.html:48
+msgid "Phone Authorization"
+msgstr "Авторизация по телефону"
+
+#: src/chatfilter/templates/upload.html:58
+msgid "Authenticate with your phone number to create a new session."
+msgstr "Авторизуйтесь с номером телефона для создания новой сессии."
+
+#: src/chatfilter/templates/upload.html:72
+msgid "Already have a .session file? Upload it here with your API credentials."
+msgstr "Уже есть файл .session? Загрузите его здесь с учётными данными API."
+
+#: src/chatfilter/templates/upload.html:42
+msgid "Add Telegram Account"
+msgstr "Добавить аккаунт Telegram"
+
+#: src/chatfilter/templates/upload.html:28
+msgid "Loading accounts..."
+msgstr "Загрузка аккаунтов..."
+
+#: src/chatfilter/templates/upload.html:26
+msgid "List of Telegram accounts"
+msgstr "Список аккаунтов Telegram"
+
+#: src/chatfilter/templates/upload.html:23
+msgid "Failed to load accounts. Please refresh the page."
+msgstr "Не удалось загрузить аккаунты. Обновите страницу."
+
+#: src/chatfilter/templates/base.html:38
+msgid "Proxies"
+msgstr "Прокси"
+
+#: src/chatfilter/templates/base.html:38
+msgid "Manage proxy servers for Telegram sessions"
+msgstr "Управление прокси-серверами для сессий Telegram"
+
+#: src/chatfilter/templates/partials/sessions_list.html:6
+msgid "Account"
+msgstr "Аккаунт"
+
+#: src/chatfilter/templates/partials/sessions_list.html:7
+msgid "Status"
+msgstr "Статус"
+
+#: src/chatfilter/templates/partials/sessions_list.html:8
+msgid "Actions"
+msgstr "Действия"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Ready"
+msgstr "Готов"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Connected"
+msgstr "Подключено"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Connecting"
+msgstr "Подключение..."
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Disconnecting"
+msgstr "Отключение..."
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Banned"
+msgstr "Заблокирован"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Flood Wait"
+msgstr "Ожидание"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Proxy Error"
+msgstr "Ошибка прокси"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Not configured"
+msgstr "Не настроено"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Proxy missing"
+msgstr "Прокси отсутствует"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Error"
+msgstr "Ошибка"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Disconnect"
+msgstr "Отключить"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Connect"
+msgstr "Подключить"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Wait..."
+msgstr "Подождите..."
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Retry"
+msgstr "Повторить"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Edit"
+msgstr "Редактировать"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Disconnect session"
+msgstr "Отключить сессию"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Connect session"
+msgstr "Подключить сессию"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Please wait"
+msgstr "Подождите"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Retry connection"
+msgstr "Повторить подключение"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Connection error"
+msgstr "Ошибка подключения"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Account banned"
+msgstr "Аккаунт заблокирован"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "This account has been banned by Telegram"
+msgstr "Этот аккаунт заблокирован Telegram"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Configure session first"
+msgstr "Сначала настройте сессию"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Configure account"
+msgstr "Настроить аккаунт"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "Delete account"
+msgstr "Удалить аккаунт"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "No Telegram Accounts"
+msgstr "Нет аккаунтов Telegram"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+msgid "You haven't added any Telegram accounts yet. Click \"Add Account\" above to get started."
+msgstr "Вы ещё не добавили аккаунты. Нажмите \"Добавить аккаунт\" выше, чтобы начать."
+
+#: src/chatfilter/templates/proxies.html:3
+msgid "Proxy Pool"
+msgstr "Пул прокси"
+
+#: src/chatfilter/templates/proxies.html:13
+msgid "Proxy List"
+msgstr "Список прокси"
+
+#: src/chatfilter/templates/proxies.html:17
+msgid "Add new proxy"
+msgstr "Добавить прокси"
+
+#: src/chatfilter/templates/proxies.html:18
+msgid "Add Proxy"
+msgstr "Добавить прокси"
+
+#: src/chatfilter/templates/proxies.html:26
+msgid "Failed to load proxies. Please refresh the page."
+msgstr "Не удалось загрузить прокси. Обновите страницу."
+
+#: src/chatfilter/templates/proxies.html:29
+msgid "List of configured proxies"
+msgstr "Список настроенных прокси"
+
+#: src/chatfilter/templates/proxies.html:32
+msgid "Loading proxies..."
+msgstr "Загрузка прокси..."
+
+#: src/chatfilter/templates/proxies.html:49
+msgid "Name"
+msgstr "Название"
+
+#: src/chatfilter/templates/proxies.html:56
+msgid "My Proxy"
+msgstr "Мой прокси"
+
+#: src/chatfilter/templates/proxies.html:58
+msgid "Proxy name for identification"
+msgstr "Название прокси для идентификации"
+
+#: src/chatfilter/templates/proxies.html:63
+msgid "Type"
+msgstr "Тип"
+
+#: src/chatfilter/templates/proxies.html:64
+msgid "Select proxy type"
+msgstr "Выберите тип прокси"
+
+#: src/chatfilter/templates/proxies.html:126
+msgid "Cancel"
+msgstr "Отмена"
+
+#: src/chatfilter/templates/proxies.html:129
+msgid "Save"
+msgstr "Сохранить"
+
+#: src/chatfilter/templates/proxies.html:193
+msgid "Edit Proxy"
+msgstr "Редактировать прокси"
+
+#: src/chatfilter/templates/proxies.html:194
+msgid "Save Changes"
+msgstr "Сохранить изменения"
+
+#: src/chatfilter/templates/proxies.html:252
+msgid "This field is required"
+msgstr "Это поле обязательно"
+
+#: src/chatfilter/templates/proxies.html:254
+msgid "Minimum length is"
+msgstr "Минимальная длина"
+
+#: src/chatfilter/templates/proxies.html:254
+msgid "characters"
+msgstr "символов"
+
+#: src/chatfilter/templates/proxies.html:256
+msgid "Maximum length is"
+msgstr "Максимальная длина"
+
+#: src/chatfilter/templates/proxies.html:258
+msgid "Minimum value is"
+msgstr "Минимальное значение"
+
+#: src/chatfilter/templates/proxies.html:260
+msgid "Maximum value is"
+msgstr "Максимальное значение"
+
+#: src/chatfilter/templates/proxies.html:262
+msgid "Host cannot contain spaces"
+msgstr "Хост не может содержать пробелы"
+
+#: src/chatfilter/templates/proxies.html:308
+msgid "Please fix the errors in the form"
+msgstr "Исправьте ошибки в форме"
+
+#: src/chatfilter/templates/proxies.html:309
+msgid "Validation Error"
+msgstr "Ошибка валидации"
+
+#: src/chatfilter/templates/proxies.html:344
+msgid "Operation failed"
+msgstr "Операция не удалась"
+
+#: src/chatfilter/templates/proxies.html:351
+msgid "Proxy updated successfully"
+msgstr "Прокси успешно обновлён"
+
+#: src/chatfilter/templates/proxies.html:352
+msgid "Proxy added successfully"
+msgstr "Прокси успешно добавлен"
+
+#: src/chatfilter/templates/proxies.html:354
+msgid "Proxy Updated"
+msgstr "Прокси обновлён"
+
+#: src/chatfilter/templates/proxies.html:354
+msgid "Proxy Added"
+msgstr "Прокси добавлен"
+
+#: src/chatfilter/templates/proxies.html:362
+msgid "Save Failed"
+msgstr "Ошибка сохранения"
+
+#: src/chatfilter/templates/proxies.html:405
+msgid "Delete Proxy"
+msgstr "Удалить прокси"
+
+#: src/chatfilter/templates/proxies.html:406
+msgid "This proxy is used by"
+msgstr "Этот прокси используется"
+
+#: src/chatfilter/templates/proxies.html:406
+msgid "session(s). They will be blocked. Continue?"
+msgstr "сессией(ями). Они будут заблокированы. Продолжить?"
+
+#: src/chatfilter/templates/proxies.html:433
+msgid "Proxy deleted successfully"
+msgstr "Прокси успешно удалён"
+
+#: src/chatfilter/templates/proxies.html:434
+msgid "Proxy Deleted"
+msgstr "Прокси удалён"
+
+#: src/chatfilter/templates/proxies.html:440
+msgid "Deletion Failed"
+msgstr "Ошибка удаления"
+
+#: src/chatfilter/templates/partials/session_import.html:9
+msgid "Drop session file here or click to browse"
+msgstr "Перетащите файл сессии сюда или нажмите для выбора"
+
+#: src/chatfilter/templates/partials/session_import.html:17
+msgid "Drop your .session file here"
+msgstr "Перетащите ваш файл .session сюда"
+
+#: src/chatfilter/templates/partials/session_import.html:18
+msgid "or click to browse"
+msgstr "или нажмите для выбора"
+
+#: src/chatfilter/templates/partials/session_import.html:20
+msgid "or"
+msgstr "или"
+
+#: src/chatfilter/templates/partials/session_import.html:23
+msgid "Choose File"
+msgstr "Выбрать файл"
+
+#: src/chatfilter/templates/partials/session_import.html:29
+msgid "Clear selected file"
+msgstr "Очистить выбранный файл"
+
+#: src/chatfilter/templates/partials/session_import.html:41
+msgid "Session file validated successfully!"
+msgstr "Файл сессии успешно проверен!"
+
+#: src/chatfilter/templates/partials/session_import.html:42
+msgid "Now configure the session settings below."
+msgstr "Теперь настройте параметры сессии ниже."
+
+#: src/chatfilter/templates/partials/session_import.html:74
+msgid "API ID"
+msgstr "API ID"
+
+#: src/chatfilter/templates/partials/session_import.html:73
+msgid "Your Telegram API ID from my.telegram.org"
+msgstr "Ваш API ID Telegram с my.telegram.org"
+
+#: src/chatfilter/templates/partials/session_import.html:79
+msgid "e.g., 12345678"
+msgstr "напр., 12345678"
+
+#: src/chatfilter/templates/partials/session_import.html:83
+msgid "Numeric ID from my.telegram.org/apps"
+msgstr "Числовой ID с my.telegram.org/apps"
+
+#: src/chatfilter/templates/partials/session_import.html:89
+msgid "API Hash"
+msgstr "API Hash"
+
+#: src/chatfilter/templates/partials/session_import.html:88
+msgid "Your Telegram API Hash from my.telegram.org"
+msgstr "Ваш API Hash Telegram с my.telegram.org"
+
+#: src/chatfilter/templates/partials/session_import.html:94
+msgid "e.g., 0123456789abcdef..."
+msgstr "напр., 0123456789abcdef..."
+
+#: src/chatfilter/templates/partials/session_import.html:100
+msgid "32-character hex string from my.telegram.org/apps"
+msgstr "32-символьная hex строка с my.telegram.org/apps"
+
+#: src/chatfilter/templates/partials/session_import.html:106
+msgid "Select a proxy for this session"
+msgstr "Выберите прокси для этой сессии"
+
+#: src/chatfilter/templates/partials/session_import.html:113
+msgid "-- Select a proxy --"
+msgstr "-- Выберите прокси --"
+
+#: src/chatfilter/templates/partials/session_import.html:121
+msgid "unavailable"
+msgstr "недоступен"
+
+#: src/chatfilter/templates/partials/session_import.html:127
+msgid "A proxy is required for Telegram connection."
+msgstr "Прокси требуется для подключения к Telegram."
+
+#: src/chatfilter/templates/partials/session_import.html:129
+msgid "Add a proxy first"
+msgstr "Сначала добавьте прокси"
+
+#: src/chatfilter/templates/partials/session_import.html:142
+msgid "I understand that session files provide complete access to my Telegram account and accept the security risks. I confirm this session was created on a trusted device and will be stored securely."
+msgstr "Я понимаю, что файлы сессий предоставляют полный доступ к моему аккаунту Telegram и принимаю риски безопасности. Я подтверждаю, что эта сессия создана на доверенном устройстве и будет храниться безопасно."
+
+#: src/chatfilter/templates/partials/session_import.html:152
+msgid "Save Session"
+msgstr "Сохранить сессию"
+
+#: src/chatfilter/templates/partials/session_import.html:209
+msgid "Invalid file type. Please select a .session file."
+msgstr "Неверный тип файла. Выберите файл .session."
+
+#: src/chatfilter/templates/partials/session_import.html:215
+msgid "File is too large. Maximum size is 10 MB."
+msgstr "Файл слишком большой. Максимальный размер 10 МБ."
+
+#: src/chatfilter/templates/partials/session_import.html:240
+msgid "Validating session file..."
+msgstr "Проверка файла сессии..."
+
+#: src/chatfilter/templates/partials/session_import.html:281
+msgid "Failed to validate session file. Please try again."
+msgstr "Не удалось проверить файл сессии. Попробуйте снова."
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Deletion is already in progress in another tab"
+msgstr "Удаление уже выполняется в другой вкладке"
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "s ago"
+msgstr " сек. назад"
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Operation in Progress"
+msgstr "Операция выполняется"
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Delete Telegram Account"
+msgstr "Удалить аккаунт Telegram"
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Are you sure you want to delete the account"
+msgstr "Вы уверены, что хотите удалить аккаунт"
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "This action cannot be undone. All session data and credentials will be permanently removed."
+msgstr "Это действие нельзя отменить. Все данные сессии и учётные данные будут удалены безвозвратно."
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Delete Account"
+msgstr "Удалить аккаунт"
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Account has been deleted."
+msgstr "Аккаунт удалён."
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Account Deleted"
+msgstr "Аккаунт удалён"
+
+#: src/chatfilter/templates/upload.html (JS)
+msgid "Failed to delete account:"
+msgstr "Не удалось удалить аккаунт:"
+
+#: src/chatfilter/telegram/client.py
+msgid "Session '{session_id}' has no proxy configured. Please configure a proxy for this session before connecting."
+msgstr "Сессия '{session_id}' не имеет настроенного прокси. Настройте прокси для этой сессии перед подключением."
+
+#: src/chatfilter/telegram/client.py
+msgid "Session '{session_id}' has no api_id configured. Please configure api_id before connecting."
+msgstr "Сессия '{session_id}' не имеет настроенного api_id. Настройте api_id перед подключением."
+
+#: src/chatfilter/telegram/client.py
+msgid "Session '{session_id}' has no api_hash configured. Please configure api_hash before connecting."
+msgstr "Сессия '{session_id}' не имеет настроенного api_hash. Настройте api_hash перед подключением."
+
+#: src/chatfilter/telegram/client.py
+msgid "Session '{session_id}' requires proxy '{proxy_id}' which is not found in proxy pool. Please add the proxy to the pool or update the session configuration."
+msgstr "Сессия '{session_id}' требует прокси '{proxy_id}', который не найден в пуле прокси. Добавьте прокси в пул или обновите настройки сессии."

@@ -183,11 +183,11 @@
         if (typeof OptimisticLock !== 'undefined' && !OptimisticLock.tryAcquireLock('session', sessionId, 'delete')) {
             const lockInfo = OptimisticLock.getLockInfo('session', sessionId, 'delete');
             const message = lockInfo
-                ? `Deletion is already in progress in another tab (${Math.round((Date.now() - lockInfo.timestamp) / 1000)}s ago)`
-                : 'Deletion is already in progress in another tab';
+                ? `{{ _("Deletion is already in progress in another tab") }} (${Math.round((Date.now() - lockInfo.timestamp) / 1000)}{{ _("s ago") }})`
+                : '{{ _("Deletion is already in progress in another tab") }}';
 
             ToastManager.warning(message, {
-                title: 'Operation in Progress',
+                title: '{{ _("Operation in Progress") }}',
                 duration: 5000
             });
             return;
@@ -197,10 +197,10 @@
         const confirmed = await ModalManager.confirm({
             type: 'danger',
             icon: '🗑️',
-            title: 'Delete Telegram Account',
-            message: `Are you sure you want to delete the account "${sessionId}"? This action cannot be undone. All session data and credentials will be permanently removed.`,
-            confirmText: 'Delete Account',
-            cancelText: 'Cancel',
+            title: '{{ _("Delete Telegram Account") }}',
+            message: `{{ _("Are you sure you want to delete the account") }} "${sessionId}"? {{ _("This action cannot be undone. All session data and credentials will be permanently removed.") }}`,
+            confirmText: '{{ _("Delete Account") }}',
+            cancelText: '{{ _("Cancel") }}',
             confirmClass: 'danger'
         });
 
@@ -230,8 +230,8 @@
                 setTimeout(() => sessionElement.remove(), 300);
             }
 
-            ToastManager.success(`Account "${sessionId}" has been deleted.`, {
-                title: 'Account Deleted',
+            ToastManager.success(`{{ _("Account has been deleted.") }}`, {
+                title: '{{ _("Account Deleted") }}',
                 duration: 5000
             });
 
@@ -246,11 +246,11 @@
                 OptimisticLock.releaseLock('session', sessionId, 'delete');
             }
 
-            ToastManager.error(`Failed to delete account: ${error.message}`, {
-                title: 'Deletion Failed',
+            ToastManager.error(`{{ _("Failed to delete account:") }} ${error.message}`, {
+                title: '{{ _("Deletion Failed") }}',
                 duration: 8000,
                 actions: [{
-                    label: 'Retry',
+                    label: '{{ _("Retry") }}',
                     class: 'retry',
                     action: 'retry',
                     callback: () => deleteBtn.click()
