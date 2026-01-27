@@ -728,8 +728,12 @@ class TestMain:
         assert call_kwargs["log_level"] == "info"
         assert exc_info.value.code == 0
 
-    def test_main_uvicorn_debug_mode_enables_reload(self, mock_settings) -> None:
-        """Test that debug mode enables uvicorn reload."""
+    def test_main_uvicorn_debug_mode_sets_log_level(self, mock_settings) -> None:
+        """Test that debug mode sets uvicorn log level to debug.
+
+        Note: reload is always False because uvicorn runs in a background thread
+        for pywebview integration, and reload doesn't work in threaded mode.
+        """
         mock_settings.debug = True
 
         with (
@@ -746,7 +750,7 @@ class TestMain:
             main()
 
         call_kwargs = mock_uvicorn_run.call_args[1]
-        assert call_kwargs["reload"] is True
+        assert call_kwargs["reload"] is False  # Always False in threaded mode
         assert call_kwargs["log_level"] == "debug"
         assert exc_info.value.code == 0
 
