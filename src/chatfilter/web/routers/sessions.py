@@ -39,6 +39,42 @@ class SessionListItem(BaseModel):
 
     session_id: str
     state: str
+    error_message: str | None = None
+
+
+def classify_error_state(error_message: str | None) -> str:
+    """Classify an error message into a specific state.
+
+    Args:
+        error_message: The error message from the session
+
+    Returns:
+        One of: 'banned', 'flood_wait', 'proxy_error', 'error'
+    """
+    if not error_message:
+        return "error"
+
+    error_lower = error_message.lower()
+
+    # Check for banned/deactivated account
+    if any(
+        phrase in error_lower
+        for phrase in ["banned", "deactivated", "phonenumberbanned", "userdeactivatedban"]
+    ):
+        return "banned"
+
+    # Check for flood wait
+    if "floodwait" in error_lower or "flood" in error_lower:
+        return "flood_wait"
+
+    # Check for proxy errors
+    if any(
+        phrase in error_lower
+        for phrase in ["proxy", "socks", "connection refused", "cannot connect"]
+    ):
+        return "proxy_error"
+
+    return "error"
 
 
 def ensure_data_dir() -> Path:
@@ -538,17 +574,30 @@ def get_session_config_status(session_dir: Path) -> str:
     return "disconnected"
 
 
-def list_stored_sessions() -> list[SessionListItem]:
-    """List all stored sessions.
+def list_stored_sessions(
+    session_manager: SessionManager | None = None,
+) -> list[SessionListItem]:
+    """List all stored sessions with runtime state when available.
 
     Each session is validated for configuration status:
     - "disconnected": Ready to connect
+    - "connected": Currently connected
+    - "connecting": Connection in progress
+    - "error": Connection error (generic)
+    - "banned": Account banned by Telegram
+    - "flood_wait": Temporary rate limit
+    - "proxy_error": Proxy connection failed
     - "not_configured": Missing required configuration (api_id, api_hash, or proxy_id)
     - "proxy_missing": proxy_id references a proxy that no longer exists in pool
+
+    Args:
+        session_manager: Optional session manager to check runtime state
 
     Returns:
         List of session info items
     """
+    from chatfilter.telegram.session_manager import SessionState
+
     sessions = []
     data_dir = ensure_data_dir()
 
@@ -558,23 +607,52 @@ def list_stored_sessions() -> list[SessionListItem]:
             config_file = session_dir / "config.json"
 
             if session_file.exists() and config_file.exists():
-                state = get_session_config_status(session_dir)
+                session_id = session_dir.name
+                # First check config status
+                config_status = get_session_config_status(session_dir)
+
+                # If session manager available, check runtime state
+                state = config_status
+                error_message = None
+
+                if session_manager is not None and config_status == "disconnected":
+                    # Session is configured - check if it has runtime state
+                    info = session_manager.get_info(session_id)
+                    if info:
+                        if info.state == SessionState.CONNECTED:
+                            state = "connected"
+                        elif info.state == SessionState.CONNECTING:
+                            state = "connecting"
+                        elif info.state == SessionState.DISCONNECTING:
+                            state = "disconnecting"
+                        elif info.state == SessionState.ERROR:
+                            error_message = info.error_message
+                            state = classify_error_state(error_message)
+                        # DISCONNECTED keeps config_status
+
                 sessions.append(
                     SessionListItem(
-                        session_id=session_dir.name,
+                        session_id=session_id,
                         state=state,
+                        error_message=error_message,
                     )
                 )
 
     return sessions
 
 
+if TYPE_CHECKING:
+    from chatfilter.telegram.session_manager import SessionManager
+
+
 @router.get("/api/sessions", response_class=HTMLResponse)
 async def get_sessions(request: Request) -> HTMLResponse:
     """List all registered sessions as HTML partial."""
     from chatfilter.web.app import get_templates
+    from chatfilter.web.dependencies import get_session_manager
 
-    sessions = list_stored_sessions()
+    session_manager = get_session_manager()
+    sessions = list_stored_sessions(session_manager)
     templates = get_templates()
 
     return templates.TemplateResponse(
@@ -1804,13 +1882,15 @@ async def connect_session(
 
     except Exception as e:
         logger.exception(f"Failed to connect session '{safe_name}'")
+        error_message = str(e)
+        error_state = classify_error_state(error_message)
         return templates.TemplateResponse(
             request=request,
             name="partials/session_connection_button.html",
             context={
                 "session_id": safe_name,
-                "state": "error",
-                "error": str(e),
+                "state": error_state,
+                "error": error_message,
             },
         )
 

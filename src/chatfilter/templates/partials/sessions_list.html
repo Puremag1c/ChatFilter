@@ -15,19 +15,34 @@
                     <span class="account-name">{{ session.session_id }}</span>
                 </td>
                 <td class="account-status-cell">
-                    <span class="account-status status-{{ session.state }}">
+                    <span class="account-status status-{{ session.state }}"{% if session.error_message %} title="{{ session.error_message }}"{% endif %}>
                         {%- if session.state == 'disconnected' -%}
                             <span class="status-icon" aria-hidden="true">✓</span>
                             {{ _("Ready") }}
+                        {%- elif session.state == 'connected' -%}
+                            <span class="status-icon" aria-hidden="true">●</span>
+                            {{ _("Connected") }}
+                        {%- elif session.state == 'connecting' -%}
+                            <span class="status-icon spinner-small" aria-hidden="true"></span>
+                            {{ _("Connecting") }}
+                        {%- elif session.state == 'disconnecting' -%}
+                            <span class="status-icon spinner-small" aria-hidden="true"></span>
+                            {{ _("Disconnecting") }}
+                        {%- elif session.state == 'banned' -%}
+                            <span class="status-icon" aria-hidden="true">⛔</span>
+                            {{ _("Banned") }}
+                        {%- elif session.state == 'flood_wait' -%}
+                            <span class="status-icon" aria-hidden="true">⏳</span>
+                            {{ _("Flood Wait") }}
+                        {%- elif session.state == 'proxy_error' -%}
+                            <span class="status-icon" aria-hidden="true">🔌</span>
+                            {{ _("Proxy Error") }}
                         {%- elif session.state == 'not_configured' -%}
                             <span class="status-icon" aria-hidden="true">⚠</span>
                             {{ _("Not configured") }}
                         {%- elif session.state == 'proxy_missing' -%}
                             <span class="status-icon" aria-hidden="true">✗</span>
                             {{ _("Proxy missing") }}
-                        {%- elif session.state == 'connected' -%}
-                            <span class="status-icon" aria-hidden="true">●</span>
-                            {{ _("Connected") }}
                         {%- elif session.state == 'error' -%}
                             <span class="status-icon" aria-hidden="true">✗</span>
                             {{ _("Error") }}
@@ -61,15 +76,31 @@
                                 <span class="btn-text">{{ _("Connect") }}</span>
                                 <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
                             </button>
-                            {% elif session.state == 'error' %}
+                            {% elif session.state == 'connecting' or session.state == 'disconnecting' %}
+                            {# Operation in progress - show disabled button #}
+                            <button class="btn btn-sm btn-secondary session-connect-btn" disabled
+                                    aria-label="{{ _('Please wait') }}">
+                                <span class="btn-text">{{ _("Wait...") }}</span>
+                                <span class="spinner"></span>
+                            </button>
+                            {% elif session.state in ['error', 'proxy_error', 'flood_wait'] %}
+                            {# Error states that can be retried #}
                             <button class="btn btn-sm btn-danger session-connect-btn"
                                     hx-post="/api/sessions/{{ session.session_id }}/connect"
                                     hx-target="#session-connection-{{ session.session_id }}"
                                     hx-swap="outerHTML"
                                     hx-indicator="#connection-spinner-{{ session.session_id }}"
-                                    aria-label="{{ _('Retry connection') }}">
+                                    aria-label="{{ _('Retry connection') }}"
+                                    title="{{ session.error_message or _('Connection error') }}">
                                 <span class="btn-text">{{ _("Retry") }}</span>
                                 <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
+                            </button>
+                            {% elif session.state == 'banned' %}
+                            {# Banned - cannot retry, account issue #}
+                            <button class="btn btn-sm btn-danger session-connect-btn" disabled
+                                    aria-label="{{ _('Account banned') }}"
+                                    title="{{ session.error_message or _('This account has been banned by Telegram') }}">
+                                <span class="btn-text">{{ _("Banned") }}</span>
                             </button>
                             {% else %}
                             {# not_configured, proxy_missing, or unknown - disabled #}
