@@ -40,6 +40,7 @@ htmlcov/
 test-log.txt
 test-results.xml
 ci_logs/
+testacc/
 
 # Distribution
 *.manifest
