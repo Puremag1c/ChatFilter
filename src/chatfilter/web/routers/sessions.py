@@ -1730,6 +1730,147 @@ async def _complete_auth_flow(
         )
 
 
+@router.post("/api/sessions/{session_id}/connect", response_class=HTMLResponse)
+async def connect_session(
+    request: Request,
+    session_id: str,
+) -> HTMLResponse:
+    """Connect a session to Telegram.
+
+    Returns HTML partial with updated button state.
+    """
+    from chatfilter.telegram.client import TelegramClientLoader
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.dependencies import get_session_manager
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<span class="error">{e}</span>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    session_path = session_dir / "session.session"
+    config_path = session_dir / "config.json"
+
+    if not session_path.exists():
+        return HTMLResponse(
+            content='<span class="error">Session not found</span>',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Check if session is properly configured
+    config_status = get_session_config_status(session_dir)
+    if config_status == "not_configured":
+        return HTMLResponse(
+            content='<span class="error">Session not configured</span>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+    if config_status == "proxy_missing":
+        return HTMLResponse(
+            content='<span class="error">Proxy not found</span>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_manager = get_session_manager()
+
+    try:
+        # Create and register loader if not already registered
+        loader = TelegramClientLoader(session_path, config_path)
+        loader.validate()
+        session_manager.register(safe_name, loader)
+
+        # Connect
+        await session_manager.connect(safe_name)
+
+        # Get updated state
+        info = session_manager.get_info(safe_name)
+        state = info.state.value if info else "disconnected"
+
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/session_connection_button.html",
+            context={
+                "session_id": safe_name,
+                "state": state,
+            },
+        )
+        response.headers["HX-Trigger"] = "refreshSessions"
+        return response
+
+    except Exception as e:
+        logger.exception(f"Failed to connect session '{safe_name}'")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_connection_button.html",
+            context={
+                "session_id": safe_name,
+                "state": "error",
+                "error": str(e),
+            },
+        )
+
+
+@router.post("/api/sessions/{session_id}/disconnect", response_class=HTMLResponse)
+async def disconnect_session(
+    request: Request,
+    session_id: str,
+) -> HTMLResponse:
+    """Disconnect a session from Telegram.
+
+    Returns HTML partial with updated button state.
+    """
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.dependencies import get_session_manager
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<span class="error">{e}</span>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_manager = get_session_manager()
+
+    try:
+        # Disconnect
+        await session_manager.disconnect(safe_name)
+
+        # Get updated state - check config status since session might not be registered anymore
+        session_dir = ensure_data_dir() / safe_name
+        config_status = get_session_config_status(session_dir)
+
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/session_connection_button.html",
+            context={
+                "session_id": safe_name,
+                "state": config_status,
+            },
+        )
+        response.headers["HX-Trigger"] = "refreshSessions"
+        return response
+
+    except Exception as e:
+        logger.exception(f"Failed to disconnect session '{safe_name}'")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_connection_button.html",
+            context={
+                "session_id": safe_name,
+                "state": "error",
+                "error": str(e),
+            },
+        )
+
+
 @router.post("/api/sessions/import/save", response_class=HTMLResponse)
 async def save_import_session(
     request: Request,

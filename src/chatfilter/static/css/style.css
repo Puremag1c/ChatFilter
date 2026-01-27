@@ -800,6 +800,28 @@ footer .diagnostic-button:hover {
     border-color: var(--danger-hover);
 }
 
+.btn-success {
+    background-color: var(--success);
+    color: white;
+    border-color: var(--success);
+}
+
+.btn-success:hover {
+    background-color: #2aa750;
+    border-color: #2aa750;
+}
+
+.btn-warning {
+    background-color: var(--warning);
+    color: white;
+    border-color: var(--warning);
+}
+
+.btn-warning:hover {
+    background-color: #e08600;
+    border-color: #e08600;
+}
+
 .btn-sm {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;

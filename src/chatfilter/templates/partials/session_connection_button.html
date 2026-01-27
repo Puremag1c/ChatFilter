@@ -1,0 +1,60 @@
+{# Session connection button partial #}
+{# Receives: session_id, state, error (optional) #}
+<div class="session-connection-btn-wrapper" id="session-connection-{{ session_id }}">
+    {% if state == 'connected' %}
+    <button class="btn btn-sm btn-warning session-disconnect-btn"
+            hx-post="/api/sessions/{{ session_id }}/disconnect"
+            hx-target="#session-connection-{{ session_id }}"
+            hx-swap="outerHTML"
+            hx-indicator="#connection-spinner-{{ session_id }}"
+            aria-label="{{ _('Disconnect session') }}">
+        <span class="btn-text">{{ _("Disconnect") }}</span>
+        <span id="connection-spinner-{{ session_id }}" class="htmx-indicator spinner"></span>
+    </button>
+    {% elif state == 'disconnected' %}
+    <button class="btn btn-sm btn-success session-connect-btn"
+            hx-post="/api/sessions/{{ session_id }}/connect"
+            hx-target="#session-connection-{{ session_id }}"
+            hx-swap="outerHTML"
+            hx-indicator="#connection-spinner-{{ session_id }}"
+            aria-label="{{ _('Connect session') }}">
+        <span class="btn-text">{{ _("Connect") }}</span>
+        <span id="connection-spinner-{{ session_id }}" class="htmx-indicator spinner"></span>
+    </button>
+    {% elif state == 'connecting' %}
+    <button class="btn btn-sm btn-secondary session-connect-btn" disabled
+            aria-label="{{ _('Connecting...') }}">
+        <span class="btn-text">{{ _("Connecting...") }}</span>
+        <span class="spinner"></span>
+    </button>
+    {% elif state == 'disconnecting' %}
+    <button class="btn btn-sm btn-secondary session-disconnect-btn" disabled
+            aria-label="{{ _('Disconnecting...') }}">
+        <span class="btn-text">{{ _("Disconnecting...") }}</span>
+        <span class="spinner"></span>
+    </button>
+    {% elif state == 'error' %}
+    <button class="btn btn-sm btn-danger session-connect-btn"
+            hx-post="/api/sessions/{{ session_id }}/connect"
+            hx-target="#session-connection-{{ session_id }}"
+            hx-swap="outerHTML"
+            hx-indicator="#connection-spinner-{{ session_id }}"
+            aria-label="{{ _('Retry connection') }}"
+            title="{{ error or _('Connection error') }}">
+        <span class="btn-text">{{ _("Retry") }}</span>
+        <span id="connection-spinner-{{ session_id }}" class="htmx-indicator spinner"></span>
+    </button>
+    {% elif state == 'not_configured' or state == 'proxy_missing' %}
+    <button class="btn btn-sm btn-secondary session-connect-btn" disabled
+            aria-label="{{ _('Not configured') }}"
+            title="{{ _('Configure session first') }}">
+        <span class="btn-text">{{ _("Connect") }}</span>
+    </button>
+    {% else %}
+    {# Unknown state - show disabled connect #}
+    <button class="btn btn-sm btn-secondary session-connect-btn" disabled
+            aria-label="{{ _('Unknown state') }}">
+        <span class="btn-text">{{ _("Connect") }}</span>
+    </button>
+    {% endif %}
+</div>

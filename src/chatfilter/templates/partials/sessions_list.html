@@ -39,6 +39,47 @@
                 </td>
                 <td class="account-actions-cell">
                     <div class="account-actions">
+                        {# Connection button #}
+                        <div class="session-connection-btn-wrapper" id="session-connection-{{ session.session_id }}">
+                            {% if session.state == 'connected' %}
+                            <button class="btn btn-sm btn-warning session-disconnect-btn"
+                                    hx-post="/api/sessions/{{ session.session_id }}/disconnect"
+                                    hx-target="#session-connection-{{ session.session_id }}"
+                                    hx-swap="outerHTML"
+                                    hx-indicator="#connection-spinner-{{ session.session_id }}"
+                                    aria-label="{{ _('Disconnect session') }}">
+                                <span class="btn-text">{{ _("Disconnect") }}</span>
+                                <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
+                            </button>
+                            {% elif session.state == 'disconnected' %}
+                            <button class="btn btn-sm btn-success session-connect-btn"
+                                    hx-post="/api/sessions/{{ session.session_id }}/connect"
+                                    hx-target="#session-connection-{{ session.session_id }}"
+                                    hx-swap="outerHTML"
+                                    hx-indicator="#connection-spinner-{{ session.session_id }}"
+                                    aria-label="{{ _('Connect session') }}">
+                                <span class="btn-text">{{ _("Connect") }}</span>
+                                <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
+                            </button>
+                            {% elif session.state == 'error' %}
+                            <button class="btn btn-sm btn-danger session-connect-btn"
+                                    hx-post="/api/sessions/{{ session.session_id }}/connect"
+                                    hx-target="#session-connection-{{ session.session_id }}"
+                                    hx-swap="outerHTML"
+                                    hx-indicator="#connection-spinner-{{ session.session_id }}"
+                                    aria-label="{{ _('Retry connection') }}">
+                                <span class="btn-text">{{ _("Retry") }}</span>
+                                <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
+                            </button>
+                            {% else %}
+                            {# not_configured, proxy_missing, or unknown - disabled #}
+                            <button class="btn btn-sm btn-secondary session-connect-btn" disabled
+                                    aria-label="{{ _('Not configured') }}"
+                                    title="{{ _('Configure session first') }}">
+                                <span class="btn-text">{{ _("Connect") }}</span>
+                            </button>
+                            {% endif %}
+                        </div>
                         <button class="btn btn-sm btn-secondary session-config-btn"
                                 data-session-id="{{ session.session_id }}"
                                 hx-get="/api/sessions/{{ session.session_id }}/config"
