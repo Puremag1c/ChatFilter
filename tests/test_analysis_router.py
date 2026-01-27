@@ -480,7 +480,7 @@ class TestStartAnalysisEndpoint:
         """Test starting analysis when all selected chats are invalid/stale."""
         with (
             patch("chatfilter.web.routers.analysis.get_session_paths"),
-            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+            patch("chatfilter.web.routers.analysis.get_chat_analysis_service") as mock_service,
         ):
             mock_svc = mock_service.return_value
             # All chats are invalid
@@ -504,7 +504,7 @@ class TestStartAnalysisEndpoint:
         """Test starting analysis when some chats are invalid."""
         with (
             patch("chatfilter.web.routers.analysis.get_session_paths"),
-            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+            patch("chatfilter.web.routers.analysis.get_chat_analysis_service") as mock_service,
         ):
             mock_svc = mock_service.return_value
             # Some chats are invalid
@@ -534,7 +534,7 @@ class TestStartAnalysisEndpoint:
 
         with (
             patch("chatfilter.web.routers.analysis.get_session_paths"),
-            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+            patch("chatfilter.web.routers.analysis.get_chat_analysis_service") as mock_service,
         ):
             mock_svc = mock_service.return_value
             mock_svc.validate_chat_ids = timeout_validation
@@ -558,7 +558,7 @@ class TestStartAnalysisEndpoint:
         """Test starting analysis when chat validation raises an error."""
         with (
             patch("chatfilter.web.routers.analysis.get_session_paths"),
-            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+            patch("chatfilter.web.routers.analysis.get_chat_analysis_service") as mock_service,
         ):
             mock_svc = mock_service.return_value
             mock_svc.validate_chat_ids = AsyncMock(side_effect=Exception("Network error"))
@@ -582,7 +582,7 @@ class TestStartAnalysisEndpoint:
         """Test starting analysis when task queue is full."""
         with (
             patch("chatfilter.web.routers.analysis.get_session_paths"),
-            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+            patch("chatfilter.web.routers.analysis.get_chat_analysis_service") as mock_service,
         ):
             mock_svc = mock_service.return_value
             mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], []))
@@ -613,7 +613,7 @@ class TestStartAnalysisEndpoint:
 
         with (
             patch("chatfilter.web.routers.analysis.get_session_paths"),
-            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+            patch("chatfilter.web.routers.analysis.get_chat_analysis_service") as mock_service,
         ):
             mock_svc = mock_service.return_value
             mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2], []))
@@ -636,7 +636,7 @@ class TestStartAnalysisEndpoint:
         """Test successful analysis start."""
         with (
             patch("chatfilter.web.routers.analysis.get_session_paths"),
-            patch("chatfilter.web.routers.analysis.get_chat_service") as mock_service,
+            patch("chatfilter.web.routers.analysis.get_chat_analysis_service") as mock_service,
         ):
             mock_svc = mock_service.return_value
             mock_svc.validate_chat_ids = AsyncMock(return_value=([1, 2, 3], []))

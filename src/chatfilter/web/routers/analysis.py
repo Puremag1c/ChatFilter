@@ -59,7 +59,8 @@ from chatfilter.models import AnalysisResult
 
 if TYPE_CHECKING:
     from chatfilter.models import Chat
-from chatfilter.web.routers.chats import get_chat_service, get_session_paths
+from chatfilter.web.dependencies import get_chat_analysis_service
+from chatfilter.web.routers.chats import get_session_paths
 from chatfilter.web.session import get_session, set_session_cookie
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,7 @@ class RealAnalysisExecutor:
 
     def __init__(self) -> None:
         """Initialize executor with service layer."""
-        self._service = get_chat_service()
+        self._service = get_chat_analysis_service()
 
     async def get_chat_info(
         self,
@@ -224,7 +225,7 @@ async def start_analysis(
     # Validate chat_ids to prevent stale state (ChatFilter-9526)
     # If chats were deleted/removed from Telegram after selection,
     # we filter them out before starting analysis
-    service = get_chat_service()
+    service = get_chat_analysis_service()
     try:
         # Use timeout to prevent blocking if Telegram connection is slow
         # If validation times out, we proceed with original list (background task will handle errors)

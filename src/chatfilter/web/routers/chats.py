@@ -10,15 +10,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 
-from chatfilter.service import ChatAnalysisService
 from chatfilter.service.chat_analysis import SessionNotFoundError
 from chatfilter.telegram.error_mapping import get_actionable_error_info
 from chatfilter.telegram.session_manager import (
     SessionInvalidError,
-    SessionManager,
     SessionReauthRequiredError,
 )
-from chatfilter.web.dependencies import WebSession
+from chatfilter.web.dependencies import WebSession, get_chat_analysis_service
 
 logger = logging.getLogger(__name__)
 
@@ -26,29 +24,6 @@ router = APIRouter(tags=["chats"])
 
 # Data directory for stored sessions
 DATA_DIR = Path.cwd() / "data" / "sessions"
-
-# Global session manager instance (in production, this would be in app state)
-_session_manager: SessionManager | None = None
-_chat_service: ChatAnalysisService | None = None
-
-
-def get_session_manager() -> SessionManager:
-    """Get or create the session manager instance."""
-    global _session_manager
-    if _session_manager is None:
-        _session_manager = SessionManager()
-    return _session_manager
-
-
-def get_chat_service() -> ChatAnalysisService:
-    """Get or create the chat analysis service instance."""
-    global _chat_service
-    if _chat_service is None:
-        _chat_service = ChatAnalysisService(
-            session_manager=get_session_manager(),
-            data_dir=DATA_DIR,
-        )
-    return _chat_service
 
 
 def get_session_paths(session_id: str) -> tuple[Path, Path]:
@@ -151,7 +126,7 @@ async def get_chats(
     # This enables multi-tab support and persistence across refreshes
     web_session.set("selected_telegram_session", session_id)
 
-    service = get_chat_service()
+    service = get_chat_analysis_service()
 
     try:
         # Fetch paginated chats and total count
@@ -296,7 +271,7 @@ async def get_chats_json(
     # Store selected Telegram session in user's web session
     web_session.set("selected_telegram_session", session_id)
 
-    service = get_chat_service()
+    service = get_chat_analysis_service()
 
     try:
         # Fetch all chats (use a high limit to get everything)
@@ -372,7 +347,7 @@ async def get_account_info_endpoint(
             context={"account_info": None},
         )
 
-    service = get_chat_service()
+    service = get_chat_analysis_service()
 
     try:
         account_info = await service.get_account_info(session_id)
@@ -420,7 +395,7 @@ async def get_account_info_json(
     if not session_id:
         return {"error": "No session selected"}
 
-    service = get_chat_service()
+    service = get_chat_analysis_service()
 
     try:
         info = await service.get_account_info(session_id)

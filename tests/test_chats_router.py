@@ -71,7 +71,7 @@ class TestChatsAPI:
     def test_get_chats_session_not_found(self, client: TestClient) -> None:
         """Test getting chats from non-existent session returns 404."""
         # Mock the service to raise SessionNotFoundError
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionNotFoundError("Session 'nonexistent' not found")
@@ -91,7 +91,7 @@ class TestChatsAPI:
         ]
 
         # Mock the service layer instead of the low-level components
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             # Return tuple of (chats, total_count)
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, len(mock_chats)))
@@ -117,7 +117,7 @@ class TestChatsAPI:
         ]
 
         # Mock the service layer
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             # Return tuple of (chats_slice, total_count)
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 500))
@@ -146,7 +146,7 @@ class TestChatsAPI:
         ]
 
         # Mock the service layer
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             # Return tuple showing we've reached the end
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 100))
@@ -160,7 +160,7 @@ class TestChatsAPI:
 
     def test_get_chats_session_invalid_error(self, client: TestClient) -> None:
         """Test getting chats when session is invalid (revoked/banned)."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionInvalidError("Session revoked")
@@ -176,7 +176,7 @@ class TestChatsAPI:
 
     def test_get_chats_session_reauth_required_error(self, client: TestClient) -> None:
         """Test getting chats when session requires re-authorization."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionReauthRequiredError("Session expired")
@@ -189,7 +189,7 @@ class TestChatsAPI:
 
     def test_get_chats_session_reauth_2fa_error(self, client: TestClient) -> None:
         """Test getting chats when 2FA is required."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionReauthRequiredError("2FA password required")
@@ -211,7 +211,7 @@ class TestChatsAPI:
         TelethonLikeError.__module__ = "telethon.errors"
         mock_error = TelethonLikeError("Some Telethon error")
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(side_effect=mock_error)
 
@@ -230,7 +230,7 @@ class TestChatsAPI:
 
     def test_get_chats_generic_error(self, client: TestClient) -> None:
         """Test handling of generic non-Telethon errors."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(side_effect=Exception("Network error"))
 
@@ -248,7 +248,7 @@ class TestChatsAPI:
         TelethonLikeError.__module__ = "telethon.errors"
         mock_error = TelethonLikeError("Telethon error")
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(side_effect=mock_error)
 
@@ -275,7 +275,7 @@ class TestChatsAPI:
 
     def test_get_chats_json_session_not_found(self, client: TestClient) -> None:
         """Test JSON endpoint returns 404 for non-existent session."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionNotFoundError("Session 'nonexistent' not found")
@@ -299,7 +299,7 @@ class TestChatsAPI:
             for i in range(1, 201)  # 200 chats
         ]
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, len(mock_chats)))
 
@@ -335,7 +335,7 @@ class TestChatsAPI:
 
     def test_get_chats_json_session_invalid_error(self, client: TestClient) -> None:
         """Test JSON endpoint handles invalid session."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionInvalidError("Session revoked")
@@ -350,7 +350,7 @@ class TestChatsAPI:
 
     def test_get_chats_json_session_reauth_required(self, client: TestClient) -> None:
         """Test JSON endpoint handles reauth required."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(
                 side_effect=SessionReauthRequiredError("Session expired")
@@ -363,7 +363,7 @@ class TestChatsAPI:
 
     def test_get_chats_json_generic_error(self, client: TestClient) -> None:
         """Test JSON endpoint handles generic errors."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(side_effect=Exception("Network error"))
 
@@ -394,7 +394,7 @@ class TestAccountInfoAPI:
             chat_count=450,
         )
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
@@ -407,7 +407,7 @@ class TestAccountInfoAPI:
 
     def test_get_account_info_session_not_found(self, client: TestClient) -> None:
         """Test account info endpoint with non-existent session."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(
                 side_effect=SessionNotFoundError("Session not found")
@@ -420,7 +420,7 @@ class TestAccountInfoAPI:
 
     def test_get_account_info_error(self, client: TestClient) -> None:
         """Test account info endpoint handles errors gracefully."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(side_effect=Exception("Connection error"))
 
@@ -448,7 +448,7 @@ class TestAccountInfoAPI:
             chat_count=800,
         )
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
@@ -478,7 +478,7 @@ class TestAccountInfoAPI:
             chat_count=475,
         )
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
@@ -502,7 +502,7 @@ class TestAccountInfoAPI:
             chat_count=500,  # At limit
         )
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
@@ -520,7 +520,7 @@ class TestAccountInfoAPI:
 
     def test_get_account_info_json_session_not_found(self, client: TestClient) -> None:
         """Test JSON account info endpoint with non-existent session."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(
                 side_effect=SessionNotFoundError("Session not found")
@@ -532,7 +532,7 @@ class TestAccountInfoAPI:
 
     def test_get_account_info_json_error(self, client: TestClient) -> None:
         """Test JSON account info endpoint handles errors."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(side_effect=Exception("Connection error"))
 
@@ -540,44 +540,6 @@ class TestAccountInfoAPI:
 
             assert response.status_code == 500
             assert "Failed to fetch" in response.json()["detail"]
-
-
-class TestSingletonGetters:
-    """Tests for global singleton getter functions."""
-
-    def test_get_session_manager(self) -> None:
-        """Test get_session_manager creates singleton instance."""
-        # Clear global state
-        import chatfilter.web.routers.chats as chats_module
-        from chatfilter.web.routers.chats import (
-            get_session_manager,
-        )
-
-        chats_module._session_manager = None
-
-        # First call should create instance
-        manager1 = get_session_manager()
-        assert manager1 is not None
-
-        # Second call should return same instance
-        manager2 = get_session_manager()
-        assert manager1 is manager2
-
-    def test_get_chat_service(self) -> None:
-        """Test get_chat_service creates singleton instance."""
-        # Clear global state
-        import chatfilter.web.routers.chats as chats_module
-        from chatfilter.web.routers.chats import get_chat_service
-
-        chats_module._chat_service = None
-
-        # First call should create instance
-        service1 = get_chat_service()
-        assert service1 is not None
-
-        # Second call should return same instance
-        service2 = get_chat_service()
-        assert service1 is service2
 
 
 class TestHelperFunctions:
@@ -687,7 +649,7 @@ class TestWebSessionPersistence:
         """Test that get_chats stores selected session in web session."""
         mock_chats = [Chat(id=1, title="Test", chat_type=ChatType.GROUP)]
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 1))
 
@@ -701,7 +663,7 @@ class TestWebSessionPersistence:
         """Test that get_chats_json stores selected session in web session."""
         mock_chats = [Chat(id=1, title="Test", chat_type=ChatType.GROUP)]
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 1))
 
@@ -719,7 +681,7 @@ class TestPaginationEdgeCases:
         # Chat IDs must be positive (>0), so start from 1
         mock_chats = [Chat(id=i, title=f"Chat {i}", chat_type=ChatType.GROUP) for i in range(1, 11)]
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 100))
 
@@ -735,7 +697,7 @@ class TestPaginationEdgeCases:
             Chat(id=i, title=f"Chat {i}", chat_type=ChatType.GROUP) for i in range(1, 501)
         ]
 
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 500))
 
@@ -746,7 +708,7 @@ class TestPaginationEdgeCases:
 
     def test_get_chats_empty_result(self, client: TestClient) -> None:
         """Test getting chats when result is empty."""
-        with patch("chatfilter.web.routers.chats.get_chat_service") as mock_get_service:
+        with patch("chatfilter.web.routers.chats.get_chat_analysis_service") as mock_get_service:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=([], 0))
 
