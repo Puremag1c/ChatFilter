@@ -47,6 +47,18 @@ Users upgrading from 0.5.x desktop app:
 3. Run: `chatfilter --port 8000`
 4. Open browser manually: http://127.0.0.1:8000
 
+### Fixed
+- **Deactivated Account Detection**: Connect now validates account can access dialogs
+  - Previously deactivated accounts could show "Connected" status falsely
+  - Now shows "Banned" status with proper error message
+  - Uses `iter_dialogs(limit=1)` check instead of just `get_me()`
+- **Session Path**: Fixed ChatAnalysisService using wrong sessions directory
+  - Was hardcoded to `./data/sessions` instead of `settings.sessions_dir`
+  - Caused "Session not found" errors when selecting sessions on Chats page
+- **HTMX Session Select**: Added missing `name` attribute to session dropdown
+  - HTMX `hx-include` requires `name` to send form value
+  - Fixed 422 "Field required" error when selecting session
+
 ## [0.5.2] - 2026-01-27
 
 ### Fixed
