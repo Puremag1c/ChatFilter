@@ -143,21 +143,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     logger.info("Application startup complete")
 
-    # Auto-open browser after server is ready
-    import threading
-    import webbrowser
-
-    def open_browser() -> None:
-        """Open browser to application URL after short delay."""
-        import time
-
-        time.sleep(1.5)  # Wait for server to be fully ready
-        url = f"http://{settings.host}:{settings.port}"
-        logger.info(f"Opening browser to {url}")
-        webbrowser.open(url)
-
-    threading.Thread(target=open_browser, daemon=True).start()
-
     yield
 
     # Graceful shutdown
