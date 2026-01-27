@@ -114,14 +114,6 @@ msgstr ""
 msgid "Switch between English and Russian"
 msgstr ""
 
-#: src/chatfilter/templates/base.html:60
-msgid "Show keyboard shortcuts"
-msgstr ""
-
-#: src/chatfilter/templates/base.html:60
-msgid "Press ? to view keyboard shortcuts"
-msgstr ""
-
 #: src/chatfilter/templates/base.html:75
 msgid "Export diagnostic information for troubleshooting"
 msgstr ""

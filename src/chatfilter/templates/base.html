@@ -20,7 +20,6 @@
     <script src="/static/js/tooltips.js"></script>
     <script src="/static/js/virtual-chat-list.js"></script>
     <script src="/static/js/version-check.js"></script>
-    <script src="/static/js/keyboard-shortcuts.js"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -56,9 +55,6 @@
                 </button>
                 <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}" data-tooltip="{{ _("Switch between English and Russian") }}" data-tooltip-position="bottom">
                     <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
-                </button>
-                <button id="keyboard-shortcuts-btn" class="keyboard-shortcuts-btn" aria-label="{{ _("Show keyboard shortcuts") }}" data-tooltip="{{ _("Press ? to view keyboard shortcuts") }}" data-tooltip-position="bottom" onclick="KeyboardShortcuts.toggleHelpModal()">
-                    <span class="keyboard-icon" aria-hidden="true">⌨️</span>
                 </button>
             </div>
         </nav>

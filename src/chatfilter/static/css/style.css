@@ -504,40 +504,10 @@ header .nav-links a:hover {
     line-height: 1;
 }
 
-/* Keyboard Shortcuts Button */
-.keyboard-shortcuts-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    background: var(--bg-code);
-    border: 1px solid var(--border-light);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.keyboard-shortcuts-btn:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--border-color);
-}
-
-.keyboard-shortcuts-btn:active {
-    transform: scale(0.96);
-}
-
-.keyboard-icon {
-    font-size: 1rem;
-    line-height: 1;
-}
-
-/* Hide theme, language and keyboard shortcuts toggles on mobile */
+/* Responsive button sizes */
 @media (max-width: 768px) {
     .theme-toggle-btn,
-    .language-toggle-btn,
-    .keyboard-shortcuts-btn {
+    .language-toggle-btn {
         width: 36px;
         height: 36px;
     }
@@ -546,7 +516,6 @@ header .nav-links a:hover {
         font-size: 1.1rem;
     }
 
-    .keyboard-icon,
     .language-icon {
         font-size: 0.7rem;
     }
