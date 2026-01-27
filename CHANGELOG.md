@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-01-27
+
+### Fixed
+- **JavaScript**: Fixed broken `hyperlist.min.js` file that contained error text instead of library code
+  - HyperList library was not loading, causing "Unexpected identifier 'found'" console error
+  - Virtual scrolling in chat list now works correctly
+
 ## [0.5.0] - 2026-01-27
 
 ### Added
@@ -190,7 +197,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.12...v0.5.0
 [0.4.12]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.11...v0.4.12
 [0.4.11]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.10...v0.4.11
