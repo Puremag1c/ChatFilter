@@ -6,19 +6,17 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from cryptography.fernet import Fernet
 
 from chatfilter.security.credentials import (
-    KEYRING_SERVICE,
     CredentialNotFoundError,
     CredentialStorageBackend,
     CredentialStorageError,
     EncryptedFileBackend,
     EnvironmentBackend,
-    KeyringBackend,
     SecureCredentialManager,
 )
 
@@ -53,263 +51,6 @@ class TestCredentialStorageBackend:
 
         with pytest.raises(NotImplementedError):
             backend.is_available()
-
-
-class TestKeyringBackend:
-    """Tests for OS keyring-based credential storage."""
-
-    def test_init_without_keyring(self):
-        """Test initialization when keyring module is not available."""
-        with (
-            patch.dict("sys.modules", {"keyring": None}),
-            patch("builtins.__import__", side_effect=ImportError("No keyring")),
-        ):
-            backend = KeyringBackend()
-            assert backend._keyring is None
-
-    def test_init_with_keyring(self):
-        """Test initialization when keyring module is available."""
-        # Mock the import of keyring module inside __init__
-        mock_keyring = MagicMock()
-
-        with patch("builtins.__import__", return_value=mock_keyring):
-            backend = KeyringBackend()
-            # Verify keyring was successfully assigned
-            assert backend._keyring == mock_keyring
-
-    def test_is_available_when_keyring_not_installed(self):
-        """Test is_available returns False when keyring not installed."""
-        backend = KeyringBackend()
-        backend._keyring = None
-
-        assert backend.is_available() is False
-
-    def test_is_available_when_keyring_functional(self):
-        """Test is_available returns True when keyring is functional."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        assert backend.is_available() is True
-
-    def test_is_available_when_keyring_priority_too_low(self):
-        """Test is_available returns False when keyring priority < 1."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 0  # Fail backend
-        mock_keyring.get_keyring.return_value = mock_backend
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        assert backend.is_available() is False
-
-    def test_is_available_when_keyring_raises_exception(self):
-        """Test is_available returns False when keyring.get_keyring raises exception."""
-        mock_keyring = MagicMock()
-        mock_keyring.get_keyring.side_effect = RuntimeError("Keyring error")
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        assert backend.is_available() is False
-
-    def test_store_credentials_when_not_available(self):
-        """Test store_credentials raises error when backend not available."""
-        backend = KeyringBackend()
-        backend._keyring = None
-
-        with pytest.raises(CredentialStorageError, match="not available"):
-            backend.store_credentials("test-session", 12345, "abc123")
-
-    def test_store_credentials_success(self):
-        """Test successfully storing credentials in keyring."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
-
-        # Verify set_password was called correctly
-        assert mock_keyring.set_password.call_count == 3
-        mock_keyring.set_password.assert_any_call(KEYRING_SERVICE, "test-session:api_id", "12345")
-        mock_keyring.set_password.assert_any_call(
-            KEYRING_SERVICE, "test-session:api_hash", "abc123hash"
-        )
-        mock_keyring.set_password.assert_any_call(
-            KEYRING_SERVICE, "test-session:proxy_id", "proxy-123"
-        )
-
-    def test_store_credentials_with_special_characters_in_session_id(self):
-        """Test storing credentials with special characters in session ID."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        session_id = "my-session_2024"
-        backend.store_credentials(session_id, 99999, "hash_value")
-
-        mock_keyring.set_password.assert_any_call(KEYRING_SERVICE, f"{session_id}:api_id", "99999")
-
-    def test_store_credentials_keyring_error(self):
-        """Test store_credentials raises error when keyring fails."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-        mock_keyring.set_password.side_effect = RuntimeError("Keyring locked")
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        with pytest.raises(CredentialStorageError, match="Failed to store in keyring"):
-            backend.store_credentials("test-session", 12345, "abc123")
-
-    def test_retrieve_credentials_when_not_available(self):
-        """Test retrieve_credentials raises error when backend not available."""
-        backend = KeyringBackend()
-        backend._keyring = None
-
-        with pytest.raises(CredentialStorageError, match="not available"):
-            backend.retrieve_credentials("test-session")
-
-    def test_retrieve_credentials_success(self):
-        """Test successfully retrieving credentials from keyring."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-        mock_keyring.get_password.side_effect = lambda service, key: {
-            "test-session:api_id": "12345",
-            "test-session:api_hash": "abc123hash",
-            "test-session:proxy_id": "proxy-123",
-        }.get(key)
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        api_id, api_hash, proxy_id = backend.retrieve_credentials("test-session")
-
-        assert api_id == 12345
-        assert api_hash == "abc123hash"
-        assert proxy_id == "proxy-123"
-
-    def test_retrieve_credentials_not_found_api_id_none(self):
-        """Test retrieve_credentials raises error when api_id not found."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-        mock_keyring.get_password.return_value = None
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        with pytest.raises(CredentialNotFoundError, match="not found in keyring"):
-            backend.retrieve_credentials("test-session")
-
-    def test_retrieve_credentials_not_found_api_hash_none(self):
-        """Test retrieve_credentials raises error when api_hash not found."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-
-        def get_password_side_effect(service, key):
-            if "api_id" in key:
-                return "12345"
-            return None
-
-        mock_keyring.get_password.side_effect = get_password_side_effect
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        with pytest.raises(CredentialNotFoundError, match="not found in keyring"):
-            backend.retrieve_credentials("test-session")
-
-    def test_retrieve_credentials_invalid_api_id(self):
-        """Test retrieve_credentials raises error when api_id is not numeric."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-        mock_keyring.get_password.side_effect = lambda service, key: {
-            "test-session:api_id": "not-a-number",
-            "test-session:api_hash": "abc123hash",
-        }.get(key)
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        with pytest.raises(CredentialStorageError, match="Invalid api_id"):
-            backend.retrieve_credentials("test-session")
-
-    def test_retrieve_credentials_keyring_error(self):
-        """Test retrieve_credentials handles keyring errors."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-        mock_keyring.get_password.side_effect = RuntimeError("Keyring error")
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        with pytest.raises(CredentialStorageError, match="Failed to retrieve from keyring"):
-            backend.retrieve_credentials("test-session")
-
-    def test_delete_credentials_when_not_available(self):
-        """Test delete_credentials raises error when backend not available."""
-        backend = KeyringBackend()
-        backend._keyring = None
-
-        with pytest.raises(CredentialStorageError, match="not available"):
-            backend.delete_credentials("test-session")
-
-    def test_delete_credentials_success(self):
-        """Test successfully deleting credentials from keyring."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        backend.delete_credentials("test-session")
-
-        # Verify delete_password was called correctly
-        assert mock_keyring.delete_password.call_count == 3
-        mock_keyring.delete_password.assert_any_call(KEYRING_SERVICE, "test-session:api_id")
-        mock_keyring.delete_password.assert_any_call(KEYRING_SERVICE, "test-session:api_hash")
-        mock_keyring.delete_password.assert_any_call(KEYRING_SERVICE, "test-session:proxy_id")
-
-    def test_delete_credentials_handles_error_gracefully(self):
-        """Test delete_credentials doesn't raise error if credentials don't exist."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-        mock_keyring.delete_password.side_effect = Exception("Not found")
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        # Should not raise
-        backend.delete_credentials("test-session")
 
 
 class TestEncryptedFileBackend:
@@ -683,27 +424,11 @@ class TestEnvironmentBackend:
 class TestSecureCredentialManager:
     """Tests for SecureCredentialManager."""
 
-    def test_init_prefers_keyring(self, tmp_path: Path):
-        """Test that keyring is preferred when available."""
-        with patch("chatfilter.security.credentials.KeyringBackend") as mock_keyring_class:
-            mock_keyring_instance = MagicMock()
-            mock_keyring_instance.is_available.return_value = True
-            mock_keyring_class.return_value = mock_keyring_instance
+    def test_init_uses_file_backend(self, tmp_path: Path):
+        """Test that file backend is used by default (no keychain prompts)."""
+        manager = SecureCredentialManager(tmp_path)
 
-            manager = SecureCredentialManager(tmp_path)
-
-            assert manager._storage_backend == mock_keyring_instance
-
-    def test_init_falls_back_to_file_backend(self, tmp_path: Path):
-        """Test that file backend is used when keyring not available."""
-        with patch("chatfilter.security.credentials.KeyringBackend") as mock_keyring_class:
-            mock_keyring_instance = MagicMock()
-            mock_keyring_instance.is_available.return_value = False
-            mock_keyring_class.return_value = mock_keyring_instance
-
-            manager = SecureCredentialManager(tmp_path)
-
-            assert isinstance(manager._storage_backend, EncryptedFileBackend)
+        assert isinstance(manager._storage_backend, EncryptedFileBackend)
 
     def test_store_credentials_uses_storage_backend(self, tmp_path: Path):
         """Test that store_credentials delegates to storage backend."""
@@ -724,7 +449,6 @@ class TestSecureCredentialManager:
 
         try:
             manager = SecureCredentialManager(tmp_path)
-            manager._keyring_backend = MagicMock()
             manager._file_backend = MagicMock()
 
             api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
@@ -733,48 +457,21 @@ class TestSecureCredentialManager:
             assert api_hash == "abc123hash"
             assert proxy_id == "proxy-123"
 
-            # Other backends should not be called
-            manager._keyring_backend.retrieve_credentials.assert_not_called()
+            # File backend should not be called
             manager._file_backend.retrieve_credentials.assert_not_called()
         finally:
             os.environ.pop("CHATFILTER_API_ID_TEST_SESSION", None)
             os.environ.pop("CHATFILTER_API_HASH_TEST_SESSION", None)
             os.environ.pop("CHATFILTER_PROXY_ID_TEST_SESSION", None)
 
-    def test_retrieve_credentials_tries_keyring_second(self, tmp_path: Path):
-        """Test that keyring is tried after environment."""
+    def test_retrieve_credentials_uses_file_backend(self, tmp_path: Path):
+        """Test that file backend is used when env vars not found."""
         manager = SecureCredentialManager(tmp_path)
-
-        # Mock keyring backend
-        mock_keyring = MagicMock()
-        mock_keyring.is_available.return_value = True
-        mock_keyring.retrieve_credentials.return_value = (12345, "abc123hash", "proxy-123")
-        manager._keyring_backend = mock_keyring
+        manager._file_backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
 
         # Mock env backend to fail
         manager._env_backend = MagicMock()
         manager._env_backend.retrieve_credentials.side_effect = CredentialNotFoundError()
-
-        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
-
-        assert api_id == 12345
-        assert api_hash == "abc123hash"
-        assert proxy_id == "proxy-123"
-        mock_keyring.retrieve_credentials.assert_called_once()
-
-    def test_retrieve_credentials_tries_file_backend_last(self, tmp_path: Path):
-        """Test that file backend is tried last."""
-        manager = SecureCredentialManager(tmp_path)
-        manager._file_backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
-
-        # Mock env and keyring to fail
-        manager._env_backend = MagicMock()
-        manager._env_backend.retrieve_credentials.side_effect = CredentialNotFoundError()
-
-        mock_keyring = MagicMock()
-        mock_keyring.is_available.return_value = True
-        mock_keyring.retrieve_credentials.side_effect = CredentialNotFoundError()
-        manager._keyring_backend = mock_keyring
 
         api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
 
@@ -789,86 +486,23 @@ class TestSecureCredentialManager:
         with pytest.raises(CredentialNotFoundError, match="not found for session"):
             manager.retrieve_credentials("nonexistent-session")
 
-    def test_retrieve_credentials_skips_keyring_if_not_available(self, tmp_path: Path):
-        """Test that keyring is skipped if not available."""
+    def test_delete_credentials_deletes_from_file_backend(self, tmp_path: Path):
+        """Test that delete removes from file backend."""
         manager = SecureCredentialManager(tmp_path)
-        manager._file_backend.store_credentials("test-session", 12345, "abc123hash", "proxy-123")
-
-        # Mock keyring as unavailable
-        mock_keyring = MagicMock()
-        mock_keyring.is_available.return_value = False
-        manager._keyring_backend = mock_keyring
-
-        api_id, api_hash, proxy_id = manager.retrieve_credentials("test-session")
-
-        assert api_id == 12345
-        assert proxy_id == "proxy-123"
-        # Keyring should not be called
-        mock_keyring.retrieve_credentials.assert_not_called()
-
-    def test_delete_credentials_deletes_from_both_backends(self, tmp_path: Path):
-        """Test that delete removes from both keyring and file backends."""
-        manager = SecureCredentialManager(tmp_path)
-
-        # Mock both backends
-        mock_keyring = MagicMock()
-        mock_keyring.is_available.return_value = True
-        manager._keyring_backend = mock_keyring
-
         manager._file_backend = MagicMock()
 
         manager.delete_credentials("test-session")
 
-        mock_keyring.delete_credentials.assert_called_once_with("test-session")
         manager._file_backend.delete_credentials.assert_called_once_with("test-session")
-
-    def test_delete_credentials_handles_keyring_errors_gracefully(self, tmp_path: Path):
-        """Test that delete handles keyring errors without crashing."""
-        manager = SecureCredentialManager(tmp_path)
-
-        mock_keyring = MagicMock()
-        mock_keyring.is_available.return_value = True
-        mock_keyring.delete_credentials.side_effect = Exception("Keyring error")
-        manager._keyring_backend = mock_keyring
-
-        manager._file_backend = MagicMock()
-
-        # Should not raise
-        manager.delete_credentials("test-session")
-
-        # File backend should still be called
-        manager._file_backend.delete_credentials.assert_called_once()
 
     def test_delete_credentials_handles_file_backend_errors_gracefully(self, tmp_path: Path):
         """Test that delete handles file backend errors without crashing."""
         manager = SecureCredentialManager(tmp_path)
-
-        mock_keyring = MagicMock()
-        mock_keyring.is_available.return_value = True
-        manager._keyring_backend = mock_keyring
-
         manager._file_backend = MagicMock()
         manager._file_backend.delete_credentials.side_effect = Exception("File error")
 
         # Should not raise
         manager.delete_credentials("test-session")
-
-    def test_delete_credentials_skips_keyring_if_not_available(self, tmp_path: Path):
-        """Test that delete skips keyring if not available."""
-        manager = SecureCredentialManager(tmp_path)
-
-        mock_keyring = MagicMock()
-        mock_keyring.is_available.return_value = False
-        manager._keyring_backend = mock_keyring
-
-        manager._file_backend = MagicMock()
-
-        manager.delete_credentials("test-session")
-
-        # Keyring should not be called
-        mock_keyring.delete_credentials.assert_not_called()
-        # File backend should be called
-        manager._file_backend.delete_credentials.assert_called_once()
 
     def test_has_credentials_returns_true_when_found(self, tmp_path: Path):
         """Test has_credentials returns True when credentials exist."""
@@ -997,23 +631,6 @@ class TestSecurityProperties:
 
         assert content1 != content2
 
-    def test_keyring_backend_stores_api_id_as_string(self):
-        """Test that keyring backend converts api_id to string for storage."""
-        mock_keyring = MagicMock()
-        mock_backend = MagicMock()
-        mock_backend.priority = 5
-        mock_keyring.get_keyring.return_value = mock_backend
-
-        backend = KeyringBackend()
-        backend._keyring = mock_keyring
-
-        backend.store_credentials("test-session", 12345, "abc123hash")
-
-        # Verify api_id was stored as string
-        calls = mock_keyring.set_password.call_args_list
-        api_id_call = [c for c in calls if "api_id" in str(c)][0]
-        assert api_id_call[0][2] == "12345"  # Third argument should be string
-
 
 class TestErrorScenarios:
     """Tests for error handling and edge cases."""
@@ -1049,10 +666,6 @@ class TestErrorScenarios:
             assert api_hash == "abc123hash"
             assert proxy_id == "proxy-123"
 
-    @pytest.mark.skipif(
-        sys.platform == "win32",
-        reason="Windows Credential Manager has strict size limits for credential names",
-    )
     def test_very_long_session_id(self, tmp_path: Path):
         """Test handling of very long session ID."""
         manager = SecureCredentialManager(tmp_path)
@@ -1077,10 +690,6 @@ class TestErrorScenarios:
         assert api_hash == "abc123hash"
         assert proxy_id == "proxy-123"
 
-    @pytest.mark.skipif(
-        sys.platform == "win32",
-        reason="Windows Credential Manager has strict size limits for credential values",
-    )
     def test_very_long_api_hash(self, tmp_path: Path):
         """Test handling of very long api_hash value."""
         manager = SecureCredentialManager(tmp_path)

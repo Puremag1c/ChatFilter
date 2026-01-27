@@ -1,15 +1,17 @@
 """Secure storage for Telegram API credentials.
 
 Implements layered security with multiple storage backends:
-1. OS Keyring (preferred) - Uses system's native credential storage
-2. Encrypted file (fallback) - For headless/unsupported systems
-3. Environment variables (optional) - For containerized deployments
+1. Encrypted file (default) - Credentials encrypted with machine-specific key
+2. Environment variables (optional) - For containerized deployments
 
 Security features:
 - Never stores credentials in plaintext
 - Redacts sensitive data in logs
 - Secure deletion of plaintext files during migration
 - Support for multiple sessions with isolated credentials
+
+NOTE: OS Keyring is NOT used because it causes repeated password prompts
+on macOS (Apple Keychain dialog appearing multiple times per operation).
 """
 
 from __future__ import annotations
@@ -17,7 +19,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import types
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -29,9 +30,6 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
-
-# Service name for keyring storage
-KEYRING_SERVICE = "ChatFilter"
 
 # Environment variable names
 ENV_API_ID_PREFIX = "CHATFILTER_API_ID"
@@ -103,141 +101,6 @@ class CredentialStorageBackend:
             True if backend can be used
         """
         raise NotImplementedError
-
-
-class KeyringBackend(CredentialStorageBackend):
-    """OS keyring backend using native system credential storage.
-
-    Uses:
-    - macOS: Keychain
-    - Windows: Credential Locker
-    - Linux: Secret Service (libsecret/gnome-keyring)
-    """
-
-    _keyring: types.ModuleType | None
-
-    def __init__(self) -> None:
-        """Initialize keyring backend."""
-        try:
-            import keyring
-
-            self._keyring = keyring
-        except ImportError:
-            self._keyring = None
-
-    def is_available(self) -> bool:
-        """Check if keyring is available."""
-        keyring = self._keyring
-        if keyring is None:
-            return False
-
-        try:
-            # Test if keyring backend is functional
-            # Some systems have keyring installed but no usable backend
-            backend = keyring.get_keyring()
-            # Fail backend is used when no real backend is available
-            return bool(backend.priority >= 1)
-        except Exception:
-            return False
-
-    def store_credentials(
-        self,
-        session_id: str,
-        api_id: int,
-        api_hash: str,
-        proxy_id: str | None = None,
-    ) -> None:
-        """Store credentials in OS keyring."""
-        if not self.is_available():
-            raise CredentialStorageError("Keyring backend not available")
-
-        keyring = self._keyring
-        assert keyring is not None  # Guaranteed by is_available() check
-
-        try:
-            # Store api_id as string (keyring stores strings)
-            keyring.set_password(
-                KEYRING_SERVICE,
-                f"{session_id}:api_id",
-                str(api_id),
-            )
-            keyring.set_password(
-                KEYRING_SERVICE,
-                f"{session_id}:api_hash",
-                api_hash,
-            )
-            # Store proxy_id (empty string if None, to distinguish from missing)
-            keyring.set_password(
-                KEYRING_SERVICE,
-                f"{session_id}:proxy_id",
-                proxy_id or "",
-            )
-            logger.info(f"Stored credentials in OS keyring for session: {session_id}")
-        except Exception as e:
-            raise CredentialStorageError(f"Failed to store in keyring: {e}") from e
-
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
-        """Retrieve credentials from OS keyring."""
-        if not self.is_available():
-            raise CredentialStorageError("Keyring backend not available")
-
-        keyring = self._keyring
-        assert keyring is not None  # Guaranteed by is_available() check
-
-        try:
-            api_id_str = keyring.get_password(
-                KEYRING_SERVICE,
-                f"{session_id}:api_id",
-            )
-            api_hash = keyring.get_password(
-                KEYRING_SERVICE,
-                f"{session_id}:api_hash",
-            )
-
-            if api_id_str is None or api_hash is None:
-                raise CredentialNotFoundError(
-                    f"Credentials not found in keyring for session: {session_id}"
-                )
-
-            try:
-                api_id = int(api_id_str)
-            except ValueError as e:
-                raise CredentialStorageError(f"Invalid api_id in keyring: {api_id_str}") from e
-
-            # Get proxy_id (may be None for old credentials, or empty string)
-            proxy_id = keyring.get_password(
-                KEYRING_SERVICE,
-                f"{session_id}:proxy_id",
-            )
-            # Convert empty string to None
-            if proxy_id == "":
-                proxy_id = None
-
-            return api_id, api_hash, proxy_id
-
-        except CredentialNotFoundError:
-            raise
-        except CredentialStorageError:
-            raise
-        except Exception as e:
-            raise CredentialStorageError(f"Failed to retrieve from keyring: {e}") from e
-
-    def delete_credentials(self, session_id: str) -> None:
-        """Delete credentials from OS keyring."""
-        if not self.is_available():
-            raise CredentialStorageError("Keyring backend not available")
-
-        keyring = self._keyring
-        assert keyring is not None  # Guaranteed by is_available() check
-
-        try:
-            keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_id")
-            keyring.delete_password(KEYRING_SERVICE, f"{session_id}:api_hash")
-            keyring.delete_password(KEYRING_SERVICE, f"{session_id}:proxy_id")
-            logger.info(f"Deleted credentials from keyring for session: {session_id}")
-        except Exception as e:
-            # Don't fail if already deleted
-            logger.debug(f"Error deleting from keyring (may not exist): {e}")
 
 
 class EncryptedFileBackend(CredentialStorageBackend):
@@ -454,12 +317,10 @@ class SecureCredentialManager:
 
     Attempts to use backends in order of preference:
     1. Environment variables (read-only, for containers)
-    2. OS Keyring (preferred for desktop)
-    3. Encrypted file (fallback)
+    2. Encrypted file (default)
 
-    For storage operations, uses:
-    1. OS Keyring (if available)
-    2. Encrypted file (fallback)
+    NOTE: OS Keyring is NOT used because it causes repeated password prompts
+    on macOS (Apple Keychain dialog appearing multiple times per operation).
     """
 
     _storage_backend: CredentialStorageBackend
@@ -471,13 +332,11 @@ class SecureCredentialManager:
             storage_dir: Directory for encrypted file backend
         """
         self._env_backend = EnvironmentBackend()
-        self._keyring_backend = KeyringBackend()
         self._file_backend = EncryptedFileBackend(storage_dir)
 
-        # Use encrypted file backend by default (no keychain prompts)
-        # Keyring causes repeated password prompts on macOS which is bad UX
+        # Use encrypted file backend (no keychain prompts)
         self._storage_backend = self._file_backend
-        logger.info("Using encrypted file backend for credential storage")
+        logger.debug("Using encrypted file backend for credential storage")
 
     def store_credentials(
         self,
@@ -502,7 +361,7 @@ class SecureCredentialManager:
     def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
         """Retrieve API credentials.
 
-        Attempts backends in order: environment, keyring, encrypted file.
+        Attempts backends in order: environment, encrypted file.
 
         Args:
             session_id: Unique session identifier
@@ -519,14 +378,7 @@ class SecureCredentialManager:
         except CredentialNotFoundError:
             pass
 
-        # Try keyring if available
-        if self._keyring_backend.is_available():
-            try:
-                return self._keyring_backend.retrieve_credentials(session_id)
-            except CredentialNotFoundError:
-                pass
-
-        # Fall back to encrypted file
+        # Use encrypted file backend
         try:
             return self._file_backend.retrieve_credentials(session_id)
         except CredentialNotFoundError:
@@ -539,20 +391,11 @@ class SecureCredentialManager:
         )
 
     def delete_credentials(self, session_id: str) -> None:
-        """Delete stored credentials from all backends.
+        """Delete stored credentials.
 
         Args:
             session_id: Unique session identifier
         """
-        # Try deleting from both keyring and file
-        # (credentials might be in both during migration)
-
-        if self._keyring_backend.is_available():
-            try:
-                self._keyring_backend.delete_credentials(session_id)
-            except Exception as e:
-                logger.debug(f"Error deleting from keyring: {e}")
-
         try:
             self._file_backend.delete_credentials(session_id)
         except Exception as e:
