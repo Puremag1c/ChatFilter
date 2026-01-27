@@ -1869,29 +1869,35 @@ async def connect_session(
         info = session_manager.get_info(safe_name)
         state = info.state.value if info else "disconnected"
 
-        response = templates.TemplateResponse(
+        # Create session object for template
+        session_data = {
+            "session_id": safe_name,
+            "state": state,
+            "error_message": None,
+        }
+
+        return templates.TemplateResponse(
             request=request,
-            name="partials/session_connection_button.html",
-            context={
-                "session_id": safe_name,
-                "state": state,
-            },
+            name="partials/session_row.html",
+            context={"session": session_data},
         )
-        response.headers["HX-Trigger"] = "refreshSessions"
-        return response
 
     except Exception as e:
         logger.exception(f"Failed to connect session '{safe_name}'")
         error_message = str(e)
         error_state = classify_error_state(error_message)
+
+        # Create session object for template with error
+        session_data = {
+            "session_id": safe_name,
+            "state": error_state,
+            "error_message": error_message,
+        }
+
         return templates.TemplateResponse(
             request=request,
-            name="partials/session_connection_button.html",
-            context={
-                "session_id": safe_name,
-                "state": error_state,
-                "error": error_message,
-            },
+            name="partials/session_row.html",
+            context={"session": session_data},
         )
 
 
@@ -1927,27 +1933,33 @@ async def disconnect_session(
         session_dir = ensure_data_dir() / safe_name
         config_status = get_session_config_status(session_dir)
 
-        response = templates.TemplateResponse(
+        # Create session object for template
+        session_data = {
+            "session_id": safe_name,
+            "state": config_status,
+            "error_message": None,
+        }
+
+        return templates.TemplateResponse(
             request=request,
-            name="partials/session_connection_button.html",
-            context={
-                "session_id": safe_name,
-                "state": config_status,
-            },
+            name="partials/session_row.html",
+            context={"session": session_data},
         )
-        response.headers["HX-Trigger"] = "refreshSessions"
-        return response
 
     except Exception as e:
         logger.exception(f"Failed to disconnect session '{safe_name}'")
+
+        # Create session object for template with error
+        session_data = {
+            "session_id": safe_name,
+            "state": "error",
+            "error_message": str(e),
+        }
+
         return templates.TemplateResponse(
             request=request,
-            name="partials/session_connection_button.html",
-            context={
-                "session_id": safe_name,
-                "state": "error",
-                "error": str(e),
-            },
+            name="partials/session_row.html",
+            context={"session": session_data},
         )
 
 

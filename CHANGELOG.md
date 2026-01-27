@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-01-27
+
+### Fixed
+- **Session Status**: Fixed session status not updating after connect/disconnect
+  - Previously only the button updated, leaving status cell stale
+  - Now the entire row updates with correct state
+- **Error Display**: Error messages shown in tooltip on hover instead of inline text
+  - Cleaner UI with status-only display
+  - Full error message visible on hover
+
 ## [0.5.1] - 2026-01-27
 
 ### Fixed
@@ -197,7 +207,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.12...v0.5.0
 [0.4.12]: https://github.com/Puremag1c/ChatFilter/compare/v0.4.11...v0.4.12

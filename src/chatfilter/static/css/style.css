@@ -3094,6 +3094,14 @@ body:has(.update-notification.show) {
     color: var(--text-secondary);
 }
 
+.error-detail {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.25rem;
+    line-height: 1.2;
+}
+
 .spinner-small {
     width: 0.75rem;
     height: 0.75rem;
