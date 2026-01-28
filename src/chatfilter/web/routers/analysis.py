@@ -145,6 +145,50 @@ class StartAnalysisResponse(BaseModel):
     total_chats: int
 
 
+class TaskStatusResponse(BaseModel):
+    """Response from task status endpoint."""
+
+    task_id: str
+    status: str
+    current: int
+    total: int
+    results_count: int
+    error: str | None = None
+
+
+class CancelResponse(BaseModel):
+    """Response from cancel task endpoint."""
+
+    status: str
+    message: str
+    partial_results: int
+
+
+class ForceCancelResponse(BaseModel):
+    """Response from force-cancel task endpoint."""
+
+    status: str
+    message: str
+    reason: str
+    partial_results: int
+
+
+class OrphanedTaskResponse(BaseModel):
+    """Response from check-orphaned endpoint."""
+
+    task_id: str | None = None
+    status: str | None = None
+    results_count: int | None = None
+    error: str | None = None
+    total_chats: int | None = None
+
+
+class DismissResponse(BaseModel):
+    """Response from dismiss-notification endpoint."""
+
+    status: str
+
+
 @router.post("/start", response_class=HTMLResponse)
 async def start_analysis(
     request: Request,
@@ -617,8 +661,8 @@ async def get_results(
     return response
 
 
-@router.get("/{task_id}/status")
-async def get_status(task_id: str) -> dict[str, str | int | None]:
+@router.get("/{task_id}/status", response_model=TaskStatusResponse)
+async def get_status(task_id: str) -> TaskStatusResponse:
     """Get current task status (for polling fallback).
 
     Args:
@@ -647,18 +691,18 @@ async def get_status(task_id: str) -> dict[str, str | int | None]:
             detail="Task not found",
         )
 
-    return {
-        "task_id": str(task.task_id),
-        "status": task.status.value,
-        "current": task.current_chat_index,
-        "total": len(task.chat_ids),
-        "results_count": len(task.results),
-        "error": task.error,
-    }
+    return TaskStatusResponse(
+        task_id=str(task.task_id),
+        status=task.status.value,
+        current=task.current_chat_index,
+        total=len(task.chat_ids),
+        results_count=len(task.results),
+        error=task.error,
+    )
 
 
-@router.post("/{task_id}/cancel")
-async def cancel_analysis(task_id: str) -> dict[str, str | int]:
+@router.post("/{task_id}/cancel", response_model=CancelResponse)
+async def cancel_analysis(task_id: str) -> CancelResponse:
     """Cancel a running analysis task gracefully.
 
     Waits for current chat to finish before stopping.
@@ -685,11 +729,11 @@ async def cancel_analysis(task_id: str) -> dict[str, str | int]:
     if queue.cancel_task(uuid_task_id):
         task = queue.get_task(uuid_task_id)
         logger.info(f"Analysis task {task_id} cancelled by user")
-        return {
-            "status": "cancelled",
-            "message": _("Analysis cancelled successfully"),
-            "partial_results": len(task.results) if task else 0,
-        }
+        return CancelResponse(
+            status="cancelled",
+            message=_("Analysis cancelled successfully"),
+            partial_results=len(task.results) if task else 0,
+        )
     else:
         task = queue.get_task(uuid_task_id)
         if task is None:
@@ -704,10 +748,10 @@ async def cancel_analysis(task_id: str) -> dict[str, str | int]:
             )
 
 
-@router.post("/{task_id}/force-cancel")
+@router.post("/{task_id}/force_cancel", response_model=ForceCancelResponse)
 async def force_cancel_analysis(
     task_id: str, reason: str = "User-requested forced cancellation"
-) -> dict[str, str | int]:
+) -> ForceCancelResponse:
     """Forcefully cancel a running analysis task immediately.
 
     This is more aggressive than regular cancel - it immediately cancels
@@ -738,12 +782,12 @@ async def force_cancel_analysis(
     if await queue.force_cancel_task(uuid_task_id, reason=reason):
         task = queue.get_task(uuid_task_id)
         logger.warning(f"Analysis task {task_id} force-cancelled by user: {reason}")
-        return {
-            "status": "force_cancelled",
-            "message": _("Task force-cancelled successfully"),
-            "reason": reason,
-            "partial_results": len(task.results) if task else 0,
-        }
+        return ForceCancelResponse(
+            status="force_cancelled",
+            message=_("Task force-cancelled successfully"),
+            reason=reason,
+            partial_results=len(task.results) if task else 0,
+        )
     else:
         task = queue.get_task(uuid_task_id)
         if task is None:
@@ -758,8 +802,8 @@ async def force_cancel_analysis(
             )
 
 
-@router.get("/check-orphaned")
-async def check_orphaned_task(request: Request) -> dict[str, str | int | None]:
+@router.get("/check_orphaned", response_model=OrphanedTaskResponse)
+async def check_orphaned_task(request: Request) -> OrphanedTaskResponse:
     """Check if there's a completed task in session that user hasn't seen.
 
     This endpoint is called on page load to detect if analysis completed
@@ -767,25 +811,25 @@ async def check_orphaned_task(request: Request) -> dict[str, str | int | None]:
 
     Returns:
         Task info if completed task exists and hasn't been acknowledged,
-        or empty dict if no orphaned task
+        or empty response if no orphaned task
     """
     session = get_session(request)
     task_id_str = session.get("current_task_id")
 
     if not task_id_str:
-        return {}
+        return OrphanedTaskResponse()
 
     # Check if user has already been notified about this completion
     notified_tasks = session.get("notified_task_ids", set())
     if task_id_str in notified_tasks:
-        return {}
+        return OrphanedTaskResponse()
 
     try:
         task_id = UUID(task_id_str)
     except ValueError:
         # Invalid task ID in session, clear it
         session.delete("current_task_id")
-        return {}
+        return OrphanedTaskResponse()
 
     queue = get_task_queue()
     task = queue.get_task(task_id)
@@ -793,7 +837,7 @@ async def check_orphaned_task(request: Request) -> dict[str, str | int | None]:
     if task is None:
         # Task no longer exists, clear from session
         session.delete("current_task_id")
-        return {}
+        return OrphanedTaskResponse()
 
     # Check if task is in a terminal state
     terminal_states = [
@@ -811,20 +855,20 @@ async def check_orphaned_task(request: Request) -> dict[str, str | int | None]:
             notified_tasks = {task_id_str}
         session.set("notified_task_ids", notified_tasks)
 
-        return {
-            "task_id": str(task.task_id),
-            "status": task.status.value,
-            "results_count": len(task.results),
-            "error": task.error,
-            "total_chats": len(task.chat_ids),
-        }
+        return OrphanedTaskResponse(
+            task_id=str(task.task_id),
+            status=task.status.value,
+            results_count=len(task.results),
+            error=task.error,
+            total_chats=len(task.chat_ids),
+        )
 
     # Task is still pending or in progress
-    return {}
+    return OrphanedTaskResponse()
 
 
-@router.post("/{task_id}/dismiss-notification")
-async def dismiss_orphaned_notification(task_id: str, request: Request) -> dict[str, str]:
+@router.post("/{task_id}/dismiss_notification", response_model=DismissResponse)
+async def dismiss_orphaned_notification(task_id: str, request: Request) -> DismissResponse:
     """Dismiss the orphaned task notification.
 
     Called when user explicitly dismisses the notification or views results.
@@ -843,4 +887,4 @@ async def dismiss_orphaned_notification(task_id: str, request: Request) -> dict[
     if current_task_id == task_id:
         session.delete("current_task_id")
 
-    return {"status": "dismissed"}
+    return DismissResponse(status="dismissed")

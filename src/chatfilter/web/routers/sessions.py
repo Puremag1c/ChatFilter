@@ -422,6 +422,93 @@ def load_account_info(session_dir: Path) -> dict[str, int | str] | None:
         return None
 
 
+def _save_session_to_disk(
+    session_dir: Path,
+    session_content: bytes,
+    api_id: int,
+    api_hash: str,
+    proxy_id: str | None,
+    account_info: dict[str, int | str] | None,
+) -> None:
+    """Save session files to disk with secure credentials.
+
+    Creates:
+    - session.session file (atomic write, secure permissions)
+    - config.json with api_id, api_hash, proxy_id
+    - .secure_storage marker
+    - .account_info.json if account_info provided
+
+    Also stores credentials in secure storage.
+
+    Args:
+        session_dir: Session directory path (must exist)
+        session_content: Session file content bytes
+        api_id: Telegram API ID
+        api_hash: Telegram API hash
+        proxy_id: Proxy ID (can be None)
+        account_info: Account info dict or None
+
+    Raises:
+        DiskSpaceError: If not enough disk space
+        TelegramConfigError: If validation fails
+        Exception: On other failures
+    """
+    from chatfilter.security import SecureCredentialManager
+    from chatfilter.utils.disk import ensure_space_available
+
+    session_path = session_dir / "session.session"
+    safe_name = session_dir.name
+
+    marker_text = (
+        "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
+        "Do not create a plaintext config.json file.\n"
+    )
+
+    # Calculate total space needed (session file + marker file)
+    total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
+
+    # Check disk space before writing
+    ensure_space_available(session_path, total_bytes_needed)
+
+    # Atomic write to prevent corruption on crash
+    atomic_write(session_path, session_content)
+    secure_file_permissions(session_path)
+
+    # Store credentials securely (NOT in plaintext)
+    storage_dir = session_dir.parent
+    manager = SecureCredentialManager(storage_dir)
+    manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
+    logger.info(f"Stored credentials securely for session: {safe_name}")
+
+    # Create per-session config.json
+    session_config: dict[str, int | str | None] = {
+        "api_id": api_id,
+        "api_hash": api_hash,
+        "proxy_id": proxy_id,
+    }
+    session_config_path = session_dir / "config.json"
+    session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
+    atomic_write(session_config_path, session_config_content)
+    secure_file_permissions(session_config_path)
+    logger.info(f"Created per-session config for session: {safe_name}")
+
+    # Create migration marker to indicate we're using secure storage
+    marker_file = session_dir / ".secure_storage"
+    atomic_write(marker_file, marker_text)
+
+    # Validate that TelegramClientLoader can use secure storage
+    loader = TelegramClientLoader(session_path, use_secure_storage=True)
+    loader.validate()
+
+    # Save account info if we successfully extracted it
+    if account_info:
+        save_account_info(session_dir, account_info)
+        logger.info(
+            f"Saved account info for session '{safe_name}': "
+            f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
+        )
+
+
 def find_duplicate_accounts(target_user_id: int, exclude_session: str | None = None) -> list[str]:
     """Find all sessions that belong to the same Telegram account.
 
@@ -776,83 +863,28 @@ async def upload_session(
 
         # Create session directory and save files
         session_dir.mkdir(parents=True, exist_ok=True)
-        session_path = session_dir / "session.session"
 
         try:
-            # Check disk space before writing session file
-            from chatfilter.utils.disk import DiskSpaceError, ensure_space_available
+            from chatfilter.utils.disk import DiskSpaceError
 
-            marker_text = (
-                "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
-                "Do not create a plaintext config.json file.\n"
+            # proxy_id is None - user must configure it after upload
+            _save_session_to_disk(
+                session_dir=session_dir,
+                session_content=session_content,
+                api_id=api_id,
+                api_hash=api_hash,
+                proxy_id=None,
+                account_info=account_info,
             )
 
-            # Calculate total space needed (session file + marker file)
-            total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
-
-            try:
-                ensure_space_available(session_path, total_bytes_needed)
-            except DiskSpaceError as e:
-                # Clean up directory if it was just created
-                if session_dir.exists():
-                    shutil.rmtree(session_dir, ignore_errors=True)
-                return templates.TemplateResponse(
-                    request=request,
-                    name="partials/upload_result.html",
-                    context={"success": False, "error": str(e)},
-                )
-
-            # Atomic write to prevent corruption on crash
-            atomic_write(session_path, session_content)
-            secure_file_permissions(session_path)
-
-            # Store credentials securely (NOT in plaintext)
-            from chatfilter.security import SecureCredentialManager
-
-            api_id = int(config_data["api_id"])
-            api_hash = str(config_data["api_hash"])
-
-            # Get storage directory (parent of session_dir)
-            storage_dir = session_dir.parent
-
-            # Store credentials in secure storage (without proxy_id - user must configure it)
-            manager = SecureCredentialManager(storage_dir)
-            manager.store_credentials(safe_name, api_id, api_hash, None)
-
-            logger.info(f"Stored credentials securely for session: {safe_name}")
-
-            # Create per-session config.json for v0.5 format
-            # proxy_id is initially null - user must configure it
-            session_config: dict[str, int | str | None] = {
-                "api_id": api_id,
-                "api_hash": api_hash,
-                "proxy_id": None,  # Not configured until user selects
-            }
-            session_config_path = session_dir / "config.json"
-            session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
-            atomic_write(session_config_path, session_config_content)
-            secure_file_permissions(session_config_path)
-
-            logger.info(f"Created per-session config for session: {safe_name}")
-
-            # Create migration marker to indicate we're using secure storage
-            marker_file = session_dir / ".secure_storage"
-            atomic_write(marker_file, marker_text)
-
-            # Validate that TelegramClientLoader can use secure storage
-            loader = TelegramClientLoader(session_path, use_secure_storage=True)
-            loader.validate()
-
-            # Save account info if we successfully extracted it
-            if account_info:
-                save_account_info(session_dir, account_info)
-                logger.info(
-                    f"Saved account info for session '{safe_name}': "
-                    f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
-                )
-
+        except DiskSpaceError as e:
+            shutil.rmtree(session_dir, ignore_errors=True)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
         except TelegramConfigError as e:
-            # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
@@ -863,7 +895,6 @@ async def upload_session(
                 },
             )
         except Exception:
-            # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
             logger.exception("Failed to save session files")
             return templates.TemplateResponse(
@@ -2101,79 +2132,27 @@ async def save_import_session(
 
         # Create session directory and save files
         session_dir.mkdir(parents=True, exist_ok=True)
-        session_path = session_dir / "session.session"
 
         try:
-            # Check disk space before writing session file
-            from chatfilter.utils.disk import DiskSpaceError, ensure_space_available
+            from chatfilter.utils.disk import DiskSpaceError
 
-            marker_text = (
-                "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
-                "Do not create a plaintext config.json file.\n"
+            _save_session_to_disk(
+                session_dir=session_dir,
+                session_content=session_content,
+                api_id=api_id,
+                api_hash=api_hash,
+                proxy_id=proxy_id,
+                account_info=account_info,
             )
 
-            # Calculate total space needed (session file + marker file)
-            total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
-
-            try:
-                ensure_space_available(session_path, total_bytes_needed)
-            except DiskSpaceError as e:
-                # Clean up directory if it was just created
-                if session_dir.exists():
-                    shutil.rmtree(session_dir, ignore_errors=True)
-                return templates.TemplateResponse(
-                    request=request,
-                    name="partials/upload_result.html",
-                    context={"success": False, "error": str(e)},
-                )
-
-            # Atomic write to prevent corruption on crash
-            atomic_write(session_path, session_content)
-            secure_file_permissions(session_path)
-
-            # Store credentials securely (NOT in plaintext)
-            from chatfilter.security import SecureCredentialManager
-
-            # Get storage directory (parent of session_dir)
-            storage_dir = session_dir.parent
-
-            # Store credentials in secure storage (with proxy_id from form)
-            manager = SecureCredentialManager(storage_dir)
-            manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
-
-            logger.info(f"Stored credentials securely for session: {safe_name}")
-
-            # Create per-session config.json for v0.5 format
-            session_config: dict[str, int | str | None] = {
-                "api_id": api_id,
-                "api_hash": api_hash,
-                "proxy_id": proxy_id,
-            }
-            session_config_path = session_dir / "config.json"
-            session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
-            atomic_write(session_config_path, session_config_content)
-            secure_file_permissions(session_config_path)
-
-            logger.info(f"Created per-session config for session: {safe_name}")
-
-            # Create migration marker to indicate we're using secure storage
-            marker_file = session_dir / ".secure_storage"
-            atomic_write(marker_file, marker_text)
-
-            # Validate that TelegramClientLoader can use secure storage
-            loader = TelegramClientLoader(session_path, use_secure_storage=True)
-            loader.validate()
-
-            # Save account info if we successfully extracted it
-            if account_info:
-                save_account_info(session_dir, account_info)
-                logger.info(
-                    f"Saved account info for session '{safe_name}': "
-                    f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
-                )
-
+        except DiskSpaceError as e:
+            shutil.rmtree(session_dir, ignore_errors=True)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
         except TelegramConfigError as e:
-            # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
@@ -2184,7 +2163,6 @@ async def save_import_session(
                 },
             )
         except Exception:
-            # Clean up on failure
             shutil.rmtree(session_dir, ignore_errors=True)
             logger.exception("Failed to save session files")
             return templates.TemplateResponse(

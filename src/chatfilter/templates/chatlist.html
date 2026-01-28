@@ -181,7 +181,7 @@
             <p class="form-hint">{{ _("Enter a link to a public Google Sheets document. The sheet must be shared with \"Anyone with the link\".") }}</p>
 
             <form id="sheet-fetch-form"
-                  hx-post="/api/chatlist/fetch-sheet"
+                  hx-post="/api/chatlist/fetch_sheet"
                   hx-target="#import-result"
                   hx-swap="innerHTML"
                   hx-indicator="#sheet-fetch-spinner, #import-loading"

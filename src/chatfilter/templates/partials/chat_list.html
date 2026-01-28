@@ -11,7 +11,7 @@
         {% if error_action_type == 'retry' or error_can_retry %}
         <button type="button"
                 class="btn btn-sm btn-primary"
-                hx-get="/api/chats?session-select={{ session_id }}"
+                hx-get="/api/chats?session_select={{ session_id }}"
                 hx-target="#chats-container"
                 hx-swap="innerHTML"
                 data-tooltip="{{ _('Try loading chats again') }}"
@@ -129,7 +129,7 @@
     <div id="load-more-container" style="margin-top: 1rem; text-align: center;">
         <button type="button"
                 class="btn btn-secondary"
-                hx-get="/api/chats?session-select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
+                hx-get="/api/chats?session_select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
                 hx-target="#load-more-container"
                 hx-swap="outerHTML"
                 hx-indicator="#load-more-spinner"
@@ -193,7 +193,7 @@
 <div id="load-more-container" style="margin-top: 1rem; text-align: center;">
     <button type="button"
             class="btn btn-secondary"
-            hx-get="/api/chats?session-select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
+            hx-get="/api/chats?session_select={{ session_id }}&offset={{ offset + limit }}&limit={{ limit }}"
             hx-target="#load-more-container"
             hx-swap="outerHTML"
             hx-indicator="#load-more-spinner"

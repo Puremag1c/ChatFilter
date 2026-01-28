@@ -29,7 +29,7 @@ from chatfilter.storage.proxy_pool import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["proxy-pool"])
+router = APIRouter(tags=["proxy_pool"])
 
 
 class ProxyResponse(BaseModel):

@@ -94,6 +94,13 @@ class EnableMonitoringResponse(BaseModel):
     messages_per_hour: float
 
 
+class DisableMonitoringResponse(BaseModel):
+    """Response for disable monitoring."""
+
+    success: bool
+    deleted_data: bool
+
+
 class MonitorListItem(BaseModel):
     """Item in monitor list response."""
 
@@ -152,12 +159,12 @@ async def enable_monitoring(
         ) from e
 
 
-@router.post("/disable")
+@router.post("/disable", response_model=DisableMonitoringResponse)
 async def disable_monitoring(
     session_id: Annotated[str, Form(min_length=1)],
     chat_id: Annotated[int, Form(gt=0)],
     delete_data: Annotated[bool, Form()] = False,
-) -> dict[str, bool]:
+) -> DisableMonitoringResponse:
     """Disable monitoring for a chat.
 
     Args:
@@ -183,7 +190,7 @@ async def disable_monitoring(
                 detail=f"Chat {chat_id} is not being monitored",
             )
 
-        return {"success": True, "deleted_data": delete_data}
+        return DisableMonitoringResponse(success=True, deleted_data=delete_data)
 
     except HTTPException:
         raise
@@ -253,7 +260,7 @@ async def sync_chat(
         ) from e
 
 
-@router.post("/sync-all")
+@router.post("/sync_all")
 async def sync_all_monitors(
     session_id: Annotated[str, Form(min_length=1)],
     max_messages_per_chat: Annotated[int | None, Form(gt=0)] = None,

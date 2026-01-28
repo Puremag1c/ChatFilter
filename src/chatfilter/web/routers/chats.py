@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 from chatfilter.i18n import _
 from chatfilter.service.chat_analysis import SessionNotFoundError
@@ -20,6 +20,44 @@ from chatfilter.telegram.session_manager import (
 from chatfilter.web.dependencies import WebSession, get_chat_analysis_service
 
 logger = logging.getLogger(__name__)
+
+
+class ChatItem(BaseModel):
+    """Individual chat in the list."""
+
+    id: str
+    title: str
+    username: str | None
+    chat_type: str
+    member_count: int | None
+
+
+class ChatsJsonResponse(BaseModel):
+    """Response from chats JSON endpoint."""
+
+    chats: list[ChatItem]
+    total_count: int
+    session_id: str
+
+
+class AccountInfoJsonResponse(BaseModel):
+    """Response from account info JSON endpoint."""
+
+    user_id: int | None = None
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    display_name: str | None = None
+    is_premium: bool = False
+    chat_count: int = 0
+    chat_limit: int = 0
+    remaining_slots: int = 0
+    usage_percent: float = 0.0
+    is_at_limit: bool = False
+    is_near_limit: bool = False
+    is_critical: bool = False
+    error: str | None = None
+
 
 router = APIRouter(tags=["chats"])
 
@@ -93,7 +131,7 @@ def cleanup_invalid_session(session_id: str) -> None:
 async def get_chats(
     request: Request,
     web_session: WebSession,
-    session_id: str = Query(alias="session-select"),
+    session_id: str = Query(alias="session_select"),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> HTMLResponse:
@@ -251,11 +289,11 @@ async def get_chats(
             )
 
 
-@router.get("/api/chats/json")
+@router.get("/api/chats/json", response_model=ChatsJsonResponse)
 async def get_chats_json(
     web_session: WebSession,
-    session_id: str = Query(alias="session-select"),
-) -> dict[str, Any]:
+    session_id: str = Query(alias="session_select"),
+) -> ChatsJsonResponse:
     """Fetch all chats from a session and return as JSON.
 
     This endpoint is used for virtual scrolling to fetch all chats at once.
@@ -266,10 +304,10 @@ async def get_chats_json(
         session_id: Telegram session identifier
 
     Returns:
-        Dict with chats list and total_count
+        Chats list with total_count and session_id
     """
     if not session_id:
-        return {"chats": [], "total_count": 0, "session_id": ""}
+        return ChatsJsonResponse(chats=[], total_count=0, session_id="")
 
     # Store selected Telegram session in user's web session
     web_session.set("selected_telegram_session", session_id)
@@ -280,23 +318,23 @@ async def get_chats_json(
         # Fetch all chats (use a high limit to get everything)
         chats, total_count = await service.get_chats_paginated(session_id, offset=0, limit=10000)
 
-        # Convert chats to JSON-serializable format
+        # Convert chats to response format
         chats_data = [
-            {
-                "id": str(chat.id),
-                "title": chat.title,
-                "username": chat.username,
-                "chat_type": chat.chat_type.value if chat.chat_type else "",
-                "member_count": chat.member_count,
-            }
+            ChatItem(
+                id=str(chat.id),
+                title=chat.title,
+                username=chat.username,
+                chat_type=chat.chat_type.value if chat.chat_type else "",
+                member_count=chat.member_count,
+            )
             for chat in chats
         ]
 
-        return {
-            "chats": chats_data,
-            "total_count": total_count,
-            "session_id": session_id,
-        }
+        return ChatsJsonResponse(
+            chats=chats_data,
+            total_count=total_count,
+            session_id=session_id,
+        )
 
     except SessionNotFoundError as e:
         raise HTTPException(
@@ -328,7 +366,7 @@ async def get_chats_json(
 async def get_account_info_endpoint(
     request: Request,
     web_session: WebSession,
-    session_id: str = Query(alias="session-select"),
+    session_id: str = Query(alias="session_select"),
 ) -> HTMLResponse:
     """Get account info including subscription limits as HTML partial.
 
@@ -379,11 +417,11 @@ async def get_account_info_endpoint(
         )
 
 
-@router.get("/api/account-info/json")
+@router.get("/api/account-info/json", response_model=AccountInfoJsonResponse)
 async def get_account_info_json(
     web_session: WebSession,
-    session_id: str = Query(alias="session-select"),
-) -> dict[str, Any]:
+    session_id: str = Query(alias="session_select"),
+) -> AccountInfoJsonResponse:
     """Get account info including subscription limits as JSON.
 
     Returns account info with Premium status, chat count, and limit info.
@@ -393,31 +431,31 @@ async def get_account_info_json(
         session_id: Telegram session identifier
 
     Returns:
-        Dict with account info fields
+        Account info with all fields
     """
     if not session_id:
-        return {"error": _("No session selected")}
+        return AccountInfoJsonResponse(error=_("No session selected"))
 
     service = get_chat_analysis_service()
 
     try:
         info = await service.get_account_info(session_id)
 
-        return {
-            "user_id": info.user_id,
-            "username": info.username,
-            "first_name": info.first_name,
-            "last_name": info.last_name,
-            "display_name": info.display_name,
-            "is_premium": info.is_premium,
-            "chat_count": info.chat_count,
-            "chat_limit": info.chat_limit,
-            "remaining_slots": info.remaining_slots,
-            "usage_percent": round(info.usage_percent, 1),
-            "is_at_limit": info.is_at_limit,
-            "is_near_limit": info.is_near_limit,
-            "is_critical": info.is_critical,
-        }
+        return AccountInfoJsonResponse(
+            user_id=info.user_id,
+            username=info.username,
+            first_name=info.first_name,
+            last_name=info.last_name,
+            display_name=info.display_name,
+            is_premium=info.is_premium,
+            chat_count=info.chat_count,
+            chat_limit=info.chat_limit,
+            remaining_slots=info.remaining_slots,
+            usage_percent=round(info.usage_percent, 1),
+            is_at_limit=info.is_at_limit,
+            is_near_limit=info.is_near_limit,
+            is_critical=info.is_critical,
+        )
 
     except SessionNotFoundError as e:
         raise HTTPException(
