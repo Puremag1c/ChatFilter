@@ -11,6 +11,11 @@ class I18n {
         this.currentLocale = 'en';
         this.fallbackLocale = 'en';
         this.initialized = false;
+        // Promise that resolves when i18n is ready
+        this._readyResolve = null;
+        this.ready = new Promise((resolve) => {
+            this._readyResolve = resolve;
+        });
     }
 
     /**
@@ -24,6 +29,7 @@ class I18n {
         try {
             await this.loadTranslations(this.currentLocale);
             this.initialized = true;
+            this._readyResolve();
         } catch (error) {
             console.error(`Failed to load translations for ${this.currentLocale}:`, error);
 
@@ -33,9 +39,15 @@ class I18n {
                     await this.loadTranslations(this.fallbackLocale);
                     this.currentLocale = this.fallbackLocale;
                     this.initialized = true;
+                    this._readyResolve();
                 } catch (fallbackError) {
                     console.error(`Failed to load fallback translations:`, fallbackError);
+                    // Resolve anyway to not block forever
+                    this._readyResolve();
                 }
+            } else {
+                // Resolve anyway to not block forever
+                this._readyResolve();
             }
         }
     }

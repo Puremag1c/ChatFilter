@@ -222,11 +222,19 @@ const VersionCheckManager = {
     }
 };
 
-// Initialize version check when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => VersionCheckManager.init());
-} else {
+// Initialize version check when DOM is ready and i18n is loaded
+async function initVersionCheck() {
+    // Wait for i18n to be ready
+    if (window.i18n && window.i18n.ready) {
+        await window.i18n.ready;
+    }
     VersionCheckManager.init();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => initVersionCheck());
+} else {
+    initVersionCheck();
 }
 
 // Make VersionCheckManager globally accessible

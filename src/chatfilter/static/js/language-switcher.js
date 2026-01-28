@@ -19,7 +19,7 @@
         initLanguageSwitcher();
     }
 
-    function initLanguageSwitcher() {
+    async function initLanguageSwitcher() {
         const languageButton = document.getElementById('language-toggle');
         if (!languageButton) {
             console.warn('Language toggle button not found');
@@ -28,6 +28,11 @@
 
         // Set up click handler
         languageButton.addEventListener('click', toggleLanguage);
+
+        // Wait for i18n to be ready before updating button with translations
+        if (window.i18n && window.i18n.ready) {
+            await window.i18n.ready;
+        }
 
         // Update button text with current language
         updateLanguageButton();
