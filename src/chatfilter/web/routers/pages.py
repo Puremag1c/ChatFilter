@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 
+from chatfilter.utils.paths import get_base_path
 from chatfilter.web.template_helpers import get_template_context
 
 router = APIRouter(tags=["pages"])
+
+
+@router.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> FileResponse:
+    """Serve favicon from static images."""
+    favicon_path = get_base_path() / "static" / "images" / "logo.ico"
+    return FileResponse(favicon_path, media_type="image/x-icon")
 
 
 @router.get("/", response_class=HTMLResponse)
