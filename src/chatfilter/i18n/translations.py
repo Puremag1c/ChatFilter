@@ -80,7 +80,8 @@ def gettext_func(message: str) -> str:
     """
     locale = get_current_locale()
     translations = get_translations(locale)
-    return translations.gettext(message)
+    result: str = translations.gettext(message)
+    return result
 
 
 def ngettext_func(singular: str, plural: str, n: int) -> str:
@@ -96,7 +97,8 @@ def ngettext_func(singular: str, plural: str, n: int) -> str:
     """
     locale = get_current_locale()
     translations = get_translations(locale)
-    return translations.ngettext(singular, plural, n)
+    result: str = translations.ngettext(singular, plural, n)
+    return result
 
 
 # Convenience aliases

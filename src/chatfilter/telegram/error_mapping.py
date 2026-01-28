@@ -23,6 +23,8 @@ from __future__ import annotations
 import re
 from typing import TypedDict
 
+from chatfilter.i18n import _, ngettext
+
 
 class ActionInfo(TypedDict):
     """Structure for error action information."""
@@ -52,13 +54,13 @@ def _format_duration(seconds: int) -> str:
         '2 hours'
     """
     if seconds < 60:
-        return f"{seconds} second{'s' if seconds != 1 else ''}"
+        return ngettext("%(num)d second", "%(num)d seconds", seconds) % {"num": seconds}
     elif seconds < 3600:
         minutes = seconds // 60
-        return f"{minutes} minute{'s' if minutes != 1 else ''}"
+        return ngettext("%(num)d minute", "%(num)d minutes", minutes) % {"num": minutes}
     else:
         hours = seconds // 3600
-        return f"{hours} hour{'s' if hours != 1 else ''}"
+        return ngettext("%(num)d hour", "%(num)d hours", hours) % {"num": hours}
 
 
 def _extract_wait_time(error: Exception) -> int | None:
@@ -92,58 +94,92 @@ def _extract_wait_time(error: Exception) -> int | None:
 # Error type to user-friendly message mappings
 ERROR_MESSAGES = {
     # Authentication & Session Errors
-    "SessionExpiredError": "Your session has expired. Please log in again with a new session file.",
-    "AuthKeyUnregisteredError": "Your session has expired or been revoked. Please log in again with a new session file.",
-    "SessionRevokedError": "Your session has been logged out from another device. Please upload a new session file.",
-    "AuthKeyDuplicatedError": "This session is being used on another device. Please use a unique session file.",
-    "UnauthorizedError": "Authentication failed. Please verify your session and try again.",
-    "UserDeactivatedError": "Your Telegram account has been deactivated. Please contact Telegram support.",
-    "UserDeactivatedBanError": "Your Telegram account has been banned. Please contact Telegram support.",
+    "SessionExpiredError": _(
+        "Your session has expired. Please log in again with a new session file."
+    ),
+    "AuthKeyUnregisteredError": _(
+        "Your session has expired or been revoked. Please log in again with a new session file."
+    ),
+    "SessionRevokedError": _(
+        "Your session has been logged out from another device. Please upload a new session file."
+    ),
+    "AuthKeyDuplicatedError": _(
+        "This session is being used on another device. Please use a unique session file."
+    ),
+    "UnauthorizedError": _("Authentication failed. Please verify your session and try again."),
+    "UserDeactivatedError": _(
+        "Your Telegram account has been deactivated. Please contact Telegram support."
+    ),
+    "UserDeactivatedBanError": _(
+        "Your Telegram account has been banned. Please contact Telegram support."
+    ),
     # Access Denied Errors
-    "ChatForbiddenError": "Access to this chat is restricted. You may have been removed or the chat was deleted.",
-    "ChannelPrivateError": "This channel is private. You need an invite link to access it.",
-    "ChatRestrictedError": "This chat is restricted and cannot be accessed.",
-    "ChannelBannedError": "You have been banned from this channel.",
-    "UserBannedInChannelError": "You have been banned from this chat.",
-    "ChatAdminRequiredError": "This action requires administrator privileges.",
-    "ChatWriteForbiddenError": "You don't have permission to send messages in this chat.",
+    "ChatForbiddenError": _(
+        "Access to this chat is restricted. You may have been removed or the chat was deleted."
+    ),
+    "ChannelPrivateError": _("This channel is private. You need an invite link to access it."),
+    "ChatRestrictedError": _("This chat is restricted and cannot be accessed."),
+    "ChannelBannedError": _("You have been banned from this channel."),
+    "UserBannedInChannelError": _("You have been banned from this chat."),
+    "ChatAdminRequiredError": _("This action requires administrator privileges."),
+    "ChatWriteForbiddenError": _("You don't have permission to send messages in this chat."),
     # Rate Limiting (FloodWaitError is handled specially below)
-    "SlowModeWaitError": "Slow mode is enabled in this chat. Please wait before sending another message.",
+    "SlowModeWaitError": _(
+        "Slow mode is enabled in this chat. Please wait before sending another message."
+    ),
     # Network & Connection Errors
-    "NetworkError": "Network connection error. Please check your internet connection and try again.",
-    "TimeoutError": "Request timed out. Please try again.",
-    "ConnectionError": "Failed to connect to Telegram servers. Please check your connection and try again.",
+    "NetworkError": _(
+        "Network connection error. Please check your internet connection and try again."
+    ),
+    "TimeoutError": _("Request timed out. Please try again."),
+    "ConnectionError": _(
+        "Failed to connect to Telegram servers. Please check your connection and try again."
+    ),
     # DC Migration Errors (usually handled automatically, users should retry)
-    "FileMigrateError": "The file has been migrated to another data center. Please try again.",
-    "NetworkMigrateError": "Network migration in progress. Please try again in a moment.",
-    "PhoneMigrateError": "Your account is being migrated to another data center. Please try again.",
-    "UserMigrateError": "Your account is being migrated to another data center. Please try again.",
-    "StatsMigrateError": "Statistics are being migrated to another data center. Please try again.",
+    "FileMigrateError": _("The file has been migrated to another data center. Please try again."),
+    "NetworkMigrateError": _("Network migration in progress. Please try again in a moment."),
+    "PhoneMigrateError": _(
+        "Your account is being migrated to another data center. Please try again."
+    ),
+    "UserMigrateError": _(
+        "Your account is being migrated to another data center. Please try again."
+    ),
+    "StatsMigrateError": _(
+        "Statistics are being migrated to another data center. Please try again."
+    ),
     # RPC & Server Errors
-    "RpcCallFailError": "Telegram server request failed. Please try again.",
-    "ServerError": "Telegram server encountered an error. Please try again.",
+    "RpcCallFailError": _("Telegram server request failed. Please try again."),
+    "ServerError": _("Telegram server encountered an error. Please try again."),
     # Invalid Input Errors
-    "UsernameInvalidError": "Invalid username. Please check the username and try again.",
-    "UsernameNotOccupiedError": "Username not found. Please verify the username is correct.",
-    "InviteHashInvalidError": "Invalid invite link. The link may have expired or been revoked.",
-    "InviteHashExpiredError": "This invite link has expired. Please request a new invite link.",
-    "PeerIdInvalidError": "Chat or user not found. The ID may be incorrect or the chat may have been deleted.",
-    "ChatIdInvalidError": "Invalid chat ID. The chat may have been deleted or is not accessible.",
-    "MessageIdInvalidError": "Message not found. It may have been deleted.",
+    "UsernameInvalidError": _("Invalid username. Please check the username and try again."),
+    "UsernameNotOccupiedError": _("Username not found. Please verify the username is correct."),
+    "InviteHashInvalidError": _("Invalid invite link. The link may have expired or been revoked."),
+    "InviteHashExpiredError": _("This invite link has expired. Please request a new invite link."),
+    "PeerIdInvalidError": _(
+        "Chat or user not found. The ID may be incorrect or the chat may have been deleted."
+    ),
+    "ChatIdInvalidError": _(
+        "Invalid chat ID. The chat may have been deleted or is not accessible."
+    ),
+    "MessageIdInvalidError": _("Message not found. It may have been deleted."),
     # File & Media Errors
-    "FilePartsInvalidError": "File upload failed. Please try uploading the file again.",
-    "FileReferenceExpiredError": "File reference has expired. Please try again.",
+    "FilePartsInvalidError": _("File upload failed. Please try uploading the file again."),
+    "FileReferenceExpiredError": _("File reference has expired. Please try again."),
     # Phone & 2FA Errors
-    "PhoneNumberInvalidError": "Invalid phone number format. Please check the number and try again.",
-    "PhoneCodeInvalidError": "Invalid verification code. Please check the code and try again.",
-    "PhoneCodeExpiredError": "Verification code has expired. Please request a new code.",
-    "PasswordHashInvalidError": "Incorrect password. Please try again.",
-    "SessionPasswordNeededError": "Two-factor authentication is enabled. Please provide your password.",
+    "PhoneNumberInvalidError": _(
+        "Invalid phone number format. Please check the number and try again."
+    ),
+    "PhoneCodeInvalidError": _("Invalid verification code. Please check the code and try again."),
+    "PhoneCodeExpiredError": _("Verification code has expired. Please request a new code."),
+    "PasswordHashInvalidError": _("Incorrect password. Please try again."),
+    "SessionPasswordNeededError": _(
+        "Two-factor authentication is enabled. Please provide your password."
+    ),
     # Other Common Errors
-    "ChatNotModifiedError": "No changes were made. The data is already up to date.",
-    "MessageNotModifiedError": "Message was not modified. The content is the same as before.",
-    "UserAlreadyParticipantError": "You are already a member of this chat.",
-    "BotMethodInvalidError": "This action cannot be performed by bots.",
+    "ChatNotModifiedError": _("No changes were made. The data is already up to date."),
+    "MessageNotModifiedError": _("Message was not modified. The content is the same as before."),
+    "UserAlreadyParticipantError": _("You are already a member of this chat."),
+    "BotMethodInvalidError": _("This action cannot be performed by bots."),
 }
 
 
@@ -152,226 +188,226 @@ ERROR_MESSAGES = {
 ERROR_ACTIONS: dict[str, ActionInfo] = {
     # Authentication & Session Errors
     "SessionExpiredError": {
-        "action": "Upload a new session file from your Sessions page",
+        "action": _("Upload a new session file from your Sessions page"),
         "action_type": "reauth",
         "can_retry": False,
     },
     "AuthKeyUnregisteredError": {
-        "action": "Upload a new session file from your Sessions page",
+        "action": _("Upload a new session file from your Sessions page"),
         "action_type": "reauth",
         "can_retry": False,
     },
     "SessionRevokedError": {
-        "action": "Upload a new session file from your Sessions page",
+        "action": _("Upload a new session file from your Sessions page"),
         "action_type": "reauth",
         "can_retry": False,
     },
     "AuthKeyDuplicatedError": {
-        "action": "Upload a different session file that isn't being used elsewhere",
+        "action": _("Upload a different session file that isn't being used elsewhere"),
         "action_type": "reauth",
         "can_retry": False,
     },
     "UnauthorizedError": {
-        "action": "Verify your session file is valid or upload a new one",
+        "action": _("Verify your session file is valid or upload a new one"),
         "action_type": "reauth",
         "can_retry": False,
     },
     "UserDeactivatedError": {
-        "action": "Contact Telegram support to reactivate your account",
+        "action": _("Contact Telegram support to reactivate your account"),
         "action_type": "contact_support",
         "can_retry": False,
     },
     "UserDeactivatedBanError": {
-        "action": "Contact Telegram support to appeal your ban",
+        "action": _("Contact Telegram support to appeal your ban"),
         "action_type": "contact_support",
         "can_retry": False,
     },
     # Access Denied Errors
     "ChatForbiddenError": {
-        "action": "Try a different chat or check your Telegram app to verify membership",
+        "action": _("Try a different chat or check your Telegram app to verify membership"),
         "action_type": "skip",
         "can_retry": False,
     },
     "ChannelPrivateError": {
-        "action": "Request an invite link from the channel admin or try a different chat",
+        "action": _("Request an invite link from the channel admin or try a different chat"),
         "action_type": "skip",
         "can_retry": False,
     },
     "ChatRestrictedError": {
-        "action": "Contact the chat administrator or try a different chat",
+        "action": _("Contact the chat administrator or try a different chat"),
         "action_type": "skip",
         "can_retry": False,
     },
     "ChannelBannedError": {
-        "action": "Contact the channel admin to appeal or select a different channel",
+        "action": _("Contact the channel admin to appeal or select a different channel"),
         "action_type": "skip",
         "can_retry": False,
     },
     "UserBannedInChannelError": {
-        "action": "Contact the chat admin to appeal or select a different chat",
+        "action": _("Contact the chat admin to appeal or select a different chat"),
         "action_type": "skip",
         "can_retry": False,
     },
     "ChatAdminRequiredError": {
-        "action": "Request admin privileges or perform this action as an admin",
+        "action": _("Request admin privileges or perform this action as an admin"),
         "action_type": "skip",
         "can_retry": False,
     },
     "ChatWriteForbiddenError": {
-        "action": "Request write permissions from chat admin or skip this chat",
+        "action": _("Request write permissions from chat admin or skip this chat"),
         "action_type": "skip",
         "can_retry": False,
     },
     # Rate Limiting
     "SlowModeWaitError": {
-        "action": "Wait for the specified duration before trying again",
+        "action": _("Wait for the specified duration before trying again"),
         "action_type": "wait",
         "can_retry": True,
     },
     # Network & Connection Errors
     "NetworkError": {
-        "action": "Check your internet connection and click 'Retry'",
+        "action": _("Check your internet connection and click 'Retry'"),
         "action_type": "retry",
         "can_retry": True,
     },
     "TimeoutError": {
-        "action": "Check your connection speed and click 'Retry'",
+        "action": _("Check your connection speed and click 'Retry'"),
         "action_type": "retry",
         "can_retry": True,
     },
     "ConnectionError": {
-        "action": "Verify your internet connection is stable and click 'Retry'",
+        "action": _("Verify your internet connection is stable and click 'Retry'"),
         "action_type": "retry",
         "can_retry": True,
     },
     # DC Migration Errors
     "FileMigrateError": {
-        "action": "Click 'Retry' - this should resolve automatically",
+        "action": _("Click 'Retry' - this should resolve automatically"),
         "action_type": "retry",
         "can_retry": True,
     },
     "NetworkMigrateError": {
-        "action": "Wait a moment and click 'Retry'",
+        "action": _("Wait a moment and click 'Retry'"),
         "action_type": "retry",
         "can_retry": True,
     },
     "PhoneMigrateError": {
-        "action": "Click 'Retry' - migration will complete automatically",
+        "action": _("Click 'Retry' - migration will complete automatically"),
         "action_type": "retry",
         "can_retry": True,
     },
     "UserMigrateError": {
-        "action": "Click 'Retry' - migration will complete automatically",
+        "action": _("Click 'Retry' - migration will complete automatically"),
         "action_type": "retry",
         "can_retry": True,
     },
     "StatsMigrateError": {
-        "action": "Click 'Retry' - migration will complete automatically",
+        "action": _("Click 'Retry' - migration will complete automatically"),
         "action_type": "retry",
         "can_retry": True,
     },
     # RPC & Server Errors
     "RpcCallFailError": {
-        "action": "Wait a moment and click 'Retry'",
+        "action": _("Wait a moment and click 'Retry'"),
         "action_type": "retry",
         "can_retry": True,
     },
     "ServerError": {
-        "action": "Wait a few moments and click 'Retry'",
+        "action": _("Wait a few moments and click 'Retry'"),
         "action_type": "retry",
         "can_retry": True,
     },
     # Invalid Input Errors
     "UsernameInvalidError": {
-        "action": "Verify the username format is correct (e.g., @username)",
+        "action": _("Verify the username format is correct (e.g., @username)"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "UsernameNotOccupiedError": {
-        "action": "Double-check the username spelling or try a different username",
+        "action": _("Double-check the username spelling or try a different username"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "InviteHashInvalidError": {
-        "action": "Request a new invite link or verify the link is correct",
+        "action": _("Request a new invite link or verify the link is correct"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "InviteHashExpiredError": {
-        "action": "Request a new invite link from the chat admin",
+        "action": _("Request a new invite link from the chat admin"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "PeerIdInvalidError": {
-        "action": "Verify the chat ID or try accessing the chat by username instead",
+        "action": _("Verify the chat ID or try accessing the chat by username instead"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "ChatIdInvalidError": {
-        "action": "Check the chat ID is correct or try accessing by username",
+        "action": _("Check the chat ID is correct or try accessing by username"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "MessageIdInvalidError": {
-        "action": "The message may have been deleted - try refreshing the chat",
+        "action": _("The message may have been deleted - try refreshing the chat"),
         "action_type": "skip",
         "can_retry": False,
     },
     # File & Media Errors
     "FilePartsInvalidError": {
-        "action": "Re-upload the file or try a different file",
+        "action": _("Re-upload the file or try a different file"),
         "action_type": "retry",
         "can_retry": True,
     },
     "FileReferenceExpiredError": {
-        "action": "Click 'Retry' to refresh the file reference",
+        "action": _("Click 'Retry' to refresh the file reference"),
         "action_type": "retry",
         "can_retry": True,
     },
     # Phone & 2FA Errors
     "PhoneNumberInvalidError": {
-        "action": "Verify phone number format includes country code (e.g., +1234567890)",
+        "action": _("Verify phone number format includes country code (e.g., +1234567890)"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "PhoneCodeInvalidError": {
-        "action": "Check the verification code from Telegram and try again",
+        "action": _("Check the verification code from Telegram and try again"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "PhoneCodeExpiredError": {
-        "action": "Request a new verification code and try again",
+        "action": _("Request a new verification code and try again"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "PasswordHashInvalidError": {
-        "action": "Verify your two-factor authentication password and try again",
+        "action": _("Verify your two-factor authentication password and try again"),
         "action_type": "check_input",
         "can_retry": False,
     },
     "SessionPasswordNeededError": {
-        "action": "Provide your two-factor authentication password to continue",
+        "action": _("Provide your two-factor authentication password to continue"),
         "action_type": "check_input",
         "can_retry": False,
     },
     # Other Common Errors
     "ChatNotModifiedError": {
-        "action": "No action needed - the data is already up to date",
+        "action": _("No action needed - the data is already up to date"),
         "action_type": "skip",
         "can_retry": False,
     },
     "MessageNotModifiedError": {
-        "action": "No action needed - the message content is unchanged",
+        "action": _("No action needed - the message content is unchanged"),
         "action_type": "skip",
         "can_retry": False,
     },
     "UserAlreadyParticipantError": {
-        "action": "No action needed - you are already a member",
+        "action": _("No action needed - you are already a member"),
         "action_type": "skip",
         "can_retry": False,
     },
     "BotMethodInvalidError": {
-        "action": "This operation is not available for bot accounts",
+        "action": _("This operation is not available for bot accounts"),
         "action_type": "skip",
         "can_retry": False,
     },
@@ -428,11 +464,13 @@ def get_actionable_error_info(error: Exception) -> dict[str, str | bool | int | 
         wait_duration = _extract_wait_time(error)
         if wait_duration:
             duration_str = _format_duration(wait_duration)
-            message = f"Rate limit exceeded. Please wait {duration_str} before trying again."
-            action = f"Wait {duration_str} and then click 'Retry'"
+            message = _("Rate limit exceeded. Please wait %(duration)s before trying again.") % {
+                "duration": duration_str
+            }
+            action = _("Wait %(duration)s and then click 'Retry'") % {"duration": duration_str}
         else:
-            message = "Rate limit exceeded. Please wait before trying again."
-            action = "Wait a few minutes and then click 'Retry'"
+            message = _("Rate limit exceeded. Please wait before trying again.")
+            action = _("Wait a few minutes and then click 'Retry'")
 
         return {
             "message": message,
@@ -447,15 +485,15 @@ def get_actionable_error_info(error: Exception) -> dict[str, str | bool | int | 
         wait_duration = _extract_wait_time(error)
         if wait_duration:
             duration_str = _format_duration(wait_duration)
-            message = (
-                f"Slow mode is enabled. Please wait {duration_str} before sending another message."
-            )
-            action = f"Wait {duration_str} before trying again"
+            message = _(
+                "Slow mode is enabled. Please wait %(duration)s before sending another message."
+            ) % {"duration": duration_str}
+            action = _("Wait %(duration)s before trying again") % {"duration": duration_str}
         else:
             message = ERROR_MESSAGES.get(
-                error_class, "Slow mode is enabled. Please wait before sending another message."
+                error_class, _("Slow mode is enabled. Please wait before sending another message.")
             )
-            action = "Wait for the slow mode cooldown before trying again"
+            action = _("Wait for the slow mode cooldown before trying again")
 
         return {
             "message": message,
@@ -482,27 +520,27 @@ def get_actionable_error_info(error: Exception) -> dict[str, str | bool | int | 
     # Fallback action guidance based on error category
     category = get_error_category(error)
     if category == "network":
-        action = "Check your internet connection and click 'Retry'"
+        action = _("Check your internet connection and click 'Retry'")
         action_type = "retry"
         can_retry = True
     elif category == "auth":
-        action = "Upload a new session file from your Sessions page"
+        action = _("Upload a new session file from your Sessions page")
         action_type = "reauth"
         can_retry = False
     elif category == "access":
-        action = "Try a different chat or verify your access permissions"
+        action = _("Try a different chat or verify your access permissions")
         action_type = "skip"
         can_retry = False
     elif category == "invalid_input":
-        action = "Check your input and try again with correct information"
+        action = _("Check your input and try again with correct information")
         action_type = "check_input"
         can_retry = False
     elif category == "rate_limit":
-        action = "Wait a few minutes and click 'Retry'"
+        action = _("Wait a few minutes and click 'Retry'")
         action_type = "wait"
         can_retry = True
     else:
-        action = "Try again or contact support if the issue persists"
+        action = _("Try again or contact support if the issue persists")
         action_type = "retry"
         can_retry = True
 
@@ -542,19 +580,21 @@ def get_user_friendly_message(error: Exception) -> str:
         wait_time = _extract_wait_time(error)
         if wait_time:
             duration_str = _format_duration(wait_time)
-            return f"Rate limit exceeded. Please wait {duration_str} before trying again."
-        return "Rate limit exceeded. Please wait before trying again."
+            return _("Rate limit exceeded. Please wait %(duration)s before trying again.") % {
+                "duration": duration_str
+            }
+        return _("Rate limit exceeded. Please wait before trying again.")
 
     # Special handling for SlowModeWaitError (includes wait time)
     if error_class == "SlowModeWaitError":
         wait_time = _extract_wait_time(error)
         if wait_time:
             duration_str = _format_duration(wait_time)
-            return (
-                f"Slow mode is enabled. Please wait {duration_str} before sending another message."
-            )
+            return _(
+                "Slow mode is enabled. Please wait %(duration)s before sending another message."
+            ) % {"duration": duration_str}
         return ERROR_MESSAGES.get(
-            error_class, "Slow mode is enabled. Please wait before sending another message."
+            error_class, _("Slow mode is enabled. Please wait before sending another message.")
         )
 
     # Look up in mapping
@@ -571,34 +611,38 @@ def get_user_friendly_message(error: Exception) -> str:
         if match:
             wait_seconds = int(match.group(1))
             duration_str = _format_duration(wait_seconds)
-            return f"Rate limit exceeded. Please wait {duration_str} before trying again."
-        return "Rate limit exceeded. Please wait before trying again."
+            return _("Rate limit exceeded. Please wait %(duration)s before trying again.") % {
+                "duration": duration_str
+            }
+        return _("Rate limit exceeded. Please wait before trying again.")
 
     if "session" in error_msg.lower() and (
         "expired" in error_msg.lower() or "revoked" in error_msg.lower()
     ):
-        return "Your session has expired. Please log in again with a new session file."
+        return _("Your session has expired. Please log in again with a new session file.")
 
     if "banned" in error_msg.lower() or "kicked" in error_msg.lower():
-        return "Access denied. You may have been banned or removed from this chat."
+        return _("Access denied. You may have been banned or removed from this chat.")
 
     if "private" in error_msg.lower() or "forbidden" in error_msg.lower():
-        return "Access to this resource is restricted."
+        return _("Access to this resource is restricted.")
 
     if "timeout" in error_msg.lower():
-        return "Request timed out. Please try again."
+        return _("Request timed out. Please try again.")
 
     if "network" in error_msg.lower() or "connection" in error_msg.lower():
-        return "Network connection error. Please check your internet connection and try again."
+        return _("Network connection error. Please check your internet connection and try again.")
 
     if "invalid" in error_msg.lower() and (
         "username" in error_msg.lower() or "peer" in error_msg.lower()
     ):
-        return "Chat or user not found. Please verify the information is correct."
+        return _("Chat or user not found. Please verify the information is correct.")
 
     # Default fallback for unknown errors
     # Include the error class name to help with debugging
-    return f"An error occurred: {error_class}. Please try again or contact support if the issue persists."
+    return _(
+        "An error occurred: %(error_class)s. Please try again or contact support if the issue persists."
+    ) % {"error_class": error_class}
 
 
 def get_error_category(error: Exception) -> str:
