@@ -79,48 +79,57 @@ async def list_history(
 
     Returns:
         Paginated list of task summaries
+
+    Raises:
+        HTTPException: 500 if database operation fails
     """
-    db = get_database()
+    try:
+        db = get_database()
 
-    # Determine status filter
-    status_filter = [status] if status else None
+        # Determine status filter
+        status_filter = [status] if status else None
 
-    # Calculate offset
-    offset = (page - 1) * page_size
+        # Calculate offset
+        offset = (page - 1) * page_size
 
-    # Load tasks with pagination
-    tasks = db.load_completed_tasks(
-        limit=page_size,
-        offset=offset,
-        status_filter=status_filter,
-    )
-
-    # Get total count for pagination
-    total = db.count_completed_tasks(status_filter=status_filter)
-
-    # Convert to summaries
-    summaries = [
-        TaskSummary(
-            task_id=task.task_id,
-            session_id=task.session_id,
-            chat_count=len(task.chat_ids),
-            result_count=len(task.results),
-            message_limit=task.message_limit,
-            status=task.status,
-            created_at=task.created_at.isoformat(),
-            completed_at=task.completed_at.isoformat() if task.completed_at else None,
-            error=task.error,
+        # Load tasks with pagination
+        tasks = db.load_completed_tasks(
+            limit=page_size,
+            offset=offset,
+            status_filter=status_filter,
         )
-        for task in tasks
-    ]
 
-    return HistoryListResponse(
-        tasks=summaries,
-        total=total,
-        page=page,
-        page_size=page_size,
-        has_more=(offset + len(tasks)) < total,
-    )
+        # Get total count for pagination
+        total = db.count_completed_tasks(status_filter=status_filter)
+
+        # Convert to summaries
+        summaries = [
+            TaskSummary(
+                task_id=task.task_id,
+                session_id=task.session_id,
+                chat_count=len(task.chat_ids),
+                result_count=len(task.results),
+                message_limit=task.message_limit,
+                status=task.status,
+                created_at=task.created_at.isoformat(),
+                completed_at=task.completed_at.isoformat() if task.completed_at else None,
+                error=task.error,
+            )
+            for task in tasks
+        ]
+
+        return HistoryListResponse(
+            tasks=summaries,
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_more=(offset + len(tasks)) < total,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load history: {e}",
+        ) from e
 
 
 @router.get("/stats")
@@ -129,16 +138,25 @@ async def get_history_stats() -> HistoryStats:
 
     Returns:
         Statistics including total tasks and breakdown by status
-    """
-    db = get_database()
 
-    return HistoryStats(
-        total_tasks=db.count_completed_tasks(),
-        completed_tasks=db.count_completed_tasks(status_filter=[TaskStatus.COMPLETED]),
-        failed_tasks=db.count_completed_tasks(status_filter=[TaskStatus.FAILED]),
-        cancelled_tasks=db.count_completed_tasks(status_filter=[TaskStatus.CANCELLED]),
-        timeout_tasks=db.count_completed_tasks(status_filter=[TaskStatus.TIMEOUT]),
-    )
+    Raises:
+        HTTPException: 500 if database operation fails
+    """
+    try:
+        db = get_database()
+
+        return HistoryStats(
+            total_tasks=db.count_completed_tasks(),
+            completed_tasks=db.count_completed_tasks(status_filter=[TaskStatus.COMPLETED]),
+            failed_tasks=db.count_completed_tasks(status_filter=[TaskStatus.FAILED]),
+            cancelled_tasks=db.count_completed_tasks(status_filter=[TaskStatus.CANCELLED]),
+            timeout_tasks=db.count_completed_tasks(status_filter=[TaskStatus.TIMEOUT]),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load history stats: {e}",
+        ) from e
 
 
 @router.get("/{task_id}")

@@ -7,7 +7,7 @@ import time
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi import APIRouter, File, Form, Path, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -345,7 +345,9 @@ async def fetch_google_sheet_endpoint(
 @router.get("/api/chatlist/{list_id}", response_class=HTMLResponse)
 async def get_chat_list_entries(
     request: Request,
-    list_id: str,
+    list_id: Annotated[
+        str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    ],
 ) -> HTMLResponse:
     """Get entries for a stored chat list.
 
@@ -376,10 +378,20 @@ async def get_chat_list_entries(
 
 
 @router.delete("/api/chatlist/{list_id}", response_class=HTMLResponse)
-async def delete_chat_list(list_id: str) -> HTMLResponse:
+async def delete_chat_list(
+    list_id: Annotated[
+        str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    ],
+) -> HTMLResponse:
     """Delete a stored chat list.
 
     Returns empty response for HTMX.
+
+    Raises:
+        HTTPException: 404 if list not found
     """
-    clear_chat_list(list_id)
+    from fastapi import HTTPException
+
+    if not clear_chat_list(list_id):
+        raise HTTPException(status_code=404, detail=f"Chat list {list_id} not found")
     return HTMLResponse(content="", status_code=200)

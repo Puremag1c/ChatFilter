@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import secrets
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request, status
@@ -13,6 +14,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from chatfilter.exporter import export_to_csv
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
+
+
+class DiagnosticsFormat(str, Enum):
+    """Supported formats for diagnostics export."""
+
+    TEXT = "text"
+    JSON = "json"
+
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
@@ -204,7 +213,7 @@ async def export_csv(
 @router.get("/diagnostics")
 async def export_diagnostics(
     request: Request,
-    format: Annotated[str, Query()] = "text",
+    format: Annotated[DiagnosticsFormat, Query()] = DiagnosticsFormat.TEXT,
 ) -> Response:
     """Export diagnostic information for troubleshooting and support.
 
@@ -226,7 +235,7 @@ async def export_diagnostics(
 
     settings = request.app.state.settings
 
-    if format == "json":
+    if format == DiagnosticsFormat.JSON:
         content = export_diagnostics_to_json(settings)
         media_type = "application/json; charset=utf-8"
         extension = "json"

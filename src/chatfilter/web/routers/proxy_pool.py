@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -234,7 +235,12 @@ async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
 
 
 @router.put("/api/proxies/{proxy_id}", response_model=ProxyCreateResponse)
-async def update_proxy_endpoint(proxy_id: str, request: ProxyUpdateRequest) -> ProxyCreateResponse:
+async def update_proxy_endpoint(
+    proxy_id: Annotated[
+        str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    ],
+    request: ProxyUpdateRequest,
+) -> ProxyCreateResponse:
     """Update an existing proxy in the pool.
 
     Args:
@@ -300,7 +306,11 @@ async def update_proxy_endpoint(proxy_id: str, request: ProxyUpdateRequest) -> P
 
 
 @router.delete("/api/proxies/{proxy_id}", response_model=ProxyDeleteResponse)
-async def delete_proxy(proxy_id: str) -> ProxyDeleteResponse:
+async def delete_proxy(
+    proxy_id: Annotated[
+        str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    ],
+) -> ProxyDeleteResponse:
     """Delete a proxy from the pool.
 
     If the proxy is in use by sessions, they will lose their proxy configuration.
@@ -344,7 +354,11 @@ async def delete_proxy(proxy_id: str) -> ProxyDeleteResponse:
 
 
 @router.post("/api/proxies/{proxy_id}/retest", response_model=ProxyRetestResponse)
-async def retest_proxy_endpoint(proxy_id: str) -> ProxyRetestResponse:
+async def retest_proxy_endpoint(
+    proxy_id: Annotated[
+        str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+    ],
+) -> ProxyRetestResponse:
     """Retest a proxy's health and update its status.
 
     Resets the failure counter, then performs a health check.
