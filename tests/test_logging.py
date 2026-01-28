@@ -717,16 +717,15 @@ def test_module_log_levels() -> None:
     """Test per-module log level configuration."""
     from chatfilter.utils.logging import (
         configure_module_levels,
-        get_module_log_level,
         set_module_log_level,
     )
 
     # Set individual module level
     set_module_log_level("test.module1", "DEBUG")
-    assert get_module_log_level("test.module1") == logging.DEBUG
+    assert logging.getLogger("test.module1").level == logging.DEBUG
 
     set_module_log_level("test.module2", logging.WARNING)
-    assert get_module_log_level("test.module2") == logging.WARNING
+    assert logging.getLogger("test.module2").level == logging.WARNING
 
     # Configure multiple modules at once
     configure_module_levels(
@@ -735,11 +734,8 @@ def test_module_log_levels() -> None:
             "test.module4": "INFO",
         }
     )
-    assert get_module_log_level("test.module3") == logging.ERROR
-    assert get_module_log_level("test.module4") == logging.INFO
-
-    # Unknown module returns None
-    assert get_module_log_level("unknown.module") is None
+    assert logging.getLogger("test.module3").level == logging.ERROR
+    assert logging.getLogger("test.module4").level == logging.INFO
 
 
 def test_setup_logging_with_json_format(log_temp_dir: Path) -> None:
@@ -791,8 +787,6 @@ def test_setup_logging_with_verbose_mode() -> None:
 
 def test_setup_logging_with_module_levels() -> None:
     """Test setup_logging configures per-module log levels."""
-    from chatfilter.utils.logging import get_module_log_level
-
     setup_logging(
         level="INFO",
         debug=False,
@@ -803,21 +797,8 @@ def test_setup_logging_with_module_levels() -> None:
         },
     )
 
-    assert get_module_log_level("chatfilter.telegram") == logging.DEBUG
-    assert get_module_log_level("chatfilter.web") == logging.WARNING
-
-
-def test_verbose_logger() -> None:
-    """Test get_verbose_logger creates logger with optional verbose mode."""
-    from chatfilter.utils.logging import get_verbose_logger
-
-    # Normal logger (level inherited from root, just verify it returns a logger)
-    normal_logger = get_verbose_logger("test.normal", verbose=False)
-    assert isinstance(normal_logger, logging.Logger)
-
-    # Verbose logger explicitly sets DEBUG
-    verbose_logger = get_verbose_logger("test.verbose", verbose=True)
-    assert verbose_logger.level == logging.DEBUG
+    assert logging.getLogger("chatfilter.telegram").level == logging.DEBUG
+    assert logging.getLogger("chatfilter.web").level == logging.WARNING
 
 
 def test_log_format_with_chat_id(log_temp_dir: Path) -> None:

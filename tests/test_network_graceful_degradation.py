@@ -7,7 +7,7 @@ when internet connectivity is lost.
 from __future__ import annotations
 
 import socket
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -16,7 +16,6 @@ from chatfilter.utils.network import (
     NetworkMonitor,
     NetworkOfflineError,
     NetworkStatus,
-    TelegramAPICheckStrategy,
     detect_network_error,
     get_network_monitor,
     reset_network_monitor,
@@ -62,39 +61,6 @@ class TestDNSCheckStrategy:
             status = await strategy.check()
 
             assert status.is_online is False
-
-
-class TestTelegramAPICheckStrategy:
-    """Tests for Telegram API-based network checking."""
-
-    @pytest.mark.asyncio
-    async def test_telegram_check_online(self) -> None:
-        """Test Telegram API check when reachable."""
-        strategy = TelegramAPICheckStrategy(hosts=["api.telegram.org"], port=443, timeout=1.0)
-
-        # Mock successful connection
-        mock_reader = AsyncMock()
-        mock_writer = MagicMock()
-        mock_writer.close = MagicMock()
-        mock_writer.wait_closed = AsyncMock()
-
-        with patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)):
-            status = await strategy.check()
-
-            assert status.is_online is True
-            assert status.error_message is None
-            mock_writer.close.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_telegram_check_offline(self) -> None:
-        """Test Telegram API check when unreachable."""
-        strategy = TelegramAPICheckStrategy(hosts=["unreachable.test"], port=443, timeout=1.0)
-
-        with patch("asyncio.open_connection", side_effect=OSError("Connection refused")):
-            status = await strategy.check()
-
-            assert status.is_online is False
-            assert status.error_message is not None
 
 
 class TestNetworkMonitor:

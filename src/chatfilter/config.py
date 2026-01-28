@@ -5,7 +5,6 @@ Supports layered configuration with priority: CLI args > ENV vars > .env file > 
 
 from __future__ import annotations
 
-import json
 import logging
 from enum import Enum
 from functools import lru_cache
@@ -726,39 +725,3 @@ def ensure_config_dir() -> Path:
     config_dir = get_settings().config_dir
     config_dir.mkdir(parents=True, exist_ok=True)
     return config_dir
-
-
-def get_proxy_config_path() -> Path:
-    """Get path to proxy config file."""
-    return ensure_config_dir() / "proxy.json"
-
-
-def load_proxy_config() -> ProxyConfig:
-    """Load proxy configuration from file.
-
-    Returns:
-        ProxyConfig instance (defaults if file doesn't exist)
-    """
-    config_path = get_proxy_config_path()
-
-    if not config_path.exists():
-        return ProxyConfig()
-
-    try:
-        data = json.loads(config_path.read_text())
-        return ProxyConfig.model_validate(data)
-    except (json.JSONDecodeError, ValueError) as e:
-        logger.warning(f"Failed to load proxy config: {e}, using defaults")
-        return ProxyConfig()
-
-
-def save_proxy_config(config: ProxyConfig) -> None:
-    """Save proxy configuration to file.
-
-    Args:
-        config: ProxyConfig instance to save
-    """
-    config_path = get_proxy_config_path()
-    # Atomic write to prevent corruption on crash
-    atomic_write(config_path, config.model_dump_json(indent=2))
-    logger.info("Proxy configuration saved")

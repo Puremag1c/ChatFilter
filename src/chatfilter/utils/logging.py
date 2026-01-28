@@ -224,19 +224,6 @@ def generate_correlation_id() -> str:
     return uuid.uuid4().hex[:16]
 
 
-def configure_sanitized_logging(logger: logging.Logger) -> None:
-    """Configure a logger with sanitization and correlation ID filters.
-
-    Args:
-        logger: The logger to configure
-    """
-    # Add sanitizer filter
-    logger.addFilter(LogSanitizer())
-
-    # Add correlation ID filter
-    logger.addFilter(CorrelationIDFilter())
-
-
 # Context variable for chat ID (Telegram operations)
 chat_id_context: contextvars.ContextVar[int | str | None] = contextvars.ContextVar(
     "chat_id", default=None
@@ -530,25 +517,6 @@ class TimingContext:
         return decorator_func
 
 
-def get_verbose_logger(name: str, verbose: bool = False) -> logging.Logger:
-    """Get a logger with verbose mode support.
-
-    In verbose mode, DEBUG level messages are shown even if the
-    global log level is INFO or higher.
-
-    Args:
-        name: Logger name
-        verbose: If True, enable verbose (DEBUG) logging for this logger
-
-    Returns:
-        Configured logger
-    """
-    logger = logging.getLogger(name)
-    if verbose:
-        logger.setLevel(logging.DEBUG)
-    return logger
-
-
 # Per-module log level configuration
 _module_levels: dict[str, int] = {}
 
@@ -565,18 +533,6 @@ def set_module_log_level(module_name: str, level: str | int) -> None:
     _module_levels[module_name] = level
     logger = logging.getLogger(module_name)
     logger.setLevel(level)
-
-
-def get_module_log_level(module_name: str) -> int | None:
-    """Get configured log level for a module.
-
-    Args:
-        module_name: Module name
-
-    Returns:
-        Log level or None if not configured
-    """
-    return _module_levels.get(module_name)
 
 
 def configure_module_levels(config: dict[str, str]) -> None:

@@ -237,31 +237,6 @@ def with_retry_for_reads(
     )
 
 
-def with_retry_for_writes(
-    max_attempts: int = 2,  # More conservative for writes
-    base_delay: float = 2.0,  # Longer delays for writes
-    max_delay: float = 10.0,
-) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
-    """Convenience decorator for write operations (use cautiously, ensure idempotency).
-
-    Uses more conservative retry configuration for write operations.
-    Only use this if your write operation is idempotent (safe to retry).
-
-    Args:
-        max_attempts: Maximum number of attempts (default: 2, more conservative)
-        base_delay: Base delay in seconds (default: 2.0, longer than reads)
-        max_delay: Maximum delay in seconds
-
-    Returns:
-        Decorated async function with retry logic
-    """
-    return with_retry(
-        max_attempts=max_attempts,
-        base_delay=base_delay,
-        max_delay=max_delay,
-    )
-
-
 def _format_flood_wait_duration(seconds: int) -> str:
     """Format FloodWait duration for user-friendly logging.
 
@@ -270,14 +245,6 @@ def _format_flood_wait_duration(seconds: int) -> str:
 
     Returns:
         Human-readable duration string
-
-    Examples:
-        >>> _format_flood_wait_duration(30)
-        '30 seconds'
-        >>> _format_flood_wait_duration(120)
-        '2 minutes'
-        >>> _format_flood_wait_duration(3600)
-        '1 hour'
     """
     if seconds < 60:
         return f"{seconds} second{'s' if seconds != 1 else ''}"
@@ -290,106 +257,3 @@ def _format_flood_wait_duration(seconds: int) -> str:
         if remainder_minutes > 0:
             return f"{hours} hour{'s' if hours != 1 else ''} {remainder_minutes} minute{'s' if remainder_minutes != 1 else ''}"
         return f"{hours} hour{'s' if hours != 1 else ''}"
-
-
-def with_flood_wait_handling(
-    max_attempts: int = 3,
-    max_flood_wait: int = 3600,  # 1 hour max wait by default
-    use_exponential_backoff: bool = True,
-) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
-    """Decorator to handle FloodWaitError with exponential backoff and user notifications.
-
-    Handles Telegram's rate limiting (FloodWaitError) by:
-    1. Extracting the wait time from the error
-    2. Informing the user about the delay (via logger)
-    3. Waiting for the specified time (or exponentially increasing time)
-    4. Supporting cancellation via asyncio.CancelledError
-
-    Args:
-        max_attempts: Maximum number of attempts (default: 3)
-        max_flood_wait: Maximum seconds to wait for a single FloodWait (default: 3600 = 1 hour)
-        use_exponential_backoff: If True, use exponential backoff on top of FloodWait time (default: True)
-
-    Returns:
-        Decorated async function with FloodWait handling
-
-    Example:
-        @with_flood_wait_handling(max_attempts=3, max_flood_wait=1800)
-        async def fetch_messages():
-            # Telegram API call that may trigger FloodWaitError
-            pass
-    """
-
-    def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
-        @wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            op_name = func.__name__
-            last_exception: Exception | None = None
-
-            for attempt in range(max_attempts):
-                try:
-                    return await func(*args, **kwargs)
-                except asyncio.CancelledError:
-                    # Don't retry on cancellation - propagate immediately
-                    logger.info(f"{op_name}: Operation cancelled by user")
-                    raise
-                except FloodWaitError as e:
-                    last_exception = e
-                    is_final_attempt = attempt == max_attempts - 1
-
-                    # Extract wait time from FloodWaitError
-                    wait_seconds = getattr(e, "seconds", 60)  # Default to 60s if not found
-
-                    # Check if wait time exceeds max_flood_wait
-                    if wait_seconds > max_flood_wait:
-                        logger.error(
-                            f"{op_name}: FloodWait requires {wait_seconds}s ({_format_flood_wait_duration(wait_seconds)}) "
-                            f"which exceeds max_flood_wait of {max_flood_wait}s ({_format_flood_wait_duration(max_flood_wait)}). "
-                            f"Aborting operation."
-                        )
-                        raise
-
-                    if is_final_attempt:
-                        logger.error(
-                            f"{op_name}: FloodWait persists after {max_attempts} attempts. "
-                            f"Last wait was {wait_seconds}s ({_format_flood_wait_duration(wait_seconds)}). Aborting."
-                        )
-                        raise
-
-                    # Calculate actual wait time with optional exponential backoff
-                    if use_exponential_backoff and attempt > 0:
-                        # Apply exponential backoff multiplier: 1x, 1.5x, 2x, 2.5x, etc.
-                        backoff_multiplier = 1.0 + (0.5 * attempt)
-                        actual_wait = min(
-                            int(wait_seconds * backoff_multiplier),
-                            max_flood_wait,
-                        )
-                    else:
-                        actual_wait = wait_seconds
-
-                    # Log user-friendly message
-                    duration_str = _format_flood_wait_duration(actual_wait)
-                    logger.warning(
-                        f"{op_name}: Rate limited by Telegram (FloodWait). "
-                        f"Attempt {attempt + 1}/{max_attempts}. "
-                        f"Waiting {duration_str} before retry... "
-                        f"(You can cancel this operation if needed)"
-                    )
-
-                    try:
-                        # Wait for the specified time (interruptible by cancellation)
-                        await asyncio.sleep(actual_wait)
-                    except asyncio.CancelledError:
-                        logger.info(f"{op_name}: Wait cancelled by user")
-                        raise
-
-                    logger.info(f"{op_name}: Retrying after FloodWait...")
-
-            # Should never reach here, but satisfy type checker
-            if last_exception:
-                raise last_exception
-            raise RuntimeError(f"{op_name}: Unexpected retry loop exit")
-
-        return wrapper
-
-    return decorator
