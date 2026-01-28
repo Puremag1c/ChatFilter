@@ -30,8 +30,8 @@ try:
     from chatfilter.utils.memory import MemoryMonitor, log_memory_usage
 except ImportError:
     # Memory monitoring is optional (requires psutil)
-    MemoryMonitor = None  # type: ignore
-    log_memory_usage = None  # type: ignore
+    MemoryMonitor = None  # type: ignore[misc,assignment]  # Optional dependency fallback
+    log_memory_usage = None  # type: ignore[assignment]  # Optional dependency fallback
 
 logger = logging.getLogger(__name__)
 

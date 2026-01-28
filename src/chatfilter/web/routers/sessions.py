@@ -1342,6 +1342,7 @@ async def start_auth_flow(
         )
 
         # Store temp dir path for cleanup later
+        # Dynamic attribute for temp session files; cleaned up in complete/cancel handlers
         auth_state.temp_dir = temp_dir  # type: ignore[attr-defined]
 
         logger.info(f"Auth flow started for '{safe_name}', code sent to {phone}")

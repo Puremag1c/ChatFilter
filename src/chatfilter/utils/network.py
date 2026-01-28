@@ -176,13 +176,15 @@ class NetworkMonitor:
         """
         # Use cached status if valid and not forcing check
         if not force_check and self._is_cache_valid():
-            return self._cached_status  # type: ignore
+            assert self._cached_status is not None  # Guaranteed by _is_cache_valid()
+            return self._cached_status
 
         # Perform fresh check (with lock to prevent concurrent checks)
         async with self._check_lock:
             # Double-check cache inside lock (another task may have checked)
             if not force_check and self._is_cache_valid():
-                return self._cached_status  # type: ignore
+                assert self._cached_status is not None  # Guaranteed by _is_cache_valid()
+                return self._cached_status
 
             # Perform actual network check
             status = await self._strategy.check()
