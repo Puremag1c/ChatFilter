@@ -199,7 +199,7 @@ async def disable_monitoring(
 async def sync_chat(
     session_id: Annotated[str, Form()],
     chat_id: Annotated[int, Form()],
-    max_messages: Annotated[int, Form()] = 10000,
+    max_messages: Annotated[int | None, Form()] = None,
 ) -> SyncResultResponse:
     """Trigger delta sync for a monitored chat.
 
@@ -208,18 +208,22 @@ async def sync_chat(
     Args:
         session_id: Telegram session identifier
         chat_id: Chat ID to sync
-        max_messages: Maximum new messages to fetch (default: 10000)
+        max_messages: Maximum new messages to fetch (uses settings.max_messages_limit if not provided)
 
     Returns:
         SyncResultResponse with sync results
     """
+    from chatfilter.config import get_settings
+
+    settings = get_settings()
+    effective_max = max_messages if max_messages is not None else settings.max_messages_limit
     service = _get_monitoring_service()
 
     try:
         snapshot = await service.sync_chat(
             session_id=session_id,
             chat_id=chat_id,
-            max_messages=max_messages,
+            max_messages=effective_max,
         )
 
         return SyncResultResponse(
@@ -252,23 +256,29 @@ async def sync_chat(
 @router.post("/sync-all")
 async def sync_all_monitors(
     session_id: Annotated[str, Form()],
-    max_messages_per_chat: Annotated[int, Form()] = 10000,
+    max_messages_per_chat: Annotated[int | None, Form()] = None,
 ) -> list[SyncResultResponse]:
     """Sync all enabled monitors for a session.
 
     Args:
         session_id: Telegram session identifier
-        max_messages_per_chat: Max new messages per chat (default: 10000)
+        max_messages_per_chat: Max new messages per chat (uses settings.max_messages_limit if not provided)
 
     Returns:
         List of SyncResultResponse for each synced chat
     """
+    from chatfilter.config import get_settings
+
+    settings = get_settings()
+    effective_max = (
+        max_messages_per_chat if max_messages_per_chat is not None else settings.max_messages_limit
+    )
     service = _get_monitoring_service()
 
     try:
         snapshots = await service.sync_all_enabled(
             session_id=session_id,
-            max_messages_per_chat=max_messages_per_chat,
+            max_messages_per_chat=effective_max,
         )
 
         return [

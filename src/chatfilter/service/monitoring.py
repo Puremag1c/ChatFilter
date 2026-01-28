@@ -236,7 +236,7 @@ class MonitoringService:
         self,
         session_id: str,
         chat_id: int,
-        max_messages: int = 10000,
+        max_messages: int | None = None,
     ) -> SyncSnapshot:
         """Perform delta sync for a monitored chat.
 
@@ -246,7 +246,7 @@ class MonitoringService:
         Args:
             session_id: Session identifier
             chat_id: Chat ID to sync
-            max_messages: Maximum new messages to fetch per sync
+            max_messages: Maximum new messages to fetch per sync (uses settings.max_messages_limit if not provided)
 
         Returns:
             SyncSnapshot with sync results
@@ -255,6 +255,11 @@ class MonitoringService:
             MonitorNotFoundError: If chat is not being monitored
             MonitoringError: If sync fails
         """
+        from chatfilter.config import get_settings
+
+        if max_messages is None:
+            max_messages = get_settings().max_messages_limit
+
         self._ensure_loader(session_id)
 
         # Load existing state
@@ -333,13 +338,13 @@ class MonitoringService:
     async def sync_all_enabled(
         self,
         session_id: str,
-        max_messages_per_chat: int = 10000,
+        max_messages_per_chat: int | None = None,
     ) -> list[SyncSnapshot]:
         """Sync all enabled monitors for a session.
 
         Args:
             session_id: Session identifier
-            max_messages_per_chat: Maximum new messages per chat
+            max_messages_per_chat: Maximum new messages per chat (uses settings.max_messages_limit if not provided)
 
         Returns:
             List of SyncSnapshots, one per successfully synced chat

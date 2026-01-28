@@ -575,10 +575,15 @@ class SessionManager:
 
         # OSError with network-related errno
         if isinstance(error, OSError):
-            # Common errno values for network switches:
-            # ENETUNREACH (101), EHOSTUNREACH (113), ENETDOWN (100),
-            # ECONNRESET (104), EPIPE (32)
-            network_errno = {32, 100, 101, 104, 113}
+            import errno
+
+            network_errno = {
+                errno.EPIPE,
+                errno.ENETDOWN,
+                errno.ENETUNREACH,
+                errno.ECONNRESET,
+                errno.EHOSTUNREACH,
+            }
             if hasattr(error, "errno") and error.errno in network_errno:
                 return True
 
