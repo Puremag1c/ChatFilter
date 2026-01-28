@@ -339,7 +339,7 @@ class TestUploadChatList:
 
 
 class TestFetchGoogleSheet:
-    """Tests for /api/chatlist/fetch-sheet endpoint."""
+    """Tests for /api/chatlist/fetch_sheet endpoint."""
 
     def test_fetch_sheet_success(self, client: TestClient, csrf_token: str) -> None:
         """Test successfully fetching Google Sheet."""
@@ -365,7 +365,7 @@ class TestFetchGoogleSheet:
             mock_fetch.return_value = mock_entries
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -376,7 +376,7 @@ class TestFetchGoogleSheet:
     def test_fetch_sheet_empty_url(self, client: TestClient, csrf_token: str) -> None:
         """Test fetching with empty URL."""
         response = client.post(
-            "/api/chatlist/fetch-sheet",
+            "/api/chatlist/fetch_sheet",
             data={"sheet_url": ""},
             headers={"X-CSRF-Token": csrf_token},
         )
@@ -387,7 +387,7 @@ class TestFetchGoogleSheet:
     def test_fetch_sheet_whitespace_url(self, client: TestClient, csrf_token: str) -> None:
         """Test fetching with whitespace-only URL."""
         response = client.post(
-            "/api/chatlist/fetch-sheet",
+            "/api/chatlist/fetch_sheet",
             data={"sheet_url": "   \n\t   "},
             headers={"X-CSRF-Token": csrf_token},
         )
@@ -401,7 +401,7 @@ class TestFetchGoogleSheet:
             mock_is_url.return_value = False
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": "https://example.com/not-a-sheet"},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -421,7 +421,7 @@ class TestFetchGoogleSheet:
             mock_fetch.side_effect = GoogleSheetsError("Sheet not accessible")
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -441,7 +441,7 @@ class TestFetchGoogleSheet:
             mock_fetch.return_value = []
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -479,7 +479,7 @@ class TestFetchGoogleSheet:
             mock_fetch.return_value = mock_entries
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -498,7 +498,7 @@ class TestFetchGoogleSheet:
             mock_fetch.side_effect = RuntimeError("Unexpected error")
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -525,7 +525,7 @@ class TestFetchGoogleSheet:
             mock_fetch.return_value = mock_entries
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -675,7 +675,7 @@ class TestIntegrationScenarios:
 
             # Fetch
             fetch_response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )
@@ -849,7 +849,7 @@ class TestEdgeCases:
             mock_fetch.return_value = mock_entries
 
             response = client.post(
-                "/api/chatlist/fetch-sheet",
+                "/api/chatlist/fetch_sheet",
                 data={"sheet_url": sheet_url},
                 headers={"X-CSRF-Token": csrf_token},
             )

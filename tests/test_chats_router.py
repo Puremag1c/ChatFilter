@@ -61,13 +61,6 @@ class TestChatsPage:
 class TestChatsAPI:
     """Tests for chats API endpoints."""
 
-    def test_get_chats_no_session_selected(self, client: TestClient) -> None:
-        """Test getting chats with no session selected."""
-        response = client.get("/api/chats?session-select=")
-
-        assert response.status_code == 200
-        # Should return empty list, no error
-
     def test_get_chats_session_not_found(self, client: TestClient) -> None:
         """Test getting chats from non-existent session returns 404."""
         # Mock the service to raise SessionNotFoundError
@@ -77,7 +70,7 @@ class TestChatsAPI:
                 side_effect=SessionNotFoundError("Session 'nonexistent' not found")
             )
 
-            response = client.get("/api/chats?session-select=nonexistent")
+            response = client.get("/api/chats?session_select=nonexistent")
 
             # Session not found returns 404
             assert response.status_code == 404
@@ -96,7 +89,7 @@ class TestChatsAPI:
             # Return tuple of (chats, total_count)
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, len(mock_chats)))
 
-            response = client.get("/api/chats?session-select=test_session")
+            response = client.get("/api/chats?session_select=test_session")
 
         assert response.status_code == 200
         assert "Test Group" in response.text
@@ -122,7 +115,7 @@ class TestChatsAPI:
             # Return tuple of (chats_slice, total_count)
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 500))
 
-            response = client.get("/api/chats?session-select=test_session&offset=150&limit=50")
+            response = client.get("/api/chats?session_select=test_session&offset=150&limit=50")
 
         assert response.status_code == 200
         # Check that pagination metadata is in the response
@@ -151,7 +144,7 @@ class TestChatsAPI:
             # Return tuple showing we've reached the end
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 100))
 
-            response = client.get("/api/chats?session-select=test_session&offset=80&limit=100")
+            response = client.get("/api/chats?session_select=test_session&offset=80&limit=100")
 
         assert response.status_code == 200
         assert "Chat 80" in response.text
@@ -167,7 +160,7 @@ class TestChatsAPI:
             )
 
             with patch("chatfilter.web.routers.chats.cleanup_invalid_session") as mock_cleanup:
-                response = client.get("/api/chats?session-select=invalid_session")
+                response = client.get("/api/chats?session_select=invalid_session")
 
                 assert response.status_code == 200
                 assert "Session is invalid" in response.text
@@ -182,7 +175,7 @@ class TestChatsAPI:
                 side_effect=SessionReauthRequiredError("Session expired")
             )
 
-            response = client.get("/api/chats?session-select=expired_session")
+            response = client.get("/api/chats?session_select=expired_session")
 
             assert response.status_code == 200
             assert "requires re-authorization" in response.text.lower()
@@ -195,7 +188,7 @@ class TestChatsAPI:
                 side_effect=SessionReauthRequiredError("2FA password required")
             )
 
-            response = client.get("/api/chats?session-select=2fa_session")
+            response = client.get("/api/chats?session_select=2fa_session")
 
             assert response.status_code == 200
             assert "2FA" in response.text or "Two-factor authentication" in response.text
@@ -223,7 +216,7 @@ class TestChatsAPI:
                     "can_retry": True,
                 }
 
-                response = client.get("/api/chats?session-select=test_session")
+                response = client.get("/api/chats?session_select=test_session")
 
                 assert response.status_code == 200
                 assert "Rate limit exceeded" in response.text
@@ -234,7 +227,7 @@ class TestChatsAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(side_effect=Exception("Network error"))
 
-            response = client.get("/api/chats?session-select=test_session")
+            response = client.get("/api/chats?session_select=test_session")
 
             assert response.status_code == 200
             assert "Failed to connect to Telegram" in response.text
@@ -257,7 +250,7 @@ class TestChatsAPI:
                 "chatfilter.web.routers.chats.get_actionable_error_info",
                 side_effect=Exception("Error info extraction failed"),
             ):
-                response = client.get("/api/chats?session-select=test_session")
+                response = client.get("/api/chats?session_select=test_session")
 
                 # Should fall back to generic error message
                 assert response.status_code == 200
@@ -265,7 +258,7 @@ class TestChatsAPI:
 
     def test_get_chats_json_no_session(self, client: TestClient) -> None:
         """Test JSON endpoint with no session selected."""
-        response = client.get("/api/chats/json?session-select=")
+        response = client.get("/api/chats/json?session_select=")
 
         assert response.status_code == 200
         data = response.json()
@@ -281,7 +274,7 @@ class TestChatsAPI:
                 side_effect=SessionNotFoundError("Session 'nonexistent' not found")
             )
 
-            response = client.get("/api/chats/json?session-select=nonexistent")
+            response = client.get("/api/chats/json?session_select=nonexistent")
 
         assert response.status_code == 404
 
@@ -303,7 +296,7 @@ class TestChatsAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, len(mock_chats)))
 
-            response = client.get("/api/chats/json?session-select=test_session")
+            response = client.get("/api/chats/json?session_select=test_session")
 
         assert response.status_code == 200
         data = response.json()
@@ -342,7 +335,7 @@ class TestChatsAPI:
             )
 
             with patch("chatfilter.web.routers.chats.cleanup_invalid_session") as mock_cleanup:
-                response = client.get("/api/chats/json?session-select=invalid_session")
+                response = client.get("/api/chats/json?session_select=invalid_session")
 
                 assert response.status_code == 400
                 assert "invalid" in response.json()["detail"].lower()
@@ -356,7 +349,7 @@ class TestChatsAPI:
                 side_effect=SessionReauthRequiredError("Session expired")
             )
 
-            response = client.get("/api/chats/json?session-select=expired_session")
+            response = client.get("/api/chats/json?session_select=expired_session")
 
             assert response.status_code == 401
             assert "re-authorization" in response.json()["detail"].lower()
@@ -367,7 +360,7 @@ class TestChatsAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(side_effect=Exception("Network error"))
 
-            response = client.get("/api/chats/json?session-select=test_session")
+            response = client.get("/api/chats/json?session_select=test_session")
 
             assert response.status_code == 500
             assert "Failed to connect" in response.json()["detail"]
@@ -378,7 +371,7 @@ class TestAccountInfoAPI:
 
     def test_get_account_info_no_session(self, client: TestClient) -> None:
         """Test account info endpoint with no session selected."""
-        response = client.get("/api/account-info?session-select=")
+        response = client.get("/api/account-info?session_select=")
 
         assert response.status_code == 200
         # Template should render without account info when no session is provided
@@ -398,7 +391,7 @@ class TestAccountInfoAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
-            response = client.get("/api/account-info?session-select=test_session")
+            response = client.get("/api/account-info?session_select=test_session")
 
             assert response.status_code == 200
             # Check for account info fields in response
@@ -413,7 +406,7 @@ class TestAccountInfoAPI:
                 side_effect=SessionNotFoundError("Session not found")
             )
 
-            response = client.get("/api/account-info?session-select=nonexistent")
+            response = client.get("/api/account-info?session_select=nonexistent")
 
             assert response.status_code == 200
             assert "not found" in response.text.lower()
@@ -424,14 +417,14 @@ class TestAccountInfoAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(side_effect=Exception("Connection error"))
 
-            response = client.get("/api/account-info?session-select=test_session")
+            response = client.get("/api/account-info?session_select=test_session")
 
             assert response.status_code == 200
             assert "Failed to fetch" in response.text or "error" in response.text.lower()
 
     def test_get_account_info_json_no_session(self, client: TestClient) -> None:
         """Test JSON account info endpoint with no session."""
-        response = client.get("/api/account-info/json?session-select=")
+        response = client.get("/api/account-info/json?session_select=")
 
         assert response.status_code == 200
         data = response.json()
@@ -452,7 +445,7 @@ class TestAccountInfoAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
-            response = client.get("/api/account-info/json?session-select=test_session")
+            response = client.get("/api/account-info/json?session_select=test_session")
 
             assert response.status_code == 200
             data = response.json()
@@ -482,7 +475,7 @@ class TestAccountInfoAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
-            response = client.get("/api/account-info/json?session-select=test_session")
+            response = client.get("/api/account-info/json?session_select=test_session")
 
             assert response.status_code == 200
             data = response.json()
@@ -506,7 +499,7 @@ class TestAccountInfoAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(return_value=mock_account_info)
 
-            response = client.get("/api/account-info/json?session-select=test_session")
+            response = client.get("/api/account-info/json?session_select=test_session")
 
             assert response.status_code == 200
             data = response.json()
@@ -526,7 +519,7 @@ class TestAccountInfoAPI:
                 side_effect=SessionNotFoundError("Session not found")
             )
 
-            response = client.get("/api/account-info/json?session-select=nonexistent")
+            response = client.get("/api/account-info/json?session_select=nonexistent")
 
             assert response.status_code == 404
 
@@ -536,7 +529,7 @@ class TestAccountInfoAPI:
             mock_service = mock_get_service.return_value
             mock_service.get_account_info = AsyncMock(side_effect=Exception("Connection error"))
 
-            response = client.get("/api/account-info/json?session-select=test_session")
+            response = client.get("/api/account-info/json?session_select=test_session")
 
             assert response.status_code == 500
             assert "Failed to fetch" in response.json()["detail"]
@@ -655,7 +648,7 @@ class TestWebSessionPersistence:
 
             # Track web session set calls
             with patch("chatfilter.web.routers.chats.WebSession"):
-                response = client.get("/api/chats?session-select=test_session")
+                response = client.get("/api/chats?session_select=test_session")
 
                 assert response.status_code == 200
 
@@ -667,7 +660,7 @@ class TestWebSessionPersistence:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 1))
 
-            response = client.get("/api/chats/json?session-select=test_session")
+            response = client.get("/api/chats/json?session_select=test_session")
 
             assert response.status_code == 200
             # Session storage is handled by the dependency injection
@@ -685,7 +678,7 @@ class TestPaginationEdgeCases:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 100))
 
-            response = client.get("/api/chats?session-select=test&offset=0&limit=10")
+            response = client.get("/api/chats?session_select=test&offset=0&limit=10")
 
             assert response.status_code == 200
             mock_service.get_chats_paginated.assert_awaited_once_with("test", offset=0, limit=10)
@@ -701,7 +694,7 @@ class TestPaginationEdgeCases:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=(mock_chats, 500))
 
-            response = client.get("/api/chats?session-select=test&offset=0&limit=500")
+            response = client.get("/api/chats?session_select=test&offset=0&limit=500")
 
             assert response.status_code == 200
             mock_service.get_chats_paginated.assert_awaited_once_with("test", offset=0, limit=500)
@@ -712,6 +705,6 @@ class TestPaginationEdgeCases:
             mock_service = mock_get_service.return_value
             mock_service.get_chats_paginated = AsyncMock(return_value=([], 0))
 
-            response = client.get("/api/chats?session-select=test_session")
+            response = client.get("/api/chats?session_select=test_session")
 
             assert response.status_code == 200

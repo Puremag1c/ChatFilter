@@ -802,7 +802,9 @@ async def force_cancel_analysis(
             )
 
 
-@router.get("/check_orphaned", response_model=OrphanedTaskResponse)
+@router.get(
+    "/check_orphaned", response_model=OrphanedTaskResponse, response_model_exclude_none=True
+)
 async def check_orphaned_task(request: Request) -> OrphanedTaskResponse:
     """Check if there's a completed task in session that user hasn't seen.
 

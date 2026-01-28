@@ -370,6 +370,11 @@ class Settings(BaseSettings):
         return self.data_dir / "sessions"
 
     @property
+    def exports_dir(self) -> Path:
+        """Directory for exported files (CSV, etc.)."""
+        return self.data_dir / "exports"
+
+    @property
     def log_dir(self) -> Path:
         """Directory for log files (uses platform-specific directory)."""
         return get_user_log_dir()
@@ -415,6 +420,7 @@ class Settings(BaseSettings):
             ("data", self.data_dir),
             ("config", self.config_dir),
             ("sessions", self.sessions_dir),
+            ("exports", self.exports_dir),
         ]
 
         if self.log_to_file:

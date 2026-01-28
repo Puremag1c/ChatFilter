@@ -725,12 +725,12 @@ class TestCancelAnalysisEndpoint:
 
 
 class TestForceCancelAnalysisEndpoint:
-    """Tests for POST /api/analysis/{task_id}/force-cancel endpoint."""
+    """Tests for POST /api/analysis/{task_id}/force_cancel endpoint."""
 
     def test_force_cancel_invalid_task_id(self, client: TestClient, csrf_token: str) -> None:
         """Test force cancelling with invalid task ID format."""
         response = client.post(
-            "/api/analysis/not-a-uuid/force-cancel",
+            "/api/analysis/not-a-uuid/force_cancel",
             headers={"X-CSRF-Token": csrf_token},
         )
 
@@ -740,7 +740,7 @@ class TestForceCancelAnalysisEndpoint:
     def test_force_cancel_nonexistent_task(self, client: TestClient, csrf_token: str) -> None:
         """Test force cancelling non-existent task."""
         response = client.post(
-            f"/api/analysis/{uuid4()}/force-cancel",
+            f"/api/analysis/{uuid4()}/force_cancel",
             headers={"X-CSRF-Token": csrf_token},
         )
 
@@ -754,7 +754,7 @@ class TestForceCancelAnalysisEndpoint:
         task.status = TaskStatus.COMPLETED
 
         response = client.post(
-            f"/api/analysis/{task.task_id}/force-cancel", headers={"X-CSRF-Token": csrf_token}
+            f"/api/analysis/{task.task_id}/force_cancel", headers={"X-CSRF-Token": csrf_token}
         )
 
         assert response.status_code == 400
@@ -768,7 +768,7 @@ class TestForceCancelAnalysisEndpoint:
         task._asyncio_task = MagicMock()  # Mock the asyncio task
 
         response = client.post(
-            f"/api/analysis/{task.task_id}/force-cancel", headers={"X-CSRF-Token": csrf_token}
+            f"/api/analysis/{task.task_id}/force_cancel", headers={"X-CSRF-Token": csrf_token}
         )
 
         assert response.status_code == 200
@@ -785,7 +785,7 @@ class TestForceCancelAnalysisEndpoint:
         task._asyncio_task = MagicMock()
 
         response = client.post(
-            f"/api/analysis/{task.task_id}/force-cancel?reason=Task+hung",
+            f"/api/analysis/{task.task_id}/force_cancel?reason=Task+hung",
             headers={"X-CSRF-Token": csrf_token},
         )
 
@@ -795,11 +795,11 @@ class TestForceCancelAnalysisEndpoint:
 
 
 class TestCheckOrphanedEndpoint:
-    """Tests for GET /api/analysis/check-orphaned endpoint."""
+    """Tests for GET /api/analysis/check_orphaned endpoint."""
 
     def test_check_orphaned_no_session_task(self, client: TestClient) -> None:
         """Test checking for orphaned task when none exists in session."""
-        response = client.get("/api/analysis/check-orphaned")
+        response = client.get("/api/analysis/check_orphaned")
 
         assert response.status_code == 200
         data = response.json()
@@ -810,7 +810,7 @@ class TestCheckOrphanedEndpoint:
         # Set a cookie with invalid task_id
         client.cookies.set("session", "current_task_id=not-a-uuid")
 
-        response = client.get("/api/analysis/check-orphaned")
+        response = client.get("/api/analysis/check_orphaned")
 
         assert response.status_code == 200
         # Should return empty dict and clean up invalid ID
@@ -826,7 +826,7 @@ class TestCheckOrphanedEndpoint:
             mock_session.get.return_value = nonexistent_id
             mock_get_session.return_value = mock_session
 
-            response = client.get("/api/analysis/check-orphaned")
+            response = client.get("/api/analysis/check_orphaned")
 
         assert response.status_code == 200
         assert response.json() == {}
@@ -857,7 +857,7 @@ class TestCheckOrphanedEndpoint:
             )
             mock_get_session.return_value = mock_session
 
-            response = client.get("/api/analysis/check-orphaned")
+            response = client.get("/api/analysis/check_orphaned")
 
         assert response.status_code == 200
         data = response.json()
@@ -880,7 +880,7 @@ class TestCheckOrphanedEndpoint:
             )
             mock_get_session.return_value = mock_session
 
-            response = client.get("/api/analysis/check-orphaned")
+            response = client.get("/api/analysis/check_orphaned")
 
         assert response.status_code == 200
         data = response.json()
@@ -900,7 +900,7 @@ class TestCheckOrphanedEndpoint:
             )
             mock_get_session.return_value = mock_session
 
-            response = client.get("/api/analysis/check-orphaned")
+            response = client.get("/api/analysis/check_orphaned")
 
         assert response.status_code == 200
         # Should return empty since task is not in terminal state
@@ -921,7 +921,7 @@ class TestCheckOrphanedEndpoint:
             )
             mock_get_session.return_value = mock_session
 
-            response = client.get("/api/analysis/check-orphaned")
+            response = client.get("/api/analysis/check_orphaned")
 
         assert response.status_code == 200
         # Should return empty since already notified
@@ -929,7 +929,7 @@ class TestCheckOrphanedEndpoint:
 
 
 class TestDismissNotificationEndpoint:
-    """Tests for POST /api/analysis/{task_id}/dismiss-notification endpoint."""
+    """Tests for POST /api/analysis/{task_id}/dismiss_notification endpoint."""
 
     def test_dismiss_notification(self, client: TestClient, csrf_token: str) -> None:
         """Test dismissing orphaned task notification."""
@@ -941,7 +941,7 @@ class TestDismissNotificationEndpoint:
             mock_get_session.return_value = mock_session
 
             response = client.post(
-                f"/api/analysis/{task_id}/dismiss-notification",
+                f"/api/analysis/{task_id}/dismiss_notification",
                 headers={"X-CSRF-Token": csrf_token},
             )
 
@@ -959,7 +959,7 @@ class TestDismissNotificationEndpoint:
             mock_get_session.return_value = mock_session
 
             response = client.post(
-                f"/api/analysis/{task_id}/dismiss-notification",
+                f"/api/analysis/{task_id}/dismiss_notification",
                 headers={"X-CSRF-Token": csrf_token},
             )
 
