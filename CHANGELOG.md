@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-01-28
+
+### Fixed
+- **i18n Race Condition**: Fixed race condition where language switcher and version check used i18n before initialization
+  - i18n.js now exposes a `ready` Promise
+  - language-switcher.js and version-check.js wait for i18n to be ready before using translations
+- **Missing Locale Keys**: Added `language.current_aria` and `language.switch_to` keys to en.json and ru.json
+- **Version Check 404**: Fixed `/api/version/check-updates` endpoint returning 404
+- **Favicon 404**: Added `/favicon.ico` route to suppress browser 404 errors
+
+### Added
+- **Complete Russian Translations**: Filled all 584 empty Russian translations in messages.po
+  - Full localization of UI: navigation, buttons, statuses, dialogs, error messages
+  - Language switching now properly displays Russian interface
+
 ## [0.6.1] - 2026-01-28
 
 ### Changed
