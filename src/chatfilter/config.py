@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import platformdirs
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from chatfilter.storage.helpers import atomic_write
@@ -116,34 +116,6 @@ def _get_default_data_dir() -> Path:
         Path to platform-specific user data directory
     """
     return Path(platformdirs.user_data_dir("ChatFilter", "ChatFilter"))
-
-
-def get_user_config_dir() -> Path:
-    """Get platform-appropriate user configuration directory.
-
-    Uses OS-specific conventions:
-    - macOS: ~/Library/Application Support/ChatFilter
-    - Windows: %APPDATA%/ChatFilter
-    - Linux: ~/.config/chatfilter
-
-    Returns:
-        Path to platform-specific config directory
-    """
-    return Path(platformdirs.user_config_dir("ChatFilter", "ChatFilter"))
-
-
-def get_user_cache_dir() -> Path:
-    """Get platform-appropriate user cache directory.
-
-    Uses OS-specific conventions:
-    - macOS: ~/Library/Caches/ChatFilter
-    - Windows: %LOCALAPPDATA%/ChatFilter/Cache
-    - Linux: ~/.cache/chatfilter
-
-    Returns:
-        Path to platform-specific cache directory
-    """
-    return Path(platformdirs.user_cache_dir("ChatFilter", "ChatFilter"))
 
 
 def get_user_log_dir() -> Path:
@@ -387,12 +359,6 @@ class Settings(BaseSettings):
             return list(v)
         return []
 
-    @model_validator(mode="after")
-    def ensure_directories(self) -> Settings:
-        """Ensure required directories exist after validation."""
-        # Don't create directories during validation - they'll be created on demand
-        return self
-
     @property
     def config_dir(self) -> Path:
         """Directory for configuration files."""
@@ -402,11 +368,6 @@ class Settings(BaseSettings):
     def sessions_dir(self) -> Path:
         """Directory for Telegram session files."""
         return self.data_dir / "sessions"
-
-    @property
-    def exports_dir(self) -> Path:
-        """Directory for exported files."""
-        return self.data_dir / "exports"
 
     @property
     def log_dir(self) -> Path:
@@ -454,7 +415,6 @@ class Settings(BaseSettings):
             ("data", self.data_dir),
             ("config", self.config_dir),
             ("sessions", self.sessions_dir),
-            ("exports", self.exports_dir),
         ]
 
         if self.log_to_file:
@@ -633,7 +593,6 @@ class Settings(BaseSettings):
         print(f"  Data Directory: {self.data_dir}")
         print(f"  Config Directory: {self.config_dir}")
         print(f"  Sessions Directory: {self.sessions_dir}")
-        print(f"  Exports Directory: {self.exports_dir}")
         print(f"  CORS Origins: {', '.join(self.cors_origins)}")
         print(f"  Max Messages Limit: {self.max_messages_limit}")
         print(f"  Connect Timeout: {self.connect_timeout}s")
