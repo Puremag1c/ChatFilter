@@ -55,6 +55,14 @@ class MockClient:
             raise ConnectionError("Not connected")
         return MagicMock(id=12345, username="testuser")
 
+    async def iter_dialogs(self, limit: int = 100):
+        """Mock iter_dialogs - async generator that yields nothing."""
+        if not self.connected:
+            raise ConnectionError("Not connected")
+        # Yield nothing - just verifies we can iterate
+        return
+        yield  # Make this an async generator
+
 
 class MockFactory:
     """Mock client factory for testing."""

@@ -1895,6 +1895,7 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context={"session": session_data},
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except Exception as e:
@@ -1959,6 +1960,7 @@ async def disconnect_session(
             request=request,
             name="partials/session_row.html",
             context={"session": session_data},
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except Exception as e:

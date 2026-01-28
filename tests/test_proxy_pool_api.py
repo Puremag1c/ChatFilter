@@ -329,7 +329,8 @@ class TestUpdateProxy:
         """Test updating a non-existent proxy returns 404."""
         from chatfilter.storage.errors import StorageNotFoundError
 
-        proxy_id = "nonexistent-id-1234-5678-abcdefabcdef"
+        # Use valid UUID format
+        proxy_id = "00000000-0000-0000-0000-000000000000"
 
         with patch(
             "chatfilter.web.routers.proxy_pool.get_proxy_by_id",
@@ -432,7 +433,8 @@ class TestDeleteProxy:
         """Test deleting a non-existent proxy returns 404."""
         from chatfilter.storage.errors import StorageNotFoundError
 
-        proxy_id = "nonexistent-id-1234-5678-abcdefabcdef"
+        # Use valid UUID format
+        proxy_id = "00000000-0000-0000-0000-000000000000"
 
         with (
             patch(

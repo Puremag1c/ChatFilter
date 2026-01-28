@@ -84,7 +84,7 @@ class TestStoreChatList:
 
         assert list_id is not None
         assert isinstance(list_id, str)
-        assert len(list_id) == 8  # UUID truncated to 8 chars
+        assert len(list_id) == 36  # Full UUID format
 
     def test_store_chat_list_empty(self) -> None:
         """Test storing empty list."""
@@ -552,7 +552,9 @@ class TestGetChatListEntries:
 
     def test_get_entries_not_found(self, client: TestClient) -> None:
         """Test retrieving entries for non-existent list."""
-        response = client.get("/api/chatlist/nonexistent")
+        # Use valid UUID format that doesn't exist
+        nonexistent_uuid = "00000000-0000-0000-0000-000000000000"
+        response = client.get(f"/api/chatlist/{nonexistent_uuid}")
 
         assert response.status_code == 200
         assert "not found" in response.text.lower() or "expired" in response.text.lower()
@@ -591,25 +593,28 @@ class TestDeleteChatList:
         assert get_chat_list(list_id) is None
 
     def test_delete_non_existent_list(self, client: TestClient, csrf_token: str) -> None:
-        """Test deleting non-existent list."""
-        response = client.delete("/api/chatlist/nonexistent", headers={"X-CSRF-Token": csrf_token})
+        """Test deleting non-existent list returns 404."""
+        # Use valid UUID format that doesn't exist
+        nonexistent_uuid = "00000000-0000-0000-0000-000000000000"
+        response = client.delete(
+            f"/api/chatlist/{nonexistent_uuid}", headers={"X-CSRF-Token": csrf_token}
+        )
 
-        assert response.status_code == 200
-        assert response.text == ""
+        assert response.status_code == 404
 
     def test_delete_already_deleted_list(
         self, client: TestClient, csrf_token: str, sample_entries: list[ChatListEntry]
     ) -> None:
-        """Test deleting a list that was already deleted."""
+        """Test deleting a list that was already deleted returns 404."""
         list_id = store_chat_list(sample_entries)
 
         # Delete once
-        client.delete(f"/api/chatlist/{list_id}", headers={"X-CSRF-Token": csrf_token})
+        response1 = client.delete(f"/api/chatlist/{list_id}", headers={"X-CSRF-Token": csrf_token})
+        assert response1.status_code == 200
 
-        # Delete again
-        response = client.delete(f"/api/chatlist/{list_id}", headers={"X-CSRF-Token": csrf_token})
-
-        assert response.status_code == 200
+        # Delete again - should return 404
+        response2 = client.delete(f"/api/chatlist/{list_id}", headers={"X-CSRF-Token": csrf_token})
+        assert response2.status_code == 404
 
 
 class TestIntegrationScenarios:
