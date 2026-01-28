@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-01-28
+
+### Changed
+- **API Refactoring**: Major P3 cleanup of API routers
+  - Extracted common helpers to reduce code duplication
+  - Added Pydantic models for request/response validation
+  - Standardized naming conventions across endpoints
+- **Retry Logic**: Extracted retry logic into reusable `RetryContext` class
+- **Code Cleanup**: Removed dead code and obsolete build infrastructure
+
+### Fixed
+- **Tests**: Repaired 88 failing tests across the test suite
+  - Fixed 63 tests with missing `exports_dir` configuration
+  - Resolved 25 additional test failures across 4 test files
+  - Replaced useless `assert True` with real assertions
+- **Type Annotations**: Fixed `type: ignore` comments and nullable return types
+- **Settings**: Use `settings.max_messages_limit` and errno constants correctly
+
+### Added
+- **Test Coverage**: Comprehensive tests for 16 previously untested modules
+- **API Validation**: Input validation and error handling for API endpoints
+- **i18n**: Integrated `i18n.t()` in JavaScript files for full frontend internationalization
+
+### Removed
+- Unused `config.py` code
+- Dead code and obsolete build infrastructure
+
 ## [0.6.0] - 2026-01-27
 
 ### Added
