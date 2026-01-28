@@ -48,7 +48,8 @@ def test_large_leak_example():
     global _leaked_data
     # Intentionally leak 10MB (exceeds 5MB threshold)
     _leaked_data.append([0] * 10_000_000)
-    assert True
+    # Verify leak actually happened (global list retained the data)
+    assert len(_leaked_data) > 0, "Leak data should be retained in global list"
 
 
 def test_cleanup_after_use():

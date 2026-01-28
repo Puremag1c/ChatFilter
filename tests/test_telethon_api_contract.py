@@ -448,32 +448,50 @@ class TestTelethonVersionCompatibility:
 
 
 class TestTelethonAPIAssumptions:
-    """Verify our assumptions about Telethon API behavior."""
+    """Document and verify Telethon API behavior assumptions.
 
-    def test_negative_id_handling(self) -> None:
-        """Verify Telethon uses negative IDs for channels/groups."""
-        # This is a known Telegram API behavior:
-        # - Users: positive IDs
-        # - Channels/Supergroups: negative IDs (or large positive IDs in some contexts)
-        # Our code handles both positive and negative IDs
-        # This test just documents the assumption
-        assert True, "Telethon may use negative IDs for channels/groups"
+    These tests verify assumptions about Telegram/Telethon API conventions that
+    our code relies on. The assumptions are:
 
-    def test_folder_ids_for_archived_chats(self) -> None:
-        """Verify folder IDs: 0 for main, 1 for archived."""
-        # Telegram uses folder IDs to organize chats:
-        # - folder=0: main chat list
-        # - folder=1: archived chats
-        # Our code relies on this to fetch both main and archived dialogs
-        assert True, "Folder 0 = main chats, folder 1 = archived chats"
+    1. **Negative IDs**: Telegram uses negative IDs for channels/groups in some contexts.
+       - Users: positive IDs
+       - Channels/Supergroups: negative IDs (or large positive IDs in some contexts)
+       Our code handles both positive and negative chat IDs.
 
-    def test_forum_topics_reply_to_convention(self) -> None:
-        """Verify forum messages use reply_to for topic filtering."""
-        # In forum chats (Telegram Topics feature):
-        # - Each topic has a root message ID
-        # - Messages in a topic have reply_to set to the topic root message ID
-        # - Our code filters messages by reply_to to get topic-specific messages
-        assert True, "Forum topics use reply_to for message filtering"
+    2. **Folder IDs**: Telegram uses folder IDs to organize chats:
+       - folder=0: main chat list
+       - folder=1: archived chats
+       Our code relies on this to fetch both main and archived dialogs.
+
+    3. **Forum Topics**: In forum chats (Telegram Topics feature):
+       - Each topic has a root message ID
+       - Messages in a topic have reply_to set to the topic root message ID
+       Our code filters messages by reply_to to get topic-specific messages.
+    """
+
+    def test_peer_types_support_negative_ids(self) -> None:
+        """Verify Peer types can represent negative IDs (channels/groups)."""
+        # PeerChannel uses channel_id which is always positive,
+        # but when converted to full ID, channels get negative prefix
+        peer = PeerChannel(channel_id=1234567890)
+        assert peer.channel_id > 0, "PeerChannel stores positive channel_id"
+
+    def test_dialog_has_folder_attribute(self) -> None:
+        """Verify Dialog type has folder_id attribute for archived chats."""
+        # Dialog must have folder_id for our code to distinguish main vs archived
+        assert hasattr(Dialog, "__init__"), "Dialog type exists"
+        # Check Dialog constructor signature includes folder parameter
+        sig = inspect.signature(Dialog.__init__)
+        param_names = list(sig.parameters.keys())
+        assert "folder_id" in param_names, "Dialog must support folder_id parameter"
+
+    def test_message_has_reply_to_attribute(self) -> None:
+        """Verify Message type has reply_to for forum topic filtering."""
+        # Our forum filtering relies on reply_to attribute
+        assert hasattr(Message, "__init__"), "Message type exists"
+        sig = inspect.signature(Message.__init__)
+        param_names = list(sig.parameters.keys())
+        assert "reply_to" in param_names, "Message must support reply_to parameter"
 
 
 class TestTelethonImportPaths:

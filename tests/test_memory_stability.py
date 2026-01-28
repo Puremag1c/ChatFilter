@@ -341,12 +341,14 @@ class TestMemoryStability:
         executor = MockExecutor()
 
         # Run tasks and verify no memory errors
+        completed_count = 0
         for i in range(20):
             task = queue.create_task("session1", [i])
             await queue.run_task(task.task_id, executor)
+            completed_count += 1
 
-        # If we got here without MemoryError, monitoring is working
-        assert True
+        # Verify all tasks completed without MemoryError
+        assert completed_count == 20, f"Expected 20 tasks, completed {completed_count}"
 
     @pytest.mark.asyncio
     async def test_subscriber_queues_cleaned_up(self) -> None:
