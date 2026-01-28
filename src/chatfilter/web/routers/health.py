@@ -284,7 +284,7 @@ async def health_check(request: Request) -> HealthResponse:
     )
 
 
-@router.get("/api/version/check_updates", response_model=UpdateStatus)
+@router.get("/api/version/check-updates", response_model=UpdateStatus)
 async def check_updates(force: bool = False) -> UpdateStatus:
     """Check for application updates.
 
