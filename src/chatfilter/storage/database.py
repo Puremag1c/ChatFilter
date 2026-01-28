@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -14,8 +15,8 @@ from chatfilter.models.chat import Chat
 from chatfilter.models.monitoring import ChatMonitorState, SyncSnapshot
 
 
-class TaskDatabase:
-    """SQLite database for persisting analysis tasks and results."""
+class SQLiteDatabase(ABC):
+    """Base class for SQLite database operations with common utilities."""
 
     def __init__(self, db_path: Path | str):
         """Initialize database connection.
@@ -26,6 +27,11 @@ class TaskDatabase:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize_schema()
+
+    @abstractmethod
+    def _initialize_schema(self) -> None:
+        """Create database tables if they don't exist. Must be implemented by subclasses."""
+        ...
 
     @staticmethod
     def _datetime_to_str(dt: datetime | None) -> str | None:
@@ -51,6 +57,26 @@ class TaskDatabase:
         """
         return datetime.fromisoformat(s) if s is not None else None
 
+    @contextmanager
+    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Context manager for database connections with automatic commit/rollback."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        # Enable foreign key constraints (required for CASCADE DELETE)
+        conn.execute("PRAGMA foreign_keys = ON")
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+
+class TaskDatabase(SQLiteDatabase):
+    """SQLite database for persisting analysis tasks and results."""
+
     @staticmethod
     def _str_to_datetime_required(s: str | None) -> datetime:
         """Convert ISO 8601 string from database to datetime for required fields.
@@ -67,22 +93,6 @@ class TaskDatabase:
         if not s:
             raise ValueError("Required datetime field is missing from database")
         return datetime.fromisoformat(s)
-
-    @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Context manager for database connections."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        # Enable foreign key constraints (required for CASCADE DELETE)
-        conn.execute("PRAGMA foreign_keys = ON")
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
 
     def _initialize_schema(self) -> None:
         """Create database tables if they don't exist."""
@@ -400,43 +410,8 @@ class TaskDatabase:
             return cursor.rowcount
 
 
-class MonitoringDatabase:
+class MonitoringDatabase(SQLiteDatabase):
     """SQLite database for persisting chat monitoring state and sync snapshots."""
-
-    def __init__(self, db_path: Path | str):
-        """Initialize database connection.
-
-        Args:
-            db_path: Path to SQLite database file
-        """
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize_schema()
-
-    @staticmethod
-    def _datetime_to_str(dt: datetime | None) -> str | None:
-        """Convert datetime to ISO 8601 string for database storage."""
-        return dt.isoformat() if dt is not None else None
-
-    @staticmethod
-    def _str_to_datetime(s: str | None) -> datetime | None:
-        """Convert ISO 8601 string from database to datetime."""
-        return datetime.fromisoformat(s) if s is not None else None
-
-    @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Context manager for database connections."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
 
     def _initialize_schema(self) -> None:
         """Create database tables if they don't exist."""

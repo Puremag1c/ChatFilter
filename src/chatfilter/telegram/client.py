@@ -1021,6 +1021,139 @@ async def _get_forum_topics(
         return []
 
 
+async def _fetch_forum_topic_messages(
+    client: TelegramClientType,
+    chat_id: int,
+    topic_ids: list[int],
+    effective_limit: int,
+    messages: list[Message],
+    seen_ids: set[int],
+) -> bool:
+    """Fetch messages from forum topics.
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_id: Forum chat ID
+        topic_ids: List of topic IDs to fetch from
+        effective_limit: Maximum total messages to fetch
+        messages: List to append messages to (mutated)
+        seen_ids: Set of seen message IDs for deduplication (mutated)
+
+    Returns:
+        True if fetch was interrupted by retryable errors
+    """
+    fetch_interrupted = False
+    logger.info(f"Found {len(topic_ids)} topics in forum {chat_id}")
+
+    for topic_id in topic_ids:
+        if len(messages) >= effective_limit:
+            logger.info(
+                f"Reached message limit ({effective_limit}), "
+                f"stopping forum topic fetch at topic {topic_id}"
+            )
+            break
+
+        topic_messages_before = len(messages)
+        retry = RetryContext(
+            operation_name=f"fetch topic {topic_id}",
+            retryable_exceptions=RETRYABLE_EXCEPTIONS,
+        )
+
+        while retry.should_continue():
+            try:
+                topic_msgs = [m for m in messages if m.id not in seen_ids]
+                offset_id = (
+                    min(m.id for m in topic_msgs if m in messages[topic_messages_before:])
+                    if len(messages) > topic_messages_before
+                    else 0
+                )
+                remaining = effective_limit - len(messages)
+
+                async for telethon_msg in client.iter_messages(
+                    chat_id,
+                    limit=remaining,
+                    reply_to=topic_id,
+                    offset_id=offset_id if offset_id > 0 else None,
+                ):
+                    msg = _telethon_message_to_model(telethon_msg, chat_id)
+                    if msg is None:
+                        continue
+                    if msg.id in seen_ids:
+                        continue
+                    seen_ids.add(msg.id)
+                    messages.append(msg)
+                    if len(messages) >= effective_limit:
+                        break
+
+                break
+
+            except RETRYABLE_EXCEPTIONS as e:
+                fetch_interrupted = True
+                await retry.handle_exception(
+                    e, f"collected {len(messages) - topic_messages_before} msgs"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to fetch messages from topic {topic_id}: {e}")
+                break
+
+    return fetch_interrupted
+
+
+async def _fetch_regular_chat_messages(
+    client: TelegramClientType,
+    chat_id: int,
+    effective_limit: int,
+    messages: list[Message],
+    seen_ids: set[int],
+    *,
+    operation_name: str | None = None,
+) -> bool:
+    """Fetch messages from a regular (non-forum) chat.
+
+    Args:
+        client: Connected TelegramClient instance
+        chat_id: Chat ID to fetch from
+        effective_limit: Maximum messages to fetch
+        messages: List to append messages to (mutated)
+        seen_ids: Set of seen message IDs for deduplication (mutated)
+        operation_name: Custom operation name for retry context
+
+    Returns:
+        True if fetch was interrupted by retryable errors
+    """
+    fetch_interrupted = False
+    retry = RetryContext(
+        operation_name=operation_name or f"fetch chat {chat_id}",
+        retryable_exceptions=RETRYABLE_EXCEPTIONS,
+    )
+
+    while retry.should_continue() and len(messages) < effective_limit:
+        try:
+            offset_id = min(messages, key=lambda m: m.id).id if messages else 0
+            remaining = effective_limit - len(messages)
+
+            async for telethon_msg in client.iter_messages(
+                chat_id,
+                limit=remaining,
+                offset_id=offset_id if offset_id > 0 else None,
+            ):
+                msg = _telethon_message_to_model(telethon_msg, chat_id)
+                if msg is None:
+                    continue
+                if msg.id in seen_ids:
+                    continue
+                seen_ids.add(msg.id)
+                messages.append(msg)
+
+            break
+
+        except RETRYABLE_EXCEPTIONS as e:
+            fetch_interrupted = True
+            await retry.handle_exception(e, f"collected {len(messages)}/{effective_limit} msgs")
+
+    return fetch_interrupted
+
+
 @with_retry_for_reads(max_attempts=3, base_delay=1.0, max_delay=30.0)
 async def get_messages(
     client: TelegramClientType,
@@ -1092,147 +1225,28 @@ async def get_messages(
         if is_forum:
             # For forums, fetch messages from all topics
             logger.info(f"Chat {chat_id} is a forum, fetching from all topics")
-
-            # Get all topics
             topic_ids = await _get_forum_topics(client, chat_id)
 
             if topic_ids:
-                logger.info(f"Found {len(topic_ids)} topics in forum {chat_id}")
-
-                # Fetch messages from each topic with resume capability
-                for topic_id in topic_ids:
-                    # Check if we've reached the message limit
-                    if len(messages) >= effective_limit:
-                        logger.info(
-                            f"Reached message limit ({effective_limit}), "
-                            f"stopping forum topic fetch at topic {topic_id}"
-                        )
-                        break
-                    topic_messages_before = len(messages)
-                    retry = RetryContext(
-                        operation_name=f"fetch topic {topic_id}",
-                        retryable_exceptions=RETRYABLE_EXCEPTIONS,
-                    )
-
-                    while retry.should_continue():
-                        try:
-                            # Determine offset for this topic (min message ID among topic messages)
-                            topic_msgs = [m for m in messages if m.id not in seen_ids]
-                            offset_id = (
-                                min(
-                                    m.id
-                                    for m in topic_msgs
-                                    if m in messages[topic_messages_before:]
-                                )
-                                if len(messages) > topic_messages_before
-                                else 0
-                            )
-
-                            # Calculate remaining messages to fetch
-                            remaining = effective_limit - len(messages)
-
-                            async for telethon_msg in client.iter_messages(
-                                chat_id,
-                                limit=remaining,
-                                reply_to=topic_id,
-                                offset_id=offset_id if offset_id > 0 else None,
-                            ):
-                                msg = _telethon_message_to_model(telethon_msg, chat_id)
-                                if msg is None:
-                                    continue
-
-                                # Deduplicate (handles edge case of duplicates)
-                                if msg.id in seen_ids:
-                                    continue
-                                seen_ids.add(msg.id)
-                                messages.append(msg)
-
-                                # Stop if we've reached the limit
-                                if len(messages) >= effective_limit:
-                                    break
-
-                            # Successfully fetched from this topic
-                            break
-
-                        except RETRYABLE_EXCEPTIONS as e:
-                            fetch_interrupted = True
-                            await retry.handle_exception(
-                                e,
-                                f"collected {len(messages) - topic_messages_before} msgs",
-                            )
-                        except Exception as e:
-                            # Log error but continue with other topics
-                            logger.warning(f"Failed to fetch messages from topic {topic_id}: {e}")
-                            break
+                fetch_interrupted = await _fetch_forum_topic_messages(
+                    client, chat_id, topic_ids, effective_limit, messages, seen_ids
+                )
             else:
                 # No topics found or error getting topics, fall back to default behavior
                 logger.info(f"No topics found for forum {chat_id}, using default fetch")
-                retry = RetryContext(
+                fetch_interrupted = await _fetch_regular_chat_messages(
+                    client,
+                    chat_id,
+                    effective_limit,
+                    messages,
+                    seen_ids,
                     operation_name=f"fetch forum {chat_id}",
-                    retryable_exceptions=RETRYABLE_EXCEPTIONS,
                 )
-
-                while retry.should_continue() and len(messages) < effective_limit:
-                    try:
-                        offset_id = min(messages, key=lambda m: m.id).id if messages else 0
-                        remaining = effective_limit - len(messages)
-
-                        async for telethon_msg in client.iter_messages(
-                            chat_id,
-                            limit=remaining,
-                            offset_id=offset_id if offset_id > 0 else None,
-                        ):
-                            msg = _telethon_message_to_model(telethon_msg, chat_id)
-                            if msg is None:
-                                continue
-                            if msg.id in seen_ids:
-                                continue
-                            seen_ids.add(msg.id)
-                            messages.append(msg)
-
-                        break
-
-                    except RETRYABLE_EXCEPTIONS as e:
-                        fetch_interrupted = True
-                        await retry.handle_exception(
-                            e, f"collected {len(messages)}/{effective_limit} msgs"
-                        )
         else:
             # Regular chat, use standard fetch with resume capability
-            retry = RetryContext(
-                operation_name=f"fetch chat {chat_id}",
-                retryable_exceptions=RETRYABLE_EXCEPTIONS,
+            fetch_interrupted = await _fetch_regular_chat_messages(
+                client, chat_id, effective_limit, messages, seen_ids
             )
-
-            while retry.should_continue() and len(messages) < effective_limit:
-                try:
-                    # Determine offset for resume (use min message ID if resuming)
-                    offset_id = min(messages, key=lambda m: m.id).id if messages else 0
-                    remaining = effective_limit - len(messages)
-
-                    async for telethon_msg in client.iter_messages(
-                        chat_id,
-                        limit=remaining,
-                        offset_id=offset_id if offset_id > 0 else None,
-                    ):
-                        msg = _telethon_message_to_model(telethon_msg, chat_id)
-                        if msg is None:
-                            continue
-
-                        # Deduplicate (handles edge case of duplicates during pagination)
-                        if msg.id in seen_ids:
-                            continue
-                        seen_ids.add(msg.id)
-                        messages.append(msg)
-
-                    # Successfully completed fetch
-                    break
-
-                except RETRYABLE_EXCEPTIONS as e:
-                    fetch_interrupted = True
-                    await retry.handle_exception(
-                        e, f"collected {len(messages)}/{effective_limit} msgs"
-                    )
 
     except (
         ChatForbiddenError,

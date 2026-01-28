@@ -39,6 +39,26 @@ MAX_STORED_LISTS = 100
 _imported_lists: dict[str, tuple[float, list[ChatListEntry]]] = {}
 
 
+def deduplicate_entries(entries: list[ChatListEntry]) -> list[ChatListEntry]:
+    """Remove duplicate entries while preserving order.
+
+    Deduplication is based on the normalized chat reference (username/ID).
+
+    Args:
+        entries: List of chat entries, potentially with duplicates.
+
+    Returns:
+        List of unique entries in original order.
+    """
+    seen: set[str] = set()
+    unique: list[ChatListEntry] = []
+    for entry in entries:
+        if entry.normalized not in seen:
+            seen.add(entry.normalized)
+            unique.append(entry)
+    return unique
+
+
 class ImportResult(BaseModel):
     """Result of a chat list import."""
 
@@ -204,12 +224,7 @@ async def upload_chat_list(
             )
 
         # Remove duplicates while preserving order
-        seen = set()
-        unique_entries = []
-        for entry in entries:
-            if entry.normalized not in seen:
-                seen.add(entry.normalized)
-                unique_entries.append(entry)
+        unique_entries = deduplicate_entries(entries)
 
         # Store the list
         list_id = store_chat_list(unique_entries)
@@ -304,12 +319,7 @@ async def fetch_google_sheet_endpoint(
             )
 
         # Remove duplicates
-        seen = set()
-        unique_entries = []
-        for entry in entries:
-            if entry.normalized not in seen:
-                seen.add(entry.normalized)
-                unique_entries.append(entry)
+        unique_entries = deduplicate_entries(entries)
 
         # Store the list
         list_id = store_chat_list(unique_entries)
