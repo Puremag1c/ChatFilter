@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
 
+from chatfilter.i18n import _
 from chatfilter.service.chat_analysis import SessionNotFoundError
 from chatfilter.telegram.error_mapping import get_actionable_error_info
 from chatfilter.telegram.session_manager import (
@@ -166,12 +167,12 @@ async def get_chats(
             request=request,
             name="partials/chat_list.html",
             context={
-                "error": (
+                "error": _(
                     "Session is invalid and has been removed. "
                     "The session may have been revoked, logged out from another device, "
                     "or the account may be banned or deactivated."
                 ),
-                "error_action": "Upload a new session file from an active Telegram account",
+                "error_action": _("Upload a new session file from an active Telegram account"),
                 "error_action_type": "reauth",
                 "error_can_retry": False,
                 "chats": [],
@@ -182,17 +183,17 @@ async def get_chats(
         logger.warning(f"Session '{session_id}' requires re-authorization: {e}")
         error_msg = str(e)
         if "2FA" in error_msg or "password" in error_msg.lower():
-            user_message = (
+            user_message = _(
                 "Two-factor authentication (2FA) is required. "
                 "This session needs re-authorization with your 2FA password."
             )
-            action_message = (
+            action_message = _(
                 "Create a new session file using Telethon or Pyrogram and enter your 2FA password "
                 "during authentication. See the Upload page for instructions."
             )
         else:
-            user_message = "Session has expired and requires re-authorization."
-            action_message = (
+            user_message = _("Session has expired and requires re-authorization.")
+            action_message = _(
                 "Create and upload a new session file from your Telegram account. "
                 "See the Upload page for step-by-step instructions."
             )
@@ -238,8 +239,10 @@ async def get_chats(
                 request=request,
                 name="partials/chat_list.html",
                 context={
-                    "error": "Failed to connect to Telegram. Please check your session.",
-                    "error_action": "Verify your session file is valid or try uploading a new one",
+                    "error": _("Failed to connect to Telegram. Please check your session."),
+                    "error_action": _(
+                        "Verify your session file is valid or try uploading a new one"
+                    ),
                     "error_action_type": "retry",
                     "error_can_retry": True,
                     "chats": [],
@@ -365,14 +368,14 @@ async def get_account_info_endpoint(
         return templates.TemplateResponse(
             request=request,
             name="partials/account_info.html",
-            context={"account_info": None, "error": "Session not found"},
+            context={"account_info": None, "error": _("Session not found")},
         )
     except Exception as e:
         logger.warning(f"Failed to fetch account info for session '{session_id}': {e}")
         return templates.TemplateResponse(
             request=request,
             name="partials/account_info.html",
-            context={"account_info": None, "error": "Failed to fetch account info"},
+            context={"account_info": None, "error": _("Failed to fetch account info")},
         )
 
 
@@ -393,7 +396,7 @@ async def get_account_info_json(
         Dict with account info fields
     """
     if not session_id:
-        return {"error": "No session selected"}
+        return {"error": _("No session selected")}
 
     service = get_chat_analysis_service()
 

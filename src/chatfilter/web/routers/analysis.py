@@ -55,6 +55,7 @@ from chatfilter.analyzer.task_queue import (
     TaskStatus,
     get_task_queue,
 )
+from chatfilter.i18n import _
 from chatfilter.models import AnalysisResult
 
 if TYPE_CHECKING:
@@ -179,8 +180,8 @@ async def start_analysis(
             request=request,
             name="partials/analysis_progress.html",
             context={
-                "error": "No session selected",
-                "error_action": "Select a Telegram session from the dropdown above",
+                "error": _("No session selected"),
+                "error_action": _("Select a Telegram session from the dropdown above"),
                 "error_action_type": "check_input",
             },
         )
@@ -190,8 +191,10 @@ async def start_analysis(
             request=request,
             name="partials/analysis_progress.html",
             context={
-                "error": "No chats selected for analysis",
-                "error_action": "Select at least one chat from the list above by checking the boxes",
+                "error": _("No chats selected for analysis"),
+                "error_action": _(
+                    "Select at least one chat from the list above by checking the boxes"
+                ),
                 "error_action_type": "check_input",
             },
         )
@@ -202,8 +205,10 @@ async def start_analysis(
             request=request,
             name="partials/analysis_progress.html",
             context={
-                "error": "Message limit must be between 10 and 10000",
-                "error_action": "Adjust the 'Messages per chat' setting to a value between 10 and 10000",
+                "error": _("Message limit must be between 10 and 10000"),
+                "error_action": _(
+                    "Adjust the 'Messages per chat' setting to a value between 10 and 10000"
+                ),
                 "error_action_type": "check_input",
             },
         )
@@ -217,7 +222,7 @@ async def start_analysis(
             name="partials/analysis_progress.html",
             context={
                 "error": e.detail,
-                "error_action": "Upload a valid session file from the Sessions page",
+                "error_action": _("Upload a valid session file from the Sessions page"),
                 "error_action_type": "reauth",
             },
         )
@@ -249,11 +254,11 @@ async def start_analysis(
                 request=request,
                 name="partials/analysis_progress.html",
                 context={
-                    "error": "All selected chats are no longer accessible",
-                    "error_action": (
-                        f"The selected chats (IDs: {invalid_list}) may have been deleted "
+                    "error": _("All selected chats are no longer accessible"),
+                    "error_action": _(
+                        "The selected chats (IDs: {invalid_list}) may have been deleted "
                         "or removed from Telegram. Please refresh the chat list and select valid chats."
-                    ),
+                    ).format(invalid_list=invalid_list),
                     "error_action_type": "check_input",
                 },
             )
@@ -303,8 +308,12 @@ async def start_analysis(
                 request=request,
                 name="partials/analysis_progress.html",
                 context={
-                    "error": f"Analysis queue is at capacity ({e.limit} concurrent tasks).",
-                    "error_action": "Wait for currently running analyses to complete, or cancel an existing analysis",
+                    "error": _("Analysis queue is at capacity ({limit} concurrent tasks).").format(
+                        limit=e.limit
+                    ),
+                    "error_action": _(
+                        "Wait for currently running analyses to complete, or cancel an existing analysis"
+                    ),
                     "error_action_type": "wait",
                 },
             )
@@ -380,20 +389,20 @@ async def _generate_sse_events(
             elif task.status == TaskStatus.CANCELLED:
                 cancel_data = {
                     "results_count": len(task.results),
-                    "message": "Analysis cancelled",
+                    "message": _("Analysis cancelled"),
                     "sequence": task.event_sequence,
                 }
                 yield f"event: cancelled\ndata: {json.dumps(cancel_data)}\n\n"
             elif task.status == TaskStatus.TIMEOUT:
                 timeout_data = {
                     "results_count": len(task.results),
-                    "error": task.error or "Task timed out",
+                    "error": task.error or _("Task timed out"),
                     "sequence": task.event_sequence,
                 }
                 yield f"event: timeout\ndata: {json.dumps(timeout_data)}\n\n"
             elif task.status == TaskStatus.FAILED:
                 error_data = {
-                    "error": task.error or "Unknown error",
+                    "error": task.error or _("Unknown error"),
                     "sequence": task.event_sequence,
                 }
                 yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
@@ -430,20 +439,20 @@ async def _generate_sse_events(
                     elif task and task.status == TaskStatus.CANCELLED:
                         cancel_data = {
                             "results_count": len(task.results),
-                            "message": "Analysis cancelled",
+                            "message": _("Analysis cancelled"),
                             "sequence": task.event_sequence,
                         }
                         yield f"event: cancelled\ndata: {json.dumps(cancel_data)}\n\n"
                     elif task and task.status == TaskStatus.TIMEOUT:
                         timeout_data = {
                             "results_count": len(task.results),
-                            "error": task.error or "Task timed out",
+                            "error": task.error or _("Task timed out"),
                             "sequence": task.event_sequence,
                         }
                         yield f"event: timeout\ndata: {json.dumps(timeout_data)}\n\n"
                     elif task and task.status == TaskStatus.FAILED:
                         error_data = {
-                            "error": task.error or "Unknown error",
+                            "error": task.error or _("Unknown error"),
                             "sequence": task.event_sequence,
                         }
                         yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
@@ -546,7 +555,7 @@ async def get_results(
         return templates.TemplateResponse(
             request=request,
             name="partials/analysis_results.html",
-            context={"error": "Invalid task ID format"},
+            context={"error": _("Invalid task ID format")},
         )
 
     queue = get_task_queue()
@@ -556,28 +565,28 @@ async def get_results(
         return templates.TemplateResponse(
             request=request,
             name="partials/analysis_results.html",
-            context={"error": "Task not found"},
+            context={"error": _("Task not found")},
         )
 
     if task.status == TaskStatus.IN_PROGRESS:
         return templates.TemplateResponse(
             request=request,
             name="partials/analysis_results.html",
-            context={"error": "Analysis still in progress"},
+            context={"error": _("Analysis still in progress")},
         )
 
     if task.status == TaskStatus.PENDING:
         return templates.TemplateResponse(
             request=request,
             name="partials/analysis_results.html",
-            context={"error": "Analysis not started"},
+            context={"error": _("Analysis not started")},
         )
 
     if task.status == TaskStatus.FAILED:
         return templates.TemplateResponse(
             request=request,
             name="partials/analysis_results.html",
-            context={"error": task.error or "Analysis failed"},
+            context={"error": task.error or _("Analysis failed")},
         )
 
     if task.status == TaskStatus.TIMEOUT:
@@ -589,7 +598,7 @@ async def get_results(
                 "results": task.results,
                 "session_id": task.session_id,
                 "is_partial": True,
-                "error": task.error or "Analysis timed out",
+                "error": task.error or _("Analysis timed out"),
             },
         )
 
@@ -678,7 +687,7 @@ async def cancel_analysis(task_id: str) -> dict[str, str | int]:
         logger.info(f"Analysis task {task_id} cancelled by user")
         return {
             "status": "cancelled",
-            "message": "Analysis cancelled successfully",
+            "message": _("Analysis cancelled successfully"),
             "partial_results": len(task.results) if task else 0,
         }
     else:
@@ -731,7 +740,7 @@ async def force_cancel_analysis(
         logger.warning(f"Analysis task {task_id} force-cancelled by user: {reason}")
         return {
             "status": "force_cancelled",
-            "message": "Task force-cancelled successfully",
+            "message": _("Task force-cancelled successfully"),
             "reason": reason,
             "partial_results": len(task.results) if task else 0,
         }

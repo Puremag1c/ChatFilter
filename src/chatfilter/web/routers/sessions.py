@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from chatfilter.config import get_settings
+from chatfilter.i18n import _
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import TelegramClientLoader, TelegramConfigError
 
@@ -696,7 +697,7 @@ async def upload_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": f"Session '{safe_name}' already exists",
+                    "error": _("Session '{name}' already exists").format(name=safe_name),
                 },
             )
 
@@ -718,7 +719,7 @@ async def upload_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": f"Invalid session: {e}"},
+                context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
             )
 
         # Read and validate config file with size limit enforcement
@@ -739,7 +740,7 @@ async def upload_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": f"Invalid config: {e}"},
+                context={"success": False, "error": _("Invalid config: {error}").format(error=e)},
             )
 
         # Extract account info from session to check for duplicates
@@ -856,7 +857,10 @@ async def upload_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": f"Config validation failed: {e}"},
+                context={
+                    "success": False,
+                    "error": _("Config validation failed: {error}").format(error=e),
+                },
             )
         except Exception:
             # Clean up on failure
@@ -867,7 +871,7 @@ async def upload_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": "Failed to save session files. Please try again.",
+                    "error": _("Failed to save session files. Please try again."),
                 },
             )
 
@@ -877,7 +881,7 @@ async def upload_session(
         response_data = {
             "request": request,
             "success": True,
-            "message": f"Session '{safe_name}' uploaded successfully",
+            "message": _("Session '{name}' uploaded successfully").format(name=safe_name),
             "duplicate_sessions": duplicate_sessions,
             "account_info": account_info,
         }
@@ -895,7 +899,7 @@ async def upload_session(
             name="partials/upload_result.html",
             context={
                 "success": False,
-                "error": "An unexpected error occurred during upload. Please try again.",
+                "error": _("An unexpected error occurred during upload. Please try again."),
             },
         )
 
@@ -1008,7 +1012,7 @@ async def validate_import_session(
             name="partials/import_validation_result.html",
             context={
                 "success": False,
-                "error": "An unexpected error occurred during validation.",
+                "error": _("An unexpected error occurred during validation."),
             },
         )
 
@@ -1258,7 +1262,10 @@ async def start_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": f"Session '{safe_name}' already exists"},
+            context={
+                "success": False,
+                "error": _("Session '{name}' already exists").format(name=safe_name),
+            },
         )
 
     # Validate api_hash format
@@ -1269,7 +1276,7 @@ async def start_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Invalid API hash format. Must be a 32-character hexadecimal string.",
+                "error": _("Invalid API hash format. Must be a 32-character hexadecimal string."),
             },
         )
 
@@ -1281,7 +1288,9 @@ async def start_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Invalid phone number format. Must start with + and country code (e.g., +1234567890).",
+                "error": _(
+                    "Invalid phone number format. Must start with + and country code (e.g., +1234567890)."
+                ),
             },
         )
 
@@ -1292,7 +1301,7 @@ async def start_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": "Selected proxy not found."},
+            context={"success": False, "error": _("Selected proxy not found.")},
         )
 
     # Create temporary session file for auth flow
@@ -1358,7 +1367,7 @@ async def start_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": "Invalid phone number."},
+            context={"success": False, "error": _("Invalid phone number.")},
         )
     except PhoneNumberBannedError:
         if "client" in dir() and client.is_connected():
@@ -1369,7 +1378,7 @@ async def start_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": "This phone number is banned by Telegram."},
+            context={"success": False, "error": _("This phone number is banned by Telegram.")},
         )
     except ApiIdInvalidError:
         if "client" in dir() and client.is_connected():
@@ -1380,7 +1389,7 @@ async def start_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": "Invalid API ID or API Hash."},
+            context={"success": False, "error": _("Invalid API ID or API Hash.")},
         )
     except FloodWaitError as e:
         if "client" in dir() and client.is_connected():
@@ -1393,7 +1402,9 @@ async def start_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": f"Too many requests. Please wait {e.seconds} seconds before trying again.",
+                "error": _(
+                    "Too many requests. Please wait {seconds} seconds before trying again."
+                ).format(seconds=e.seconds),
             },
         )
     except TimeoutError:
@@ -1407,7 +1418,7 @@ async def start_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Connection timeout. Please check your proxy settings and try again.",
+                "error": _("Connection timeout. Please check your proxy settings and try again."),
             },
         )
     except Exception as e:
@@ -1420,7 +1431,7 @@ async def start_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": f"Failed to send code: {e}"},
+            context={"success": False, "error": _("Failed to send code: {error}").format(error=e)},
         )
 
 
@@ -1460,7 +1471,7 @@ async def submit_auth_code(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Auth session expired or not found. Please start over.",
+                "error": _("Auth session expired or not found. Please start over."),
             },
         )
 
@@ -1474,7 +1485,7 @@ async def submit_auth_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": auth_state.session_name,
-                "error": "Invalid code format. Please enter the numeric code you received.",
+                "error": _("Invalid code format. Please enter the numeric code you received."),
             },
         )
 
@@ -1486,7 +1497,7 @@ async def submit_auth_code(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Connection lost. Please start over.",
+                "error": _("Connection lost. Please start over."),
             },
         )
 
@@ -1526,7 +1537,7 @@ async def submit_auth_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": auth_state.session_name,
-                "error": "Invalid code. Please check and try again.",
+                "error": _("Invalid code. Please check and try again."),
             },
         )
 
@@ -1537,7 +1548,7 @@ async def submit_auth_code(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Code has expired. Please start over.",
+                "error": _("Code has expired. Please start over."),
             },
         )
 
@@ -1549,7 +1560,7 @@ async def submit_auth_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": auth_state.session_name,
-                "error": "Please enter the verification code.",
+                "error": _("Please enter the verification code."),
             },
         )
 
@@ -1561,7 +1572,7 @@ async def submit_auth_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": auth_state.session_name,
-                "error": "Request timeout. Please try again.",
+                "error": _("Request timeout. Please try again."),
             },
         )
 
@@ -1574,7 +1585,7 @@ async def submit_auth_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": auth_state.session_name,
-                "error": f"Failed to verify code: {e}",
+                "error": _("Failed to verify code: {error}").format(error=e),
             },
         )
 
@@ -1607,7 +1618,7 @@ async def submit_auth_2fa(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Auth session expired or not found. Please start over.",
+                "error": _("Auth session expired or not found. Please start over."),
             },
         )
 
@@ -1617,7 +1628,7 @@ async def submit_auth_2fa(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Invalid auth state. Please start over.",
+                "error": _("Invalid auth state. Please start over."),
             },
         )
 
@@ -1629,7 +1640,7 @@ async def submit_auth_2fa(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": "Connection lost. Please start over.",
+                "error": _("Connection lost. Please start over."),
             },
         )
 
@@ -1650,7 +1661,7 @@ async def submit_auth_2fa(
             context={
                 "auth_id": auth_id,
                 "session_name": auth_state.session_name,
-                "error": "Incorrect password. Please try again.",
+                "error": _("Incorrect password. Please try again."),
             },
         )
 
@@ -1661,7 +1672,7 @@ async def submit_auth_2fa(
             context={
                 "auth_id": auth_id,
                 "session_name": auth_state.session_name,
-                "error": "Request timeout. Please try again.",
+                "error": _("Request timeout. Please try again."),
             },
         )
 
@@ -1673,7 +1684,7 @@ async def submit_auth_2fa(
             context={
                 "auth_id": auth_id,
                 "session_name": auth_state.session_name,
-                "error": f"Failed to verify password: {e}",
+                "error": _("Failed to verify password: {error}").format(error=e),
             },
         )
 
@@ -1704,7 +1715,7 @@ async def _complete_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": "Client connection lost. Please start over."},
+            context={"success": False, "error": _("Client connection lost. Please start over.")},
         )
 
     session_name = auth_state.session_name
@@ -1784,7 +1795,7 @@ async def _complete_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": True,
-                "message": f"Session '{session_name}' created successfully!",
+                "message": _("Session '{name}' created successfully!").format(name=session_name),
                 "account_info": account_info,
                 "duplicate_sessions": duplicate_sessions,
             },
@@ -1804,7 +1815,10 @@ async def _complete_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": f"Failed to save session: {e}"},
+            context={
+                "success": False,
+                "error": _("Failed to save session: {error}").format(error=e),
+            },
         )
 
 
@@ -1999,7 +2013,7 @@ async def save_import_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": f"Session '{safe_name}' already exists",
+                    "error": _("Session '{name}' already exists").format(name=safe_name),
                 },
             )
 
@@ -2021,7 +2035,7 @@ async def save_import_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": f"Invalid session: {e}"},
+                context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
             )
 
         # Validate api_hash format (32-char hex string)
@@ -2032,7 +2046,9 @@ async def save_import_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": "Invalid API hash format. Must be a 32-character hexadecimal string.",
+                    "error": _(
+                        "Invalid API hash format. Must be a 32-character hexadecimal string."
+                    ),
                 },
             )
 
@@ -2048,7 +2064,7 @@ async def save_import_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": "Selected proxy not found. Please select a valid proxy.",
+                    "error": _("Selected proxy not found. Please select a valid proxy."),
                 },
             )
 
@@ -2159,7 +2175,10 @@ async def save_import_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": f"Config validation failed: {e}"},
+                context={
+                    "success": False,
+                    "error": _("Config validation failed: {error}").format(error=e),
+                },
             )
         except Exception:
             # Clean up on failure
@@ -2170,7 +2189,7 @@ async def save_import_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": "Failed to save session files. Please try again.",
+                    "error": _("Failed to save session files. Please try again."),
                 },
             )
 
@@ -2180,7 +2199,7 @@ async def save_import_session(
         response_data = {
             "request": request,
             "success": True,
-            "message": f"Session '{safe_name}' imported successfully",
+            "message": _("Session '{name}' imported successfully").format(name=safe_name),
             "duplicate_sessions": duplicate_sessions,
             "account_info": account_info,
         }
@@ -2198,6 +2217,6 @@ async def save_import_session(
             name="partials/upload_result.html",
             context={
                 "success": False,
-                "error": "An unexpected error occurred during import. Please try again.",
+                "error": _("An unexpected error occurred during import. Please try again."),
             },
         )

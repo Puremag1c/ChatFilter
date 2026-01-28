@@ -4,9 +4,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: ChatFilter\n"
+"Project-Id-Version:  ChatFilter\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-23 10:46+0300\n"
+"POT-Creation-Date: 2026-01-28 09:01+0300\n"
 "PO-Revision-Date: 2026-01-23 10:46+0300\n"
 "Last-Translator: \n"
 "Language: ru\n"
@@ -18,1184 +18,1845 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.14.0\n"
 
-#: src/chatfilter/templates/base.html:28
+#: src/chatfilter/telegram/client.py:480
+msgid ""
+"Session '{session_id}' has no api_id configured. Please configure api_id "
+"before connecting."
+msgstr ""
+
+#: src/chatfilter/telegram/client.py:489
+msgid ""
+"Session '{session_id}' has no api_hash configured. Please configure "
+"api_hash before connecting."
+msgstr ""
+
+#: src/chatfilter/telegram/client.py:498 src/chatfilter/telegram/client.py:623
+msgid ""
+"Session '{session_id}' has no proxy configured. Please configure a proxy "
+"for this session before connecting."
+msgstr ""
+
+#: src/chatfilter/telegram/client.py:512 src/chatfilter/telegram/client.py:613
+msgid ""
+"Session '{session_id}' requires proxy '{proxy_id}' which is not found in "
+"proxy pool. Please add the proxy to the pool or update the session "
+"configuration."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:57
+#, python-format
+msgid "%(num)d second"
+msgid_plural "%(num)d seconds"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: src/chatfilter/telegram/error_mapping.py:60
+#, python-format
+msgid "%(num)d minute"
+msgid_plural "%(num)d minutes"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: src/chatfilter/telegram/error_mapping.py:63
+#, python-format
+msgid "%(num)d hour"
+msgid_plural "%(num)d hours"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: src/chatfilter/telegram/error_mapping.py:97
+#: src/chatfilter/telegram/error_mapping.py:622
+msgid "Your session has expired. Please log in again with a new session file."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:100
+msgid ""
+"Your session has expired or been revoked. Please log in again with a new "
+"session file."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:103
+msgid ""
+"Your session has been logged out from another device. Please upload a new"
+" session file."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:106
+msgid ""
+"This session is being used on another device. Please use a unique session"
+" file."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:109
+msgid "Authentication failed. Please verify your session and try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:110
+msgid ""
+"Your Telegram account has been deactivated. Please contact Telegram "
+"support."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:113
+msgid "Your Telegram account has been banned. Please contact Telegram support."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:117
+msgid ""
+"Access to this chat is restricted. You may have been removed or the chat "
+"was deleted."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:120
+msgid "This channel is private. You need an invite link to access it."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:121
+msgid "This chat is restricted and cannot be accessed."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:122
+msgid "You have been banned from this channel."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:123
+msgid "You have been banned from this chat."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:124
+msgid "This action requires administrator privileges."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:125
+msgid "You don't have permission to send messages in this chat."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:127
+msgid ""
+"Slow mode is enabled in this chat. Please wait before sending another "
+"message."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:131
+#: src/chatfilter/telegram/error_mapping.py:634
+msgid ""
+"Network connection error. Please check your internet connection and try "
+"again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:134
+#: src/chatfilter/telegram/error_mapping.py:631
+msgid "Request timed out. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:135
+msgid ""
+"Failed to connect to Telegram servers. Please check your connection and "
+"try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:139
+msgid "The file has been migrated to another data center. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:140
+msgid "Network migration in progress. Please try again in a moment."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:141
+#: src/chatfilter/telegram/error_mapping.py:144
+msgid "Your account is being migrated to another data center. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:147
+msgid "Statistics are being migrated to another data center. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:151
+msgid "Telegram server request failed. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:152
+msgid "Telegram server encountered an error. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:154
+msgid "Invalid username. Please check the username and try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:155
+msgid "Username not found. Please verify the username is correct."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:156
+msgid "Invalid invite link. The link may have expired or been revoked."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:157
+msgid "This invite link has expired. Please request a new invite link."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:158
+msgid ""
+"Chat or user not found. The ID may be incorrect or the chat may have been"
+" deleted."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:161
+msgid "Invalid chat ID. The chat may have been deleted or is not accessible."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:164
+msgid "Message not found. It may have been deleted."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:166
+msgid "File upload failed. Please try uploading the file again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:167
+msgid "File reference has expired. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:169
+msgid "Invalid phone number format. Please check the number and try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:172
+msgid "Invalid verification code. Please check the code and try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:173
+msgid "Verification code has expired. Please request a new code."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:174
+#: src/chatfilter/web/routers/sessions.py:1654
+msgid "Incorrect password. Please try again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:175
+msgid "Two-factor authentication is enabled. Please provide your password."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:179
+msgid "No changes were made. The data is already up to date."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:180
+msgid "Message was not modified. The content is the same as before."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:181
+msgid "You are already a member of this chat."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:182
+msgid "This action cannot be performed by bots."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:191
+#: src/chatfilter/telegram/error_mapping.py:196
+#: src/chatfilter/telegram/error_mapping.py:201
+#: src/chatfilter/telegram/error_mapping.py:527
+msgid "Upload a new session file from your Sessions page"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:206
+msgid "Upload a different session file that isn't being used elsewhere"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:211
+msgid "Verify your session file is valid or upload a new one"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:216
+msgid "Contact Telegram support to reactivate your account"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:221
+msgid "Contact Telegram support to appeal your ban"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:227
+msgid "Try a different chat or check your Telegram app to verify membership"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:232
+msgid "Request an invite link from the channel admin or try a different chat"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:237
+msgid "Contact the chat administrator or try a different chat"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:242
+msgid "Contact the channel admin to appeal or select a different channel"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:247
+msgid "Contact the chat admin to appeal or select a different chat"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:252
+msgid "Request admin privileges or perform this action as an admin"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:257
+msgid "Request write permissions from chat admin or skip this chat"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:263
+msgid "Wait for the specified duration before trying again"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:269
+#: src/chatfilter/telegram/error_mapping.py:523
+msgid "Check your internet connection and click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:274
+msgid "Check your connection speed and click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:279
+msgid "Verify your internet connection is stable and click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:285
+msgid "Click 'Retry' - this should resolve automatically"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:290
+#: src/chatfilter/telegram/error_mapping.py:311
+msgid "Wait a moment and click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:295
+#: src/chatfilter/telegram/error_mapping.py:300
+#: src/chatfilter/telegram/error_mapping.py:305
+msgid "Click 'Retry' - migration will complete automatically"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:316
+msgid "Wait a few moments and click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:322
+msgid "Verify the username format is correct (e.g., @username)"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:327
+msgid "Double-check the username spelling or try a different username"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:332
+msgid "Request a new invite link or verify the link is correct"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:337
+msgid "Request a new invite link from the chat admin"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:342
+msgid "Verify the chat ID or try accessing the chat by username instead"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:347
+msgid "Check the chat ID is correct or try accessing by username"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:352
+msgid "The message may have been deleted - try refreshing the chat"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:358
+msgid "Re-upload the file or try a different file"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:363
+msgid "Click 'Retry' to refresh the file reference"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:369
+msgid "Verify phone number format includes country code (e.g., +1234567890)"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:374
+msgid "Check the verification code from Telegram and try again"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:379
+msgid "Request a new verification code and try again"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:384
+msgid "Verify your two-factor authentication password and try again"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:389
+msgid "Provide your two-factor authentication password to continue"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:395
+msgid "No action needed - the data is already up to date"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:400
+msgid "No action needed - the message content is unchanged"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:405
+msgid "No action needed - you are already a member"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:410
+msgid "This operation is not available for bot accounts"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:467
+#: src/chatfilter/telegram/error_mapping.py:583
+#: src/chatfilter/telegram/error_mapping.py:614
+#, python-format
+msgid "Rate limit exceeded. Please wait %(duration)s before trying again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:470
+#, python-format
+msgid "Wait %(duration)s and then click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:472
+#: src/chatfilter/telegram/error_mapping.py:586
+#: src/chatfilter/telegram/error_mapping.py:617
+msgid "Rate limit exceeded. Please wait before trying again."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:473
+msgid "Wait a few minutes and then click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:488
+#: src/chatfilter/telegram/error_mapping.py:593
+#, python-format
+msgid ""
+"Slow mode is enabled. Please wait %(duration)s before sending another "
+"message."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:491
+#, python-format
+msgid "Wait %(duration)s before trying again"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:494
+#: src/chatfilter/telegram/error_mapping.py:597
+msgid "Slow mode is enabled. Please wait before sending another message."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:496
+msgid "Wait for the slow mode cooldown before trying again"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:531
+msgid "Try a different chat or verify your access permissions"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:535
+msgid "Check your input and try again with correct information"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:539
+msgid "Wait a few minutes and click 'Retry'"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:543
+msgid "Try again or contact support if the issue persists"
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:625
+msgid "Access denied. You may have been banned or removed from this chat."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:628
+msgid "Access to this resource is restricted."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:639
+msgid "Chat or user not found. Please verify the information is correct."
+msgstr ""
+
+#: src/chatfilter/telegram/error_mapping.py:643
+#, python-format
+msgid ""
+"An error occurred: %(error_class)s. Please try again or contact support "
+"if the issue persists."
+msgstr ""
+
+#: src/chatfilter/templates/base.html:27
 msgid "Skip to main content"
-msgstr "Перейти к основному содержимому"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:31
+#: src/chatfilter/templates/base.html:30
 msgid "Main navigation"
-msgstr "Основная навигация"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:34
+#: src/chatfilter/templates/base.html:33
 msgid "Manage your Telegram session files"
-msgstr "Управление файлами сессий Telegram"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:33
+#: src/chatfilter/templates/partials/proxy_pool_list.html:11
+#: src/chatfilter/templates/partials/proxy_pool_list.html:58
+msgid "Sessions"
+msgstr ""
 
 #: src/chatfilter/templates/base.html:34
-msgid "Sessions"
-msgstr "Сессии"
-
-#: src/chatfilter/templates/base.html:35
 msgid "Select chats to analyze from your Telegram account"
-msgstr "Выберите чаты для анализа из вашего аккаунта Telegram"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:34
+#: src/chatfilter/templates/chats.html:196
+msgid "Chats"
+msgstr ""
 
 #: src/chatfilter/templates/base.html:35
-#: src/chatfilter/templates/chats.html:195
-msgid "Chats"
-msgstr "Чаты"
-
-#: src/chatfilter/templates/base.html:36
 msgid "Import a list of chats from a file or Google Sheets"
-msgstr "Импорт списка чатов из файла или Google Sheets"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:35
+msgid "Import"
+msgstr ""
 
 #: src/chatfilter/templates/base.html:36
-msgid "Import"
-msgstr "Импорт"
-
-#: src/chatfilter/templates/base.html:37
 msgid "View analysis results and export data"
-msgstr "Просмотр результатов анализа и экспорт данных"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:36
+msgid "Results"
+msgstr ""
 
 #: src/chatfilter/templates/base.html:37
-msgid "Results"
-msgstr "Результаты"
-
-#: src/chatfilter/templates/base.html:38
 msgid "Browse your past analysis history"
-msgstr "Просмотр истории прошлых анализов"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:37
+msgid "History"
+msgstr ""
 
 #: src/chatfilter/templates/base.html:38
-msgid "History"
-msgstr "История"
+#: src/chatfilter/templates/proxies.html:8
+msgid "Manage proxy servers for Telegram sessions"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:39
-msgid "Use Telegram proxy to access chats"
-msgstr "Использование прокси Telegram для доступа к чатам"
+#: src/chatfilter/templates/base.html:38
+msgid "Proxies"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:39
-msgid "Proxy"
-msgstr "Прокси"
-
-#: src/chatfilter/templates/base.html:42
+#: src/chatfilter/templates/base.html:41
 msgid "Shows your internet connection status"
-msgstr "Показывает статус интернет-соединения"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:44
+#: src/chatfilter/templates/base.html:43
 msgid "Online"
-msgstr "Онлайн"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:46
-msgid "Shows Telegram connection status and active session count"
-msgstr "Показывает статус подключения к Telegram и количество активных сессий"
+#: src/chatfilter/templates/base.html:45
+msgid "Toggle dark mode"
+msgstr ""
+
+#: src/chatfilter/templates/base.html:45
+msgid "Switch between light and dark theme"
+msgstr ""
 
 #: src/chatfilter/templates/base.html:48
-msgid "Checking..."
-msgstr "Проверка..."
-
-#: src/chatfilter/templates/base.html:50
-msgid "Currently logged in Telegram user"
-msgstr "Текущий пользователь Telegram"
-
-#: src/chatfilter/templates/base.html:52
-msgid "No User"
-msgstr "Нет пользователя"
-
-#: src/chatfilter/templates/base.html:54
-msgid "Toggle dark mode"
-msgstr "Переключить тёмный режим"
-
-#: src/chatfilter/templates/base.html:54
-msgid "Switch between light and dark theme"
-msgstr "Переключение между светлой и тёмной темой"
-
-#: src/chatfilter/templates/base.html:57
 msgid "Switch language"
-msgstr "Сменить язык"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:57
+#: src/chatfilter/templates/base.html:48
 msgid "Switch between English and Russian"
-msgstr "Переключение между английским и русским"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:75
+#: src/chatfilter/templates/base.html:63
 msgid "Export diagnostic information for troubleshooting"
-msgstr "Экспорт диагностической информации для устранения неполадок"
+msgstr ""
 
-#: src/chatfilter/templates/base.html:76
-msgid "Download diagnostic information for troubleshooting issues"
-msgstr "Скачать диагностическую информацию для устранения проблем"
-
-#: src/chatfilter/templates/base.html:78
+#: src/chatfilter/templates/base.html:64
 msgid "Export Diagnostics"
-msgstr "Экспорт диагностики"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:3
 #: src/chatfilter/templates/chatlist.html:127
 msgid "Import Chat List"
-msgstr "Импорт списка чатов"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:128
 msgid ""
 "Upload a file or enter a Google Sheets URL to import a list of chats for "
 "analysis"
 msgstr ""
-"Загрузите файл или введите URL Google Sheets для импорта списка чатов "
-"для анализа"
 
 #: src/chatfilter/templates/chatlist.html:132
 msgid "Import Source"
-msgstr "Источник импорта"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:136
 msgid "Upload a file containing a list of chats to analyze"
-msgstr "Загрузите файл со списком чатов для анализа"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:136
 #: src/chatfilter/templates/chatlist.html:172
 msgid "Upload File"
-msgstr "Загрузить файл"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:137
 msgid ""
 "Upload a text file with one chat per line, or a CSV/Excel file with chat "
 "usernames, links, or IDs."
 msgstr ""
-"Загрузите текстовый файл с одним чатом на строку или CSV/Excel файл с "
-"именами пользователей, ссылками или ID чатов."
 
 #: src/chatfilter/templates/chatlist.html:145
 #: src/chatfilter/templates/chatlist.html:169
 msgid "Upload chat list file"
-msgstr "Загрузить файл со списком чатов"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:148
 msgid "Select chat list file"
-msgstr "Выберите файл со списком чатов"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:156
 msgid "Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
-msgstr "Выберите .txt, .csv или .xlsx файл с именами пользователей, ссылками или ID чатов"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:160
 msgid "Supported file formats"
-msgstr "Поддерживаемые форматы файлов"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:170
 msgid "Upload and parse the selected file"
-msgstr "Загрузить и обработать выбранный файл"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:173
-#: src/chatfilter/templates/upload.html:253
 msgid "Upload in progress"
-msgstr "Загрузка..."
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:180
 msgid "Import chats from a public Google Sheets document"
-msgstr "Импорт чатов из публичного документа Google Sheets"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:180
 msgid "Google Sheets"
-msgstr "Google Sheets"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:181
 msgid ""
 "Enter a link to a public Google Sheets document. The sheet must be shared"
 " with \"Anyone with the link\"."
 msgstr ""
-"Введите ссылку на публичный документ Google Sheets. Документ должен быть "
-"доступен \"Всем, у кого есть ссылка\"."
 
 #: src/chatfilter/templates/chatlist.html:188
 msgid "Import chat list from Google Sheets"
-msgstr "Импорт списка чатов из Google Sheets"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:196
 msgid "Enter the full URL of a public Google Sheets document"
-msgstr "Введите полный URL публичного документа Google Sheets"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:203
 msgid "Fetch and import chats from the Google Sheets URL"
-msgstr "Загрузить и импортировать чаты по URL Google Sheets"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:205
 msgid "Fetch Sheet"
-msgstr "Загрузить таблицу"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:215
 msgid "Imported Chats"
-msgstr "Импортированные чаты"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:217
 msgid "Import a file or Google Sheet to see the list of chats"
-msgstr "Импортируйте файл или Google Sheet, чтобы увидеть список чатов"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:222
 msgid "Loading imported chats..."
-msgstr "Загрузка импортированных чатов..."
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:265
 msgid "File Format Examples"
-msgstr "Примеры форматов файлов"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:267
 msgid "Text File (.txt)"
-msgstr "Текстовый файл (.txt)"
+msgstr ""
 
 #: src/chatfilter/templates/chatlist.html:278
 msgid "CSV File (.csv)"
-msgstr "CSV файл (.csv)"
+msgstr ""
 
 #: src/chatfilter/templates/chats.html:3
 msgid "Select Chats"
-msgstr "Выбор чатов"
+msgstr ""
 
 #: src/chatfilter/templates/chats.html:166
 msgid "Select Chats for Analysis"
-msgstr "Выбор чатов для анализа"
+msgstr ""
 
 #: src/chatfilter/templates/chats.html:167
 msgid "Choose which chats you want to analyze"
-msgstr "Выберите чаты, которые хотите проанализировать"
+msgstr ""
 
 #: src/chatfilter/templates/chats.html:171
 msgid "Session"
-msgstr "Сессия"
+msgstr ""
 
 #: src/chatfilter/templates/chats.html:173
 msgid "Select Telegram session"
-msgstr "Выберите сессию Telegram"
-
-#: src/chatfilter/templates/chats.html:180
-msgid "Select Telegram session to load chats"
-msgstr "Выберите сессию Telegram для загрузки чатов"
+msgstr ""
 
 #: src/chatfilter/templates/chats.html:181
+msgid "Select Telegram session to load chats"
+msgstr ""
+
+#: src/chatfilter/templates/chats.html:182
 msgid "Choose a Telegram session to load your chats and groups"
-msgstr "Выберите сессию Telegram для загрузки ваших чатов и групп"
+msgstr ""
 
-#: src/chatfilter/templates/chats.html:183
+#: src/chatfilter/templates/chats.html:184
 msgid "Select a session"
-msgstr "Выберите сессию"
+msgstr ""
 
-#: src/chatfilter/templates/chats.html:197
+#: src/chatfilter/templates/chats.html:198
 msgid "Chat list"
-msgstr "Список чатов"
+msgstr ""
 
-#: src/chatfilter/templates/chats.html:199
+#: src/chatfilter/templates/chats.html:200
 msgid "Select a session above to load chats"
-msgstr "Выберите сессию выше для загрузки чатов"
+msgstr ""
 
-#: src/chatfilter/templates/chats.html:205
+#: src/chatfilter/templates/chats.html:206
 msgid "Loading chats..."
-msgstr "Загрузка чатов..."
+msgstr ""
 
 #: src/chatfilter/templates/history.html:3
 #: src/chatfilter/templates/history.html:250
 msgid "Analysis History"
-msgstr "История анализов"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:251
 msgid "Browse and view your past chat analyses"
-msgstr "Просмотр и обзор прошлых анализов чатов"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:259
 msgid "Total"
-msgstr "Всего"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:263
 #: src/chatfilter/templates/history.html:285
 msgid "Completed"
-msgstr "Завершено"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:267
 #: src/chatfilter/templates/history.html:286
+#: src/chatfilter/templates/partials/proxy_pool_list.html:25
 msgid "Failed"
-msgstr "Ошибка"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:271
 #: src/chatfilter/templates/history.html:287
 msgid "Cancelled"
-msgstr "Отменено"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:275
 #: src/chatfilter/templates/history.html:288
 msgid "Timeout"
-msgstr "Таймаут"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:282
 msgid "Filter by status"
-msgstr "Фильтр по статусу"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:283
 msgid "Filter by analysis status"
-msgstr "Фильтр по статусу анализа"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:284
 msgid "All Analyses"
-msgstr "Все анализы"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:295
 msgid "Loading history..."
-msgstr "Загрузка истории..."
+msgstr ""
 
 #: src/chatfilter/templates/history.html:304
 msgid "No Analysis History"
-msgstr "Нет истории анализов"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:305
 msgid ""
 "You haven't run any analyses yet. Start analyzing your chats to see "
 "results here."
 msgstr ""
-"Вы ещё не запускали анализ. Начните анализировать чаты, чтобы увидеть "
-"результаты здесь."
 
 #: src/chatfilter/templates/history.html:306
 #: src/chatfilter/templates/partials/chat_list.html:171
 #: src/chatfilter/templates/results.html:681
 msgid "Start Analysis"
-msgstr "Начать анализ"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:311
 msgid "Previous page"
-msgstr "Предыдущая страница"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:311
 msgid "Previous"
-msgstr "Назад"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:313
 msgid "Page"
-msgstr "Страница"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:313
 msgid "of"
-msgstr "из"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:315
 msgid "Next page"
-msgstr "Следующая страница"
+msgstr ""
 
 #: src/chatfilter/templates/history.html:315
 msgid "Next"
-msgstr "Далее"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:3 src/chatfilter/templates/proxy.html:7
-msgid "Proxy Settings"
-msgstr "Настройки прокси"
+#: src/chatfilter/templates/proxies.html:3
+#: src/chatfilter/templates/proxies.html:7
+msgid "Proxy Pool"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:8
-msgid "Configure proxy for Telegram connections"
-msgstr "Настройка прокси для подключения к Telegram"
+#: src/chatfilter/templates/proxies.html:13
+msgid "Proxy List"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:12
-msgid "Proxy Configuration"
-msgstr "Конфигурация прокси"
+#: src/chatfilter/templates/proxies.html:17
+msgid "Add new proxy"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:19
-msgid "Proxy configuration form"
-msgstr "Форма настройки прокси"
+#: src/chatfilter/templates/proxies.html:18
+#: src/chatfilter/templates/proxies.html:42
+#: src/chatfilter/templates/proxies.html:182
+#: src/chatfilter/templates/proxies.html:183
+msgid "Add Proxy"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:29
-msgid "Enable Proxy"
-msgstr "Включить прокси"
+#: src/chatfilter/templates/partials/session_row.html:38
+#: src/chatfilter/templates/partials/sessions_list.html:48
+#: src/chatfilter/templates/proxies.html:26
+#: src/chatfilter/templates/upload.html:23
+msgid "Error"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:31
-msgid "Enable to route Telegram traffic through a proxy server"
-msgstr "Включить для маршрутизации трафика Telegram через прокси-сервер"
+#: src/chatfilter/templates/proxies.html:26
+msgid "Failed to load proxies. Please refresh the page."
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:35
-msgid "Proxy Type"
-msgstr "Тип прокси"
+#: src/chatfilter/templates/proxies.html:29
+msgid "List of configured proxies"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:36
+#: src/chatfilter/templates/proxies.html:32
+msgid "Loading proxies..."
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:7
+#: src/chatfilter/templates/partials/proxy_pool_list.html:36
+#: src/chatfilter/templates/proxies.html:49
+msgid "Name"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:56
+msgid "My Proxy"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:58
+msgid "Proxy name for identification"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:8
+#: src/chatfilter/templates/partials/proxy_pool_list.html:39
+#: src/chatfilter/templates/proxies.html:63
+#: src/chatfilter/templates/results.html:579
+msgid "Type"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:64
 msgid "Select proxy type"
-msgstr "Выберите тип прокси"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:44
+#: src/chatfilter/templates/proxies.html:74
 msgid "Host"
-msgstr "Хост"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:49
+#: src/chatfilter/templates/proxies.html:81
 msgid "proxy.example.com"
-msgstr "proxy.example.com"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:50
+#: src/chatfilter/templates/proxies.html:83
 msgid "Proxy server hostname or IP address"
-msgstr "Имя хоста или IP-адрес прокси-сервера"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:54
+#: src/chatfilter/templates/proxies.html:88
 msgid "Port"
-msgstr "Порт"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:62
+#: src/chatfilter/templates/proxies.html:97
 msgid "Proxy server port number"
-msgstr "Номер порта прокси-сервера"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:68
+#: src/chatfilter/templates/proxies.html:104
 msgid "Username (optional)"
-msgstr "Имя пользователя (необязательно)"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:73
-#: src/chatfilter/templates/proxy.html:83
+#: src/chatfilter/templates/proxies.html:109
+#: src/chatfilter/templates/proxies.html:119
 msgid "Leave empty if not required"
-msgstr "Оставьте пустым, если не требуется"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:74
+#: src/chatfilter/templates/proxies.html:110
 msgid "Proxy authentication username"
-msgstr "Имя пользователя для аутентификации прокси"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:78
+#: src/chatfilter/templates/proxies.html:114
 msgid "Password (optional)"
-msgstr "Пароль (необязательно)"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:84
+#: src/chatfilter/templates/proxies.html:120
 msgid "Proxy authentication password"
-msgstr "Пароль для аутентификации прокси"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:89
-msgid "Save proxy settings"
-msgstr "Сохранить настройки прокси"
+#: src/chatfilter/templates/partials/analysis_progress.html:34
+#: src/chatfilter/templates/proxies.html:126
+#: src/chatfilter/templates/proxies.html:408
+#: src/chatfilter/templates/upload.html:203
+msgid "Cancel"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:90
-msgid "Save Settings"
-msgstr "Сохранить настройки"
+#: src/chatfilter/templates/partials/session_config.html:86
+#: src/chatfilter/templates/proxies.html:129
+msgid "Save"
+msgstr ""
 
-#: src/chatfilter/templates/proxy.html:91
-msgid "Saving in progress"
-msgstr "Сохранение..."
+#: src/chatfilter/templates/proxies.html:193
+msgid "Edit Proxy"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:194
+msgid "Save Changes"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:252
+msgid "This field is required"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:254
+msgid "Minimum length is"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:254
+#: src/chatfilter/templates/proxies.html:256
+msgid "characters"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:256
+msgid "Maximum length is"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:258
+msgid "Minimum value is"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:260
+msgid "Maximum value is"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:262
+#: src/chatfilter/templates/proxies.html:296
+msgid "Host cannot contain spaces"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:308
+msgid "Please fix the errors in the form"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:309
+msgid "Validation Error"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:344
+msgid "Operation failed"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:351
+msgid "Proxy updated successfully"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:352
+msgid "Proxy added successfully"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:354
+msgid "Proxy Updated"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:354
+msgid "Proxy Added"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:361
+msgid "Save Failed"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:405
+msgid "Delete Proxy"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:406
+msgid "This proxy is used by"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:406
+msgid "session(s). They will be blocked. Continue?"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:94
+#: src/chatfilter/templates/partials/session_row.html:118
+#: src/chatfilter/templates/partials/sessions_list.html:128
+#: src/chatfilter/templates/proxies.html:407
+msgid "Delete"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:433
+msgid "Proxy deleted successfully"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:434
+msgid "Proxy Deleted"
+msgstr ""
+
+#: src/chatfilter/templates/proxies.html:441
+#: src/chatfilter/templates/upload.html:250
+msgid "Deletion Failed"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:3
 #: src/chatfilter/templates/results.html:452
 msgid "Analysis Results"
-msgstr "Результаты анализа"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:453
 msgid "View and export your chat analysis results"
-msgstr "Просмотр и экспорт результатов анализа чатов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:462
 msgid "Analysis statistics"
-msgstr "Статистика анализа"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:464
 msgid "Copy all statistics"
-msgstr "Скопировать всю статистику"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:465
 #, python-format
 msgid "%(count)s chats analyzed"
-msgstr "%(count)s чатов проанализировано"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:466
 msgid "Chats Analyzed"
-msgstr "Проанализировано чатов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:469
 msgid "Total messages"
-msgstr "Всего сообщений"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:470
 msgid "Total Messages"
-msgstr "Всего сообщений"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:473
 msgid "Unique authors"
-msgstr "Уникальных авторов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:474
 msgid "Unique Authors"
-msgstr "Уникальных авторов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:477
 msgid "Active chats in last 7 days"
-msgstr "Активных чатов за последние 7 дней"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:478
 #: src/chatfilter/templates/results.html:528
 msgid "Active (7d)"
-msgstr "Активные (7д)"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:485
 msgid "Clock Skew Detected"
-msgstr "Обнаружено расхождение времени"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:487
 msgid ""
 "Your system clock appears to be incorrect, which may affect time-based "
 "calculations (messages per hour, history length)."
 msgstr ""
-"Системные часы могут быть неточными, что может повлиять на расчёты "
-"времени (сообщений в час, длина истории)."
 
 #: src/chatfilter/templates/results.html:487
 #, python-format
 msgid "%(count)s chat(s) affected:"
-msgstr "%(count)s чат(ов) затронуто:"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:494
 #, python-format
 msgid "System clock is %(minutes)s minutes ahead of Telegram server time"
-msgstr "Системные часы опережают время сервера Telegram на %(minutes)s минут"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:496
 #, python-format
 msgid "System clock is %(minutes)s minutes behind Telegram server time"
-msgstr "Системные часы отстают от времени сервера Telegram на %(minutes)s минут"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:501
 msgid ""
 "Please check your system time settings and synchronize with a reliable "
 "time server (e.g., NTP)."
 msgstr ""
-"Пожалуйста, проверьте настройки системного времени и синхронизируйтесь с "
-"надёжным сервером времени (например, NTP)."
 
 #: src/chatfilter/templates/results.html:505
 msgid "Result filters"
-msgstr "Фильтры результатов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:507
 msgid "Search chats"
-msgstr "Поиск чатов"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:35
 #: src/chatfilter/templates/results.html:510
 msgid "Search chats..."
-msgstr "Поиск чатов..."
+msgstr ""
 
 #: src/chatfilter/templates/results.html:511
 msgid "Search chats by title or username"
-msgstr "Поиск чатов по названию или имени пользователя"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:514
 #: src/chatfilter/templates/results.html:515
 msgid "Filter by chat type"
-msgstr "Фильтр по типу чата"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:44
 #: src/chatfilter/templates/results.html:516
 msgid "All Types"
-msgstr "Все типы"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:45
 #: src/chatfilter/templates/results.html:517
 msgid "Private"
-msgstr "Личный"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:46
 #: src/chatfilter/templates/results.html:518
 msgid "Group"
-msgstr "Группа"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:47
 #: src/chatfilter/templates/results.html:519
 msgid "Supergroup"
-msgstr "Супергруппа"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:48
 #: src/chatfilter/templates/results.html:520
 msgid "Channel"
-msgstr "Канал"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:49
 #: src/chatfilter/templates/results.html:521
 msgid "Forum"
-msgstr "Форум"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:525
 msgid "Filter by activity"
-msgstr "Фильтр по активности"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:526
 msgid "Filter by activity status"
-msgstr "Фильтр по статусу активности"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:527
 msgid "All Activity"
-msgstr "Вся активность"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:529
 #: src/chatfilter/templates/results.html:645
 #: src/chatfilter/templates/results.html:646
 msgid "Inactive"
-msgstr "Неактивный"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:537
 msgid "Clear all filters"
-msgstr "Очистить все фильтры"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:71
 #: src/chatfilter/templates/results.html:538
 msgid "Clear Filters"
-msgstr "Сбросить фильтры"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:538
 msgid "Number of active filters"
-msgstr "Количество активных фильтров"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:544
 msgid "Copy selected rows"
-msgstr "Скопировать выбранные строки"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:545
 msgid "Copy Selected"
-msgstr "Копировать выбранное"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:551
 msgid "Compare selected chats"
-msgstr "Сравнить выбранные чаты"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:552
 msgid "Compare Selected"
-msgstr "Сравнить выбранное"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:557
 msgid "Export results to CSV file"
-msgstr "Экспорт результатов в CSV файл"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:558
 msgid "Export CSV"
-msgstr "Экспорт CSV"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:563
 msgid "Analysis results table"
-msgstr "Таблица результатов анализа"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:564
 msgid "Chat analysis results"
-msgstr "Результаты анализа чатов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:570
 msgid "Select all chats"
-msgstr "Выбрать все чаты"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:573
 msgid "Sort by chat name"
-msgstr "Сортировка по названию чата"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:574
 msgid "Chat"
-msgstr "Чат"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:578
 msgid "Sort by chat type"
-msgstr "Сортировка по типу чата"
-
-#: src/chatfilter/templates/results.html:579
-msgid "Type"
-msgstr "Тип"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:583
 msgid "Sort by message count"
-msgstr "Сортировка по количеству сообщений"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:584
 msgid "Messages"
-msgstr "Сообщения"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:588
 msgid "Sort by author count"
-msgstr "Сортировка по количеству авторов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:589
 msgid "Authors"
-msgstr "Авторы"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:593
 msgid "Sort by history hours"
-msgstr "Сортировка по часам истории"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:594
 msgid "History (h)"
-msgstr "История (ч)"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:598
 msgid "Sort by messages per hour"
-msgstr "Сортировка по сообщениям в час"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:599
 msgid "Msg/Hour"
-msgstr "Сообщ/час"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:603
 msgid "Sort by activity status"
-msgstr "Сортировка по статусу активности"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:604
 msgid "Activity"
-msgstr "Активность"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:608
 msgid "Copy"
-msgstr "Копировать"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:627
 #, python-format
 msgid "Select %(title)s"
-msgstr "Выбрать %(title)s"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:632
 msgid "Username"
-msgstr "Имя пользователя"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:636
 #, python-format
 msgid "Chat type: %(type)s"
-msgstr "Тип чата: %(type)s"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:640
 #, python-format
 msgid "%(count)s messages"
-msgstr "%(count)s сообщений"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:641
 #, python-format
 msgid "%(count)s authors"
-msgstr "%(count)s авторов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:642
 #, python-format
 msgid "%(hours)s hours"
-msgstr "%(hours)s часов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:643
 #, python-format
 msgid "%(rate)s messages per hour"
-msgstr "%(rate)s сообщений в час"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:645
 msgid "Active in last 7 days"
-msgstr "Активен за последние 7 дней"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:646
 msgid "Active"
-msgstr "Активный"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:650
 msgid "Copy row data"
-msgstr "Скопировать данные строки"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:665
 msgid "Compare Chat Metrics"
-msgstr "Сравнение метрик чатов"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:667
 msgid "Copy comparison data"
-msgstr "Скопировать данные сравнения"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:668
 msgid "Copy Data"
-msgstr "Копировать данные"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:670
 msgid "Close comparison modal"
-msgstr "Закрыть окно сравнения"
+msgstr ""
 
 #: src/chatfilter/templates/results.html:680
 msgid "No analysis results yet."
-msgstr "Результатов анализа пока нет."
+msgstr ""
 
 #: src/chatfilter/templates/upload.html:3
-#: src/chatfilter/templates/upload.html:252
-msgid "Upload Session"
-msgstr "Загрузить сессию"
+msgid "Telegram Sessions"
+msgstr ""
 
 #: src/chatfilter/templates/upload.html:7
-msgid "Telegram Sessions"
-msgstr "Сессии Telegram"
+msgid "Telegram Accounts"
+msgstr ""
 
 #: src/chatfilter/templates/upload.html:8
-msgid "Upload your Telegram session to start analyzing chats"
-msgstr "Загрузите вашу сессию Telegram, чтобы начать анализ чатов"
+msgid "Manage your Telegram sessions for chat analysis"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:12
-msgid "⚠️ Critical Security Warning: Session File Risks"
-msgstr "⚠️ Критическое предупреждение безопасности: Риски файлов сессий"
+#: src/chatfilter/templates/upload.html:13
+msgid "Accounts"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:14
+msgid "Add new account"
+msgstr ""
 
 #: src/chatfilter/templates/upload.html:15
-msgid ""
-"Session files grant complete, unrestricted access to your Telegram "
-"account."
+msgid "Add Account"
 msgstr ""
-"Файлы сессий предоставляют полный неограниченный доступ к вашему аккаунту "
-"Telegram."
-
-#: src/chatfilter/templates/upload.html:16
-msgid "Before uploading, understand these critical risks:"
-msgstr "Перед загрузкой ознакомьтесь с этими критическими рисками:"
-
-#: src/chatfilter/templates/upload.html:20
-msgid "Full Account Control:"
-msgstr "Полный контроль над аккаунтом:"
-
-#: src/chatfilter/templates/upload.html:20
-msgid ""
-"Anyone with your session file can read all messages, send messages as "
-"you, join/leave groups, and perform any action you can perform in "
-"Telegram"
-msgstr ""
-"Любой, у кого есть ваш файл сессии, может читать все сообщения, отправлять "
-"сообщения от вашего имени, вступать/выходить из групп и выполнять любые "
-"действия, которые вы можете выполнять в Telegram"
-
-#: src/chatfilter/templates/upload.html:21
-msgid "No Additional Authentication:"
-msgstr "Без дополнительной аутентификации:"
-
-#: src/chatfilter/templates/upload.html:21
-msgid ""
-"Session files bypass 2FA and password protection - no further credentials"
-" are needed to use your account"
-msgstr ""
-"Файлы сессий обходят 2FA и защиту паролем - для использования вашего "
-"аккаунта не требуются дополнительные учётные данные"
-
-#: src/chatfilter/templates/upload.html:22
-msgid "Persistent Access:"
-msgstr "Постоянный доступ:"
-
-#: src/chatfilter/templates/upload.html:22
-msgid ""
-"Sessions remain valid until you explicitly log out from all devices in "
-"Telegram or change your 2FA password"
-msgstr ""
-"Сессии остаются действительными, пока вы явно не выйдете из всех устройств "
-"в Telegram или не измените пароль 2FA"
 
 #: src/chatfilter/templates/upload.html:23
-msgid "Undetectable Usage:"
-msgstr "Незаметное использование:"
-
-#: src/chatfilter/templates/upload.html:23
-msgid ""
-"Telegram does not notify you when a session is used from a different "
-"location or device"
+msgid "Failed to load accounts. Please refresh the page."
 msgstr ""
-"Telegram не уведомляет вас, когда сессия используется с другого места или "
-"устройства"
 
-#: src/chatfilter/templates/upload.html:24
-msgid "Theft Risk:"
-msgstr "Риск кражи:"
-
-#: src/chatfilter/templates/upload.html:24
-msgid ""
-"If your session file is compromised (stolen, leaked, or accessed by "
-"malware), attackers gain immediate full access to your account"
+#: src/chatfilter/templates/upload.html:26
+msgid "List of Telegram accounts"
 msgstr ""
-"Если ваш файл сессии скомпрометирован (украден, утёк или получен вредоносным "
-"ПО), злоумышленники получают немедленный полный доступ к вашему аккаунту"
 
 #: src/chatfilter/templates/upload.html:28
-msgid "Best Practices:"
-msgstr "Лучшие практики:"
-
-#: src/chatfilter/templates/upload.html:28
-msgid "Only create and upload session files on trusted devices."
-msgstr "Создавайте и загружайте файлы сессий только на доверенных устройствах."
-
-#: src/chatfilter/templates/upload.html:29
-msgid ""
-"Never share session files with anyone. Store them securely with "
-"restricted file permissions."
+msgid "Loading accounts..."
 msgstr ""
-"Никогда не делитесь файлами сессий ни с кем. Храните их безопасно с "
-"ограниченными правами доступа."
 
-#: src/chatfilter/templates/upload.html:30
-msgid ""
-"If you suspect a session may be compromised, immediately log out from all"
-" devices in Telegram settings."
+#: src/chatfilter/templates/upload.html:42
+msgid "Add Telegram Account"
 msgstr ""
-"Если вы подозреваете, что сессия может быть скомпрометирована, немедленно "
-"выйдите из всех устройств в настройках Telegram."
 
-#: src/chatfilter/templates/upload.html:35
-msgid "First Time Setup Guide"
-msgstr "Руководство по первоначальной настройке"
-
-#: src/chatfilter/templates/upload.html:36
-msgid "To use ChatFilter, you need two things:"
-msgstr "Для использования ChatFilter вам нужны две вещи:"
-
-#: src/chatfilter/templates/upload.html:36
-msgid "API credentials"
-msgstr "учётные данные API"
-
-#: src/chatfilter/templates/upload.html:36
-msgid "and a"
-msgstr "и"
-
-#: src/chatfilter/templates/upload.html:36
-msgid "session file"
-msgstr "файл сессии"
-
-#: src/chatfilter/templates/upload.html:36
-msgid "Follow the steps below to obtain them."
-msgstr "Следуйте инструкциям ниже, чтобы получить их."
-
-#: src/chatfilter/templates/upload.html:39
-msgid "Learn how to get your Telegram API credentials from my.telegram.org"
-msgstr "Узнайте, как получить учётные данные API Telegram на my.telegram.org"
-
-#: src/chatfilter/templates/upload.html:39
-msgid "Step 1: Get API Credentials (api_id and api_hash)"
-msgstr "Шаг 1: Получите учётные данные API (api_id и api_hash)"
-
-#: src/chatfilter/templates/upload.html:60
-msgid ""
-"Instructions for creating a Telegram session file using Telethon or "
-"Pyrogram"
+#: src/chatfilter/templates/upload.html:43
+msgid "Close modal"
 msgstr ""
-"Инструкции по созданию файла сессии Telegram с помощью Telethon или Pyrogram"
 
-#: src/chatfilter/templates/upload.html:60
-msgid "Step 2: Create a Session File"
-msgstr "Шаг 2: Создайте файл сессии"
+#: src/chatfilter/templates/upload.html:48
+msgid "Phone Authorization"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:122
-msgid "How to create a config.json file with your API credentials"
-msgstr "Как создать файл config.json с вашими учётными данными API"
+#: src/chatfilter/templates/upload.html:51
+msgid "Upload Session"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:122
-msgid "Step 3: Create Config File"
-msgstr "Шаг 3: Создайте файл конфигурации"
+#: src/chatfilter/templates/upload.html:58
+msgid "Authenticate with your phone number to create a new session."
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:134
-msgid "Final step: upload your session and config files to ChatFilter"
-msgstr "Финальный шаг: загрузите файлы сессии и конфигурации в ChatFilter"
+#: src/chatfilter/templates/upload.html:72
+msgid "Already have a .session file? Upload it here with your API credentials."
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:134
-msgid "Step 4: Upload Your Files"
-msgstr "Шаг 4: Загрузите ваши файлы"
-
-#: src/chatfilter/templates/upload.html:146
-msgid "Common issues and solutions for Two-Factor Authentication"
-msgstr "Частые проблемы и решения для двухфакторной аутентификации"
-
-#: src/chatfilter/templates/upload.html:146
-msgid "Troubleshooting: Two-Factor Authentication (2FA)"
-msgstr "Устранение неполадок: Двухфакторная аутентификация (2FA)"
-
-#: src/chatfilter/templates/upload.html:175
-msgid "Upload New Session"
-msgstr "Загрузить новую сессию"
-
-#: src/chatfilter/templates/upload.html:183
-msgid "Upload Telegram session form"
-msgstr "Форма загрузки сессии Telegram"
-
+#: src/chatfilter/templates/upload.html:186
 #: src/chatfilter/templates/upload.html:187
-msgid "A unique identifier for this Telegram session"
-msgstr "Уникальный идентификатор для этой сессии Telegram"
-
-#: src/chatfilter/templates/upload.html:188
-msgid "Session Name"
-msgstr "Название сессии"
-
-#: src/chatfilter/templates/upload.html:193
-msgid "e.g., my_account"
-msgstr "например, my_account"
-
-#: src/chatfilter/templates/upload.html:197
-msgid "Choose a unique name using only letters, numbers, underscores, and hyphens"
-msgstr "Выберите уникальное имя, используя только буквы, цифры, подчёркивания и дефисы"
-
-#: src/chatfilter/templates/upload.html:199
-msgid ""
-"A unique name to identify this session. Only letters, numbers, "
-"underscores, and hyphens allowed."
+msgid "Deletion is already in progress in another tab"
 msgstr ""
-"Уникальное имя для идентификации этой сессии. Допускаются только буквы, "
-"цифры, подчёркивания и дефисы."
 
-#: src/chatfilter/templates/upload.html:204
-msgid "Upload the .session file created with Telethon or Pyrogram"
-msgstr "Загрузите файл .session, созданный с помощью Telethon или Pyrogram"
-
-#: src/chatfilter/templates/upload.html:205
-msgid "Session File (.session)"
-msgstr "Файл сессии (.session)"
-
-#: src/chatfilter/templates/upload.html:213
-msgid "Select the .session file created using Telethon or Pyrogram"
-msgstr "Выберите файл .session, созданный с помощью Telethon или Pyrogram"
-
-#: src/chatfilter/templates/upload.html:215
-msgid "Telethon session file (SQLite database)"
-msgstr "Файл сессии Telethon (база данных SQLite)"
-
-#: src/chatfilter/templates/upload.html:220
-msgid "Upload JSON file containing your Telegram API credentials"
-msgstr "Загрузите JSON файл с вашими учётными данными API Telegram"
-
-#: src/chatfilter/templates/upload.html:221
-msgid "Config File (.json)"
-msgstr "Файл конфигурации (.json)"
-
-#: src/chatfilter/templates/upload.html:229
-msgid "Select the config.json file with your api_id and api_hash"
-msgstr "Выберите файл config.json с вашими api_id и api_hash"
-
-#: src/chatfilter/templates/upload.html:231
-msgid "JSON with api_id and api_hash from my.telegram.org"
-msgstr "JSON с api_id и api_hash с my.telegram.org"
-
-#: src/chatfilter/templates/upload.html:242
-msgid ""
-"I understand that session files provide complete access to my Telegram "
-"account and accept the security risks described above. I confirm this "
-"session was created on a trusted device and will be stored securely."
+#: src/chatfilter/templates/upload.html:186
+msgid "s ago"
 msgstr ""
-"Я понимаю, что файлы сессий предоставляют полный доступ к моему аккаунту "
-"Telegram, и принимаю описанные выше риски безопасности. Я подтверждаю, что "
-"эта сессия была создана на доверенном устройстве и будет храниться безопасно."
+
+#: src/chatfilter/templates/upload.html:190
+msgid "Operation in Progress"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:200
+msgid "Delete Telegram Account"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:201
+msgid "Are you sure you want to delete the account"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:201
+msgid ""
+"This action cannot be undone. All session data and credentials will be "
+"permanently removed."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:202
+msgid "Delete Account"
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:233
+msgid "Account has been deleted."
+msgstr ""
+
+#: src/chatfilter/templates/upload.html:234
+msgid "Account Deleted"
+msgstr ""
 
 #: src/chatfilter/templates/upload.html:249
-msgid "Upload session files"
-msgstr "Загрузить файлы сессии"
+msgid "Failed to delete account:"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:250
-msgid "Upload your session and config files to start using ChatFilter"
-msgstr "Загрузите файлы сессии и конфигурации, чтобы начать использовать ChatFilter"
-
-#: src/chatfilter/templates/upload.html:262
-msgid "Registered Sessions"
-msgstr "Зарегистрированные сессии"
-
-#: src/chatfilter/templates/upload.html:269
-msgid "List of registered Telegram sessions"
-msgstr "Список зарегистрированных сессий Telegram"
-
-#: src/chatfilter/templates/upload.html:271
-msgid "Loading sessions..."
-msgstr "Загрузка сессий..."
+#: src/chatfilter/templates/partials/chat_list.html:19
+#: src/chatfilter/templates/partials/session_connection_button.html:45
+#: src/chatfilter/templates/partials/session_row.html:85
+#: src/chatfilter/templates/partials/sessions_list.html:95
+#: src/chatfilter/templates/upload.html:253
+msgid "Retry"
+msgstr ""
 
 #: src/chatfilter/templates/partials/analysis_progress.html:6
 #: src/chatfilter/templates/partials/chat_list.html:6
 msgid "What to do:"
-msgstr "Что делать:"
+msgstr ""
 
 #: src/chatfilter/templates/partials/analysis_progress.html:13
 #: src/chatfilter/templates/partials/chat_list.html:24
 msgid "Go to Sessions Page"
-msgstr "Перейти на страницу сессий"
+msgstr ""
 
 #: src/chatfilter/templates/partials/analysis_progress.html:27
 msgid "Analysis for these chats is already in progress. Showing current status..."
-msgstr "Анализ этих чатов уже выполняется. Показываю текущий статус..."
+msgstr ""
 
 #: src/chatfilter/templates/partials/analysis_progress.html:31
 #, python-format
 msgid "Analyzing %(num)s chat..."
 msgid_plural "Analyzing %(num)s chats..."
-msgstr[0] "Анализ %(num)s чата..."
-msgstr[1] "Анализ %(num)s чатов..."
-msgstr[2] "Анализ %(num)s чатов..."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 #: src/chatfilter/templates/partials/analysis_progress.html:33
 msgid "Starting..."
-msgstr "Запуск..."
+msgstr ""
 
 #: src/chatfilter/templates/partials/analysis_progress.html:34
 msgid "Cancel analysis"
-msgstr "Отменить анализ"
-
-#: src/chatfilter/templates/partials/analysis_progress.html:34
-msgid "Cancel"
-msgstr "Отмена"
+msgstr ""
 
 #: src/chatfilter/templates/partials/analysis_progress.html:43
 msgid "chats"
-msgstr "чатов"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:4
+msgid "Two-Factor Authentication Required"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:5
+msgid "Your account has 2FA enabled. Please enter your password to continue."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:9
+#: src/chatfilter/templates/partials/auth_code_form.html:10
+msgid "Session:"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:26
+msgid "Enter your Telegram 2FA password"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:27
+msgid "2FA Password"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:32
+msgid "Your 2FA password"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:37
+msgid ""
+"Enter the password you set in Telegram Settings > Privacy and Security > "
+"Two-Step Verification"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:42
+msgid "Complete Authentication"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_2fa_form.html:49
+msgid "Note: Your password is sent securely and is never stored."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:4
+msgid "Verification code sent!"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:5
+msgid "Please enter the code you received via Telegram."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:9
+msgid "Code sent to:"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:27
+msgid "Enter the verification code sent to your phone"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:28
+msgid "Verification Code"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:33
+msgid "e.g., 12345"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:42
+msgid "Enter the 5-digit code from Telegram"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:47
+msgid "Verify Code"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_code_form.html:54
+msgid ""
+"Note: The code expires in a few minutes. If you didn't receive it, start "
+"the process again."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:10
+msgid "Account Information"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:12
+msgid "Name:"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:14
+msgid "Phone:"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:16
+msgid "User ID:"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:23
+msgid "Warning: Duplicate Account Detected"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:25
+msgid "This account is already registered in these sessions:"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:29
+msgid ""
+"Using multiple sessions for the same account may cause conflicts. "
+"Consider removing duplicate sessions."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:36
+msgid "Create Another Session"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:39
+msgid "Go to Sessions"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:53
+msgid "Authentication Failed"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_result.html:59
+msgid "Try Again"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:11
+#: src/chatfilter/templates/partials/session_import.html:56
+msgid "A unique identifier for this Telegram session"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:12
+#: src/chatfilter/templates/partials/session_import.html:57
+msgid "Session Name"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:17
+#: src/chatfilter/templates/partials/session_import.html:62
+msgid "e.g., my_account"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:21
+#: src/chatfilter/templates/partials/session_import.html:66
+msgid ""
+"A unique name to identify this session. Only letters, numbers, "
+"underscores, and hyphens allowed."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:26
+msgid "Your Telegram phone number with country code"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:27
+msgid "Phone Number"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:32
+msgid "+1234567890"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:35
+msgid "Your Telegram phone number with country code (e.g., +1234567890)"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:41
+#: src/chatfilter/templates/partials/session_config.html:12
+#: src/chatfilter/templates/partials/session_import.html:73
+msgid "Your Telegram API ID from my.telegram.org"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:42
+#: src/chatfilter/templates/partials/session_config.html:13
+#: src/chatfilter/templates/partials/session_import.html:74
+msgid "API ID"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:47
+#: src/chatfilter/templates/partials/session_config.html:20
+#: src/chatfilter/templates/partials/session_import.html:79
+msgid "e.g., 12345678"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:51
+#: src/chatfilter/templates/partials/session_config.html:24
+#: src/chatfilter/templates/partials/session_import.html:83
+msgid "Numeric ID from my.telegram.org/apps"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:56
+#: src/chatfilter/templates/partials/session_config.html:29
+#: src/chatfilter/templates/partials/session_import.html:88
+msgid "Your Telegram API Hash from my.telegram.org"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:57
+#: src/chatfilter/templates/partials/session_config.html:30
+#: src/chatfilter/templates/partials/session_import.html:89
+msgid "API Hash"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:62
+#: src/chatfilter/templates/partials/session_config.html:37
+#: src/chatfilter/templates/partials/session_import.html:94
+msgid "e.g., 0123456789abcdef..."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:68
+#: src/chatfilter/templates/partials/session_config.html:43
+#: src/chatfilter/templates/partials/session_import.html:100
+msgid "32-character hex string from my.telegram.org/apps"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:74
+#: src/chatfilter/templates/partials/session_config.html:49
+#: src/chatfilter/templates/partials/session_import.html:106
+msgid "Select a proxy for this session"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:75
+#: src/chatfilter/templates/partials/session_config.html:50
+#: src/chatfilter/templates/partials/session_import.html:107
+msgid "Proxy"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:81
+#: src/chatfilter/templates/partials/session_config.html:57
+#: src/chatfilter/templates/partials/session_import.html:113
+msgid "-- Select a proxy --"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:89
+#: src/chatfilter/templates/partials/session_config.html:65
+#: src/chatfilter/templates/partials/session_import.html:121
+msgid "unavailable"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:95
+#: src/chatfilter/templates/partials/session_config.html:71
+#: src/chatfilter/templates/partials/session_import.html:127
+msgid "A proxy is required for Telegram connection."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:97
+#: src/chatfilter/templates/partials/session_config.html:73
+#: src/chatfilter/templates/partials/session_import.html:129
+msgid "Add a proxy first"
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:110
+msgid ""
+"I understand that session files provide complete access to my Telegram "
+"account and accept the security risks."
+msgstr ""
+
+#: src/chatfilter/templates/partials/auth_start_form.html:116
+msgid "Send Verification Code"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:17
 msgid "Try loading chats again"
-msgstr "Попробовать загрузить чаты снова"
-
-#: src/chatfilter/templates/partials/chat_list.html:19
-msgid "Retry"
-msgstr "Повторить"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:37
 msgid "Search chats by name or username"
-msgstr "Поиск чатов по названию или имени пользователя"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:42
 msgid "Filter chats by type (private, group, channel, etc.)"
-msgstr "Фильтр чатов по типу (личный, группа, канал и т.д.)"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:58
 msgid "Select all visible chats"
-msgstr "Выбрать все видимые чаты"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:59
 msgid "Select All"
-msgstr "Выбрать все"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:63
 msgid "Deselect all chats"
-msgstr "Снять выбор со всех чатов"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:64
 msgid "Select None"
-msgstr "Снять выбор"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:69
 msgid "Remove all active filters"
-msgstr "Удалить все активные фильтры"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:73
 #, python-format
 msgid "0 of %(total)s chats"
-msgstr "0 из %(total)s чатов"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:119
 #, python-format
 msgid "%(count)s members"
-msgstr "%(count)s участников"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:136
 #: src/chatfilter/templates/partials/chat_list.html:200
 msgid "Load more chats from this session"
-msgstr "Загрузить ещё чаты из этой сессии"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:138
 #: src/chatfilter/templates/partials/chat_list.html:202
 #, python-format
 msgid "Load More Chats (%(remaining)s remaining)"
-msgstr "Загрузить ещё чаты (осталось %(remaining)s)"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:146
 msgid "Configure how many messages to analyze from each chat"
-msgstr "Настройка количества сообщений для анализа из каждого чата"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:147
 msgid "Analysis Settings"
-msgstr "Настройки анализа"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:150
 msgid "Set the number of recent messages to fetch and analyze"
-msgstr "Укажите количество последних сообщений для загрузки и анализа"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:151
 msgid "Messages per chat"
-msgstr "Сообщений на чат"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:160
 msgid "Higher values take longer but provide more comprehensive analysis"
-msgstr "Большие значения занимают больше времени, но дают более полный анализ"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:162
 msgid "Number of recent messages to analyze (10-10000)"
-msgstr "Количество последних сообщений для анализа (10-10000)"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:169
 msgid "Begin analyzing the selected chats"
-msgstr "Начать анализ выбранных чатов"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:211
 msgid "No Chats Found"
-msgstr "Чаты не найдены"
+msgstr ""
 
 #: src/chatfilter/templates/partials/chat_list.html:212
 msgid ""
@@ -1203,517 +1864,2042 @@ msgid ""
 "selecting a different session or verify that your session has active "
 "chats."
 msgstr ""
-"В этой сессии Telegram нет доступных чатов для анализа. Попробуйте выбрать "
-"другую сессию или убедитесь, что в вашей сессии есть активные чаты."
 
-#: src/chatfilter/templates/partials/sessions_list.html:13
-msgid "Delete session"
-msgstr "Удалить сессию"
-
-#: src/chatfilter/templates/partials/sessions_list.html:14
-msgid "Delete"
-msgstr "Удалить"
-
-#: src/chatfilter/templates/partials/sessions_list.html:23
-msgid "No Telegram Sessions"
-msgstr "Нет сессий Telegram"
-
-#: src/chatfilter/templates/partials/sessions_list.html:24
-msgid ""
-"You haven't uploaded any Telegram session files yet. Upload a session "
-"file to start analyzing your chats."
+#: src/chatfilter/templates/partials/import_validation_result.html:4
+msgid "Session file is valid!"
 msgstr ""
-"Вы ещё не загрузили файлы сессий Telegram. Загрузите файл сессии, чтобы "
-"начать анализ ваших чатов."
 
-#: src/chatfilter/templates/upload.html:7
-msgid "Telegram Accounts"
-msgstr "Аккаунты Telegram"
+#: src/chatfilter/templates/partials/import_validation_result.html:5
+msgid "Proceed to configure the session settings."
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:8
-msgid "Manage your Telegram sessions for chat analysis"
-msgstr "Управление сессиями Telegram для анализа чатов"
+#: src/chatfilter/templates/partials/import_validation_result.html:9
+msgid "Validation failed:"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:13
-msgid "Accounts"
-msgstr "Аккаунты"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:3
+msgid "Proxy servers list"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html:15
-msgid "Add Account"
-msgstr "Добавить аккаунт"
-
-#: src/chatfilter/templates/upload.html:14
-msgid "Add new account"
-msgstr "Добавить новый аккаунт"
-
-#: src/chatfilter/templates/upload.html:43
-msgid "Close modal"
-msgstr "Закрыть"
-
-#: src/chatfilter/templates/upload.html:48
-msgid "Phone Authorization"
-msgstr "Авторизация по телефону"
-
-#: src/chatfilter/templates/upload.html:58
-msgid "Authenticate with your phone number to create a new session."
-msgstr "Авторизуйтесь с номером телефона для создания новой сессии."
-
-#: src/chatfilter/templates/upload.html:72
-msgid "Already have a .session file? Upload it here with your API credentials."
-msgstr "Уже есть файл .session? Загрузите его здесь с учётными данными API."
-
-#: src/chatfilter/templates/upload.html:42
-msgid "Add Telegram Account"
-msgstr "Добавить аккаунт Telegram"
-
-#: src/chatfilter/templates/upload.html:28
-msgid "Loading accounts..."
-msgstr "Загрузка аккаунтов..."
-
-#: src/chatfilter/templates/upload.html:26
-msgid "List of Telegram accounts"
-msgstr "Список аккаунтов Telegram"
-
-#: src/chatfilter/templates/upload.html:23
-msgid "Failed to load accounts. Please refresh the page."
-msgstr "Не удалось загрузить аккаунты. Обновите страницу."
-
-#: src/chatfilter/templates/base.html:38
-msgid "Proxies"
-msgstr "Прокси"
-
-#: src/chatfilter/templates/base.html:38
-msgid "Manage proxy servers for Telegram sessions"
-msgstr "Управление прокси-серверами для сессий Telegram"
-
-#: src/chatfilter/templates/partials/sessions_list.html:6
-msgid "Account"
-msgstr "Аккаунт"
-
+#: src/chatfilter/templates/partials/proxy_pool_list.html:6
+#: src/chatfilter/templates/partials/proxy_pool_list.html:18
 #: src/chatfilter/templates/partials/sessions_list.html:7
 msgid "Status"
-msgstr "Статус"
+msgstr ""
 
+#: src/chatfilter/templates/partials/proxy_pool_list.html:9
+#: src/chatfilter/templates/partials/proxy_pool_list.html:42
+msgid "Address"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:10
+#: src/chatfilter/templates/partials/proxy_pool_list.html:45
+msgid "Auth"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:12
+#: src/chatfilter/templates/partials/proxy_pool_list.html:63
 #: src/chatfilter/templates/partials/sessions_list.html:8
 msgid "Actions"
-msgstr "Действия"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Ready"
-msgstr "Готов"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:20
+msgid "Working - last checked"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Connected"
-msgstr "Подключено"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:20
+msgid "Never"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Connecting"
-msgstr "Подключение..."
+#: src/chatfilter/templates/partials/proxy_pool_list.html:22
+msgid "Working"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Disconnecting"
-msgstr "Отключение..."
+#: src/chatfilter/templates/partials/proxy_pool_list.html:25
+msgid "consecutive failures"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Banned"
-msgstr "Заблокирован"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:27
+msgid "No ping"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Flood Wait"
-msgstr "Ожидание"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:30
+msgid "Not yet tested"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Proxy Error"
-msgstr "Ошибка прокси"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:32
+msgid "Untested"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Not configured"
-msgstr "Не настроено"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:47
+msgid "Authentication required"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Proxy missing"
-msgstr "Прокси отсутствует"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:52
+msgid "No authentication"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Error"
-msgstr "Ошибка"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:54
+msgid "None"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Disconnect"
-msgstr "Отключить"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:72
+msgid "Test proxy connection"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Connect"
-msgstr "Подключить"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:73
+msgid "Retest proxy"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Wait..."
-msgstr "Подождите..."
+#: src/chatfilter/templates/partials/proxy_pool_list.html:74
+msgid "Test"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Retry"
-msgstr "Повторить"
+#: src/chatfilter/templates/partials/proxy_pool_list.html:84
+msgid "Edit this proxy"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/proxy_pool_list.html:85
+msgid "Edit proxy"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:86
+#: src/chatfilter/templates/partials/session_row.html:112
+#: src/chatfilter/templates/partials/sessions_list.html:122
 msgid "Edit"
-msgstr "Редактировать"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/proxy_pool_list.html:92
+msgid "Delete this proxy"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:93
+msgid "Delete proxy"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:106
+msgid "No Proxies Configured"
+msgstr ""
+
+#: src/chatfilter/templates/partials/proxy_pool_list.html:107
+msgid "Add a proxy server to route Telegram connections through it."
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_config.html:79
+msgid ""
+"The selected proxy is currently unavailable. Consider selecting a working"
+" proxy."
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_connection_button.html:10
+#: src/chatfilter/templates/partials/session_row.html:55
+#: src/chatfilter/templates/partials/sessions_list.html:65
 msgid "Disconnect session"
-msgstr "Отключить сессию"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_connection_button.html:11
+#: src/chatfilter/templates/partials/session_row.html:56
+#: src/chatfilter/templates/partials/sessions_list.html:66
+msgid "Disconnect"
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_connection_button.html:20
+#: src/chatfilter/templates/partials/session_row.html:65
+#: src/chatfilter/templates/partials/sessions_list.html:75
 msgid "Connect session"
-msgstr "Подключить сессию"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Please wait"
-msgstr "Подождите"
+#: src/chatfilter/templates/partials/session_connection_button.html:21
+#: src/chatfilter/templates/partials/session_connection_button.html:59
+#: src/chatfilter/templates/partials/session_connection_button.html:65
+#: src/chatfilter/templates/partials/session_row.html:66
+#: src/chatfilter/templates/partials/session_row.html:100
+#: src/chatfilter/templates/partials/sessions_list.html:76
+#: src/chatfilter/templates/partials/sessions_list.html:110
+msgid "Connect"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_connection_button.html:26
+#: src/chatfilter/templates/partials/session_connection_button.html:27
+msgid "Connecting..."
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_connection_button.html:32
+#: src/chatfilter/templates/partials/session_connection_button.html:33
+msgid "Disconnecting..."
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_connection_button.html:43
+#: src/chatfilter/templates/partials/session_row.html:83
+#: src/chatfilter/templates/partials/sessions_list.html:93
 msgid "Retry connection"
-msgstr "Повторить подключение"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_connection_button.html:44
+#: src/chatfilter/templates/partials/session_row.html:84
+#: src/chatfilter/templates/partials/sessions_list.html:94
 msgid "Connection error"
-msgstr "Ошибка подключения"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_connection_button.html:51
+#: src/chatfilter/templates/partials/session_row.html:91
+#: src/chatfilter/templates/partials/sessions_list.html:101
 msgid "Account banned"
-msgstr "Аккаунт заблокирован"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_connection_button.html:52
+#: src/chatfilter/templates/partials/session_row.html:92
+#: src/chatfilter/templates/partials/sessions_list.html:102
 msgid "This account has been banned by Telegram"
-msgstr "Этот аккаунт заблокирован Telegram"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_connection_button.html:53
+#: src/chatfilter/templates/partials/session_row.html:23
+#: src/chatfilter/templates/partials/session_row.html:93
+#: src/chatfilter/templates/partials/sessions_list.html:33
+#: src/chatfilter/templates/partials/sessions_list.html:103
+msgid "Banned"
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_connection_button.html:57
+#: src/chatfilter/templates/partials/session_row.html:32
+#: src/chatfilter/templates/partials/session_row.html:98
+#: src/chatfilter/templates/partials/sessions_list.html:42
+#: src/chatfilter/templates/partials/sessions_list.html:108
+msgid "Not configured"
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_connection_button.html:58
+#: src/chatfilter/templates/partials/session_row.html:99
+#: src/chatfilter/templates/partials/sessions_list.html:109
 msgid "Configure session first"
-msgstr "Сначала настройте сессию"
+msgstr ""
 
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Configure account"
-msgstr "Настроить аккаунт"
-
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "Delete account"
-msgstr "Удалить аккаунт"
-
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "No Telegram Accounts"
-msgstr "Нет аккаунтов Telegram"
-
-#: src/chatfilter/templates/partials/sessions_list.html
-msgid "You haven't added any Telegram accounts yet. Click \"Add Account\" above to get started."
-msgstr "Вы ещё не добавили аккаунты. Нажмите \"Добавить аккаунт\" выше, чтобы начать."
-
-#: src/chatfilter/templates/proxies.html:3
-msgid "Proxy Pool"
-msgstr "Пул прокси"
-
-#: src/chatfilter/templates/proxies.html:13
-msgid "Proxy List"
-msgstr "Список прокси"
-
-#: src/chatfilter/templates/proxies.html:17
-msgid "Add new proxy"
-msgstr "Добавить прокси"
-
-#: src/chatfilter/templates/proxies.html:18
-msgid "Add Proxy"
-msgstr "Добавить прокси"
-
-#: src/chatfilter/templates/proxies.html:26
-msgid "Failed to load proxies. Please refresh the page."
-msgstr "Не удалось загрузить прокси. Обновите страницу."
-
-#: src/chatfilter/templates/proxies.html:29
-msgid "List of configured proxies"
-msgstr "Список настроенных прокси"
-
-#: src/chatfilter/templates/proxies.html:32
-msgid "Loading proxies..."
-msgstr "Загрузка прокси..."
-
-#: src/chatfilter/templates/proxies.html:49
-msgid "Name"
-msgstr "Название"
-
-#: src/chatfilter/templates/proxies.html:56
-msgid "My Proxy"
-msgstr "Мой прокси"
-
-#: src/chatfilter/templates/proxies.html:58
-msgid "Proxy name for identification"
-msgstr "Название прокси для идентификации"
-
-#: src/chatfilter/templates/proxies.html:63
-msgid "Type"
-msgstr "Тип"
-
-#: src/chatfilter/templates/proxies.html:64
-msgid "Select proxy type"
-msgstr "Выберите тип прокси"
-
-#: src/chatfilter/templates/proxies.html:126
-msgid "Cancel"
-msgstr "Отмена"
-
-#: src/chatfilter/templates/proxies.html:129
-msgid "Save"
-msgstr "Сохранить"
-
-#: src/chatfilter/templates/proxies.html:193
-msgid "Edit Proxy"
-msgstr "Редактировать прокси"
-
-#: src/chatfilter/templates/proxies.html:194
-msgid "Save Changes"
-msgstr "Сохранить изменения"
-
-#: src/chatfilter/templates/proxies.html:252
-msgid "This field is required"
-msgstr "Это поле обязательно"
-
-#: src/chatfilter/templates/proxies.html:254
-msgid "Minimum length is"
-msgstr "Минимальная длина"
-
-#: src/chatfilter/templates/proxies.html:254
-msgid "characters"
-msgstr "символов"
-
-#: src/chatfilter/templates/proxies.html:256
-msgid "Maximum length is"
-msgstr "Максимальная длина"
-
-#: src/chatfilter/templates/proxies.html:258
-msgid "Minimum value is"
-msgstr "Минимальное значение"
-
-#: src/chatfilter/templates/proxies.html:260
-msgid "Maximum value is"
-msgstr "Максимальное значение"
-
-#: src/chatfilter/templates/proxies.html:262
-msgid "Host cannot contain spaces"
-msgstr "Хост не может содержать пробелы"
-
-#: src/chatfilter/templates/proxies.html:308
-msgid "Please fix the errors in the form"
-msgstr "Исправьте ошибки в форме"
-
-#: src/chatfilter/templates/proxies.html:309
-msgid "Validation Error"
-msgstr "Ошибка валидации"
-
-#: src/chatfilter/templates/proxies.html:344
-msgid "Operation failed"
-msgstr "Операция не удалась"
-
-#: src/chatfilter/templates/proxies.html:351
-msgid "Proxy updated successfully"
-msgstr "Прокси успешно обновлён"
-
-#: src/chatfilter/templates/proxies.html:352
-msgid "Proxy added successfully"
-msgstr "Прокси успешно добавлен"
-
-#: src/chatfilter/templates/proxies.html:354
-msgid "Proxy Updated"
-msgstr "Прокси обновлён"
-
-#: src/chatfilter/templates/proxies.html:354
-msgid "Proxy Added"
-msgstr "Прокси добавлен"
-
-#: src/chatfilter/templates/proxies.html:362
-msgid "Save Failed"
-msgstr "Ошибка сохранения"
-
-#: src/chatfilter/templates/proxies.html:405
-msgid "Delete Proxy"
-msgstr "Удалить прокси"
-
-#: src/chatfilter/templates/proxies.html:406
-msgid "This proxy is used by"
-msgstr "Этот прокси используется"
-
-#: src/chatfilter/templates/proxies.html:406
-msgid "session(s). They will be blocked. Continue?"
-msgstr "сессией(ями). Они будут заблокированы. Продолжить?"
-
-#: src/chatfilter/templates/proxies.html:433
-msgid "Proxy deleted successfully"
-msgstr "Прокси успешно удалён"
-
-#: src/chatfilter/templates/proxies.html:434
-msgid "Proxy Deleted"
-msgstr "Прокси удалён"
-
-#: src/chatfilter/templates/proxies.html:440
-msgid "Deletion Failed"
-msgstr "Ошибка удаления"
+#: src/chatfilter/templates/partials/session_connection_button.html:64
+msgid "Unknown state"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:9
 msgid "Drop session file here or click to browse"
-msgstr "Перетащите файл сессии сюда или нажмите для выбора"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:17
 msgid "Drop your .session file here"
-msgstr "Перетащите ваш файл .session сюда"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:18
 msgid "or click to browse"
-msgstr "или нажмите для выбора"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:20
 msgid "or"
-msgstr "или"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:23
 msgid "Choose File"
-msgstr "Выбрать файл"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:29
 msgid "Clear selected file"
-msgstr "Очистить выбранный файл"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:41
 msgid "Session file validated successfully!"
-msgstr "Файл сессии успешно проверен!"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:42
 msgid "Now configure the session settings below."
-msgstr "Теперь настройте параметры сессии ниже."
-
-#: src/chatfilter/templates/partials/session_import.html:74
-msgid "API ID"
-msgstr "API ID"
-
-#: src/chatfilter/templates/partials/session_import.html:73
-msgid "Your Telegram API ID from my.telegram.org"
-msgstr "Ваш API ID Telegram с my.telegram.org"
-
-#: src/chatfilter/templates/partials/session_import.html:79
-msgid "e.g., 12345678"
-msgstr "напр., 12345678"
-
-#: src/chatfilter/templates/partials/session_import.html:83
-msgid "Numeric ID from my.telegram.org/apps"
-msgstr "Числовой ID с my.telegram.org/apps"
-
-#: src/chatfilter/templates/partials/session_import.html:89
-msgid "API Hash"
-msgstr "API Hash"
-
-#: src/chatfilter/templates/partials/session_import.html:88
-msgid "Your Telegram API Hash from my.telegram.org"
-msgstr "Ваш API Hash Telegram с my.telegram.org"
-
-#: src/chatfilter/templates/partials/session_import.html:94
-msgid "e.g., 0123456789abcdef..."
-msgstr "напр., 0123456789abcdef..."
-
-#: src/chatfilter/templates/partials/session_import.html:100
-msgid "32-character hex string from my.telegram.org/apps"
-msgstr "32-символьная hex строка с my.telegram.org/apps"
-
-#: src/chatfilter/templates/partials/session_import.html:106
-msgid "Select a proxy for this session"
-msgstr "Выберите прокси для этой сессии"
-
-#: src/chatfilter/templates/partials/session_import.html:113
-msgid "-- Select a proxy --"
-msgstr "-- Выберите прокси --"
-
-#: src/chatfilter/templates/partials/session_import.html:121
-msgid "unavailable"
-msgstr "недоступен"
-
-#: src/chatfilter/templates/partials/session_import.html:127
-msgid "A proxy is required for Telegram connection."
-msgstr "Прокси требуется для подключения к Telegram."
-
-#: src/chatfilter/templates/partials/session_import.html:129
-msgid "Add a proxy first"
-msgstr "Сначала добавьте прокси"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:142
-msgid "I understand that session files provide complete access to my Telegram account and accept the security risks. I confirm this session was created on a trusted device and will be stored securely."
-msgstr "Я понимаю, что файлы сессий предоставляют полный доступ к моему аккаунту Telegram и принимаю риски безопасности. Я подтверждаю, что эта сессия создана на доверенном устройстве и будет храниться безопасно."
+msgid ""
+"I understand that session files provide complete access to my Telegram "
+"account and accept the security risks. I confirm this session was created"
+" on a trusted device and will be stored securely."
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_import.html:149
+msgid "Back"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:152
 msgid "Save Session"
-msgstr "Сохранить сессию"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:209
 msgid "Invalid file type. Please select a .session file."
-msgstr "Неверный тип файла. Выберите файл .session."
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:215
 msgid "File is too large. Maximum size is 10 MB."
-msgstr "Файл слишком большой. Максимальный размер 10 МБ."
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:240
 msgid "Validating session file..."
-msgstr "Проверка файла сессии..."
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_import.html:281
 msgid "Failed to validate session file. Please try again."
-msgstr "Не удалось проверить файл сессии. Попробуйте снова."
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Deletion is already in progress in another tab"
-msgstr "Удаление уже выполняется в другой вкладке"
+#: src/chatfilter/templates/partials/session_row.html:11
+#: src/chatfilter/templates/partials/sessions_list.html:21
+msgid "Ready"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "s ago"
-msgstr " сек. назад"
+#: src/chatfilter/templates/partials/session_row.html:14
+#: src/chatfilter/templates/partials/sessions_list.html:24
+msgid "Connected"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Operation in Progress"
-msgstr "Операция выполняется"
+#: src/chatfilter/templates/partials/session_row.html:17
+#: src/chatfilter/templates/partials/sessions_list.html:27
+msgid "Connecting"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Delete Telegram Account"
-msgstr "Удалить аккаунт Telegram"
+#: src/chatfilter/templates/partials/session_row.html:20
+#: src/chatfilter/templates/partials/sessions_list.html:30
+msgid "Disconnecting"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Are you sure you want to delete the account"
-msgstr "Вы уверены, что хотите удалить аккаунт"
+#: src/chatfilter/templates/partials/session_row.html:26
+#: src/chatfilter/templates/partials/sessions_list.html:36
+msgid "Flood Wait"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "This action cannot be undone. All session data and credentials will be permanently removed."
-msgstr "Это действие нельзя отменить. Все данные сессии и учётные данные будут удалены безвозвратно."
+#: src/chatfilter/templates/partials/session_row.html:29
+#: src/chatfilter/templates/partials/sessions_list.html:39
+msgid "Proxy Error"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Delete Account"
-msgstr "Удалить аккаунт"
+#: src/chatfilter/templates/partials/session_row.html:35
+#: src/chatfilter/templates/partials/sessions_list.html:45
+msgid "Proxy missing"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Account has been deleted."
-msgstr "Аккаунт удалён."
+#: src/chatfilter/templates/partials/session_row.html:72
+#: src/chatfilter/templates/partials/sessions_list.html:82
+msgid "Please wait"
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Account Deleted"
-msgstr "Аккаунт удалён"
+#: src/chatfilter/templates/partials/session_row.html:73
+#: src/chatfilter/templates/partials/sessions_list.html:83
+msgid "Wait..."
+msgstr ""
 
-#: src/chatfilter/templates/upload.html (JS)
-msgid "Failed to delete account:"
-msgstr "Не удалось удалить аккаунт:"
+#: src/chatfilter/templates/partials/session_row.html:109
+#: src/chatfilter/templates/partials/sessions_list.html:119
+msgid "Configure account"
+msgstr ""
 
-#: src/chatfilter/telegram/client.py
-msgid "Session '{session_id}' has no proxy configured. Please configure a proxy for this session before connecting."
-msgstr "Сессия '{session_id}' не имеет настроенного прокси. Настройте прокси для этой сессии перед подключением."
+#: src/chatfilter/templates/partials/session_row.html:117
+#: src/chatfilter/templates/partials/sessions_list.html:127
+msgid "Delete account"
+msgstr ""
 
-#: src/chatfilter/telegram/client.py
-msgid "Session '{session_id}' has no api_id configured. Please configure api_id before connecting."
-msgstr "Сессия '{session_id}' не имеет настроенного api_id. Настройте api_id перед подключением."
+#: src/chatfilter/templates/partials/sessions_list.html:6
+msgid "Account"
+msgstr ""
 
-#: src/chatfilter/telegram/client.py
-msgid "Session '{session_id}' has no api_hash configured. Please configure api_hash before connecting."
-msgstr "Сессия '{session_id}' не имеет настроенного api_hash. Настройте api_hash перед подключением."
+#: src/chatfilter/templates/partials/sessions_list.html:185
+msgid "No Telegram Accounts"
+msgstr ""
 
-#: src/chatfilter/telegram/client.py
-msgid "Session '{session_id}' requires proxy '{proxy_id}' which is not found in proxy pool. Please add the proxy to the pool or update the session configuration."
-msgstr "Сессия '{session_id}' требует прокси '{proxy_id}', который не найден в пуле прокси. Добавьте прокси в пул или обновите настройки сессии."
+#: src/chatfilter/templates/partials/sessions_list.html:186
+msgid ""
+"You haven't added any Telegram accounts yet. Click \"Add Account\" above "
+"to get started."
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:184
+#: src/chatfilter/web/routers/chats.py:398
+msgid "No session selected"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:185
+msgid "Select a Telegram session from the dropdown above"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:195
+msgid "No chats selected for analysis"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:196
+msgid "Select at least one chat from the list above by checking the boxes"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:207
+msgid "Message limit must be between 10 and 10000"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:208
+msgid "Adjust the 'Messages per chat' setting to a value between 10 and 10000"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:222
+msgid "Upload a valid session file from the Sessions page"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:254
+msgid "All selected chats are no longer accessible"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:255
+msgid ""
+"The selected chats (IDs: {invalid_list}) may have been deleted or removed"
+" from Telegram. Please refresh the chat list and select valid chats."
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:308
+msgid "Analysis queue is at capacity ({limit} concurrent tasks)."
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:309
+msgid ""
+"Wait for currently running analyses to complete, or cancel an existing "
+"analysis"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:385
+#: src/chatfilter/web/routers/analysis.py:435
+msgid "Analysis cancelled"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:392
+#: src/chatfilter/web/routers/analysis.py:442
+msgid "Task timed out"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:398
+#: src/chatfilter/web/routers/analysis.py:448
+msgid "Unknown error"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:551
+msgid "Invalid task ID format"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:561
+msgid "Task not found"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:568
+msgid "Analysis still in progress"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:575
+msgid "Analysis not started"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:582
+msgid "Analysis failed"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:594
+msgid "Analysis timed out"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:683
+msgid "Analysis cancelled successfully"
+msgstr ""
+
+#: src/chatfilter/web/routers/analysis.py:736
+msgid "Task force-cancelled successfully"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:165
+msgid "File too large (max {size} MB)"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:177
+msgid "File is empty"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:193
+msgid "Parse error: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:203
+msgid "No valid chat entries found in file"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:241
+msgid "An unexpected error occurred while processing the file. Please try again."
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:268
+msgid "Please enter a Google Sheets URL"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:278
+msgid "Invalid Google Sheets URL"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:301
+msgid "No valid chat entries found in spreadsheet"
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:337
+msgid ""
+"An unexpected error occurred while fetching the Google Sheet. Please try "
+"again."
+msgstr ""
+
+#: src/chatfilter/web/routers/chatlist.py:361
+msgid "List not found or expired"
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:171
+msgid ""
+"Session is invalid and has been removed. The session may have been "
+"revoked, logged out from another device, or the account may be banned or "
+"deactivated."
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:176
+msgid "Upload a new session file from an active Telegram account"
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:187
+msgid ""
+"Two-factor authentication (2FA) is required. This session needs re-"
+"authorization with your 2FA password."
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:191
+msgid ""
+"Create a new session file using Telethon or Pyrogram and enter your 2FA "
+"password during authentication. See the Upload page for instructions."
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:196
+msgid "Session has expired and requires re-authorization."
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:197
+msgid ""
+"Create and upload a new session file from your Telegram account. See the "
+"Upload page for step-by-step instructions."
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:243
+msgid "Failed to connect to Telegram. Please check your session."
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:244
+msgid "Verify your session file is valid or try uploading a new one"
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:370
+msgid "Session not found"
+msgstr ""
+
+#: src/chatfilter/web/routers/chats.py:377
+msgid "Failed to fetch account info"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:700
+#: src/chatfilter/web/routers/sessions.py:1262
+#: src/chatfilter/web/routers/sessions.py:2003
+msgid "Session '{name}' already exists"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:722
+#: src/chatfilter/web/routers/sessions.py:2025
+msgid "Invalid session: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:743
+msgid "Invalid config: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:860
+#: src/chatfilter/web/routers/sessions.py:2163
+msgid "Config validation failed: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:871
+#: src/chatfilter/web/routers/sessions.py:2174
+msgid "Failed to save session files. Please try again."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:881
+msgid "Session '{name}' uploaded successfully"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:899
+msgid "An unexpected error occurred during upload. Please try again."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1012
+msgid "An unexpected error occurred during validation."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1273
+#: src/chatfilter/web/routers/sessions.py:2036
+msgid "Invalid API hash format. Must be a 32-character hexadecimal string."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1285
+msgid ""
+"Invalid phone number format. Must start with + and country code (e.g., "
+"+1234567890)."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1296
+msgid "Selected proxy not found."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1362
+msgid "Invalid phone number."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1373
+msgid "This phone number is banned by Telegram."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1384
+msgid "Invalid API ID or API Hash."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1397
+msgid "Too many requests. Please wait {seconds} seconds before trying again."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1411
+msgid "Connection timeout. Please check your proxy settings and try again."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1424
+msgid "Failed to send code: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1464
+#: src/chatfilter/web/routers/sessions.py:1611
+msgid "Auth session expired or not found. Please start over."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1478
+msgid "Invalid code format. Please enter the numeric code you received."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1490
+#: src/chatfilter/web/routers/sessions.py:1633
+msgid "Connection lost. Please start over."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1530
+msgid "Invalid code. Please check and try again."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1541
+msgid "Code has expired. Please start over."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1553
+msgid "Please enter the verification code."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1565
+#: src/chatfilter/web/routers/sessions.py:1665
+msgid "Request timeout. Please try again."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1578
+msgid "Failed to verify code: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1621
+msgid "Invalid auth state. Please start over."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1677
+msgid "Failed to verify password: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1708
+msgid "Client connection lost. Please start over."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1788
+msgid "Session '{name}' created successfully!"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:1808
+msgid "Failed to save session: {error}"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:2052
+msgid "Selected proxy not found. Please select a valid proxy."
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:2184
+msgid "Session '{name}' imported successfully"
+msgstr ""
+
+#: src/chatfilter/web/routers/sessions.py:2202
+msgid "An unexpected error occurred during import. Please try again."
+msgstr ""
+
+#~ msgid "Skip to main content"
+#~ msgstr "Перейти к основному содержимому"
+
+#~ msgid "Main navigation"
+#~ msgstr "Основная навигация"
+
+#~ msgid "Manage your Telegram session files"
+#~ msgstr "Управление файлами сессий Telegram"
+
+#~ msgid "Sessions"
+#~ msgstr "Сессии"
+
+#~ msgid "Select chats to analyze from your Telegram account"
+#~ msgstr "Выберите чаты для анализа из вашего аккаунта Telegram"
+
+#~ msgid "Chats"
+#~ msgstr "Чаты"
+
+#~ msgid "Import a list of chats from a file or Google Sheets"
+#~ msgstr "Импорт списка чатов из файла или Google Sheets"
+
+#~ msgid "Import"
+#~ msgstr "Импорт"
+
+#~ msgid "View analysis results and export data"
+#~ msgstr "Просмотр результатов анализа и экспорт данных"
+
+#~ msgid "Results"
+#~ msgstr "Результаты"
+
+#~ msgid "Browse your past analysis history"
+#~ msgstr "Просмотр истории прошлых анализов"
+
+#~ msgid "History"
+#~ msgstr "История"
+
+#~ msgid "Use Telegram proxy to access chats"
+#~ msgstr "Использование прокси Telegram для доступа к чатам"
+
+#~ msgid "Proxy"
+#~ msgstr "Прокси"
+
+#~ msgid "Shows your internet connection status"
+#~ msgstr "Показывает статус интернет-соединения"
+
+#~ msgid "Online"
+#~ msgstr "Онлайн"
+
+#~ msgid "Shows Telegram connection status and active session count"
+#~ msgstr "Показывает статус подключения к Telegram и количество активных сессий"
+
+#~ msgid "Checking..."
+#~ msgstr "Проверка..."
+
+#~ msgid "Currently logged in Telegram user"
+#~ msgstr "Текущий пользователь Telegram"
+
+#~ msgid "No User"
+#~ msgstr "Нет пользователя"
+
+#~ msgid "Toggle dark mode"
+#~ msgstr "Переключить тёмный режим"
+
+#~ msgid "Switch between light and dark theme"
+#~ msgstr "Переключение между светлой и тёмной темой"
+
+#~ msgid "Switch language"
+#~ msgstr "Сменить язык"
+
+#~ msgid "Switch between English and Russian"
+#~ msgstr "Переключение между английским и русским"
+
+#~ msgid "Export diagnostic information for troubleshooting"
+#~ msgstr "Экспорт диагностической информации для устранения неполадок"
+
+#~ msgid "Download diagnostic information for troubleshooting issues"
+#~ msgstr "Скачать диагностическую информацию для устранения проблем"
+
+#~ msgid "Export Diagnostics"
+#~ msgstr "Экспорт диагностики"
+
+#~ msgid "Import Chat List"
+#~ msgstr "Импорт списка чатов"
+
+#~ msgid ""
+#~ "Upload a file or enter a Google"
+#~ " Sheets URL to import a list of"
+#~ " chats for analysis"
+#~ msgstr ""
+#~ "Загрузите файл или введите URL Google"
+#~ " Sheets для импорта списка чатов для"
+#~ " анализа"
+
+#~ msgid "Import Source"
+#~ msgstr "Источник импорта"
+
+#~ msgid "Upload a file containing a list of chats to analyze"
+#~ msgstr "Загрузите файл со списком чатов для анализа"
+
+#~ msgid "Upload File"
+#~ msgstr "Загрузить файл"
+
+#~ msgid ""
+#~ "Upload a text file with one chat"
+#~ " per line, or a CSV/Excel file "
+#~ "with chat usernames, links, or IDs."
+#~ msgstr ""
+#~ "Загрузите текстовый файл с одним чатом"
+#~ " на строку или CSV/Excel файл с "
+#~ "именами пользователей, ссылками или ID "
+#~ "чатов."
+
+#~ msgid "Upload chat list file"
+#~ msgstr "Загрузить файл со списком чатов"
+
+#~ msgid "Select chat list file"
+#~ msgstr "Выберите файл со списком чатов"
+
+#~ msgid "Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
+#~ msgstr ""
+#~ "Выберите .txt, .csv или .xlsx файл "
+#~ "с именами пользователей, ссылками или ID"
+#~ " чатов"
+
+#~ msgid "Supported file formats"
+#~ msgstr "Поддерживаемые форматы файлов"
+
+#~ msgid "Upload and parse the selected file"
+#~ msgstr "Загрузить и обработать выбранный файл"
+
+#~ msgid "Upload in progress"
+#~ msgstr "Загрузка..."
+
+#~ msgid "Import chats from a public Google Sheets document"
+#~ msgstr "Импорт чатов из публичного документа Google Sheets"
+
+#~ msgid "Google Sheets"
+#~ msgstr "Google Sheets"
+
+#~ msgid ""
+#~ "Enter a link to a public Google"
+#~ " Sheets document. The sheet must be"
+#~ " shared with \"Anyone with the "
+#~ "link\"."
+#~ msgstr ""
+#~ "Введите ссылку на публичный документ "
+#~ "Google Sheets. Документ должен быть "
+#~ "доступен \"Всем, у кого есть ссылка\"."
+
+#~ msgid "Import chat list from Google Sheets"
+#~ msgstr "Импорт списка чатов из Google Sheets"
+
+#~ msgid "Enter the full URL of a public Google Sheets document"
+#~ msgstr "Введите полный URL публичного документа Google Sheets"
+
+#~ msgid "Fetch and import chats from the Google Sheets URL"
+#~ msgstr "Загрузить и импортировать чаты по URL Google Sheets"
+
+#~ msgid "Fetch Sheet"
+#~ msgstr "Загрузить таблицу"
+
+#~ msgid "Imported Chats"
+#~ msgstr "Импортированные чаты"
+
+#~ msgid "Import a file or Google Sheet to see the list of chats"
+#~ msgstr "Импортируйте файл или Google Sheet, чтобы увидеть список чатов"
+
+#~ msgid "Loading imported chats..."
+#~ msgstr "Загрузка импортированных чатов..."
+
+#~ msgid "File Format Examples"
+#~ msgstr "Примеры форматов файлов"
+
+#~ msgid "Text File (.txt)"
+#~ msgstr "Текстовый файл (.txt)"
+
+#~ msgid "CSV File (.csv)"
+#~ msgstr "CSV файл (.csv)"
+
+#~ msgid "Select Chats"
+#~ msgstr "Выбор чатов"
+
+#~ msgid "Select Chats for Analysis"
+#~ msgstr "Выбор чатов для анализа"
+
+#~ msgid "Choose which chats you want to analyze"
+#~ msgstr "Выберите чаты, которые хотите проанализировать"
+
+#~ msgid "Session"
+#~ msgstr "Сессия"
+
+#~ msgid "Select Telegram session"
+#~ msgstr "Выберите сессию Telegram"
+
+#~ msgid "Select Telegram session to load chats"
+#~ msgstr "Выберите сессию Telegram для загрузки чатов"
+
+#~ msgid "Choose a Telegram session to load your chats and groups"
+#~ msgstr "Выберите сессию Telegram для загрузки ваших чатов и групп"
+
+#~ msgid "Select a session"
+#~ msgstr "Выберите сессию"
+
+#~ msgid "Chat list"
+#~ msgstr "Список чатов"
+
+#~ msgid "Select a session above to load chats"
+#~ msgstr "Выберите сессию выше для загрузки чатов"
+
+#~ msgid "Loading chats..."
+#~ msgstr "Загрузка чатов..."
+
+#~ msgid "Analysis History"
+#~ msgstr "История анализов"
+
+#~ msgid "Browse and view your past chat analyses"
+#~ msgstr "Просмотр и обзор прошлых анализов чатов"
+
+#~ msgid "Total"
+#~ msgstr "Всего"
+
+#~ msgid "Completed"
+#~ msgstr "Завершено"
+
+#~ msgid "Failed"
+#~ msgstr "Ошибка"
+
+#~ msgid "Cancelled"
+#~ msgstr "Отменено"
+
+#~ msgid "Timeout"
+#~ msgstr "Таймаут"
+
+#~ msgid "Filter by status"
+#~ msgstr "Фильтр по статусу"
+
+#~ msgid "Filter by analysis status"
+#~ msgstr "Фильтр по статусу анализа"
+
+#~ msgid "All Analyses"
+#~ msgstr "Все анализы"
+
+#~ msgid "Loading history..."
+#~ msgstr "Загрузка истории..."
+
+#~ msgid "No Analysis History"
+#~ msgstr "Нет истории анализов"
+
+#~ msgid ""
+#~ "You haven't run any analyses yet. "
+#~ "Start analyzing your chats to see "
+#~ "results here."
+#~ msgstr ""
+#~ "Вы ещё не запускали анализ. Начните "
+#~ "анализировать чаты, чтобы увидеть результаты"
+#~ " здесь."
+
+#~ msgid "Start Analysis"
+#~ msgstr "Начать анализ"
+
+#~ msgid "Previous page"
+#~ msgstr "Предыдущая страница"
+
+#~ msgid "Previous"
+#~ msgstr "Назад"
+
+#~ msgid "Page"
+#~ msgstr "Страница"
+
+#~ msgid "of"
+#~ msgstr "из"
+
+#~ msgid "Next page"
+#~ msgstr "Следующая страница"
+
+#~ msgid "Next"
+#~ msgstr "Далее"
+
+#~ msgid "Proxy Settings"
+#~ msgstr "Настройки прокси"
+
+#~ msgid "Configure proxy for Telegram connections"
+#~ msgstr "Настройка прокси для подключения к Telegram"
+
+#~ msgid "Proxy Configuration"
+#~ msgstr "Конфигурация прокси"
+
+#~ msgid "Proxy configuration form"
+#~ msgstr "Форма настройки прокси"
+
+#~ msgid "Enable Proxy"
+#~ msgstr "Включить прокси"
+
+#~ msgid "Enable to route Telegram traffic through a proxy server"
+#~ msgstr "Включить для маршрутизации трафика Telegram через прокси-сервер"
+
+#~ msgid "Proxy Type"
+#~ msgstr "Тип прокси"
+
+#~ msgid "Select proxy type"
+#~ msgstr "Выберите тип прокси"
+
+#~ msgid "Host"
+#~ msgstr "Хост"
+
+#~ msgid "proxy.example.com"
+#~ msgstr "proxy.example.com"
+
+#~ msgid "Proxy server hostname or IP address"
+#~ msgstr "Имя хоста или IP-адрес прокси-сервера"
+
+#~ msgid "Port"
+#~ msgstr "Порт"
+
+#~ msgid "Proxy server port number"
+#~ msgstr "Номер порта прокси-сервера"
+
+#~ msgid "Username (optional)"
+#~ msgstr "Имя пользователя (необязательно)"
+
+#~ msgid "Leave empty if not required"
+#~ msgstr "Оставьте пустым, если не требуется"
+
+#~ msgid "Proxy authentication username"
+#~ msgstr "Имя пользователя для аутентификации прокси"
+
+#~ msgid "Password (optional)"
+#~ msgstr "Пароль (необязательно)"
+
+#~ msgid "Proxy authentication password"
+#~ msgstr "Пароль для аутентификации прокси"
+
+#~ msgid "Save proxy settings"
+#~ msgstr "Сохранить настройки прокси"
+
+#~ msgid "Save Settings"
+#~ msgstr "Сохранить настройки"
+
+#~ msgid "Saving in progress"
+#~ msgstr "Сохранение..."
+
+#~ msgid "Analysis Results"
+#~ msgstr "Результаты анализа"
+
+#~ msgid "View and export your chat analysis results"
+#~ msgstr "Просмотр и экспорт результатов анализа чатов"
+
+#~ msgid "Analysis statistics"
+#~ msgstr "Статистика анализа"
+
+#~ msgid "Copy all statistics"
+#~ msgstr "Скопировать всю статистику"
+
+#~ msgid "%(count)s chats analyzed"
+#~ msgstr "%(count)s чатов проанализировано"
+
+#~ msgid "Chats Analyzed"
+#~ msgstr "Проанализировано чатов"
+
+#~ msgid "Total messages"
+#~ msgstr "Всего сообщений"
+
+#~ msgid "Total Messages"
+#~ msgstr "Всего сообщений"
+
+#~ msgid "Unique authors"
+#~ msgstr "Уникальных авторов"
+
+#~ msgid "Unique Authors"
+#~ msgstr "Уникальных авторов"
+
+#~ msgid "Active chats in last 7 days"
+#~ msgstr "Активных чатов за последние 7 дней"
+
+#~ msgid "Active (7d)"
+#~ msgstr "Активные (7д)"
+
+#~ msgid "Clock Skew Detected"
+#~ msgstr "Обнаружено расхождение времени"
+
+#~ msgid ""
+#~ "Your system clock appears to be "
+#~ "incorrect, which may affect time-based"
+#~ " calculations (messages per hour, history"
+#~ " length)."
+#~ msgstr ""
+#~ "Системные часы могут быть неточными, что"
+#~ " может повлиять на расчёты времени "
+#~ "(сообщений в час, длина истории)."
+
+#~ msgid "%(count)s chat(s) affected:"
+#~ msgstr "%(count)s чат(ов) затронуто:"
+
+#~ msgid "System clock is %(minutes)s minutes ahead of Telegram server time"
+#~ msgstr "Системные часы опережают время сервера Telegram на %(minutes)s минут"
+
+#~ msgid "System clock is %(minutes)s minutes behind Telegram server time"
+#~ msgstr "Системные часы отстают от времени сервера Telegram на %(minutes)s минут"
+
+#~ msgid ""
+#~ "Please check your system time settings"
+#~ " and synchronize with a reliable time"
+#~ " server (e.g., NTP)."
+#~ msgstr ""
+#~ "Пожалуйста, проверьте настройки системного "
+#~ "времени и синхронизируйтесь с надёжным "
+#~ "сервером времени (например, NTP)."
+
+#~ msgid "Result filters"
+#~ msgstr "Фильтры результатов"
+
+#~ msgid "Search chats"
+#~ msgstr "Поиск чатов"
+
+#~ msgid "Search chats..."
+#~ msgstr "Поиск чатов..."
+
+#~ msgid "Search chats by title or username"
+#~ msgstr "Поиск чатов по названию или имени пользователя"
+
+#~ msgid "Filter by chat type"
+#~ msgstr "Фильтр по типу чата"
+
+#~ msgid "All Types"
+#~ msgstr "Все типы"
+
+#~ msgid "Private"
+#~ msgstr "Личный"
+
+#~ msgid "Group"
+#~ msgstr "Группа"
+
+#~ msgid "Supergroup"
+#~ msgstr "Супергруппа"
+
+#~ msgid "Channel"
+#~ msgstr "Канал"
+
+#~ msgid "Forum"
+#~ msgstr "Форум"
+
+#~ msgid "Filter by activity"
+#~ msgstr "Фильтр по активности"
+
+#~ msgid "Filter by activity status"
+#~ msgstr "Фильтр по статусу активности"
+
+#~ msgid "All Activity"
+#~ msgstr "Вся активность"
+
+#~ msgid "Inactive"
+#~ msgstr "Неактивный"
+
+#~ msgid "Clear all filters"
+#~ msgstr "Очистить все фильтры"
+
+#~ msgid "Clear Filters"
+#~ msgstr "Сбросить фильтры"
+
+#~ msgid "Number of active filters"
+#~ msgstr "Количество активных фильтров"
+
+#~ msgid "Copy selected rows"
+#~ msgstr "Скопировать выбранные строки"
+
+#~ msgid "Copy Selected"
+#~ msgstr "Копировать выбранное"
+
+#~ msgid "Compare selected chats"
+#~ msgstr "Сравнить выбранные чаты"
+
+#~ msgid "Compare Selected"
+#~ msgstr "Сравнить выбранное"
+
+#~ msgid "Export results to CSV file"
+#~ msgstr "Экспорт результатов в CSV файл"
+
+#~ msgid "Export CSV"
+#~ msgstr "Экспорт CSV"
+
+#~ msgid "Analysis results table"
+#~ msgstr "Таблица результатов анализа"
+
+#~ msgid "Chat analysis results"
+#~ msgstr "Результаты анализа чатов"
+
+#~ msgid "Select all chats"
+#~ msgstr "Выбрать все чаты"
+
+#~ msgid "Sort by chat name"
+#~ msgstr "Сортировка по названию чата"
+
+#~ msgid "Chat"
+#~ msgstr "Чат"
+
+#~ msgid "Sort by chat type"
+#~ msgstr "Сортировка по типу чата"
+
+#~ msgid "Type"
+#~ msgstr "Тип"
+
+#~ msgid "Sort by message count"
+#~ msgstr "Сортировка по количеству сообщений"
+
+#~ msgid "Messages"
+#~ msgstr "Сообщения"
+
+#~ msgid "Sort by author count"
+#~ msgstr "Сортировка по количеству авторов"
+
+#~ msgid "Authors"
+#~ msgstr "Авторы"
+
+#~ msgid "Sort by history hours"
+#~ msgstr "Сортировка по часам истории"
+
+#~ msgid "History (h)"
+#~ msgstr "История (ч)"
+
+#~ msgid "Sort by messages per hour"
+#~ msgstr "Сортировка по сообщениям в час"
+
+#~ msgid "Msg/Hour"
+#~ msgstr "Сообщ/час"
+
+#~ msgid "Sort by activity status"
+#~ msgstr "Сортировка по статусу активности"
+
+#~ msgid "Activity"
+#~ msgstr "Активность"
+
+#~ msgid "Copy"
+#~ msgstr "Копировать"
+
+#~ msgid "Select %(title)s"
+#~ msgstr "Выбрать %(title)s"
+
+#~ msgid "Username"
+#~ msgstr "Имя пользователя"
+
+#~ msgid "Chat type: %(type)s"
+#~ msgstr "Тип чата: %(type)s"
+
+#~ msgid "%(count)s messages"
+#~ msgstr "%(count)s сообщений"
+
+#~ msgid "%(count)s authors"
+#~ msgstr "%(count)s авторов"
+
+#~ msgid "%(hours)s hours"
+#~ msgstr "%(hours)s часов"
+
+#~ msgid "%(rate)s messages per hour"
+#~ msgstr "%(rate)s сообщений в час"
+
+#~ msgid "Active in last 7 days"
+#~ msgstr "Активен за последние 7 дней"
+
+#~ msgid "Active"
+#~ msgstr "Активный"
+
+#~ msgid "Copy row data"
+#~ msgstr "Скопировать данные строки"
+
+#~ msgid "Compare Chat Metrics"
+#~ msgstr "Сравнение метрик чатов"
+
+#~ msgid "Copy comparison data"
+#~ msgstr "Скопировать данные сравнения"
+
+#~ msgid "Copy Data"
+#~ msgstr "Копировать данные"
+
+#~ msgid "Close comparison modal"
+#~ msgstr "Закрыть окно сравнения"
+
+#~ msgid "No analysis results yet."
+#~ msgstr "Результатов анализа пока нет."
+
+#~ msgid "Upload Session"
+#~ msgstr "Загрузить сессию"
+
+#~ msgid "Telegram Sessions"
+#~ msgstr "Сессии Telegram"
+
+#~ msgid "Upload your Telegram session to start analyzing chats"
+#~ msgstr "Загрузите вашу сессию Telegram, чтобы начать анализ чатов"
+
+#~ msgid "⚠️ Critical Security Warning: Session File Risks"
+#~ msgstr "⚠️ Критическое предупреждение безопасности: Риски файлов сессий"
+
+#~ msgid ""
+#~ "Session files grant complete, unrestricted "
+#~ "access to your Telegram account."
+#~ msgstr ""
+#~ "Файлы сессий предоставляют полный "
+#~ "неограниченный доступ к вашему аккаунту "
+#~ "Telegram."
+
+#~ msgid "Before uploading, understand these critical risks:"
+#~ msgstr "Перед загрузкой ознакомьтесь с этими критическими рисками:"
+
+#~ msgid "Full Account Control:"
+#~ msgstr "Полный контроль над аккаунтом:"
+
+#~ msgid ""
+#~ "Anyone with your session file can "
+#~ "read all messages, send messages as "
+#~ "you, join/leave groups, and perform any"
+#~ " action you can perform in Telegram"
+#~ msgstr ""
+#~ "Любой, у кого есть ваш файл "
+#~ "сессии, может читать все сообщения, "
+#~ "отправлять сообщения от вашего имени, "
+#~ "вступать/выходить из групп и выполнять "
+#~ "любые действия, которые вы можете "
+#~ "выполнять в Telegram"
+
+#~ msgid "No Additional Authentication:"
+#~ msgstr "Без дополнительной аутентификации:"
+
+#~ msgid ""
+#~ "Session files bypass 2FA and password"
+#~ " protection - no further credentials "
+#~ "are needed to use your account"
+#~ msgstr ""
+#~ "Файлы сессий обходят 2FA и защиту "
+#~ "паролем - для использования вашего "
+#~ "аккаунта не требуются дополнительные учётные"
+#~ " данные"
+
+#~ msgid "Persistent Access:"
+#~ msgstr "Постоянный доступ:"
+
+#~ msgid ""
+#~ "Sessions remain valid until you "
+#~ "explicitly log out from all devices "
+#~ "in Telegram or change your 2FA "
+#~ "password"
+#~ msgstr ""
+#~ "Сессии остаются действительными, пока вы "
+#~ "явно не выйдете из всех устройств "
+#~ "в Telegram или не измените пароль "
+#~ "2FA"
+
+#~ msgid "Undetectable Usage:"
+#~ msgstr "Незаметное использование:"
+
+#~ msgid ""
+#~ "Telegram does not notify you when "
+#~ "a session is used from a different"
+#~ " location or device"
+#~ msgstr ""
+#~ "Telegram не уведомляет вас, когда сессия"
+#~ " используется с другого места или "
+#~ "устройства"
+
+#~ msgid "Theft Risk:"
+#~ msgstr "Риск кражи:"
+
+#~ msgid ""
+#~ "If your session file is compromised "
+#~ "(stolen, leaked, or accessed by "
+#~ "malware), attackers gain immediate full "
+#~ "access to your account"
+#~ msgstr ""
+#~ "Если ваш файл сессии скомпрометирован "
+#~ "(украден, утёк или получен вредоносным "
+#~ "ПО), злоумышленники получают немедленный "
+#~ "полный доступ к вашему аккаунту"
+
+#~ msgid "Best Practices:"
+#~ msgstr "Лучшие практики:"
+
+#~ msgid "Only create and upload session files on trusted devices."
+#~ msgstr "Создавайте и загружайте файлы сессий только на доверенных устройствах."
+
+#~ msgid ""
+#~ "Never share session files with anyone."
+#~ " Store them securely with restricted "
+#~ "file permissions."
+#~ msgstr ""
+#~ "Никогда не делитесь файлами сессий ни"
+#~ " с кем. Храните их безопасно с "
+#~ "ограниченными правами доступа."
+
+#~ msgid ""
+#~ "If you suspect a session may be"
+#~ " compromised, immediately log out from "
+#~ "all devices in Telegram settings."
+#~ msgstr ""
+#~ "Если вы подозреваете, что сессия может"
+#~ " быть скомпрометирована, немедленно выйдите "
+#~ "из всех устройств в настройках Telegram."
+
+#~ msgid "First Time Setup Guide"
+#~ msgstr "Руководство по первоначальной настройке"
+
+#~ msgid "To use ChatFilter, you need two things:"
+#~ msgstr "Для использования ChatFilter вам нужны две вещи:"
+
+#~ msgid "API credentials"
+#~ msgstr "учётные данные API"
+
+#~ msgid "and a"
+#~ msgstr "и"
+
+#~ msgid "session file"
+#~ msgstr "файл сессии"
+
+#~ msgid "Follow the steps below to obtain them."
+#~ msgstr "Следуйте инструкциям ниже, чтобы получить их."
+
+#~ msgid "Learn how to get your Telegram API credentials from my.telegram.org"
+#~ msgstr "Узнайте, как получить учётные данные API Telegram на my.telegram.org"
+
+#~ msgid "Step 1: Get API Credentials (api_id and api_hash)"
+#~ msgstr "Шаг 1: Получите учётные данные API (api_id и api_hash)"
+
+#~ msgid ""
+#~ "Instructions for creating a Telegram "
+#~ "session file using Telethon or Pyrogram"
+#~ msgstr ""
+#~ "Инструкции по созданию файла сессии "
+#~ "Telegram с помощью Telethon или Pyrogram"
+
+#~ msgid "Step 2: Create a Session File"
+#~ msgstr "Шаг 2: Создайте файл сессии"
+
+#~ msgid "How to create a config.json file with your API credentials"
+#~ msgstr "Как создать файл config.json с вашими учётными данными API"
+
+#~ msgid "Step 3: Create Config File"
+#~ msgstr "Шаг 3: Создайте файл конфигурации"
+
+#~ msgid "Final step: upload your session and config files to ChatFilter"
+#~ msgstr "Финальный шаг: загрузите файлы сессии и конфигурации в ChatFilter"
+
+#~ msgid "Step 4: Upload Your Files"
+#~ msgstr "Шаг 4: Загрузите ваши файлы"
+
+#~ msgid "Common issues and solutions for Two-Factor Authentication"
+#~ msgstr "Частые проблемы и решения для двухфакторной аутентификации"
+
+#~ msgid "Troubleshooting: Two-Factor Authentication (2FA)"
+#~ msgstr "Устранение неполадок: Двухфакторная аутентификация (2FA)"
+
+#~ msgid "Upload New Session"
+#~ msgstr "Загрузить новую сессию"
+
+#~ msgid "Upload Telegram session form"
+#~ msgstr "Форма загрузки сессии Telegram"
+
+#~ msgid "A unique identifier for this Telegram session"
+#~ msgstr "Уникальный идентификатор для этой сессии Telegram"
+
+#~ msgid "Session Name"
+#~ msgstr "Название сессии"
+
+#~ msgid "e.g., my_account"
+#~ msgstr "например, my_account"
+
+#~ msgid ""
+#~ "Choose a unique name using only "
+#~ "letters, numbers, underscores, and hyphens"
+#~ msgstr ""
+#~ "Выберите уникальное имя, используя только "
+#~ "буквы, цифры, подчёркивания и дефисы"
+
+#~ msgid ""
+#~ "A unique name to identify this "
+#~ "session. Only letters, numbers, underscores,"
+#~ " and hyphens allowed."
+#~ msgstr ""
+#~ "Уникальное имя для идентификации этой "
+#~ "сессии. Допускаются только буквы, цифры, "
+#~ "подчёркивания и дефисы."
+
+#~ msgid "Upload the .session file created with Telethon or Pyrogram"
+#~ msgstr "Загрузите файл .session, созданный с помощью Telethon или Pyrogram"
+
+#~ msgid "Session File (.session)"
+#~ msgstr "Файл сессии (.session)"
+
+#~ msgid "Select the .session file created using Telethon or Pyrogram"
+#~ msgstr "Выберите файл .session, созданный с помощью Telethon или Pyrogram"
+
+#~ msgid "Telethon session file (SQLite database)"
+#~ msgstr "Файл сессии Telethon (база данных SQLite)"
+
+#~ msgid "Upload JSON file containing your Telegram API credentials"
+#~ msgstr "Загрузите JSON файл с вашими учётными данными API Telegram"
+
+#~ msgid "Config File (.json)"
+#~ msgstr "Файл конфигурации (.json)"
+
+#~ msgid "Select the config.json file with your api_id and api_hash"
+#~ msgstr "Выберите файл config.json с вашими api_id и api_hash"
+
+#~ msgid "JSON with api_id and api_hash from my.telegram.org"
+#~ msgstr "JSON с api_id и api_hash с my.telegram.org"
+
+#~ msgid ""
+#~ "I understand that session files provide"
+#~ " complete access to my Telegram "
+#~ "account and accept the security risks"
+#~ " described above. I confirm this "
+#~ "session was created on a trusted "
+#~ "device and will be stored securely."
+#~ msgstr ""
+#~ "Я понимаю, что файлы сессий "
+#~ "предоставляют полный доступ к моему "
+#~ "аккаунту Telegram, и принимаю описанные "
+#~ "выше риски безопасности. Я подтверждаю, "
+#~ "что эта сессия была создана на "
+#~ "доверенном устройстве и будет храниться "
+#~ "безопасно."
+
+#~ msgid "Upload session files"
+#~ msgstr "Загрузить файлы сессии"
+
+#~ msgid "Upload your session and config files to start using ChatFilter"
+#~ msgstr ""
+#~ "Загрузите файлы сессии и конфигурации, "
+#~ "чтобы начать использовать ChatFilter"
+
+#~ msgid "Registered Sessions"
+#~ msgstr "Зарегистрированные сессии"
+
+#~ msgid "List of registered Telegram sessions"
+#~ msgstr "Список зарегистрированных сессий Telegram"
+
+#~ msgid "Loading sessions..."
+#~ msgstr "Загрузка сессий..."
+
+#~ msgid "What to do:"
+#~ msgstr "Что делать:"
+
+#~ msgid "Go to Sessions Page"
+#~ msgstr "Перейти на страницу сессий"
+
+#~ msgid ""
+#~ "Analysis for these chats is already "
+#~ "in progress. Showing current status..."
+#~ msgstr "Анализ этих чатов уже выполняется. Показываю текущий статус..."
+
+#~ msgid "Analyzing %(num)s chat..."
+#~ msgid_plural "Analyzing %(num)s chats..."
+#~ msgstr[0] "Анализ %(num)s чата..."
+#~ msgstr[1] "Анализ %(num)s чатов..."
+#~ msgstr[2] "Анализ %(num)s чатов..."
+
+#~ msgid "Starting..."
+#~ msgstr "Запуск..."
+
+#~ msgid "Cancel analysis"
+#~ msgstr "Отменить анализ"
+
+#~ msgid "Cancel"
+#~ msgstr "Отмена"
+
+#~ msgid "chats"
+#~ msgstr "чатов"
+
+#~ msgid "Try loading chats again"
+#~ msgstr "Попробовать загрузить чаты снова"
+
+#~ msgid "Retry"
+#~ msgstr "Повторить"
+
+#~ msgid "Search chats by name or username"
+#~ msgstr "Поиск чатов по названию или имени пользователя"
+
+#~ msgid "Filter chats by type (private, group, channel, etc.)"
+#~ msgstr "Фильтр чатов по типу (личный, группа, канал и т.д.)"
+
+#~ msgid "Select all visible chats"
+#~ msgstr "Выбрать все видимые чаты"
+
+#~ msgid "Select All"
+#~ msgstr "Выбрать все"
+
+#~ msgid "Deselect all chats"
+#~ msgstr "Снять выбор со всех чатов"
+
+#~ msgid "Select None"
+#~ msgstr "Снять выбор"
+
+#~ msgid "Remove all active filters"
+#~ msgstr "Удалить все активные фильтры"
+
+#~ msgid "0 of %(total)s chats"
+#~ msgstr "0 из %(total)s чатов"
+
+#~ msgid "%(count)s members"
+#~ msgstr "%(count)s участников"
+
+#~ msgid "Load more chats from this session"
+#~ msgstr "Загрузить ещё чаты из этой сессии"
+
+#~ msgid "Load More Chats (%(remaining)s remaining)"
+#~ msgstr "Загрузить ещё чаты (осталось %(remaining)s)"
+
+#~ msgid "Configure how many messages to analyze from each chat"
+#~ msgstr "Настройка количества сообщений для анализа из каждого чата"
+
+#~ msgid "Analysis Settings"
+#~ msgstr "Настройки анализа"
+
+#~ msgid "Set the number of recent messages to fetch and analyze"
+#~ msgstr "Укажите количество последних сообщений для загрузки и анализа"
+
+#~ msgid "Messages per chat"
+#~ msgstr "Сообщений на чат"
+
+#~ msgid "Higher values take longer but provide more comprehensive analysis"
+#~ msgstr "Большие значения занимают больше времени, но дают более полный анализ"
+
+#~ msgid "Number of recent messages to analyze (10-10000)"
+#~ msgstr "Количество последних сообщений для анализа (10-10000)"
+
+#~ msgid "Begin analyzing the selected chats"
+#~ msgstr "Начать анализ выбранных чатов"
+
+#~ msgid "No Chats Found"
+#~ msgstr "Чаты не найдены"
+
+#~ msgid ""
+#~ "This Telegram session doesn't have any"
+#~ " chats available for analysis. Try "
+#~ "selecting a different session or verify"
+#~ " that your session has active chats."
+#~ msgstr ""
+#~ "В этой сессии Telegram нет доступных "
+#~ "чатов для анализа. Попробуйте выбрать "
+#~ "другую сессию или убедитесь, что в "
+#~ "вашей сессии есть активные чаты."
+
+#~ msgid "Delete session"
+#~ msgstr "Удалить сессию"
+
+#~ msgid "Delete"
+#~ msgstr "Удалить"
+
+#~ msgid "No Telegram Sessions"
+#~ msgstr "Нет сессий Telegram"
+
+#~ msgid ""
+#~ "You haven't uploaded any Telegram "
+#~ "session files yet. Upload a session "
+#~ "file to start analyzing your chats."
+#~ msgstr ""
+#~ "Вы ещё не загрузили файлы сессий "
+#~ "Telegram. Загрузите файл сессии, чтобы "
+#~ "начать анализ ваших чатов."
+
+#~ msgid "Telegram Accounts"
+#~ msgstr "Аккаунты Telegram"
+
+#~ msgid "Manage your Telegram sessions for chat analysis"
+#~ msgstr "Управление сессиями Telegram для анализа чатов"
+
+#~ msgid "Accounts"
+#~ msgstr "Аккаунты"
+
+#~ msgid "Add Account"
+#~ msgstr "Добавить аккаунт"
+
+#~ msgid "Add new account"
+#~ msgstr "Добавить новый аккаунт"
+
+#~ msgid "Close modal"
+#~ msgstr "Закрыть"
+
+#~ msgid "Phone Authorization"
+#~ msgstr "Авторизация по телефону"
+
+#~ msgid "Authenticate with your phone number to create a new session."
+#~ msgstr "Авторизуйтесь с номером телефона для создания новой сессии."
+
+#~ msgid "Already have a .session file? Upload it here with your API credentials."
+#~ msgstr "Уже есть файл .session? Загрузите его здесь с учётными данными API."
+
+#~ msgid "Add Telegram Account"
+#~ msgstr "Добавить аккаунт Telegram"
+
+#~ msgid "Loading accounts..."
+#~ msgstr "Загрузка аккаунтов..."
+
+#~ msgid "List of Telegram accounts"
+#~ msgstr "Список аккаунтов Telegram"
+
+#~ msgid "Failed to load accounts. Please refresh the page."
+#~ msgstr "Не удалось загрузить аккаунты. Обновите страницу."
+
+#~ msgid "Proxies"
+#~ msgstr "Прокси"
+
+#~ msgid "Manage proxy servers for Telegram sessions"
+#~ msgstr "Управление прокси-серверами для сессий Telegram"
+
+#~ msgid "Account"
+#~ msgstr "Аккаунт"
+
+#~ msgid "Status"
+#~ msgstr "Статус"
+
+#~ msgid "Actions"
+#~ msgstr "Действия"
+
+#~ msgid "Ready"
+#~ msgstr "Готов"
+
+#~ msgid "Connected"
+#~ msgstr "Подключено"
+
+#~ msgid "Connecting"
+#~ msgstr "Подключение..."
+
+#~ msgid "Disconnecting"
+#~ msgstr "Отключение..."
+
+#~ msgid "Banned"
+#~ msgstr "Заблокирован"
+
+#~ msgid "Flood Wait"
+#~ msgstr "Ожидание"
+
+#~ msgid "Proxy Error"
+#~ msgstr "Ошибка прокси"
+
+#~ msgid "Not configured"
+#~ msgstr "Не настроено"
+
+#~ msgid "Proxy missing"
+#~ msgstr "Прокси отсутствует"
+
+#~ msgid "Error"
+#~ msgstr "Ошибка"
+
+#~ msgid "Disconnect"
+#~ msgstr "Отключить"
+
+#~ msgid "Connect"
+#~ msgstr "Подключить"
+
+#~ msgid "Wait..."
+#~ msgstr "Подождите..."
+
+#~ msgid "Edit"
+#~ msgstr "Редактировать"
+
+#~ msgid "Disconnect session"
+#~ msgstr "Отключить сессию"
+
+#~ msgid "Connect session"
+#~ msgstr "Подключить сессию"
+
+#~ msgid "Please wait"
+#~ msgstr "Подождите"
+
+#~ msgid "Retry connection"
+#~ msgstr "Повторить подключение"
+
+#~ msgid "Connection error"
+#~ msgstr "Ошибка подключения"
+
+#~ msgid "Account banned"
+#~ msgstr "Аккаунт заблокирован"
+
+#~ msgid "This account has been banned by Telegram"
+#~ msgstr "Этот аккаунт заблокирован Telegram"
+
+#~ msgid "Configure session first"
+#~ msgstr "Сначала настройте сессию"
+
+#~ msgid "Configure account"
+#~ msgstr "Настроить аккаунт"
+
+#~ msgid "Delete account"
+#~ msgstr "Удалить аккаунт"
+
+#~ msgid "No Telegram Accounts"
+#~ msgstr "Нет аккаунтов Telegram"
+
+#~ msgid ""
+#~ "You haven't added any Telegram accounts"
+#~ " yet. Click \"Add Account\" above to"
+#~ " get started."
+#~ msgstr ""
+#~ "Вы ещё не добавили аккаунты. Нажмите "
+#~ "\"Добавить аккаунт\" выше, чтобы начать."
+
+#~ msgid "Proxy Pool"
+#~ msgstr "Пул прокси"
+
+#~ msgid "Proxy List"
+#~ msgstr "Список прокси"
+
+#~ msgid "Add new proxy"
+#~ msgstr "Добавить прокси"
+
+#~ msgid "Add Proxy"
+#~ msgstr "Добавить прокси"
+
+#~ msgid "Failed to load proxies. Please refresh the page."
+#~ msgstr "Не удалось загрузить прокси. Обновите страницу."
+
+#~ msgid "List of configured proxies"
+#~ msgstr "Список настроенных прокси"
+
+#~ msgid "Loading proxies..."
+#~ msgstr "Загрузка прокси..."
+
+#~ msgid "Name"
+#~ msgstr "Название"
+
+#~ msgid "My Proxy"
+#~ msgstr "Мой прокси"
+
+#~ msgid "Proxy name for identification"
+#~ msgstr "Название прокси для идентификации"
+
+#~ msgid "Save"
+#~ msgstr "Сохранить"
+
+#~ msgid "Edit Proxy"
+#~ msgstr "Редактировать прокси"
+
+#~ msgid "Save Changes"
+#~ msgstr "Сохранить изменения"
+
+#~ msgid "This field is required"
+#~ msgstr "Это поле обязательно"
+
+#~ msgid "Minimum length is"
+#~ msgstr "Минимальная длина"
+
+#~ msgid "characters"
+#~ msgstr "символов"
+
+#~ msgid "Maximum length is"
+#~ msgstr "Максимальная длина"
+
+#~ msgid "Minimum value is"
+#~ msgstr "Минимальное значение"
+
+#~ msgid "Maximum value is"
+#~ msgstr "Максимальное значение"
+
+#~ msgid "Host cannot contain spaces"
+#~ msgstr "Хост не может содержать пробелы"
+
+#~ msgid "Please fix the errors in the form"
+#~ msgstr "Исправьте ошибки в форме"
+
+#~ msgid "Validation Error"
+#~ msgstr "Ошибка валидации"
+
+#~ msgid "Operation failed"
+#~ msgstr "Операция не удалась"
+
+#~ msgid "Proxy updated successfully"
+#~ msgstr "Прокси успешно обновлён"
+
+#~ msgid "Proxy added successfully"
+#~ msgstr "Прокси успешно добавлен"
+
+#~ msgid "Proxy Updated"
+#~ msgstr "Прокси обновлён"
+
+#~ msgid "Proxy Added"
+#~ msgstr "Прокси добавлен"
+
+#~ msgid "Save Failed"
+#~ msgstr "Ошибка сохранения"
+
+#~ msgid "Delete Proxy"
+#~ msgstr "Удалить прокси"
+
+#~ msgid "This proxy is used by"
+#~ msgstr "Этот прокси используется"
+
+#~ msgid "session(s). They will be blocked. Continue?"
+#~ msgstr "сессией(ями). Они будут заблокированы. Продолжить?"
+
+#~ msgid "Proxy deleted successfully"
+#~ msgstr "Прокси успешно удалён"
+
+#~ msgid "Proxy Deleted"
+#~ msgstr "Прокси удалён"
+
+#~ msgid "Deletion Failed"
+#~ msgstr "Ошибка удаления"
+
+#~ msgid "Drop session file here or click to browse"
+#~ msgstr "Перетащите файл сессии сюда или нажмите для выбора"
+
+#~ msgid "Drop your .session file here"
+#~ msgstr "Перетащите ваш файл .session сюда"
+
+#~ msgid "or click to browse"
+#~ msgstr "или нажмите для выбора"
+
+#~ msgid "or"
+#~ msgstr "или"
+
+#~ msgid "Choose File"
+#~ msgstr "Выбрать файл"
+
+#~ msgid "Clear selected file"
+#~ msgstr "Очистить выбранный файл"
+
+#~ msgid "Session file validated successfully!"
+#~ msgstr "Файл сессии успешно проверен!"
+
+#~ msgid "Now configure the session settings below."
+#~ msgstr "Теперь настройте параметры сессии ниже."
+
+#~ msgid "API ID"
+#~ msgstr "API ID"
+
+#~ msgid "Your Telegram API ID from my.telegram.org"
+#~ msgstr "Ваш API ID Telegram с my.telegram.org"
+
+#~ msgid "e.g., 12345678"
+#~ msgstr "напр., 12345678"
+
+#~ msgid "Numeric ID from my.telegram.org/apps"
+#~ msgstr "Числовой ID с my.telegram.org/apps"
+
+#~ msgid "API Hash"
+#~ msgstr "API Hash"
+
+#~ msgid "Your Telegram API Hash from my.telegram.org"
+#~ msgstr "Ваш API Hash Telegram с my.telegram.org"
+
+#~ msgid "e.g., 0123456789abcdef..."
+#~ msgstr "напр., 0123456789abcdef..."
+
+#~ msgid "32-character hex string from my.telegram.org/apps"
+#~ msgstr "32-символьная hex строка с my.telegram.org/apps"
+
+#~ msgid "Select a proxy for this session"
+#~ msgstr "Выберите прокси для этой сессии"
+
+#~ msgid "-- Select a proxy --"
+#~ msgstr "-- Выберите прокси --"
+
+#~ msgid "unavailable"
+#~ msgstr "недоступен"
+
+#~ msgid "A proxy is required for Telegram connection."
+#~ msgstr "Прокси требуется для подключения к Telegram."
+
+#~ msgid "Add a proxy first"
+#~ msgstr "Сначала добавьте прокси"
+
+#~ msgid ""
+#~ "I understand that session files provide"
+#~ " complete access to my Telegram "
+#~ "account and accept the security risks."
+#~ " I confirm this session was created"
+#~ " on a trusted device and will "
+#~ "be stored securely."
+#~ msgstr ""
+#~ "Я понимаю, что файлы сессий "
+#~ "предоставляют полный доступ к моему "
+#~ "аккаунту Telegram и принимаю риски "
+#~ "безопасности. Я подтверждаю, что эта "
+#~ "сессия создана на доверенном устройстве "
+#~ "и будет храниться безопасно."
+
+#~ msgid "Save Session"
+#~ msgstr "Сохранить сессию"
+
+#~ msgid "Invalid file type. Please select a .session file."
+#~ msgstr "Неверный тип файла. Выберите файл .session."
+
+#~ msgid "File is too large. Maximum size is 10 MB."
+#~ msgstr "Файл слишком большой. Максимальный размер 10 МБ."
+
+#~ msgid "Validating session file..."
+#~ msgstr "Проверка файла сессии..."
+
+#~ msgid "Failed to validate session file. Please try again."
+#~ msgstr "Не удалось проверить файл сессии. Попробуйте снова."
+
+#~ msgid "Deletion is already in progress in another tab"
+#~ msgstr "Удаление уже выполняется в другой вкладке"
+
+#~ msgid "s ago"
+#~ msgstr " сек. назад"
+
+#~ msgid "Operation in Progress"
+#~ msgstr "Операция выполняется"
+
+#~ msgid "Delete Telegram Account"
+#~ msgstr "Удалить аккаунт Telegram"
+
+#~ msgid "Are you sure you want to delete the account"
+#~ msgstr "Вы уверены, что хотите удалить аккаунт"
+
+#~ msgid ""
+#~ "This action cannot be undone. All "
+#~ "session data and credentials will be "
+#~ "permanently removed."
+#~ msgstr ""
+#~ "Это действие нельзя отменить. Все данные"
+#~ " сессии и учётные данные будут "
+#~ "удалены безвозвратно."
+
+#~ msgid "Delete Account"
+#~ msgstr "Удалить аккаунт"
+
+#~ msgid "Account has been deleted."
+#~ msgstr "Аккаунт удалён."
+
+#~ msgid "Account Deleted"
+#~ msgstr "Аккаунт удалён"
+
+#~ msgid "Failed to delete account:"
+#~ msgstr "Не удалось удалить аккаунт:"
+
+#~ msgid ""
+#~ "Session '{session_id}' has no proxy "
+#~ "configured. Please configure a proxy for"
+#~ " this session before connecting."
+#~ msgstr ""
+#~ "Сессия '{session_id}' не имеет настроенного"
+#~ " прокси. Настройте прокси для этой "
+#~ "сессии перед подключением."
+
+#~ msgid ""
+#~ "Session '{session_id}' has no api_id "
+#~ "configured. Please configure api_id before "
+#~ "connecting."
+#~ msgstr ""
+#~ "Сессия '{session_id}' не имеет настроенного"
+#~ " api_id. Настройте api_id перед "
+#~ "подключением."
+
+#~ msgid ""
+#~ "Session '{session_id}' has no api_hash "
+#~ "configured. Please configure api_hash before"
+#~ " connecting."
+#~ msgstr ""
+#~ "Сессия '{session_id}' не имеет настроенного"
+#~ " api_hash. Настройте api_hash перед "
+#~ "подключением."
+
+#~ msgid ""
+#~ "Session '{session_id}' requires proxy "
+#~ "'{proxy_id}' which is not found in "
+#~ "proxy pool. Please add the proxy "
+#~ "to the pool or update the session"
+#~ " configuration."
+#~ msgstr ""
+#~ "Сессия '{session_id}' требует прокси "
+#~ "'{proxy_id}', который не найден в пуле"
+#~ " прокси. Добавьте прокси в пул или"
+#~ " обновите настройки сессии."

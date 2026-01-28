@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from chatfilter.i18n import _
 from chatfilter.importer import (
     ChatListEntry,
     GoogleSheetsError,
@@ -160,7 +161,9 @@ async def upload_chat_list(
                 name="partials/chatlist_result.html",
                 context={
                     "success": False,
-                    "error": f"File too large (max {MAX_FILE_SIZE // 1024 // 1024} MB)",
+                    "error": _("File too large (max {size} MB)").format(
+                        size=MAX_FILE_SIZE // 1024 // 1024
+                    ),
                 },
             )
 
@@ -170,7 +173,7 @@ async def upload_chat_list(
                 name="partials/chatlist_result.html",
                 context={
                     "success": False,
-                    "error": "File is empty",
+                    "error": _("File is empty"),
                 },
             )
 
@@ -186,7 +189,7 @@ async def upload_chat_list(
                 name="partials/chatlist_result.html",
                 context={
                     "success": False,
-                    "error": f"Parse error: {e}",
+                    "error": _("Parse error: {error}").format(error=e),
                 },
             )
 
@@ -196,7 +199,7 @@ async def upload_chat_list(
                 name="partials/chatlist_result.html",
                 context={
                     "success": False,
-                    "error": "No valid chat entries found in file",
+                    "error": _("No valid chat entries found in file"),
                 },
             )
 
@@ -234,7 +237,9 @@ async def upload_chat_list(
             name="partials/chatlist_result.html",
             context={
                 "success": False,
-                "error": "An unexpected error occurred while processing the file. Please try again.",
+                "error": _(
+                    "An unexpected error occurred while processing the file. Please try again."
+                ),
             },
         )
 
@@ -261,7 +266,7 @@ async def fetch_google_sheet_endpoint(
                 name="partials/chatlist_result.html",
                 context={
                     "success": False,
-                    "error": "Please enter a Google Sheets URL",
+                    "error": _("Please enter a Google Sheets URL"),
                 },
             )
 
@@ -271,7 +276,7 @@ async def fetch_google_sheet_endpoint(
                 name="partials/chatlist_result.html",
                 context={
                     "success": False,
-                    "error": "Invalid Google Sheets URL",
+                    "error": _("Invalid Google Sheets URL"),
                 },
             )
 
@@ -294,7 +299,7 @@ async def fetch_google_sheet_endpoint(
                 name="partials/chatlist_result.html",
                 context={
                     "success": False,
-                    "error": "No valid chat entries found in spreadsheet",
+                    "error": _("No valid chat entries found in spreadsheet"),
                 },
             )
 
@@ -330,7 +335,9 @@ async def fetch_google_sheet_endpoint(
             name="partials/chatlist_result.html",
             context={
                 "success": False,
-                "error": "An unexpected error occurred while fetching the Google Sheet. Please try again.",
+                "error": _(
+                    "An unexpected error occurred while fetching the Google Sheet. Please try again."
+                ),
             },
         )
 
@@ -354,7 +361,7 @@ async def get_chat_list_entries(
             request=request,
             name="partials/chatlist_entries.html",
             context={
-                "error": "List not found or expired",
+                "error": _("List not found or expired"),
             },
         )
 
