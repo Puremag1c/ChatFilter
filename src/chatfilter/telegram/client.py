@@ -39,7 +39,11 @@ from chatfilter.i18n.translations import _ as gettext
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.models.message import Message
 from chatfilter.telegram.rate_limiter import get_rate_limiter
-from chatfilter.telegram.retry import with_retry_for_reads
+from chatfilter.telegram.retry import (
+    RETRYABLE_EXCEPTIONS,
+    RetryContext,
+    with_retry_for_reads,
+)
 
 if TYPE_CHECKING:
     from telethon import TelegramClient as TelegramClientType
@@ -1104,11 +1108,13 @@ async def get_messages(
                             f"stopping forum topic fetch at topic {topic_id}"
                         )
                         break
-                    max_retries = 3
-                    retry_count = 0
                     topic_messages_before = len(messages)
+                    retry = RetryContext(
+                        operation_name=f"fetch topic {topic_id}",
+                        retryable_exceptions=RETRYABLE_EXCEPTIONS,
+                    )
 
-                    while retry_count < max_retries:
+                    while retry.should_continue():
                         try:
                             # Determine offset for this topic (min message ID among topic messages)
                             topic_msgs = [m for m in messages if m.id not in seen_ids]
@@ -1148,31 +1154,12 @@ async def get_messages(
                             # Successfully fetched from this topic
                             break
 
-                        except (ConnectionError, TimeoutError, OSError) as e:
-                            retry_count += 1
+                        except RETRYABLE_EXCEPTIONS as e:
                             fetch_interrupted = True
-                            topic_msg_count = len(messages) - topic_messages_before
-                            logger.warning(
-                                f"Connection interrupted while fetching topic {topic_id} "
-                                f"(collected {topic_msg_count} messages from this topic, "
-                                f"attempt {retry_count}/{max_retries}): {e}"
+                            await retry.handle_exception(
+                                e,
+                                f"collected {len(messages) - topic_messages_before} msgs",
                             )
-
-                            if retry_count < max_retries:
-                                import asyncio
-
-                                wait_time = 1.0 * (2 ** (retry_count - 1))
-                                logger.info(
-                                    f"Retrying topic {topic_id} in {wait_time}s with offset..."
-                                )
-                                await asyncio.sleep(wait_time)
-                            else:
-                                logger.warning(
-                                    f"Max retries reached for topic {topic_id}. "
-                                    f"Moving to next topic."
-                                )
-                                # Continue with other topics to maximize data recovery
-                                break
                         except Exception as e:
                             # Log error but continue with other topics
                             logger.warning(f"Failed to fetch messages from topic {topic_id}: {e}")
@@ -1180,10 +1167,12 @@ async def get_messages(
             else:
                 # No topics found or error getting topics, fall back to default behavior
                 logger.info(f"No topics found for forum {chat_id}, using default fetch")
-                max_retries = 3
-                retry_count = 0
+                retry = RetryContext(
+                    operation_name=f"fetch forum {chat_id}",
+                    retryable_exceptions=RETRYABLE_EXCEPTIONS,
+                )
 
-                while retry_count < max_retries and len(messages) < effective_limit:
+                while retry.should_continue() and len(messages) < effective_limit:
                     try:
                         offset_id = min(messages, key=lambda m: m.id).id if messages else 0
                         remaining = effective_limit - len(messages)
@@ -1203,34 +1192,19 @@ async def get_messages(
 
                         break
 
-                    except (ConnectionError, TimeoutError, OSError) as e:
-                        retry_count += 1
+                    except RETRYABLE_EXCEPTIONS as e:
                         fetch_interrupted = True
-                        logger.warning(
-                            f"Connection interrupted while fetching forum {chat_id} "
-                            f"(collected {len(messages)}/{effective_limit} messages, "
-                            f"attempt {retry_count}/{max_retries}): {e}"
+                        await retry.handle_exception(
+                            e, f"collected {len(messages)}/{effective_limit} msgs"
                         )
-
-                        if retry_count < max_retries:
-                            import asyncio
-
-                            wait_time = 1.0 * (2 ** (retry_count - 1))
-                            logger.info(
-                                f"Retrying in {wait_time}s with offset from last message..."
-                            )
-                            await asyncio.sleep(wait_time)
-                        else:
-                            logger.warning(
-                                f"Max retries reached for forum {chat_id}. "
-                                f"Returning {len(messages)} partial messages."
-                            )
         else:
             # Regular chat, use standard fetch with resume capability
-            max_retries = 3
-            retry_count = 0
+            retry = RetryContext(
+                operation_name=f"fetch chat {chat_id}",
+                retryable_exceptions=RETRYABLE_EXCEPTIONS,
+            )
 
-            while retry_count < max_retries and len(messages) < effective_limit:
+            while retry.should_continue() and len(messages) < effective_limit:
                 try:
                     # Determine offset for resume (use min message ID if resuming)
                     offset_id = min(messages, key=lambda m: m.id).id if messages else 0
@@ -1254,27 +1228,11 @@ async def get_messages(
                     # Successfully completed fetch
                     break
 
-                except (ConnectionError, TimeoutError, OSError) as e:
-                    retry_count += 1
+                except RETRYABLE_EXCEPTIONS as e:
                     fetch_interrupted = True
-                    logger.warning(
-                        f"Connection interrupted while fetching chat {chat_id} "
-                        f"(collected {len(messages)}/{effective_limit} messages, "
-                        f"attempt {retry_count}/{max_retries}): {e}"
+                    await retry.handle_exception(
+                        e, f"collected {len(messages)}/{effective_limit} msgs"
                     )
-
-                    if retry_count < max_retries:
-                        # Wait before retry with exponential backoff
-                        import asyncio
-
-                        wait_time = 1.0 * (2 ** (retry_count - 1))
-                        logger.info(f"Retrying in {wait_time}s with offset from last message...")
-                        await asyncio.sleep(wait_time)
-                    else:
-                        logger.warning(
-                            f"Max retries reached for chat {chat_id}. "
-                            f"Returning {len(messages)} partial messages."
-                        )
 
     except (
         ChatForbiddenError,
@@ -1409,11 +1367,13 @@ async def get_messages_streaming(
                         )
                         return
 
-                    max_retries = 3
-                    retry_count = 0
                     batch: list[Message] = []
+                    retry = RetryContext(
+                        operation_name=f"stream topic {topic_id}",
+                        retryable_exceptions=RETRYABLE_EXCEPTIONS,
+                    )
 
-                    while retry_count < max_retries:
+                    while retry.should_continue():
                         try:
                             # Calculate remaining messages to fetch
                             remaining = max_messages - total_fetched if max_messages else batch_size
@@ -1454,25 +1414,8 @@ async def get_messages_streaming(
                             # Successfully fetched from this topic
                             break
 
-                        except (ConnectionError, TimeoutError, OSError) as e:
-                            retry_count += 1
-                            logger.warning(
-                                f"Connection interrupted while streaming topic {topic_id} "
-                                f"(attempt {retry_count}/{max_retries}): {e}"
-                            )
-
-                            if retry_count < max_retries:
-                                import asyncio
-
-                                wait_time = 1.0 * (2 ** (retry_count - 1))
-                                logger.info(f"Retrying topic {topic_id} in {wait_time}s...")
-                                await asyncio.sleep(wait_time)
-                            else:
-                                logger.warning(
-                                    f"Max retries reached for topic {topic_id}. "
-                                    f"Moving to next topic."
-                                )
-                                break
+                        except RETRYABLE_EXCEPTIONS as e:
+                            await retry.handle_exception(e)
                         except Exception as e:
                             logger.warning(f"Failed to stream from topic {topic_id}: {e}")
                             break
@@ -1481,11 +1424,13 @@ async def get_messages_streaming(
                 logger.info(f"No topics found for forum {chat_id}, using default streaming")
 
         # Regular chat or forum fallback: stream messages
-        max_retries = 3
-        retry_count = 0
         current_batch: list[Message] = []
+        retry = RetryContext(
+            operation_name=f"stream chat {chat_id}",
+            retryable_exceptions=RETRYABLE_EXCEPTIONS,
+        )
 
-        while retry_count < max_retries:
+        while retry.should_continue():
             try:
                 # Calculate remaining messages to fetch
                 if max_messages:
@@ -1534,29 +1479,12 @@ async def get_messages_streaming(
                 # Successfully completed streaming
                 break
 
-            except (ConnectionError, TimeoutError, OSError) as e:
-                retry_count += 1
-                logger.warning(
-                    f"Connection interrupted while streaming chat {chat_id} "
-                    f"(fetched {total_fetched} so far, "
-                    f"attempt {retry_count}/{max_retries}): {e}"
-                )
-
-                if retry_count < max_retries:
-                    import asyncio
-
-                    wait_time = 1.0 * (2 ** (retry_count - 1))
-                    logger.info(f"Retrying in {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    logger.warning(
-                        f"Max retries reached for chat {chat_id}. Yielding final partial batch."
-                    )
-                    # Yield any remaining batch
-                    if batch:
-                        batch.sort(key=lambda m: m.timestamp)
-                        yield batch
-                    break
+            except RETRYABLE_EXCEPTIONS as e:
+                await retry.handle_exception(e, f"fetched {total_fetched} so far")
+                if retry.was_interrupted and current_batch:
+                    # Yield any remaining batch before giving up
+                    current_batch.sort(key=lambda m: m.timestamp)
+                    yield current_batch
 
     except (
         ChatForbiddenError,

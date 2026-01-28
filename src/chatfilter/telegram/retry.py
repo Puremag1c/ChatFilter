@@ -257,3 +257,116 @@ def _format_flood_wait_duration(seconds: int) -> str:
         if remainder_minutes > 0:
             return f"{hours} hour{'s' if hours != 1 else ''} {remainder_minutes} minute{'s' if remainder_minutes != 1 else ''}"
         return f"{hours} hour{'s' if hours != 1 else ''}"
+
+
+class RetryContext:
+    """Context for retry loops with exponential backoff inside functions.
+
+    Unlike the @with_retry decorator which wraps an entire function,
+    RetryContext is designed for cases where retry logic needs to be
+    embedded within a larger function with partial result collection.
+
+    Example:
+        retry = RetryContext(max_attempts=3, operation_name="fetch messages")
+        while retry.should_continue():
+            try:
+                # fetch some data with resume capability
+                break  # success
+            except RETRYABLE_EXCEPTIONS as e:
+                await retry.handle_exception(e)
+
+        if retry.was_interrupted:
+            logger.info(f"Returning partial results after {retry.attempts} attempts")
+    """
+
+    def __init__(
+        self,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+        base_delay: float = DEFAULT_BASE_DELAY,
+        max_delay: float = DEFAULT_MAX_DELAY,
+        jitter: float = DEFAULT_JITTER,
+        retryable_exceptions: tuple[type[Exception], ...] = RETRYABLE_EXCEPTIONS,
+        operation_name: str = "operation",
+    ):
+        """Initialize retry context.
+
+        Args:
+            max_attempts: Maximum number of attempts (including first try)
+            base_delay: Base delay in seconds for exponential backoff
+            max_delay: Maximum delay in seconds between retries
+            jitter: Jitter factor (0.0 to 1.0) to randomize delays
+            retryable_exceptions: Tuple of exception types that should trigger retry
+            operation_name: Name for logging
+        """
+        self.max_attempts = max_attempts
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.jitter = jitter
+        self.retryable_exceptions = retryable_exceptions
+        self.operation_name = operation_name
+        self._attempt = 0
+        self._was_interrupted = False
+        self._last_exception: Exception | None = None
+
+    @property
+    def attempts(self) -> int:
+        """Number of attempts made so far."""
+        return self._attempt
+
+    @property
+    def was_interrupted(self) -> bool:
+        """Whether max retries was reached (operation was interrupted)."""
+        return self._was_interrupted
+
+    @property
+    def last_exception(self) -> Exception | None:
+        """The last exception that triggered a retry."""
+        return self._last_exception
+
+    def should_continue(self) -> bool:
+        """Check if retry loop should continue.
+
+        Returns:
+            True if within retry limits, False if max attempts reached.
+        """
+        return self._attempt < self.max_attempts and not self._was_interrupted
+
+    async def handle_exception(self, exc: Exception, context: str = "") -> bool:
+        """Handle an exception and wait before retry if appropriate.
+
+        Args:
+            exc: The exception that occurred
+            context: Additional context for logging (e.g., "topic 123")
+
+        Returns:
+            True if should retry, False if max attempts reached
+        """
+        self._attempt += 1
+        self._last_exception = exc
+
+        ctx_str = f" ({context})" if context else ""
+        is_final_attempt = self._attempt >= self.max_attempts
+
+        if is_final_attempt:
+            self._was_interrupted = True
+            logger.warning(
+                f"{self.operation_name}{ctx_str}: Max retries ({self.max_attempts}) reached. "
+                f"Last error: {type(exc).__name__}: {exc}"
+            )
+            return False
+
+        delay = calculate_backoff_delay(
+            self._attempt - 1, self.base_delay, self.max_delay, self.jitter
+        )
+        logger.warning(
+            f"{self.operation_name}{ctx_str}: Attempt {self._attempt}/{self.max_attempts} failed "
+            f"with {type(exc).__name__}: {exc}. Retrying in {delay:.2f}s..."
+        )
+        await asyncio.sleep(delay)
+        return True
+
+    def reset(self) -> None:
+        """Reset retry context for reuse (e.g., for a new topic in same function)."""
+        self._attempt = 0
+        self._was_interrupted = False
+        self._last_exception = None
