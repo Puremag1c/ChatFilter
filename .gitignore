@@ -41,6 +41,7 @@ test-log.txt
 test-results.xml
 ci_logs/
 testacc/
+.playwright-mcp/
 
 # Distribution
 *.manifest
@@ -58,3 +59,4 @@ testacc/
 # Runtime data directory
 data/
 CLAUDE.md
+uv.lock
