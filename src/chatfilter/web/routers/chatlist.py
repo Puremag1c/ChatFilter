@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Annotated
 from uuid import uuid4
 
@@ -26,9 +27,15 @@ router = APIRouter(tags=["chatlist"])
 # Maximum file size for uploads
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
-# In-memory storage for imported chat lists (session-scoped)
-# In production, you might want to use Redis or similar
-_imported_lists: dict[str, list[ChatListEntry]] = {}
+# TTL for imported lists (1 hour)
+LIST_TTL_SECONDS = 3600
+
+# Maximum number of stored lists (LRU eviction)
+MAX_STORED_LISTS = 100
+
+# In-memory storage for imported chat lists with timestamps
+# Structure: {list_id: (timestamp, entries)}
+_imported_lists: dict[str, tuple[float, list[ChatListEntry]]] = {}
 
 
 class ImportResult(BaseModel):
@@ -41,6 +48,41 @@ class ImportResult(BaseModel):
     entries: list[ChatListEntry] = []
 
 
+def _cleanup_expired_lists() -> int:
+    """Remove expired lists (TTL) and enforce max size (LRU).
+
+    Returns:
+        Number of lists removed.
+    """
+    now = time.time()
+    removed = 0
+
+    # Remove expired entries (TTL)
+    expired_ids = [
+        list_id
+        for list_id, (timestamp, _) in _imported_lists.items()
+        if now - timestamp > LIST_TTL_SECONDS
+    ]
+    for list_id in expired_ids:
+        del _imported_lists[list_id]
+        removed += 1
+
+    # Enforce max size (LRU - remove oldest)
+    if len(_imported_lists) > MAX_STORED_LISTS:
+        # Sort by timestamp (oldest first)
+        sorted_ids = sorted(_imported_lists.keys(), key=lambda x: _imported_lists[x][0])
+        # Remove oldest until we're under the limit
+        while len(_imported_lists) > MAX_STORED_LISTS:
+            oldest_id = sorted_ids.pop(0)
+            del _imported_lists[oldest_id]
+            removed += 1
+
+    if removed > 0:
+        logger.debug(f"Cleaned up {removed} expired/excess chat lists")
+
+    return removed
+
+
 def store_chat_list(entries: list[ChatListEntry]) -> str:
     """Store a chat list and return its ID.
 
@@ -50,8 +92,11 @@ def store_chat_list(entries: list[ChatListEntry]) -> str:
     Returns:
         Unique list ID.
     """
-    list_id = str(uuid4())[:8]
-    _imported_lists[list_id] = entries
+    # Cleanup before adding new entry
+    _cleanup_expired_lists()
+
+    list_id = str(uuid4())
+    _imported_lists[list_id] = (time.time(), entries)
     return list_id
 
 
@@ -62,9 +107,19 @@ def get_chat_list(list_id: str) -> list[ChatListEntry] | None:
         list_id: The list ID.
 
     Returns:
-        List of entries or None if not found.
+        List of entries or None if not found/expired.
     """
-    return _imported_lists.get(list_id)
+    entry = _imported_lists.get(list_id)
+    if entry is None:
+        return None
+
+    timestamp, entries = entry
+    # Check if expired
+    if time.time() - timestamp > LIST_TTL_SECONDS:
+        del _imported_lists[list_id]
+        return None
+
+    return entries
 
 
 def clear_chat_list(list_id: str) -> bool:
