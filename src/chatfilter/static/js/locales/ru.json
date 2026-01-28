@@ -21,7 +21,11 @@
     "refresh": "Обновить",
     "retry": "Повторить",
     "yes": "Да",
-    "no": "Нет"
+    "no": "Нет",
+    "got_it": "Понятно",
+    "reload_page": "Перезагрузить страницу",
+    "continue": "Продолжить",
+    "dismiss": "Закрыть"
   },
   "nav": {
     "sessions": "Сессии",
@@ -87,5 +91,23 @@
     "in_progress": "Идет анализ",
     "select_chats": "Выберите чаты для анализа",
     "no_results": "Результаты не найдены"
+  },
+  "updates": {
+    "available": "Доступно обновление",
+    "view_release": "Посмотреть релиз",
+    "version_info": "Доступна версия {latest} (текущая: {current})"
+  },
+  "warnings": {
+    "tabs_open": "У вас открыто {count} вкладок. Это может вызвать проблемы с производительностью и конфликты.",
+    "multiple_tabs": "Обнаружено несколько вкладок",
+    "stale_state": "Вы отсутствовали некоторое время. Состояние страницы может быть устаревшим.",
+    "stale_state_title": "Устаревшее состояние",
+    "concurrent_operation": "Другая вкладка выполняет: {operation} над {resourceType}",
+    "concurrent_operation_title": "Параллельная операция",
+    "conflict_title": "Предупреждение о конфликте"
+  },
+  "language": {
+    "current_aria": "Текущий язык: {languageName}. Нажмите для переключения на {nextLanguageName}",
+    "switch_to": "Переключить на {nextLanguageName}"
   }
 }

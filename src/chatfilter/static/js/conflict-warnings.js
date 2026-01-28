@@ -42,14 +42,15 @@ const ConflictWarnings = (function() {
         const tabCount = activeTabs.size + 1; // +1 for current tab
 
         if (tabCount >= config.maxTabs) {
+            const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
             if (typeof ToastManager !== 'undefined') {
                 ToastManager.warning(
-                    `You have ${tabCount} tabs open. This may cause performance issues and conflicts.`,
+                    t('warnings.tabs_open', { count: tabCount }),
                     {
-                        title: 'Multiple Tabs Detected',
+                        title: t('warnings.multiple_tabs'),
                         duration: 10000,
                         actions: [{
-                            label: 'Got it',
+                            label: t('common.got_it'),
                             class: 'dismiss',
                             action: 'dismiss'
                         }]
@@ -71,19 +72,20 @@ const ConflictWarnings = (function() {
         const timeSinceActivity = TabActivity.getTimeSinceLastActivity();
 
         if (timeSinceActivity > STALE_STATE_THRESHOLD && !document.hidden) {
+            const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
             if (typeof ToastManager !== 'undefined') {
                 ToastManager.info(
-                    'You\'ve been away for a while. The page state may be outdated.',
+                    t('warnings.stale_state'),
                     {
-                        title: 'Stale State Warning',
+                        title: t('warnings.stale_state_title'),
                         duration: 8000,
                         actions: [{
-                            label: 'Reload Page',
+                            label: t('common.reload_page'),
                             class: 'retry',
                             action: 'reload',
                             callback: () => window.location.reload()
                         }, {
-                            label: 'Continue',
+                            label: t('common.continue'),
                             class: 'dismiss',
                             action: 'dismiss'
                         }]
@@ -151,11 +153,12 @@ const ConflictWarnings = (function() {
         // Show notification for critical operations
         const criticalOps = ['delete', 'cancel', 'force-cancel'];
         if (criticalOps.includes(data.operation)) {
+            const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
             if (typeof ToastManager !== 'undefined') {
                 ToastManager.info(
-                    `Another tab is performing: ${data.operation} on ${data.resourceType}`,
+                    t('warnings.concurrent_operation', { operation: data.operation, resourceType: data.resourceType }),
                     {
-                        title: 'Concurrent Operation',
+                        title: t('warnings.concurrent_operation_title'),
                         duration: 5000
                     }
                 );
@@ -248,12 +251,13 @@ const ConflictWarnings = (function() {
      * @param {object} options
      */
     function showWarning(message, options = {}) {
+        const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
         if (typeof ToastManager !== 'undefined') {
             ToastManager.warning(message, {
-                title: options.title || 'Conflict Warning',
+                title: options.title || t('warnings.conflict_title'),
                 duration: options.duration || 8000,
                 actions: options.actions || [{
-                    label: 'Dismiss',
+                    label: t('common.dismiss'),
                     class: 'dismiss',
                     action: 'dismiss'
                 }]

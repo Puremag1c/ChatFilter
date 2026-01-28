@@ -48,6 +48,7 @@ const VersionCheckManager = {
         notification.setAttribute('aria-live', 'polite');
         notification.style.display = 'none';
 
+        const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
         notification.innerHTML = `
             <div class="update-notification-content">
                 <div class="update-notification-icon">
@@ -56,12 +57,12 @@ const VersionCheckManager = {
                     </svg>
                 </div>
                 <div class="update-notification-message">
-                    <strong class="update-notification-title">Update Available</strong>
+                    <strong class="update-notification-title">${t('updates.available')}</strong>
                     <span class="update-notification-version"></span>
                 </div>
                 <div class="update-notification-actions">
-                    <a href="#" class="update-notification-link" target="_blank" rel="noopener noreferrer">View Release</a>
-                    <button class="update-notification-dismiss" aria-label="Dismiss notification">
+                    <a href="#" class="update-notification-link" target="_blank" rel="noopener noreferrer">${t('updates.view_release')}</a>
+                    <button class="update-notification-dismiss" aria-label="${t('common.dismiss')}">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path fill-rule="evenodd" d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z" clip-rule="evenodd" />
                         </svg>
@@ -128,7 +129,8 @@ const VersionCheckManager = {
         const versionElement = this.notificationElement.querySelector('.update-notification-version');
         const linkElement = this.notificationElement.querySelector('.update-notification-link');
 
-        versionElement.textContent = `Version ${updateInfo.latest_version} is now available (current: ${updateInfo.current_version})`;
+        const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+        versionElement.textContent = t('updates.version_info', { latest: updateInfo.latest_version, current: updateInfo.current_version });
 
         if (updateInfo.release_url) {
             linkElement.href = updateInfo.release_url;

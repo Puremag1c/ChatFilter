@@ -118,9 +118,10 @@
         const languageName = LANGUAGE_NAMES[currentLocale] || currentLocale;
         const nextLocale = getNextLocale(currentLocale);
         const nextLanguageName = LANGUAGE_NAMES[nextLocale] || nextLocale;
-        languageButton.setAttribute('aria-label', `Current language: ${languageName}. Click to switch to ${nextLanguageName}`);
+        const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+        languageButton.setAttribute('aria-label', t('language.current_aria', { languageName, nextLanguageName }));
 
         // Update tooltip
-        languageButton.setAttribute('data-tooltip', `Switch to ${nextLanguageName}`);
+        languageButton.setAttribute('data-tooltip', t('language.switch_to', { nextLanguageName }));
     }
 })();

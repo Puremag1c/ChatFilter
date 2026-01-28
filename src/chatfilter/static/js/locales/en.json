@@ -21,7 +21,11 @@
     "refresh": "Refresh",
     "retry": "Retry",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "got_it": "Got it",
+    "reload_page": "Reload Page",
+    "continue": "Continue",
+    "dismiss": "Dismiss"
   },
   "nav": {
     "sessions": "Sessions",
@@ -87,5 +91,23 @@
     "in_progress": "Analysis in progress",
     "select_chats": "Select chats for analysis",
     "no_results": "No results found"
+  },
+  "updates": {
+    "available": "Update Available",
+    "view_release": "View Release",
+    "version_info": "Version {latest} is now available (current: {current})"
+  },
+  "warnings": {
+    "tabs_open": "You have {count} tabs open. This may cause performance issues and conflicts.",
+    "multiple_tabs": "Multiple Tabs Detected",
+    "stale_state": "You've been away for a while. The page state may be outdated.",
+    "stale_state_title": "Stale State Warning",
+    "concurrent_operation": "Another tab is performing: {operation} on {resourceType}",
+    "concurrent_operation_title": "Concurrent Operation",
+    "conflict_title": "Conflict Warning"
+  },
+  "language": {
+    "current_aria": "Current language: {languageName}. Click to switch to {nextLanguageName}",
+    "switch_to": "Switch to {nextLanguageName}"
   }
 }
