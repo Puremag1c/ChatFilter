@@ -4,117 +4,27 @@ Telegram chat filtering and analysis tool with web interface.
 
 ## Quick Start
 
-### Download Pre-built Binaries
-
-Download the latest build for your platform from GitHub Actions artifacts:
-
-- **Windows**: Download `ChatFilter-Windows-exe.zip`, extract `ChatFilter.exe`
-- **macOS**: Download `ChatFilter-macOS-app.zip`, extract and open `ChatFilter.app`
-
-#### Windows SmartScreen Warning
-
-When running `ChatFilter.exe` for the first time, Windows SmartScreen may show a warning: **"Windows protected your PC"**.
-
-This happens because the executable is not code-signed (code signing certificates cost hundreds of dollars annually). The application is completely safe - all source code is open and auditable in this repository.
-
-**To run the application:**
-
-1. Click **"More info"** on the SmartScreen warning dialog
-2. Click **"Run anyway"** button that appears
-3. The application will start normally
-
-You only need to do this once. Windows will remember your choice for future runs.
-
-**Why is this safe?**
-- All source code is public and can be reviewed
-- The executable is built automatically via GitHub Actions (see [build-windows.yml](.github/workflows/build-windows.yml))
-- No telemetry or network calls except to Telegram API
-- Open-source under MIT license
-
-**Signed Builds:**
-The Windows builds support optional code signing with Standard or EV Code Signing certificates. Official builds from GitHub Actions with proper secrets configured can be code-signed to prevent SmartScreen warnings entirely. However, code signing certificates cost $150-500 annually, so unsigned builds are provided by default.
-
-**For maintainers:** See [docs/WINDOWS_CODESIGN_SETUP.md](docs/WINDOWS_CODESIGN_SETUP.md) for setup instructions.
-
-#### macOS Gatekeeper Warning
-
-When opening `ChatFilter.app` for the first time, macOS Gatekeeper may block the application if it's not properly signed and notarized. You might see errors like:
-- **"ChatFilter.app cannot be opened because the developer cannot be verified"**
-- **"ChatFilter.app is damaged and can't be opened"**
-
-This is a security feature of macOS, not an indication that the app is actually malicious. All source code is open and auditable in this repository.
-
-**Solution 1: Use System Preferences (Recommended)**
-
-1. Try to open `ChatFilter.app` (it will be blocked)
-2. Open **System Preferences** → **Security & Privacy** → **General** tab
-3. You should see a message: *"ChatFilter.app was blocked from use because it is not from an identified developer"*
-4. Click the **"Open Anyway"** button
-5. Confirm by clicking **"Open"** in the dialog
-6. The application will start normally
-
-You only need to do this once. macOS will remember your choice for future runs.
-
-**Solution 2: Remove Quarantine Attribute (Alternative)**
-
-If the System Preferences method doesn't work, you can remove the quarantine attribute using Terminal:
-
-```bash
-xattr -cr /path/to/ChatFilter.app
-```
-
-Then open the app normally by double-clicking it.
-
-**Why is this safe?**
-- All source code is public and can be reviewed
-- The executable is built automatically via GitHub Actions (see [.github/workflows/build-macos.yml](.github/workflows/build-macos.yml))
-- No telemetry or network calls except to Telegram API
-- Open-source under MIT license
-
-**Signed Builds:**
-The macOS builds support automatic code signing and notarization through Apple Developer Program. Official builds from GitHub Actions with proper secrets configured will be fully signed and notarized, preventing Gatekeeper warnings entirely.
-
-**For maintainers:** See [docs/MACOS_CODESIGN_SETUP.md](docs/MACOS_CODESIGN_SETUP.md) for setup instructions.
-
-### Running the Application
-
-**Windows:**
-```cmd
-ChatFilter.exe
-```
-
-**macOS:**
-```bash
-./ChatFilter.app/Contents/MacOS/ChatFilter
-```
-
-**From Source (any platform):**
-```bash
-chatfilter
-```
-
-The server will start at `http://127.0.0.1:8000` by default.
-
-## Installation from Source
-
 ### Prerequisites
 
 - Python 3.11 or higher
-- pip package manager
+- pip or uv package manager
 
-### Install
+### Installation
 
 ```bash
 # Clone repository
 git clone https://github.com/yourusername/ChatFilter.git
 cd ChatFilter
 
-# Install package
-pip install -e .
+# Install package (choose one)
+pip install -e .        # using pip
+uv pip install -e .     # using uv (faster)
 
 # Run application
 chatfilter
 ```
+
+The server will start at `http://127.0.0.1:8000` by default.
 
 ## Configuration
 
@@ -242,118 +152,29 @@ See the web interface onboarding for detailed instructions.
 
 ## Development
 
-### Building from Source
-
-Complete instructions for developers who want to build, test, and contribute to ChatFilter.
-
-#### Prerequisites
-
-- Python 3.11 or higher
-- Git
-- pip package manager
-
-#### Clone Repository
+### Install with Development Dependencies
 
 ```bash
-git clone https://github.com/yourusername/ChatFilter.git
-cd ChatFilter
+pip install -e ".[dev]"    # or: uv pip install -e ".[dev]"
 ```
 
-#### Install with Development Dependencies
-
-Install the package in editable mode with all development tools:
+### Run Tests
 
 ```bash
-pip install -e ".[dev]"
+pytest                                      # full test suite
+pytest --cov=chatfilter --cov-report=html   # with coverage
+pytest tests/test_filter.py                 # specific file
 ```
 
-This installs:
-- The main package dependencies (Telethon, FastAPI, etc.)
-- Development tools: pytest, ruff, mypy
-- Test utilities: pytest-asyncio, pytest-cov, pytest-timeout
-
-#### Run the Application
-
-After installation, run the application directly:
+### Code Quality
 
 ```bash
-chatfilter
+ruff check .              # linting
+ruff check --fix .        # auto-fix
+mypy src/                 # type checking
 ```
 
-Or with custom options:
-
-```bash
-chatfilter --debug --port 9000
-```
-
-See [Command Line Options](#command-line-options) section for all available options.
-
-#### Run Tests
-
-Run the full test suite:
-
-```bash
-pytest
-```
-
-Run tests with coverage report:
-
-```bash
-pytest --cov=chatfilter --cov-report=html
-```
-
-Run specific test file or test:
-
-```bash
-pytest tests/test_filter.py
-pytest tests/test_filter.py::test_specific_function
-```
-
-#### Code Quality
-
-**Linting:**
-
-Check code style with Ruff:
-
-```bash
-ruff check .
-```
-
-Auto-fix issues:
-
-```bash
-ruff check --fix .
-```
-
-**Type Checking:**
-
-Run MyPy type checker:
-
-```bash
-mypy src/
-```
-
-**Run All Checks:**
-
-```bash
-ruff check . && mypy src/ && pytest
-```
-
-#### Build Executable
-
-Build standalone executable with PyInstaller:
-
-```bash
-pip install pyinstaller
-pyinstaller chatfilter.spec
-```
-
-The executable will be in the `dist/` directory:
-- **Windows**: `dist/ChatFilter.exe`
-- **macOS**: `dist/ChatFilter.app`
-- **Linux**: `dist/ChatFilter`
-
-#### Project Structure
+### Project Structure
 
 ```
 ChatFilter/
@@ -363,8 +184,7 @@ ChatFilter/
 │   ├── web/             # FastAPI web application
 │   └── session/         # Telegram session management
 ├── tests/               # Test suite
-├── pyproject.toml       # Project configuration
-└── chatfilter.spec      # PyInstaller build spec
+└── pyproject.toml       # Project configuration
 ```
 
 ## License
