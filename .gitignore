@@ -60,3 +60,11 @@ testacc/
 data/
 CLAUDE.md
 uv.lock
+.claudev/
+.claude/agents
+.claude/commands
+scripts
+project-scripts/
+stats/
+PROJECT_CONTEXT.md
+.mcp.json
