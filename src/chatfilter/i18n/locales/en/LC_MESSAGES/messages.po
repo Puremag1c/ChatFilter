@@ -2536,6 +2536,74 @@ msgstr ""
 msgid "An unexpected error occurred during import. Please try again."
 msgstr ""
 
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs API Credentials"
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs Verification Code"
+msgstr ""
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs 2FA Password"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_credentials.html
+msgid "Enter API Credentials"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_credentials.html
+msgid "API ID"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_credentials.html
+msgid "API Hash"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_credentials.html
+msgid "Get credentials at my.telegram.org"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_code.html
+msgid "Enter Verification Code"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_code.html
+msgid "Code"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_code.html
+msgid "Enter the 5-6 digit code sent to your phone"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_2fa.html
+msgid "Enter 2FA Password"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_2fa.html
+msgid "Password"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_2fa.html
+msgid "Enter your 2FA password"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_credentials.html
+msgid "Cancel"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_credentials.html
+msgid "Save"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_code.html
+msgid "Submit"
+msgstr ""
+
+#: src/chatfilter/templates/partials/modal_2fa.html
+msgid "Verify"
+msgstr ""
+
 #~ msgid "Skip to main content"
 #~ msgstr "Skip to main content"
 
