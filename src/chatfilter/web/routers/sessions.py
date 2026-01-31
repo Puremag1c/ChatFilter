@@ -1477,6 +1477,99 @@ async def update_session_credentials(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+    # Check if API credentials changed
+    old_api_id = config.get("api_id")
+    old_api_hash = config.get("api_hash")
+    credentials_changed = (old_api_id != api_id) or (old_api_hash != api_hash)
+
+    # If credentials changed, validate them with Telegram API
+    if credentials_changed:
+        import asyncio
+        import tempfile
+
+        from telethon import TelegramClient
+        from telethon.errors import ApiIdInvalidError
+
+        from chatfilter.storage.errors import StorageNotFoundError
+        from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+        # Get proxy for validation
+        proxy_id = config.get("proxy_id")
+        if not proxy_id:
+            return HTMLResponse(
+                content='<div class="alert alert-error">Session has no proxy configured. Please use the full config form to set both credentials and proxy.</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            proxy_entry = get_proxy_by_id(proxy_id)
+        except StorageNotFoundError:
+            return HTMLResponse(
+                content='<div class="alert alert-error">Session proxy not found in pool</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Create temporary client to validate credentials
+        temp_dir = tempfile.mkdtemp(prefix="chatfilter_validate_")
+        temp_session_path = Path(temp_dir) / "validate_session"
+
+        try:
+            telethon_proxy = proxy_entry.to_telethon_proxy()
+            client = TelegramClient(
+                str(temp_session_path),
+                api_id,
+                api_hash,
+                proxy=telethon_proxy,
+            )
+
+            # Try to connect - this will raise ApiIdInvalidError if credentials are wrong
+            await asyncio.wait_for(client.connect(), timeout=15.0)
+            await client.disconnect()
+            secure_delete_dir(temp_dir)
+
+            logger.info(f"API credentials validated for session '{safe_name}'")
+
+        except ApiIdInvalidError:
+            # Invalid credentials - don't save
+            if "client" in dir() and client.is_connected():
+                await client.disconnect()
+            secure_delete_dir(temp_dir)
+            return HTMLResponse(
+                content='<div class="alert alert-error">Invalid API ID or API Hash. Credentials not saved.</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except (OSError, ConnectionError, TimeoutError) as e:
+            # Network/proxy error - can't validate
+            if "client" in dir() and client.is_connected():
+                await client.disconnect()
+            secure_delete_dir(temp_dir)
+            logger.warning(f"Failed to validate credentials for '{safe_name}': {e}")
+            return HTMLResponse(
+                content='<div class="alert alert-error">Failed to validate credentials (network error). Please check proxy settings.</div>',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except Exception as e:
+            # Unexpected error
+            if "client" in dir() and client.is_connected():
+                await client.disconnect()
+            secure_delete_dir(temp_dir)
+            logger.exception(f"Unexpected error validating credentials for '{safe_name}'")
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">Failed to validate credentials: {e}</div>',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Credentials valid - disconnect current session if connected
+        from chatfilter.web.dependencies import get_session_manager
+
+        session_manager = get_session_manager()
+        try:
+            await session_manager.disconnect(safe_name)
+            logger.info(f"Disconnected session '{safe_name}' after credentials change")
+        except Exception as e:
+            logger.warning(f"Failed to disconnect session '{safe_name}': {e}")
+            # Non-fatal - continue with config update
+
     # Update only api_id and api_hash (preserve proxy_id and source)
     config["api_id"] = api_id
     config["api_hash"] = api_hash
@@ -1508,6 +1601,19 @@ async def update_session_credentials(
     except Exception as e:
         logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
         # Non-fatal: config.json is the primary source
+
+    # If credentials changed, need to trigger reconnect flow
+    if credentials_changed:
+        # Return success message indicating re-auth is needed
+        # The session will be disconnected already, user needs to reconnect with new credentials
+        return HTMLResponse(
+            content=f'''
+                <div class="alert alert-success">
+                    Credentials updated successfully. Session disconnected - please reconnect to re-authorize.
+                </div>
+            ''',
+            headers={"HX-Trigger": "refreshSessions"},
+        )
 
     # Get updated session status
     config_status = get_session_config_status(session_dir)

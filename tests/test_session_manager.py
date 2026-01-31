@@ -698,3 +698,165 @@ class TestNetworkSwitchIntegration:
 
         session = manager._sessions["test"]
         assert session.network_error_count == 0  # Reset after successful recovery
+
+
+class TestDeadSessionRecoveryFlow:
+    """Tests for dead session detection and recovery UX flow."""
+
+    @pytest.mark.asyncio
+    async def test_dead_session_shows_session_expired_status(self) -> None:
+        """Test that dead session shows 'Session expired' status, not generic 'Error'."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.SessionExpiredError(request=mock_request))
+        manager.register("dead_session", MockFactory(client))
+
+        with pytest.raises(SessionReauthRequiredError):
+            await manager.connect("dead_session")
+
+        info = manager.get_info("dead_session")
+        assert info is not None
+        assert info.state == SessionState.ERROR
+        # Error message should mention session expiration, not generic error
+        assert "expired" in info.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_dead_session_revoked_shows_distinct_status(self) -> None:
+        """Test that revoked session shows 'Session invalid' status distinct from temporary errors."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.SessionRevokedError(request=mock_request))
+        manager.register("dead_session", MockFactory(client))
+
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("dead_session")
+
+        info = manager.get_info("dead_session")
+        assert info is not None
+        assert info.state == SessionState.ERROR
+        # Error message should indicate permanent session death
+        assert "invalid" in info.error_message.lower()
+        assert "new session" in info.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_dead_session_banned_account_shows_permanent_status(self) -> None:
+        """Test that banned account shows distinct permanent error status."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.PhoneNumberBannedError(request=mock_request))
+        manager.register("banned_session", MockFactory(client))
+
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("banned_session")
+
+        info = manager.get_info("banned_session")
+        assert info is not None
+        assert info.state == SessionState.ERROR
+        # Error message should indicate account is banned/deactivated
+        assert "deactivated" in info.error_message.lower() or "banned" in info.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_temporary_error_vs_permanent_session_death(self) -> None:
+        """Test that temporary errors (network) are distinct from permanent session death."""
+        manager = SessionManager()
+
+        # Temporary error
+        temp_client = MockClient(fail_connect=True)
+        manager.register("temp_error", MockFactory(temp_client))
+
+        # Permanent error
+        mock_request = MagicMock()
+        perm_client = MockClient(auth_error=errors.SessionRevokedError(request=mock_request))
+        manager.register("perm_error", MockFactory(perm_client))
+
+        # Temporary error should be SessionConnectError
+        with pytest.raises(SessionConnectError):
+            await manager.connect("temp_error")
+
+        # Permanent error should be SessionInvalidError
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("perm_error")
+
+        temp_info = manager.get_info("temp_error")
+        perm_info = manager.get_info("perm_error")
+
+        assert temp_info is not None
+        assert perm_info is not None
+
+        # Both are in ERROR state, but messages should be distinct
+        assert temp_info.state == SessionState.ERROR
+        assert perm_info.state == SessionState.ERROR
+
+        # Permanent error should mention needing new session
+        assert "new session" in perm_info.error_message.lower()
+        # Temporary error should mention connection failure
+        assert ("connection" in temp_info.error_message.lower() or
+                "connect" in temp_info.error_message.lower())
+
+    @pytest.mark.asyncio
+    async def test_session_recovery_preserves_session_id(self) -> None:
+        """Test that session recovery preserves session ID during reconnection."""
+        manager = SessionManager()
+        client = MockClient()
+        manager.register("test_session", MockFactory(client))
+
+        # Connect initially
+        await manager.connect("test_session")
+        info_before = manager.get_info("test_session")
+        session_id_before = info_before.session_id
+
+        # Simulate recovery scenario: disconnect and reconnect
+        await manager.disconnect("test_session")
+        await manager.connect("test_session")
+        info_after = manager.get_info("test_session")
+        session_id_after = info_after.session_id
+
+        # Session ID should be preserved
+        assert session_id_before == session_id_after == "test_session"
+
+    @pytest.mark.asyncio
+    async def test_reauth_required_error_is_recoverable(self) -> None:
+        """Test that SessionReauthRequiredError indicates session can be recovered via re-auth."""
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.SessionExpiredError(request=mock_request))
+        manager.register("expired_session", MockFactory(client))
+
+        with pytest.raises(SessionReauthRequiredError) as exc_info:
+            await manager.connect("expired_session")
+
+        # Error should clearly indicate re-authentication is possible
+        error = exc_info.value
+        assert "expired" in str(error).lower()
+
+        # Session info should also indicate this is recoverable (vs SessionInvalidError)
+        info = manager.get_info("expired_session")
+        assert info is not None
+        # Error message should not say "new session needed"
+        assert "new session" not in info.error_message.lower()
+        # But should indicate re-auth is needed
+        assert "reauthentication" in info.error_message.lower() or "expired" in info.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_reconnect_flow_same_session_id(self) -> None:
+        """Test that reconnect button preserves same session ID for recovery flow."""
+        manager = SessionManager()
+        client = MockClient()
+        manager.register("my_account", MockFactory(client))
+
+        # Initial connection
+        await manager.connect("my_account")
+        original_info = manager.get_info("my_account")
+        assert original_info is not None
+        original_id = original_info.session_id
+
+        # Simulate recovery: disconnect and reconnect
+        await manager.disconnect("my_account")
+        await manager.connect("my_account")
+
+        recovered_info = manager.get_info("my_account")
+        assert recovered_info is not None
+        recovered_id = recovered_info.session_id
+
+        # Session ID should be the same
+        assert original_id == recovered_id == "my_account"

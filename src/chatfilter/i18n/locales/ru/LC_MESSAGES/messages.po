@@ -2513,3 +2513,7 @@ msgstr "Отправить"
 #: src/chatfilter/templates/partials/modal_2fa.html
 msgid "Verify"
 msgstr "Проверить"
+
+#: src/chatfilter/web/routers/sessions.py
+msgid "Session '{name}' reconnected successfully"
+msgstr "Сессия '{name}' успешно переподключена"
