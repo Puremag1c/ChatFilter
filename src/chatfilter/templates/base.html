@@ -31,12 +31,12 @@
         <nav role="navigation" aria-label="{{ _("Main navigation") }}">
             <a href="/" class="logo">ChatFilter</a>
             <ul class="nav-links">
+                <li><a href="/proxies" data-tooltip="{{ _("Manage proxy servers for Telegram sessions") }}" data-tooltip-position="bottom">{{ _("Proxies") }}</a></li>
                 <li><a href="/" data-tooltip="{{ _("Manage your Telegram session files") }}" data-tooltip-position="bottom">{{ _("Sessions") }}</a></li>
                 <li><a href="/chats" data-tooltip="{{ _("Select chats to analyze from your Telegram account") }}" data-tooltip-position="bottom">{{ _("Chats") }}</a></li>
                 <li><a href="/chatlist" data-tooltip="{{ _("Import a list of chats from a file or Google Sheets") }}" data-tooltip-position="bottom">{{ _("Import") }}</a></li>
                 <li><a href="/results" data-tooltip="{{ _("View analysis results and export data") }}" data-tooltip-position="bottom">{{ _("Results") }}</a></li>
                 <li><a href="/history" data-tooltip="{{ _("Browse your past analysis history") }}" data-tooltip-position="bottom">{{ _("History") }}</a></li>
-                <li><a href="/proxies" data-tooltip="{{ _("Manage proxy servers for Telegram sessions") }}" data-tooltip-position="bottom">{{ _("Proxies") }}</a></li>
             </ul>
             <div class="status-indicators">
                 <div class="network-status" id="network-status" role="status" aria-live="polite" data-tooltip="{{ _("Shows your internet connection status") }}" data-tooltip-position="bottom">
