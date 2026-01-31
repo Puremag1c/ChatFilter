@@ -70,3 +70,16 @@ PROJECT_CONTEXT.md
 .mcp.json
 SPEC.md
 SPEC.draft.md
+
+# Claudev
+.claudev/
+.claude/agents
+.claude/commands
+scripts
+project-scripts/
+logs/
+stats/
+PROJECT_CONTEXT.md
+SPEC.md
+SPEC.draft.md
+.mcp.json
