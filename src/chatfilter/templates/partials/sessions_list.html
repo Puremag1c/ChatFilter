@@ -1,4 +1,9 @@
 {% if sessions %}
+{# Include modal templates #}
+{% include "partials/modals/modal_code.html" %}
+{% include "partials/modals/modal_2fa.html" %}
+{% include "partials/modals/modal_credentials.html" %}
+
 <div class="accounts-table-container">
     <table class="accounts-table" role="grid">
         <thead>
@@ -46,6 +51,12 @@
                         {%- elif session.state == 'error' -%}
                             <span class="status-icon" aria-hidden="true">✗</span>
                             {{ _("Error") }}
+                        {%- elif session.state == 'needs_code' -%}
+                            <span class="status-icon" aria-hidden="true">📱</span>
+                            {{ _("Needs Code") }}
+                        {%- elif session.state == 'needs_2fa' -%}
+                            <span class="status-icon" aria-hidden="true">🔐</span>
+                            {{ _("Needs 2FA") }}
                         {%- else -%}
                             <span class="status-icon" aria-hidden="true">?</span>
                             {{ session.state }}
@@ -101,6 +112,20 @@
                                     aria-label="{{ _('Account banned') }}"
                                     title="{{ session.error_message or _('This account has been banned by Telegram') }}">
                                 <span class="btn-text">{{ _("Banned") }}</span>
+                            </button>
+                            {% elif session.state == 'needs_code' %}
+                            {# Verification code required #}
+                            <button class="btn btn-sm btn-info session-code-modal-btn"
+                                    data-session-id="{{ session.session_id }}"
+                                    aria-label="{{ _('Enter verification code') }}">
+                                <span class="btn-text">{{ _("Enter Code") }}</span>
+                            </button>
+                            {% elif session.state == 'needs_2fa' %}
+                            {# 2FA password required #}
+                            <button class="btn btn-sm btn-info session-2fa-modal-btn"
+                                    data-session-id="{{ session.session_id }}"
+                                    aria-label="{{ _('Enter 2FA password') }}">
+                                <span class="btn-text">{{ _("Enter 2FA") }}</span>
                             </button>
                             {% else %}
                             {# not_configured, proxy_missing, or unknown - disabled #}
@@ -176,6 +201,42 @@
             return false;
         }
         // Otherwise let HTMX handle it (fetch and show)
+    });
+
+    // Modal button handlers
+    document.body.addEventListener('click', function(e) {
+        const codeBtn = e.target.closest('.session-code-modal-btn');
+        if (codeBtn) {
+            const sessionId = codeBtn.dataset.sessionId;
+            const modal = document.getElementById('code-modal');
+            if (modal) {
+                modal.classList.add('visible');
+                modal.dataset.sessionId = sessionId;
+            }
+            return;
+        }
+
+        const twoFaBtn = e.target.closest('.session-2fa-modal-btn');
+        if (twoFaBtn) {
+            const sessionId = twoFaBtn.dataset.sessionId;
+            const modal = document.getElementById('2fa-modal');
+            if (modal) {
+                modal.classList.add('visible');
+                modal.dataset.sessionId = sessionId;
+            }
+            return;
+        }
+    });
+
+    // Modal close handlers
+    document.body.addEventListener('click', function(e) {
+        const cancelBtn = e.target.closest('.modal-button.secondary');
+        if (cancelBtn) {
+            const modal = cancelBtn.closest('.modal-overlay');
+            if (modal) {
+                modal.classList.remove('visible');
+            }
+        }
     });
 })();
 </script>

@@ -2073,6 +2073,248 @@ async def disconnect_session(
         )
 
 
+@router.post("/api/sessions/{session_id}/send-code", response_class=HTMLResponse)
+async def send_code(
+    request: Request,
+    session_id: str,
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Send verification code to session's phone number.
+
+    For sessions created with source=phone that need API credentials.
+    Initiates Telegram auth flow, sends code to phone, sets session to needs_code status.
+
+    Returns HTML partial with code input form or error message.
+    """
+    import asyncio
+    import tempfile
+
+    from telethon import TelegramClient
+    from telethon.errors import (
+        ApiIdInvalidError,
+        FloodWaitError,
+        PhoneNumberBannedError,
+        PhoneNumberInvalidError,
+    )
+
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import get_auth_state_manager
+
+    templates = get_templates()
+
+    # Sanitize session name
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": str(e)},
+        )
+
+    # Get session directory
+    session_dir = ensure_data_dir() / safe_name
+    if not session_dir.exists():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Session not found.")},
+        )
+
+    # Read config to get phone and proxy_id
+    config_file = session_dir / "config.json"
+    if not config_file.exists():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Session configuration not found.")},
+        )
+
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"Failed to read config for session {safe_name}: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Failed to read session configuration.")},
+        )
+
+    # Extract phone from account_info
+    account_info = load_account_info(session_dir)
+    if not account_info or "phone" not in account_info:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Phone number not found in session metadata.")},
+        )
+
+    phone_value = account_info["phone"]
+    if not phone_value:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Phone number is empty.")},
+        )
+
+    # Ensure phone is a string (account_info can have int or str)
+    phone = str(phone_value)
+
+    # Get proxy_id from config
+    proxy_id = config.get("proxy_id")
+    if not proxy_id:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Proxy not configured for this session.")},
+        )
+
+    # Validate api_hash format
+    api_hash = api_hash.strip()
+    if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Invalid API hash format. Must be a 32-character hexadecimal string."),
+            },
+        )
+
+    # Validate proxy exists and get it
+    try:
+        proxy_entry = get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Proxy not found in pool.")},
+        )
+
+    # Create temporary session file for auth flow
+    temp_dir = tempfile.mkdtemp(prefix="chatfilter_auth_")
+    temp_session_path = Path(temp_dir) / "auth_session"
+
+    try:
+        # Create Telethon client with proxy
+        telethon_proxy = proxy_entry.to_telethon_proxy()
+        client = TelegramClient(
+            str(temp_session_path),
+            api_id,
+            api_hash,
+            proxy=telethon_proxy,
+        )
+
+        # Connect and send code
+        await asyncio.wait_for(client.connect(), timeout=30.0)
+
+        # Send verification code
+        sent_code = await asyncio.wait_for(
+            client.send_code_request(phone),
+            timeout=30.0,
+        )
+
+        phone_code_hash = sent_code.phone_code_hash
+
+        # Store auth state in memory
+        auth_manager = get_auth_state_manager()
+        auth_state = await auth_manager.create_auth_state(
+            session_name=safe_name,
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_id=proxy_id,
+            phone=phone,
+            phone_code_hash=phone_code_hash,
+            client=client,
+        )
+
+        # Store temp dir path for cleanup later
+        # Dynamic attribute for temp session files; cleaned up in complete/cancel handlers
+        auth_state.temp_dir = temp_dir  # type: ignore[attr-defined]
+
+        logger.info(f"Auth code sent for existing session '{safe_name}' to {phone}")
+
+        # Return code input form
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_state.auth_id,
+                "phone": phone,
+                "session_name": safe_name,
+            },
+        )
+
+    except PhoneNumberInvalidError:
+        # Clean up
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid phone number.")},
+        )
+    except PhoneNumberBannedError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("This phone number is banned by Telegram.")},
+        )
+    except ApiIdInvalidError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid API ID or API Hash.")},
+        )
+    except FloodWaitError as e:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _(
+                    "Too many requests. Please wait {seconds} seconds before trying again."
+                ).format(seconds=e.seconds),
+            },
+        )
+    except TimeoutError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Connection timeout. Please check your proxy settings and try again."),
+            },
+        )
+    except Exception as e:
+        logger.exception(f"Failed to send code for session '{safe_name}'")
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Failed to send code: {error}").format(error=e)},
+        )
+
+
 @router.post("/api/sessions/import/save", response_class=HTMLResponse)
 async def save_import_session(
     request: Request,
