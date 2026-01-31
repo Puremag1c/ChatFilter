@@ -127,6 +127,30 @@ def secure_delete_file(file_path: Path) -> None:
         file_path.unlink(missing_ok=True)
 
 
+def secure_delete_dir(dir_path: Path | str) -> None:
+    """Securely delete a directory by overwriting all files before removal.
+
+    Args:
+        dir_path: Path to directory to securely delete
+    """
+    dir_path = Path(dir_path)
+    if not dir_path.exists() or not dir_path.is_dir():
+        return
+
+    try:
+        # Recursively secure delete all files
+        for file_path in dir_path.rglob("*"):
+            if file_path.is_file():
+                secure_delete_file(file_path)
+
+        # Remove empty directory tree
+        shutil.rmtree(dir_path, ignore_errors=False)
+    except Exception as e:
+        logger.warning(f"Failed to securely delete directory, falling back to regular delete: {e}")
+        # Fallback to regular deletion
+        shutil.rmtree(dir_path, ignore_errors=True)
+
+
 async def read_upload_with_size_limit(
     upload_file: UploadFile, max_size: int, file_type: str = "file"
 ) -> bytes:
@@ -1393,9 +1417,7 @@ async def start_auth_flow(
         # Clean up
         if "client" in dir() and client.is_connected():
             await client.disconnect()
-        import shutil
-
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -1404,9 +1426,7 @@ async def start_auth_flow(
     except PhoneNumberBannedError:
         if "client" in dir() and client.is_connected():
             await client.disconnect()
-        import shutil
-
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -1415,9 +1435,7 @@ async def start_auth_flow(
     except ApiIdInvalidError:
         if "client" in dir() and client.is_connected():
             await client.disconnect()
-        import shutil
-
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -1426,9 +1444,7 @@ async def start_auth_flow(
     except FloodWaitError as e:
         if "client" in dir() and client.is_connected():
             await client.disconnect()
-        import shutil
-
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -1442,9 +1458,7 @@ async def start_auth_flow(
     except TimeoutError:
         if "client" in dir() and client.is_connected():
             await client.disconnect()
-        import shutil
-
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -1457,9 +1471,7 @@ async def start_auth_flow(
         logger.exception(f"Failed to start auth flow for '{safe_name}'")
         if "client" in dir() and client.is_connected():
             await client.disconnect()
-        import shutil
-
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -1815,7 +1827,7 @@ async def _complete_auth_flow(
 
         # Clean up temp dir
         if temp_dir:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            secure_delete_dir(temp_dir)
 
         # Remove auth state
         await auth_manager.remove_auth_state(auth_state.auth_id)
@@ -1841,7 +1853,7 @@ async def _complete_auth_flow(
             shutil.rmtree(session_dir, ignore_errors=True)
         temp_dir = getattr(auth_state, "temp_dir", None)
         if temp_dir:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            secure_delete_dir(temp_dir)
         await auth_manager.remove_auth_state(auth_state.auth_id)
 
         return templates.TemplateResponse(
