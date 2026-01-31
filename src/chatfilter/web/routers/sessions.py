@@ -660,34 +660,35 @@ def get_session_config_status(session_dir: Path) -> str:
     Returns:
         Status string:
         - "disconnected": Configuration is valid
-        - "not_configured": Missing required fields or invalid state
+        - "needs_api_id": Missing api_id/api_hash (auth credentials needed)
         - "proxy_missing": proxy_id is set but proxy not found in pool
     """
     config_file = session_dir / "config.json"
 
     if not config_file.exists():
-        return "not_configured"
+        return "needs_api_id"
 
     try:
         with config_file.open("r", encoding="utf-8") as f:
             config = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to read config for session {session_dir.name}: {e}")
-        return "not_configured"
+        return "needs_api_id"
 
     # Check fields
     api_id = config.get("api_id")
     api_hash = config.get("api_hash")
     proxy_id = config.get("proxy_id")
-    source = config.get("source")
 
-    # If api_id or api_hash are null, source must be 'phone'
-    if (api_id is None or api_hash is None) and source != "phone":
-        return "not_configured"
+    # If api_id or api_hash are null, check if we need them
+    if api_id is None or api_hash is None:
+        # For source=phone, missing credentials means needs_api_id
+        # (user will provide them via auth flow)
+        return "needs_api_id"
 
     # proxy_id is required for session to be connectable
     if not proxy_id:
-        return "not_configured"
+        return "needs_api_id"
 
     # Verify proxy exists in pool
     from chatfilter.storage.errors import StorageNotFoundError
@@ -710,11 +711,13 @@ def list_stored_sessions(
     - "disconnected": Ready to connect
     - "connected": Currently connected
     - "connecting": Connection in progress
+    - "needs_code": Waiting for verification code (runtime state during auth)
+    - "needs_2fa": Waiting for 2FA password (runtime state during auth)
     - "error": Connection error (generic)
     - "banned": Account banned by Telegram
     - "flood_wait": Temporary rate limit
     - "proxy_error": Proxy connection failed
-    - "not_configured": Missing required configuration (api_id, api_hash, or proxy_id)
+    - "needs_api_id": Missing required configuration (api_id, api_hash, or proxy_id)
     - "proxy_missing": proxy_id references a proxy that no longer exists in pool
 
     Args:
@@ -1928,9 +1931,9 @@ async def connect_session(
 
     # Check if session is properly configured
     config_status = get_session_config_status(session_dir)
-    if config_status == "not_configured":
+    if config_status == "needs_api_id":
         return HTMLResponse(
-            content='<span class="error">Session not configured</span>',
+            content='<span class="error">Session needs API credentials</span>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
     if config_status == "proxy_missing":

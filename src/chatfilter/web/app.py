@@ -141,6 +141,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.app_state.proxy_health_monitor = proxy_health_monitor
     logger.info("Proxy health monitor started")
 
+    # Start auth state cleanup task
+    from chatfilter.web.auth_state import get_auth_state_manager
+
+    auth_state_manager = get_auth_state_manager()
+    auth_state_manager.start_cleanup_task()
+    logger.info("Auth state cleanup task started")
+
     logger.info("Application startup complete")
 
     yield
@@ -205,7 +212,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"Error disconnecting sessions during shutdown: {e}")
 
-    # 6. Clear service caches to free memory
+    # 6. Stop auth state cleanup task and clean up all states
+    try:
+        from chatfilter.web.auth_state import get_auth_state_manager
+
+        auth_state_manager = get_auth_state_manager()
+        await auth_state_manager.stop_cleanup_task()
+        await auth_state_manager.cleanup_all()
+        logger.info("Auth state manager shutdown complete")
+    except Exception as e:
+        logger.error(f"Error stopping auth state manager during shutdown: {e}")
+
+    # 7. Clear service caches to free memory
     try:
         from chatfilter.web.dependencies import get_chat_analysis_service
 

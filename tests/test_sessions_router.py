@@ -1106,7 +1106,7 @@ class TestSessionConnectDisconnectAPI:
             )
 
         assert response.status_code == 400
-        assert "not configured" in response.text.lower()
+        assert "needs api credentials" in response.text.lower()
 
     def test_connect_session_proxy_missing(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path

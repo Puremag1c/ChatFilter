@@ -7,6 +7,7 @@ If the server restarts, auth flows start over - this is expected behavior.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import secrets
 import time
@@ -83,6 +84,7 @@ class AuthStateManager:
             cls._instance = super().__new__(cls)
             cls._instance._states = {}
             cls._instance._lock = asyncio.Lock()
+            cls._instance._cleanup_task = None
         return cls._instance
 
     def __init__(self) -> None:
@@ -90,6 +92,7 @@ class AuthStateManager:
         if not hasattr(self, "_states"):
             self._states: dict[str, AuthState] = {}
             self._lock = asyncio.Lock()
+            self._cleanup_task: asyncio.Task[None] | None = None
 
     def _generate_auth_id(self) -> str:
         """Generate a unique auth flow ID."""
@@ -200,6 +203,42 @@ class AuthStateManager:
             await self._remove_state_unlocked(auth_id)
         if expired_ids:
             logger.info(f"Cleaned up {len(expired_ids)} expired auth states")
+
+    async def _periodic_cleanup(self) -> None:
+        """Background task that periodically cleans up expired states."""
+        # Run cleanup every 5 minutes (300 seconds)
+        # This is less frequent than expiry time (600s) but frequent enough
+        # to prevent excessive memory usage from accumulated expired states
+        cleanup_interval = 300
+
+        try:
+            while True:
+                await asyncio.sleep(cleanup_interval)
+                async with self._lock:
+                    await self._cleanup_expired_unlocked()
+        except asyncio.CancelledError:
+            logger.info("Auth state cleanup task cancelled")
+            raise
+
+    def start_cleanup_task(self) -> None:
+        """Start the background cleanup task.
+
+        Should be called during application startup.
+        """
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
+            logger.info("Auth state cleanup task started (5 minute interval)")
+
+    async def stop_cleanup_task(self) -> None:
+        """Stop the background cleanup task.
+
+        Should be called during application shutdown.
+        """
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._cleanup_task
+            logger.info("Auth state cleanup task stopped")
 
     async def cleanup_all(self) -> None:
         """Clean up all auth states (for shutdown)."""
