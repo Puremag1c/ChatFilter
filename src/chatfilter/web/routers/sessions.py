@@ -1512,10 +1512,40 @@ async def start_auth_flow(
                 ).format(seconds=e.seconds),
             },
         )
+    except (OSError, ConnectionError, ConnectionRefusedError) as e:
+        # Proxy connection failure
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+
+        # Update session state to proxy_error
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = f"Proxy connection failed: {type(e).__name__}"
+        save_account_info(session_dir, account_info)
+
+        logger.error(f"Proxy connection failed for session '{safe_name}': {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Proxy connection failed. Please check your proxy settings and try again."),
+            },
+        )
     except TimeoutError:
         if "client" in dir() and client.is_connected():
             await client.disconnect()
         secure_delete_dir(temp_dir)
+
+        # Update session state to proxy_error for timeout
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = "Proxy connection timeout"
+        save_account_info(session_dir, account_info)
+
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -2300,10 +2330,40 @@ async def send_code(
                 ).format(seconds=e.seconds),
             },
         )
+    except (OSError, ConnectionError, ConnectionRefusedError) as e:
+        # Proxy connection failure
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+
+        # Update session state to proxy_error
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = f"Proxy connection failed: {type(e).__name__}"
+        save_account_info(session_dir, account_info)
+
+        logger.error(f"Proxy connection failed for session '{safe_name}': {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Proxy connection failed. Please check your proxy settings and try again."),
+            },
+        )
     except TimeoutError:
         if "client" in dir() and client.is_connected():
             await client.disconnect()
         secure_delete_dir(temp_dir)
+
+        # Update session state to proxy_error for timeout
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = "Proxy connection timeout"
+        save_account_info(session_dir, account_info)
+
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -2530,7 +2590,35 @@ async def verify_code(
             },
         )
 
+    except (OSError, ConnectionError, ConnectionRefusedError) as e:
+        # Proxy connection failure
+        # Update session state to proxy_error
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = f"Proxy connection failed during code verification: {type(e).__name__}"
+        save_account_info(session_dir, account_info)
+
+        logger.error(f"Proxy connection failed during code verification for session '{safe_name}': {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "error": _("Proxy connection failed. Please check your proxy settings and try again."),
+            },
+        )
+
     except TimeoutError:
+        # Update session state to proxy_error for timeout
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = "Proxy connection timeout during code verification"
+        save_account_info(session_dir, account_info)
+
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_code_form.html",
@@ -2576,7 +2664,14 @@ async def verify_2fa(
     import asyncio
     import shutil
 
-    from telethon.errors import PasswordHashInvalidError
+    from telethon.errors import (
+        AuthKeyInvalidError,
+        AuthKeyUnregisteredError,
+        PasswordHashInvalidError,
+        SessionRevokedError,
+        UserDeactivatedBanError,
+        UserDeactivatedError,
+    )
 
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import get_auth_state_manager
@@ -2688,6 +2783,46 @@ async def verify_2fa(
             },
         )
 
+    except SessionRevokedError:
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("This session has been revoked. Please delete and recreate the session.")},
+        )
+
+    except AuthKeyUnregisteredError:
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Authorization key is unregistered. Please delete and recreate the session.")},
+        )
+
+    except AuthKeyInvalidError:
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Authorization key is invalid. Please delete and recreate the session.")},
+        )
+
+    except UserDeactivatedError:
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("This account has been deactivated.")},
+        )
+
+    except UserDeactivatedBanError:
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("This account has been banned.")},
+        )
+
     except PasswordHashInvalidError:
         return templates.TemplateResponse(
             request=request,
@@ -2699,7 +2834,34 @@ async def verify_2fa(
             },
         )
 
+    except (OSError, ConnectionError, ConnectionRefusedError) as e:
+        # Proxy connection failure
+        # Update session state to proxy_error
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = f"Proxy connection failed during 2FA verification: {type(e).__name__}"
+        save_account_info(session_dir, account_info)
+
+        logger.error(f"Proxy connection failed during 2FA verification for session '{safe_name}': {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": safe_name,
+                "error": _("Proxy connection failed. Please check your proxy settings and try again."),
+            },
+        )
+
     except TimeoutError:
+        # Update session state to proxy_error for timeout
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = "Proxy connection timeout during 2FA verification"
+        save_account_info(session_dir, account_info)
+
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_2fa_form.html",
