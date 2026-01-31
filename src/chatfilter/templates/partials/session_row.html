@@ -33,6 +33,9 @@
             {%- elif session.state == 'proxy_missing' -%}
                 <span class="status-icon" aria-hidden="true">✗</span>
                 {{ _("Proxy missing") }}
+            {%- elif session.state == 'session_expired' -%}
+                <span class="status-icon" aria-hidden="true">🔑</span>
+                {{ _("Session expired") }}
             {%- elif session.state == 'error' -%}
                 <span class="status-icon" aria-hidden="true">✗</span>
                 {{ _("Error") }}
@@ -81,6 +84,16 @@
                         aria-label="{{ _('Please wait') }}">
                     <span class="btn-text">{{ _("Wait...") }}</span>
                     <span class="spinner"></span>
+                </button>
+                {% elif session.state == 'session_expired' %}
+                {# Expired session - show reconnect button #}
+                <button class="btn btn-sm btn-warning session-connect-btn"
+                        hx-get="/api/sessions/{{ session.session_id }}/reconnect-form"
+                        hx-target="#modal-container"
+                        hx-swap="innerHTML"
+                        aria-label="{{ _('Reconnect session') }}"
+                        title="{{ session.error_message or _('Session has expired - reconnect required') }}">
+                    <span class="btn-text">{{ _("Reconnect") }}</span>
                 </button>
                 {% elif session.state in ['error', 'proxy_error', 'flood_wait'] %}
                 {# Error states that can be retried #}

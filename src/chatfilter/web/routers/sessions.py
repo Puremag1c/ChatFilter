@@ -50,12 +50,28 @@ def classify_error_state(error_message: str | None) -> str:
         error_message: The error message from the session
 
     Returns:
-        One of: 'banned', 'flood_wait', 'proxy_error', 'error'
+        One of: 'session_expired', 'banned', 'flood_wait', 'proxy_error', 'error'
     """
     if not error_message:
         return "error"
 
     error_lower = error_message.lower()
+
+    # Check for expired/revoked session (dead session)
+    if any(
+        phrase in error_lower
+        for phrase in [
+            "sessionexpired",
+            "authkeyunregistered",
+            "sessionrevoked",
+            "session expired",
+            "session has expired",
+            "session revoked",
+            "auth key",
+            "unauthorized",
+        ]
+    ):
+        return "session_expired"
 
     # Check for banned/deactivated account
     if any(
@@ -1263,6 +1279,91 @@ async def update_session_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+    # Check if API credentials changed
+    old_api_id = config.get("api_id")
+    old_api_hash = config.get("api_hash")
+    credentials_changed = (old_api_id != api_id) or (old_api_hash != api_hash)
+
+    # If credentials changed, validate them with Telegram API
+    if credentials_changed:
+        import asyncio
+        import tempfile
+
+        from telethon import TelegramClient
+        from telethon.errors import ApiIdInvalidError
+
+        from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+        # Get proxy for validation
+        try:
+            proxy_entry = get_proxy_by_id(proxy_id)
+        except StorageNotFoundError:
+            return HTMLResponse(
+                content='<div class="alert alert-error">Selected proxy not found</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Create temporary client to validate credentials
+        temp_dir = tempfile.mkdtemp(prefix="chatfilter_validate_")
+        temp_session_path = Path(temp_dir) / "validate_session"
+
+        try:
+            telethon_proxy = proxy_entry.to_telethon_proxy()
+            client = TelegramClient(
+                str(temp_session_path),
+                api_id,
+                api_hash,
+                proxy=telethon_proxy,
+            )
+
+            # Try to connect - this will raise ApiIdInvalidError if credentials are wrong
+            await asyncio.wait_for(client.connect(), timeout=15.0)
+            await client.disconnect()
+            secure_delete_dir(temp_dir)
+
+            logger.info(f"API credentials validated for session '{safe_name}'")
+
+        except ApiIdInvalidError:
+            # Invalid credentials - don't save
+            if "client" in dir() and client.is_connected():
+                await client.disconnect()
+            secure_delete_dir(temp_dir)
+            return HTMLResponse(
+                content='<div class="alert alert-error">Invalid API ID or API Hash. Credentials not saved.</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        except (OSError, ConnectionError, TimeoutError) as e:
+            # Network/proxy error - can't validate
+            if "client" in dir() and client.is_connected():
+                await client.disconnect()
+            secure_delete_dir(temp_dir)
+            logger.warning(f"Failed to validate credentials for '{safe_name}': {e}")
+            return HTMLResponse(
+                content='<div class="alert alert-error">Failed to validate credentials (network error). Please check proxy settings.</div>',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except Exception as e:
+            # Unexpected error
+            if "client" in dir() and client.is_connected():
+                await client.disconnect()
+            secure_delete_dir(temp_dir)
+            logger.exception(f"Unexpected error validating credentials for '{safe_name}'")
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">Failed to validate credentials: {e}</div>',
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        # Credentials valid - disconnect current session if connected
+        from chatfilter.web.dependencies import get_session_manager
+
+        session_manager = get_session_manager()
+        try:
+            await session_manager.disconnect(safe_name)
+            logger.info(f"Disconnected session '{safe_name}' after credentials change")
+        except Exception as e:
+            logger.warning(f"Failed to disconnect session '{safe_name}': {e}")
+            # Non-fatal - continue with config update
+
     # Update all config fields
     config["api_id"] = api_id
     config["api_hash"] = api_hash
@@ -1294,6 +1395,23 @@ async def update_session_config(
     except Exception as e:
         logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
         # Non-fatal: config.json is the primary source
+
+    # If credentials changed, trigger reconnect flow
+    if credentials_changed:
+        # Return success message with auto-trigger for reconnect
+        return HTMLResponse(
+            content=f'''
+                <div class="alert alert-success">
+                    Credentials updated. Re-authorization required...
+                </div>
+                <form hx-post="/api/sessions/{safe_name}/reconnect/start"
+                      hx-target="#session-config-result-{safe_name}"
+                      hx-swap="innerHTML"
+                      hx-trigger="load">
+                </form>
+            ''',
+            headers={"HX-Trigger": "refreshSessions"},
+        )
 
     # Return success message with HX-Trigger to refresh sessions list
     return HTMLResponse(
@@ -2063,6 +2181,77 @@ async def _complete_auth_flow(
         )
 
 
+@router.get("/api/sessions/{session_id}/reconnect-form", response_class=HTMLResponse)
+async def get_reconnect_form(
+    request: Request,
+    session_id: str,
+) -> HTMLResponse:
+    """Get reconnect form for expired session.
+
+    Shows modal form with phone (read-only) and API credentials input.
+    Submits to send-code endpoint to initiate re-authentication.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_modal.html",
+            context={
+                "show": True,
+                "title": _("Reconnect Session"),
+                "error": str(e),
+            },
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    if not session_dir.exists():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_modal.html",
+            context={
+                "show": True,
+                "title": _("Reconnect Session"),
+                "error": _("Session not found"),
+            },
+        )
+
+    # Load phone from account_info
+    account_info = load_account_info(session_dir)
+    phone = ""
+    if account_info and "phone" in account_info:
+        phone = str(account_info["phone"])
+
+    # Load current API credentials if available
+    config_file = session_dir / "config.json"
+    current_api_id = None
+    current_api_hash = None
+    if config_file.exists():
+        try:
+            with config_file.open("r", encoding="utf-8") as f:
+                config = json.load(f)
+                current_api_id = config.get("api_id")
+                current_api_hash = config.get("api_hash")
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to read config for session {safe_name}: {e}")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/reconnect_modal.html",
+        context={
+            "show": True,
+            "session_id": safe_name,
+            "phone": phone,
+            "current_api_id": current_api_id,
+            "current_api_hash": current_api_hash,
+        },
+    )
+
+
 @router.post("/api/sessions/{session_id}/connect", response_class=HTMLResponse)
 async def connect_session(
     request: Request,
@@ -2492,6 +2681,283 @@ async def send_code(
         )
 
 
+
+@router.post("/api/sessions/{session_id}/reconnect/start", response_class=HTMLResponse)
+async def start_reconnect(
+    request: Request,
+    session_id: str,
+) -> HTMLResponse:
+    """Start reconnect flow for existing session with changed credentials.
+
+    Reads API credentials from session config, sends verification code to phone.
+    Used when user changes API_ID/API_HASH on existing session.
+
+    Returns HTML partial with code input form or error message.
+    """
+    import asyncio
+    import tempfile
+
+    from telethon import TelegramClient
+    from telethon.errors import (
+        ApiIdInvalidError,
+        FloodWaitError,
+        PhoneNumberBannedError,
+        PhoneNumberInvalidError,
+    )
+
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import DuplicateOperationError, get_auth_state_manager
+
+    templates = get_templates()
+
+    # Sanitize session name
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": str(e)},
+        )
+
+    # Get session directory
+    session_dir = ensure_data_dir() / safe_name
+    if not session_dir.exists():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Session not found.")},
+        )
+
+    # Read config to get credentials and proxy_id
+    config_file = session_dir / "config.json"
+    if not config_file.exists():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Session configuration not found.")},
+        )
+
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"Failed to read config for session {safe_name}: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Failed to read session configuration.")},
+        )
+
+    # Extract credentials from config
+    api_id = config.get("api_id")
+    api_hash = config.get("api_hash")
+    if not api_id or not api_hash:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("API credentials not found in session config.")},
+        )
+
+    # Extract phone from account_info
+    account_info = load_account_info(session_dir)
+    if not account_info or "phone" not in account_info:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Phone number not found in session metadata.")},
+        )
+
+    phone_value = account_info["phone"]
+    if not phone_value:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Phone number is empty.")},
+        )
+
+    # Ensure phone is a string (account_info can have int or str)
+    phone = str(phone_value)
+
+    # Get proxy_id from config
+    proxy_id = config.get("proxy_id")
+    if not proxy_id:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Proxy not configured for this session.")},
+        )
+
+    # Validate proxy exists and get it
+    try:
+        proxy_entry = get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Proxy not found in pool.")},
+        )
+
+    # Create temporary session file for auth flow
+    temp_dir = tempfile.mkdtemp(prefix="chatfilter_reconnect_")
+    temp_session_path = Path(temp_dir) / "auth_session"
+
+    try:
+        # Create Telethon client with proxy
+        telethon_proxy = proxy_entry.to_telethon_proxy()
+        client = TelegramClient(
+            str(temp_session_path),
+            api_id,
+            api_hash,
+            proxy=telethon_proxy,
+        )
+
+        # Connect and send code
+        await asyncio.wait_for(client.connect(), timeout=30.0)
+
+        # Send verification code
+        sent_code = await asyncio.wait_for(
+            client.send_code_request(phone),
+            timeout=30.0,
+        )
+
+        phone_code_hash = sent_code.phone_code_hash
+
+        # Store auth state in memory
+        auth_manager = get_auth_state_manager()
+        auth_state = await auth_manager.create_auth_state(
+            session_name=safe_name,
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_id=proxy_id,
+            phone=phone,
+            phone_code_hash=phone_code_hash,
+            client=client,
+        )
+
+        # Store temp dir path for cleanup later
+        # Dynamic attribute for temp session files; cleaned up in complete/cancel handlers
+        auth_state.temp_dir = temp_dir  # type: ignore[attr-defined]
+
+        logger.info(f"Reconnect flow started for session '{safe_name}', code sent to {phone}")
+
+        # Return code input form
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_state.auth_id,
+                "phone": phone,
+                "session_name": safe_name,
+            },
+        )
+
+    except PhoneNumberInvalidError:
+        # Clean up
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid phone number.")},
+        )
+    except PhoneNumberBannedError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("This phone number is banned by Telegram.")},
+        )
+    except ApiIdInvalidError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid API ID or API Hash.")},
+        )
+    except FloodWaitError as e:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _(
+                    "Too many requests. Please wait {seconds} seconds before trying again."
+                ).format(seconds=e.seconds),
+            },
+        )
+    except (OSError, ConnectionError, ConnectionRefusedError) as e:
+        # Proxy connection failure
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+
+        # Update session state to proxy_error
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = f"Proxy connection failed: {type(e).__name__}"
+        save_account_info(session_dir, account_info)
+
+        logger.error(f"Proxy connection failed for reconnect of session '{safe_name}': {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Proxy connection failed. Please check your proxy settings and try again."),
+            },
+        )
+    except TimeoutError:
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+
+        # Update session state to proxy_error for timeout
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "proxy_error"
+        account_info["error_message"] = "Proxy connection timeout"
+        save_account_info(session_dir, account_info)
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Connection timeout. Please check your proxy settings and try again."),
+            },
+        )
+    except DuplicateOperationError:
+        # Auth flow already in progress for this session
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Authentication already in progress for this session."),
+            },
+        )
+    except Exception as e:
+        logger.exception(f"Failed to start reconnect for session '{safe_name}'")
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Failed to send code: {error}").format(error=e)},
+        )
 
 
 @router.post("/api/sessions/{session_id}/verify-code", response_class=HTMLResponse)
