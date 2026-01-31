@@ -7,6 +7,7 @@ If the server restarts, auth flows start over - this is expected behavior.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import secrets
 import time
@@ -72,17 +73,20 @@ class AuthStateManager:
     """Manager for in-memory auth flow states.
 
     Thread-safe singleton that manages all active auth flows.
-    Automatically cleans up expired states.
+    Automatically cleans up expired states with background task.
     """
 
     _instance: AuthStateManager | None = None
     _lock: asyncio.Lock
+    _cleanup_task: asyncio.Task[None] | None = None
+    _cleanup_interval: int = 60  # Check every 60 seconds
 
     def __new__(cls) -> AuthStateManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._states = {}
             cls._instance._lock = asyncio.Lock()
+            cls._instance._cleanup_task = None
         return cls._instance
 
     def __init__(self) -> None:
@@ -90,6 +94,7 @@ class AuthStateManager:
         if not hasattr(self, "_states"):
             self._states: dict[str, AuthState] = {}
             self._lock = asyncio.Lock()
+            self._cleanup_task = None
 
     def _generate_auth_id(self) -> str:
         """Generate a unique auth flow ID."""
@@ -201,8 +206,40 @@ class AuthStateManager:
         if expired_ids:
             logger.info(f"Cleaned up {len(expired_ids)} expired auth states")
 
+    async def _cleanup_task_loop(self) -> None:
+        """Background task that periodically cleans up expired auth states."""
+        logger.info("Started auth state cleanup background task")
+        try:
+            while True:
+                await asyncio.sleep(self._cleanup_interval)
+                async with self._lock:
+                    await self._cleanup_expired_unlocked()
+        except asyncio.CancelledError:
+            logger.info("Auth state cleanup task cancelled")
+            raise
+
+    async def start_cleanup_task(self) -> None:
+        """Start the background cleanup task if not already running."""
+        async with self._lock:
+            if self._cleanup_task is None or self._cleanup_task.done():
+                self._cleanup_task = asyncio.create_task(self._cleanup_task_loop())
+                logger.info("Started auth state cleanup background task")
+
+    async def stop_cleanup_task(self) -> None:
+        """Stop the background cleanup task."""
+        async with self._lock:
+            if self._cleanup_task and not self._cleanup_task.done():
+                self._cleanup_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._cleanup_task
+                self._cleanup_task = None
+                logger.info("Stopped auth state cleanup background task")
+
     async def cleanup_all(self) -> None:
         """Clean up all auth states (for shutdown)."""
+        # Stop cleanup task first
+        await self.stop_cleanup_task()
+
         async with self._lock:
             auth_ids = list(self._states.keys())
             for auth_id in auth_ids:

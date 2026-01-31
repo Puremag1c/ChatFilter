@@ -647,47 +647,41 @@ def migrate_legacy_sessions() -> list[str]:
 def get_session_config_status(session_dir: Path) -> str:
     """Check session configuration status.
 
-    Validates that the session has required configuration:
-    - api_id and api_hash can be null (source=phone means user will provide via auth)
-    - If api_id and api_hash are null, source must be 'phone'
-    - If api_id and api_hash are set, source can be 'file' or 'phone'
-    - proxy_id must be set (sessions require proxy for operation)
-    - If proxy_id is set, the proxy must exist in the pool
+    Validates that the session has required configuration and returns appropriate status:
+    - needs_api_id: Session has no api_id/api_hash configured
+    - disconnected: Configuration is valid and ready to connect
+    - proxy_missing: proxy_id is set but proxy not found in pool
 
     Args:
         session_dir: Path to session directory
 
     Returns:
-        Status string:
-        - "disconnected": Configuration is valid
-        - "not_configured": Missing required fields or invalid state
-        - "proxy_missing": proxy_id is set but proxy not found in pool
+        Status string: "needs_api_id", "disconnected", or "proxy_missing"
     """
     config_file = session_dir / "config.json"
 
     if not config_file.exists():
-        return "not_configured"
+        return "needs_api_id"
 
     try:
         with config_file.open("r", encoding="utf-8") as f:
             config = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to read config for session {session_dir.name}: {e}")
-        return "not_configured"
+        return "needs_api_id"
 
     # Check fields
     api_id = config.get("api_id")
     api_hash = config.get("api_hash")
     proxy_id = config.get("proxy_id")
-    source = config.get("source")
 
-    # If api_id or api_hash are null, source must be 'phone'
-    if (api_id is None or api_hash is None) and source != "phone":
-        return "not_configured"
+    # If api_id or api_hash are null, session needs API credentials
+    if api_id is None or api_hash is None:
+        return "needs_api_id"
 
     # proxy_id is required for session to be connectable
     if not proxy_id:
-        return "not_configured"
+        return "needs_api_id"
 
     # Verify proxy exists in pool
     from chatfilter.storage.errors import StorageNotFoundError
@@ -710,11 +704,13 @@ def list_stored_sessions(
     - "disconnected": Ready to connect
     - "connected": Currently connected
     - "connecting": Connection in progress
+    - "needs_api_id": Missing API credentials (api_id/api_hash)
+    - "needs_code": Waiting for verification code (set during auth flow)
+    - "needs_2fa": Waiting for 2FA password (set during auth flow)
     - "error": Connection error (generic)
     - "banned": Account banned by Telegram
     - "flood_wait": Temporary rate limit
     - "proxy_error": Proxy connection failed
-    - "not_configured": Missing required configuration (api_id, api_hash, or proxy_id)
     - "proxy_missing": proxy_id references a proxy that no longer exists in pool
 
     Args:
@@ -1928,9 +1924,9 @@ async def connect_session(
 
     # Check if session is properly configured
     config_status = get_session_config_status(session_dir)
-    if config_status == "not_configured":
+    if config_status == "needs_api_id":
         return HTMLResponse(
-            content='<span class="error">Session not configured</span>',
+            content='<span class="error">Session needs API credentials</span>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
     if config_status == "proxy_missing":
