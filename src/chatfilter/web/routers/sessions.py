@@ -806,7 +806,7 @@ if TYPE_CHECKING:
 async def get_sessions(request: Request) -> HTMLResponse:
     """List all registered sessions as HTML partial."""
     from chatfilter.web.app import get_templates
-    from chatfilter.web.auth_state import get_auth_state_manager
+    from chatfilter.web.auth_state import DuplicateOperationError, get_auth_state_manager
     from chatfilter.web.dependencies import get_session_manager
 
     session_manager = get_session_manager()
@@ -1302,6 +1302,114 @@ async def update_session_config(
     )
 
 
+
+
+@router.put("/api/sessions/{session_id}/credentials", response_class=HTMLResponse)
+async def update_session_credentials(
+    request: Request,
+    session_id: str,
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Update session API credentials.
+
+    Updates api_id and api_hash for a session that was created without credentials
+    (e.g., from phone auth flow). Does not change proxy_id or other fields.
+    """
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{e}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    config_file = session_dir / "config.json"
+
+    if not session_dir.exists() or not config_file.exists():
+        return HTMLResponse(
+            content='<div class="alert alert-error">Session not found</div>',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Validate api_id
+    if api_id < 1:
+        return HTMLResponse(
+            content='<div class="alert alert-error">API ID must be a positive number</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate api_hash format (32-char hex string)
+    api_hash = api_hash.strip()
+    if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+        return HTMLResponse(
+            content='<div class="alert alert-error">API hash must be a 32-character hexadecimal string</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Load existing config
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"Failed to read config for session {safe_name}: {e}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to read session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Update only api_id and api_hash (preserve proxy_id and source)
+    config["api_id"] = api_id
+    config["api_hash"] = api_hash
+
+    # Save updated config
+    try:
+        config_content = json.dumps(config, indent=2).encode("utf-8")
+        atomic_write(config_file, config_content)
+        secure_file_permissions(config_file)
+        logger.info(
+            f"Updated credentials for session '{safe_name}': api_id={api_id}"
+        )
+    except Exception:
+        logger.exception(f"Failed to save config for session {safe_name}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to save session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Also update secure credential storage
+    proxy_id = config.get("proxy_id")
+    try:
+        from chatfilter.security import SecureCredentialManager
+
+        storage_dir = session_dir.parent
+        manager = SecureCredentialManager(storage_dir)
+        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
+        logger.info(f"Updated credentials in secure storage for session: {safe_name}")
+    except Exception as e:
+        logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
+        # Non-fatal: config.json is the primary source
+
+    # Get updated session status
+    config_status = get_session_config_status(session_dir)
+    session_info = SessionListItem(
+        session_id=safe_name,
+        state=config_status,
+        error_message=config.get("error_message"),
+    )
+
+    # Return session row HTML with updated status
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_row.html",
+        context={"session": session_info},
+        headers={"HX-Trigger": "refreshSessions"},
+    )
+
 # =============================================================================
 # Session Auth Flow (Create New Session from Phone)
 # =============================================================================
@@ -1354,7 +1462,7 @@ async def start_auth_flow(
     from chatfilter.storage.errors import StorageNotFoundError
     from chatfilter.storage.proxy_pool import get_proxy_by_id
     from chatfilter.web.app import get_templates
-    from chatfilter.web.auth_state import get_auth_state_manager
+    from chatfilter.web.auth_state import DuplicateOperationError, get_auth_state_manager
 
     templates = get_templates()
 
@@ -2140,7 +2248,7 @@ async def send_code(
     from chatfilter.storage.errors import StorageNotFoundError
     from chatfilter.storage.proxy_pool import get_proxy_by_id
     from chatfilter.web.app import get_templates
-    from chatfilter.web.auth_state import get_auth_state_manager
+    from chatfilter.web.auth_state import DuplicateOperationError, get_auth_state_manager
 
     templates = get_templates()
 
