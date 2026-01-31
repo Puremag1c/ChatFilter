@@ -36,6 +36,15 @@
             {%- elif session.state == 'error' -%}
                 <span class="status-icon" aria-hidden="true">✗</span>
                 {{ _("Error") }}
+            {%- elif session.state == 'needs_api_id' -%}
+                <span class="status-icon" aria-hidden="true">⚙️</span>
+                {{ _("Needs API ID") }}
+            {%- elif session.state == 'needs_code' -%}
+                <span class="status-icon" aria-hidden="true">📱</span>
+                {{ _("Needs Code") }}
+            {%- elif session.state == 'needs_2fa' -%}
+                <span class="status-icon" aria-hidden="true">🔐</span>
+                {{ _("Needs 2FA") }}
             {%- else -%}
                 <span class="status-icon" aria-hidden="true">?</span>
                 {{ session.state }}
