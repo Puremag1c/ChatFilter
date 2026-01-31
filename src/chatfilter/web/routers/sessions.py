@@ -748,6 +748,15 @@ def list_stored_sessions(
                 state = config_status
                 error_message = None
 
+                # If state is an error state from config, read error_message
+                if state in ("proxy_error", "banned", "flood_wait", "error"):
+                    try:
+                        with config_file.open("r", encoding="utf-8") as f:
+                            config = json.load(f)
+                        error_message = config.get("error_message")
+                    except Exception:
+                        pass
+
                 # Check if session has an active auth flow (highest priority)
                 if auth_manager is not None:
                     auth_state = auth_manager.get_auth_state_by_session(session_id)
@@ -2543,6 +2552,173 @@ async def verify_code(
                 "phone": auth_state.phone,
                 "session_name": safe_name,
                 "error": _("Failed to verify code: {error}").format(error=e),
+            },
+        )
+
+
+
+@router.post("/api/sessions/{session_id}/verify-2fa", response_class=HTMLResponse)
+async def verify_2fa(
+    request: Request,
+    session_id: str,
+    auth_id: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Verify 2FA password for an existing session.
+
+    For sessions with needs_2fa status, verifies the 2FA password.
+    Updates the session file on success and sets status to connected.
+
+    Returns HTML partial with:
+    - Success message if auth completed (status -> connected)
+    - Error message if password invalid
+    """
+    import asyncio
+    import shutil
+
+    from telethon.errors import PasswordHashInvalidError
+
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import get_auth_state_manager
+
+    templates = get_templates()
+    auth_manager = get_auth_state_manager()
+
+    # Sanitize session name
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": str(e)},
+        )
+
+    # Get auth state
+    auth_state = await auth_manager.get_auth_state(auth_id)
+    if not auth_state:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Auth session expired or not found. Please start over."),
+            },
+        )
+
+    # Verify this auth state is for the correct session
+    if auth_state.session_name != safe_name:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Auth session mismatch. Please start over."),
+            },
+        )
+
+    client = auth_state.client
+    if not client or not client.is_connected():
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Connection lost. Please start over."),
+            },
+        )
+
+    try:
+        # Try to sign in with 2FA password
+        await asyncio.wait_for(
+            client.sign_in(password=password),
+            timeout=30.0,
+        )
+
+        # Success! Update the existing session
+        session_dir = ensure_data_dir() / safe_name
+        if not session_dir.exists():
+            await auth_manager.remove_auth_state(auth_id)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/auth_result.html",
+                context={"success": False, "error": _("Session directory not found.")},
+            )
+
+        session_path = session_dir / "session.session"
+
+        # Get account info
+        me = await client.get_me()
+        account_info = {
+            "user_id": me.id,
+            "phone": me.phone or "",
+            "first_name": me.first_name or "",
+            "last_name": me.last_name or "",
+        }
+
+        # Disconnect client before copying session file
+        await client.disconnect()
+
+        # Copy session file from temp location to existing session
+        temp_dir = getattr(auth_state, "temp_dir", None)
+        if temp_dir:
+            temp_session_file = Path(temp_dir) / "auth_session.session"
+            if temp_session_file.exists():
+                shutil.copy2(temp_session_file, session_path)
+                secure_file_permissions(session_path)
+            # Clean up temp dir
+            secure_delete_dir(temp_dir)
+
+        # Update account info
+        save_account_info(session_dir, account_info)
+
+        # Remove auth state
+        await auth_manager.remove_auth_state(auth_id)
+
+        logger.info(f"Session '{safe_name}' re-authenticated successfully (2FA verified)")
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": True,
+                "message": _("Session '{name}' authenticated successfully!").format(name=safe_name),
+                "account_info": account_info,
+            },
+        )
+
+    except PasswordHashInvalidError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": safe_name,
+                "error": _("Incorrect password. Please try again."),
+            },
+        )
+
+    except TimeoutError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": safe_name,
+                "error": _("Request timeout. Please try again."),
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to verify 2FA for session '{safe_name}'")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": safe_name,
+                "error": _("Failed to verify password: {error}").format(error=e),
             },
         )
 
