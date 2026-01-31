@@ -1,0 +1,20 @@
+{# Two-Factor Authentication Modal #}
+<div id="2fa-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="2fa-modal-title">
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <span class="modal-icon info" aria-hidden="true">🔐</span>
+            <h2 class="modal-title" id="2fa-modal-title">{{ _("Two-Factor Authentication") }}</h2>
+        </div>
+        <div class="modal-body">
+            {# Modal content will be injected here #}
+        </div>
+        <div class="modal-footer">
+            <button class="modal-button secondary" id="2fa-modal-cancel">
+                {{ _("Cancel") }}
+            </button>
+            <button class="modal-button primary" id="2fa-modal-submit">
+                {{ _("Verify") }}
+            </button>
+        </div>
+    </div>
+</div>
