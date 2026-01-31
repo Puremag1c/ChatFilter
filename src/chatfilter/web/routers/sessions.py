@@ -3211,13 +3211,13 @@ async def verify_code(
 
         logger.info(f"Session '{safe_name}' re-authenticated successfully (code verified)")
 
+        # Use reconnect success template with toast notification
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
+            name="partials/reconnect_success.html",
             context={
-                "success": True,
-                "message": _("Session '{name}' authenticated successfully!").format(name=safe_name),
-                "account_info": account_info,
+                "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
+                "session_id": safe_name,
             },
         )
 
@@ -3453,13 +3453,13 @@ async def verify_2fa(
 
         logger.info(f"Session '{safe_name}' re-authenticated successfully (2FA verified)")
 
+        # Use reconnect success template with toast notification
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
+            name="partials/reconnect_success.html",
             context={
-                "success": True,
-                "message": _("Session '{name}' authenticated successfully!").format(name=safe_name),
-                "account_info": account_info,
+                "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
+                "session_id": safe_name,
             },
         )
 
