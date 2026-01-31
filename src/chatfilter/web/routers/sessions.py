@@ -2997,8 +2997,8 @@ async def save_import_session(
     request: Request,
     session_name: Annotated[str, Form()],
     session_file: Annotated[UploadFile, File()],
-    api_id: Annotated[int, Form()],
-    api_hash: Annotated[str, Form()],
+    api_id: Annotated[int | None, Form()] = None,
+    api_hash: Annotated[str | None, Form()] = None,
     proxy_id: Annotated[str, Form()],
 ) -> HTMLResponse:
     """Save an imported session with configuration.
@@ -3053,19 +3053,20 @@ async def save_import_session(
                 context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
             )
 
-        # Validate api_hash format (32-char hex string)
-        api_hash = api_hash.strip()
-        if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
-            return templates.TemplateResponse(
-                request=request,
-                name="partials/upload_result.html",
-                context={
-                    "success": False,
-                    "error": _(
-                        "Invalid API hash format. Must be a 32-character hexadecimal string."
-                    ),
-                },
-            )
+        # Validate api_hash format (32-char hex string) if provided
+        if api_hash is not None:
+            api_hash = api_hash.strip()
+            if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={
+                        "success": False,
+                        "error": _(
+                            "Invalid API hash format. Must be a 32-character hexadecimal string."
+                        ),
+                    },
+                )
 
         # Validate proxy exists
         from chatfilter.storage.errors import StorageNotFoundError
@@ -3084,32 +3085,34 @@ async def save_import_session(
             )
 
         # Extract account info from session to check for duplicates
+        # Only if api_id and api_hash are provided
         import tempfile
 
         account_info = None
         duplicate_sessions = []
 
-        # Create a temporary session file to test connection
-        with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
-            tmp_session.write(session_content)
-            tmp_session.flush()
-            tmp_session_path = Path(tmp_session.name)
+        if api_id is not None and api_hash is not None:
+            # Create a temporary session file to test connection
+            with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
+                tmp_session.write(session_content)
+                tmp_session.flush()
+                tmp_session_path = Path(tmp_session.name)
 
-        try:
-            # Try to get account info from the session
-            account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+            try:
+                # Try to get account info from the session
+                account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
 
-            if account_info:
-                # Check for duplicate accounts
-                user_id = account_info["user_id"]
-                if isinstance(user_id, int):
-                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
-        finally:
-            # Clean up temporary session file
-            import contextlib
+                if account_info:
+                    # Check for duplicate accounts
+                    user_id = account_info["user_id"]
+                    if isinstance(user_id, int):
+                        duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+            finally:
+                # Clean up temporary session file
+                import contextlib
 
-            with contextlib.suppress(Exception):
-                tmp_session_path.unlink()
+                with contextlib.suppress(Exception):
+                    tmp_session_path.unlink()
 
         # Create session directory and save files
         session_dir.mkdir(parents=True, exist_ok=True)
