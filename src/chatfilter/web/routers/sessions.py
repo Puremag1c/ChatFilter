@@ -1439,13 +1439,14 @@ async def start_auth_flow(
     request: Request,
     session_name: Annotated[str, Form()],
     phone: Annotated[str, Form()],
-    api_id: Annotated[int, Form()],
-    api_hash: Annotated[str, Form()],
-    proxy_id: Annotated[str, Form()],
+    api_id: Annotated[int | None, Form()] = None,
+    api_hash: Annotated[str | None, Form()] = None,
+    proxy_id: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     """Start a new session auth flow by sending code to phone.
 
-    Creates a temporary Telethon client and sends verification code.
+    If api_id and api_hash are not provided, creates a session with needs_api_id status.
+    Otherwise, creates a temporary Telethon client and sends verification code.
     Returns HTML partial with code input form or error message.
     """
     import asyncio
@@ -1485,6 +1486,49 @@ async def start_auth_flow(
             context={
                 "success": False,
                 "error": _("Session '{name}' already exists").format(name=safe_name),
+            },
+        )
+
+    # If API credentials not provided, create session with needs_api_id status
+    if api_id is None or api_hash is None:
+        # Validate phone format (basic: must start with + and have digits)
+        phone = phone.strip()
+        if not phone.startswith("+") or not phone[1:].replace(" ", "").replace("-", "").isdigit():
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/auth_result.html",
+                context={
+                    "success": False,
+                    "error": _(
+                        "Invalid phone number format. Must start with + and country code (e.g., +1234567890)."
+                    ),
+                },
+            )
+
+        # Create session directory
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save account info with needs_api_id status
+        account_info = {
+            "status": "needs_api_id",
+            "phone": phone,
+            "session_name": safe_name,
+        }
+        if proxy_id:
+            account_info["proxy_id"] = proxy_id
+
+        save_account_info(session_dir, account_info)
+
+        logger.info(f"Session '{safe_name}' created with needs_api_id status")
+
+        # Return success response indicating API credentials are needed
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": True,
+                "message": _("Session created. Please provide API credentials to continue."),
+                "session_name": safe_name,
             },
         )
 
