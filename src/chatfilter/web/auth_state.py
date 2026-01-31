@@ -83,6 +83,7 @@ class AuthStateManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._states = {}
+            cls._instance._in_progress = {}
             cls._instance._lock = asyncio.Lock()
             cls._instance._cleanup_task = None
         return cls._instance
@@ -91,6 +92,7 @@ class AuthStateManager:
         # Avoid reinitializing on subsequent calls
         if not hasattr(self, "_states"):
             self._states: dict[str, AuthState] = {}
+            self._in_progress: dict[str, str] = {}
             self._lock = asyncio.Lock()
             self._cleanup_task: asyncio.Task[None] | None = None
 
@@ -261,6 +263,72 @@ class AuthStateManager:
             for auth_id in auth_ids:
                 await self._remove_state_unlocked(auth_id)
             logger.info(f"Cleaned up all {len(auth_ids)} auth states")
+
+    async def mark_operation_in_progress(self, session_id: str, operation: str) -> bool:
+        """Mark an auth operation as in-progress for a session.
+
+        Args:
+            session_id: Session ID
+            operation: Operation type (e.g., 'send-code', 'verify-code', 'verify-2fa')
+
+        Returns:
+            True if operation was marked (no duplicate), False if already in progress
+        """
+        async with self._lock:
+            if session_id in self._in_progress:
+                logger.warning(
+                    f"Duplicate auth request for session '{session_id}': "
+                    f"operation '{operation}' blocked (current: {self._in_progress[session_id]})"
+                )
+                return False
+            self._in_progress[session_id] = operation
+            logger.info(f"Marked session '{session_id}' operation '{operation}' in progress")
+            return True
+
+    async def clear_operation_in_progress(self, session_id: str) -> None:
+        """Clear in-progress operation for a session.
+
+        Args:
+            session_id: Session ID
+        """
+        async with self._lock:
+            if session_id in self._in_progress:
+                operation = self._in_progress.pop(session_id)
+                logger.info(f"Cleared session '{session_id}' operation '{operation}' from in progress")
+
+    @contextlib.asynccontextmanager
+    async def track_operation(self, session_id: str, operation: str):
+        """Context manager to track and prevent duplicate auth operations.
+
+        Args:
+            session_id: Session ID
+            operation: Operation type (e.g., 'send-code', 'verify-code', 'verify-2fa')
+
+        Raises:
+            DuplicateOperationError: If an operation is already in progress for this session
+
+        Usage:
+            async with auth_manager.track_operation(session_id, 'send-code'):
+                # perform operation
+                ...
+        """
+        # Try to mark operation in progress
+        if not await self.mark_operation_in_progress(session_id, operation):
+            raise DuplicateOperationError(
+                f"Auth operation already in progress for session '{session_id}'"
+            )
+
+        try:
+            yield
+        finally:
+            # Always clear the operation, even if an exception occurred
+            await self.clear_operation_in_progress(session_id)
+
+
+class DuplicateOperationError(Exception):
+    """Raised when a duplicate auth operation is attempted."""
+
+    pass
 
 
 def get_auth_state_manager() -> AuthStateManager:
