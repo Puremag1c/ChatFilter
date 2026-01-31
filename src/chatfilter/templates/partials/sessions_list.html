@@ -57,6 +57,9 @@
                         {%- elif session.state == 'needs_2fa' -%}
                             <span class="status-icon" aria-hidden="true">🔐</span>
                             {{ _("Needs 2FA") }}
+                        {%- elif session.state == 'needs_api_id' -%}
+                            <span class="status-icon" aria-hidden="true">⚙️</span>
+                            {{ _("Needs API ID") }}
                         {%- else -%}
                             <span class="status-icon" aria-hidden="true">?</span>
                             {{ session.state }}
@@ -126,6 +129,13 @@
                                     data-session-id="{{ session.session_id }}"
                                     aria-label="{{ _('Enter 2FA password') }}">
                                 <span class="btn-text">{{ _("Enter 2FA") }}</span>
+                            </button>
+                            {% elif session.state == 'needs_api_id' %}
+                            {# API credentials required #}
+                            <button class="btn btn-sm btn-warning session-connect-btn" disabled
+                                    aria-label="{{ _('Configure API credentials') }}"
+                                    title="{{ _('Please configure API ID and hash in Edit section') }}">
+                                <span class="btn-text">{{ _("Configure") }}</span>
                             </button>
                             {% else %}
                             {# not_configured, proxy_missing, or unknown - disabled #}
