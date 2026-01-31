@@ -822,6 +822,18 @@ footer .diagnostic-button:hover {
     to { transform: rotate(360deg); }
 }
 
+/* Session config form loading state */
+.session-config-form.form-submitting {
+    opacity: 0.8;
+    pointer-events: none;
+}
+
+.session-config-form.form-submitting input,
+.session-config-form.form-submitting select {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+}
+
 /* ========== Skeleton Loaders ========== */
 
 /* Base skeleton element */
