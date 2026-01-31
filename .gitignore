@@ -76,10 +76,10 @@ SPEC.draft.md
 .beads/*.lock
 .beads/*.startlock
 
-# Claudev
-.claudev/
-.claude/agents
-.claude/commands
+# hype
+.hype/
+.hype/agents
+.hype/commands
 scripts
 project-scripts/
 logs/
