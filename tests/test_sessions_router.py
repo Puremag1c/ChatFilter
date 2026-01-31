@@ -236,16 +236,18 @@ class TestValidateConfigFileFormat:
             validate_config_file_format(b"not json {")
 
     def test_missing_api_id(self) -> None:
-        """Test rejection of config without api_id."""
+        """Test that config without api_id is now allowed (nullable)."""
         content = json.dumps({"api_hash": "abcdef"}).encode()
-        with pytest.raises(ValueError, match="api_id"):
-            validate_config_file_format(content)
+        config = validate_config_file_format(content)
+        assert config.get("api_id") is None
+        assert config["api_hash"] == "abcdef"
 
     def test_missing_api_hash(self) -> None:
-        """Test rejection of config without api_hash."""
+        """Test that config without api_hash is now allowed (nullable)."""
         content = json.dumps({"api_id": 12345}).encode()
-        with pytest.raises(ValueError, match="api_hash"):
-            validate_config_file_format(content)
+        config = validate_config_file_format(content)
+        assert config["api_id"] == 12345
+        assert config.get("api_hash") is None
 
     def test_invalid_api_id_type(self) -> None:
         """Test rejection of invalid api_id type."""
@@ -429,7 +431,7 @@ class TestSessionsAPIEndpoints:
     def test_upload_session_invalid_config(
         self, client: TestClient, clean_data_dir: Path, tmp_path: Path
     ) -> None:
-        """Test upload with invalid config file."""
+        """Test upload with config that has no api_hash now succeeds (nullable)."""
         # Get CSRF token from home page
         home_response = client.get("/")
         csrf_token = extract_csrf_token(home_response.text)
@@ -463,8 +465,9 @@ class TestSessionsAPIEndpoints:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
+        # Now accepts missing api_hash (nullable) - should succeed
         assert response.status_code == 200
-        assert "Invalid config" in response.text or "api_hash" in response.text
+        assert "success" in response.text.lower()
 
     def test_delete_session_not_found(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test deleting non-existent session."""

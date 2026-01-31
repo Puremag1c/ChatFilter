@@ -288,7 +288,7 @@ def validate_session_file_format(content: bytes) -> None:
         tmp_path.unlink(missing_ok=True)
 
 
-def validate_config_file_format(content: bytes) -> dict[str, str | int]:
+def validate_config_file_format(content: bytes) -> dict[str, str | int | None]:
     """Validate that content is a valid Telegram config JSON.
 
     Performs quick structural validation before parsing to prevent
@@ -332,29 +332,30 @@ def validate_config_file_format(content: bytes) -> dict[str, str | int]:
     if not isinstance(config, dict):
         raise ValueError("Config must be a JSON object")
 
-    # Check required fields
-    if "api_id" not in config:
-        raise ValueError("Config missing required field: api_id")
-    if "api_hash" not in config:
-        raise ValueError("Config missing required field: api_hash")
+    # api_id and api_hash are now optional (nullable)
+    # Validate api_id type if present
+    api_id = config.get("api_id")
+    if api_id is not None:
+        if isinstance(api_id, str):
+            try:
+                int(api_id)
+            except ValueError:
+                raise ValueError("api_id must be an integer or numeric string") from None
+        elif not isinstance(api_id, int):
+            raise ValueError("api_id must be an integer")
 
-    # Validate api_id type
-    api_id = config["api_id"]
-    if isinstance(api_id, str):
-        try:
-            int(api_id)
-        except ValueError:
-            raise ValueError("api_id must be an integer or numeric string") from None
-    elif not isinstance(api_id, int):
-        raise ValueError("api_id must be an integer")
-
-    # Validate api_hash type
-    api_hash = config["api_hash"]
-    if not isinstance(api_hash, str) or not api_hash.strip():
+    # Validate api_hash type if present
+    api_hash = config.get("api_hash")
+    if api_hash is not None and (not isinstance(api_hash, str) or not api_hash.strip()):
         raise ValueError("api_hash must be a non-empty string")
 
+    # Validate source field if present
+    source = config.get("source")
+    if source is not None and source not in ("file", "phone"):
+        raise ValueError("source must be 'file' or 'phone'")
+
     # Check for unknown fields and warn (lenient mode)
-    known_fields = {"api_id", "api_hash"}
+    known_fields = {"api_id", "api_hash", "proxy_id", "source"}
     unknown_fields = set(config.keys()) - known_fields
     if unknown_fields:
         logger.warning(
@@ -449,16 +450,17 @@ def load_account_info(session_dir: Path) -> dict[str, int | str] | None:
 def _save_session_to_disk(
     session_dir: Path,
     session_content: bytes,
-    api_id: int,
-    api_hash: str,
+    api_id: int | None,
+    api_hash: str | None,
     proxy_id: str | None,
     account_info: dict[str, int | str] | None,
+    source: str = "file",
 ) -> None:
     """Save session files to disk with secure credentials.
 
     Creates:
     - session.session file (atomic write, secure permissions)
-    - config.json with api_id, api_hash, proxy_id
+    - config.json with api_id, api_hash, proxy_id, source
     - .secure_storage marker
     - .account_info.json if account_info provided
 
@@ -467,10 +469,11 @@ def _save_session_to_disk(
     Args:
         session_dir: Session directory path (must exist)
         session_content: Session file content bytes
-        api_id: Telegram API ID
-        api_hash: Telegram API hash
+        api_id: Telegram API ID (can be None for source=phone)
+        api_hash: Telegram API hash (can be None for source=phone)
         proxy_id: Proxy ID (can be None)
         account_info: Account info dict or None
+        source: Source of credentials ('file' or 'phone')
 
     Raises:
         DiskSpaceError: If not enough disk space
@@ -499,16 +502,21 @@ def _save_session_to_disk(
     secure_file_permissions(session_path)
 
     # Store credentials securely (NOT in plaintext)
-    storage_dir = session_dir.parent
-    manager = SecureCredentialManager(storage_dir)
-    manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
-    logger.info(f"Stored credentials securely for session: {safe_name}")
+    # Only store if api_id and api_hash are provided
+    if api_id is not None and api_hash is not None:
+        storage_dir = session_dir.parent
+        manager = SecureCredentialManager(storage_dir)
+        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
+        logger.info(f"Stored credentials securely for session: {safe_name}")
+    else:
+        logger.info(f"Session {safe_name} created without api_id/api_hash (source=phone)")
 
     # Create per-session config.json
     session_config: dict[str, int | str | None] = {
         "api_id": api_id,
         "api_hash": api_hash,
         "proxy_id": proxy_id,
+        "source": source,
     }
     session_config_path = session_dir / "config.json"
     session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
@@ -521,8 +529,10 @@ def _save_session_to_disk(
     atomic_write(marker_file, marker_text)
 
     # Validate that TelegramClientLoader can use secure storage
-    loader = TelegramClientLoader(session_path, use_secure_storage=True)
-    loader.validate()
+    # Only validate if api_id and api_hash are provided
+    if api_id and api_hash:
+        loader = TelegramClientLoader(session_path, use_secure_storage=True)
+        loader.validate()
 
     # Save account info if we successfully extracted it
     if account_info:
@@ -605,10 +615,12 @@ def migrate_legacy_sessions() -> list[str]:
             api_id, api_hash, proxy_id = manager.retrieve_credentials(session_id)
 
             # Create config.json with credentials
+            # Default to 'file' source for migrated sessions
             config_data: dict[str, int | str | None] = {
                 "api_id": api_id,
                 "api_hash": api_hash,
                 "proxy_id": proxy_id,  # Will be None for legacy sessions
+                "source": "file",
             }
 
             config_content = json.dumps(config_data, indent=2).encode("utf-8")
@@ -636,7 +648,9 @@ def get_session_config_status(session_dir: Path) -> str:
     """Check session configuration status.
 
     Validates that the session has required configuration:
-    - api_id and api_hash must be set
+    - api_id and api_hash can be null (source=phone means user will provide via auth)
+    - If api_id and api_hash are null, source must be 'phone'
+    - If api_id and api_hash are set, source can be 'file' or 'phone'
     - proxy_id must be set (sessions require proxy for operation)
     - If proxy_id is set, the proxy must exist in the pool
 
@@ -646,7 +660,7 @@ def get_session_config_status(session_dir: Path) -> str:
     Returns:
         Status string:
         - "disconnected": Configuration is valid
-        - "not_configured": Missing api_id, api_hash, or proxy_id
+        - "not_configured": Missing required fields or invalid state
         - "proxy_missing": proxy_id is set but proxy not found in pool
     """
     config_file = session_dir / "config.json"
@@ -661,13 +675,14 @@ def get_session_config_status(session_dir: Path) -> str:
         logger.warning(f"Failed to read config for session {session_dir.name}: {e}")
         return "not_configured"
 
-    # Check required fields
+    # Check fields
     api_id = config.get("api_id")
     api_hash = config.get("api_hash")
     proxy_id = config.get("proxy_id")
+    source = config.get("source")
 
-    # api_id and api_hash are required
-    if not api_id or not api_hash:
+    # If api_id or api_hash are null, source must be 'phone'
+    if (api_id is None or api_hash is None) and source != "phone":
         return "not_configured"
 
     # proxy_id is required for session to be connectable
@@ -867,11 +882,19 @@ async def upload_session(
             tmp_session_path = Path(tmp_session.name)
 
         try:
-            api_id = int(config_data["api_id"])
-            api_hash = str(config_data["api_hash"])
+            api_id_value = config_data.get("api_id")
+            api_hash_value = config_data.get("api_hash")
 
-            # Try to get account info from the session
-            account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+            # Convert to appropriate types, handling None
+            api_id = int(api_id_value) if api_id_value is not None else None
+            api_hash = str(api_hash_value) if api_hash_value is not None else None
+
+            # Try to get account info from the session only if both api_id and api_hash are available
+            account_info = None
+            if api_id is not None and api_hash is not None:
+                account_info = await get_account_info_from_session(
+                    tmp_session_path, api_id, api_hash
+                )
 
             if account_info:
                 # Check for duplicate accounts
@@ -892,6 +915,7 @@ async def upload_session(
             from chatfilter.utils.disk import DiskSpaceError
 
             # proxy_id is None - user must configure it after upload
+            # source is 'file' because config was uploaded
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,
@@ -899,6 +923,7 @@ async def upload_session(
                 api_hash=api_hash,
                 proxy_id=None,
                 account_info=account_info,
+                source="file",
             )
 
         except DiskSpaceError as e:
@@ -1804,10 +1829,12 @@ async def _complete_auth_flow(
         manager.store_credentials(session_name, api_id, api_hash)
 
         # Create per-session config.json
+        # source is 'phone' because credentials came from auth flow
         session_config: dict[str, int | str | None] = {
             "api_id": api_id,
             "api_hash": api_hash,
             "proxy_id": proxy_id,
+            "source": "phone",
         }
         session_config_path = session_dir / "config.json"
         session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
@@ -2148,6 +2175,7 @@ async def save_import_session(
         try:
             from chatfilter.utils.disk import DiskSpaceError
 
+            # source is 'file' because session was imported from file
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,
@@ -2155,6 +2183,7 @@ async def save_import_session(
                 api_hash=api_hash,
                 proxy_id=proxy_id,
                 account_info=account_info,
+                source="file",
             )
 
         except DiskSpaceError as e:
