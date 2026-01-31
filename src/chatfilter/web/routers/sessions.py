@@ -2997,9 +2997,9 @@ async def save_import_session(
     request: Request,
     session_name: Annotated[str, Form()],
     session_file: Annotated[UploadFile, File()],
+    proxy_id: Annotated[str, Form()],
     api_id: Annotated[int | None, Form()] = None,
     api_hash: Annotated[str | None, Form()] = None,
-    proxy_id: Annotated[str, Form()],
 ) -> HTMLResponse:
     """Save an imported session with configuration.
 
