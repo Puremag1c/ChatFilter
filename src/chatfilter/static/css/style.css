@@ -1715,6 +1715,7 @@ footer .diagnostic-button:hover {
         max-width: none;
         width: 95%;
         margin: 10px;
+        transition: transform 0.3s ease;
     }
 
     .modal-header {
@@ -1723,6 +1724,9 @@ footer .diagnostic-button:hover {
 
     .modal-body {
         padding: 20px;
+        max-height: calc(80vh - 140px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .modal-footer {
@@ -1732,6 +1736,20 @@ footer .diagnostic-button:hover {
 
     .modal-button {
         width: 100%;
+    }
+
+    /* Ensure inputs remain visible above mobile keyboard */
+    .modal-dialog.keyboard-visible {
+        position: fixed;
+        top: 10vh;
+        transform: translateY(0) !important;
+    }
+
+    .modal-body input:focus,
+    .modal-body textarea:focus,
+    .modal-body select:focus {
+        scroll-margin-top: 20px;
+        scroll-margin-bottom: 20px;
     }
 }
 
