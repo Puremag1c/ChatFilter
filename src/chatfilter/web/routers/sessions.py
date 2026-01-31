@@ -704,6 +704,7 @@ def get_session_config_status(session_dir: Path) -> str:
 
 def list_stored_sessions(
     session_manager: SessionManager | None = None,
+    auth_manager: AuthStateManager | None = None,
 ) -> list[SessionListItem]:
     """List all stored sessions with runtime state when available.
 
@@ -722,11 +723,13 @@ def list_stored_sessions(
 
     Args:
         session_manager: Optional session manager to check runtime state
+        auth_manager: Optional auth state manager to check auth flow state
 
     Returns:
         List of session info items
     """
     from chatfilter.telegram.session_manager import SessionState
+    from chatfilter.web.auth_state import AuthStep
 
     sessions = []
     data_dir = ensure_data_dir()
@@ -745,7 +748,21 @@ def list_stored_sessions(
                 state = config_status
                 error_message = None
 
-                if session_manager is not None and config_status == "disconnected":
+                # Check if session has an active auth flow (highest priority)
+                if auth_manager is not None:
+                    auth_state = auth_manager.get_auth_state_by_session(session_id)
+                    if auth_state:
+                        if auth_state.step in (AuthStep.PHONE_SENT, AuthStep.CODE_INVALID):
+                            state = "needs_code"
+                        elif auth_state.step == AuthStep.NEED_2FA:
+                            state = "needs_2fa"
+
+                # Check runtime session state only if no auth flow and config is ready
+                if (
+                    session_manager is not None
+                    and config_status == "disconnected"
+                    and state == config_status
+                ):
                     # Session is configured - check if it has runtime state
                     info = session_manager.get_info(session_id)
                     if info:
@@ -773,16 +790,19 @@ def list_stored_sessions(
 
 if TYPE_CHECKING:
     from chatfilter.telegram.session_manager import SessionManager
+    from chatfilter.web.auth_state import AuthStateManager
 
 
 @router.get("/api/sessions", response_class=HTMLResponse)
 async def get_sessions(request: Request) -> HTMLResponse:
     """List all registered sessions as HTML partial."""
     from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import get_auth_state_manager
     from chatfilter.web.dependencies import get_session_manager
 
     session_manager = get_session_manager()
-    sessions = list_stored_sessions(session_manager)
+    auth_manager = get_auth_state_manager()
+    sessions = list_stored_sessions(session_manager, auth_manager)
     templates = get_templates()
 
     return templates.TemplateResponse(

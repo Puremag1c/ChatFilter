@@ -156,6 +156,20 @@ class AuthStateManager:
                 return None
             return state
 
+    def get_auth_state_by_session(self, session_name: str) -> AuthState | None:
+        """Get an auth state by session name (synchronous).
+
+        Returns None if not found or expired.
+        This is a synchronous method for use in list_stored_sessions.
+        """
+        # Note: This is intentionally synchronous for use in non-async contexts
+        # It doesn't acquire the lock because it's only reading, and the dict
+        # operations in Python are atomic for simple gets
+        for state in self._states.values():
+            if state.session_name == session_name and not state.is_expired():
+                return state
+        return None
+
     async def update_auth_state(
         self,
         auth_id: str,
