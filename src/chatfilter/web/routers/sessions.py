@@ -2315,6 +2315,237 @@ async def send_code(
         )
 
 
+
+
+@router.post("/api/sessions/{session_id}/verify-code", response_class=HTMLResponse)
+async def verify_code(
+    request: Request,
+    session_id: str,
+    auth_id: Annotated[str, Form()],
+    code: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Verify authentication code for an existing session.
+
+    For sessions with needs_code status, verifies the code sent to the phone.
+    Updates the session file on success and sets status to connected or needs_2fa.
+
+    Returns HTML partial with:
+    - Success message if auth completed (status -> connected)
+    - 2FA form if password required (status -> needs_2fa)
+    - Error message if code invalid
+    """
+    import asyncio
+    import shutil
+
+    from telethon.errors import (
+        PhoneCodeEmptyError,
+        PhoneCodeExpiredError,
+        PhoneCodeInvalidError,
+        SessionPasswordNeededError,
+    )
+
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import AuthStep, get_auth_state_manager
+
+    templates = get_templates()
+    auth_manager = get_auth_state_manager()
+
+    # Sanitize session name
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": str(e)},
+        )
+
+    # Get auth state
+    auth_state = await auth_manager.get_auth_state(auth_id)
+    if not auth_state:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Auth session expired or not found. Please start over."),
+            },
+        )
+
+    # Verify this auth state is for the correct session
+    if auth_state.session_name != safe_name:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Auth session mismatch. Please start over."),
+            },
+        )
+
+    # Validate code format (digits only)
+    code = code.strip().replace(" ", "").replace("-", "")
+    if not code.isdigit() or len(code) < 5:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "error": _("Invalid code format. Please enter the numeric code you received."),
+            },
+        )
+
+    client = auth_state.client
+    if not client or not client.is_connected():
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Connection lost. Please start over."),
+            },
+        )
+
+    try:
+        # Try to sign in with code
+        await asyncio.wait_for(
+            client.sign_in(
+                phone=auth_state.phone,
+                code=code,
+                phone_code_hash=auth_state.phone_code_hash,
+            ),
+            timeout=30.0,
+        )
+
+        # Success! Update the existing session
+        session_dir = ensure_data_dir() / safe_name
+        if not session_dir.exists():
+            await auth_manager.remove_auth_state(auth_id)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/auth_result.html",
+                context={"success": False, "error": _("Session directory not found.")},
+            )
+
+        session_path = session_dir / "session.session"
+
+        # Get account info
+        me = await client.get_me()
+        account_info = {
+            "user_id": me.id,
+            "phone": me.phone or "",
+            "first_name": me.first_name or "",
+            "last_name": me.last_name or "",
+        }
+
+        # Disconnect client before copying session file
+        await client.disconnect()
+
+        # Copy session file from temp location to existing session
+        temp_dir = getattr(auth_state, "temp_dir", None)
+        if temp_dir:
+            temp_session_file = Path(temp_dir) / "auth_session.session"
+            if temp_session_file.exists():
+                shutil.copy2(temp_session_file, session_path)
+                secure_file_permissions(session_path)
+            # Clean up temp dir
+            secure_delete_dir(temp_dir)
+
+        # Update account info
+        save_account_info(session_dir, account_info)
+
+        # Remove auth state
+        await auth_manager.remove_auth_state(auth_id)
+
+        logger.info(f"Session '{safe_name}' re-authenticated successfully (code verified)")
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": True,
+                "message": _("Session '{name}' authenticated successfully!").format(name=safe_name),
+                "account_info": account_info,
+            },
+        )
+
+    except SessionPasswordNeededError:
+        # 2FA required
+        await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
+        logger.info(f"2FA required for session '{safe_name}' auth")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": safe_name,
+            },
+        )
+
+    except PhoneCodeInvalidError:
+        await auth_manager.update_auth_state(auth_id, step=AuthStep.CODE_INVALID)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "error": _("Invalid code. Please check and try again."),
+            },
+        )
+
+    except PhoneCodeExpiredError:
+        await auth_manager.remove_auth_state(auth_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Code has expired. Please start over."),
+            },
+        )
+
+    except PhoneCodeEmptyError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "error": _("Please enter the verification code."),
+            },
+        )
+
+    except TimeoutError:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "error": _("Request timeout. Please try again."),
+            },
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to verify code for session '{safe_name}'")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "error": _("Failed to verify code: {error}").format(error=e),
+            },
+        )
+
 @router.post("/api/sessions/import/save", response_class=HTMLResponse)
 async def save_import_session(
     request: Request,
