@@ -1732,3 +1732,341 @@ class TestDeadSessionRecoveryUX:
         assert perm_response.status_code == 200
         perm_text = perm_response.text.lower()
         assert "new session" in perm_text or "upload" in perm_text or "invalid" in perm_text
+
+
+class TestSessionCredentialsAPI:
+    """Tests for update_session_credentials endpoint."""
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        """Create test client."""
+        app = create_app()
+        return TestClient(app)
+
+    @pytest.fixture
+    def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
+        """Create clean data directory for tests."""
+        data_dir = tmp_path / "sessions"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        yield data_dir
+        if data_dir.exists():
+            shutil.rmtree(data_dir)
+
+    @pytest.fixture
+    def session_with_config(self, clean_data_dir: Path) -> Path:
+        """Create a session directory with config file."""
+        session_dir = clean_data_dir / "test_session"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session file
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create config.json
+        config_data = {
+            "api_id": 12345,
+            "api_hash": "test_hash_abcdef1234567890123456",
+            "proxy_id": str(__import__('uuid').uuid4()),
+        }
+        config_path = session_dir / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        return session_dir
+
+    def test_update_session_credentials_invalid_format(
+        self, client: TestClient, clean_data_dir: Path, session_with_config: Path
+    ) -> None:
+        """Test that invalid API hash format is rejected."""
+        from unittest.mock import MagicMock, patch
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.put(
+                "/api/sessions/test_session/credentials",
+                data={
+                    "api_id": "12345678",
+                    "api_hash": "tooshort",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+        assert "hexadecimal" in response.text.lower() or "32" in response.text.lower()
+
+    def test_update_session_credentials_invalid_api_id(
+        self, client: TestClient, clean_data_dir: Path, session_with_config: Path
+    ) -> None:
+        """Test that invalid API ID is rejected."""
+        from unittest.mock import MagicMock, patch
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.put(
+                "/api/sessions/test_session/credentials",
+                data={
+                    "api_id": "0",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+        assert "positive" in response.text.lower()
+
+    def test_update_session_credentials_invalid_credentials_not_saved(
+        self, client: TestClient, clean_data_dir: Path, session_with_config: Path
+    ) -> None:
+        """Test that invalid API credentials are not saved."""
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from telethon.errors import ApiIdInvalidError
+        from chatfilter.models.proxy import ProxyEntry
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        test_proxy_id = str(uuid.uuid4())
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        mock_client = MagicMock()
+        mock_client.connect = AsyncMock(side_effect=ApiIdInvalidError("Invalid API ID"))
+        mock_client.is_connected = MagicMock(return_value=False)
+
+        original_config = json.loads((session_with_config / "config.json").read_text())
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch("telethon.TelegramClient", return_value=mock_client),
+        ):
+            response = client.put(
+                "/api/sessions/test_session/credentials",
+                data={
+                    "api_id": "99999999",
+                    "api_hash": "ffffffffffffffffffffffffffffffff",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+        assert "invalid" in response.text.lower()
+
+        updated_config = json.loads((session_with_config / "config.json").read_text())
+        assert updated_config["api_id"] == original_config["api_id"]
+        assert updated_config["api_hash"] == original_config["api_hash"]
+
+    def test_update_session_credentials_disconnects_existing_session(
+        self, client: TestClient, clean_data_dir: Path, session_with_config: Path
+    ) -> None:
+        """Test that changing credentials disconnects the session."""
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        test_proxy_id = str(uuid.uuid4())
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        mock_client = MagicMock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.is_connected = MagicMock(return_value=True)
+
+        mock_session_manager = MagicMock()
+        mock_session_manager.disconnect = AsyncMock()
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch("telethon.TelegramClient", return_value=mock_client),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+        ):
+            response = client.put(
+                "/api/sessions/test_session/credentials",
+                data={
+                    "api_id": "87654321",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 200
+        assert "success" in response.text.lower() or "saved" in response.text.lower()
+
+        mock_session_manager.disconnect.assert_called()
+        mock_client.connect.assert_called()
+        mock_client.disconnect.assert_called()
+
+    def test_update_session_credentials_saves_valid_credentials(
+        self, client: TestClient, clean_data_dir: Path, session_with_config: Path
+    ) -> None:
+        """Test that valid credentials are saved after validation."""
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        test_proxy_id = str(uuid.uuid4())
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        mock_client = MagicMock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.is_connected = MagicMock(return_value=True)
+
+        mock_session_manager = MagicMock()
+        mock_session_manager.disconnect = AsyncMock()
+
+        new_api_id = 98765432
+        new_api_hash = "fedcba9876543210fedcba9876543210"
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch("telethon.TelegramClient", return_value=mock_client),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+        ):
+            response = client.put(
+                "/api/sessions/test_session/credentials",
+                data={
+                    "api_id": str(new_api_id),
+                    "api_hash": new_api_hash,
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 200
+        assert "success" in response.text.lower() or "saved" in response.text.lower()
+
+        config_path = session_with_config / "config.json"
+        config_data = json.loads(config_path.read_text())
+        assert config_data["api_id"] == new_api_id
+        assert config_data["api_hash"] == new_api_hash
+
+    def test_update_session_credentials_session_not_found(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that updating credentials for non-existent session returns error."""
+        from unittest.mock import MagicMock, patch
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.put(
+                "/api/sessions/nonexistent_session/credentials",
+                data={
+                    "api_id": "12345678",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 404
+        assert "not found" in response.text.lower()
+
+    def test_update_session_credentials_requires_proxy(
+        self, client: TestClient, clean_data_dir: Path, session_with_config: Path
+    ) -> None:
+        """Test that changing credentials requires proxy to be configured."""
+        from unittest.mock import MagicMock, patch
+
+        session_dir = session_with_config
+        config_file = session_dir / "config.json"
+        config = json.loads(config_file.read_text())
+        del config["proxy_id"]
+        config_file.write_text(json.dumps(config))
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            response = client.put(
+                "/api/sessions/test_session/credentials",
+                data={
+                    "api_id": "12345678",
+                    "api_hash": "0123456789abcdef0123456789abcdef",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 400
+        assert "proxy" in response.text.lower()
