@@ -1724,9 +1724,9 @@ async def start_auth_flow(
             },
         )
 
-    # Validate phone format (basic: must start with + and have digits)
+    # Validate and sanitize phone format
     phone = phone.strip()
-    if not phone.startswith("+") or not phone[1:].replace(" ", "").replace("-", "").isdigit():
+    if not phone.startswith("+") or not phone[1:].replace(" ", "").replace("-", "").replace("(", "").replace(")", "").isdigit():
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -1737,6 +1737,9 @@ async def start_auth_flow(
                 ),
             },
         )
+
+    # Sanitize phone: remove spaces, dashes, parentheses for Telegram API
+    phone = "+" + "".join(c for c in phone[1:] if c.isdigit())
 
     # Validate proxy exists and get it
     try:
