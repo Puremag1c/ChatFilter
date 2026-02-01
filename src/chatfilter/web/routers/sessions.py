@@ -22,6 +22,7 @@ from chatfilter.telegram.client import TelegramClientLoader, TelegramConfigError
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates
 
+    from chatfilter.models.proxy import ProxyEntry
     from chatfilter.web.auth_state import AuthState, AuthStateManager
 
 logger = logging.getLogger(__name__)
@@ -749,6 +750,111 @@ def get_session_config_status(session_dir: Path) -> str:
     return "disconnected"
 
 
+async def validate_telegram_credentials_with_retry(
+    api_id: int,
+    api_hash: str,
+    proxy_entry: ProxyEntry,
+    session_name: str,
+    max_attempts: int = 3,
+) -> tuple[bool, str]:
+    """Validate Telegram API credentials with retry logic for transient errors.
+
+    Attempts to connect to Telegram with the provided credentials.
+    Retries transient network errors (ConnectionError, TimeoutError) up to max_attempts.
+    Returns immediately on non-retryable errors (ApiIdInvalidError).
+
+    Args:
+        api_id: Telegram API ID
+        api_hash: Telegram API hash
+        proxy_entry: Proxy configuration to use
+        session_name: Session name (for logging and temp session file)
+        max_attempts: Maximum number of connection attempts (default: 3)
+
+    Returns:
+        Tuple of (is_valid: bool, error_message: str)
+        - (True, "") if credentials are valid
+        - (False, error_message) if validation failed
+    """
+    import asyncio
+    import tempfile
+    from pathlib import Path
+    from telethon import TelegramClient
+    from telethon.errors import ApiIdInvalidError
+
+    from chatfilter.telegram.retry import calculate_backoff_delay
+
+    telethon_proxy = proxy_entry.to_telethon_proxy()
+    temp_dir = None
+    client = None
+
+    for attempt in range(max_attempts):
+        try:
+            # Create temp session file for validation
+            temp_dir = Path(tempfile.mkdtemp(prefix="validate_creds_"))
+            temp_session_path = temp_dir / "temp_validate_session"
+
+            client = TelegramClient(
+                str(temp_session_path),
+                api_id,
+                api_hash,
+                proxy=telethon_proxy,
+            )
+
+            # Try to connect with timeout
+            await asyncio.wait_for(client.connect(), timeout=15.0)
+            await client.disconnect()
+            secure_delete_dir(temp_dir)
+
+            logger.info(f"API credentials validated for session '{session_name}'")
+            return (True, "")
+
+        except ApiIdInvalidError:
+            # Invalid credentials - don't retry, fail immediately
+            if client and client.is_connected():
+                await client.disconnect()
+            if temp_dir:
+                secure_delete_dir(temp_dir)
+            logger.warning(f"Invalid API credentials for session '{session_name}'")
+            return (False, "Invalid API ID or API Hash. Please check your credentials.")
+
+        except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as e:
+            # Transient network error - retry with backoff
+            if client and client.is_connected():
+                await client.disconnect()
+            if temp_dir:
+                secure_delete_dir(temp_dir)
+
+            is_final_attempt = attempt == max_attempts - 1
+            if is_final_attempt:
+                logger.error(
+                    f"Failed to validate credentials for '{session_name}' after {max_attempts} attempts: {e}"
+                )
+                return (
+                    False,
+                    f"Network error after {max_attempts} attempts. Please check your proxy and internet connection.",
+                )
+
+            # Calculate backoff and retry
+            delay = calculate_backoff_delay(attempt)
+            logger.warning(
+                f"Credential validation attempt {attempt + 1}/{max_attempts} failed "
+                f"with {type(e).__name__}: {e}. Retrying in {delay:.2f}s..."
+            )
+            await asyncio.sleep(delay)
+
+        except Exception as e:
+            # Unexpected error - don't retry
+            if client and client.is_connected():
+                await client.disconnect()
+            if temp_dir:
+                secure_delete_dir(temp_dir)
+            logger.exception(f"Unexpected error validating credentials for '{session_name}'")
+            return (False, f"Unexpected error: {e}")
+
+    # Should never reach here
+    return (False, "Validation failed after all retries")
+
+
 def list_stored_sessions(
     session_manager: SessionManager | None = None,
     auth_manager: AuthStateManager | None = None,
@@ -853,7 +959,7 @@ if TYPE_CHECKING:
 async def get_sessions(request: Request) -> HTMLResponse:
     """List all registered sessions as HTML partial."""
     from chatfilter.web.app import get_templates
-    from chatfilter.web.auth_state import DuplicateOperationError, get_auth_state_manager
+    from chatfilter.web.auth_state import get_auth_state_manager
     from chatfilter.web.dependencies import get_session_manager
 
     session_manager = get_session_manager()
@@ -1515,12 +1621,6 @@ async def update_session_credentials(
 
     # If credentials changed, validate them with Telegram API
     if credentials_changed:
-        import asyncio
-        import tempfile
-
-        from telethon import TelegramClient
-        from telethon.errors import ApiIdInvalidError
-
         from chatfilter.storage.errors import StorageNotFoundError
         from chatfilter.storage.proxy_pool import get_proxy_by_id
 
@@ -1540,54 +1640,24 @@ async def update_session_credentials(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Create temporary client to validate credentials
-        temp_dir = tempfile.mkdtemp(prefix="chatfilter_validate_")
-        temp_session_path = Path(temp_dir) / "validate_session"
+        # Validate credentials with retry logic
+        is_valid, error_message = await validate_telegram_credentials_with_retry(
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_entry=proxy_entry,
+            session_name=safe_name,
+        )
 
-        try:
-            telethon_proxy = proxy_entry.to_telethon_proxy()
-            client = TelegramClient(
-                str(temp_session_path),
-                api_id,
-                api_hash,
-                proxy=telethon_proxy,
+        if not is_valid:
+            # Validation failed after retries
+            status_code = (
+                status.HTTP_400_BAD_REQUEST
+                if "Invalid API" in error_message
+                else status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-            # Try to connect - this will raise ApiIdInvalidError if credentials are wrong
-            await asyncio.wait_for(client.connect(), timeout=15.0)
-            await client.disconnect()
-            secure_delete_dir(temp_dir)
-
-            logger.info(f"API credentials validated for session '{safe_name}'")
-
-        except ApiIdInvalidError:
-            # Invalid credentials - don't save
-            if "client" in dir() and client.is_connected():
-                await client.disconnect()
-            secure_delete_dir(temp_dir)
             return HTMLResponse(
-                content='<div class="alert alert-error">Invalid API ID or API Hash. Credentials not saved.</div>',
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        except (OSError, ConnectionError, TimeoutError) as e:
-            # Network/proxy error - can't validate
-            if "client" in dir() and client.is_connected():
-                await client.disconnect()
-            secure_delete_dir(temp_dir)
-            logger.warning(f"Failed to validate credentials for '{safe_name}': {e}")
-            return HTMLResponse(
-                content='<div class="alert alert-error">Failed to validate credentials (network error). Please check proxy settings.</div>',
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-        except Exception as e:
-            # Unexpected error
-            if "client" in dir() and client.is_connected():
-                await client.disconnect()
-            secure_delete_dir(temp_dir)
-            logger.exception(f"Unexpected error validating credentials for '{safe_name}'")
-            return HTMLResponse(
-                content=f'<div class="alert alert-error">Failed to validate credentials: {e}</div>',
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=f'<div class="alert alert-error">{error_message}</div>',
+                status_code=status_code,
             )
 
         # Credentials valid - disconnect current session if connected
