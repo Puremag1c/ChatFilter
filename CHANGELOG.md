@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-01
+
+### Fixed
+- **i18n Race Condition**: Fixed race condition where language switcher and version check used i18n before initialization
+  - i18n.js now exposes a `ready` Promise
+  - language-switcher.js and version-check.js wait for i18n to be ready before using translations
+- **Missing Locale Keys**: Added `language.current_aria` and `language.switch_to` keys to en.json and ru.json
+- **Version Check 404**: Fixed `/api/version/check-updates` endpoint returning 404
+- **Favicon 404**: Added `/favicon.ico` route to suppress browser 404 errors
+- **Missing HX-Trigger Header**: Fixed `connect_session` endpoint not returning HX-Trigger header in early return path
+- **Corrupted Session Files**: System now handles corrupted .session files gracefully with option to delete and recreate
+- **Error Message Sanitization**: Exception messages are now sanitized to prevent information leakage of internal paths and details
+
+### Added
+- **Complete Russian Translations**: Filled all 584 empty Russian translations in messages.po
+  - Full localization of UI: navigation, buttons, statuses, dialogs, error messages
+  - Language switching now properly displays Russian interface
+- **Session State Validation**: Connection/disconnection endpoints now validate session state before operations
+  - Prevents race conditions and duplicate operations
+  - Clear error messages for incompatible state transitions
+- **Connection Timeout Protection**: Session connection attempts now have explicit 30-second timeout
+  - Returns user-friendly error if Telegram API hangs
+  - Prevents indefinite waits and improves responsiveness
+- **API Credential Validation**: Changing API_ID/API_HASH now triggers full re-authorization
+  - Validates credentials work with Telegram API
+  - Shows code/2FA modal if authentication required
+  - Only saves after successful validation
+- **Transient Error Retry Logic**: API credential validation retries on transient network errors
+  - Exponential backoff with max 3 attempts
+  - Distinguishes network errors from invalid credentials
+- **Auth Flow Protection**: Authentication endpoints track failed attempts and lock session after excessive failures
+  - Max 5 failed attempts per session
+  - 15-minute lockout period before retry allowed
+- **Phone Number Sanitization**: Phone number input in auth flow is now sanitized
+  - Removes spaces, dashes, parentheses
+  - Validates format before sending to Telegram API
+  - Clear error messages for invalid formats
+- **Telegram Rate Limiting**: FloodWaitError from Telegram API now shows user-friendly message
+  - Displays wait time required before retry
+  - Helps users understand rate limiting
+- **Dead Session Recovery**: Dead/expired sessions show clear status with recovery options
+  - Distinct visual treatment for different error types
+  - Reconnect button initiates re-auth flow
+  - Preserves session ID for recovery
+
+### Changed
+- **Code Cleanup**: Audit and refactoring of sessions module
+  - Removed unused code and duplicate logic
+  - Simplified overly complex code paths
+  - Improved code maintainability and readability
+
 ## [0.6.2] - 2026-01-28
 
 ### Fixed
