@@ -1275,6 +1275,69 @@ class TestSessionConnectDisconnectAPI:
         assert response.status_code == 200
         assert "Retry" in response.text or "error" in response.text.lower()
 
+    def test_connect_session_timeout(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test session connection timeout returns clear error message."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        # Read the proxy_id from config
+        config_path = configured_session / "config.json"
+        config_data = json.loads(config_path.read_text())
+        test_proxy_id = config_data["proxy_id"]
+
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock session manager connect to raise TimeoutError
+        # (simulates what asyncio.wait_for does when timeout expires)
+        mock_session_manager = MagicMock()
+        mock_session_manager.connect = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        # Mock loader
+        mock_loader = MagicMock()
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+            patch(
+                "chatfilter.telegram.client.TelegramClientLoader",
+                return_value=mock_loader,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/test_session/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 200
+        # Check for timeout-specific error message
+        assert "timeout" in response.text.lower()
+        assert "30 seconds" in response.text or "30" in response.text
+
     def test_disconnect_session_invalid_name(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:

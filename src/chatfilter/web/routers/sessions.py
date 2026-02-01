@@ -2397,6 +2397,8 @@ async def connect_session(
 
     Returns HTML partial with updated button state.
     """
+    import asyncio
+
     from chatfilter.telegram.client import TelegramClientLoader
     from chatfilter.web.app import get_templates
     from chatfilter.web.dependencies import get_session_manager
@@ -2457,8 +2459,11 @@ async def connect_session(
         loader.validate()
         session_manager.register(safe_name, loader)
 
-        # Connect
-        await session_manager.connect(safe_name)
+        # Connect with timeout (30 seconds)
+        await asyncio.wait_for(
+            session_manager.connect(safe_name),
+            timeout=30.0
+        )
 
         # Get updated state
         info = session_manager.get_info(safe_name)
@@ -2476,6 +2481,24 @@ async def connect_session(
             name="partials/session_row.html",
             context={"session": session_data},
             headers={"HX-Trigger": "refreshSessions"},
+        )
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Connection timeout for session '{safe_name}'")
+        error_message = _("Connection timeout: Telegram API did not respond within 30 seconds. Please try again.")
+        error_state = "error"
+
+        # Create session object for template with error
+        session_data = {
+            "session_id": safe_name,
+            "state": error_state,
+            "error_message": error_message,
+        }
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context={"session": session_data},
         )
 
     except Exception as e:
