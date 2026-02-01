@@ -350,7 +350,7 @@ def validate_config_file_format(content: bytes) -> dict[str, str | int | None]:
     try:
         text = content.decode("utf-8").strip()
     except UnicodeDecodeError as e:
-        raise ValueError(f"Config file contains invalid UTF-8: {e}") from e
+        raise ValueError("Config file contains invalid UTF-8 encoding") from e
 
     if not text:
         raise ValueError("Config file is empty or contains only whitespace")
@@ -365,7 +365,7 @@ def validate_config_file_format(content: bytes) -> dict[str, str | int | None]:
     try:
         config = json.loads(text)
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON format: {e}") from e
+        raise ValueError("Invalid JSON format in config file") from e
 
     if not isinstance(config, dict):
         raise ValueError("Config must be a JSON object")
@@ -1101,21 +1101,21 @@ async def upload_session(
                 source="file",
             )
 
-        except DiskSpaceError as e:
+        except DiskSpaceError:
             shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": str(e)},
+                context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
             )
-        except TelegramConfigError as e:
+        except TelegramConfigError:
             shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": _("Config validation failed: {error}").format(error=e),
+                    "error": _("Configuration error. Please check your session file and credentials."),
                 },
             )
         except Exception:
@@ -1944,7 +1944,7 @@ async def start_auth_flow(
                 "error": _("Connection timeout. Please check your proxy settings and try again."),
             },
         )
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to start auth flow for '{safe_name}'")
         if "client" in dir() and client.is_connected():
             await client.disconnect()
@@ -1952,7 +1952,7 @@ async def start_auth_flow(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": _("Failed to send code: {error}").format(error=e)},
+            context={"success": False, "error": _("Failed to send code. Please check your settings and try again.")},
         )
 
 
@@ -2111,7 +2111,7 @@ async def submit_auth_code(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to verify code for auth '{auth_id}'")
         return templates.TemplateResponse(
             request=request,
@@ -2120,7 +2120,7 @@ async def submit_auth_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": auth_state.session_name,
-                "error": _("Failed to verify code: {error}").format(error=e),
+                "error": _("Failed to verify code. Please check the code and try again."),
             },
         )
 
@@ -2224,7 +2224,7 @@ async def submit_auth_2fa(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to verify 2FA for auth '{auth_id}'")
         return templates.TemplateResponse(
             request=request,
@@ -2232,7 +2232,7 @@ async def submit_auth_2fa(
             context={
                 "auth_id": auth_id,
                 "session_name": auth_state.session_name,
-                "error": _("Failed to verify password: {error}").format(error=e),
+                "error": _("Failed to verify password. Please try again."),
             },
         )
 
@@ -2367,7 +2367,7 @@ async def _complete_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": _("Failed to save session: {error}").format(error=e),
+                "error": _("Failed to save session. Please try again or contact support."),
             },
         )
 
@@ -2648,11 +2648,15 @@ async def disconnect_session(
     except Exception as e:
         logger.exception(f"Failed to disconnect session '{safe_name}'")
 
+        # Get user-friendly error message
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+        error_message = get_user_friendly_message(e)
+
         # Create session object for template with error
         session_data = {
             "session_id": safe_name,
             "state": "error",
-            "error_message": str(e),
+            "error_message": error_message,
         }
 
         return templates.TemplateResponse(
@@ -2922,7 +2926,7 @@ async def send_code(
                 "error": _("Connection timeout. Please check your proxy settings and try again."),
             },
         )
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to send code for session '{safe_name}'")
         if "client" in dir() and client.is_connected():
             await client.disconnect()
@@ -2930,7 +2934,7 @@ async def send_code(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": _("Failed to send code: {error}").format(error=e)},
+            context={"success": False, "error": _("Failed to send code. Please check your settings and try again.")},
         )
 
 
@@ -3201,7 +3205,7 @@ async def start_reconnect(
                 "error": _("Authentication already in progress for this session."),
             },
         )
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to start reconnect for session '{safe_name}'")
         if "client" in dir() and client.is_connected():
             await client.disconnect()
@@ -3209,7 +3213,7 @@ async def start_reconnect(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": _("Failed to send code: {error}").format(error=e)},
+            context={"success": False, "error": _("Failed to send code. Please check your settings and try again.")},
         )
 
 
@@ -3500,7 +3504,7 @@ async def verify_code(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to verify code for session '{safe_name}'")
         return templates.TemplateResponse(
             request=request,
@@ -3509,7 +3513,7 @@ async def verify_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
-                "error": _("Failed to verify code: {error}").format(error=e),
+                "error": _("Failed to verify code. Please check the code and try again."),
             },
         )
 
@@ -3783,7 +3787,7 @@ async def verify_2fa(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to verify 2FA for session '{safe_name}'")
         return templates.TemplateResponse(
             request=request,
@@ -3791,7 +3795,7 @@ async def verify_2fa(
             context={
                 "auth_id": auth_id,
                 "session_name": safe_name,
-                "error": _("Failed to verify password: {error}").format(error=e),
+                "error": _("Failed to verify password. Please try again."),
             },
         )
 
@@ -3931,21 +3935,21 @@ async def save_import_session(
                 source="file",
             )
 
-        except DiskSpaceError as e:
+        except DiskSpaceError:
             shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": str(e)},
+                context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
             )
-        except TelegramConfigError as e:
+        except TelegramConfigError:
             shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": _("Config validation failed: {error}").format(error=e),
+                    "error": _("Configuration error. Please check your session file and credentials."),
                 },
             )
         except Exception:
