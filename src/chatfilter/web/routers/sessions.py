@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
+from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
 
@@ -162,35 +163,6 @@ def secure_file_permissions(file_path: Path) -> None:
 
     # chmod 600: owner read/write, no access for group/others
     os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-
-
-def secure_delete_file(file_path: Path) -> None:
-    """Securely delete a file by overwriting before removal.
-
-    Args:
-        file_path: Path to file to securely delete
-    """
-    if not file_path.exists() or not file_path.is_file():
-        return
-
-    try:
-        # Get file size
-        file_size = file_path.stat().st_size
-
-        # Overwrite with zeros
-        with file_path.open("r+b") as f:
-            f.write(b"\x00" * file_size)
-            f.flush()
-            import os
-
-            os.fsync(f.fileno())
-
-        # Delete the file
-        file_path.unlink()
-    except Exception as e:
-        logger.warning(f"Failed to securely delete file, falling back to regular delete: {e}")
-        # Fallback to regular deletion
-        file_path.unlink(missing_ok=True)
 
 
 def secure_delete_dir(dir_path: Path | str) -> None:
@@ -833,7 +805,7 @@ async def validate_telegram_credentials_with_retry(
             if temp_dir:
                 secure_delete_dir(temp_dir)
             logger.warning(f"Invalid API credentials for session '{session_name}'")
-            return (False, "Invalid API ID or API Hash. Please check your credentials.")
+            return (False, "Invalid API ID or API Hash. Credentials not saved.")
 
         except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as e:
             # Transient network error - retry with backoff
@@ -1441,12 +1413,6 @@ async def update_session_config(
 
     # If credentials changed, validate them with Telegram API
     if credentials_changed:
-        import asyncio
-        import tempfile
-
-        from telethon import TelegramClient
-        from telethon.errors import ApiIdInvalidError
-
         from chatfilter.storage.proxy_pool import get_proxy_by_id
 
         # Get proxy for validation
@@ -1458,54 +1424,24 @@ async def update_session_config(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Create temporary client to validate credentials
-        temp_dir = tempfile.mkdtemp(prefix="chatfilter_validate_")
-        temp_session_path = Path(temp_dir) / "validate_session"
+        # Validate credentials with retry logic
+        is_valid, error_message = await validate_telegram_credentials_with_retry(
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_entry=proxy_entry,
+            session_name=safe_name,
+        )
 
-        try:
-            telethon_proxy = proxy_entry.to_telethon_proxy()
-            client = TelegramClient(
-                str(temp_session_path),
-                api_id,
-                api_hash,
-                proxy=telethon_proxy,
+        if not is_valid:
+            # Validation failed after retries
+            status_code = (
+                status.HTTP_400_BAD_REQUEST
+                if "Invalid API" in error_message
+                else status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-            # Try to connect - this will raise ApiIdInvalidError if credentials are wrong
-            await asyncio.wait_for(client.connect(), timeout=15.0)
-            await client.disconnect()
-            secure_delete_dir(temp_dir)
-
-            logger.info(f"API credentials validated for session '{safe_name}'")
-
-        except ApiIdInvalidError:
-            # Invalid credentials - don't save
-            if "client" in dir() and client.is_connected():
-                await client.disconnect()
-            secure_delete_dir(temp_dir)
             return HTMLResponse(
-                content='<div class="alert alert-error">Invalid API ID or API Hash. Credentials not saved.</div>',
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-        except (OSError, ConnectionError, TimeoutError) as e:
-            # Network/proxy error - can't validate
-            if "client" in dir() and client.is_connected():
-                await client.disconnect()
-            secure_delete_dir(temp_dir)
-            logger.warning(f"Failed to validate credentials for '{safe_name}': {e}")
-            return HTMLResponse(
-                content='<div class="alert alert-error">Failed to validate credentials (network error). Please check proxy settings.</div>',
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-        except Exception as e:
-            # Unexpected error
-            if "client" in dir() and client.is_connected():
-                await client.disconnect()
-            secure_delete_dir(temp_dir)
-            logger.exception(f"Unexpected error validating credentials for '{safe_name}'")
-            return HTMLResponse(
-                content=f'<div class="alert alert-error">Failed to validate credentials: {e}</div>',
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=f'<div class="alert alert-error">{error_message}</div>',
+                status_code=status_code,
             )
 
         # Credentials valid - disconnect current session if connected

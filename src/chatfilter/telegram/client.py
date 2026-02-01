@@ -38,6 +38,7 @@ from chatfilter.config import ProxyConfig, ProxyType
 from chatfilter.i18n.translations import _ as gettext
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.models.message import Message
+from chatfilter.storage.file import secure_delete_file as _secure_delete_file
 from chatfilter.telegram.rate_limiter import get_rate_limiter
 from chatfilter.telegram.retry import (
     RETRYABLE_EXCEPTIONS,
@@ -199,36 +200,6 @@ class TelegramConfig:
                 # Don't fail the config load, just log the error
 
         return config
-
-
-def _secure_delete_file(file_path: Path) -> None:
-    """Securely delete a file by overwriting before removal.
-
-    Args:
-        file_path: Path to file to securely delete
-    """
-    if not file_path.exists() or not file_path.is_file():
-        return
-
-    try:
-        # Get file size
-        file_size = file_path.stat().st_size
-
-        # Overwrite with random data then zeros
-        with file_path.open("r+b") as f:
-            f.write(b"\x00" * file_size)
-            f.flush()
-            import os
-
-            os.fsync(f.fileno())
-
-        # Delete the file
-        file_path.unlink()
-        logger.info(f"Securely deleted plaintext config: {file_path}")
-    except Exception as e:
-        logger.warning(f"Failed to securely delete file, falling back to regular delete: {e}")
-        # Fallback to regular deletion
-        file_path.unlink(missing_ok=True)
 
 
 def _migrate_plaintext_to_secure(config_path: Path, api_id: int, api_hash: str) -> None:
