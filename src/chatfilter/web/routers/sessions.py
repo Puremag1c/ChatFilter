@@ -2506,6 +2506,7 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context={"session": session_data},
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     try:
