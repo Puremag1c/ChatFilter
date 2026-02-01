@@ -46,6 +46,9 @@
             {%- elif session.state == 'session_expired' -%}
                 <span class="status-icon" aria-hidden="true">❌</span>
                 {{ _("Session expired") }}
+            {%- elif session.state == 'corrupted_session' -%}
+                <span class="status-icon" aria-hidden="true">💥</span>
+                {{ _("Corrupted") }}
             {%- elif session.state == 'error' -%}
                 <span class="status-icon" aria-hidden="true">⚠️</span>
                 {{ _("Error") }}
@@ -104,6 +107,13 @@
                         aria-label="{{ _('Reconnect session') }}"
                         title="{{ session.error_message or _('Session has expired - reconnect required') }}">
                     <span class="btn-text">{{ _("Reconnect") }}</span>
+                </button>
+                {% elif session.state == 'corrupted_session' %}
+                {# Corrupted session - show message, user must delete #}
+                <button class="btn btn-sm btn-danger session-connect-btn" disabled
+                        aria-label="{{ _('Session corrupted') }}"
+                        title="{{ session.error_message or _('Session file is corrupted. Please delete and recreate.') }}">
+                    <span class="btn-text">{{ _("Corrupted") }}</span>
                 </button>
                 {% elif session.state in ['error', 'proxy_error', 'flood_wait'] %}
                 {# Error states that can be retried #}

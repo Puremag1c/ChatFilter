@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
 from chatfilter.storage.helpers import atomic_write
-from chatfilter.telegram.client import TelegramClientLoader, TelegramConfigError
+from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
 
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates
@@ -52,11 +52,15 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         exception: The original exception object (if available)
 
     Returns:
-        One of: 'session_expired', 'banned', 'flood_wait', 'proxy_error', 'error'
+        One of: 'session_expired', 'banned', 'flood_wait', 'proxy_error', 'corrupted_session', 'error'
     """
     # First check exception type if provided
     if exception is not None:
         error_class = type(exception).__name__
+
+        # Corrupted session file
+        if error_class == "SessionFileError":
+            return "corrupted_session"
 
         # Session expired/auth errors (both Telethon and custom errors)
         if error_class in {
@@ -86,6 +90,20 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         return "error"
 
     error_lower = error_message.lower()
+
+    # Check for corrupted session file
+    if any(
+        phrase in error_lower
+        for phrase in [
+            "invalid session file",
+            "not a valid database",
+            "corrupted",
+            "session file is locked",
+            "incompatible",
+            "database error",
+        ]
+    ):
+        return "corrupted_session"
 
     # Check for expired/revoked session (dead session)
     if any(

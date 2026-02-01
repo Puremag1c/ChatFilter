@@ -94,6 +94,9 @@ def _extract_wait_time(error: Exception) -> int | None:
 # Error type to user-friendly message mappings
 ERROR_MESSAGES = {
     # Authentication & Session Errors
+    "SessionFileError": _(
+        "Session file is corrupted or invalid. Please delete this session and create a new one."
+    ),
     "SessionExpiredError": _(
         "Your session has expired. Please log in again with a new session file."
     ),
