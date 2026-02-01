@@ -43,15 +43,44 @@ class SessionListItem(BaseModel):
     error_message: str | None = None
 
 
-def classify_error_state(error_message: str | None) -> str:
-    """Classify an error message into a specific state.
+def classify_error_state(error_message: str | None, exception: Exception | None = None) -> str:
+    """Classify an error message or exception into a specific state.
 
     Args:
         error_message: The error message from the session
+        exception: The original exception object (if available)
 
     Returns:
         One of: 'session_expired', 'banned', 'flood_wait', 'proxy_error', 'error'
     """
+    # First check exception type if provided
+    if exception is not None:
+        error_class = type(exception).__name__
+
+        # Session expired/auth errors (both Telethon and custom errors)
+        if error_class in {
+            "SessionExpiredError",
+            "AuthKeyUnregisteredError",
+            "SessionRevokedError",
+            "UnauthorizedError",
+            "AuthKeyInvalidError",
+            "SessionReauthRequiredError",  # Custom error for expired sessions
+        }:
+            return "session_expired"
+
+        # Banned/deactivated account
+        if error_class in {
+            "UserDeactivatedError",
+            "UserDeactivatedBanError",
+            "PhoneNumberBannedError",
+        }:
+            return "banned"
+
+        # Rate limiting
+        if error_class in {"FloodWaitError", "SlowModeWaitError"}:
+            return "flood_wait"
+
+    # Fall back to string matching if no exception or class didn't match
     if not error_message:
         return "error"
 
@@ -67,6 +96,8 @@ def classify_error_state(error_message: str | None) -> str:
             "session expired",
             "session has expired",
             "session revoked",
+            "re-authorization required",
+            "reauthentication",
             "auth key",
             "unauthorized",
         ]
@@ -2503,8 +2534,13 @@ async def connect_session(
 
     except Exception as e:
         logger.exception(f"Failed to connect session '{safe_name}'")
-        error_message = str(e)
-        error_state = classify_error_state(error_message)
+
+        # Get user-friendly error message
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+        error_message = get_user_friendly_message(e)
+
+        # Classify error state based on exception type
+        error_state = classify_error_state(error_message, exception=e)
 
         # Create session object for template with error
         session_data = {
