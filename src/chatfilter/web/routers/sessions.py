@@ -3151,6 +3151,23 @@ async def verify_code(
             },
         )
 
+    # Check if auth is locked due to too many failed attempts
+    is_locked, remaining_seconds = await auth_manager.check_auth_lock(auth_id)
+    if is_locked:
+        remaining_minutes = (remaining_seconds + 59) // 60  # Round up to nearest minute
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "error": _("Too many failed attempts. Please try again in {minutes} minutes.").format(
+                    minutes=remaining_minutes
+                ),
+            },
+        )
+
     # Verify this auth state is for the correct session
     if auth_state.session_name != safe_name:
         return templates.TemplateResponse(
@@ -3265,6 +3282,18 @@ async def verify_code(
         )
 
     except PhoneCodeInvalidError:
+        # Increment failed attempts and check if locked
+        await auth_manager.increment_failed_attempts(auth_id)
+        is_locked, remaining_seconds = await auth_manager.check_auth_lock(auth_id)
+
+        if is_locked:
+            remaining_minutes = (remaining_seconds + 59) // 60
+            error_msg = _("Too many failed attempts. Please try again in {minutes} minutes.").format(
+                minutes=remaining_minutes
+            )
+        else:
+            error_msg = _("Invalid code. Please check and try again.")
+
         await auth_manager.update_auth_state(auth_id, step=AuthStep.CODE_INVALID)
         return templates.TemplateResponse(
             request=request,
@@ -3273,7 +3302,7 @@ async def verify_code(
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
-                "error": _("Invalid code. Please check and try again."),
+                "error": error_msg,
             },
         )
 
@@ -3425,6 +3454,22 @@ async def verify_2fa(
             },
         )
 
+    # Check if auth is locked due to too many failed attempts
+    is_locked, remaining_seconds = await auth_manager.check_auth_lock(auth_id)
+    if is_locked:
+        remaining_minutes = (remaining_seconds + 59) // 60  # Round up to nearest minute
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": safe_name,
+                "error": _("Too many failed attempts. Please try again in {minutes} minutes.").format(
+                    minutes=remaining_minutes
+                ),
+            },
+        )
+
     # Verify this auth state is for the correct session
     if auth_state.session_name != safe_name:
         return templates.TemplateResponse(
@@ -3548,13 +3593,25 @@ async def verify_2fa(
         )
 
     except PasswordHashInvalidError:
+        # Increment failed attempts and check if locked
+        await auth_manager.increment_failed_attempts(auth_id)
+        is_locked, remaining_seconds = await auth_manager.check_auth_lock(auth_id)
+
+        if is_locked:
+            remaining_minutes = (remaining_seconds + 59) // 60
+            error_msg = _("Too many failed attempts. Please try again in {minutes} minutes.").format(
+                minutes=remaining_minutes
+            )
+        else:
+            error_msg = _("Incorrect password. Please try again.")
+
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_2fa_form.html",
             context={
                 "auth_id": auth_id,
                 "session_name": safe_name,
-                "error": _("Incorrect password. Please try again."),
+                "error": error_msg,
             },
         )
 

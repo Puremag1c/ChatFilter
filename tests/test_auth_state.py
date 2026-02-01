@@ -14,7 +14,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from chatfilter.web.auth_state import (
+    AUTH_LOCK_DURATION_SECONDS,
     AUTH_STATE_EXPIRY_SECONDS,
+    MAX_AUTH_ATTEMPTS,
     AuthState,
     AuthStateManager,
     AuthStep,
@@ -93,6 +95,80 @@ class TestAuthState:
         state.touch()
 
         assert state.updated_at > old_updated
+
+    def test_is_locked_false(self) -> None:
+        """Fresh state should not be locked."""
+        state = AuthState(
+            auth_id="test",
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            step=AuthStep.PHONE_SENT,
+        )
+
+        assert state.is_locked() is False
+
+    def test_is_locked_true(self) -> None:
+        """State with future locked_until should be locked."""
+        state = AuthState(
+            auth_id="test",
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            step=AuthStep.PHONE_SENT,
+            locked_until=time.time() + 100,
+        )
+
+        assert state.is_locked() is True
+
+    def test_is_locked_expired(self) -> None:
+        """State with past locked_until should not be locked."""
+        state = AuthState(
+            auth_id="test",
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            step=AuthStep.PHONE_SENT,
+            locked_until=time.time() - 1,
+        )
+
+        assert state.is_locked() is False
+
+    def test_get_lock_remaining_seconds(self) -> None:
+        """get_lock_remaining_seconds should return correct value."""
+        state = AuthState(
+            auth_id="test",
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            step=AuthStep.PHONE_SENT,
+            locked_until=time.time() + 100,
+        )
+
+        remaining = state.get_lock_remaining_seconds()
+        assert 95 <= remaining <= 100  # Allow for small time drift
+
+    def test_get_lock_remaining_seconds_not_locked(self) -> None:
+        """get_lock_remaining_seconds should return 0 when not locked."""
+        state = AuthState(
+            auth_id="test",
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            step=AuthStep.PHONE_SENT,
+        )
+
+        assert state.get_lock_remaining_seconds() == 0
 
 
 class TestAuthStep:
@@ -274,6 +350,146 @@ class TestAuthStateManager:
 
         # Both should be removed
         assert len(manager._states) == 0
+
+    @pytest.mark.asyncio
+    async def test_increment_failed_attempts(
+        self, manager: AuthStateManager, mock_client: MagicMock
+    ) -> None:
+        """increment_failed_attempts should increment counter."""
+        created = await manager.create_auth_state(
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            phone_code_hash="code",
+            client=mock_client,
+        )
+
+        updated = await manager.increment_failed_attempts(created.auth_id)
+
+        assert updated is not None
+        assert updated.failed_attempts == 1
+        assert updated.is_locked() is False
+
+    @pytest.mark.asyncio
+    async def test_increment_failed_attempts_locks_at_max(
+        self, manager: AuthStateManager, mock_client: MagicMock
+    ) -> None:
+        """increment_failed_attempts should lock when reaching MAX_AUTH_ATTEMPTS."""
+        created = await manager.create_auth_state(
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            phone_code_hash="code",
+            client=mock_client,
+        )
+
+        # Increment to MAX_AUTH_ATTEMPTS
+        for _ in range(MAX_AUTH_ATTEMPTS):
+            await manager.increment_failed_attempts(created.auth_id)
+
+        state = await manager.get_auth_state(created.auth_id)
+        assert state is not None
+        assert state.failed_attempts == MAX_AUTH_ATTEMPTS
+        assert state.is_locked() is True
+        assert state.get_lock_remaining_seconds() > 0
+
+    @pytest.mark.asyncio
+    async def test_check_auth_lock_not_locked(
+        self, manager: AuthStateManager, mock_client: MagicMock
+    ) -> None:
+        """check_auth_lock should return False for unlocked state."""
+        created = await manager.create_auth_state(
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            phone_code_hash="code",
+            client=mock_client,
+        )
+
+        is_locked, remaining = await manager.check_auth_lock(created.auth_id)
+
+        assert is_locked is False
+        assert remaining == 0
+
+    @pytest.mark.asyncio
+    async def test_check_auth_lock_locked(
+        self, manager: AuthStateManager, mock_client: MagicMock
+    ) -> None:
+        """check_auth_lock should return True for locked state."""
+        created = await manager.create_auth_state(
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            phone_code_hash="code",
+            client=mock_client,
+        )
+
+        # Lock the state
+        for _ in range(MAX_AUTH_ATTEMPTS):
+            await manager.increment_failed_attempts(created.auth_id)
+
+        is_locked, remaining = await manager.check_auth_lock(created.auth_id)
+
+        assert is_locked is True
+        assert remaining > 0
+        # Should be approximately AUTH_LOCK_DURATION_SECONDS
+        assert AUTH_LOCK_DURATION_SECONDS - 10 <= remaining <= AUTH_LOCK_DURATION_SECONDS
+
+    @pytest.mark.asyncio
+    async def test_check_auth_lock_missing_state(self, manager: AuthStateManager) -> None:
+        """check_auth_lock should return False for missing state."""
+        is_locked, remaining = await manager.check_auth_lock("nonexistent-id")
+
+        assert is_locked is False
+        assert remaining == 0
+
+    @pytest.mark.asyncio
+    async def test_reset_failed_attempts(
+        self, manager: AuthStateManager, mock_client: MagicMock
+    ) -> None:
+        """reset_failed_attempts should reset counter and unlock state."""
+        created = await manager.create_auth_state(
+            session_name="session",
+            api_id=1,
+            api_hash="hash",
+            proxy_id="proxy",
+            phone="+1",
+            phone_code_hash="code",
+            client=mock_client,
+        )
+
+        # Lock the state
+        for _ in range(MAX_AUTH_ATTEMPTS):
+            await manager.increment_failed_attempts(created.auth_id)
+
+        # Verify locked
+        state = await manager.get_auth_state(created.auth_id)
+        assert state is not None
+        assert state.is_locked() is True
+
+        # Reset
+        reset_state = await manager.reset_failed_attempts(created.auth_id)
+
+        assert reset_state is not None
+        assert reset_state.failed_attempts == 0
+        assert reset_state.is_locked() is False
+
+    @pytest.mark.asyncio
+    async def test_reset_failed_attempts_missing_state(
+        self, manager: AuthStateManager
+    ) -> None:
+        """reset_failed_attempts should return None for missing state."""
+        result = await manager.reset_failed_attempts("nonexistent-id")
+
+        assert result is None
 
 
 class TestGetAuthStateManager:

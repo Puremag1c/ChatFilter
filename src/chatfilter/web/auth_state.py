@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 # Auth state expiry time (10 minutes)
 AUTH_STATE_EXPIRY_SECONDS = 600
 
+# Max failed auth attempts before locking
+MAX_AUTH_ATTEMPTS = 5
+
+# Lock duration after max attempts (15 minutes)
+AUTH_LOCK_DURATION_SECONDS = 900
+
 
 class AuthStep(str, Enum):
     """Current step in the auth flow."""
@@ -56,6 +62,10 @@ class AuthState:
     # Telethon client (kept alive during auth flow)
     client: TelegramClient | None = None
 
+    # Failed attempts tracking
+    failed_attempts: int = 0
+    locked_until: float = 0.0  # Timestamp when lock expires
+
     # Timestamps
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -63,6 +73,16 @@ class AuthState:
     def is_expired(self) -> bool:
         """Check if this auth state has expired."""
         return time.time() - self.created_at > AUTH_STATE_EXPIRY_SECONDS
+
+    def is_locked(self) -> bool:
+        """Check if this auth state is locked due to too many failed attempts."""
+        return self.locked_until > time.time()
+
+    def get_lock_remaining_seconds(self) -> int:
+        """Get remaining lock time in seconds. Returns 0 if not locked."""
+        if not self.is_locked():
+            return 0
+        return int(self.locked_until - time.time())
 
     def touch(self) -> None:
         """Update the last activity timestamp."""
@@ -194,6 +214,69 @@ class AuthStateManager:
             state.touch()
 
             logger.info(f"Updated auth state {auth_id}: step={state.step}")
+            return state
+
+    async def increment_failed_attempts(self, auth_id: str) -> AuthState | None:
+        """Increment failed auth attempts counter.
+
+        If attempts reach MAX_AUTH_ATTEMPTS, locks the session.
+
+        Returns the updated state, or None if not found.
+        """
+        async with self._lock:
+            state = self._states.get(auth_id)
+            if state is None or state.is_expired():
+                return None
+
+            state.failed_attempts += 1
+            state.touch()
+
+            if state.failed_attempts >= MAX_AUTH_ATTEMPTS:
+                state.locked_until = time.time() + AUTH_LOCK_DURATION_SECONDS
+                logger.warning(
+                    f"Auth state {auth_id} locked after {state.failed_attempts} failed attempts "
+                    f"(until {state.locked_until})"
+                )
+            else:
+                logger.info(
+                    f"Auth state {auth_id} failed attempts: {state.failed_attempts}/{MAX_AUTH_ATTEMPTS}"
+                )
+
+            return state
+
+    async def check_auth_lock(self, auth_id: str) -> tuple[bool, int]:
+        """Check if auth state is locked.
+
+        Returns:
+            Tuple of (is_locked, remaining_seconds)
+            - is_locked: True if locked, False otherwise
+            - remaining_seconds: seconds until unlock (0 if not locked)
+        """
+        async with self._lock:
+            state = self._states.get(auth_id)
+            if state is None or state.is_expired():
+                return (False, 0)
+
+            if state.is_locked():
+                return (True, state.get_lock_remaining_seconds())
+
+            return (False, 0)
+
+    async def reset_failed_attempts(self, auth_id: str) -> AuthState | None:
+        """Reset failed attempts counter and unlock state (admin action).
+
+        Returns the updated state, or None if not found.
+        """
+        async with self._lock:
+            state = self._states.get(auth_id)
+            if state is None or state.is_expired():
+                return None
+
+            state.failed_attempts = 0
+            state.locked_until = 0.0
+            state.touch()
+
+            logger.info(f"Auth state {auth_id} failed attempts reset (admin unlock)")
             return state
 
     async def remove_auth_state(self, auth_id: str) -> None:
