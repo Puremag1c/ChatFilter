@@ -2436,6 +2436,21 @@ async def connect_session(
 
     session_manager = get_session_manager()
 
+    # Check current session state before attempting connect
+    info = session_manager.get_info(safe_name)
+    if info and info.state.value in ("connected", "connecting"):
+        # Session is already connected or connecting
+        session_data = {
+            "session_id": safe_name,
+            "state": info.state.value,
+            "error_message": None,
+        }
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context={"session": session_data},
+        )
+
     try:
         # Create and register loader if not already registered
         loader = TelegramClientLoader(session_path, config_path)
@@ -2505,6 +2520,24 @@ async def disconnect_session(
         )
 
     session_manager = get_session_manager()
+
+    # Check current session state before attempting disconnect
+    info = session_manager.get_info(safe_name)
+    if info and info.state.value in ("disconnected", "disconnecting"):
+        # Session is already disconnected or disconnecting
+        session_dir = ensure_data_dir() / safe_name
+        config_status = get_session_config_status(session_dir)
+        session_data = {
+            "session_id": safe_name,
+            "state": config_status,
+            "error_message": None,
+        }
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context={"session": session_data},
+            headers={"HX-Trigger": "refreshSessions"},
+        )
 
     try:
         # Disconnect
