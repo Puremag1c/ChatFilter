@@ -1831,6 +1831,8 @@ async def start_auth_flow(
             context={"success": False, "error": _("Invalid API ID or API Hash.")},
         )
     except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
         if "client" in dir() and client.is_connected():
             await client.disconnect()
         secure_delete_dir(temp_dir)
@@ -1839,9 +1841,7 @@ async def start_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": _(
-                    "Too many requests. Please wait {seconds} seconds before trying again."
-                ).format(seconds=e.seconds),
+                "error": get_user_friendly_message(e),
             },
         )
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
@@ -2015,6 +2015,20 @@ async def submit_auth_code(
             },
         )
 
+    except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": auth_state.session_name,
+                "error": get_user_friendly_message(e),
+            },
+        )
+
     except PhoneCodeEmptyError:
         return templates.TemplateResponse(
             request=request,
@@ -2065,7 +2079,7 @@ async def submit_auth_2fa(
     """
     import asyncio
 
-    from telethon.errors import PasswordHashInvalidError
+    from telethon.errors import FloodWaitError, PasswordHashInvalidError
 
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import AuthStep, get_auth_state_manager
@@ -2125,6 +2139,19 @@ async def submit_auth_2fa(
                 "auth_id": auth_id,
                 "session_name": auth_state.session_name,
                 "error": _("Incorrect password. Please try again."),
+            },
+        )
+
+    except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": auth_state.session_name,
+                "error": get_user_friendly_message(e),
             },
         )
 
@@ -2720,6 +2747,8 @@ async def send_code(
             context={"success": False, "error": _("Invalid API ID or API Hash.")},
         )
     except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
         if "client" in dir() and client.is_connected():
             await client.disconnect()
         secure_delete_dir(temp_dir)
@@ -2728,9 +2757,7 @@ async def send_code(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": _(
-                    "Too many requests. Please wait {seconds} seconds before trying again."
-                ).format(seconds=e.seconds),
+                "error": get_user_friendly_message(e),
             },
         )
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
@@ -2989,6 +3016,8 @@ async def start_reconnect(
             context={"success": False, "error": _("Invalid API ID or API Hash.")},
         )
     except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
         if "client" in dir() and client.is_connected():
             await client.disconnect()
         secure_delete_dir(temp_dir)
@@ -2997,9 +3026,7 @@ async def start_reconnect(
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": _(
-                    "Too many requests. Please wait {seconds} seconds before trying again."
-                ).format(seconds=e.seconds),
+                "error": get_user_friendly_message(e),
             },
         )
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
@@ -3258,6 +3285,20 @@ async def verify_code(
             },
         )
 
+    except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": auth_state.session_name,
+                "error": get_user_friendly_message(e),
+            },
+        )
+
     except PhoneCodeEmptyError:
         return templates.TemplateResponse(
             request=request,
@@ -3511,6 +3552,19 @@ async def verify_2fa(
                 "auth_id": auth_id,
                 "session_name": safe_name,
                 "error": _("Incorrect password. Please try again."),
+            },
+        )
+
+    except FloodWaitError as e:
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_2fa_form.html",
+            context={
+                "auth_id": auth_id,
+                "session_name": safe_name,
+                "error": get_user_friendly_message(e),
             },
         )
 
