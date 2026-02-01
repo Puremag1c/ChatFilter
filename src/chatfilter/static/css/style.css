@@ -2859,8 +2859,8 @@ body:has(.update-notification.show) {
 }
 
 .proxy-status-no-ping {
-    background: var(--error-bg);
-    color: var(--error-text);
+    background: var(--danger-bg);
+    color: var(--danger-text);
 }
 
 .proxy-status-untested {
@@ -3104,13 +3104,14 @@ body:has(.update-notification.show) {
 .account-status.status-proxy_missing,
 .account-status.status-error,
 .account-status.status-proxy_error {
-    background: var(--error-bg);
-    color: var(--error);
+    background: var(--danger-bg);
+    color: var(--danger);
 }
 
-.account-status.status-banned {
-    background: var(--error-bg);
-    color: var(--error);
+.account-status.status-banned,
+.account-status.status-session_expired {
+    background: var(--danger-bg);
+    color: var(--danger);
 }
 
 .account-status.status-flood_wait {
@@ -3122,6 +3123,26 @@ body:has(.update-notification.show) {
 .account-status.status-disconnecting {
     background: var(--bg-tertiary);
     color: var(--text-secondary);
+}
+
+/* Error type visual distinction */
+.account-status.error-type-permanent {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border-left: 3px solid var(--danger);
+}
+
+.account-status.error-type-temporary {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border-left: 3px solid var(--warning);
+}
+
+.account-status.error-type-config {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border-left: 3px solid var(--warning);
+    opacity: 0.85;
 }
 
 .error-detail {
