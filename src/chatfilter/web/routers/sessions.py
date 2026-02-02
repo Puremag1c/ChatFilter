@@ -2697,9 +2697,11 @@ async def send_code(
     from telethon import TelegramClient
     from telethon.errors import (
         ApiIdInvalidError,
+        AuthRestartError,
         FloodWaitError,
         PhoneNumberBannedError,
         PhoneNumberInvalidError,
+        ServerError,
     )
 
     from chatfilter.storage.errors import StorageNotFoundError
@@ -2860,8 +2862,8 @@ async def send_code(
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
-            context={"success": False, "error": _("Invalid phone number.")},
+            name="partials/reconnect_result.html",
+            context={"success": False, "error": _("Invalid phone number."), "allow_retry": True},
         )
     except PhoneNumberBannedError:
         if "client" in dir() and client.is_connected():
@@ -2869,8 +2871,8 @@ async def send_code(
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
-            context={"success": False, "error": _("This phone number is banned by Telegram.")},
+            name="partials/reconnect_result.html",
+            context={"success": False, "error": _("This phone number is banned by Telegram."), "allow_retry": False},
         )
     except ApiIdInvalidError:
         if "client" in dir() and client.is_connected():
@@ -2878,8 +2880,8 @@ async def send_code(
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
-            context={"success": False, "error": _("Invalid API ID or API Hash.")},
+            name="partials/reconnect_result.html",
+            context={"success": False, "error": _("Invalid API ID or API Hash."), "allow_retry": True},
         )
     except FloodWaitError as e:
         from chatfilter.telegram.error_mapping import get_user_friendly_message
@@ -2889,10 +2891,11 @@ async def send_code(
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
+            name="partials/reconnect_result.html",
             context={
                 "success": False,
                 "error": get_user_friendly_message(e),
+                "allow_retry": True,
             },
         )
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
@@ -2911,10 +2914,11 @@ async def send_code(
         logger.error(f"Proxy connection failed for session '{safe_name}': {e}")
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
+            name="partials/reconnect_result.html",
             context={
                 "success": False,
                 "error": _("Proxy connection failed. Please check your proxy settings and try again."),
+                "allow_retry": True,
             },
         )
     except TimeoutError:
@@ -2931,10 +2935,52 @@ async def send_code(
 
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
+            name="partials/reconnect_result.html",
             context={
                 "success": False,
                 "error": _("Connection timeout. Please check your proxy settings and try again."),
+                "allow_retry": True,
+            },
+        )
+    except ServerError as e:
+        # Temporary Telegram server error - allow retry
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+
+        logger.warning(f"Telegram server error during reconnect for session '{safe_name}': {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/reconnect_result.html",
+            context={
+                "success": False,
+                "error": _("Telegram server is temporarily unavailable."),
+                "suggestion": _("This is usually temporary. Please try again in a few moments."),
+                "allow_retry": True,
+            },
+        )
+    except AuthRestartError:
+        # Session invalidated - cannot recover, suggest deletion
+        if "client" in dir() and client.is_connected():
+            await client.disconnect()
+        secure_delete_dir(temp_dir)
+
+        # Update session state to auth_restart
+        session_dir = ensure_data_dir() / safe_name
+        account_info = load_account_info(session_dir) or {}
+        account_info["status"] = "needs_auth"
+        account_info["error_message"] = "Session invalidated by Telegram"
+        save_account_info(session_dir, account_info)
+
+        logger.error(f"Auth restart required for session '{safe_name}' - session invalidated")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/reconnect_result.html",
+            context={
+                "success": False,
+                "error": _("Session has been invalidated by Telegram and cannot be recovered."),
+                "suggestion": _("Please delete this session and add it again from scratch."),
+                "allow_retry": False,
             },
         )
     except Exception:
@@ -2944,8 +2990,12 @@ async def send_code(
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_result.html",
-            context={"success": False, "error": _("Failed to send code. Please check your settings and try again.")},
+            name="partials/reconnect_result.html",
+            context={
+                "success": False,
+                "error": _("Failed to send code. Please check your settings and try again."),
+                "allow_retry": True,
+            },
         )
 
 
