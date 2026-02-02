@@ -1,0 +1,56 @@
+{# Reconnect Flow - Code Input Form #}
+<div class="auth-step">
+    <div class="alert alert-info">
+        <strong>{{ _("Verification code sent!") }}</strong>
+        {{ _("Please enter the code you received via Telegram.") }}
+    </div>
+
+    <p class="auth-info">
+        {{ _("Code sent to:") }} <strong>{{ phone }}</strong><br>
+        {{ _("Session:") }} <strong>{{ session_name }}</strong>
+    </p>
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form id="reconnect-code-form"
+          hx-post="/api/sessions/{{ session_id }}/verify-code"
+          hx-target="#reconnect-result"
+          hx-swap="innerHTML"
+          hx-indicator="#reconnect-code-spinner">
+
+        <input type="hidden" name="auth_id" value="{{ auth_id }}">
+
+        <div class="form-group">
+            <label for="reconnect-code"
+                   data-tooltip="{{ _('Enter the verification code sent to your phone') }}"
+                   data-tooltip-position="right">{{ _("Verification Code") }}</label>
+            <input type="text"
+                   id="reconnect-code"
+                   name="code"
+                   required
+                   placeholder="{{ _('e.g., 12345') }}"
+                   pattern="[0-9\s\-]+"
+                   minlength="5"
+                   maxlength="10"
+                   autocomplete="one-time-code"
+                   inputmode="numeric"
+                   autofocus
+                   aria-describedby="reconnect-code-hint"
+                   aria-required="true">
+            <small id="reconnect-code-hint" class="form-hint">{{ _("Enter the 5-digit code from Telegram") }}</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-text">{{ _("Verify Code") }}</span>
+                <span id="reconnect-code-spinner" class="htmx-indicator spinner"></span>
+            </button>
+        </div>
+    </form>
+
+    <p class="auth-note" style="margin-top: 1rem; font-size: 0.875rem; color: var(--text-secondary);">
+        {{ _("Note: The code expires in a few minutes. If you didn't receive it, start the process again.") }}
+    </p>
+</div>
