@@ -254,6 +254,12 @@
                 const result = modal.querySelector('#code-modal-result');
                 if (input) input.value = '';
                 if (result) result.textContent = '';
+                // Reset button state (in case it was disabled from previous submit)
+                const submitBtn = modal.querySelector('#code-modal-submit');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '{{ _("Verify") }}';
+                }
             }
             return;
         }
@@ -272,6 +278,12 @@
                 const result = modal.querySelector('#2fa-modal-result');
                 if (input) input.value = '';
                 if (result) result.textContent = '';
+                // Reset button state (in case it was disabled from previous submit)
+                const submitBtn = modal.querySelector('#2fa-modal-submit');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '{{ _("Verify") }}';
+                }
             }
             return;
         }
@@ -293,6 +305,11 @@
         const submitBtn = e.target.closest('#code-modal-submit');
         if (!submitBtn) return;
 
+        // Prevent double-submit: check if already processing
+        if (submitBtn.disabled) {
+            return;
+        }
+
         const modal = document.getElementById('code-modal');
         const sessionId = modal.dataset.sessionId;
         const authId = modal.dataset.authId;
@@ -313,7 +330,7 @@
             return;
         }
 
-        // Disable button and show loading
+        // Disable button and show loading (prevents double-submit)
         submitBtn.disabled = true;
         submitBtn.textContent = 'Verifying...';
         result.textContent = '';
@@ -338,16 +355,18 @@
                     sessionRow.outerHTML = html;
                 }
                 modal.classList.remove('show');
+                // Note: button stays disabled, modal closes
             } else {
-                // Error - show in modal
+                // Error - show in modal and re-enable button for retry
                 result.innerHTML = html;
                 result.className = 'modal-result error';
+                submitBtn.disabled = false;
+                submitBtn.textContent = '{{ _("Verify") }}';
             }
         } catch (error) {
+            // Network error - re-enable button for retry
             result.textContent = `Error: ${error.message}`;
             result.className = 'modal-result error';
-        } finally {
-            // Re-enable button
             submitBtn.disabled = false;
             submitBtn.textContent = '{{ _("Verify") }}';
         }
@@ -357,6 +376,11 @@
     document.body.addEventListener('click', async function(e) {
         const submitBtn = e.target.closest('#2fa-modal-submit');
         if (!submitBtn) return;
+
+        // Prevent double-submit: check if already processing
+        if (submitBtn.disabled) {
+            return;
+        }
 
         const modal = document.getElementById('2fa-modal');
         const sessionId = modal.dataset.sessionId;
@@ -403,16 +427,18 @@
                     sessionRow.outerHTML = html;
                 }
                 modal.classList.remove('show');
+                // Note: button stays disabled, modal closes
             } else {
-                // Error - show in modal
+                // Error - show in modal and re-enable button for retry
                 result.innerHTML = html;
                 result.className = 'modal-result error';
+                submitBtn.disabled = false;
+                submitBtn.textContent = '{{ _("Verify") }}';
             }
         } catch (error) {
+            // Network error - re-enable button for retry
             result.textContent = `Error: ${error.message}`;
             result.className = 'modal-result error';
-        } finally {
-            // Re-enable button
             submitBtn.disabled = false;
             submitBtn.textContent = '{{ _("Verify") }}';
         }
