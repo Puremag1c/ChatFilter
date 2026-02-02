@@ -3339,13 +3339,15 @@ async def verify_code(
     is_locked, remaining_seconds = await auth_manager.check_auth_lock(auth_id)
     if is_locked:
         remaining_minutes = (remaining_seconds + 59) // 60  # Round up to nearest minute
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
+                "session_id": session_id,
                 "error": _("Too many failed attempts. Please try again in {minutes} minutes.").format(
                     minutes=remaining_minutes
                 ),
@@ -3366,13 +3368,15 @@ async def verify_code(
     # Validate code format (digits only)
     code = code.strip().replace(" ", "").replace("-", "")
     if not code.isdigit() or len(code) < 5:
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
+                "session_id": session_id,
                 "error": _("Invalid code format. Please enter the numeric code you received."),
             },
         )
@@ -3456,12 +3460,14 @@ async def verify_code(
         # 2FA required
         await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
         logger.info(f"2FA required for session '{safe_name}' auth")
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_2fa_form.html",
+            name="partials/auth_2fa_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "session_name": safe_name,
+                "session_id": session_id,
             },
         )
 
@@ -3479,13 +3485,15 @@ async def verify_code(
             error_msg = _("Invalid code. Please check and try again.")
 
         await auth_manager.update_auth_state(auth_id, step=AuthStep.CODE_INVALID)
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
+                "session_id": session_id,
                 "error": error_msg,
             },
         )
@@ -3504,25 +3512,29 @@ async def verify_code(
     except FloodWaitError as e:
         from chatfilter.telegram.error_mapping import get_user_friendly_message
 
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": auth_state.session_name,
+                "session_id": session_id,
                 "error": get_user_friendly_message(e),
             },
         )
 
     except PhoneCodeEmptyError:
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
+                "session_id": session_id,
                 "error": _("Please enter the verification code."),
             },
         )
@@ -3537,13 +3549,15 @@ async def verify_code(
         save_account_info(session_dir, account_info)
 
         logger.error(f"Proxy connection failed during code verification for session '{safe_name}': {e}")
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
+                "session_id": session_id,
                 "error": _("Proxy connection failed. Please check your proxy settings and try again."),
             },
         )
@@ -3556,26 +3570,30 @@ async def verify_code(
         account_info["error_message"] = "Proxy connection timeout during code verification"
         save_account_info(session_dir, account_info)
 
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
+                "session_id": session_id,
                 "error": _("Request timeout. Please try again."),
             },
         )
 
     except Exception:
         logger.exception(f"Failed to verify code for session '{safe_name}'")
+        # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_id,
                 "phone": auth_state.phone,
                 "session_name": safe_name,
+                "session_id": session_id,
                 "error": _("Failed to verify code. Please check the code and try again."),
             },
         )
