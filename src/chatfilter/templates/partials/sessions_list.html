@@ -243,10 +243,17 @@
         const codeBtn = e.target.closest('.session-code-modal-btn');
         if (codeBtn) {
             const sessionId = codeBtn.dataset.sessionId;
+            const authId = codeBtn.dataset.authId;
             const modal = document.getElementById('code-modal');
             if (modal) {
                 modal.classList.add('show');
                 modal.dataset.sessionId = sessionId;
+                modal.dataset.authId = authId;
+                // Clear previous input and result
+                const input = modal.querySelector('#code-modal-input');
+                const result = modal.querySelector('#code-modal-result');
+                if (input) input.value = '';
+                if (result) result.textContent = '';
             }
             return;
         }
@@ -254,10 +261,17 @@
         const twoFaBtn = e.target.closest('.session-2fa-modal-btn');
         if (twoFaBtn) {
             const sessionId = twoFaBtn.dataset.sessionId;
+            const authId = twoFaBtn.dataset.authId;
             const modal = document.getElementById('2fa-modal');
             if (modal) {
                 modal.classList.add('show');
                 modal.dataset.sessionId = sessionId;
+                modal.dataset.authId = authId;
+                // Clear previous input and result
+                const input = modal.querySelector('#2fa-modal-input');
+                const result = modal.querySelector('#2fa-modal-result');
+                if (input) input.value = '';
+                if (result) result.textContent = '';
             }
             return;
         }
@@ -271,6 +285,136 @@
             if (modal) {
                 modal.classList.remove('show');
             }
+        }
+    });
+
+    // Code modal submit handler
+    document.body.addEventListener('click', async function(e) {
+        const submitBtn = e.target.closest('#code-modal-submit');
+        if (!submitBtn) return;
+
+        const modal = document.getElementById('code-modal');
+        const sessionId = modal.dataset.sessionId;
+        const authId = modal.dataset.authId;
+        const input = modal.querySelector('#code-modal-input');
+        const result = modal.querySelector('#code-modal-result');
+        const code = input.value.trim();
+
+        // Validate inputs
+        if (!authId) {
+            result.textContent = 'Error: auth_id not found. Please refresh and try again.';
+            result.className = 'modal-result error';
+            return;
+        }
+
+        if (!code) {
+            result.textContent = 'Please enter the verification code.';
+            result.className = 'modal-result error';
+            return;
+        }
+
+        // Disable button and show loading
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
+        result.textContent = '';
+
+        try {
+            // Send POST request
+            const formData = new FormData();
+            formData.append('auth_id', authId);
+            formData.append('code', code);
+
+            const response = await fetch(`/api/sessions/${sessionId}/verify-code`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const html = await response.text();
+
+            if (response.ok) {
+                // Success - update the session row and close modal
+                const sessionRow = document.getElementById(`session-${sessionId}`);
+                if (sessionRow) {
+                    sessionRow.outerHTML = html;
+                }
+                modal.classList.remove('show');
+            } else {
+                // Error - show in modal
+                result.innerHTML = html;
+                result.className = 'modal-result error';
+            }
+        } catch (error) {
+            result.textContent = `Error: ${error.message}`;
+            result.className = 'modal-result error';
+        } finally {
+            // Re-enable button
+            submitBtn.disabled = false;
+            submitBtn.textContent = '{{ _("Verify") }}';
+        }
+    });
+
+    // 2FA modal submit handler
+    document.body.addEventListener('click', async function(e) {
+        const submitBtn = e.target.closest('#2fa-modal-submit');
+        if (!submitBtn) return;
+
+        const modal = document.getElementById('2fa-modal');
+        const sessionId = modal.dataset.sessionId;
+        const authId = modal.dataset.authId;
+        const input = modal.querySelector('#2fa-modal-input');
+        const result = modal.querySelector('#2fa-modal-result');
+        const password = input.value;
+
+        // Validate inputs
+        if (!authId) {
+            result.textContent = 'Error: auth_id not found. Please refresh and try again.';
+            result.className = 'modal-result error';
+            return;
+        }
+
+        if (!password) {
+            result.textContent = 'Please enter your 2FA password.';
+            result.className = 'modal-result error';
+            return;
+        }
+
+        // Disable button and show loading
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
+        result.textContent = '';
+
+        try {
+            // Send POST request
+            const formData = new FormData();
+            formData.append('auth_id', authId);
+            formData.append('password', password);
+
+            const response = await fetch(`/api/sessions/${sessionId}/verify-2fa`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const html = await response.text();
+
+            if (response.ok) {
+                // Success - update the session row and close modal
+                const sessionRow = document.getElementById(`session-${sessionId}`);
+                if (sessionRow) {
+                    sessionRow.outerHTML = html;
+                }
+                modal.classList.remove('show');
+            } else {
+                // Error - show in modal
+                result.innerHTML = html;
+                result.className = 'modal-result error';
+            }
+        } catch (error) {
+            result.textContent = `Error: ${error.message}`;
+            result.className = 'modal-result error';
+        } finally {
+            // Re-enable button
+            submitBtn.disabled = false;
+            submitBtn.textContent = '{{ _("Verify") }}';
         }
     });
 })();
