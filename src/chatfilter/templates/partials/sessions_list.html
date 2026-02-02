@@ -53,10 +53,10 @@
                             {{ _("Error") }}
                         {%- elif session.state == 'needs_code' -%}
                             <span class="status-icon" aria-hidden="true">📱</span>
-                            {{ _("Needs Code") }}
+                            {{ _("Needs Verification Code") }}
                         {%- elif session.state == 'needs_2fa' -%}
                             <span class="status-icon" aria-hidden="true">🔐</span>
-                            {{ _("Needs 2FA") }}
+                            {{ _("Needs 2FA Password") }}
                         {%- elif session.state == 'needs_api_id' -%}
                             <span class="status-icon" aria-hidden="true">⚙️</span>
                             {{ _("Needs API ID") }}
@@ -127,14 +127,14 @@
                             <button class="btn btn-sm btn-info session-code-modal-btn"
                                     data-session-id="{{ session.session_id }}"
                                     aria-label="{{ _('Enter verification code') }}">
-                                <span class="btn-text">{{ _("Enter Code") }}</span>
+                                <span class="btn-text">{{ _("Enter Verification Code") }}</span>
                             </button>
                             {% elif session.state == 'needs_2fa' %}
                             {# 2FA password required #}
                             <button class="btn btn-sm btn-info session-2fa-modal-btn"
                                     data-session-id="{{ session.session_id }}"
                                     aria-label="{{ _('Enter 2FA password') }}">
-                                <span class="btn-text">{{ _("Enter 2FA") }}</span>
+                                <span class="btn-text">{{ _("Enter 2FA Password") }}</span>
                             </button>
                             {% elif session.state == 'needs_api_id' %}
                             {# API credentials required #}
@@ -243,7 +243,7 @@
             const sessionId = codeBtn.dataset.sessionId;
             const modal = document.getElementById('code-modal');
             if (modal) {
-                modal.classList.add('visible');
+                modal.classList.add('show');
                 modal.dataset.sessionId = sessionId;
             }
             return;
@@ -254,7 +254,7 @@
             const sessionId = twoFaBtn.dataset.sessionId;
             const modal = document.getElementById('2fa-modal');
             if (modal) {
-                modal.classList.add('visible');
+                modal.classList.add('show');
                 modal.dataset.sessionId = sessionId;
             }
             return;
@@ -267,7 +267,7 @@
         if (cancelBtn) {
             const modal = cancelBtn.closest('.modal-overlay');
             if (modal) {
-                modal.classList.remove('visible');
+                modal.classList.remove('show');
             }
         }
     });

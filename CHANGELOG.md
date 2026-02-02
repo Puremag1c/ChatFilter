@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Reconnect Modal Not Visible**: Added `show` class to reconnect modal so it displays correctly when loaded via HTMX
+- **Enter Code/2FA Buttons Not Working**: Fixed buttons for `needs_code` and `needs_2fa` states - removed `disabled` attribute, added correct modal trigger classes
+- **Modal CSS Class Mismatch**: Changed JavaScript to use `show` class instead of `visible` to match CSS definitions
+- **Empty Code/2FA Modals**: Added input fields to code verification and 2FA password modals
+- **Missing Translations**: Fixed status text using untranslated strings - changed to use existing translations:
+  - "Needs Code" → "Needs Verification Code" (Требуется код подтверждения)
+  - "Needs 2FA" → "Needs 2FA Password" (Требуется пароль 2FA)
+  - "Enter Code" → "Enter Verification Code" (Введите код подтверждения)
+  - "Enter 2FA" → "Enter 2FA Password" (Введите пароль 2FA)
+
 ## [0.6.3] - 2026-02-01
 
 ### Fixed

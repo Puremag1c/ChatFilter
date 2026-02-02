@@ -57,10 +57,10 @@
                 {{ _("Needs API ID") }}
             {%- elif session.state == 'needs_code' -%}
                 <span class="status-icon" aria-hidden="true">📱</span>
-                {{ _("Needs Code") }}
+                {{ _("Needs Verification Code") }}
             {%- elif session.state == 'needs_2fa' -%}
                 <span class="status-icon" aria-hidden="true">🔐</span>
-                {{ _("Needs 2FA") }}
+                {{ _("Needs 2FA Password") }}
             {%- else -%}
                 <span class="status-icon" aria-hidden="true">?</span>
                 {{ session.state }}
@@ -135,18 +135,18 @@
                     <span class="btn-text">{{ _("Configure") }}</span>
                 </button>
                 {% elif session.state == 'needs_code' %}
-                {# Waiting for verification code - disabled, auth flow in progress #}
-                <button class="btn btn-sm btn-info session-connect-btn" disabled
-                        aria-label="{{ _('Waiting for code') }}"
-                        title="{{ _('Please enter the verification code in auth modal') }}">
-                    <span class="btn-text">{{ _("Enter Code") }}</span>
+                {# Verification code required #}
+                <button class="btn btn-sm btn-info session-code-modal-btn"
+                        data-session-id="{{ session.session_id }}"
+                        aria-label="{{ _('Enter verification code') }}">
+                    <span class="btn-text">{{ _("Enter Verification Code") }}</span>
                 </button>
                 {% elif session.state == 'needs_2fa' %}
-                {# Waiting for 2FA - disabled, auth flow in progress #}
-                <button class="btn btn-sm btn-info session-connect-btn" disabled
-                        aria-label="{{ _('Waiting for 2FA') }}"
-                        title="{{ _('Please enter 2FA password in auth modal') }}">
-                    <span class="btn-text">{{ _("Enter 2FA") }}</span>
+                {# 2FA password required #}
+                <button class="btn btn-sm btn-info session-2fa-modal-btn"
+                        data-session-id="{{ session.session_id }}"
+                        aria-label="{{ _('Enter 2FA password') }}">
+                    <span class="btn-text">{{ _("Enter 2FA Password") }}</span>
                 </button>
                 {% elif session.state == 'banned' %}
                 {# Banned - cannot retry, account issue #}

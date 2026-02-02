@@ -3,10 +3,18 @@
     <div class="modal-dialog" role="document">
         <div class="modal-header">
             <span class="modal-icon info" aria-hidden="true">🔐</span>
-            <h2 class="modal-title" id="2fa-modal-title">{{ _("Two-Factor Authentication") }}</h2>
+            <h2 class="modal-title" id="2fa-modal-title">{{ _("Enter 2FA Password") }}</h2>
         </div>
         <div class="modal-body">
-            {# Modal content will be injected here #}
+            <div class="form-group">
+                <label for="2fa-modal-input">{{ _("Password") }}</label>
+                <input type="password"
+                       id="2fa-modal-input"
+                       class="form-control"
+                       placeholder="{{ _('Enter your 2FA password') }}"
+                       autocomplete="current-password">
+            </div>
+            <div id="2fa-modal-result" class="modal-result" role="alert" aria-live="polite"></div>
         </div>
         <div class="modal-footer">
             <button class="modal-button secondary" id="2fa-modal-cancel">

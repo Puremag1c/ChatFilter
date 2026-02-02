@@ -6,7 +6,18 @@
             <h2 class="modal-title" id="code-modal-title">{{ _("Enter Verification Code") }}</h2>
         </div>
         <div class="modal-body">
-            {# Modal content will be injected here #}
+            <div class="form-group">
+                <label for="code-modal-input">{{ _("Code") }}</label>
+                <input type="text"
+                       id="code-modal-input"
+                       class="form-control"
+                       placeholder="{{ _('Enter the 5-6 digit code sent to your phone') }}"
+                       maxlength="10"
+                       autocomplete="one-time-code"
+                       inputmode="numeric"
+                       pattern="[0-9]*">
+            </div>
+            <div id="code-modal-result" class="modal-result" role="alert" aria-live="polite"></div>
         </div>
         <div class="modal-footer">
             <button class="modal-button secondary" id="code-modal-cancel">
