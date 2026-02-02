@@ -5,7 +5,7 @@
         <span class="account-name">{{ session.session_id }}</span>
     </td>
     <td class="account-status-cell">
-        <span class="account-status status-{{ session.state }}{% if session.state in ['session_expired', 'banned'] %} error-type-permanent{% elif session.state in ['error', 'proxy_error', 'flood_wait'] %} error-type-temporary{% elif session.state in ['needs_api_id', 'not_configured', 'proxy_missing'] %} error-type-config{% endif %}"
+        <span class="account-status status-{{ session.state }}"
               {% if session.error_message %}title="{{ session.error_message }}"
               {% elif session.state == 'session_expired' %}title="{{ _('Permanent error: Session has expired and requires reconnection') }}"
               {% elif session.state == 'banned' %}title="{{ _('Permanent error: Account has been banned by Telegram') }}"
@@ -29,7 +29,7 @@
                 <span class="status-icon spinner-small" aria-hidden="true"></span>
                 {{ _("Disconnecting") }}
             {%- elif session.state == 'banned' -%}
-                <span class="status-icon" aria-hidden="true">❌</span>
+                <span class="status-icon" aria-hidden="true">⛔</span>
                 {{ _("Banned") }}
             {%- elif session.state == 'flood_wait' -%}
                 <span class="status-icon" aria-hidden="true">⚠️</span>
