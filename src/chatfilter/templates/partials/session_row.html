@@ -138,6 +138,7 @@
                 {# Verification code required #}
                 <button class="btn btn-sm btn-info session-code-modal-btn"
                         data-session-id="{{ session.session_id }}"
+                        {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
                         aria-label="{{ _('Enter verification code') }}">
                     <span class="btn-text">{{ _("Enter Verification Code") }}</span>
                 </button>
@@ -145,6 +146,7 @@
                 {# 2FA password required #}
                 <button class="btn btn-sm btn-info session-2fa-modal-btn"
                         data-session-id="{{ session.session_id }}"
+                        {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
                         aria-label="{{ _('Enter 2FA password') }}">
                     <span class="btn-text">{{ _("Enter 2FA Password") }}</span>
                 </button>
