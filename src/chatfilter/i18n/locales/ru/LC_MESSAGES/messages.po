@@ -2517,3 +2517,38 @@ msgstr "Проверить"
 #: src/chatfilter/web/routers/sessions.py
 msgid "Session '{name}' reconnected successfully"
 msgstr "Сессия '{name}' успешно переподключена"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session expired"
+msgstr "Сессия истекла"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Corrupted"
+msgstr "Повреждена"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Reconnect"
+msgstr "Переподключить"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Reconnect session"
+msgstr "Переподключить сессию"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session has expired - reconnect required"
+msgstr "Сессия истекла - требуется переподключение"
+
+#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session file is corrupted. Please delete and recreate."
+msgstr "Файл сессии повреждён. Пожалуйста, удалите и создайте заново."
+
+#: src/chatfilter/templates/partials/sessions_list.html
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session corrupted"
+msgstr "Сессия повреждена"

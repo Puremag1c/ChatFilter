@@ -71,6 +71,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             "UnauthorizedError",
             "AuthKeyInvalidError",
             "SessionReauthRequiredError",  # Custom error for expired sessions
+            "SessionInvalidError",  # Wrapper error from session_manager
         }:
             return "session_expired"
 
@@ -85,6 +86,12 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         # Rate limiting
         if error_class in {"FloodWaitError", "SlowModeWaitError"}:
             return "flood_wait"
+
+        # For wrapper exceptions (SessionConnectError, etc.), check the cause
+        if exception.__cause__ is not None:
+            cause_result = classify_error_state(error_message, exception.__cause__)
+            if cause_result != "error":
+                return cause_result
 
     # Fall back to string matching if no exception or class didn't match
     if not error_message:
