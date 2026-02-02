@@ -7,16 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-02-02
+
 ### Fixed
+- **Reconnect Flow Complete Fix**: Fixed all issues with reconnecting expired sessions
+  - `send_code()` now returns reconnect-specific template with correct endpoint
+  - Reconnect code form posts to `/api/sessions/{session_id}/verify-code` (was: wrong endpoint for new sessions)
+  - Reconnect code form targets `#reconnect-result` (was: non-existent `#auth-flow-result`)
+  - Error responses use `reconnect_result.html` template for proper UI feedback
+- **needs_code/needs_2fa Modal Handlers**: Modals now have working submit handlers
+  - Added JavaScript handlers for code and 2FA verification modals
+  - Handlers POST to correct endpoints with `session_id` and `auth_id`
+  - `auth_id` passed via `data-auth-id` attribute on buttons
+  - Double-submit prevention with button disabling
 - **Reconnect Modal Not Visible**: Added `show` class to reconnect modal so it displays correctly when loaded via HTMX
 - **Enter Code/2FA Buttons Not Working**: Fixed buttons for `needs_code` and `needs_2fa` states - removed `disabled` attribute, added correct modal trigger classes
 - **Modal CSS Class Mismatch**: Changed JavaScript to use `show` class instead of `visible` to match CSS definitions
 - **Empty Code/2FA Modals**: Added input fields to code verification and 2FA password modals
-- **Missing Translations**: Fixed status text using untranslated strings - changed to use existing translations:
-  - "Needs Code" → "Needs Verification Code" (Требуется код подтверждения)
-  - "Needs 2FA" → "Needs 2FA Password" (Требуется пароль 2FA)
-  - "Enter Code" → "Enter Verification Code" (Введите код подтверждения)
-  - "Enter 2FA" → "Enter 2FA Password" (Введите пароль 2FA)
+- **Missing Translations**: Fixed status text using untranslated strings
+- **Missing FloodWaitError Import**: Added missing import in verify_code and verify_2fa endpoints
+
+### Changed
+- **Error Recovery for Reconnect**: verify-code returns reconnect-specific template on error for consistent flow
+- **Deleted Unused Modal Duplicates**: Removed duplicate modal files (`partials/modal_code.html`, `partials/modal_2fa.html`) that were not being used
 
 ## [0.6.3] - 2026-02-01
 
@@ -363,7 +376,11 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.5.0...v0.5.1
