@@ -3250,6 +3250,7 @@ async def verify_code(
     import shutil
 
     from telethon.errors import (
+        FloodWaitError,
         PhoneCodeEmptyError,
         PhoneCodeExpiredError,
         PhoneCodeInvalidError,
@@ -3551,6 +3552,7 @@ async def verify_2fa(
     import shutil
 
     from telethon.errors import (
+        FloodWaitError,
         AuthKeyInvalidError,
         AuthKeyUnregisteredError,
         PasswordHashInvalidError,
