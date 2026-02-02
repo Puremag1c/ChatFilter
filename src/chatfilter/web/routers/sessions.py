@@ -2844,14 +2844,15 @@ async def send_code(
 
         logger.info(f"Auth code sent for existing session '{safe_name}' to {phone}")
 
-        # Return code input form
+        # Return code input form (reconnect-specific template with correct endpoint)
         return templates.TemplateResponse(
             request=request,
-            name="partials/auth_code_form.html",
+            name="partials/auth_code_form_reconnect.html",
             context={
                 "auth_id": auth_state.auth_id,
                 "phone": phone,
                 "session_name": safe_name,
+                "session_id": session_id,
             },
         )
 
