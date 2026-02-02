@@ -43,6 +43,7 @@ class SessionListItem(BaseModel):
     session_id: str
     state: str
     error_message: str | None = None
+    auth_id: str | None = None
 
 
 def classify_error_state(error_message: str | None, exception: Exception | None = None) -> str:
@@ -908,9 +909,11 @@ def list_stored_sessions(
                         pass
 
                 # Check if session has an active auth flow (highest priority)
+                auth_id = None
                 if auth_manager is not None:
                     auth_state = auth_manager.get_auth_state_by_session(session_id)
                     if auth_state:
+                        auth_id = auth_state.auth_id
                         if auth_state.step in (AuthStep.PHONE_SENT, AuthStep.CODE_INVALID):
                             state = "needs_code"
                         elif auth_state.step == AuthStep.NEED_2FA:
@@ -941,6 +944,7 @@ def list_stored_sessions(
                         session_id=session_id,
                         state=state,
                         error_message=error_message,
+                        auth_id=auth_id,
                     )
                 )
 
