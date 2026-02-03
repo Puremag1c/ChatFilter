@@ -437,12 +437,12 @@ async def get_account_info_from_session(
         await asyncio.wait_for(client.connect(), timeout=10.0)
 
         if not await client.is_user_authorized():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
             return None
 
         # Get user info
         me = await asyncio.wait_for(client.get_me(), timeout=10.0)
-        await client.disconnect()
+        await asyncio.wait_for(client.disconnect(), timeout=10.0)
 
         return {
             "user_id": me.id,
@@ -800,7 +800,7 @@ async def validate_telegram_credentials_with_retry(
 
             # Try to connect with timeout
             await asyncio.wait_for(client.connect(), timeout=15.0)
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
             secure_delete_dir(temp_dir)
 
             logger.info(f"API credentials validated for session '{session_name}'")
@@ -809,7 +809,7 @@ async def validate_telegram_credentials_with_retry(
         except ApiIdInvalidError:
             # Invalid credentials - don't retry, fail immediately
             if client and client.is_connected():
-                await client.disconnect()
+                await asyncio.wait_for(client.disconnect(), timeout=10.0)
             if temp_dir:
                 secure_delete_dir(temp_dir)
             logger.warning(f"Invalid API credentials for session '{session_name}'")
@@ -818,7 +818,7 @@ async def validate_telegram_credentials_with_retry(
         except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as e:
             # Transient network error - retry with backoff
             if client and client.is_connected():
-                await client.disconnect()
+                await asyncio.wait_for(client.disconnect(), timeout=10.0)
             if temp_dir:
                 secure_delete_dir(temp_dir)
 
@@ -843,7 +843,7 @@ async def validate_telegram_credentials_with_retry(
         except Exception as e:
             # Unexpected error - don't retry
             if client and client.is_connected():
-                await client.disconnect()
+                await asyncio.wait_for(client.disconnect(), timeout=10.0)
             if temp_dir:
                 secure_delete_dir(temp_dir)
             logger.exception(f"Unexpected error validating credentials for '{session_name}'")
@@ -1874,7 +1874,7 @@ async def start_auth_flow(
     except PhoneNumberInvalidError:
         # Clean up
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -1883,7 +1883,7 @@ async def start_auth_flow(
         )
     except PhoneNumberBannedError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -1892,7 +1892,7 @@ async def start_auth_flow(
         )
     except ApiIdInvalidError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -1903,7 +1903,7 @@ async def start_auth_flow(
         from chatfilter.telegram.error_mapping import get_user_friendly_message
 
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -1916,7 +1916,7 @@ async def start_auth_flow(
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
         # Proxy connection failure
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         # Update session state to proxy_error
@@ -1937,7 +1937,7 @@ async def start_auth_flow(
         )
     except TimeoutError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         # Update session state to proxy_error for timeout
@@ -1958,7 +1958,7 @@ async def start_auth_flow(
     except Exception:
         logger.exception(f"Failed to start auth flow for '{safe_name}'")
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -2303,7 +2303,7 @@ async def _complete_auth_flow(
         session_path = session_dir / "session.session"
 
         # Disconnect client before copying session file
-        await client.disconnect()
+        await asyncio.wait_for(client.disconnect(), timeout=10.0)
 
         # Copy session file from temp location
         temp_dir = getattr(auth_state, "temp_dir", None)
@@ -2882,7 +2882,7 @@ async def send_code(
     except PhoneNumberInvalidError:
         # Clean up
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -2891,7 +2891,7 @@ async def send_code(
         )
     except PhoneNumberBannedError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -2900,7 +2900,7 @@ async def send_code(
         )
     except ApiIdInvalidError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -2911,7 +2911,7 @@ async def send_code(
         from chatfilter.telegram.error_mapping import get_user_friendly_message
 
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -2925,7 +2925,7 @@ async def send_code(
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
         # Proxy connection failure
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         # Update session state to proxy_error
@@ -2947,7 +2947,7 @@ async def send_code(
         )
     except TimeoutError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         # Update session state to proxy_error for timeout
@@ -2969,7 +2969,7 @@ async def send_code(
     except ServerError as e:
         # Temporary Telegram server error - allow retry
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         logger.warning(f"Telegram server error during reconnect for session '{safe_name}': {e}")
@@ -2986,7 +2986,7 @@ async def send_code(
     except AuthRestartError:
         # Session invalidated - cannot recover, suggest deletion
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         # Update session state to auth_restart
@@ -3010,7 +3010,7 @@ async def send_code(
     except Exception:
         logger.exception(f"Failed to send code for session '{safe_name}'")
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -3200,7 +3200,7 @@ async def start_reconnect(
     except PhoneNumberInvalidError:
         # Clean up
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -3209,7 +3209,7 @@ async def start_reconnect(
         )
     except PhoneNumberBannedError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -3218,7 +3218,7 @@ async def start_reconnect(
         )
     except ApiIdInvalidError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -3229,7 +3229,7 @@ async def start_reconnect(
         from chatfilter.telegram.error_mapping import get_user_friendly_message
 
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -3242,7 +3242,7 @@ async def start_reconnect(
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
         # Proxy connection failure
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         # Update session state to proxy_error
@@ -3263,7 +3263,7 @@ async def start_reconnect(
         )
     except TimeoutError:
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
 
         # Update session state to proxy_error for timeout
@@ -3294,7 +3294,7 @@ async def start_reconnect(
     except Exception:
         logger.exception(f"Failed to start reconnect for session '{safe_name}'")
         if "client" in dir() and client.is_connected():
-            await client.disconnect()
+            await asyncio.wait_for(client.disconnect(), timeout=10.0)
         secure_delete_dir(temp_dir)
         return templates.TemplateResponse(
             request=request,
@@ -3458,7 +3458,7 @@ async def verify_code(
         }
 
         # Disconnect client before copying session file
-        await client.disconnect()
+        await asyncio.wait_for(client.disconnect(), timeout=10.0)
 
         # Copy session file from temp location to existing session
         temp_dir = getattr(auth_state, "temp_dir", None)
@@ -3765,7 +3765,7 @@ async def verify_2fa(
         }
 
         # Disconnect client before copying session file
-        await client.disconnect()
+        await asyncio.wait_for(client.disconnect(), timeout=10.0)
 
         # Copy session file from temp location to existing session
         temp_dir = getattr(auth_state, "temp_dir", None)
