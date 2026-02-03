@@ -2692,6 +2692,7 @@ async def send_code(
     Returns HTML partial with code input form or error message.
     """
     import asyncio
+    import re
     import tempfile
 
     from telethon import TelegramClient
@@ -2710,6 +2711,28 @@ async def send_code(
     from chatfilter.web.auth_state import DuplicateOperationError, get_auth_state_manager
 
     templates = get_templates()
+
+    # Validate input parameters
+    if api_id <= 0:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid API ID: must be a positive integer.")},
+        )
+
+    if not isinstance(api_hash, str) or len(api_hash) != 32:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid API Hash: must be exactly 32 characters.")},
+        )
+
+    if not re.match(r'^[a-zA-Z0-9]{32}$', api_hash):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid API Hash: must contain only alphanumeric characters.")},
+        )
 
     # Sanitize session name
     try:
@@ -3314,6 +3337,14 @@ async def verify_code(
     templates = get_templates()
     auth_manager = get_auth_state_manager()
 
+    # Validate input parameters
+    if not isinstance(code, str) or len(code) > 10:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid code: must be at most 10 characters.")},
+        )
+
     # Sanitize session name
     try:
         safe_name = sanitize_session_name(session_id)
@@ -3635,6 +3666,14 @@ async def verify_2fa(
 
     templates = get_templates()
     auth_manager = get_auth_state_manager()
+
+    # Validate input parameters
+    if not isinstance(password, str) or len(password) > 256:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid password: must be at most 256 characters.")},
+        )
 
     # Sanitize session name
     try:
