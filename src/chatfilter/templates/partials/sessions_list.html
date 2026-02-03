@@ -132,7 +132,7 @@
                             </button>
                             {% elif session.state == 'needs_2fa' %}
                             {# 2FA password required #}
-                            <button class="btn btn-sm btn-info session-2fa-modal-btn"
+                            <button class="btn btn-sm btn-info session-twofa-modal-btn"
                                     data-session-id="{{ session.session_id }}"
                                     {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
                                     aria-label="{{ _('Enter 2FA password') }}">
@@ -264,22 +264,22 @@
             return;
         }
 
-        const twoFaBtn = e.target.closest('.session-2fa-modal-btn');
+        const twoFaBtn = e.target.closest('.session-twofa-modal-btn');
         if (twoFaBtn) {
             const sessionId = twoFaBtn.dataset.sessionId;
             const authId = twoFaBtn.dataset.authId;
-            const modal = document.getElementById('2fa-modal');
+            const modal = document.getElementById('twofa-modal');
             if (modal) {
                 modal.classList.add('show');
                 modal.dataset.sessionId = sessionId;
                 modal.dataset.authId = authId;
                 // Clear previous input and result
-                const input = modal.querySelector('#2fa-modal-input');
-                const result = modal.querySelector('#2fa-modal-result');
+                const input = modal.querySelector('#twofa-modal-input');
+                const result = modal.querySelector('#twofa-modal-result');
                 if (input) input.value = '';
                 if (result) result.textContent = '';
                 // Reset button state (in case it was disabled from previous submit)
-                const submitBtn = modal.querySelector('#2fa-modal-submit');
+                const submitBtn = modal.querySelector('#twofa-modal-submit');
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = '{{ _("Verify") }}';
@@ -374,7 +374,7 @@
 
     // 2FA modal submit handler
     document.body.addEventListener('click', async function(e) {
-        const submitBtn = e.target.closest('#2fa-modal-submit');
+        const submitBtn = e.target.closest('#twofa-modal-submit');
         if (!submitBtn) return;
 
         // Prevent double-submit: check if already processing
@@ -382,11 +382,11 @@
             return;
         }
 
-        const modal = document.getElementById('2fa-modal');
+        const modal = document.getElementById('twofa-modal');
         const sessionId = modal.dataset.sessionId;
         const authId = modal.dataset.authId;
-        const input = modal.querySelector('#2fa-modal-input');
-        const result = modal.querySelector('#2fa-modal-result');
+        const input = modal.querySelector('#twofa-modal-input');
+        const result = modal.querySelector('#twofa-modal-result');
         const password = input.value;
 
         // Validate inputs
