@@ -7,6 +7,8 @@ subscribers about session status changes in real-time.
 from __future__ import annotations
 
 import asyncio
+import time
+from collections import defaultdict
 from typing import Callable, Awaitable
 
 
@@ -26,9 +28,20 @@ class SessionEventBus:
         await bus.publish("session123", "connected")
     """
 
-    def __init__(self):
-        """Initialize the event bus."""
+    def __init__(self, max_events_per_second: int = 10):
+        """Initialize the event bus.
+
+        Args:
+            max_events_per_second: Maximum events per session per second (default: 10)
+        """
         self._subscribers: list[Callable[[str, str], Awaitable[None]]] = []
+        self._max_events_per_second = max_events_per_second
+
+        # Deduplication: track last status per session
+        self._last_status: dict[str, str] = {}
+
+        # Rate limiting: track event timestamps per session
+        self._event_times: dict[str, list[float]] = defaultdict(list)
 
     def subscribe(self, callback: Callable[[str, str], Awaitable[None]]) -> None:
         """Subscribe to session status change events.
@@ -48,17 +61,57 @@ class SessionEventBus:
         if callback in self._subscribers:
             self._subscribers.remove(callback)
 
+    def _should_throttle(self, session_id: str, new_status: str) -> bool:
+        """Check if event should be throttled.
+
+        Returns:
+            True if event should be dropped, False otherwise
+        """
+        # Deduplication: drop if same status as last event
+        if self._last_status.get(session_id) == new_status:
+            return True
+
+        # Rate limiting: drop if exceeds rate limit
+        now = time.time()
+        event_times = self._event_times[session_id]
+
+        # Remove events older than 1 second
+        event_times[:] = [t for t in event_times if now - t < 1.0]
+
+        # Check rate limit
+        if len(event_times) >= self._max_events_per_second:
+            return True
+
+        return False
+
     async def publish(self, session_id: str, new_status: str) -> None:
         """Publish a session status change event to all subscribers.
+
+        Events are throttled to prevent flooding:
+        - Duplicate consecutive events are dropped
+        - Events exceeding rate limit are dropped
+        - Slow subscribers don't block event publishing
 
         Args:
             session_id: ID of the session that changed
             new_status: New status of the session
         """
-        # Call all subscribers concurrently
+        # Throttle check
+        if self._should_throttle(session_id, new_status):
+            return
+
+        # Update tracking
+        self._last_status[session_id] = new_status
+        self._event_times[session_id].append(time.time())
+
+        # Call all subscribers concurrently with timeout
         if self._subscribers:
+            tasks = [
+                asyncio.wait_for(callback(session_id, new_status), timeout=5.0)
+                for callback in self._subscribers
+            ]
             await asyncio.gather(
-                *[callback(session_id, new_status) for callback in self._subscribers],
+                *tasks,
                 return_exceptions=True  # Don't let one failing subscriber break others
             )
 

@@ -284,3 +284,140 @@ class TestEventBusIntegration:
         assert ("session1", "connected") in events
         assert ("session2", "connected") in events
         assert ("session3", "connected") in events
+
+
+class TestEventThrottling:
+    """Tests for event throttling and rate limiting."""
+
+    @pytest.mark.asyncio
+    async def test_deduplication(self) -> None:
+        """Duplicate consecutive events should be dropped."""
+        bus = SessionEventBus()
+        received = []
+
+        async def handler(session_id: str, new_status: str) -> None:
+            received.append((session_id, new_status))
+
+        bus.subscribe(handler)
+
+        # Publish same status twice
+        await bus.publish("session1", "connected")
+        await bus.publish("session1", "connected")  # Should be dropped
+
+        # Only first event should be received
+        assert len(received) == 1
+        assert received[0] == ("session1", "connected")
+
+    @pytest.mark.asyncio
+    async def test_deduplication_different_status(self) -> None:
+        """Different statuses should not be deduplicated."""
+        bus = SessionEventBus()
+        received = []
+
+        async def handler(session_id: str, new_status: str) -> None:
+            received.append((session_id, new_status))
+
+        bus.subscribe(handler)
+
+        await bus.publish("session1", "connected")
+        await bus.publish("session1", "disconnected")
+
+        # Both events should be received
+        assert len(received) == 2
+        assert received[0] == ("session1", "connected")
+        assert received[1] == ("session1", "disconnected")
+
+    @pytest.mark.asyncio
+    async def test_rate_limiting(self) -> None:
+        """Events exceeding rate limit should be dropped."""
+        bus = SessionEventBus(max_events_per_second=3)
+        received = []
+
+        async def handler(session_id: str, new_status: str) -> None:
+            received.append((session_id, new_status))
+
+        bus.subscribe(handler)
+
+        # Rapidly publish events (alternating statuses to avoid deduplication)
+        for i in range(10):
+            status = "status_a" if i % 2 == 0 else "status_b"
+            await bus.publish("session1", status)
+
+        # Should only receive up to max_events_per_second
+        assert len(received) <= 3
+
+    @pytest.mark.asyncio
+    async def test_rate_limiting_per_session(self) -> None:
+        """Rate limiting should be per session_id."""
+        bus = SessionEventBus(max_events_per_second=2)
+        received = []
+
+        async def handler(session_id: str, new_status: str) -> None:
+            received.append((session_id, new_status))
+
+        bus.subscribe(handler)
+
+        # Rapidly publish events for different sessions
+        await bus.publish("session1", "status1")
+        await bus.publish("session2", "status1")
+        await bus.publish("session1", "status2")
+        await bus.publish("session2", "status2")
+        await bus.publish("session1", "status3")  # Should be rate limited
+        await bus.publish("session2", "status3")  # Should be rate limited
+
+        # Each session should have received up to max_events_per_second
+        session1_events = [e for e in received if e[0] == "session1"]
+        session2_events = [e for e in received if e[0] == "session2"]
+
+        assert len(session1_events) <= 2
+        assert len(session2_events) <= 2
+
+    @pytest.mark.asyncio
+    async def test_slow_subscriber_timeout(self) -> None:
+        """Slow subscribers should timeout and not block publishing."""
+        bus = SessionEventBus()
+        fast_received = []
+
+        async def slow_handler(session_id: str, new_status: str) -> None:
+            await asyncio.sleep(10)  # Will timeout at 5s
+
+        async def fast_handler(session_id: str, new_status: str) -> None:
+            fast_received.append((session_id, new_status))
+
+        bus.subscribe(slow_handler)
+        bus.subscribe(fast_handler)
+
+        # Should complete quickly despite slow handler
+        start = asyncio.get_event_loop().time()
+        await bus.publish("session1", "status1")
+        elapsed = asyncio.get_event_loop().time() - start
+
+        # Should timeout in ~5s, not wait 10s
+        assert elapsed < 7.0
+        # Fast handler should still receive event
+        assert len(fast_received) == 1
+
+    @pytest.mark.asyncio
+    async def test_rate_limiting_window_resets(self) -> None:
+        """Rate limit should reset after time window passes."""
+        bus = SessionEventBus(max_events_per_second=2)
+        received = []
+
+        async def handler(session_id: str, new_status: str) -> None:
+            received.append((session_id, new_status))
+
+        bus.subscribe(handler)
+
+        # Send 2 events (at limit)
+        await bus.publish("session1", "status1")
+        await bus.publish("session1", "status2")
+
+        # Wait for rate limit window to pass
+        await asyncio.sleep(1.1)
+
+        # Should be able to send more events
+        await bus.publish("session1", "status3")
+        await bus.publish("session1", "status4")
+
+        # Should have received 4 events total
+        assert len(received) == 4
