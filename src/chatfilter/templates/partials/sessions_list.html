@@ -359,6 +359,12 @@
                     sessionRow.outerHTML = html;
                 }
                 modal.classList.remove('show');
+                // Show success toast notification
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.success('{{ _("Verification code accepted successfully") }}', {
+                        duration: 4000
+                    });
+                }
                 // Note: button stays disabled, modal closes
             } else {
                 // Error - show in modal and re-enable button for retry
@@ -431,6 +437,12 @@
                     sessionRow.outerHTML = html;
                 }
                 modal.classList.remove('show');
+                // Show success toast notification
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.success('{{ _("2FA password accepted successfully") }}', {
+                        duration: 4000
+                    });
+                }
                 // Note: button stays disabled, modal closes
             } else {
                 // Error - show in modal and re-enable button for retry
