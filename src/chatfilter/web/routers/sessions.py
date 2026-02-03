@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -11,11 +12,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
+from chatfilter.web.events import get_event_bus
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
@@ -2285,7 +2287,7 @@ async def _complete_auth_flow(
 
     try:
         # Get account info
-        me = await client.get_me()
+        me = await asyncio.wait_for(client.get_me(), timeout=30.0)
         account_info = {
             "user_id": me.id,
             "phone": me.phone or "",
@@ -3453,7 +3455,7 @@ async def verify_code(
         session_path = session_dir / "session.session"
 
         # Get account info
-        me = await client.get_me()
+        me = await asyncio.wait_for(client.get_me(), timeout=30.0)
         account_info = {
             "user_id": me.id,
             "phone": me.phone or "",
@@ -3765,7 +3767,7 @@ async def verify_2fa(
         session_path = session_dir / "session.session"
 
         # Get account info
-        me = await client.get_me()
+        me = await asyncio.wait_for(client.get_me(), timeout=30.0)
         account_info = {
             "user_id": me.id,
             "phone": me.phone or "",
@@ -4125,3 +4127,77 @@ async def save_import_session(
                 "error": _("An unexpected error occurred during import. Please try again."),
             },
         )
+
+
+@router.get("/api/sessions/events")
+async def session_events(request: Request):
+    """SSE endpoint for real-time session status updates.
+
+    This endpoint provides Server-Sent Events (SSE) for session status changes.
+    Clients can connect to receive real-time updates when session statuses change.
+
+    Returns:
+        StreamingResponse: SSE stream with session status events
+    """
+    # Queue for this client's events
+    event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
+
+    async def event_generator():
+        """Generate SSE events from the queue."""
+        try:
+            # Send initial connection message
+            yield 'data: {"type": "connected"}\n\n'
+
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    logger.debug("SSE client disconnected")
+                    break
+
+                try:
+                    # Wait for events with timeout to check disconnect status
+                    event = await asyncio.wait_for(event_queue.get(), timeout=30.0)
+
+                    if event is None:  # Shutdown signal
+                        break
+
+                    session_id, new_status = event
+
+                    # Format as SSE
+                    event_data = json.dumps({
+                        "session_id": session_id,
+                        "status": new_status
+                    })
+                    yield f"data: {event_data}\n\n"
+
+                except asyncio.TimeoutError:
+                    # Send keepalive comment to prevent timeout
+                    yield ": keepalive\n\n"
+
+        except asyncio.CancelledError:
+            logger.debug("SSE event generator cancelled")
+        finally:
+            # Unsubscribe from event bus
+            get_event_bus().unsubscribe(event_handler)
+            logger.debug("SSE client unsubscribed from event bus")
+
+    async def event_handler(session_id: str, new_status: str):
+        """Handler for event bus messages."""
+        try:
+            await event_queue.put((session_id, new_status))
+        except Exception:
+            logger.exception("Error putting event in queue")
+
+    # Subscribe to event bus
+    get_event_bus().subscribe(event_handler)
+    logger.debug("SSE client subscribed to event bus")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )

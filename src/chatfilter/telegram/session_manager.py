@@ -242,8 +242,12 @@ class SessionManager:
             # get_me() alone is not enough - some deactivated accounts can still
             # authenticate but fail on GetDialogsRequest
             # Using iter_dialogs with limit=1 is a lightweight check
-            async for _ in client.iter_dialogs(limit=1):
-                break  # Just need to verify we can access dialogs
+
+            async def check_dialogs():
+                async for _ in client.iter_dialogs(limit=1):
+                    break  # Just need to verify we can access dialogs
+
+            await asyncio.wait_for(check_dialogs(), timeout=timeout)
         except TimeoutError as e:
             # Convert asyncio.TimeoutError to TimeoutError for retry decorator
             raise TimeoutError(
