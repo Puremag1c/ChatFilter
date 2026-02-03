@@ -25,10 +25,12 @@ class MockClient:
         *,
         fail_connect: bool = False,
         hang_connect: bool = False,
+        connect_delay: float = 0.0,
         auth_error: Exception | None = None,
     ) -> None:
         self.fail_connect = fail_connect
         self.hang_connect = hang_connect
+        self.connect_delay = connect_delay
         self.auth_error = auth_error
         self.connected = False
         self.connect_calls = 0
@@ -37,6 +39,8 @@ class MockClient:
 
     async def connect(self) -> None:
         self.connect_calls += 1
+        if self.connect_delay > 0:
+            await asyncio.sleep(self.connect_delay)
         if self.hang_connect:
             await asyncio.sleep(100)  # Will timeout
         if self.auth_error:
@@ -333,22 +337,28 @@ class TestSessionManagerLocking:
     """Tests for per-session locking."""
 
     @pytest.mark.asyncio
-    async def test_concurrent_connects_serialized(self) -> None:
-        """Test that concurrent connects are serialized."""
+    async def test_concurrent_connects_rejected(self) -> None:
+        """Test that concurrent connect requests are rejected with SessionBusyError."""
+        from chatfilter.telegram.session_manager import SessionBusyError
+
         manager = SessionManager()
-        client = MockClient()
+        # Use a slow connecting client to ensure concurrent requests
+        client = MockClient(connect_delay=0.5)
         manager.register("test", MockFactory(client))
 
-        # Start multiple connects concurrently
-        results = await asyncio.gather(
-            manager.connect("test"),
-            manager.connect("test"),
-            manager.connect("test"),
-        )
+        # Start first connect
+        connect_task = asyncio.create_task(manager.connect("test"))
 
-        # All should return the same client
-        assert all(r is client for r in results)
-        # Should only connect once
+        # Wait a bit to ensure first connect has acquired the lock
+        await asyncio.sleep(0.1)
+
+        # Second concurrent connect should be rejected immediately
+        with pytest.raises(SessionBusyError, match="already busy"):
+            await manager.connect("test")
+
+        # First connect should succeed
+        result = await connect_task
+        assert result is client
         assert client.connect_calls == 1
 
     @pytest.mark.asyncio

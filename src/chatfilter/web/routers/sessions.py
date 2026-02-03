@@ -21,6 +21,7 @@ from chatfilter.web.events import get_event_bus
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
+from chatfilter.telegram.session_manager import SessionBusyError
 from chatfilter.web.events import get_event_bus
 
 if TYPE_CHECKING:
@@ -2569,6 +2570,13 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context={"session": session_data},
+        )
+
+    except SessionBusyError as e:
+        logger.warning(f"Session busy: {safe_name}")
+        return HTMLResponse(
+            content=f'<span class="error">{str(e)}</span>',
+            status_code=status.HTTP_409_CONFLICT,
         )
 
     except Exception as e:

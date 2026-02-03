@@ -122,6 +122,14 @@ class SessionReauthRequiredError(SessionError):
     """
 
 
+class SessionBusyError(SessionError):
+    """Raised when session is already busy with another operation.
+
+    This indicates that a concurrent operation is in progress.
+    The client should retry later or wait for the current operation to complete.
+    """
+
+
 class SessionManager:
     """Manager for Telethon client connections with proper lifecycle handling.
 
@@ -268,6 +276,7 @@ class SessionManager:
         Raises:
             SessionConnectError: If connection fails
             SessionTimeoutError: If connection times out
+            SessionBusyError: If session is already busy with another operation
             KeyError: If session_id not registered
         """
         if session_id not in self._factories:
@@ -279,6 +288,13 @@ class SessionManager:
                 self._sessions[session_id] = ManagedSession(client=client)
 
         session = self._sessions[session_id]
+
+        # Non-blocking lock check - reject concurrent requests immediately
+        if session.lock.locked():
+            raise SessionBusyError(
+                f"Session '{session_id}' is already busy with another operation. "
+                "Please wait for the current operation to complete."
+            )
 
         async with session.lock:
             if session.state == SessionState.CONNECTED:
