@@ -140,20 +140,34 @@
                 </button>
                 {% elif session.state == 'needs_code' %}
                 {# Verification code required #}
-                <button class="btn btn-sm btn-info session-code-modal-btn"
+                <button class="btn btn-sm {% if session.error_message %}btn-warning{% else %}btn-info{% endif %} session-code-modal-btn"
                         data-session-id="{{ session.session_id }}"
                         {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
+                        {% if session.error_message %}title="{{ session.error_message }}"{% endif %}
                         aria-label="{{ _('Enter verification code') }}">
-                    <span class="btn-text">{{ _("Enter Verification Code") }}</span>
+                    <span class="btn-text">
+                        {%- if session.error_message -%}
+                            {{ _("Retry Verification") }}
+                        {%- else -%}
+                            {{ _("Enter Verification Code") }}
+                        {%- endif -%}
+                    </span>
                     <span class="spinner" style="display: none;"></span>
                 </button>
                 {% elif session.state == 'needs_2fa' %}
                 {# 2FA password required #}
-                <button class="btn btn-sm btn-info session-2fa-modal-btn"
+                <button class="btn btn-sm {% if session.error_message %}btn-warning{% else %}btn-info{% endif %} session-2fa-modal-btn"
                         data-session-id="{{ session.session_id }}"
                         {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
+                        {% if session.error_message %}title="{{ session.error_message }}"{% endif %}
                         aria-label="{{ _('Enter 2FA password') }}">
-                    <span class="btn-text">{{ _("Enter 2FA Password") }}</span>
+                    <span class="btn-text">
+                        {%- if session.error_message -%}
+                            {{ _("Retry 2FA") }}
+                        {%- else -%}
+                            {{ _("Enter 2FA Password") }}
+                        {%- endif -%}
+                    </span>
                     <span class="spinner" style="display: none;"></span>
                 </button>
                 {% elif session.state == 'banned' %}
