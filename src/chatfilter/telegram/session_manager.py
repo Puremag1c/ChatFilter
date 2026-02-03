@@ -15,6 +15,7 @@ from chatfilter.telegram.retry import with_retry_for_reads
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
+    from chatfilter.web.events import SessionEventBus
 
 logger = logging.getLogger(__name__)
 
@@ -289,11 +290,17 @@ class SessionManager:
                 session.connected_at = asyncio.get_event_loop().time()
                 session.last_activity = session.connected_at
                 logger.info(f"Session '{session_id}' connected")
+                # Emit event for status change (lazy import to avoid circular dependency)
+                from chatfilter.web.events import get_event_bus
+                await get_event_bus().publish(session_id, "connected")
                 return session.client
 
             except TimeoutError as e:
                 session.state = SessionState.ERROR
                 session.error_message = "Connection timeout"
+                # Emit event for status change (lazy import to avoid circular dependency)
+                from chatfilter.web.events import get_event_bus
+                await get_event_bus().publish(session_id, "error")
                 raise SessionTimeoutError(f"Connection timeout for session '{session_id}'") from e
             except (
                 errors.SessionRevokedError,
@@ -315,6 +322,9 @@ class SessionManager:
                         "This Telegram account has been banned, deactivated, or deleted. "
                         "Please use a different account."
                     )
+                    # Emit event for status change (lazy import to avoid circular dependency)
+                    from chatfilter.web.events import get_event_bus
+                    await get_event_bus().publish(session_id, "error")
                     raise SessionInvalidError(
                         f"Session '{session_id}' cannot be used: {error_type}. "
                         "The Telegram account associated with this session is banned, "
@@ -325,6 +335,9 @@ class SessionManager:
                     session.error_message = (
                         f"Session is invalid ({error_type}). Please provide a new session file."
                     )
+                    # Emit event for status change (lazy import to avoid circular dependency)
+                    from chatfilter.web.events import get_event_bus
+                    await get_event_bus().publish(session_id, "error")
                     raise SessionInvalidError(
                         f"Session '{session_id}' is permanently invalid: {error_type}. "
                         "The session has been revoked, the auth key is unregistered, "
@@ -342,6 +355,9 @@ class SessionManager:
                     session.error_message = (
                         "Two-factor authentication (2FA) is enabled. Re-authorization required."
                     )
+                    # Emit event for status change (lazy import to avoid circular dependency)
+                    from chatfilter.web.events import get_event_bus
+                    await get_event_bus().publish(session_id, "error")
                     raise SessionReauthRequiredError(
                         f"Session '{session_id}' requires 2FA password. "
                         "The account has two-factor authentication enabled. "
@@ -350,6 +366,9 @@ class SessionManager:
                     ) from e
                 else:
                     session.error_message = "Session has expired. Re-authorization required."
+                    # Emit event for status change (lazy import to avoid circular dependency)
+                    from chatfilter.web.events import get_event_bus
+                    await get_event_bus().publish(session_id, "error")
                     raise SessionReauthRequiredError(
                         f"Session '{session_id}' has expired: {error_type}. "
                         "Please re-authorize your Telegram account or provide "
@@ -358,6 +377,9 @@ class SessionManager:
             except Exception as e:
                 session.state = SessionState.ERROR
                 session.error_message = str(e)
+                # Emit event for status change (lazy import to avoid circular dependency)
+                from chatfilter.web.events import get_event_bus
+                await get_event_bus().publish(session_id, "error")
                 raise SessionConnectError(f"Failed to connect session '{session_id}': {e}") from e
 
     async def disconnect(self, session_id: str) -> None:
@@ -393,6 +415,9 @@ class SessionManager:
             session.state = SessionState.DISCONNECTED
             session.connected_at = None
             logger.info(f"Session '{session_id}' disconnected")
+            # Emit event for status change (lazy import to avoid circular dependency)
+            from chatfilter.web.events import get_event_bus
+            await get_event_bus().publish(session_id, "disconnected")
 
     async def is_healthy(self, session_id: str) -> bool:
         """Check if a session is healthy (connected and responsive).

@@ -19,6 +19,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
+from chatfilter.web.events import get_event_bus
 
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates
@@ -2867,6 +2868,9 @@ async def send_code(
 
         logger.info(f"Auth code sent for existing session '{safe_name}' to {phone}")
 
+        # Emit event for auth status change (needs_code)
+        await get_event_bus().publish(safe_name, "needs_code")
+
         # Return code input form (reconnect-specific template with correct endpoint)
         return templates.TemplateResponse(
             request=request,
@@ -3478,6 +3482,9 @@ async def verify_code(
 
         logger.info(f"Session '{safe_name}' re-authenticated successfully (code verified)")
 
+        # Emit event for auth completion (connected)
+        await get_event_bus().publish(safe_name, "connected")
+
         # Use reconnect success template with toast notification
         return templates.TemplateResponse(
             request=request,
@@ -3492,6 +3499,8 @@ async def verify_code(
         # 2FA required
         await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
         logger.info(f"2FA required for session '{safe_name}' auth")
+        # Emit event for 2FA requirement
+        await get_event_bus().publish(safe_name, "needs_2fa")
         # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
@@ -3784,6 +3793,9 @@ async def verify_2fa(
         await auth_manager.remove_auth_state(auth_id)
 
         logger.info(f"Session '{safe_name}' re-authenticated successfully (2FA verified)")
+
+        # Emit event for auth completion (connected)
+        await get_event_bus().publish(safe_name, "connected")
 
         # Use reconnect success template with toast notification
         return templates.TemplateResponse(
