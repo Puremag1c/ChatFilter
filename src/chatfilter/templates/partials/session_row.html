@@ -141,6 +141,7 @@
                         {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
                         aria-label="{{ _('Enter verification code') }}">
                     <span class="btn-text">{{ _("Enter Verification Code") }}</span>
+                    <span class="spinner" style="display: none;"></span>
                 </button>
                 {% elif session.state == 'needs_2fa' %}
                 {# 2FA password required #}
@@ -149,6 +150,7 @@
                         {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
                         aria-label="{{ _('Enter 2FA password') }}">
                     <span class="btn-text">{{ _("Enter 2FA Password") }}</span>
+                    <span class="spinner" style="display: none;"></span>
                 </button>
                 {% elif session.state == 'banned' %}
                 {# Banned - cannot retry, account issue #}

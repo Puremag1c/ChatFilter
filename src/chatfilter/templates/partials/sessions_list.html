@@ -129,6 +129,7 @@
                                     {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
                                     aria-label="{{ _('Enter verification code') }}">
                                 <span class="btn-text">{{ _("Enter Verification Code") }}</span>
+                                <span class="spinner" style="display: none;"></span>
                             </button>
                             {% elif session.state == 'needs_2fa' %}
                             {# 2FA password required #}
@@ -137,6 +138,7 @@
                                     {% if session.auth_id %}data-auth-id="{{ session.auth_id }}"{% endif %}
                                     aria-label="{{ _('Enter 2FA password') }}">
                                 <span class="btn-text">{{ _("Enter 2FA Password") }}</span>
+                                <span class="spinner" style="display: none;"></span>
                             </button>
                             {% elif session.state == 'needs_api_id' %}
                             {# API credentials required #}
@@ -151,9 +153,11 @@
                                     hx-get="/api/sessions/{{ session.session_id }}/reconnect-form"
                                     hx-target="#modal-container"
                                     hx-swap="innerHTML"
+                                    hx-indicator="#reconnect-spinner-{{ session.session_id }}"
                                     aria-label="{{ _('Reconnect session') }}"
                                     title="{{ session.error_message or _('Session has expired - reconnect required') }}">
                                 <span class="btn-text">{{ _("Reconnect") }}</span>
+                                <span id="reconnect-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
                             </button>
                             {% elif session.state == 'corrupted_session' %}
                             {# Corrupted session - show message, user must delete #}
