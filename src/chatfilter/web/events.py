@@ -2,6 +2,32 @@
 
 This module provides a simple publish-subscribe event bus for notifying
 subscribers about session status changes in real-time.
+
+All session status-changing endpoints publish events via get_event_bus().publish():
+
+Endpoints that publish events:
+- POST /api/sessions/{session_id}/connect
+  - Success: publishes actual state (connected, needs_code, etc.)
+  - Timeout: publishes "error"
+  - Exception: publishes classified error state
+
+- POST /api/sessions/{session_id}/disconnect
+  - Success: publishes config_status
+  - Exception: publishes "error"
+
+- POST /api/sessions/{session_id}/send-code
+  - Success: publishes "needs_code"
+  - Proxy error/timeout: publishes "proxy_error"
+  - Auth restart: publishes "needs_auth"
+
+- POST /api/sessions/{session_id}/verify-code
+  - Success: publishes "connected"
+  - 2FA required: publishes "needs_2fa"
+  - Proxy error/timeout: publishes "proxy_error"
+
+- POST /api/sessions/{session_id}/verify-2fa
+  - Success: publishes "connected"
+  - Proxy error/timeout: publishes "proxy_error"
 """
 
 from __future__ import annotations
