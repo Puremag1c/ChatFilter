@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-02-04
+
+### Fixed
+- **Network Error Detection**: Fixed overly broad OSError handling that incorrectly classified filesystem errors (PermissionError, FileNotFoundError) as network errors
+  - Now checks specific errno codes (ENETUNREACH, EHOSTUNREACH, ECONNREFUSED, etc.) before treating OSError as network error
+  - Prevents endpoints returning 503 Service Unavailable for non-network issues
+- **Error Page Styling**: Browser error pages now show styled HTML instead of raw JSON
+  - Added error.html template with consistent navigation and retry options
+  - Exception handlers detect Accept header to choose between JSON and HTML responses
+- **SSE Cross-Tab Updates**: Fixed SSE events not updating UI in other browser tabs
+  - Implemented dedicated sse.js module that auto-connects to /api/sessions/events
+  - EventSource reconnects automatically on connection loss
+
 ## [0.7.0] - 2026-02-04
 
 ### Added
