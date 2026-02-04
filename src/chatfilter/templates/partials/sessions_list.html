@@ -297,6 +297,39 @@
         }
     });
 
+    // Handle successful action completion for Connect/Disconnect/Retry buttons
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        // Only handle session row updates (not config panels or other swaps)
+        if (!evt.detail.target.id || !evt.detail.target.id.startsWith('session-')) {
+            return;
+        }
+
+        const triggerElement = evt.detail.elt;
+        if (!triggerElement) return;
+
+        // Determine which action succeeded based on button class
+        let successMessage = null;
+
+        if (triggerElement.classList.contains('session-connect-btn') ||
+            triggerElement.closest('.session-connect-btn')) {
+            // Check if it's a retry button by looking at button text or state
+            const buttonText = triggerElement.textContent?.trim() || '';
+            if (buttonText.toLowerCase().includes('retry') || buttonText.toLowerCase().includes('повтор')) {
+                successMessage = '{{ _("Retry initiated successfully") }}';
+            } else {
+                successMessage = '{{ _("Connected successfully") }}';
+            }
+        } else if (triggerElement.classList.contains('session-disconnect-btn') ||
+                   triggerElement.closest('.session-disconnect-btn')) {
+            successMessage = '{{ _("Disconnected successfully") }}';
+        }
+
+        // Show success toast if action was identified
+        if (successMessage && typeof ToastManager !== 'undefined') {
+            ToastManager.success(successMessage, { duration: 3000 });
+        }
+    });
+
     // Helper: Extract action name from button element
     function getActionName(element) {
         if (!element) return '{{ _("processing request") }}';
