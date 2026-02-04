@@ -30,6 +30,7 @@ ENV/
 .vscode/
 *.swp
 *.swo
+*.patch
 
 # Testing
 .coverage
@@ -80,6 +81,7 @@ SPEC.draft.md
 .hype/
 .hype/agents
 .hype/commands
+.hype-worktrees/
 scripts
 project-scripts/
 logs/

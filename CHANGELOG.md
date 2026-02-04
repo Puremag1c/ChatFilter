@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-04
+
+### Added
+- **Realtime Session Status**: Sessions list now updates automatically without page refresh
+  - Server-Sent Events (SSE) endpoint `/api/sessions/events` streams status changes
+  - HTMX SSE extension integrates with session list for live updates
+  - Event bus architecture with rate limiting (10 events/sec per session) and deduplication
+- **Loading States for Actions**: All action buttons now show visual feedback
+  - Spinner replaces status during Connect, Disconnect, Reconnect operations
+  - Loading state for Send Code, Verify Code, Verify 2FA actions
+  - Prevents double-click with debounce protection
+- **Status Transition Audit**: Documented all valid session state transitions
+  - Matrix of status → action → new status mappings
+  - Ensures consistent UI behavior across all flows
+
+### Changed
+- **Session Row Updates**: Individual rows refresh via SSE instead of full page reload
+- **Error State Handling**: Improved error display in UI with retry options
+- **Modal Submit Feedback**: Error responses now show in modal instead of silent failure
+
+### Fixed
+- **2FA Modal CSS Selectors**: Renamed `2fa-modal` IDs to `twofa-modal` for valid CSS
+- **Session Lock**: Added locking to prevent concurrent operations on same session
+- **Telegram Timeout**: Added 30-second timeout for Telegram API operations to prevent hangs
+
+### Security
+- **Input Validation**: Added validation for auth endpoint inputs (phone, code, password)
+- **Rate Limiting**: Event bus prevents flooding from rapid status changes
+
+### Testing
+- **E2E Tests**: End-to-end test for realtime status updates
+- **Integration Tests**: SSE endpoint connection and event delivery tests
+- **Loading State Tests**: Coverage for all 6 action button loading states
+
 ## [0.6.4] - 2026-02-02
 
 ### Fixed
@@ -376,7 +410,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.1...v0.6.2
