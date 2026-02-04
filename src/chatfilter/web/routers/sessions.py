@@ -2610,10 +2610,20 @@ async def connect_session(
         session_manager.register(safe_name, loader)
 
         # Connect with timeout (30 seconds)
-        await asyncio.wait_for(
-            session_manager.connect(safe_name),
-            timeout=30.0
-        )
+        # Use try/finally to ensure session state cleanup on timeout
+        try:
+            await asyncio.wait_for(
+                session_manager.connect(safe_name),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            # Ensure session state is set to error even if outer timeout fires
+            # before SessionManager's internal timeout handling completes
+            if safe_name in session_manager._sessions:
+                from chatfilter.telegram.session_manager import SessionState
+                session_manager._sessions[safe_name].state = SessionState.ERROR
+                session_manager._sessions[safe_name].error_message = "Connection timeout"
+            raise
 
         # Get updated state
         info = session_manager.get_info(safe_name)
