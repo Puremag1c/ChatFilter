@@ -191,28 +191,19 @@
         }
     });
 
-    // Handle SSE connection errors - show persistent indicator
+    // Handle SSE connection errors - show persistent banner when connection drops
     document.body.addEventListener('htmx:sseError', function(evt) {
-        // Show persistent SSE error indicator in header
-        const sseStatus = document.getElementById('sse-status');
-        if (sseStatus) {
-            sseStatus.style.display = 'flex';
+        console.error('[SSE] Connection error:', evt.detail);
+
+        // Show persistent banner to inform user that realtime updates stopped
+        if (typeof SSEStatusBanner !== 'undefined') {
+            SSEStatusBanner.show();
         }
 
-        // Also show a toast notification
+        // Also show a brief toast for immediate feedback
         if (typeof ToastManager !== 'undefined') {
-            ToastManager.warning('{{ _("Realtime updates disconnected. Please refresh the page to restore.") }}', {
-                duration: 8000,
-                actions: [{
-                    label: '{{ _("Refresh") }}',
-                    class: 'retry',
-                    action: 'refresh',
-                    callback: () => window.location.reload()
-                }, {
-                    label: '{{ _("Dismiss") }}',
-                    class: 'dismiss',
-                    action: 'dismiss'
-                }]
+            ToastManager.warning('{{ _("Connection lost. Real-time updates paused.") }}', {
+                duration: 4000
             });
         }
     });

@@ -54,6 +54,24 @@
             </div>
         </nav>
     </header>
+
+    <!-- SSE Connection Status Banner (hidden by default, shown on connection failure) -->
+    <div id="sse-status-banner" class="sse-status-banner" role="alert" aria-live="assertive" style="display: none;">
+        <div class="banner-content">
+            <span class="banner-icon" aria-hidden="true">⚠</span>
+            <div class="banner-message">
+                <strong>{{ _("Real-time updates paused") }}</strong>
+                <span>{{ _("Connection lost. Please refresh to restore live status updates.") }}</span>
+            </div>
+            <button class="banner-action" onclick="window.location.reload()" aria-label="{{ _("Refresh page to reconnect") }}">
+                {{ _("Refresh Now") }}
+            </button>
+            <button class="banner-close" onclick="SSEStatusBanner.hide()" aria-label="{{ _("Dismiss banner") }}">
+                &times;
+            </button>
+        </div>
+    </div>
+
     <main id="main-content" role="main">
         {% block content %}{% endblock %}
     </main>
@@ -781,6 +799,172 @@
 
         // Make monitor globally accessible
         window.NetworkStatusMonitor = NetworkStatusMonitor;
+    </script>
+
+    <!-- SSE Connection Status Banner Manager -->
+    <script>
+        const SSEStatusBanner = {
+            banner: null,
+            visible: false,
+
+            init() {
+                this.banner = document.getElementById('sse-status-banner');
+            },
+
+            show() {
+                if (!this.banner) this.init();
+                if (!this.banner || this.visible) return;
+
+                this.banner.style.display = 'block';
+                this.visible = true;
+
+                // Add CSS styles dynamically if not already present
+                if (!document.getElementById('sse-banner-styles')) {
+                    const style = document.createElement('style');
+                    style.id = 'sse-banner-styles';
+                    style.textContent = `
+                        .sse-status-banner {
+                            position: sticky;
+                            top: 0;
+                            z-index: 1000;
+                            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                            color: white;
+                            padding: 12px 20px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                            animation: slideDown 0.3s ease-out;
+                        }
+
+                        @keyframes slideDown {
+                            from {
+                                transform: translateY(-100%);
+                                opacity: 0;
+                            }
+                            to {
+                                transform: translateY(0);
+                                opacity: 1;
+                            }
+                        }
+
+                        .sse-status-banner .banner-content {
+                            display: flex;
+                            align-items: center;
+                            gap: 16px;
+                            max-width: 1200px;
+                            margin: 0 auto;
+                        }
+
+                        .sse-status-banner .banner-icon {
+                            font-size: 24px;
+                            flex-shrink: 0;
+                        }
+
+                        .sse-status-banner .banner-message {
+                            flex: 1;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 4px;
+                        }
+
+                        .sse-status-banner .banner-message strong {
+                            font-size: 16px;
+                            font-weight: 600;
+                        }
+
+                        .sse-status-banner .banner-message span {
+                            font-size: 14px;
+                            opacity: 0.95;
+                        }
+
+                        .sse-status-banner .banner-action {
+                            background: white;
+                            color: #ee5a24;
+                            border: none;
+                            padding: 8px 20px;
+                            border-radius: 4px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: transform 0.2s, box-shadow 0.2s;
+                            flex-shrink: 0;
+                        }
+
+                        .sse-status-banner .banner-action:hover {
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        }
+
+                        .sse-status-banner .banner-close {
+                            background: transparent;
+                            border: none;
+                            color: white;
+                            font-size: 28px;
+                            line-height: 1;
+                            cursor: pointer;
+                            padding: 0;
+                            width: 32px;
+                            height: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            border-radius: 4px;
+                            transition: background 0.2s;
+                            flex-shrink: 0;
+                        }
+
+                        .sse-status-banner .banner-close:hover {
+                            background: rgba(255,255,255,0.2);
+                        }
+
+                        @media (max-width: 768px) {
+                            .sse-status-banner .banner-content {
+                                flex-wrap: wrap;
+                                gap: 12px;
+                            }
+
+                            .sse-status-banner .banner-message {
+                                flex-basis: 100%;
+                                order: 1;
+                            }
+
+                            .sse-status-banner .banner-icon {
+                                order: 0;
+                            }
+
+                            .sse-status-banner .banner-action {
+                                order: 2;
+                                flex: 1;
+                            }
+
+                            .sse-status-banner .banner-close {
+                                order: 3;
+                            }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
+                console.log('[SSE Banner] Shown - connection lost');
+            },
+
+            hide() {
+                if (!this.banner || !this.visible) return;
+
+                this.banner.style.display = 'none';
+                this.visible = false;
+                console.log('[SSE Banner] Hidden');
+            },
+
+            isVisible() {
+                return this.visible;
+            }
+        };
+
+        // Make globally accessible
+        window.SSEStatusBanner = SSEStatusBanner;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            SSEStatusBanner.init();
+        });
     </script>
 
     <!-- Analysis State Tracker for beforeunload protection -->
