@@ -4162,6 +4162,14 @@ async def session_events(request: Request):
     Returns:
         StreamingResponse: SSE stream with session status events
     """
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import get_auth_state_manager
+    from chatfilter.web.dependencies import get_session_manager
+
+    templates = get_templates()
+    session_manager = get_session_manager()
+    auth_manager = get_auth_state_manager()
+
     # Queue for this client's events
     event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
 
@@ -4186,12 +4194,30 @@ async def session_events(request: Request):
 
                     session_id, new_status = event
 
-                    # Format as SSE
-                    event_data = json.dumps({
-                        "session_id": session_id,
-                        "status": new_status
-                    })
-                    yield f"event: message\ndata: {event_data}\n\n"
+                    # Get full session data for this session
+                    all_sessions = list_stored_sessions(session_manager, auth_manager)
+                    session_data = next(
+                        (s for s in all_sessions if s.session_id == session_id),
+                        None
+                    )
+
+                    if session_data:
+                        # Render session row HTML with hx-swap-oob
+                        html = templates.get_template("partials/session_row.html").render(
+                            session=session_data
+                        )
+                        # Add hx-swap-oob="true" to both rows (main row + config row)
+                        # The template renders two <tr> elements that need OOB swaps
+                        html_with_oob = html.replace(
+                            f'<tr id="session-{session_id}"',
+                            f'<tr id="session-{session_id}" hx-swap-oob="true"'
+                        ).replace(
+                            f'<tr class="config-row" id="session-config-row-{session_id}"',
+                            f'<tr class="config-row" id="session-config-row-{session_id}" hx-swap-oob="true"'
+                        )
+                        # Minify: remove newlines for SSE single-line data format
+                        html_compact = html_with_oob.replace('\n', ' ').replace('  ', ' ')
+                        yield f"event: message\ndata: {html_compact}\n\n"
 
                 except asyncio.TimeoutError:
                     # Send keepalive comment to prevent timeout

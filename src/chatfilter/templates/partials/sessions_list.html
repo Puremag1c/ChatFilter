@@ -7,7 +7,8 @@
 <div class="accounts-table-container"
      hx-ext="sse"
      sse-connect="/api/sessions/events"
-     sse-swap="message">
+     sse-swap="message"
+     hx-swap="none">
     <table class="accounts-table" role="grid">
         <thead>
             <tr>
@@ -209,44 +210,9 @@
 
 <script>
 (function() {
-    // SSE event handling for real-time session updates
-    document.body.addEventListener('htmx:sseMessage', async function(evt) {
-        try {
-            const data = JSON.parse(evt.detail.data);
-            if (data.session_id) {
-                // Fetch full sessions list
-                const response = await fetch('/api/sessions', {
-                    headers: {'Accept': 'text/html'}
-                });
-
-                if (response.ok) {
-                    const htmlText = await response.text();
-
-                    // Parse HTML to extract updated row
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(htmlText, 'text/html');
-                    const updatedRow = doc.getElementById('session-' + data.session_id);
-                    const currentRow = document.getElementById('session-' + data.session_id);
-
-                    if (updatedRow && currentRow) {
-                        // Also need to update the config row
-                        const updatedConfigRow = doc.getElementById('session-config-row-' + data.session_id);
-                        const currentConfigRow = document.getElementById('session-config-row-' + data.session_id);
-
-                        // Replace main row
-                        currentRow.outerHTML = updatedRow.outerHTML;
-
-                        // Replace config row if it exists
-                        if (updatedConfigRow && currentConfigRow) {
-                            currentConfigRow.outerHTML = updatedConfigRow.outerHTML;
-                        }
-                    }
-                }
-            }
-        } catch (e) {
-            // Ignore parse errors for keepalive messages and network errors
-        }
-    });
+    // SSE event handling: HTMX SSE extension receives HTML with hx-swap-oob="true"
+    // OOB (Out-of-Band) swaps update individual session rows by ID
+    // hx-swap="none" prevents replacing the container - only OOB elements are updated
 
     // Toggle config panel visibility when HTMX loads content
     document.body.addEventListener('htmx:afterSwap', function(evt) {
