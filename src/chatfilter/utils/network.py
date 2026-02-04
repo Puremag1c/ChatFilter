@@ -316,18 +316,42 @@ def detect_network_error(error: Exception) -> bool:
         ```
     """
     # Check exception type
+    # Note: socket.error is an alias for OSError since Python 3.3
+    # We handle OSError separately below to filter by errno
     if isinstance(
         error,
         ConnectionError
         | TimeoutError
         | asyncio.TimeoutError
-        | OSError
-        | socket.error
         | socket.gaierror
         | socket.timeout
         | NetworkOfflineError,
     ):
         return True
+
+    # Special handling for OSError (includes PermissionError, FileNotFoundError, etc)
+    # Only treat OSError as network error if errno is network-related
+    if isinstance(error, OSError):
+        import errno
+
+        # Network-related errno codes
+        network_errno = {
+            errno.ENETUNREACH,  # Network is unreachable
+            errno.EHOSTUNREACH,  # Host is unreachable
+            errno.ENETDOWN,  # Network is down
+            errno.ECONNREFUSED,  # Connection refused
+            errno.ECONNRESET,  # Connection reset
+            errno.ECONNABORTED,  # Connection aborted
+            errno.ETIMEDOUT,  # Connection timed out
+            errno.EHOSTDOWN,  # Host is down
+        }
+
+        # Only treat OSError as network error if errno matches
+        if error.errno in network_errno:
+            return True
+
+        # Otherwise, it's a filesystem/permission error, not network
+        return False
 
     # Check exception message for network keywords
     error_msg = str(error).lower()
