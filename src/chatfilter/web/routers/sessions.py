@@ -2240,6 +2240,14 @@ async def submit_auth_2fa(
     templates = get_templates()
     auth_manager = get_auth_state_manager()
 
+    # Validate input parameters
+    if not isinstance(password, str) or len(password) > 256:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Invalid password: must be at most 256 characters.")},
+        )
+
     # Get auth state
     auth_state = await auth_manager.get_auth_state(auth_id)
     if not auth_state:
