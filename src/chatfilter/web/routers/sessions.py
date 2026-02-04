@@ -2639,8 +2639,8 @@ async def connect_session(
         info = session_manager.get_info(safe_name)
         state = info.state.value if info else "disconnected"
 
-        # Publish state change event for SSE
-        await get_event_bus().publish(safe_name, state)
+        # Don't publish SSE - HTTP response will update the row, avoiding race condition
+        # If we publish here, SSE updates DOM before htmx HTTP response swap, causing htmx:swapError
 
         # Create session object for template
         session_data = {
@@ -2661,8 +2661,7 @@ async def connect_session(
         error_message = _("Connection timeout: Telegram API did not respond within 30 seconds. Please try again.")
         error_state = "error"
 
-        # Publish state change event for SSE
-        await get_event_bus().publish(safe_name, error_state)
+        # Don't publish SSE - HTTP response will update the row, avoiding race condition
 
         # Create session object for template with error
         session_data = {
@@ -2694,8 +2693,7 @@ async def connect_session(
         # Classify error state based on exception type
         error_state = classify_error_state(error_message, exception=e)
 
-        # Publish state change event for SSE
-        await get_event_bus().publish(safe_name, error_state)
+        # Don't publish SSE - HTTP response will update the row, avoiding race condition
 
         # Create session object for template with error
         session_data = {
