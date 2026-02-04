@@ -1,4 +1,83 @@
-"""Sessions router for session file upload and management."""
+"""Sessions router for session file upload and management.
+
+Session Status State Machine
+============================
+
+This module implements a finite state machine for session status transitions.
+Each transition triggers both an HTML response update and an SSE event publication.
+
+States
+------
+- disconnected: Session is ready but not connected to Telegram
+- connected: Session is actively connected to Telegram
+- connecting: Transient state during connection establishment
+- disconnecting: Transient state during disconnection
+- needs_code: Waiting for SMS/app verification code
+- needs_2fa: Waiting for 2FA password
+- needs_api_id: Missing API ID/hash configuration
+- proxy_missing: Configured proxy not found in pool
+- session_expired: Session auth key is invalid, needs reconnect
+- corrupted_session: Session file is corrupt, cannot recover
+- banned: Account banned by Telegram
+- flood_wait: Rate limited, temporary wait required
+- proxy_error: Proxy connection failed
+- error: Generic error state
+
+Transition Matrix
+-----------------
+From State          | Action/Event           | To State      | SSE Event | Endpoint
+--------------------|------------------------|---------------|-----------|----------------------------------
+disconnected        | connect button         | connecting    | -         | POST /api/sessions/{id}/connect
+connecting          | connection success     | connected     | connected | POST /api/sessions/{id}/connect
+connecting          | connection failure     | error/*       | error/*   | POST /api/sessions/{id}/connect
+connected           | disconnect button      | disconnecting | -         | POST /api/sessions/{id}/disconnect
+disconnecting       | disconnect success     | disconnected  | disconn.  | POST /api/sessions/{id}/disconnect
+disconnecting       | disconnect failure     | error         | error     | POST /api/sessions/{id}/disconnect
+session_expired     | reconnect button       | needs_code    | needs_code| POST /api/sessions/{id}/send-code
+needs_code          | code verified          | connected     | connected | POST /api/sessions/{id}/verify-code
+needs_code          | code verified + 2FA    | needs_2fa     | needs_2fa | POST /api/sessions/{id}/verify-code
+needs_code          | code invalid           | needs_code    | -         | POST /api/sessions/{id}/verify-code
+needs_2fa           | password verified      | connected     | connected | POST /api/sessions/{id}/verify-2fa
+needs_2fa           | password invalid       | needs_2fa     | -         | POST /api/sessions/{id}/verify-2fa
+error               | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
+proxy_error         | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
+flood_wait          | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
+
+Error State Classification
+--------------------------
+Errors are classified by `classify_error_state()` function:
+- session_expired: AuthKeyUnregistered, SessionRevoked, SessionExpired
+- banned: UserDeactivated, UserDeactivatedBan, PhoneNumberBanned
+- flood_wait: FloodWaitError, SlowModeWaitError
+- proxy_error: OSError, ConnectionError, ConnectionRefused
+- corrupted_session: SessionFileError, invalid database
+- error: Generic/unknown errors
+
+SSE Event Publishing
+--------------------
+Events are published via `get_event_bus().publish(session_id, status)`.
+The SSE endpoint is at GET /api/sessions/events.
+
+All status-changing endpoints publish SSE events:
+- connect_session: publishes on success (connected) or failure (error state)
+- disconnect_session: publishes on success (disconnected) or failure (error)
+- send_code: publishes needs_code on code sent
+- verify_code: publishes connected or needs_2fa on success
+- verify_2fa: publishes connected on success
+
+Loading States in UI (session_row.html)
+---------------------------------------
+The template shows spinner indicators via htmx:
+- hx-indicator="#connection-spinner-{id}" on connect/disconnect buttons
+- hx-disabled-elt="this" disables button during request
+- connecting/disconnecting states show disabled button with spinner
+
+Template State Handling:
+- Each state has specific button rendering (connect/disconnect/retry/configure)
+- Error states show title attribute with error message
+- needs_code/needs_2fa show modal trigger buttons
+- banned/corrupted show disabled buttons (non-recoverable)
+"""
 
 from __future__ import annotations
 
