@@ -348,15 +348,21 @@
         result.textContent = '';
 
         try {
-            // Send POST request
+            // Send POST request with 10s timeout
             const formData = new FormData();
             formData.append('auth_id', authId);
             formData.append('code', code);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
             const response = await fetch(`/api/sessions/${sessionId}/verify-code`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             const html = await response.text();
 
@@ -382,8 +388,11 @@
                 submitBtn.textContent = '{{ _("Verify") }}';
             }
         } catch (error) {
-            // Network error - re-enable button for retry
-            result.textContent = `Error: ${error.message}`;
+            // Network error or timeout - re-enable button for retry
+            const errorMsg = error.name === 'AbortError'
+                ? 'Request timeout. Please try again.'
+                : `Error: ${error.message}`;
+            result.textContent = errorMsg;
             result.className = 'modal-result error';
             submitBtn.disabled = false;
             submitBtn.textContent = '{{ _("Verify") }}';
@@ -426,15 +435,21 @@
         result.textContent = '';
 
         try {
-            // Send POST request
+            // Send POST request with 10s timeout
             const formData = new FormData();
             formData.append('auth_id', authId);
             formData.append('password', password);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
             const response = await fetch(`/api/sessions/${sessionId}/verify-2fa`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             const html = await response.text();
 
@@ -460,8 +475,11 @@
                 submitBtn.textContent = '{{ _("Verify") }}';
             }
         } catch (error) {
-            // Network error - re-enable button for retry
-            result.textContent = `Error: ${error.message}`;
+            // Network error or timeout - re-enable button for retry
+            const errorMsg = error.name === 'AbortError'
+                ? 'Request timeout. Please try again.'
+                : `Error: ${error.message}`;
+            result.textContent = errorMsg;
             result.className = 'modal-result error';
             submitBtn.disabled = false;
             submitBtn.textContent = '{{ _("Verify") }}';
