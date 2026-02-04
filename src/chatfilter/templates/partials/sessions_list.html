@@ -98,10 +98,24 @@
 
     // Handle SSE connection errors - notify user when connection drops
     document.body.addEventListener('htmx:sseError', function(evt) {
+        console.error('[SSE] Connection error:', evt.detail);
         if (typeof ToastManager !== 'undefined') {
             ToastManager.warning('{{ _("Connection lost. Reconnecting...") }}', {
                 duration: 5000
             });
+        }
+    });
+
+    // Log SSE message parsing errors (except keepalive/empty messages)
+    document.body.addEventListener('htmx:sseBeforeMessage', function(evt) {
+        const data = evt.detail.data;
+        // Skip logging for keepalive (empty or whitespace-only messages)
+        if (!data || !data.trim()) {
+            return;
+        }
+        // If data looks like it should be HTML but isn't valid, log it
+        if (data.trim() && !data.trim().startsWith('<') && !data.trim().startsWith('{')) {
+            console.error('[SSE] Unexpected message format:', data.substring(0, 200));
         }
     });
 
