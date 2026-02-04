@@ -3005,6 +3005,7 @@ async def send_code(
                 "session_name": safe_name,
                 "session_id": session_id,
             },
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except PhoneNumberInvalidError:
