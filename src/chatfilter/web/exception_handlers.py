@@ -10,15 +10,21 @@ from typing import TYPE_CHECKING
 
 from fastapi import Request, status
 from fastapi.exceptions import HTTPException, RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from chatfilter.utils.network import NetworkOfflineError, detect_network_error
+from chatfilter.utils.paths import get_base_path
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
+
+# Initialize templates for error pages
+TEMPLATES_DIR = get_base_path() / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def _get_error_id(request: Request) -> str:
@@ -26,7 +32,60 @@ def _get_error_id(request: Request) -> str:
     return getattr(request.state, "request_id", "unknown")
 
 
-async def http_exception_handler(request: Request, exc: HTTPException | Exception) -> JSONResponse:
+def _accepts_html(request: Request) -> bool:
+    """Check if request accepts HTML responses.
+
+    Returns True if the client prefers HTML (browser), False otherwise (API client).
+    """
+    accept = request.headers.get("accept", "")
+    return "text/html" in accept and "application/json" not in accept.split(",")[0]
+
+
+def _render_error_html(
+    request: Request,
+    status_code: int,
+    error_title: str,
+    error_message: str,
+    error_hint: str | None = None,
+    error_id: str | None = None,
+) -> HTMLResponse:
+    """Render an error page using the error.html template.
+
+    Args:
+        request: FastAPI request object
+        status_code: HTTP status code
+        error_title: Title for the error page
+        error_message: Main error message
+        error_hint: Optional hint/suggestion for the user
+        error_id: Optional request ID for debugging
+
+    Returns:
+        HTMLResponse with rendered error page
+    """
+    from chatfilter import __version__
+    from chatfilter.web.template_helpers import get_template_context
+
+    # Use standard template context helper for consistency
+    context = get_template_context(
+        request,
+        status_code=status_code,
+        error_title=error_title,
+        error_message=error_message,
+        error_hint=error_hint,
+        request_id=error_id,
+        version=__version__,
+    )
+
+    return templates.TemplateResponse(
+        "error.html",
+        context=context,
+        status_code=status_code,
+    )
+
+
+async def http_exception_handler(
+    request: Request, exc: HTTPException | Exception
+) -> JSONResponse | HTMLResponse:
     """Handle HTTPException with consistent formatting.
 
     Args:
@@ -34,7 +93,7 @@ async def http_exception_handler(request: Request, exc: HTTPException | Exceptio
         exc: HTTPException instance (FastAPI or Starlette)
 
     Returns:
-        JSONResponse with error details
+        JSONResponse or HTMLResponse depending on client Accept header
     """
     error_id = _get_error_id(request)
 
@@ -47,6 +106,29 @@ async def http_exception_handler(request: Request, exc: HTTPException | Exceptio
         f"HTTP {exc.status_code} error: {exc.detail} "
         f"(request_id={error_id}, path={request.url.path})"
     )
+
+    # Check if client accepts HTML (browser)
+    if _accepts_html(request):
+        # Map status codes to titles
+        status_titles = {
+            400: "Bad Request",
+            401: "Unauthorized",
+            403: "Forbidden",
+            404: "Not Found",
+            422: "Invalid Input",
+            500: "Internal Server Error",
+            503: "Service Unavailable",
+        }
+        error_title = status_titles.get(exc.status_code, f"Error {exc.status_code}")
+
+        return _render_error_html(
+            request=request,
+            status_code=exc.status_code,
+            error_title=error_title,
+            error_message=str(exc.detail),
+            error_hint=None,
+            error_id=error_id,
+        )
 
     return JSONResponse(
         status_code=exc.status_code,
@@ -95,7 +177,9 @@ async def validation_exception_handler(
     )
 
 
-async def network_error_handler(request: Request, exc: Exception) -> JSONResponse:
+async def network_error_handler(
+    request: Request, exc: Exception
+) -> JSONResponse | HTMLResponse:
     """Handle network-related errors with user-friendly messages.
 
     This handler detects network connectivity issues and provides clear
@@ -106,7 +190,7 @@ async def network_error_handler(request: Request, exc: Exception) -> JSONRespons
         exc: Exception instance (network-related)
 
     Returns:
-        JSONResponse with network error details
+        JSONResponse or HTMLResponse depending on client Accept header
     """
     error_id = _get_error_id(request)
 
@@ -130,6 +214,18 @@ async def network_error_handler(request: Request, exc: Exception) -> JSONRespons
         error_message = "Network error occurred."
         error_hint = "Please check your internet connection and try again."
 
+    # Check if client accepts HTML (browser)
+    if _accepts_html(request):
+        return _render_error_html(
+            request=request,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            error_title="Service Unavailable",
+            error_message=error_message,
+            error_hint=error_hint,
+            error_id=error_id,
+        )
+
+    # Return JSON for API clients
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={
@@ -142,7 +238,9 @@ async def network_error_handler(request: Request, exc: Exception) -> JSONRespons
     )
 
 
-async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+async def general_exception_handler(
+    request: Request, exc: Exception
+) -> JSONResponse | HTMLResponse:
     """Handle all unhandled exceptions with production-safe error messages.
 
     In debug mode: Returns detailed error information including exception type
@@ -155,7 +253,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         exc: Exception instance
 
     Returns:
-        JSONResponse with error details (sanitized in production)
+        JSONResponse or HTMLResponse depending on client Accept header
     """
     error_id = _get_error_id(request)
 
@@ -171,6 +269,23 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
     # Get debug mode from app settings
     debug_mode = getattr(request.app.state, "settings", None)
     debug_mode = getattr(debug_mode, "debug", False) if debug_mode else False
+
+    error_message = (
+        f"Internal server error: {type(exc).__name__}: {exc}"
+        if debug_mode
+        else "An internal error occurred. Please try again later."
+    )
+
+    # Check if client accepts HTML (browser)
+    if _accepts_html(request):
+        return _render_error_html(
+            request=request,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_title="Internal Server Error",
+            error_message=error_message,
+            error_hint="If this problem persists, please contact support.",
+            error_id=error_id,
+        )
 
     if debug_mode:
         # In debug mode, return detailed error information

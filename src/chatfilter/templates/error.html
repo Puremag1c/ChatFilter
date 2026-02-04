@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_title }} - ChatFilter{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-container">
+        <div class="error-icon" aria-hidden="true">
+            {% if status_code == 503 %}⚠️{% elif status_code >= 500 %}❌{% else %}⚠️{% endif %}
+        </div>
+
+        <h1 class="error-title">{{ error_title }}</h1>
+
+        <div class="error-message">
+            <p>{{ error_message }}</p>
+            {% if error_hint %}
+            <p class="error-hint">{{ error_hint }}</p>
+            {% endif %}
+        </div>
+
+        <div class="error-actions">
+            <button onclick="window.location.reload()" class="button button-primary">
+                {{ _("Retry") }}
+            </button>
+            <a href="/" class="button button-secondary">
+                {{ _("Go to Home") }}
+            </a>
+        </div>
+
+        {% if request_id %}
+        <div class="error-details">
+            <p class="error-request-id">{{ _("Request ID") }}: <code>{{ request_id }}</code></p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.error-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 2rem;
+}
+
+.error-container {
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 3rem 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.error-icon {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+}
+
+.error-title {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.error-message {
+    margin-bottom: 2rem;
+}
+
+.error-message p {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+
+.error-hint {
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.error-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+}
+
+.error-actions .button {
+    min-width: 120px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s;
+}
+
+.button-primary {
+    background: var(--primary-color, #007bff);
+    color: white;
+    border: none;
+}
+
+.button-primary:hover {
+    background: var(--primary-hover, #0056b3);
+}
+
+.button-secondary {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.button-secondary:hover {
+    background: var(--bg-hover);
+}
+
+.error-details {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.error-request-id {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.error-request-id code {
+    background: var(--bg-primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}
