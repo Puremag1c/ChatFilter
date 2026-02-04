@@ -214,6 +214,15 @@
     // OOB (Out-of-Band) swaps update individual session rows by ID
     // hx-swap="none" prevents replacing the container - only OOB elements are updated
 
+    // Handle SSE connection errors - notify user when connection drops
+    document.body.addEventListener('htmx:sseError', function(evt) {
+        if (typeof ToastManager !== 'undefined') {
+            ToastManager.warning('{{ _("Connection lost. Reconnecting...") }}', {
+                duration: 5000
+            });
+        }
+    });
+
     // Toggle config panel visibility when HTMX loads content
     document.body.addEventListener('htmx:afterSwap', function(evt) {
         if (evt.detail.target.classList.contains('session-config-panel')) {
