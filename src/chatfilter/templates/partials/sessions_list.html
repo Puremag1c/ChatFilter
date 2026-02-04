@@ -412,14 +412,18 @@
     });
 
     // Code modal submit handler
+    let codeModalProcessing = false;
     document.body.addEventListener('click', async function(e) {
         const submitBtn = e.target.closest('#code-modal-submit');
         if (!submitBtn) return;
 
         // Prevent double-submit: check if already processing
-        if (submitBtn.disabled) {
+        if (codeModalProcessing || submitBtn.disabled) {
             return;
         }
+
+        // Set flag immediately to block rapid clicks
+        codeModalProcessing = true;
 
         const modal = document.getElementById('code-modal');
         const sessionId = modal.dataset.sessionId;
@@ -479,12 +483,14 @@
                     });
                 }
                 // Note: button stays disabled, modal closes
+                codeModalProcessing = false;
             } else {
                 // Error - show in modal and re-enable button for retry
                 result.innerHTML = html;
                 result.className = 'modal-result error';
                 submitBtn.disabled = false;
                 submitBtn.textContent = '{{ _("Verify") }}';
+                codeModalProcessing = false;
             }
         } catch (error) {
             // Network error or timeout - re-enable button for retry
@@ -495,18 +501,23 @@
             result.className = 'modal-result error';
             submitBtn.disabled = false;
             submitBtn.textContent = '{{ _("Verify") }}';
+            codeModalProcessing = false;
         }
     });
 
     // 2FA modal submit handler
+    let twofaModalProcessing = false;
     document.body.addEventListener('click', async function(e) {
         const submitBtn = e.target.closest('#twofa-modal-submit');
         if (!submitBtn) return;
 
         // Prevent double-submit: check if already processing
-        if (submitBtn.disabled) {
+        if (twofaModalProcessing || submitBtn.disabled) {
             return;
         }
+
+        // Set flag immediately to block rapid clicks
+        twofaModalProcessing = true;
 
         const modal = document.getElementById('twofa-modal');
         const sessionId = modal.dataset.sessionId;
@@ -566,12 +577,14 @@
                     });
                 }
                 // Note: button stays disabled, modal closes
+                twofaModalProcessing = false;
             } else {
                 // Error - show in modal and re-enable button for retry
                 result.innerHTML = html;
                 result.className = 'modal-result error';
                 submitBtn.disabled = false;
                 submitBtn.textContent = '{{ _("Verify") }}';
+                twofaModalProcessing = false;
             }
         } catch (error) {
             // Network error or timeout - re-enable button for retry
@@ -582,6 +595,7 @@
             result.className = 'modal-result error';
             submitBtn.disabled = false;
             submitBtn.textContent = '{{ _("Verify") }}';
+            twofaModalProcessing = false;
         }
     });
 })();
