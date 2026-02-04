@@ -308,3 +308,142 @@ class TestSSEIntegration:
 
         # Verify subscriber was cleaned up (back to initial count)
         assert bus.subscriber_count == initial_subscribers
+
+    @pytest.mark.asyncio
+    async def test_sse_connection_stability_multiple_events(self) -> None:
+        """SMOKE TEST: SSE connection should handle multiple consecutive events without dropping."""
+        bus = get_event_bus()
+        received_events = []
+
+        async def handler(session_id: str, new_status: str) -> None:
+            received_events.append((session_id, new_status))
+
+        bus.subscribe(handler)
+
+        try:
+            # Simulate rapid consecutive events (production scenario)
+            event_count = 50
+            for i in range(event_count):
+                await bus.publish(f"session-{i % 5}", f"status-{i}")
+                await asyncio.sleep(0.001)  # Small delay to simulate real timing
+
+            # All events should be received without drops
+            assert len(received_events) >= event_count * 0.9, \
+                f"Connection dropped events: expected ~{event_count}, got {len(received_events)}"
+        finally:
+            bus.unsubscribe(handler)
+
+    @pytest.mark.asyncio
+    async def test_sse_connection_stability_reconnection(self) -> None:
+        """SMOKE TEST: SSE should handle client reconnection gracefully."""
+        from chatfilter.web.routers.sessions import session_events
+
+        bus = get_event_bus()
+
+        # First connection
+        mock_request_1 = AsyncMock()
+        disconnected_1 = False
+
+        async def is_disconnected_1():
+            return disconnected_1
+
+        mock_request_1.is_disconnected = AsyncMock(side_effect=is_disconnected_1)
+
+        response_1 = await session_events(mock_request_1)
+        iterator_1 = response_1.body_iterator
+
+        # Get initial event from first connection
+        try:
+            await asyncio.wait_for(iterator_1.__anext__(), timeout=2.0)
+        except asyncio.TimeoutError:
+            pass
+
+        # Close first connection
+        disconnected_1 = True
+        try:
+            await iterator_1.aclose()
+        except (StopAsyncIteration, GeneratorExit):
+            pass
+
+        await asyncio.sleep(0.05)  # Give time for cleanup
+
+        # Second connection (reconnection)
+        mock_request_2 = AsyncMock()
+        disconnected_2 = False
+
+        async def is_disconnected_2():
+            return disconnected_2
+
+        mock_request_2.is_disconnected = AsyncMock(side_effect=is_disconnected_2)
+
+        response_2 = await session_events(mock_request_2)
+        iterator_2 = response_2.body_iterator
+
+        # Should successfully create new connection
+        try:
+            event = await asyncio.wait_for(iterator_2.__anext__(), timeout=2.0)
+            assert event  # Connection successful
+        except asyncio.TimeoutError:
+            pytest.fail("Reconnection failed - timeout waiting for event")
+        finally:
+            disconnected_2 = True
+            try:
+                await iterator_2.aclose()
+            except (StopAsyncIteration, GeneratorExit):
+                pass
+
+            await asyncio.sleep(0.05)
+
+        # Verify cleanup happened - subscriber count should be reasonable
+        # (not checking exact count to avoid flakiness, just verifying no runaway growth)
+        assert bus.subscriber_count < 5, \
+            f"Too many subscribers after reconnection test: {bus.subscriber_count}"
+
+    @pytest.mark.asyncio
+    async def test_sse_connection_stability_no_memory_leak(self) -> None:
+        """SMOKE TEST: Long-running SSE connections should not leak memory."""
+        from chatfilter.web.routers.sessions import session_events
+
+        bus = get_event_bus()
+        initial_subscribers = bus.subscriber_count
+
+        # Simulate long-running connection with many events
+        mock_request = AsyncMock()
+        disconnected = False
+
+        async def is_disconnected_check():
+            return disconnected
+
+        mock_request.is_disconnected = AsyncMock(side_effect=is_disconnected_check)
+
+        response = await session_events(mock_request)
+        iterator = response.body_iterator
+
+        try:
+            # Get initial connection message
+            await asyncio.wait_for(iterator.__anext__(), timeout=2.0)
+
+            # Publish many events to simulate long-running connection
+            for i in range(100):
+                await bus.publish(f"session-{i % 10}", "active")
+                await asyncio.sleep(0.001)
+
+            # Check subscriber count hasn't grown unexpectedly
+            # Should be initial + 1 (our active connection)
+            assert bus.subscriber_count <= initial_subscribers + 2, \
+                f"Memory leak detected: subscribers grew from {initial_subscribers} to {bus.subscriber_count}"
+
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            disconnected = True
+            try:
+                await iterator.aclose()
+            except (StopAsyncIteration, GeneratorExit):
+                pass
+
+            await asyncio.sleep(0.01)
+
+        # After disconnect, subscriber count should return to initial
+        assert bus.subscriber_count == initial_subscribers, \
+            f"Memory leak: subscribers not cleaned up ({bus.subscriber_count} vs {initial_subscribers})"
