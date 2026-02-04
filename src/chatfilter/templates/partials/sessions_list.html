@@ -134,7 +134,7 @@
         if (!element.classList.contains('session-connect-btn') &&
             !element.classList.contains('session-disconnect-btn') &&
             !element.classList.contains('session-code-modal-btn') &&
-            !element.classList.contains('session-twofa-modal-btn')) {
+            !element.classList.contains('session-2fa-modal-btn')) {
             return;
         }
 
@@ -366,7 +366,7 @@
             return;
         }
 
-        const twoFaBtn = e.target.closest('.session-twofa-modal-btn');
+        const twoFaBtn = e.target.closest('.session-2fa-modal-btn');
         if (twoFaBtn) {
             const sessionId = twoFaBtn.dataset.sessionId;
             const authId = twoFaBtn.dataset.authId;
