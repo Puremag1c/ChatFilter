@@ -72,6 +72,10 @@ class SessionEventBus:
     def subscribe(self, callback: Callable[[str, str], Awaitable[None]]) -> None:
         """Subscribe to session status change events.
 
+        Duplicate subscriptions are automatically prevented. If the same callback
+        is already subscribed, this call is a no-op. This guards against subscriber
+        leaks during SSE reconnect scenarios.
+
         Args:
             callback: Async function that receives (session_id, new_status)
         """
