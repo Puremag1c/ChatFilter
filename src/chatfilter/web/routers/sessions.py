@@ -3123,6 +3123,10 @@ async def send_code(
         if "client" in dir() and client.is_connected():
             await asyncio.wait_for(client.disconnect(), timeout=30.0)
         secure_delete_dir(temp_dir)
+
+        # Publish error state to SSE
+        await get_event_bus().publish(safe_name, "error")
+
         return templates.TemplateResponse(
             request=request,
             name="partials/reconnect_result.html",
@@ -3735,6 +3739,10 @@ async def verify_code(
 
     except Exception:
         logger.exception(f"Failed to verify code for session '{safe_name}'")
+
+        # Publish error state to SSE
+        await get_event_bus().publish(safe_name, "error")
+
         # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
@@ -4034,6 +4042,10 @@ async def verify_2fa(
 
     except Exception:
         logger.exception(f"Failed to verify 2FA for session '{safe_name}'")
+
+        # Publish error state to SSE
+        await get_event_bus().publish(safe_name, "error")
+
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_2fa_form.html",
