@@ -422,8 +422,10 @@
             return;
         }
 
-        // Set flag immediately to block rapid clicks
+        // Set flag and disable button immediately to block rapid clicks
         codeModalProcessing = true;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
 
         const modal = document.getElementById('code-modal');
         const sessionId = modal.dataset.sessionId;
@@ -436,18 +438,22 @@
         if (!authId) {
             result.textContent = 'Error: auth_id not found. Please refresh and try again.';
             result.className = 'modal-result error';
+            submitBtn.disabled = false;
+            submitBtn.textContent = '{{ _("Verify") }}';
+            codeModalProcessing = false;
             return;
         }
 
         if (!code) {
             result.textContent = 'Please enter the verification code.';
             result.className = 'modal-result error';
+            submitBtn.disabled = false;
+            submitBtn.textContent = '{{ _("Verify") }}';
+            codeModalProcessing = false;
             return;
         }
 
-        // Disable button and show loading (prevents double-submit)
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Verifying...';
+        // Clear result text after validation passes
         result.textContent = '';
 
         try {
@@ -516,8 +522,10 @@
             return;
         }
 
-        // Set flag immediately to block rapid clicks
+        // Set flag and disable button immediately to block rapid clicks
         twofaModalProcessing = true;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Verifying...';
 
         const modal = document.getElementById('twofa-modal');
         const sessionId = modal.dataset.sessionId;
@@ -530,18 +538,22 @@
         if (!authId) {
             result.textContent = 'Error: auth_id not found. Please refresh and try again.';
             result.className = 'modal-result error';
+            submitBtn.disabled = false;
+            submitBtn.textContent = '{{ _("Verify") }}';
+            twofaModalProcessing = false;
             return;
         }
 
         if (!password) {
             result.textContent = 'Please enter your 2FA password.';
             result.className = 'modal-result error';
+            submitBtn.disabled = false;
+            submitBtn.textContent = '{{ _("Verify") }}';
+            twofaModalProcessing = false;
             return;
         }
 
-        // Disable button and show loading
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Verifying...';
+        // Clear result text after validation passes
         result.textContent = '';
 
         try {
