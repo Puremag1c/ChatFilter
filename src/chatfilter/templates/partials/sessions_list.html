@@ -155,6 +155,69 @@
         // Otherwise let HTMX handle it (fetch and show)
     });
 
+    // Handle HTMX errors for non-modal actions (Connect/Disconnect/Config)
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        const status = evt.detail.xhr?.status;
+        const action = getActionName(evt.detail.elt);
+
+        if (typeof ToastManager !== 'undefined') {
+            let message;
+            if (status === 500) {
+                message = `{{ _("Server error while") }} ${action}. {{ _("Please try again.") }}`;
+            } else if (status === 503) {
+                message = `{{ _("Service temporarily unavailable while") }} ${action}. {{ _("Please try again later.") }}`;
+            } else if (status >= 400 && status < 500) {
+                message = `{{ _("Request failed while") }} ${action}. {{ _("Please check and try again.") }}`;
+            } else {
+                message = `{{ _("Network error while") }} ${action}. {{ _("Please try again.") }}`;
+            }
+            ToastManager.error(message, { duration: 5000 });
+        }
+    });
+
+    // Handle HTMX timeout errors
+    document.body.addEventListener('htmx:timeout', function(evt) {
+        const action = getActionName(evt.detail.elt);
+
+        if (typeof ToastManager !== 'undefined') {
+            ToastManager.error(
+                `{{ _("Request timeout while") }} ${action}. {{ _("Please check your connection and try again.") }}`,
+                { duration: 5000 }
+            );
+        }
+    });
+
+    // Handle general HTMX errors (network failures, etc.)
+    document.body.addEventListener('htmx:sendError', function(evt) {
+        const action = getActionName(evt.detail.elt);
+
+        if (typeof ToastManager !== 'undefined') {
+            ToastManager.error(
+                `{{ _("Connection failed while") }} ${action}. {{ _("Please check your network and try again.") }}`,
+                { duration: 5000 }
+            );
+        }
+    });
+
+    // Helper: Extract action name from button element
+    function getActionName(element) {
+        if (!element) return '{{ _("processing request") }}';
+
+        if (element.classList.contains('session-connect-btn') ||
+            element.closest('.session-connect-btn')) {
+            return '{{ _("connecting") }}';
+        }
+        if (element.classList.contains('session-disconnect-btn') ||
+            element.closest('.session-disconnect-btn')) {
+            return '{{ _("disconnecting") }}';
+        }
+        if (element.classList.contains('session-config-btn') ||
+            element.closest('.session-config-btn')) {
+            return '{{ _("loading configuration") }}';
+        }
+        return '{{ _("processing request") }}';
+    }
+
     // Modal button handlers
     document.body.addEventListener('click', function(e) {
         const codeBtn = e.target.closest('.session-code-modal-btn');
