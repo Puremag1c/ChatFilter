@@ -1239,6 +1239,7 @@ async def upload_session(
             request=request,
             name="partials/upload_result.html",
             context=response_data,
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except Exception:
@@ -1307,7 +1308,7 @@ async def delete_session(session_id: str) -> HTMLResponse:
         ) from e
 
     # Return empty response - HTMX will remove the element
-    return HTMLResponse(content="", status_code=200)
+    return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": "refreshSessions"})
 
 
 @router.post("/api/sessions/import/validate", response_class=HTMLResponse)
@@ -2443,6 +2444,7 @@ async def _complete_auth_flow(
                 "account_info": account_info,
                 "duplicate_sessions": duplicate_sessions,
             },
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except Exception as e:
@@ -3614,6 +3616,7 @@ async def verify_code(
                 "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
                 "session_id": safe_name,
             },
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except SessionPasswordNeededError:
@@ -3932,6 +3935,7 @@ async def verify_2fa(
                 "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
                 "session_id": safe_name,
             },
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except SessionRevokedError:
@@ -4246,6 +4250,7 @@ async def save_import_session(
             request=request,
             name="partials/upload_result.html",
             context=response_data,
+            headers={"HX-Trigger": "refreshSessions"},
         )
 
     except Exception:
