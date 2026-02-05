@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-02-05
+
+### Fixed
+- **Loading Spinner on Connect**: Fixed loading spinner not appearing when clicking Connect button
+  - Root cause: `connect_session` endpoint was synchronous, blocking HTTP response for 30s while awaiting Telegram
+  - Solution: Endpoint now returns immediately with `connecting` state, runs connect in background task
+  - SSE delivers final state (connected/error) when connection completes
+- **JavaScript querySelector Error**: Fixed `querySelector null` JS error on Connect action
+  - Caused by attempts to manipulate DOM elements that didn't exist due to architectural mismatch
+  - Resolved by architectural fix above - no more client-side spinner manipulation needed
+- **HTMX swapError on Connect**: Fixed HTMX swap errors during connection attempts
+  - Added proper error handling for race conditions between SSE updates and HTMX responses
+
+### Changed
+- **Connect Architecture**: `connect_session` endpoint is now non-blocking
+  - Returns row with `connecting` state immediately (<100ms response)
+  - Background task handles actual Telegram connection
+  - Realtime updates delivered via existing SSE infrastructure
+
 ## [0.7.1] - 2026-02-04
 
 ### Fixed
@@ -423,7 +442,9 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.2...v0.6.3
