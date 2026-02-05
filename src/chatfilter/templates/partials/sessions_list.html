@@ -145,16 +145,10 @@
 
         if (!sessionId) return;
 
-        // Explicitly hide Connect/Disconnect buttons and show loading indicator
+        // Explicitly hide Connect/Disconnect buttons during operation
         if (element.classList.contains('session-connect-btn') ||
             element.classList.contains('session-disconnect-btn')) {
             element.style.display = 'none';
-
-            // Show the loading indicator in status cell
-            const indicator = document.getElementById(`status-loading-${sessionId}`);
-            if (indicator) {
-                indicator.style.display = 'inline-block';
-            }
         }
 
         const startTime = Date.now();
@@ -185,13 +179,9 @@
                 feedback.remove();
             }
 
-            // Reset button visibility and hide indicator
+            // Reset button visibility
             if (timer.element) {
                 timer.element.style.display = '';
-            }
-            const indicator = document.getElementById(`status-loading-${sessionId}`);
-            if (indicator) {
-                indicator.style.display = 'none';
             }
 
             operationTimers.delete(sessionId);
