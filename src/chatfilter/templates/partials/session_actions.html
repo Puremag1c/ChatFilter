@@ -7,7 +7,6 @@
                 hx-post="/api/sessions/{{ session.session_id }}/disconnect"
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
-                hx-indicator="#status-loading-{{ session.session_id }}"
                 hx-disabled-elt="this"
                 aria-label="{{ _('Disconnect session') }}">
             {{ _("Disconnect") }}
@@ -17,7 +16,6 @@
                 hx-post="/api/sessions/{{ session.session_id }}/connect"
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
-                hx-indicator="#status-loading-{{ session.session_id }}"
                 hx-disabled-elt="this"
                 aria-label="{{ _('Connect session') }}">
             {{ _("Connect") }}
@@ -53,7 +51,6 @@
                 hx-post="/api/sessions/{{ session.session_id }}/connect"
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
-                hx-indicator="#status-loading-{{ session.session_id }}"
                 hx-disabled-elt="this"
                 aria-label="{{ _('Retry connection') }}"
                 title="{{ session.error_message or _('Connection error') }}">

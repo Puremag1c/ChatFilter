@@ -73,8 +73,8 @@ def _setup_template_env():
 class TestLoadingStateConnect:
     """Tests for Connect button loading state."""
 
-    def test_connect_button_has_spinner_indicator(self) -> None:
-        """Connect button should have hx-indicator pointing to spinner."""
+    def test_connect_button_has_htmx_attributes(self) -> None:
+        """Connect button should have proper htmx attributes."""
         env = _setup_template_env()
         template = env.get_template("partials/session_row.html")
 
@@ -90,10 +90,7 @@ class TestLoadingStateConnect:
         # Verify button exists and has hx-post attribute
         assert 'class="btn btn-sm btn-success session-connect-btn"' in html
         assert 'hx-post="/api/sessions/test_session/connect"' in html
-
-        # Verify spinner indicator is configured
-        assert 'hx-indicator="#connection-spinner-test_session"' in html
-        assert 'class="htmx-indicator spinner"' in html
+        assert 'hx-disabled-elt="this"' in html
 
     def test_connect_button_disabled_during_loading(self) -> None:
         """When connecting, button should show disabled state with spinner."""
@@ -119,8 +116,8 @@ class TestLoadingStateConnect:
 class TestLoadingStateDisconnect:
     """Tests for Disconnect button loading state."""
 
-    def test_disconnect_button_has_spinner_indicator(self) -> None:
-        """Disconnect button should have hx-indicator pointing to spinner."""
+    def test_disconnect_button_has_htmx_attributes(self) -> None:
+        """Disconnect button should have proper htmx attributes."""
         env = _setup_template_env()
         template = env.get_template("partials/session_row.html")
 
@@ -136,10 +133,7 @@ class TestLoadingStateDisconnect:
         # Verify button exists and has hx-post attribute
         assert 'class="btn btn-sm btn-warning session-disconnect-btn"' in html
         assert 'hx-post="/api/sessions/test_session/disconnect"' in html
-
-        # Verify spinner indicator is configured
-        assert 'hx-indicator="#connection-spinner-test_session"' in html
-        assert 'class="htmx-indicator spinner"' in html
+        assert 'hx-disabled-elt="this"' in html
 
     def test_disconnect_button_target_and_swap(self) -> None:
         """Disconnect button should target session row and swap outerHTML."""
@@ -483,16 +477,15 @@ class TestAllActionTypesComplete:
         assert "session-2fa-modal-btn" in twofa_html
 
     def test_all_action_types_have_loading_states(self) -> None:
-        """All action types should have HTMX loading indicators."""
+        """All action types should have proper loading state handling."""
         env = _setup_template_env()
         template = env.get_template("partials/session_row.html")
 
-        # Test Connect/Disconnect have spinner indicators
+        # Test Connect/Disconnect have hx-disabled-elt
         connect_html = template.render(
             session={"session_id": "s1", "state": "disconnected", "error_message": None}
         )
-        assert "hx-indicator" in connect_html
-        assert "htmx-indicator spinner" in connect_html
+        assert "hx-disabled-elt" in connect_html
 
         # Test disabled state during operation
         loading_html = template.render(
