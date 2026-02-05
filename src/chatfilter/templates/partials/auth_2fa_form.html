@@ -17,7 +17,8 @@
           hx-post="/api/sessions/auth/2fa"
           hx-target="#auth-flow-result"
           hx-swap="innerHTML"
-          hx-indicator="#auth-2fa-spinner">
+          hx-indicator="#auth-2fa-spinner"
+          hx-disabled-elt="button[type='submit']">
 
         <input type="hidden" name="auth_id" value="{{ auth_id }}">
 

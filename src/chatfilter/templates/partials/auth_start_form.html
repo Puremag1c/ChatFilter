@@ -4,7 +4,8 @@
           hx-post="/api/sessions/auth/start"
           hx-target="#auth-flow-result"
           hx-swap="innerHTML"
-          hx-indicator="#auth-start-spinner">
+          hx-indicator="#auth-start-spinner"
+          hx-disabled-elt="button[type='submit']">
 
         <div class="form-group">
             <label for="auth-session-name"

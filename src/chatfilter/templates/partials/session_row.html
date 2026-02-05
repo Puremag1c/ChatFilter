@@ -76,8 +76,8 @@
                         hx-post="/api/sessions/{{ session.session_id }}/disconnect"
                         hx-target="#session-{{ session.session_id }}"
                         hx-swap="outerHTML"
+                        hx-indicator="#connection-spinner-{{ session.session_id }}"
                         hx-disabled-elt="this"
-                        onclick="this.disabled=true"
                         aria-label="{{ _('Disconnect session') }}">
                     <span class="btn-text">{{ _("Disconnect") }}</span>
                     <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
@@ -87,8 +87,8 @@
                         hx-post="/api/sessions/{{ session.session_id }}/connect"
                         hx-target="#session-{{ session.session_id }}"
                         hx-swap="outerHTML"
+                        hx-indicator="#connection-spinner-{{ session.session_id }}"
                         hx-disabled-elt="this"
-                        onclick="this.disabled=true"
                         aria-label="{{ _('Connect session') }}">
                     <span class="btn-text">{{ _("Connect") }}</span>
                     <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
@@ -107,7 +107,6 @@
                         hx-target="#modal-container"
                         hx-swap="innerHTML"
                         hx-disabled-elt="this"
-                        onclick="this.disabled=true"
                         aria-label="{{ _('Reconnect session') }}"
                         title="{{ session.error_message or _('Session has expired - reconnect required') }}">
                     <span class="btn-text">{{ _("Reconnect") }}</span>
@@ -125,8 +124,8 @@
                         hx-post="/api/sessions/{{ session.session_id }}/connect"
                         hx-target="#session-{{ session.session_id }}"
                         hx-swap="outerHTML"
+                        hx-indicator="#connection-spinner-{{ session.session_id }}"
                         hx-disabled-elt="this"
-                        onclick="this.disabled=true"
                         aria-label="{{ _('Retry connection') }}"
                         title="{{ session.error_message or _('Connection error') }}">
                     <span class="btn-text">{{ _("Retry") }}</span>

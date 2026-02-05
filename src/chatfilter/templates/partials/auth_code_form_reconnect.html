@@ -18,7 +18,8 @@
           hx-post="/api/sessions/{{ session_id }}/verify-code"
           hx-target="#reconnect-result"
           hx-swap="innerHTML"
-          hx-indicator="#reconnect-code-spinner">
+          hx-indicator="#reconnect-code-spinner"
+          hx-disabled-elt="button[type='submit']">
 
         <input type="hidden" name="auth_id" value="{{ auth_id }}">
 

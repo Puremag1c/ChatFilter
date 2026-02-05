@@ -18,7 +18,8 @@
           hx-post="/api/sessions/auth/code"
           hx-target="#auth-flow-result"
           hx-swap="innerHTML"
-          hx-indicator="#auth-code-spinner">
+          hx-indicator="#auth-code-spinner"
+          hx-disabled-elt="button[type='submit']">
 
         <input type="hidden" name="auth_id" value="{{ auth_id }}">
 
