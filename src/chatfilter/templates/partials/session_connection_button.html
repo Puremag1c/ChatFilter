@@ -6,20 +6,18 @@
             hx-post="/api/sessions/{{ session_id }}/disconnect"
             hx-target="#session-connection-{{ session_id }}"
             hx-swap="outerHTML"
-            hx-indicator="#connection-spinner-{{ session_id }}"
+            hx-indicator="#status-loading-{{ session_id }}"
             aria-label="{{ _('Disconnect session') }}">
-        <span class="btn-text">{{ _("Disconnect") }}</span>
-        <span id="connection-spinner-{{ session_id }}" class="htmx-indicator spinner"></span>
+        {{ _("Disconnect") }}
     </button>
     {% elif state == 'disconnected' %}
     <button class="btn btn-sm btn-success session-connect-btn"
             hx-post="/api/sessions/{{ session_id }}/connect"
             hx-target="#session-connection-{{ session_id }}"
             hx-swap="outerHTML"
-            hx-indicator="#connection-spinner-{{ session_id }}"
+            hx-indicator="#status-loading-{{ session_id }}"
             aria-label="{{ _('Connect session') }}">
-        <span class="btn-text">{{ _("Connect") }}</span>
-        <span id="connection-spinner-{{ session_id }}" class="htmx-indicator spinner"></span>
+        {{ _("Connect") }}
     </button>
     {% elif state == 'connecting' %}
     <button class="btn btn-sm btn-secondary session-connect-btn" disabled
@@ -39,11 +37,10 @@
             hx-post="/api/sessions/{{ session_id }}/connect"
             hx-target="#session-connection-{{ session_id }}"
             hx-swap="outerHTML"
-            hx-indicator="#connection-spinner-{{ session_id }}"
+            hx-indicator="#status-loading-{{ session_id }}"
             aria-label="{{ _('Retry connection') }}"
             title="{{ error or _('Connection error') }}">
-        <span class="btn-text">{{ _("Retry") }}</span>
-        <span id="connection-spinner-{{ session_id }}" class="htmx-indicator spinner"></span>
+        {{ _("Retry") }}
     </button>
     {% elif state == 'banned' %}
     {# Banned - cannot retry #}

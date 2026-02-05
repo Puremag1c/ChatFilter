@@ -7,22 +7,20 @@
                 hx-post="/api/sessions/{{ session.session_id }}/disconnect"
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
-                hx-indicator="#connection-spinner-{{ session.session_id }}"
+                hx-indicator="#status-loading-{{ session.session_id }}"
                 hx-disabled-elt="this"
                 aria-label="{{ _('Disconnect session') }}">
-            <span class="btn-text">{{ _("Disconnect") }}</span>
-            <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
+            {{ _("Disconnect") }}
         </button>
         {% elif session.state == 'disconnected' %}
         <button class="btn btn-sm btn-success session-connect-btn"
                 hx-post="/api/sessions/{{ session.session_id }}/connect"
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
-                hx-indicator="#connection-spinner-{{ session.session_id }}"
+                hx-indicator="#status-loading-{{ session.session_id }}"
                 hx-disabled-elt="this"
                 aria-label="{{ _('Connect session') }}">
-            <span class="btn-text">{{ _("Connect") }}</span>
-            <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
+            {{ _("Connect") }}
         </button>
         {% elif session.state == 'connecting' or session.state == 'disconnecting' %}
         {# Operation in progress - show disabled button #}
@@ -55,12 +53,11 @@
                 hx-post="/api/sessions/{{ session.session_id }}/connect"
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
-                hx-indicator="#connection-spinner-{{ session.session_id }}"
+                hx-indicator="#status-loading-{{ session.session_id }}"
                 hx-disabled-elt="this"
                 aria-label="{{ _('Retry connection') }}"
                 title="{{ session.error_message or _('Connection error') }}">
-            <span class="btn-text">{{ _("Retry") }}</span>
-            <span id="connection-spinner-{{ session.session_id }}" class="htmx-indicator spinner"></span>
+            {{ _("Retry") }}
         </button>
         {% elif session.state == 'needs_api_id' %}
         {# Needs API credentials - show configure button #}
