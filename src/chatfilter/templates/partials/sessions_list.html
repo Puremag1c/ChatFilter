@@ -75,6 +75,8 @@
                             {{ session.state }}
                         {%- endif -%}
                     </span>
+                    {# Loading spinner for async actions (Connect/Disconnect) - hidden by default, shown via JS #}
+                    <span id="status-loading-{{ session.session_id }}" class="spinner-small" style="display: none;" aria-hidden="true"></span>
                 </td>
                 <td class="account-actions-cell">
                     {% include "partials/session_actions.html" %}
