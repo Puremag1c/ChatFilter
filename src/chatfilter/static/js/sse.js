@@ -306,6 +306,13 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 
 		var swapSpec = api.getSwapSpecification(elt);
 		var target = api.getTarget(elt);
+
+		// Guard: if target doesn't exist (race condition with htmx swap), skip SSE update
+		if (!target) {
+			console.warn('[SSE] Target element not found during swap, skipping SSE update (likely race with htmx)');
+			return;
+		}
+
 		var settleInfo = api.makeSettleInfo(elt);
 
 		api.selectAndSwap(swapSpec.swapStyle, target, elt, content, settleInfo);
