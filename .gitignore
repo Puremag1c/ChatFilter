@@ -78,9 +78,8 @@ SPEC.draft.md
 .beads/*.startlock
 
 # hype
-.hype/
-.hype/agents
-.hype/commands
+.hype/*
+!.hype/testing.yaml
 .hype-worktrees/
 scripts
 project-scripts/
