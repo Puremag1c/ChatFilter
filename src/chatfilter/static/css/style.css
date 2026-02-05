@@ -812,7 +812,7 @@ footer .diagnostic-button:hover {
 /* Hide action buttons during request to show loading spinner in status column */
 .session-connect-btn.htmx-request,
 .session-disconnect-btn.htmx-request {
-    display: none;
+    display: none !important;
 }
 
 /* Disable buttons during HTMX requests */
