@@ -75,6 +75,10 @@
                             {{ session.state }}
                         {%- endif -%}
                     </span>
+                    {# Loading indicator shown during connection operations #}
+                    <span id="status-loading-{{ session.session_id }}" class="htmx-indicator">
+                        <span class="status-icon spinner-small" aria-hidden="true"></span>
+                    </span>
                 </td>
                 <td class="account-actions-cell">
                     {% include "partials/session_actions.html" %}
