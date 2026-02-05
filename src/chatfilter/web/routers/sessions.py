@@ -90,7 +90,7 @@ import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -2547,18 +2547,72 @@ async def get_reconnect_form(
     )
 
 
-@router.post("/api/sessions/{session_id}/connect", response_class=HTMLResponse)
-async def connect_session(
-    request: Request,
-    session_id: str,
-) -> HTMLResponse:
-    """Connect a session to Telegram.
+async def _do_connect_in_background(session_id: str, session_path: Path, config_path: Path) -> None:
+    """Background task that performs the actual Telegram connection.
 
-    Returns HTML partial with updated button state.
+    This runs after HTTP response is sent. Results are delivered via SSE.
+    session_manager.connect() already publishes SSE events for all outcomes.
     """
     import asyncio
 
     from chatfilter.telegram.client import TelegramClientLoader
+    from chatfilter.telegram.error_mapping import get_user_friendly_message
+    from chatfilter.web.dependencies import get_session_manager
+    from chatfilter.web.events import get_event_bus
+
+    session_manager = get_session_manager()
+
+    try:
+        # Create and register loader if not already registered
+        loader = TelegramClientLoader(session_path, config_path)
+        loader.validate()
+        session_manager.register(session_id, loader)
+
+        # Connect with timeout (30 seconds)
+        # session_manager.connect() publishes SSE events on success/failure
+        await asyncio.wait_for(
+            session_manager.connect(session_id),
+            timeout=30.0
+        )
+        # Success - SSE "connected" event already published by session_manager
+
+    except asyncio.TimeoutError:
+        logger.warning(f"Connection timeout for session '{session_id}'")
+        # Ensure session state is set to error
+        if session_id in session_manager._sessions:
+            from chatfilter.telegram.session_manager import SessionState
+            session_manager._sessions[session_id].state = SessionState.ERROR
+            session_manager._sessions[session_id].error_message = "Connection timeout"
+        # Publish error via SSE
+        await get_event_bus().publish(session_id, "error")
+
+    except SessionBusyError:
+        # Session is already busy - publish current state
+        logger.warning(f"Session busy during background connect: {session_id}")
+        info = session_manager.get_info(session_id)
+        if info:
+            await get_event_bus().publish(session_id, info.state.value)
+
+    except Exception as e:
+        logger.exception(f"Failed to connect session '{session_id}' in background")
+        # Get classified error state
+        error_message = get_user_friendly_message(e)
+        error_state = classify_error_state(error_message, exception=e)
+        # Publish error state via SSE
+        await get_event_bus().publish(session_id, error_state)
+
+
+@router.post("/api/sessions/{session_id}/connect", response_class=HTMLResponse)
+async def connect_session(
+    request: Request,
+    session_id: str,
+    background_tasks: BackgroundTasks,
+) -> HTMLResponse:
+    """Connect a session to Telegram.
+
+    Returns immediately with 'connecting' state. Actual connection happens
+    in background task, with final state delivered via SSE.
+    """
     from chatfilter.web.app import get_templates
     from chatfilter.web.dependencies import get_session_manager
 
@@ -2613,100 +2667,26 @@ async def connect_session(
             headers={"HX-Trigger": "refreshSessions"},
         )
 
-    try:
-        # Create and register loader if not already registered
-        loader = TelegramClientLoader(session_path, config_path)
-        loader.validate()
-        session_manager.register(safe_name, loader)
+    # Start connection in background - results delivered via SSE
+    background_tasks.add_task(
+        _do_connect_in_background,
+        safe_name,
+        session_path,
+        config_path,
+    )
 
-        # Connect with timeout (30 seconds)
-        # Use try/finally to ensure session state cleanup on timeout
-        try:
-            await asyncio.wait_for(
-                session_manager.connect(safe_name),
-                timeout=30.0
-            )
-        except asyncio.TimeoutError:
-            # Ensure session state is set to error even if outer timeout fires
-            # before SessionManager's internal timeout handling completes
-            if safe_name in session_manager._sessions:
-                from chatfilter.telegram.session_manager import SessionState
-                session_manager._sessions[safe_name].state = SessionState.ERROR
-                session_manager._sessions[safe_name].error_message = "Connection timeout"
-            raise
+    # Return immediately with 'connecting' state (template shows spinner)
+    session_data = {
+        "session_id": safe_name,
+        "state": "connecting",
+        "error_message": None,
+    }
 
-        # Get updated state
-        info = session_manager.get_info(safe_name)
-        state = info.state.value if info else "disconnected"
-
-        # Don't publish SSE - HTTP response will update the row, avoiding race condition
-        # If we publish here, SSE updates DOM before htmx HTTP response swap, causing htmx:swapError
-
-        # Create session object for template
-        session_data = {
-            "session_id": safe_name,
-            "state": state,
-            "error_message": None,
-        }
-
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
-            headers={"HX-Trigger": "refreshSessions"},
-        )
-
-    except asyncio.TimeoutError:
-        logger.warning(f"Connection timeout for session '{safe_name}'")
-        error_message = _("Connection timeout: Telegram API did not respond within 30 seconds. Please try again.")
-        error_state = "error"
-
-        # Don't publish SSE - HTTP response will update the row, avoiding race condition
-
-        # Create session object for template with error
-        session_data = {
-            "session_id": safe_name,
-            "state": error_state,
-            "error_message": error_message,
-        }
-
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
-        )
-
-    except SessionBusyError as e:
-        logger.warning(f"Session busy: {safe_name}")
-        return HTMLResponse(
-            content=f'<span class="error">{str(e)}</span>',
-            status_code=status.HTTP_409_CONFLICT,
-        )
-
-    except Exception as e:
-        logger.exception(f"Failed to connect session '{safe_name}'")
-
-        # Get user-friendly error message
-        from chatfilter.telegram.error_mapping import get_user_friendly_message
-        error_message = get_user_friendly_message(e)
-
-        # Classify error state based on exception type
-        error_state = classify_error_state(error_message, exception=e)
-
-        # Don't publish SSE - HTTP response will update the row, avoiding race condition
-
-        # Create session object for template with error
-        session_data = {
-            "session_id": safe_name,
-            "state": error_state,
-            "error_message": error_message,
-        }
-
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
-        )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_row.html",
+        context={"session": session_data},
+    )
 
 
 @router.post("/api/sessions/{session_id}/disconnect", response_class=HTMLResponse)

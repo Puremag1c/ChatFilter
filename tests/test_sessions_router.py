@@ -1150,11 +1150,10 @@ class TestSessionConnectDisconnectAPI:
     def test_connect_session_success(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
-        """Test successful session connection."""
+        """Test session connection - returns immediately with 'connecting' state."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
-        from chatfilter.telegram.session_manager import SessionInfo, SessionState
 
         # Get CSRF token
         home_response = client.get("/")
@@ -1177,13 +1176,10 @@ class TestSessionConnectDisconnectAPI:
             port=1080,
         )
 
-        # Mock session manager
+        # Mock session manager - get_info returns None to simulate new session
         mock_session_manager = MagicMock()
         mock_session_manager.connect = AsyncMock()
-        mock_session_manager.get_info.return_value = SessionInfo(
-            session_id="test_session",
-            state=SessionState.CONNECTED,
-        )
+        mock_session_manager.get_info.return_value = None  # No existing session
 
         # Mock loader
         mock_loader = MagicMock()
@@ -1208,15 +1204,15 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
+        # Connect now returns immediately with 'connecting' state
+        # The actual connection happens in background, final state via SSE
         assert response.status_code == 200
-        assert "Disconnect" in response.text
-        assert "HX-Trigger" in response.headers
-        assert response.headers["HX-Trigger"] == "refreshSessions"
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
 
     def test_connect_session_failure(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
-        """Test session connection failure returns error state."""
+        """Test session connection failure - HTTP returns 'connecting', error via SSE."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
@@ -1272,13 +1268,15 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
+        # Connect returns immediately with 'connecting' state
+        # The error is delivered via SSE in background task
         assert response.status_code == 200
-        assert "Retry" in response.text or "error" in response.text.lower()
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
 
-    def test_connect_session_concurrent_request_rejected(
+    def test_connect_session_concurrent_request_returns_connecting(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
-        """Test concurrent connection request returns 409 Conflict."""
+        """Test concurrent connection request returns 'connecting' - error via SSE."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
@@ -1306,10 +1304,12 @@ class TestSessionConnectDisconnectAPI:
         )
 
         # Mock session manager to raise SessionBusyError
+        # Now handled in background task, not HTTP handler
         mock_session_manager = MagicMock()
         mock_session_manager.connect = AsyncMock(
             side_effect=SessionBusyError("Session is already busy with another operation")
         )
+        mock_session_manager.get_info.return_value = None  # No existing session
 
         # Mock loader
         mock_loader = MagicMock()
@@ -1334,14 +1334,15 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        # Should return 409 Conflict
-        assert response.status_code == 409
-        assert "busy" in response.text.lower()
+        # HTTP returns 200 with 'connecting' state immediately
+        # SessionBusyError is handled in background task and delivered via SSE
+        assert response.status_code == 200
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
 
-    def test_connect_session_timeout(
+    def test_connect_session_timeout_returns_connecting(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
-        """Test session connection timeout returns clear error message."""
+        """Test session connection timeout - HTTP returns 'connecting', error via SSE."""
         import asyncio
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1369,9 +1370,10 @@ class TestSessionConnectDisconnectAPI:
         )
 
         # Mock session manager connect to raise TimeoutError
-        # (simulates what asyncio.wait_for does when timeout expires)
+        # Now handled in background task, not HTTP handler
         mock_session_manager = MagicMock()
         mock_session_manager.connect = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_session_manager.get_info.return_value = None  # No existing session
 
         # Mock loader
         mock_loader = MagicMock()
@@ -1396,10 +1398,10 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
+        # HTTP returns 200 with 'connecting' state immediately
+        # Timeout error is handled in background task and delivered via SSE
         assert response.status_code == 200
-        # Check for timeout-specific error message
-        assert "timeout" in response.text.lower()
-        assert "30 seconds" in response.text or "30" in response.text
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
 
     def test_disconnect_session_invalid_name(
         self, client: TestClient, clean_data_dir: Path
@@ -1579,10 +1581,10 @@ class TestDeadSessionRecoveryUX:
 
         return session_dir
 
-    def test_dead_session_shows_session_expired_status_not_generic_error(
+    def test_dead_session_returns_connecting_state(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
-        """Test that dead session shows 'Session expired' status, not generic 'Error'."""
+        """Test that dead session returns 'connecting' immediately - error via SSE."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
@@ -1610,10 +1612,12 @@ class TestDeadSessionRecoveryUX:
         )
 
         # Mock session manager to raise SessionReauthRequiredError (expired session)
+        # Error now handled in background task, not HTTP handler
         mock_session_manager = MagicMock()
         mock_session_manager.connect = AsyncMock(
             side_effect=SessionReauthRequiredError("Session has expired")
         )
+        mock_session_manager.get_info.return_value = None  # No existing session
 
         mock_loader = MagicMock()
 
@@ -1637,16 +1641,15 @@ class TestDeadSessionRecoveryUX:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
+        # HTTP returns 200 with 'connecting' state immediately
+        # Error state (session_expired) delivered via SSE
         assert response.status_code == 200
-        # Should show "Session expired" or similar status, not generic error
-        assert "expired" in response.text.lower() or "reauthentication" in response.text.lower()
-        # Should NOT show just "Error" or "Ошибка"
-        assert "session" in response.text.lower()
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
 
-    def test_reconnect_button_initiates_reauth_flow(
+    def test_expired_session_connect_returns_connecting(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
-        """Test that reconnect button initiates re-auth flow with same phone."""
+        """Test that expired session connect returns 'connecting' - error via SSE."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
@@ -1673,11 +1676,12 @@ class TestDeadSessionRecoveryUX:
             port=1080,
         )
 
-        # First connect fails with expired error
+        # Connect fails with expired error - handled in background task
         mock_session_manager = MagicMock()
         mock_session_manager.connect = AsyncMock(
             side_effect=SessionReauthRequiredError("Session has expired")
         )
+        mock_session_manager.get_info.return_value = None  # No existing session
 
         mock_loader = MagicMock()
 
@@ -1701,11 +1705,10 @@ class TestDeadSessionRecoveryUX:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        # Response should contain reconnect/reauth button or form
+        # HTTP returns 200 with 'connecting' state immediately
+        # Reauth error delivered via SSE
         assert response.status_code == 200
-        # Should reference the session (phone recovery)
-        response_text = response.text.lower()
-        assert "reconnect" in response_text or "reauthentication" in response_text or "reauth" in response_text
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
 
     def test_session_recovery_preserves_session_id(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
@@ -1808,6 +1811,7 @@ class TestDeadSessionRecoveryUX:
         mock_session_manager.connect = AsyncMock(
             side_effect=SessionConnectError("Network connection failed")
         )
+        mock_session_manager.get_info.return_value = None  # No existing session
 
         mock_loader = MagicMock()
 
@@ -1831,16 +1835,17 @@ class TestDeadSessionRecoveryUX:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        # For temporary error: should show "Retry" or suggest trying again
+        # HTTP returns 'connecting' immediately for both cases
+        # Error classification now happens in background task, delivered via SSE
         assert temp_response.status_code == 200
-        temp_text = temp_response.text.lower()
-        assert "retry" in temp_text or "try again" in temp_text or "connection" in temp_text
+        assert "Connecting" in temp_response.text or "connecting" in temp_response.text.lower()
 
-        # Test permanent error (session invalid)
+        # Test permanent error (session invalid) - same behavior
         mock_session_manager = MagicMock()
         mock_session_manager.connect = AsyncMock(
             side_effect=SessionInvalidError("Session is permanently invalid")
         )
+        mock_session_manager.get_info.return_value = None
 
         with (
             patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
@@ -1862,10 +1867,9 @@ class TestDeadSessionRecoveryUX:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        # For permanent error: should show "needs new session" or similar
+        # HTTP returns 200 with 'connecting' - error delivered via SSE
         assert perm_response.status_code == 200
-        perm_text = perm_response.text.lower()
-        assert "new session" in perm_text or "upload" in perm_text or "invalid" in perm_text
+        assert "Connecting" in perm_response.text or "connecting" in perm_response.text.lower()
 
 
 class TestAPICredentialReValidation:
