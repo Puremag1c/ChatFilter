@@ -3352,7 +3352,7 @@ async def verify_code(
                         request=request,
                         name="partials/reconnect_success.html",
                         context={
-                            "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
+                            "message": _("Authentication successful"),
                             "session_id": safe_name,
                         },
                         headers={"HX-Trigger": "refreshSessions"},
@@ -3371,7 +3371,7 @@ async def verify_code(
                             minutes=remaining_minutes
                         )
                     else:
-                        error_msg = _("Saved 2FA password is incorrect. Please enter manually.")
+                        error_msg = None  # Use auto_2fa_failed flag for standard error
 
                     # Emit event for 2FA requirement
                     await get_event_bus().publish(safe_name, "needs_2fa")
@@ -3383,6 +3383,7 @@ async def verify_code(
                             "session_name": safe_name,
                             "session_id": session_id,
                             "error": error_msg,
+                            "auto_2fa_failed": True,
                         },
                         headers={"HX-Trigger": "refreshSessions"},
                     )
