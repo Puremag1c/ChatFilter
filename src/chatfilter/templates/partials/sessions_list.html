@@ -408,7 +408,33 @@
         if (cancelBtn) {
             const modal = cancelBtn.closest('.modal-overlay');
             if (modal) {
-                modal.classList.remove('show');
+                // Show cancellation feedback before closing
+                const isCodeModal = modal.id === 'code-modal';
+                const isTwoFaModal = modal.id === 'twofa-modal';
+
+                if (isCodeModal || isTwoFaModal) {
+                    const resultDiv = modal.querySelector('.modal-result');
+                    if (resultDiv) {
+                        resultDiv.textContent = '{{ _("Authentication cancelled. Session remains disconnected. You can try again anytime.") }}';
+                        resultDiv.className = 'modal-result info';
+
+                        // Close modal after brief delay to show message
+                        setTimeout(() => {
+                            modal.classList.remove('show');
+                            // Clear message for next time
+                            setTimeout(() => {
+                                resultDiv.textContent = '';
+                                resultDiv.className = 'modal-result';
+                            }, 300); // After modal close animation
+                        }, 1500);
+                    } else {
+                        // Fallback: close immediately if no result div found
+                        modal.classList.remove('show');
+                    }
+                } else {
+                    // For other modals, close immediately
+                    modal.classList.remove('show');
+                }
             }
         }
     });

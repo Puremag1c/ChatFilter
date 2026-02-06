@@ -1,11 +1,14 @@
 {# Two-Factor Authentication Modal #}
-<div id="twofa-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="twofa-modal-title">
+<div id="twofa-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="twofa-modal-title" aria-describedby="twofa-modal-description">
     <div class="modal-dialog" role="document">
         <div class="modal-header">
             <span class="modal-icon info" aria-hidden="true">🔐</span>
             <h2 class="modal-title" id="twofa-modal-title">{{ _("Enter 2FA Password") }}</h2>
         </div>
         <div class="modal-body">
+            <p id="twofa-modal-description" class="modal-description">
+                {{ _("Enter your two-factor authentication password. If you cancel, your session will remain disconnected, but you can try again anytime.") }}
+            </p>
             <div class="form-group">
                 <label for="twofa-modal-input">{{ _("Password") }}</label>
                 <input type="password"

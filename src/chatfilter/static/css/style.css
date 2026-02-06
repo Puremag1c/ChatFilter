@@ -1667,6 +1667,43 @@ button[disabled].htmx-request {
     color: var(--text-secondary);
 }
 
+.modal-description {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.modal-result {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    display: none;
+}
+
+.modal-result:not(:empty) {
+    display: block;
+}
+
+.modal-result.info {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #90caf9;
+}
+
+.modal-result.error {
+    background-color: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+}
+
+.modal-result.success {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #81c784;
+}
+
 /* Modal footer */
 .modal-footer {
     padding: 16px 24px;

@@ -35,8 +35,10 @@ disconnecting       | disconnect failure     | error         | error     | POST 
 needs_code          | code verified          | connected     | connected | POST /api/sessions/{id}/verify-code
 needs_code          | code verified + 2FA    | needs_2fa     | needs_2fa | POST /api/sessions/{id}/verify-code
 needs_code          | code invalid           | needs_code    | -         | POST /api/sessions/{id}/verify-code
+needs_code          | modal cancelled        | needs_code    | -         | UI only (no API call)
 needs_2fa           | password verified      | connected     | connected | POST /api/sessions/{id}/verify-2fa
 needs_2fa           | password invalid       | needs_2fa     | -         | POST /api/sessions/{id}/verify-2fa
+needs_2fa           | modal cancelled        | needs_2fa     | -         | UI only (no API call)
 error               | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
 proxy_error         | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
 flood_wait          | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
@@ -74,6 +76,15 @@ Template State Handling:
 - Error states show title attribute with error message
 - needs_code/needs_2fa show modal trigger buttons
 - banned/corrupted show disabled buttons (non-recoverable)
+
+Modal Cancel Behavior (modal_code.html, modal_2fa.html)
+--------------------------------------------------------
+When user cancels code/2FA modals:
+- Session state remains unchanged (stays in needs_code or needs_2fa)
+- User sees confirmation: "Authentication cancelled. Session remains disconnected. You can try again anytime."
+- No API call is made (client-side only)
+- User can re-open modal and retry authentication without data loss
+- This is the least destructive option: session stays stable, user can retry later
 """
 
 from __future__ import annotations
@@ -1084,8 +1095,13 @@ async def upload_session(
     session_name: Annotated[str, Form()],
     session_file: Annotated[UploadFile, File()],
     config_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile | None, File()] = None,
 ) -> HTMLResponse:
     """Upload a new session with config file.
+
+    Args:
+        json_file: Optional JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
 
     Returns HTML partial for HTMX to display result.
     """
