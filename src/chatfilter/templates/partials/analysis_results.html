@@ -265,10 +265,12 @@
             analyzed_at: new Date().toISOString()
         }));
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         fetch('/api/export/csv', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
             },
             body: JSON.stringify({ results: results })
         })
