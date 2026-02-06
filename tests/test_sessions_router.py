@@ -2286,3 +2286,210 @@ class TestVerify2FA:
                 assert is_valid, f"Expected '{description}' to pass validation but it failed"
             else:
                 assert not is_valid, f"Expected '{description}' to fail validation but it passed"
+
+
+class TestBackwardCompatibilityLegacySessions:
+    """Tests for backward compatibility with old session format.
+
+    Old sessions have config.json + session.session but NO account_info.json.
+    This tests that the refactored code handles missing account_info gracefully.
+    """
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        """Create test client."""
+        app = create_app(debug=True)
+        return TestClient(app)
+
+    @pytest.fixture
+    def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
+        """Create temporary data directory."""
+        from unittest.mock import patch
+
+        with patch("chatfilter.web.routers.sessions.ensure_data_dir", return_value=tmp_path):
+            yield tmp_path
+
+    @pytest.fixture
+    def legacy_session_without_account_info(self, clean_data_dir: Path) -> Path:
+        """Create a legacy session with config.json + session.session but NO account_info.json."""
+        session_dir = clean_data_dir / "legacy_session"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session file (minimal SQLite structure)
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create config.json with valid API credentials
+        config_data = {
+            "api_id": 12345,
+            "api_hash": "0123456789abcdef0123456789abcdef",
+        }
+        config_path = session_dir / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        # NOTE: NO account_info.json - this is what makes it "legacy"
+
+        return session_dir
+
+    def test_list_sessions_legacy_format_without_account_info(
+        self, client: TestClient, legacy_session_without_account_info: Path
+    ) -> None:
+        """Test that sessions without account_info.json appear with 'needs_account_info' state.
+
+        Legacy sessions (old format with config.json but no account_info.json) should:
+        1. Not crash list_stored_sessions
+        2. Appear in the list with state='needs_account_info'
+        """
+        from chatfilter.web.routers.sessions import list_stored_sessions
+
+        # Call list_stored_sessions directly
+        sessions = list_stored_sessions()
+
+        # Legacy session without account_info SHOULD appear in the list
+        session_ids = [s.session_id for s in sessions]
+        assert "legacy_session" in session_ids, (
+            "Legacy session with config.json should appear in list"
+        )
+
+        # Find the session and verify its state
+        legacy_session = next(
+            (s for s in sessions if s.session_id == "legacy_session"), None
+        )
+        assert legacy_session is not None
+        assert (
+            legacy_session.state == "needs_account_info"
+        ), "Legacy session without account_info should show 'needs_account_info' state"
+
+    def test_connect_legacy_session_without_phone(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that connecting a legacy session without phone shows proper error.
+
+        If a legacy session exists but has no account_info.json with phone,
+        attempting to connect should fail gracefully with a helpful error message.
+        """
+        # Create a legacy session (config.json + session.session, NO account_info.json)
+        session_dir = clean_data_dir / "old_session"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'5678')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create config.json
+        config_data = {
+            "api_id": 67890,
+            "api_hash": "fedcba9876543210fedcba9876543210",
+        }
+        config_path = session_dir / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        # Try to connect - should fail because:
+        # 1. No account_info.json exists
+        # 2. connect_session tries to load_account_info to get phone for reauth
+        response = client.post(
+            "/api/sessions/old_session/connect",
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        # The session should not be connectable when account_info is missing
+        # Expected errors: 404 if session not found, or other error if incomplete
+        assert response.status_code in (400, 404, 500)
+
+    def test_legacy_session_shown_as_disconnected_after_migration(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that after creating account_info.json, legacy session changes to 'disconnected'.
+
+        Before migration: session appears with 'needs_account_info' state
+        After migration: same session appears with 'disconnected' state
+        """
+        import uuid
+        from unittest.mock import patch
+
+        from chatfilter.web.routers.sessions import list_stored_sessions
+
+        # Create legacy session
+        session_dir = clean_data_dir / "migrated_session"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'9abc')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create config.json with all required fields including proxy_id
+        proxy_id = str(uuid.uuid4())
+        config_data = {
+            "api_id": 11111,
+            "api_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "proxy_id": proxy_id,
+        }
+        config_path = session_dir / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        # Mock proxy to exist so config validation passes
+        from chatfilter.models.proxy import ProxyEntry
+
+        mock_proxy = ProxyEntry(
+            id=proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy):
+            # Before migration: session appears with 'needs_account_info' state
+            sessions = list_stored_sessions()
+            session_ids = [s.session_id for s in sessions]
+            assert "migrated_session" in session_ids
+
+            legacy_before = next(
+                (s for s in sessions if s.session_id == "migrated_session"), None
+            )
+            assert legacy_before is not None
+            assert (
+                legacy_before.state == "needs_account_info"
+            ), "Legacy session without account_info should have 'needs_account_info' state"
+
+            # Add account_info.json (migration step)
+            account_info = {"phone": "1234567890"}
+            account_info_path = session_dir / ".account_info.json"
+            account_info_path.write_text(json.dumps(account_info))
+
+            # After migration: session should appear as 'disconnected'
+            sessions = list_stored_sessions()
+            session_ids = [s.session_id for s in sessions]
+            assert "migrated_session" in session_ids
+
+            # Find the session and check its state changed
+            migrated_session = next(
+                (s for s in sessions if s.session_id == "migrated_session"), None
+            )
+            assert migrated_session is not None
+            assert (
+                migrated_session.state == "disconnected"
+            ), "After adding account_info, session should be 'disconnected'"
