@@ -2703,6 +2703,136 @@ class TestVerify2FA:
             else:
                 assert not is_valid, f"Expected '{description}' to fail validation but it passed"
 
+    def test_verify_code_2fa_auto_fails_shows_manual_modal(self) -> None:
+        """Test verify_code recovery when 2FA auto-entry fails (wrong stored password).
+
+        Scenario:
+        1. Code verification succeeds → SessionPasswordNeededError (2FA required)
+        2. Handler attempts auto-entry with stored 2FA password
+        3. Auto-entry fails with PasswordHashInvalidError (wrong password)
+        4. Handler shows manual 2FA form modal (doesn't block user)
+        5. User can now enter 2FA password manually
+
+        This verifies the recovery path when stored 2FA password is incorrect.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from pathlib import Path
+
+        from chatfilter.models.auth_manager import AuthState, AuthStep
+        from telethon.errors import SessionPasswordNeededError, PasswordHashInvalidError
+
+        app = create_app(debug=True)
+        client = TestClient(app)
+
+        # Get CSRF token from home page
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        # Create mock auth state with session
+        auth_id = "test-auth-123"
+        session_id = "test_session"
+        auth_state = AuthState(
+            auth_id=auth_id,
+            session_name=session_id,
+            phone="1234567890",
+            phone_code_hash="test_hash",
+            step=AuthStep.AWAITING_CODE,
+            client=None,
+        )
+
+        # Create mock client
+        mock_client = AsyncMock()
+        auth_state.client = mock_client
+
+        # Client.sign_in for code verification raises SessionPasswordNeededError
+        mock_client.sign_in.side_effect = SessionPasswordNeededError(request=None)
+        mock_client.is_connected.return_value = True
+
+        # Create temp session directory for testing
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            session_dir = Path(tmp_dir) / session_id
+            session_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create mock account_info with stored 2FA password
+            from chatfilter.security import SecureCredentialManager
+            manager = SecureCredentialManager(session_dir)
+            # This would normally be encrypted, but for testing we simulate it exists
+            stored_2fa_password = "wrong_password_123"
+
+            with patch("chatfilter.web.routers.sessions.get_settings") as mock_settings_fn:
+                mock_settings = MagicMock()
+                mock_settings.sessions_dir = Path(tmp_dir)
+                mock_settings_fn.return_value = mock_settings
+
+                with patch(
+                    "chatfilter.web.routers.sessions.auth_manager.get_auth_state",
+                    new_callable=AsyncMock,
+                    return_value=auth_state,
+                ):
+                    with patch(
+                        "chatfilter.web.routers.sessions.auth_manager.update_auth_state",
+                        new_callable=AsyncMock,
+                    ):
+                        with patch(
+                            "chatfilter.web.routers.sessions.SecureCredentialManager"
+                        ) as mock_manager_class:
+                            # Mock the SecureCredentialManager to return stored 2FA
+                            mock_manager_instance = MagicMock()
+                            mock_manager_instance.retrieve_2fa.return_value = stored_2fa_password
+                            mock_manager_class.return_value = mock_manager_instance
+
+                            # Second sign_in call (auto-2FA) raises PasswordHashInvalidError
+                            # First call raises SessionPasswordNeededError
+                            mock_client.sign_in.side_effect = [
+                                SessionPasswordNeededError(request=None),
+                                PasswordHashInvalidError(request=None),
+                            ]
+
+                            with patch(
+                                "chatfilter.web.routers.sessions.get_event_bus"
+                            ) as mock_event_bus_fn:
+                                mock_event_bus = AsyncMock()
+                                mock_event_bus_fn.return_value = mock_event_bus
+
+                                # Send verify-code request with correct code format
+                                response = client.post(
+                                    f"/api/sessions/{session_id}/verify-code",
+                                    data={
+                                        "auth_id": auth_id,
+                                        "code": "12345",  # Valid format: 5+ digits
+                                    },
+                                    headers={"X-CSRF-Token": csrf_token},
+                                )
+
+                                # Should return 200 with 2FA form template
+                                assert response.status_code == 200
+
+                                # Response should contain auth_2fa_form_reconnect template elements
+                                # These elements indicate manual 2FA entry modal
+                                response_text = response.text.lower()
+                                assert (
+                                    "2fa" in response_text
+                                    or "password" in response_text
+                                    or "modal" in response_text.lower()
+                                    or "form" in response_text
+                                ), (
+                                    "Expected 2FA form template with manual entry option, "
+                                    f"got: {response.text[:500]}"
+                                )
+
+                                # Verify needs_2fa event was published
+                                mock_event_bus.publish.assert_called()
+                                # Check that 'needs_2fa' was published
+                                calls = mock_event_bus.publish.call_args_list
+                                assert any(
+                                    "needs_2fa" in str(call) for call in calls
+                                ), (
+                                    f"Expected 'needs_2fa' event published, "
+                                    f"got calls: {calls}"
+                                )
+
 
 class TestBackwardCompatibilityLegacySessions:
     """Tests for backward compatibility with old session format.
