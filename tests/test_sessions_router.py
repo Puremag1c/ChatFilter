@@ -1728,6 +1728,8 @@ class TestSessionConnectDisconnectAPI:
         # HTTP returns 200 with 'connecting' state immediately
         assert response.status_code == 200
         assert "Connecting" in response.text or "connecting" in response.text.lower()
+        # Verify auto-reauth without showing 'session_expired' status
+        assert "session_expired" not in response.text.lower()
 
     def test_connect_session_invalid_session_auto_reauth(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
@@ -1814,6 +1816,8 @@ class TestSessionConnectDisconnectAPI:
         # HTTP returns 200 with 'connecting' state immediately
         assert response.status_code == 200
         assert "Connecting" in response.text or "connecting" in response.text.lower()
+        # Verify auto-reauth without showing 'session_expired' status
+        assert "session_expired" not in response.text.lower()
 
     def test_disconnect_session_invalid_name(
         self, client: TestClient, clean_data_dir: Path
