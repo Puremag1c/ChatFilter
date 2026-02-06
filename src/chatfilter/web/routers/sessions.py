@@ -2691,6 +2691,11 @@ async def connect_session(
             session_path.unlink()
             logger.info(f"Deleted expired session file for '{safe_name}'")
 
+        # Reset EventBus deduplication state so SSE can send session_expired again if error
+        # Without this: session_expired → connecting → session_expired (DROPPED - same status)
+        # With this: session_expired → reset → connecting → session_expired (sent via SSE)
+        get_event_bus().reset_session_status(safe_name)
+
         # Start reauth flow in background
         background_tasks.add_task(
             _send_verification_code_and_create_auth,

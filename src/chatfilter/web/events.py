@@ -140,6 +140,22 @@ class SessionEventBus:
                 return_exceptions=True  # Don't let one failing subscriber break others
             )
 
+    def reset_session_status(self, session_id: str) -> None:
+        """Reset deduplication state for a session.
+
+        Call this when starting a new connection flow (e.g., reconnect after session_expired).
+        This allows SSE to send the same status again if the flow fails with the same error.
+
+        Without this reset, the sequence:
+            session_expired → connecting (HTMX) → [error→session_expired] (SSE dropped!)
+        becomes stuck because EventBus deduplicates consecutive same-status events.
+
+        After reset:
+            session_expired → reset → connecting (HTMX) → session_expired (SSE sent)
+        """
+        self._last_status.pop(session_id, None)
+        self._event_times.pop(session_id, None)
+
     def clear_subscribers(self) -> None:
         """Remove all subscribers. Useful for testing."""
         self._subscribers.clear()
