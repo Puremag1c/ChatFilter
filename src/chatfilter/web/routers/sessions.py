@@ -1015,6 +1015,9 @@ def list_stored_sessions(
             config_file = session_dir / "config.json"
             account_info_file = session_dir / ".account_info.json"
 
+            # NOTE: We check config_file.exists(), not session_file.exists().
+            # After ChatFilter-lwm3y, session.session is optional cache.
+            # Config.json + .account_info.json are the source of truth.
             if config_file.exists():
                 session_id = session_dir.name
 
@@ -3356,8 +3359,20 @@ async def verify_code(
                     )
 
                 except PasswordHashInvalidError:
-                    # Auto-2FA failed - password incorrect (deterministic error, no retry)
+                    # Auto-2FA failed - increment failed attempts and check lock
                     logger.warning(f"Auto-2FA failed for session '{safe_name}' - password incorrect")
+
+                    await auth_manager.increment_failed_attempts(auth_id)
+                    is_locked, remaining_seconds = await auth_manager.check_auth_lock(auth_id)
+
+                    if is_locked:
+                        remaining_minutes = (remaining_seconds + 59) // 60
+                        error_msg = _("Too many failed attempts. Please try again in {minutes} minutes.").format(
+                            minutes=remaining_minutes
+                        )
+                    else:
+                        error_msg = _("Saved 2FA password is incorrect. Please enter manually.")
+
                     # Emit event for 2FA requirement
                     await get_event_bus().publish(safe_name, "needs_2fa")
                     return templates.TemplateResponse(
@@ -3367,7 +3382,7 @@ async def verify_code(
                             "auth_id": auth_id,
                             "session_name": safe_name,
                             "session_id": session_id,
-                            "error": _("Saved 2FA password is incorrect. Please enter manually."),
+                            "error": error_msg,
                         },
                         headers={"HX-Trigger": "refreshSessions"},
                     )
