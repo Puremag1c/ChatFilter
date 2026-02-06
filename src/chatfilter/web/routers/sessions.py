@@ -1191,9 +1191,11 @@ async def upload_session(
                 context={"success": False, "error": str(e)},
             )
 
-        # Check if session already exists (atomic rename will verify again)
+        # Atomically create session directory to prevent TOCTOU race
         session_dir = ensure_data_dir() / safe_name
-        if session_dir.exists():
+        try:
+            session_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
@@ -1331,7 +1333,7 @@ async def upload_session(
                 tmp_session_path.unlink()
 
         # Save session with atomic transaction (no orphaned files on failure)
-        # session_dir was created earlier (mkdir exist_ok=False) to prevent TOCTOU race
+        # session_dir already created (mkdir exist_ok=False) to prevent TOCTOU race
         # _save_session_to_disk() creates temp dir, writes files, then renames over empty session_dir
         try:
             from chatfilter.utils.disk import DiskSpaceError
