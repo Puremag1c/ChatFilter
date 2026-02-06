@@ -2908,6 +2908,81 @@ class TestBackwardCompatibilityLegacySessions:
                 migrated_session.state == "disconnected"
             ), "After adding account_info, session should be 'disconnected'"
 
+    def test_list_stored_sessions_without_session_file(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that sessions without session.session file appear with 'disconnected' state.
+
+        A session that has config.json + account_info.json but NO session.session should:
+        1. Appear in list_stored_sessions with state='disconnected'
+        2. Have has_session_file=False
+        3. Show in UI (not be filtered out)
+
+        This covers the scenario where:
+        - User uploaded config but hasn't connected yet
+        - Session file was deleted/corrupted but metadata exists
+        """
+        from unittest.mock import patch
+
+        from chatfilter.web.routers.sessions import list_stored_sessions
+
+        # Create session directory with config.json and account_info.json, but NO session.session
+        session_dir = clean_data_dir / "no_session_file"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create config.json with valid API credentials AND proxy_id
+        config_data = {
+            "api_id": 11111,
+            "api_hash": "aaaabbbbccccddddeeeeffffgggghhh1",
+            "proxy_id": "mock-proxy-id",
+        }
+        config_path = session_dir / "config.json"
+        config_path.write_text(json.dumps(config_data))
+
+        # Create account_info.json
+        account_info = {"phone": "+79001234567"}
+        account_info_path = session_dir / ".account_info.json"
+        account_info_path.write_text(json.dumps(account_info))
+
+        # NOTE: No session.session file created!
+
+        # Mock get_proxy_by_id to avoid proxy lookup
+        mock_proxy = type(
+            "MockProxy",
+            (),
+            dict(
+                id="mock-proxy-id",
+                addr="127.0.0.1",
+                port=1080,
+            ),
+        )
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy):
+            # Call list_stored_sessions directly
+            sessions = list_stored_sessions()
+
+            # Session SHOULD appear in the list
+            session_ids = [s.session_id for s in sessions]
+            assert "no_session_file" in session_ids, (
+                "Session with config.json + account_info.json (no session.session) should appear in list"
+            )
+
+            # Find the session
+            session = next(
+                (s for s in sessions if s.session_id == "no_session_file"), None
+            )
+            assert session is not None
+
+            # Verify state is 'disconnected' (ready to connect/authorize)
+            assert session.state == "disconnected", (
+                f"Session without session.session should be 'disconnected', got '{session.state}'"
+            )
+
+            # Verify has_session_file is False
+            assert session.has_session_file is False, (
+                "Session without session.session should have has_session_file=False"
+            )
+
 
 class TestValidateAccountInfoJson:
     """Tests for JSON account info validation."""
