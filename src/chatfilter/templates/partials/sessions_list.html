@@ -642,6 +642,64 @@
             twofaModalProcessing = false;
         }
     });
+
+    // Auto-open verification code modal when session transitions to needs_code
+    // This happens when Connect auto-detects invalid/missing session.session and triggers send_code
+    const needsCodeTracker = new Set(); // Track which sessions we've already shown feedback for
+
+    const sessionObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList' || mutation.type === 'attributes') {
+                // Check all session rows for needs_code state
+                const sessionRows = document.querySelectorAll('[id^="session-"]');
+                sessionRows.forEach(function(row) {
+                    const sessionId = row.id.replace('session-', '');
+                    const statusElement = row.querySelector('.account-status');
+
+                    if (!statusElement) return;
+
+                    // Check if session is in needs_code state
+                    const isNeedsCode = statusElement.classList.contains('status-needs_code');
+
+                    if (isNeedsCode && !needsCodeTracker.has(sessionId)) {
+                        // First time seeing this session in needs_code state
+                        needsCodeTracker.add(sessionId);
+
+                        // Show explanatory toast
+                        if (typeof ToastManager !== 'undefined') {
+                            ToastManager.info('{{ _("Session requires verification. Telegram sent a code to your phone.") }}', {
+                                duration: 5000
+                            });
+                        }
+
+                        // Auto-open code modal after 2 second delay (so user can read toast)
+                        setTimeout(function() {
+                            const codeBtn = row.querySelector('.session-code-modal-btn');
+                            if (codeBtn) {
+                                codeBtn.click();
+                            }
+                        }, 2000);
+                    }
+
+                    // Clean up tracker if session leaves needs_code state
+                    if (!isNeedsCode && needsCodeTracker.has(sessionId)) {
+                        needsCodeTracker.delete(sessionId);
+                    }
+                });
+            }
+        });
+    });
+
+    // Observe the sessions table for changes
+    const sessionsTable = document.querySelector('.accounts-table-container');
+    if (sessionsTable) {
+        sessionObserver.observe(sessionsTable, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    }
 })();
 </script>
 {% else %}
