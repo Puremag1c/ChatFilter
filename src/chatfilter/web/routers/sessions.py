@@ -123,9 +123,28 @@ router = APIRouter(tags=["sessions"])
 
 # Maximum file sizes (security limit)
 MAX_SESSION_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_JSON_SIZE = 10 * 1024  # 10 KB (account info JSON)
 MAX_CONFIG_SIZE = 1024  # 1 KB
 # Chunk size for reading uploaded files (to prevent memory exhaustion)
 READ_CHUNK_SIZE = 8192  # 8 KB chunks
+
+
+def validate_phone_number(phone: str) -> None:
+    """Validate phone number format.
+
+    Args:
+        phone: Phone number to validate
+
+    Raises:
+        ValueError: If phone format is invalid
+    """
+    if not phone.startswith("+"):
+        raise ValueError(_("Phone number must start with +"))
+
+    # Remove common formatting characters and check digits
+    digits_only = phone[1:].replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if not digits_only.isdigit():
+        raise ValueError(_("Phone number must contain only digits after +"))
 
 
 class SessionListItem(BaseModel):
@@ -1505,8 +1524,13 @@ async def delete_session(session_id: str) -> HTMLResponse:
 async def validate_import_session(
     request: Request,
     session_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile, File()],
 ) -> HTMLResponse:
-    """Validate a session file for import.
+    """Validate session and JSON files for import.
+
+    Args:
+        json_file: JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
 
     Returns HTML partial with validation result.
     """
@@ -1537,8 +1561,49 @@ async def validate_import_session(
                 context={"success": False, "error": str(e)},
             )
 
+        # Validate JSON file
+        try:
+            json_content = await read_upload_with_size_limit(
+                json_file, MAX_JSON_SIZE, "JSON"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            json_data = json.loads(json_content)
+
+            # Validate required field: phone
+            if "phone" not in json_data or not json_data["phone"]:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/import_validation_result.html",
+                    context={"success": False, "error": _("JSON file must contain 'phone' field")},
+                )
+
+            # Validate phone format using unified function
+            phone = str(json_data["phone"])
+            try:
+                validate_phone_number(phone)
+            except ValueError as e:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/import_validation_result.html",
+                    context={"success": False, "error": str(e)},
+                )
+
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+            )
+
         # Validation successful
-        logger.info("Session file validated successfully for import")
+        logger.info("Session and JSON files validated successfully for import")
         return templates.TemplateResponse(
             request=request,
             name="partials/import_validation_result.html",
@@ -2067,15 +2132,15 @@ async def start_auth_flow(
 
     # Validate and sanitize phone format
     phone = phone.strip()
-    if not phone.startswith("+") or not phone[1:].replace(" ", "").replace("-", "").replace("(", "").replace(")", "").isdigit():
+    try:
+        validate_phone_number(phone)
+    except ValueError as e:
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": _(
-                    "Invalid phone number format. Must start with + and country code (e.g., +1234567890)."
-                ),
+                "error": str(e),
             },
         )
 
@@ -3793,11 +3858,16 @@ async def save_import_session(
     request: Request,
     session_name: Annotated[str, Form()],
     session_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile, File()],
     api_id: Annotated[int, Form()],
     api_hash: Annotated[str, Form()],
     proxy_id: Annotated[str, Form()],
 ) -> HTMLResponse:
     """Save an imported session with configuration.
+
+    Args:
+        json_file: JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
 
     Returns HTML partial with save result.
     """
@@ -3879,27 +3949,85 @@ async def save_import_session(
                 },
             )
 
-        # Extract account info from session to check for duplicates
+        # Parse JSON file for account info (TelegramExpert format)
+        twofa_password = None
+
+        try:
+            json_content = await read_upload_with_size_limit(
+                json_file, MAX_JSON_SIZE, "JSON"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            json_data = json.loads(json_content)
+
+            # Validate required field: phone
+            if "phone" not in json_data or not json_data["phone"]:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": _("JSON file must contain 'phone' field")},
+                )
+
+            # Validate phone format using unified function
+            phone = str(json_data["phone"])
+            try:
+                validate_phone_number(phone)
+            except ValueError as e:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": str(e)},
+                )
+
+            # JSON is primary source for account info
+            account_info = {
+                "phone": phone,
+                "first_name": str(json_data.get("first_name", "")),
+                "last_name": str(json_data.get("last_name", "")),
+            }
+
+            # Extract 2FA password if present (will encrypt later)
+            if "twoFA" in json_data and json_data["twoFA"]:
+                twofa_password = str(json_data["twoFA"])
+
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+            )
+
+        # Try to get user_id from session for duplicate check
+        # JSON account_info is already prepared above as primary source
         import tempfile
 
-        account_info = None
         duplicate_sessions = []
 
-        # Create a temporary session file to test connection
+        # Create a temporary session file to try extracting user_id
         with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
             tmp_session.write(session_content)
             tmp_session.flush()
             tmp_session_path = Path(tmp_session.name)
 
         try:
-            # Try to get account info from the session
-            account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+            # Try to get user_id from session (best effort)
+            session_account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
 
-            if account_info:
-                # Check for duplicate accounts
-                user_id = account_info["user_id"]
+            # Add user_id to account_info if available from session
+            if session_account_info and "user_id" in session_account_info:
+                account_info["user_id"] = session_account_info["user_id"]
+
+                # Check for duplicate accounts only if we have user_id
+                user_id = session_account_info["user_id"]
                 if isinstance(user_id, int):
                     duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+
         finally:
             # Clean up temporary session file
             import contextlib
@@ -3923,6 +4051,21 @@ async def save_import_session(
                 account_info=account_info,
                 source="file",
             )
+
+            # Encrypt and save 2FA password if provided in JSON
+            if twofa_password:
+                from chatfilter.security import SecureCredentialManager
+
+                storage_dir = session_dir.parent
+                manager = SecureCredentialManager(storage_dir)
+                manager.store_2fa(safe_name, twofa_password)
+                logger.info(f"Stored encrypted 2FA for session: {safe_name}")
+
+                # Update account_info to indicate 2FA is available
+                if account_info:
+                    account_info_data = load_account_info(session_dir) or {}
+                    account_info_data["has_2fa"] = True
+                    save_account_info(session_dir, account_info_data)
 
         except DiskSpaceError:
             shutil.rmtree(session_dir, ignore_errors=True)

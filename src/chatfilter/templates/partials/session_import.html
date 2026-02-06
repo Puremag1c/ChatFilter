@@ -1,35 +1,35 @@
-{# Session Import Drop Zone with Configuration Form #}
+{# Session Import with Configuration Form #}
 <div id="session-import-container">
-    {# Step 1: File Drop Zone #}
+    {# Step 1: File Upload #}
     <div id="import-step-file" class="import-step">
-        <div class="import-drop-zone"
-             id="session-drop-zone"
-             role="button"
-             tabindex="0"
-             aria-label="{{ _('Drop session file here or click to browse') }}">
-            <input type="file"
-                   id="session-file-input"
-                   name="session_file"
-                   accept=".session"
-                   aria-hidden="true">
-
-            <div class="drop-zone-icon">📁</div>
-            <div class="drop-zone-title">{{ _("Drop your .session file here") }}</div>
-            <div class="drop-zone-subtitle">{{ _("or click to browse") }}</div>
-
-            <div class="drop-zone-or">{{ _("or") }}</div>
-
-            <button type="button" class="btn btn-secondary" onclick="document.getElementById('session-file-input').click()">
-                {{ _("Choose File") }}
-            </button>
-
-            <div id="drop-zone-file-info" class="drop-zone-file-info" style="display: none;">
-                <span class="drop-zone-file-name" id="selected-file-name"></span>
-                <span class="drop-zone-file-size" id="selected-file-size"></span>
-                <button type="button" class="drop-zone-clear" id="clear-file-btn" aria-label="{{ _('Clear selected file') }}">&times;</button>
+        <div class="import-file-form">
+            <div class="form-group">
+                <label for="session-file-input">{{ _("Session File (.session)") }} <span class="required">*</span></label>
+                <input type="file"
+                       id="session-file-input"
+                       name="session_file"
+                       accept=".session"
+                       required>
+                <small class="form-hint">{{ _("Select your Telegram session file") }}</small>
+                <div id="session-file-info" class="file-info" style="display: none; margin-top: 0.5rem;"></div>
             </div>
 
-            <div id="drop-zone-error" class="drop-zone-error" style="display: none;"></div>
+            <div class="form-group">
+                <label for="json-file-input">{{ _("Account Info (.json)") }} <span class="required">*</span></label>
+                <input type="file"
+                       id="json-file-input"
+                       name="json_file"
+                       accept=".json"
+                       required>
+                <small class="form-hint">{{ _("JSON file with phone and 2FA (TelegramExpert format)") }}</small>
+                <div id="json-file-info" class="file-info" style="display: none; margin-top: 0.5rem;"></div>
+            </div>
+
+            <div id="import-file-error" class="alert alert-error" style="display: none;"></div>
+
+            <button type="button" id="validate-files-btn" class="btn btn-primary" disabled>
+                {{ _("Validate and Continue") }}
+            </button>
         </div>
 
         <div id="import-validation-result"></div>
@@ -38,7 +38,7 @@
     {# Step 2: Configuration Form (shown after successful validation) #}
     <div id="import-step-config" class="import-step" style="display: none;">
         <div class="alert alert-info">
-            <strong>{{ _("Session file validated successfully!") }}</strong>
+            <strong>{{ _("Session files validated successfully!") }}</strong>
             {{ _("Now configure the session settings below.") }}
         </div>
 
@@ -127,23 +127,22 @@
 
 <script>
 (function() {
-    const dropZone = document.getElementById('session-drop-zone');
-    const fileInput = document.getElementById('session-file-input');
-    const fileInfo = document.getElementById('drop-zone-file-info');
-    const fileName = document.getElementById('selected-file-name');
-    const fileSize = document.getElementById('selected-file-size');
-    const clearBtn = document.getElementById('clear-file-btn');
-    const errorDiv = document.getElementById('drop-zone-error');
+    const sessionFileInput = document.getElementById('session-file-input');
+    const jsonFileInput = document.getElementById('json-file-input');
+    const sessionFileInfo = document.getElementById('session-file-info');
+    const jsonFileInfo = document.getElementById('json-file-info');
+    const errorDiv = document.getElementById('import-file-error');
+    const validateBtn = document.getElementById('validate-files-btn');
     const validationResult = document.getElementById('import-validation-result');
 
     const stepFile = document.getElementById('import-step-file');
     const stepConfig = document.getElementById('import-step-config');
     const sessionNameInput = document.getElementById('import-session-name');
-    const validatedDataInput = document.getElementById('validated-session-data');
     const backBtn = document.getElementById('import-back-btn');
     const configForm = document.getElementById('session-config-form');
 
-    let selectedFile = null;
+    let selectedSessionFile = null;
+    let selectedJsonFile = null;
 
     // Format file size
     function formatFileSize(bytes) {
@@ -156,54 +155,80 @@
     function showError(message) {
         errorDiv.textContent = message;
         errorDiv.style.display = 'block';
-        dropZone.classList.add('has-error');
-        dropZone.classList.remove('has-file');
     }
 
     // Clear error
     function clearError() {
         errorDiv.style.display = 'none';
-        dropZone.classList.remove('has-error');
     }
 
-    // Handle file selection
-    function handleFile(file) {
+    // Update button state
+    function updateValidateButton() {
+        validateBtn.disabled = !selectedSessionFile || !selectedJsonFile;
+    }
+
+    // Display file info
+    function displayFileInfo(file, infoDiv) {
+        infoDiv.textContent = `${file.name} (${formatFileSize(file.size)})`;
+        infoDiv.style.display = 'block';
+    }
+
+    // Handle session file selection
+    sessionFileInput.addEventListener('change', () => {
         clearError();
+        if (sessionFileInput.files.length > 0) {
+            const file = sessionFileInput.files[0];
+            if (!file.name.endsWith('.session')) {
+                showError('{{ _("Invalid file type. Please select a .session file.") }}');
+                sessionFileInput.value = '';
+                sessionFileInfo.style.display = 'none';
+                selectedSessionFile = null;
+            } else {
+                selectedSessionFile = file;
+                displayFileInfo(file, sessionFileInfo);
+            }
+        } else {
+            selectedSessionFile = null;
+            sessionFileInfo.style.display = 'none';
+        }
+        updateValidateButton();
+    });
 
-        // Validate file extension
-        if (!file.name.endsWith('.session')) {
-            showError('{{ _("Invalid file type. Please select a .session file.") }}');
+    // Handle JSON file selection
+    jsonFileInput.addEventListener('change', () => {
+        clearError();
+        if (jsonFileInput.files.length > 0) {
+            const file = jsonFileInput.files[0];
+            if (!file.name.endsWith('.json')) {
+                showError('{{ _("Invalid file type. Please select a .json file.") }}');
+                jsonFileInput.value = '';
+                jsonFileInfo.style.display = 'none';
+                selectedJsonFile = null;
+            } else {
+                selectedJsonFile = file;
+                displayFileInfo(file, jsonFileInfo);
+            }
+        } else {
+            selectedJsonFile = null;
+            jsonFileInfo.style.display = 'none';
+        }
+        updateValidateButton();
+    });
+
+    // Validate files on server
+    validateBtn.addEventListener('click', async () => {
+        if (!selectedSessionFile || !selectedJsonFile) {
+            showError('{{ _("Please select both files.") }}');
             return;
         }
 
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            showError('{{ _("File is too large. Maximum size is 10 MB.") }}');
-            return;
-        }
-
-        selectedFile = file;
-        fileName.textContent = file.name;
-        fileSize.textContent = formatFileSize(file.size);
-        fileInfo.style.display = 'flex';
-        dropZone.classList.add('has-file');
-
-        // Auto-suggest session name from filename
-        const suggestedName = file.name.replace(/\.session$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
-        if (suggestedName) {
-            sessionNameInput.value = suggestedName;
-        }
-
-        // Validate the session file
-        validateSessionFile(file);
-    }
-
-    // Validate session file on server
-    async function validateSessionFile(file) {
+        clearError();
         const formData = new FormData();
-        formData.append('session_file', file);
+        formData.append('session_file', selectedSessionFile);
+        formData.append('json_file', selectedJsonFile);
 
-        validationResult.innerHTML = '<div class="alert alert-info">{{ _("Validating session file...") }}</div>';
+        validationResult.innerHTML = '<div class="alert alert-info">{{ _("Validating files...") }}</div>';
+        validateBtn.disabled = true;
 
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -219,22 +244,38 @@
             validationResult.innerHTML = html;
 
             if (response.ok) {
-                // Store the file for later submission
-                // We need to re-attach the file to the config form
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-
-                // Create a hidden file input in the config form
-                let hiddenFileInput = document.getElementById('config-session-file');
-                if (!hiddenFileInput) {
-                    hiddenFileInput = document.createElement('input');
-                    hiddenFileInput.type = 'file';
-                    hiddenFileInput.id = 'config-session-file';
-                    hiddenFileInput.name = 'session_file';
-                    hiddenFileInput.style.display = 'none';
-                    configForm.appendChild(hiddenFileInput);
+                // Auto-suggest session name from filename
+                const suggestedName = selectedSessionFile.name.replace(/\.session$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                if (suggestedName) {
+                    sessionNameInput.value = suggestedName;
                 }
-                hiddenFileInput.files = dataTransfer.files;
+
+                // Store files for later submission
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(selectedSessionFile);
+                let hiddenSessionInput = document.getElementById('config-session-file');
+                if (!hiddenSessionInput) {
+                    hiddenSessionInput = document.createElement('input');
+                    hiddenSessionInput.type = 'file';
+                    hiddenSessionInput.id = 'config-session-file';
+                    hiddenSessionInput.name = 'session_file';
+                    hiddenSessionInput.style.display = 'none';
+                    configForm.appendChild(hiddenSessionInput);
+                }
+                hiddenSessionInput.files = dataTransfer.files;
+
+                const jsonTransfer = new DataTransfer();
+                jsonTransfer.items.add(selectedJsonFile);
+                let hiddenJsonInput = document.getElementById('config-json-file');
+                if (!hiddenJsonInput) {
+                    hiddenJsonInput = document.createElement('input');
+                    hiddenJsonInput.type = 'file';
+                    hiddenJsonInput.id = 'config-json-file';
+                    hiddenJsonInput.name = 'json_file';
+                    hiddenJsonInput.style.display = 'none';
+                    configForm.appendChild(hiddenJsonInput);
+                }
+                hiddenJsonInput.files = jsonTransfer.files;
 
                 // Show config step after short delay
                 setTimeout(() => {
@@ -242,95 +283,39 @@
                     stepConfig.style.display = 'block';
                     sessionNameInput.focus();
                 }, 500);
+            } else {
+                validateBtn.disabled = false;
             }
         } catch (error) {
-            validationResult.innerHTML = '<div class="alert alert-error">{{ _("Failed to validate session file. Please try again.") }}</div>';
+            validationResult.innerHTML = '<div class="alert alert-error">{{ _("Failed to validate files. Please try again.") }}</div>';
+            validateBtn.disabled = false;
             console.error('Validation error:', error);
         }
-    }
-
-    // Clear file selection
-    function clearFile() {
-        selectedFile = null;
-        fileInput.value = '';
-        fileInfo.style.display = 'none';
-        dropZone.classList.remove('has-file');
-        clearError();
-        validationResult.innerHTML = '';
-    }
-
-    // Drag and drop events
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-    });
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.add('drag-over');
-        });
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.remove('drag-over');
-        });
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            handleFile(files[0]);
-        }
-    });
-
-    // Click to open file dialog
-    dropZone.addEventListener('click', (e) => {
-        if (e.target !== clearBtn && !e.target.closest('.drop-zone-clear') && !e.target.closest('.btn')) {
-            fileInput.click();
-        }
-    });
-
-    // Keyboard support
-    dropZone.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            fileInput.click();
-        }
-    });
-
-    // File input change
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            handleFile(fileInput.files[0]);
-        }
-    });
-
-    // Clear button
-    clearBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        clearFile();
     });
 
     // Back button
     backBtn.addEventListener('click', () => {
         stepConfig.style.display = 'none';
         stepFile.style.display = 'block';
+        validateBtn.disabled = false;
     });
 
     // Handle form submission success
     document.body.addEventListener('htmx:afterSwap', (e) => {
         if (e.detail.target.id === 'import-save-result') {
-            // Check if save was successful by looking for success class
             const resultDiv = e.detail.target;
             if (resultDiv.querySelector('.alert-success')) {
                 // Clear form and reset
-                clearFile();
+                sessionFileInput.value = '';
+                jsonFileInput.value = '';
+                selectedSessionFile = null;
+                selectedJsonFile = null;
+                sessionFileInfo.style.display = 'none';
+                jsonFileInfo.style.display = 'none';
                 configForm.reset();
                 stepConfig.style.display = 'none';
                 stepFile.style.display = 'block';
+                updateValidateButton();
 
                 // Refresh sessions list
                 const sessionsList = document.getElementById('sessions-list');
