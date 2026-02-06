@@ -830,16 +830,20 @@ button[disabled].htmx-request {
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-top-color: white;
     border-radius: 50%;
-    animation: fade-in 250ms ease-in, spin 0.8s linear infinite;
+    animation: spin 0.8s linear infinite, spinner-fade-in 0.3s ease-in-out;
+}
+
+@keyframes spinner-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes spin {
     to { transform: rotate(360deg); }
-}
-
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
 }
 
 /* Session config form loading state */
@@ -3253,7 +3257,7 @@ body:has(.update-notification.show) {
     border-top-color: transparent;
     border-radius: 50%;
     display: inline-block;
-    animation: fade-in 250ms ease-in, spin 0.8s linear infinite;
+    animation: spin 0.8s linear infinite, spinner-fade-in 0.3s ease-in-out;
 }
 
 .account-actions {
