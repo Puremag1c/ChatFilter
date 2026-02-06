@@ -2635,21 +2635,17 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             await get_event_bus().publish(session_id, "error")
             return
 
-        # Robustly delete invalid session file (or rename to .backup on failure)
-        delete_success = robust_delete_session_file(session_path)
-        # Load and update account_info
+        # Securely delete invalid session file (overwrite with random data before unlink)
+        # secure_delete_file has internal fallback to regular unlink if secure deletion fails
+        secure_delete_file(session_path)
+
+        # Load account_info
         session_dir = session_path.parent
         account_info = load_account_info(session_dir)
         if not account_info or "phone" not in account_info:
             logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
             await get_event_bus().publish(session_id, "error")
             return
-
-        # Mark session as needs_reauth if delete failed
-        if not delete_success:
-            account_info["needs_reauth"] = True
-            save_account_info(session_dir, account_info)
-            logger.warning(f"Session '{session_id}' marked as needs_reauth (delete failed)")
 
         phone = str(account_info["phone"])
 
