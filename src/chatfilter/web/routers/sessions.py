@@ -511,6 +511,53 @@ def validate_config_file_format(content: bytes) -> dict[str, str | int | None]:
     return config
 
 
+def validate_account_info_json(data: dict) -> tuple[bool, str | None]:
+    """Validate JSON account info structure and phone format.
+
+    Args:
+        data: Parsed JSON data to validate
+
+    Returns:
+        Tuple of (is_valid, error_message).
+        If valid, error_message is None.
+
+    Security:
+        - Rejects nested objects and arrays to prevent injection
+        - Only allows known fields (phone, first_name, last_name, twoFA)
+        - Validates phone format (E.164)
+    """
+    # Allowed fields (all others will be rejected)
+    ALLOWED_FIELDS = {"phone", "first_name", "last_name", "twoFA"}
+
+    # Check for unknown fields
+    unknown_fields = set(data.keys()) - ALLOWED_FIELDS
+    if unknown_fields:
+        return False, _("Unknown fields in JSON: {fields}").format(
+            fields=", ".join(sorted(unknown_fields))
+        )
+
+    # Reject nested objects and arrays
+    for key, value in data.items():
+        if isinstance(value, (dict, list)):
+            return False, _("JSON field '{field}' cannot be an object or array").format(field=key)
+
+    # Validate required field: phone
+    if "phone" not in data or not data["phone"]:
+        return False, _("JSON file must contain 'phone' field")
+
+    phone = str(data["phone"]).strip()
+
+    # Validate E.164 phone format: optional +, then 7-15 digits
+    # Examples: +14385515736, 14385515736
+    e164_pattern = r"^\+?[1-9]\d{6,14}$"
+    if not re.match(e164_pattern, phone):
+        return False, _(
+            "Invalid phone format. Expected E.164 format (e.g., +14385515736 or 14385515736)"
+        )
+
+    return True, None
+
+
 async def get_account_info_from_session(
     session_path: Path, api_id: int, api_hash: str
 ) -> dict[str, int | str] | None:
@@ -1124,9 +1171,11 @@ async def upload_session(
                 context={"success": False, "error": str(e)},
             )
 
-        # Check if session already exists
+        # Atomically create session directory to prevent TOCTOU race
         session_dir = ensure_data_dir() / safe_name
-        if session_dir.exists():
+        try:
+            session_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
@@ -1198,17 +1247,18 @@ async def upload_session(
             try:
                 json_data = json.loads(json_content)
 
-                # Validate required field: phone
-                if "phone" not in json_data or not json_data["phone"]:
+                # Validate JSON structure, fields, and phone format
+                is_valid, error_msg = validate_account_info_json(json_data)
+                if not is_valid:
                     return templates.TemplateResponse(
                         request=request,
                         name="partials/upload_result.html",
-                        context={"success": False, "error": _("JSON file must contain 'phone' field")},
+                        context={"success": False, "error": error_msg},
                     )
 
-                # Extract account info from JSON
+                # Extract account info from JSON (validation passed)
                 json_account_info = {
-                    "phone": str(json_data["phone"]),
+                    "phone": str(json_data["phone"]).strip(),
                     "first_name": str(json_data.get("first_name", "")),
                     "last_name": str(json_data.get("last_name", "")),
                 }
@@ -1263,9 +1313,7 @@ async def upload_session(
             with contextlib.suppress(Exception):
                 tmp_session_path.unlink()
 
-        # Create session directory and save files
-        session_dir.mkdir(parents=True, exist_ok=True)
-
+        # Session directory already created atomically above
         try:
             from chatfilter.utils.disk import DiskSpaceError
 
