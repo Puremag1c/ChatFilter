@@ -2672,38 +2672,40 @@ async def connect_session(
         )
 
     # Check if session is expired - need reauth instead of reconnect
-    if info and info.state.value == "session_expired":
-        # For session_expired: Can't use _do_connect_in_background because:
-        # 1. SessionManager.connect() tries to use existing session file (AuthKeyUnregisteredError)
-        # 2. We need send_code flow, not client.start() flow
-        # Solution: Delete session file, send code, create AuthState for user to complete auth
-        account_info = load_account_info(session_dir)
-        if not account_info or "phone" not in account_info:
-            return HTMLResponse(
-                content='<span class="error">Cannot reconnect: phone number unknown</span>',
-                status_code=status.HTTP_400_BAD_REQUEST,
+    if info and info.state == SessionState.ERROR:
+        error_state = classify_error_state(info.error_message)
+        if error_state == "session_expired":
+            # For session_expired: Can't use _do_connect_in_background because:
+            # 1. SessionManager.connect() tries to use existing session file (AuthKeyUnregisteredError)
+            # 2. We need send_code flow, not client.start() flow
+            # Solution: Delete session file, send code, create AuthState for user to complete auth
+            account_info = load_account_info(session_dir)
+            if not account_info or "phone" not in account_info:
+                return HTMLResponse(
+                    content='<span class="error">Cannot reconnect: phone number unknown</span>',
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            phone = str(account_info["phone"])
+
+            # Delete old session file (invalid)
+            if session_path.exists():
+                session_path.unlink()
+                logger.info(f"Deleted expired session file for '{safe_name}'")
+
+            # Reset EventBus deduplication state so SSE can send session_expired again if error
+            # Without this: session_expired → connecting → session_expired (DROPPED - same status)
+            # With this: session_expired → reset → connecting → session_expired (sent via SSE)
+            get_event_bus().reset_session_status(safe_name)
+
+            # Start reauth flow in background
+            background_tasks.add_task(
+                _send_verification_code_and_create_auth,
+                safe_name,
+                session_path,
+                config_path,
+                phone,
             )
-
-        phone = str(account_info["phone"])
-
-        # Delete old session file (invalid)
-        if session_path.exists():
-            session_path.unlink()
-            logger.info(f"Deleted expired session file for '{safe_name}'")
-
-        # Reset EventBus deduplication state so SSE can send session_expired again if error
-        # Without this: session_expired → connecting → session_expired (DROPPED - same status)
-        # With this: session_expired → reset → connecting → session_expired (sent via SSE)
-        get_event_bus().reset_session_status(safe_name)
-
-        # Start reauth flow in background
-        background_tasks.add_task(
-            _send_verification_code_and_create_auth,
-            safe_name,
-            session_path,
-            config_path,
-            phone,
-        )
     else:
         # Normal connection flow
         background_tasks.add_task(
