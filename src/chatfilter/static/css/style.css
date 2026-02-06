@@ -2199,7 +2199,6 @@ button[disabled].htmx-request {
     .account-actions .session-connection-btn-wrapper button {
         width: 100%;
     }
-
     /* Onboarding sections */
     .onboarding-section summary {
         padding: 0.875rem 1rem;
