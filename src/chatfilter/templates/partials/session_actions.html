@@ -8,6 +8,7 @@
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
                 hx-disabled-elt="this"
+                onclick="this.disabled=true"
                 aria-label="{{ _('Disconnect session') }}">
             {{ _("Disconnect") }}
         </button>
@@ -17,6 +18,7 @@
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
                 hx-disabled-elt="this"
+                onclick="this.disabled=true"
                 aria-label="{{ _('Connect session') }}">
             {{ _("Connect") }}
         </button>
@@ -34,6 +36,7 @@
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
                 hx-disabled-elt="this"
+                onclick="this.disabled=true"
                 aria-label="{{ _('Reconnect session') }}"
                 title="{{ session.error_message or _('Session has expired - reconnect required') }}">
             <span class="btn-text">{{ _("Reconnect") }}</span>
@@ -52,6 +55,7 @@
                 hx-target="#session-{{ session.session_id }}"
                 hx-swap="outerHTML"
                 hx-disabled-elt="this"
+                onclick="this.disabled=true"
                 aria-label="{{ _('Retry connection') }}"
                 title="{{ session.error_message or _('Connection error') }}">
             {{ _("Retry") }}
@@ -64,6 +68,7 @@
                 hx-target="#session-config-{{ session.session_id }}"
                 hx-swap="innerHTML"
                 hx-disabled-elt="this"
+                onclick="this.disabled=true"
                 aria-label="{{ _('Configure account') }}"
                 aria-expanded="false"
                 aria-controls="session-config-{{ session.session_id }}"
@@ -124,6 +129,7 @@
             hx-target="#session-config-{{ session.session_id }}"
             hx-swap="innerHTML"
             hx-disabled-elt="this"
+                onclick="this.disabled=true"
             aria-label="{{ _('Configure account') }}"
             aria-expanded="false"
             aria-controls="session-config-{{ session.session_id }}">
