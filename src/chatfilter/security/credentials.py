@@ -415,3 +415,51 @@ class SecureCredentialManager:
             return True
         except CredentialNotFoundError:
             return False
+
+    def store_2fa(self, session_id: str, password: str) -> None:
+        """Store encrypted 2FA password.
+
+        Args:
+            session_id: Unique session identifier
+            password: 2FA password to encrypt and store
+
+        Raises:
+            CredentialStorageError: If storage fails
+        """
+        credentials = self._file_backend._load_credentials_file()
+
+        if session_id not in credentials:
+            credentials[session_id] = {}
+
+        credentials[session_id]["2fa_password"] = password
+        self._file_backend._save_credentials_file(credentials)
+        logger.info(f"Stored encrypted 2FA password for session: {session_id}")
+
+    def retrieve_2fa(self, session_id: str) -> str | None:
+        """Retrieve decrypted 2FA password.
+
+        Args:
+            session_id: Unique session identifier
+
+        Returns:
+            Decrypted 2FA password or None if not found
+        """
+        credentials = self._file_backend._load_credentials_file()
+
+        if session_id not in credentials:
+            return None
+
+        return credentials[session_id].get("2fa_password")
+
+    def delete_2fa(self, session_id: str) -> None:
+        """Delete stored 2FA password.
+
+        Args:
+            session_id: Unique session identifier
+        """
+        credentials = self._file_backend._load_credentials_file()
+
+        if session_id in credentials and "2fa_password" in credentials[session_id]:
+            del credentials[session_id]["2fa_password"]
+            self._file_backend._save_credentials_file(credentials)
+            logger.info(f"Deleted encrypted 2FA password for session: {session_id}")
