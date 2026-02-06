@@ -136,6 +136,7 @@ class SessionListItem(BaseModel):
     error_message: str | None = None
     auth_id: str | None = None
     has_session_file: bool = False  # True if session.session exists (cached auth)
+    retry_available: bool | None = None  # True if error is transient and user can retry
 
 
 def classify_error_state(error_message: str | None, exception: Exception | None = None) -> str:
@@ -1011,13 +1012,15 @@ def list_stored_sessions(
                 # If session manager available, check runtime state
                 state = config_status
                 error_message = None
+                retry_available = None
 
-                # If state is an error state from config, read error_message
+                # If state is an error state from config, read error_message and retry_available
                 if state in ("proxy_error", "banned", "flood_wait", "error"):
                     try:
                         with config_file.open("r", encoding="utf-8") as f:
                             config = json.load(f)
                         error_message = config.get("error_message")
+                        retry_available = config.get("retry_available")
                     except Exception:
                         pass
 
@@ -1059,6 +1062,7 @@ def list_stored_sessions(
                         error_message=error_message,
                         auth_id=auth_id,
                         has_session_file=session_file.exists(),
+                        retry_available=retry_available,
                     )
                 )
 
@@ -1868,6 +1872,7 @@ async def update_session_credentials(
         session_id=safe_name,
         state=config_status,
         error_message=config.get("error_message"),
+        retry_available=config.get("retry_available"),
     )
 
     # Return session row HTML with updated status
@@ -2707,6 +2712,18 @@ async def _send_verification_code_and_create_auth(
     from chatfilter.web.dependencies import get_proxy_manager
     from chatfilter.web.events import get_event_bus
 
+    def save_error_metadata(error_message: str, retry_available: bool) -> None:
+        """Save error metadata to config.json for SSE/UI display."""
+        try:
+            with config_path.open("r") as f:
+                config = json.load(f)
+            config["error_message"] = error_message
+            config["retry_available"] = retry_available
+            config_content = json.dumps(config, indent=2).encode("utf-8")
+            atomic_write(config_path, config_content)
+        except Exception:
+            logger.exception(f"Failed to save error metadata for session '{session_id}'")
+
     # Load config once (no retry needed for local file read)
     try:
         with config_path.open("r") as f:
@@ -2718,6 +2735,8 @@ async def _send_verification_code_and_create_auth(
         logger.exception(f"Failed to load config for session '{session_id}'")
         error_message = get_user_friendly_message(e)
         error_state = classify_error_state(error_message, exception=e)
+        # Config read failure is permanent (file corruption/missing)
+        save_error_metadata(error_message, retry_available=False)
         await get_event_bus().publish(session_id, error_state)
         return
 
@@ -2771,6 +2790,7 @@ async def _send_verification_code_and_create_auth(
             logger.error(f"Non-retryable error for session '{session_id}': {type(e).__name__}")
             error_message = get_user_friendly_message(e)
             error_state = classify_error_state(error_message, exception=e)
+            save_error_metadata(error_message, retry_available=False)
             await get_event_bus().publish(session_id, error_state)
             return
 
@@ -2779,12 +2799,13 @@ async def _send_verification_code_and_create_auth(
             is_final_attempt = attempt == max_attempts - 1
 
             if is_final_attempt:
-                # All retries exhausted
+                # All retries exhausted - transient error
                 logger.error(
                     f"Failed to send code for session '{session_id}' after {max_attempts} attempts: {e}"
                 )
                 error_message = get_user_friendly_message(e)
                 error_state = classify_error_state(error_message, exception=e)
+                save_error_metadata(error_message, retry_available=True)
                 await get_event_bus().publish(session_id, error_state)
                 return
             else:
@@ -2801,6 +2822,7 @@ async def _send_verification_code_and_create_auth(
             logger.exception(f"Unexpected error sending code for session '{session_id}'")
             error_message = get_user_friendly_message(e)
             error_state = classify_error_state(error_message, exception=e)
+            save_error_metadata(error_message, retry_available=False)
             await get_event_bus().publish(session_id, error_state)
             return
 
