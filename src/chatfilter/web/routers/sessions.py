@@ -973,8 +973,9 @@ def list_stored_sessions(
         if session_dir.is_dir():
             session_file = session_dir / "session.session"
             config_file = session_dir / "config.json"
+            account_info_file = session_dir / ".account_info.json"
 
-            if session_file.exists() and config_file.exists():
+            if config_file.exists() and account_info_file.exists():
                 session_id = session_dir.name
                 # First check config status
                 config_status = get_session_config_status(session_dir)
