@@ -2177,6 +2177,13 @@ button[disabled].htmx-request {
         justify-content: flex-start;
     }
 
+    /* Ensure all action buttons have equal width on mobile */
+    .session-actions .btn,
+    .session-actions .btn-sm {
+        flex: 1;
+        min-width: 0; /* Allow buttons to shrink equally */
+    }
+
     /* Onboarding sections */
     .onboarding-section summary {
         padding: 0.875rem 1rem;
