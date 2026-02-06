@@ -2482,8 +2482,11 @@ async def _complete_auth_flow(
 
 
 
-async def _do_connect_in_background(session_id: str, session_path: Path, config_path: Path) -> None:
-    """Background task that performs the actual Telegram connection.
+async def _do_connect_in_background_v2(session_id: str) -> None:
+    """Background task that performs the actual Telegram connection (v2 - no registration).
+
+    This version assumes the loader is already registered and state is already CONNECTING.
+    This prevents race conditions from parallel requests.
 
     This runs after HTTP response is sent. Results are delivered via SSE.
     session_manager.connect() already publishes SSE events for all outcomes.
@@ -2495,18 +2498,27 @@ async def _do_connect_in_background(session_id: str, session_path: Path, config_
 
     from telethon.errors import AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError
 
-    from chatfilter.telegram.client import TelegramClientLoader
     from chatfilter.telegram.error_mapping import get_user_friendly_message
     from chatfilter.web.dependencies import get_session_manager
     from chatfilter.web.events import get_event_bus
 
     session_manager = get_session_manager()
+    session_path: Path | None = None
+    config_path: Path | None = None
 
     try:
-        # Create and register loader if not already registered
-        loader = TelegramClientLoader(session_path, config_path)
-        loader.validate()
-        session_manager.register(session_id, loader)
+        # Get session info to extract paths (loader is already registered)
+        session = session_manager._sessions.get(session_id)
+        if not session:
+            logger.error(f"Session '{session_id}' not found in _do_connect_in_background_v2")
+            await get_event_bus().publish(session_id, "error")
+            return
+
+        # Extract paths from the registered client (TelegramClient has .session.filename)
+        session_filename = session.client.session.filename
+        if session_filename:
+            session_path = Path(session_filename)
+            config_path = session_path.parent / "config.json"
 
         # Connect with timeout (30 seconds)
         # session_manager.connect() publishes SSE events on success/failure
@@ -2521,10 +2533,13 @@ async def _do_connect_in_background(session_id: str, session_path: Path, config_
         # Auto-recover: delete session file and trigger send_code flow
         logger.info(f"Session '{session_id}' has invalid auth key ({type(e).__name__}), triggering reauth")
 
-        # Robustly delete invalid session file (or rename to .backup on failure)
-        session_file = session_path / "session.session"
-        delete_success = robust_delete_session_file(session_file)
+        if not session_path or not config_path:
+            logger.error(f"Cannot reauth session '{session_id}': paths not available")
+            await get_event_bus().publish(session_id, "error")
+            return
 
+        # Robustly delete invalid session file (or rename to .backup on failure)
+        delete_success = robust_delete_session_file(session_path)
         # Load and update account_info
         session_dir = session_path.parent
         account_info = load_account_info(session_dir)
@@ -2765,12 +2780,51 @@ async def connect_session(
             headers={"HX-Trigger": "refreshSessions"},
         )
 
-    # Normal connection flow
+    # FIX RACE CONDITION: Register loader and set state BEFORE scheduling background task
+    # This prevents parallel requests from both seeing DISCONNECTED and scheduling duplicate tasks
+    from chatfilter.telegram.client import TelegramClientLoader
+    from chatfilter.telegram.session_manager import SessionState
+
+    try:
+        loader = TelegramClientLoader(session_path, config_path)
+        loader.validate()
+    except Exception as e:
+        # Validation error (bad config, missing files, etc.)
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+        error_message = get_user_friendly_message(e)
+        return HTMLResponse(
+            content=f'<span class="error">{error_message}</span>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Register loader — this creates session entry in session_manager._sessions
+    session_manager.register(safe_name, loader)
+
+    # Set state to CONNECTING synchronously (prevents race condition)
+    session = session_manager._sessions.get(safe_name)
+    if session:
+        # Use lock to ensure atomic state transition
+        async with session.lock:
+            if session.state in (SessionState.CONNECTED, SessionState.CONNECTING):
+                # Another request beat us to it — return current state
+                session_data = {
+                    "session_id": safe_name,
+                    "state": session.state.value,
+                    "error_message": None,
+                }
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/session_row.html",
+                    context={"session": session_data},
+                    headers={"HX-Trigger": "refreshSessions"},
+                )
+            # Transition to CONNECTING
+            session.state = SessionState.CONNECTING
+
+    # Now schedule background task (loader already registered, state already CONNECTING)
     background_tasks.add_task(
-        _do_connect_in_background,
+        _do_connect_in_background_v2,
         safe_name,
-        session_path,
-        config_path,
     )
 
     # Return immediately with 'connecting' state (template shows spinner)
