@@ -365,7 +365,10 @@
                 // Clear previous input and result
                 const input = modal.querySelector('#code-modal-input');
                 const result = modal.querySelector('#code-modal-result');
-                if (input) input.value = '';
+                if (input) {
+                    input.value = "";
+                    input.focus();
+                }
                 if (result) result.textContent = '';
                 // Reset button state (in case it was disabled from previous submit)
                 const submitBtn = modal.querySelector('#code-modal-submit');
