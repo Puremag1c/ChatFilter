@@ -110,6 +110,7 @@ from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
 from chatfilter.telegram.session_manager import SessionBusyError, SessionState
 from chatfilter.web.events import get_event_bus
+from chatfilter.parsers.telegram_expert import parse_telegram_expert_json, validate_account_info_json
 
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates
@@ -130,7 +131,10 @@ READ_CHUNK_SIZE = 8192  # 8 KB chunks
 
 
 def validate_phone_number(phone: str) -> None:
-    """Validate phone number format.
+    """Validate phone number format for manual phone input.
+
+    This is a simple validation for start_auth_flow endpoint.
+    For JSON import, use parsers.telegram_expert module instead.
 
     Args:
         phone: Phone number to validate
@@ -1576,23 +1580,13 @@ async def validate_import_session(
         try:
             json_data = json.loads(json_content)
 
-            # Validate required field: phone
-            if "phone" not in json_data or not json_data["phone"]:
+            # Validate JSON structure and fields using dedicated parser module
+            validation_error = validate_account_info_json(json_data)
+            if validation_error:
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/import_validation_result.html",
-                    context={"success": False, "error": _("JSON file must contain 'phone' field")},
-                )
-
-            # Validate phone format using unified function
-            phone = str(json_data["phone"])
-            try:
-                validate_phone_number(phone)
-            except ValueError as e:
-                return templates.TemplateResponse(
-                    request=request,
-                    name="partials/import_validation_result.html",
-                    context={"success": False, "error": str(e)},
+                    context={"success": False, "error": validation_error},
                 )
 
         except (json.JSONDecodeError, KeyError, TypeError) as e:
@@ -3966,36 +3960,16 @@ async def save_import_session(
         try:
             json_data = json.loads(json_content)
 
-            # Validate required field: phone
-            if "phone" not in json_data or not json_data["phone"]:
-                return templates.TemplateResponse(
-                    request=request,
-                    name="partials/upload_result.html",
-                    context={"success": False, "error": _("JSON file must contain 'phone' field")},
-                )
+            # Parse and validate JSON using dedicated parser module
+            account_info, twofa_password = parse_telegram_expert_json(json_content, json_data)
 
-            # Validate phone format using unified function
-            phone = str(json_data["phone"])
-            try:
-                validate_phone_number(phone)
-            except ValueError as e:
-                return templates.TemplateResponse(
-                    request=request,
-                    name="partials/upload_result.html",
-                    context={"success": False, "error": str(e)},
-                )
-
-            # JSON is primary source for account info
-            account_info = {
-                "phone": phone,
-                "first_name": str(json_data.get("first_name", "")),
-                "last_name": str(json_data.get("last_name", "")),
-            }
-
-            # Extract 2FA password if present (will encrypt later)
-            if "twoFA" in json_data and json_data["twoFA"]:
-                twofa_password = str(json_data["twoFA"])
-
+        except ValueError as e:
+            # Validation error from parser
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             return templates.TemplateResponse(
                 request=request,

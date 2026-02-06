@@ -3110,8 +3110,8 @@ class TestSessionImport:
         # Valid session file
         session_content = self._create_valid_session_file()
 
-        # Invalid phone format (no +)
-        json_data = {"phone": "79001234567"}
+        # Invalid phone format (too short for E.164)
+        json_data = {"phone": "+123"}
         json_content = json.dumps(json_data).encode()
 
         home_response = client.get("/")
