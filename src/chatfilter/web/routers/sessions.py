@@ -2487,8 +2487,13 @@ async def _do_connect_in_background(session_id: str, session_path: Path, config_
 
     This runs after HTTP response is sent. Results are delivered via SSE.
     session_manager.connect() already publishes SSE events for all outcomes.
+
+    If session.session is missing or invalid (AuthKeyUnregistered), automatically
+    deletes session file and triggers send_code flow.
     """
     import asyncio
+
+    from telethon.errors import AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError
 
     from chatfilter.telegram.client import TelegramClientLoader
     from chatfilter.telegram.error_mapping import get_user_friendly_message
@@ -2510,6 +2515,34 @@ async def _do_connect_in_background(session_id: str, session_path: Path, config_
             timeout=30.0
         )
         # Success - SSE "connected" event already published by session_manager
+
+    except (AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError) as e:
+        # Session file is invalid (expired/revoked auth key)
+        # Auto-recover: delete session file and trigger send_code flow
+        logger.info(f"Session '{session_id}' has invalid auth key ({type(e).__name__}), triggering reauth")
+
+        # Delete invalid session file
+        if session_path.exists():
+            session_path.unlink()
+            logger.info(f"Deleted invalid session file for '{session_id}'")
+
+        # Load phone number from account_info
+        session_dir = session_path.parent
+        account_info = load_account_info(session_dir)
+        if not account_info or "phone" not in account_info:
+            logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
+            await get_event_bus().publish(session_id, "error")
+            return
+
+        phone = str(account_info["phone"])
+
+        # Trigger send_code flow
+        await _send_verification_code_and_create_auth(
+            session_id,
+            session_path,
+            config_path,
+            phone,
+        )
 
     except asyncio.TimeoutError:
         logger.warning(f"Connection timeout for session '{session_id}'")
@@ -2635,8 +2668,10 @@ async def connect_session(
     session_dir = ensure_data_dir() / safe_name
     session_path = session_dir / "session.session"
     config_path = session_dir / "config.json"
-
-    if not session_path.exists():
+    
+    # Check if session exists (must have at least config.json)
+    # Note: session.session can be missing (will trigger send_code flow)
+    if not config_path.exists():
         return HTMLResponse(
             content='<span class="error">Session not found</span>',
             status_code=status.HTTP_404_NOT_FOUND,
