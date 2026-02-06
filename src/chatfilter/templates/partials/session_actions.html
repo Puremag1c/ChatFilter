@@ -45,7 +45,7 @@
                 title="{{ session.error_message or _('Session file is corrupted. Please delete and recreate.') }}">
             <span class="btn-text">{{ _("Corrupted") }}</span>
         </button>
-        {% elif session.state in ['error', 'proxy_error', 'flood_wait'] %}
+        {% elif session.state in ['error', 'flood_wait'] %}
         {# Error states that can be retried #}
         <button class="btn btn-sm btn-danger session-connect-btn"
                 hx-post="/api/sessions/{{ session.session_id }}/connect"
@@ -56,12 +56,19 @@
                 title="{{ session.error_message or _('Connection error') }}">
             {{ _("Retry") }}
         </button>
-        {% elif session.state == 'needs_api_id' %}
-        {# Needs API credentials - show configure button #}
-        <button class="btn btn-sm btn-warning session-connect-btn" disabled
-                aria-label="{{ _('Configure API credentials') }}"
-                title="{{ _('Please configure API ID and hash in Edit section') }}">
-            <span class="btn-text">{{ _("Configure") }}</span>
+        {% elif session.state in ['needs_api_id', 'proxy_error', 'proxy_missing'] %}
+        {# Configuration needed - open config panel via Edit action #}
+        <button class="btn btn-sm btn-warning session-config-btn"
+                data-session-id="{{ session.session_id }}"
+                hx-get="/api/sessions/{{ session.session_id }}/config"
+                hx-target="#session-config-{{ session.session_id }}"
+                hx-swap="innerHTML"
+                hx-disabled-elt="this"
+                aria-label="{{ _('Configure account') }}"
+                aria-expanded="false"
+                aria-controls="session-config-{{ session.session_id }}"
+                {% if session.error_message %}title="{{ session.error_message }}"{% endif %}>
+            {{ _("Edit") }}
         </button>
         {% elif session.state == 'needs_code' %}
         {# Verification code required #}
@@ -103,11 +110,11 @@
             <span class="btn-text">{{ _("Banned") }}</span>
         </button>
         {% else %}
-        {# proxy_missing or unknown - disabled #}
+        {# Unknown state - disabled #}
         <button class="btn btn-sm btn-secondary session-connect-btn" disabled
-                aria-label="{{ _('Not configured') }}"
-                title="{{ _('Configure session first') }}">
-            <span class="btn-text">{{ _("Connect") }}</span>
+                aria-label="{{ _('Unknown state') }}"
+                title="{{ _('Unknown session state') }}">
+            <span class="btn-text">{{ _("Wait...") }}</span>
         </button>
         {% endif %}
     </div>
