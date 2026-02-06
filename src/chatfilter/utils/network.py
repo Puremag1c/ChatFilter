@@ -346,12 +346,12 @@ def detect_network_error(error: Exception) -> bool:
             errno.EHOSTDOWN,  # Host is down
         }
 
-        # Only treat OSError as network error if errno matches
+        # Check errno if available
         if error.errno in network_errno:
             return True
 
-        # Otherwise, it's a filesystem/permission error, not network
-        return False
+        # If errno is not set or not network-related, check message keywords
+        # (falls through to keyword check below)
 
     # Check exception message for network keywords
     error_msg = str(error).lower()
