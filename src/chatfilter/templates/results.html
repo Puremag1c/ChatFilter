@@ -1419,10 +1419,12 @@ document.addEventListener('DOMContentLoaded', function() {
             analyzed_at: new Date().toISOString()
         }));
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         fetch('/api/export/csv', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
             },
             body: JSON.stringify({ results: results })
         })
@@ -1523,8 +1525,12 @@ async function checkOrphanedAnalysis() {
             window.location.href = `/results?task_id=${taskId}`;
         } else {
             // Dismiss notification
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
             await fetch(`/api/analysis/${taskId}/dismiss_notification`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'X-CSRF-Token': csrfToken
+                }
             });
         }
 
