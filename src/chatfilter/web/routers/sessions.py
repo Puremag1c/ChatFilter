@@ -124,6 +124,7 @@ class SessionListItem(BaseModel):
     state: str
     error_message: str | None = None
     auth_id: str | None = None
+    has_session_file: bool = False  # True if session.session exists (cached auth)
 
 
 def classify_error_state(error_message: str | None, exception: Exception | None = None) -> str:
@@ -1031,6 +1032,7 @@ def list_stored_sessions(
                         state=state,
                         error_message=error_message,
                         auth_id=auth_id,
+                        has_session_file=session_file.exists(),
                     )
                 )
 

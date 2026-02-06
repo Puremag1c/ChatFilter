@@ -3188,6 +3188,11 @@ body:has(.update-notification.show) {
     color: var(--success);
 }
 
+.account-status.status-needs-auth {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
 .account-status.status-connected {
     background: var(--success-bg);
     color: var(--success);
