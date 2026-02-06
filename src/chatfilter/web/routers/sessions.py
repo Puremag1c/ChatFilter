@@ -1266,6 +1266,9 @@ async def upload_session(
 
             try:
                 json_data = json.loads(json_content)
+                # Security: Zero plaintext JSON after parsing to prevent memory dumps
+                json_content = b'\x00' * len(json_content)
+                del json_content
             except json.JSONDecodeError as e:
                 return templates.TemplateResponse(
                     request=request,
@@ -1292,6 +1295,9 @@ async def upload_session(
             # Extract 2FA password if present (will encrypt later)
             if "twoFA" in json_data and json_data["twoFA"]:
                 twofa_password = str(json_data["twoFA"])
+                # Security: Zero plaintext 2FA in JSON dict to prevent memory leaks
+                json_data["twoFA"] = "\x00" * len(json_data["twoFA"])
+                del json_data["twoFA"]
 
         # Extract account info from session to check for duplicates
         import tempfile
@@ -1404,6 +1410,11 @@ async def upload_session(
             except Exception:
                 logger.exception("Failed to store 2FA password")
                 # Don't fail the upload if 2FA storage fails
+            finally:
+                # Security: Zero plaintext 2FA password in memory after encryption
+                if twofa_password:
+                    twofa_password = "\x00" * len(twofa_password)
+                    del twofa_password
 
         # Prepare response with duplicate account warning if needed
         response_data = {
