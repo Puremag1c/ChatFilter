@@ -2221,19 +2221,29 @@ button[disabled].htmx-request {
         height: auto; /* Allow nav to expand if items wrap */
         min-height: 50px; /* Maintain minimum height */
         padding: 0.5rem 0; /* Vertical padding for wrapped items */
+        flex-wrap: wrap; /* Allow wrapping of all nav children */
     }
 
     header .logo {
         font-size: 1.125rem;
+        flex-shrink: 0; /* Prevent logo from shrinking */
     }
 
     header .nav-links {
         gap: 0.375rem; /* Tighter gap for very small screens */
         font-size: 0.75rem; /* Smaller font size */
+        order: 2; /* Move nav-links below status on wrap */
     }
 
     header .nav-links a {
         padding: 0.25rem 0.5rem; /* Add padding to improve tap targets */
+        white-space: nowrap; /* Prevent text wrapping within links */
+    }
+
+    /* Ensure status indicators wrap properly */
+    .status-indicators {
+        flex-shrink: 0; /* Prevent shrinking */
+        order: 1; /* Keep status indicators next to logo */
     }
 
     /* Ultra-compact main container */
@@ -2461,10 +2471,12 @@ button[disabled].htmx-request {
         flex-direction: column; /* Stack logo and nav vertically */
         align-items: flex-start;
         gap: 0.5rem;
+        flex-wrap: nowrap; /* Override parent wrap since we're in column */
     }
 
     header .logo {
         font-size: 1rem;
+        width: 100%; /* Full width for alignment */
     }
 
     header .nav-links {
@@ -2472,16 +2484,19 @@ button[disabled].htmx-request {
         font-size: 0.7rem;
         width: 100%; /* Full width for better distribution */
         justify-content: flex-start;
+        order: unset; /* Reset order for column layout */
     }
 
     header .nav-links a {
         padding: 0.25rem 0.375rem;
+        white-space: nowrap; /* Prevent text wrapping */
     }
 
     .status-indicators {
         width: 100%;
         justify-content: flex-start;
         flex-wrap: wrap;
+        order: unset; /* Reset order for column layout */
     }
 }
 
