@@ -3284,89 +3284,117 @@ async def verify_code(
         stored_2fa = manager.retrieve_2fa(safe_name)
 
         if stored_2fa:
-            # Try to auto-enter 2FA
+            # Try to auto-enter 2FA with single retry on transient errors
             logger.info(f"Attempting auto-2FA for session '{safe_name}'")
-            try:
-                # Try to sign in with stored 2FA password
-                await asyncio.wait_for(
-                    client.sign_in(password=stored_2fa),
-                    timeout=30.0,
-                )
+            max_attempts = 2
+            last_error = None
 
-                # Success! Update the existing session
-                if not session_dir.exists():
-                    await auth_manager.remove_auth_state(auth_id)
-                    return templates.TemplateResponse(
-                        request=request,
-                        name="partials/auth_result.html",
-                        context={"success": False, "error": _("Session directory not found.")},
+            for attempt in range(max_attempts):
+                if attempt > 0:
+                    logger.info(f"Retrying auto-2FA for session '{safe_name}' (attempt {attempt + 1}/{max_attempts})")
+
+                try:
+                    # Try to sign in with stored 2FA password
+                    await asyncio.wait_for(
+                        client.sign_in(password=stored_2fa),
+                        timeout=30.0,
                     )
 
-                session_path = session_dir / "session.session"
+                    # Success! Update the existing session
+                    if not session_dir.exists():
+                        await auth_manager.remove_auth_state(auth_id)
+                        return templates.TemplateResponse(
+                            request=request,
+                            name="partials/auth_result.html",
+                            context={"success": False, "error": _("Session directory not found.")},
+                        )
 
-                # Get account info
-                me = await asyncio.wait_for(client.get_me(), timeout=30.0)
-                account_info = {
-                    "user_id": me.id,
-                    "phone": me.phone or "",
-                    "first_name": me.first_name or "",
-                    "last_name": me.last_name or "",
-                }
+                    session_path = session_dir / "session.session"
 
-                # Disconnect client before copying session file
-                await asyncio.wait_for(client.disconnect(), timeout=30.0)
+                    # Get account info
+                    me = await asyncio.wait_for(client.get_me(), timeout=30.0)
+                    account_info = {
+                        "user_id": me.id,
+                        "phone": me.phone or "",
+                        "first_name": me.first_name or "",
+                        "last_name": me.last_name or "",
+                    }
 
-                # Copy session file from temp location to existing session
-                temp_dir = getattr(auth_state, "temp_dir", None)
-                if temp_dir:
-                    temp_session_file = Path(temp_dir) / "auth_session.session"
-                    if temp_session_file.exists():
-                        shutil.copy2(temp_session_file, session_path)
-                        secure_file_permissions(session_path)
-                    # Clean up temp dir
-                    secure_delete_dir(temp_dir)
+                    # Disconnect client before copying session file
+                    await asyncio.wait_for(client.disconnect(), timeout=30.0)
 
-                # Update account info
-                save_account_info(session_dir, account_info)
+                    # Copy session file from temp location to existing session
+                    temp_dir = getattr(auth_state, "temp_dir", None)
+                    if temp_dir:
+                        temp_session_file = Path(temp_dir) / "auth_session.session"
+                        if temp_session_file.exists():
+                            shutil.copy2(temp_session_file, session_path)
+                            secure_file_permissions(session_path)
+                        # Clean up temp dir
+                        secure_delete_dir(temp_dir)
 
-                # Remove auth state
-                await auth_manager.remove_auth_state(auth_id)
+                    # Update account info
+                    save_account_info(session_dir, account_info)
 
-                logger.info(f"Session '{safe_name}' authenticated successfully (auto-2FA)")
+                    # Remove auth state
+                    await auth_manager.remove_auth_state(auth_id)
 
-                # Emit event for auth completion (connected)
-                await get_event_bus().publish(safe_name, "connected")
+                    logger.info(f"Session '{safe_name}' authenticated successfully (auto-2FA)")
 
-                # Use reconnect success template with toast notification
-                return templates.TemplateResponse(
-                    request=request,
-                    name="partials/reconnect_success.html",
-                    context={
-                        "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
-                        "session_id": safe_name,
-                    },
-                    headers={"HX-Trigger": "refreshSessions"},
-                )
+                    # Emit event for auth completion (connected)
+                    await get_event_bus().publish(safe_name, "connected")
 
-            except PasswordHashInvalidError:
-                # Auto-2FA failed - show manual form with error message
-                logger.warning(f"Auto-2FA failed for session '{safe_name}' - password incorrect")
-                # Emit event for 2FA requirement
-                await get_event_bus().publish(safe_name, "needs_2fa")
-                return templates.TemplateResponse(
-                    request=request,
-                    name="partials/auth_2fa_form_reconnect.html",
-                    context={
-                        "auth_id": auth_id,
-                        "session_name": safe_name,
-                        "session_id": session_id,
-                        "error": _("Saved 2FA password is incorrect. Please enter manually."),
-                    },
-                    headers={"HX-Trigger": "refreshSessions"},
-                )
-            except Exception:
-                logger.exception(f"Auto-2FA failed for session '{safe_name}' with unexpected error")
-                # Fall through to manual 2FA form below
+                    # Use reconnect success template with toast notification
+                    return templates.TemplateResponse(
+                        request=request,
+                        name="partials/reconnect_success.html",
+                        context={
+                            "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
+                            "session_id": safe_name,
+                        },
+                        headers={"HX-Trigger": "refreshSessions"},
+                    )
+
+                except PasswordHashInvalidError:
+                    # Auto-2FA failed - password incorrect (deterministic error, no retry)
+                    logger.warning(f"Auto-2FA failed for session '{safe_name}' - password incorrect")
+                    # Emit event for 2FA requirement
+                    await get_event_bus().publish(safe_name, "needs_2fa")
+                    return templates.TemplateResponse(
+                        request=request,
+                        name="partials/auth_2fa_form_reconnect.html",
+                        context={
+                            "auth_id": auth_id,
+                            "session_name": safe_name,
+                            "session_id": session_id,
+                            "error": _("Saved 2FA password is incorrect. Please enter manually."),
+                        },
+                        headers={"HX-Trigger": "refreshSessions"},
+                    )
+                except Exception as e:
+                    # Store error for potential retry
+                    last_error = e
+                    logger.warning(f"Auto-2FA attempt {attempt + 1}/{max_attempts} failed for session '{safe_name}': {e}")
+
+                    # If we have attempts left, continue to retry
+                    if attempt < max_attempts - 1:
+                        continue
+
+                    # All attempts exhausted - show error and fall through to manual form
+                    logger.exception(f"Auto-2FA failed for session '{safe_name}' after {max_attempts} attempts")
+                    # Emit event for 2FA requirement
+                    await get_event_bus().publish(safe_name, "needs_2fa")
+                    return templates.TemplateResponse(
+                        request=request,
+                        name="partials/auth_2fa_form_reconnect.html",
+                        context={
+                            "auth_id": auth_id,
+                            "session_name": safe_name,
+                            "session_id": session_id,
+                            "error": _("Auto-2FA failed due to connection error. Please enter manually."),
+                        },
+                        headers={"HX-Trigger": "refreshSessions"},
+                    )
 
         # No stored 2FA or auto-entry failed - show manual form
         logger.info(f"No stored 2FA for session '{safe_name}', showing manual form")
