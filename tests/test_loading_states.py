@@ -170,13 +170,14 @@ class TestLoadingStateReconnect:
 
         html = template.render(session=session_data)
 
-        # Verify Reconnect button is shown
+        # Verify Reconnect button is shown with correct endpoint
+        # Reconnect uses same flow as connect (posts to /connect, not /reconnect-form)
         assert "Reconnect" in html
-        assert 'hx-get="/api/sessions/test_session/reconnect-form"' in html
-        assert 'hx-target="#modal-container"' in html
+        assert 'hx-post="/api/sessions/test_session/connect"' in html
+        assert 'hx-target="#session-test_session"' in html
 
-    def test_reconnect_button_target_modal(self) -> None:
-        """Reconnect button should target modal container."""
+    def test_reconnect_button_target_and_swap(self) -> None:
+        """Reconnect button should target session row and swap outerHTML."""
         env = _setup_template_env()
         template = env.get_template("partials/session_row.html")
 
@@ -188,9 +189,10 @@ class TestLoadingStateReconnect:
 
         html = template.render(session=session_data)
 
-        # Verify modal-related attributes
-        assert 'hx-swap="innerHTML"' in html
-        assert '#modal-container' in html
+        # Verify HTMX target and swap configuration
+        # Reconnect uses same flow as connect (updates session row, not modal)
+        assert 'hx-target="#session-test_session"' in html
+        assert 'hx-swap="outerHTML"' in html
 
 
 class TestLoadingStateSendCode:
