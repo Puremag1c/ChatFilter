@@ -603,6 +603,11 @@ def _save_session_to_disk(
 ) -> None:
     """Save session files to disk with secure credentials.
 
+    Uses atomic transaction pattern:
+    1. Write all files to temp directory
+    2. On success → rename temp dir to final name (POSIX atomic)
+    3. On failure → delete temp dir (no orphaned files)
+
     Creates:
     - session.session file (atomic write, secure permissions)
     - config.json with api_id, api_hash, proxy_id, source
@@ -612,7 +617,7 @@ def _save_session_to_disk(
     Also stores credentials in secure storage.
 
     Args:
-        session_dir: Session directory path (must exist)
+        session_dir: Session directory path (must NOT exist)
         session_content: Session file content bytes
         api_id: Telegram API ID (can be None for source=phone)
         api_hash: Telegram API hash (can be None for source=phone)
@@ -623,12 +628,12 @@ def _save_session_to_disk(
     Raises:
         DiskSpaceError: If not enough disk space
         TelegramConfigError: If validation fails
-        Exception: On other failures
+        Exception: On other failures (temp dir is cleaned up)
     """
     from chatfilter.security import SecureCredentialManager
     from chatfilter.utils.disk import ensure_space_available
+    import tempfile
 
-    session_path = session_dir / "session.session"
     safe_name = session_dir.name
 
     marker_text = (
@@ -640,52 +645,71 @@ def _save_session_to_disk(
     total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
 
     # Check disk space before writing
-    ensure_space_available(session_path, total_bytes_needed)
+    ensure_space_available(session_dir / "session.session", total_bytes_needed)
 
-    # Atomic write to prevent corruption on crash
-    atomic_write(session_path, session_content)
-    secure_file_permissions(session_path)
+    # Create temporary directory for atomic transaction
+    # Use parent directory to ensure same filesystem (for atomic rename)
+    temp_dir = None
+    try:
+        temp_dir = Path(tempfile.mkdtemp(prefix=f".tmp_{safe_name}_", dir=session_dir.parent))
 
-    # Store credentials securely (NOT in plaintext)
-    # Only store if api_id and api_hash are provided
-    if api_id is not None and api_hash is not None:
-        storage_dir = session_dir.parent
-        manager = SecureCredentialManager(storage_dir)
-        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
-        logger.info(f"Stored credentials securely for session: {safe_name}")
-    else:
-        logger.info(f"Session {safe_name} created without api_id/api_hash (source=phone)")
+        # Write all files to temp directory
+        session_path = temp_dir / "session.session"
+        atomic_write(session_path, session_content)
+        secure_file_permissions(session_path)
 
-    # Create per-session config.json
-    session_config: dict[str, int | str | None] = {
-        "api_id": api_id,
-        "api_hash": api_hash,
-        "proxy_id": proxy_id,
-        "source": source,
-    }
-    session_config_path = session_dir / "config.json"
-    session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
-    atomic_write(session_config_path, session_config_content)
-    secure_file_permissions(session_config_path)
-    logger.info(f"Created per-session config for session: {safe_name}")
+        # Store credentials securely (NOT in plaintext)
+        # Only store if api_id and api_hash are provided
+        if api_id is not None and api_hash is not None:
+            storage_dir = session_dir.parent
+            manager = SecureCredentialManager(storage_dir)
+            manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
+            logger.info(f"Stored credentials securely for session: {safe_name}")
+        else:
+            logger.info(f"Session {safe_name} created without api_id/api_hash (source=phone)")
 
-    # Create migration marker to indicate we're using secure storage
-    marker_file = session_dir / ".secure_storage"
-    atomic_write(marker_file, marker_text)
+        # Create per-session config.json
+        session_config: dict[str, int | str | None] = {
+            "api_id": api_id,
+            "api_hash": api_hash,
+            "proxy_id": proxy_id,
+            "source": source,
+        }
+        session_config_path = temp_dir / "config.json"
+        session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
+        atomic_write(session_config_path, session_config_content)
+        secure_file_permissions(session_config_path)
+        logger.info(f"Created per-session config for session: {safe_name}")
 
-    # Validate that TelegramClientLoader can use secure storage
-    # Only validate if api_id and api_hash are provided
-    if api_id and api_hash:
-        loader = TelegramClientLoader(session_path, use_secure_storage=True)
-        loader.validate()
+        # Create migration marker to indicate we're using secure storage
+        marker_file = temp_dir / ".secure_storage"
+        atomic_write(marker_file, marker_text)
 
-    # Save account info if we successfully extracted it
-    if account_info:
-        save_account_info(session_dir, account_info)
-        logger.info(
-            f"Saved account info for session '{safe_name}': "
-            f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
-        )
+        # Validate that TelegramClientLoader can use secure storage
+        # Only validate if api_id and api_hash are provided
+        if api_id and api_hash:
+            loader = TelegramClientLoader(session_path, use_secure_storage=True)
+            loader.validate()
+
+        # Save account info if we successfully extracted it
+        if account_info:
+            save_account_info(temp_dir, account_info)
+            logger.info(
+                f"Saved account info for session '{safe_name}': "
+                f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
+            )
+
+        # All writes succeeded → atomic rename (POSIX atomic operation)
+        temp_dir.rename(session_dir)
+        temp_dir = None  # Prevent cleanup
+        logger.info(f"Session '{safe_name}' saved successfully (atomic transaction)")
+
+    except Exception:
+        # Cleanup temp directory on any failure
+        if temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            logger.info(f"Cleaned up temp directory after failed write: {temp_dir}")
+        raise
 
 
 def find_duplicate_accounts(target_user_id: int, exclude_session: str | None = None) -> list[str]:
@@ -1124,11 +1148,9 @@ async def upload_session(
                 context={"success": False, "error": str(e)},
             )
 
-        # Atomically create session directory to prevent TOCTOU race
+        # Check if session already exists (atomic rename will verify again)
         session_dir = ensure_data_dir() / safe_name
-        try:
-            session_dir.mkdir(parents=True, exist_ok=False)
-        except FileExistsError:
+        if session_dir.exists():
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
@@ -1265,7 +1287,9 @@ async def upload_session(
             with contextlib.suppress(Exception):
                 tmp_session_path.unlink()
 
-        # Session directory already created atomically above
+        # Save session with atomic transaction (no orphaned files on failure)
+        # _save_session_to_disk() creates temp dir, writes files, then atomic rename
+        # Do NOT create session_dir beforehand - it breaks atomic rename
         try:
             from chatfilter.utils.disk import DiskSpaceError
 
@@ -1284,14 +1308,20 @@ async def upload_session(
             )
 
         except DiskSpaceError:
-            shutil.rmtree(session_dir, ignore_errors=True)
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
                 context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
             )
         except TelegramConfigError:
-            shutil.rmtree(session_dir, ignore_errors=True)
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
@@ -1301,7 +1331,10 @@ async def upload_session(
                 },
             )
         except Exception:
-            shutil.rmtree(session_dir, ignore_errors=True)
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
             logger.exception("Failed to save session files")
             return templates.TemplateResponse(
                 request=request,
@@ -3843,7 +3876,10 @@ async def save_import_session(
                 context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
             )
         except TelegramConfigError:
-            shutil.rmtree(session_dir, ignore_errors=True)
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
@@ -3853,7 +3889,10 @@ async def save_import_session(
                 },
             )
         except Exception:
-            shutil.rmtree(session_dir, ignore_errors=True)
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
             logger.exception("Failed to save session files")
             return templates.TemplateResponse(
                 request=request,
