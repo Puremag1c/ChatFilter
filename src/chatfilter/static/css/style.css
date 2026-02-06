@@ -1188,7 +1188,7 @@ button[disabled].htmx-request {
 
 .session-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.5rem; /* 8px spacing between buttons for mobile accessibility */
 }
 
 .loading {
@@ -2138,6 +2138,7 @@ button[disabled].htmx-request {
     .btn-sm {
         padding: 0.625rem 1rem;
         font-size: 0.875rem;
+        min-height: 44px; /* iOS HIG minimum tap target */
     }
 
     /* Form actions - stack buttons */
@@ -2296,15 +2297,15 @@ button[disabled].htmx-request {
         font-size: 0.8125rem;
     }
 
-    /* Buttons - ensure adequate touch targets (minimum 44px height) */
+    /* Buttons - ensure adequate touch targets (minimum 44px height per iOS HIG) */
     .btn {
         padding: 0.75rem 1.25rem;
         min-height: 44px;
     }
 
     .btn-sm {
-        padding: 0.5rem 0.875rem;
-        min-height: 38px;
+        padding: 0.625rem 1rem;
+        min-height: 44px; /* iOS HIG minimum tap target */
     }
 
     /* Toast notifications */
@@ -3179,7 +3180,7 @@ body:has(.update-notification.show) {
 
 .account-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.5rem; /* 8px spacing between buttons for mobile accessibility */
     flex-wrap: wrap;
 }
 
