@@ -15,11 +15,6 @@ Endpoints that publish events:
   - Success: publishes config_status
   - Exception: publishes "error"
 
-- POST /api/sessions/{session_id}/send-code
-  - Success: publishes "needs_code"
-  - Proxy error/timeout: publishes "proxy_error"
-  - Auth restart: publishes "needs_auth"
-
 - POST /api/sessions/{session_id}/verify-code
   - Success: publishes "connected"
   - 2FA required: publishes "needs_2fa"
