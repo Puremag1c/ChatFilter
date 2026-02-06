@@ -2579,66 +2579,118 @@ async def _send_verification_code_and_create_auth(
 
     This is the minimal difference from normal connection flow.
     Publishes 'needs_code' via SSE, then user completes auth via existing /api/sessions/auth/code.
+
+    Retries transient network errors (ConnectionError, TimeoutError) with exponential backoff.
+    Does NOT retry on permanent errors (AuthKeyUnregistered, PhoneNumberInvalid).
     """
     import asyncio
     import json
 
     from telethon import TelegramClient
+    from telethon.errors import AuthKeyUnregisteredError, PhoneNumberInvalidError
 
     from chatfilter.telegram.error_mapping import get_user_friendly_message
+    from chatfilter.telegram.retry import calculate_backoff_delay
     from chatfilter.web.auth_state import get_auth_state_manager
     from chatfilter.web.dependencies import get_proxy_manager
     from chatfilter.web.events import get_event_bus
 
+    # Load config once (no retry needed for local file read)
     try:
-        # Load config
         with config_path.open("r") as f:
             config = json.load(f)
         api_id = config["api_id"]
         api_hash = config["api_hash"]
         proxy_id = config["proxy_id"]
-
-        # Get proxy
-        proxy_manager = get_proxy_manager()
-        proxy_info = proxy_manager.get_proxy(proxy_id)
-        if not proxy_info:
-            await get_event_bus().publish(session_id, "proxy_error")
-            return
-
-        # Create client, send code, create auth state
-        client = TelegramClient(
-            str(session_path),
-            api_id,
-            api_hash,
-            proxy=proxy_info.to_telethon_proxy(),
-        )
-        await asyncio.wait_for(client.connect(), timeout=15.0)
-
-        result = await asyncio.wait_for(
-            client.send_code_request(phone),
-            timeout=15.0,
-        )
-
-        auth_manager = get_auth_state_manager()
-        await auth_manager.create_auth_state(
-            session_name=session_id,
-            api_id=api_id,
-            api_hash=api_hash,
-            proxy_id=proxy_id,
-            phone=phone,
-            phone_code_hash=result.phone_code_hash,
-            client=client,
-        )
-
-        await get_event_bus().publish(session_id, "needs_code")
-
-    except asyncio.TimeoutError:
-        await get_event_bus().publish(session_id, "error")
     except Exception as e:
-        logger.exception(f"Failed to send code for reconnect '{session_id}'")
+        logger.exception(f"Failed to load config for session '{session_id}'")
         error_message = get_user_friendly_message(e)
         error_state = classify_error_state(error_message, exception=e)
         await get_event_bus().publish(session_id, error_state)
+        return
+
+    # Get proxy once (no retry needed)
+    proxy_manager = get_proxy_manager()
+    proxy_info = proxy_manager.get_proxy(proxy_id)
+    if not proxy_info:
+        await get_event_bus().publish(session_id, "proxy_error")
+        return
+
+    # Retry configuration
+    max_attempts = 3
+    retryable_exceptions = (ConnectionError, TimeoutError, asyncio.TimeoutError, OSError)
+    non_retryable_exceptions = (AuthKeyUnregisteredError, PhoneNumberInvalidError)
+
+    # Retry loop for network operations
+    last_exception: Exception | None = None
+    for attempt in range(max_attempts):
+        try:
+            # Create client, send code
+            client = TelegramClient(
+                str(session_path),
+                api_id,
+                api_hash,
+                proxy=proxy_info.to_telethon_proxy(),
+            )
+            await asyncio.wait_for(client.connect(), timeout=15.0)
+
+            result = await asyncio.wait_for(
+                client.send_code_request(phone),
+                timeout=15.0,
+            )
+
+            # Success - create auth state and publish
+            auth_manager = get_auth_state_manager()
+            await auth_manager.create_auth_state(
+                session_name=session_id,
+                api_id=api_id,
+                api_hash=api_hash,
+                proxy_id=proxy_id,
+                phone=phone,
+                phone_code_hash=result.phone_code_hash,
+                client=client,
+            )
+
+            await get_event_bus().publish(session_id, "needs_code")
+            return  # Success, exit
+
+        except non_retryable_exceptions as e:
+            # Permanent errors - do not retry
+            logger.error(f"Non-retryable error for session '{session_id}': {type(e).__name__}")
+            error_message = get_user_friendly_message(e)
+            error_state = classify_error_state(error_message, exception=e)
+            await get_event_bus().publish(session_id, error_state)
+            return
+
+        except retryable_exceptions as e:
+            last_exception = e
+            is_final_attempt = attempt == max_attempts - 1
+
+            if is_final_attempt:
+                # All retries exhausted
+                logger.error(
+                    f"Failed to send code for session '{session_id}' after {max_attempts} attempts: {e}"
+                )
+                error_message = get_user_friendly_message(e)
+                error_state = classify_error_state(error_message, exception=e)
+                await get_event_bus().publish(session_id, error_state)
+                return
+            else:
+                # Retry with exponential backoff
+                delay = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=4.0, jitter=0.1)
+                logger.warning(
+                    f"Send code attempt {attempt + 1}/{max_attempts} failed for session '{session_id}' "
+                    f"with {type(e).__name__}: {e}. Retrying in {delay:.2f}s..."
+                )
+                await asyncio.sleep(delay)
+
+        except Exception as e:
+            # Unexpected error - treat as non-retryable
+            logger.exception(f"Unexpected error sending code for session '{session_id}'")
+            error_message = get_user_friendly_message(e)
+            error_state = classify_error_state(error_message, exception=e)
+            await get_event_bus().publish(session_id, error_state)
+            return
 
 
 @router.post("/api/sessions/{session_id}/connect", response_class=HTMLResponse)
