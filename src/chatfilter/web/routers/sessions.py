@@ -98,7 +98,7 @@ from chatfilter.web.events import get_event_bus
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
-from chatfilter.telegram.session_manager import SessionBusyError
+from chatfilter.telegram.session_manager import SessionBusyError, SessionState
 from chatfilter.web.events import get_event_bus
 
 if TYPE_CHECKING:
