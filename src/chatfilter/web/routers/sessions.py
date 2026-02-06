@@ -1174,6 +1174,52 @@ async def upload_session(
                 context={"success": False, "error": _("Invalid config: {error}").format(error=e)},
             )
 
+        # Parse JSON file if provided (TelegramExpert format)
+        json_account_info = None
+        twofa_password = None
+        if json_file:
+            try:
+                # Read JSON with size limit (10KB max)
+                MAX_JSON_SIZE = 10 * 1024  # 10KB
+                json_content = await read_upload_with_size_limit(
+                    json_file, MAX_JSON_SIZE, "JSON"
+                )
+            except ValueError as e:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": str(e)},
+                )
+
+            try:
+                json_data = json.loads(json_content)
+
+                # Validate required field: phone
+                if "phone" not in json_data or not json_data["phone"]:
+                    return templates.TemplateResponse(
+                        request=request,
+                        name="partials/upload_result.html",
+                        context={"success": False, "error": _("JSON file must contain 'phone' field")},
+                    )
+
+                # Extract account info from JSON
+                json_account_info = {
+                    "phone": str(json_data["phone"]),
+                    "first_name": str(json_data.get("first_name", "")),
+                    "last_name": str(json_data.get("last_name", "")),
+                }
+
+                # Extract 2FA password if present (will encrypt later)
+                if "twoFA" in json_data and json_data["twoFA"]:
+                    twofa_password = str(json_data["twoFA"])
+
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+                )
+
         # Extract account info from session to check for duplicates
         import tempfile
 
@@ -1221,13 +1267,15 @@ async def upload_session(
 
             # proxy_id is None - user must configure it after upload
             # source is 'file' because config was uploaded
+            # Use json_account_info if provided, otherwise use account_info from session
+            final_account_info = json_account_info if json_account_info else account_info
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,
                 api_id=api_id,
                 api_hash=api_hash,
                 proxy_id=None,
-                account_info=account_info,
+                account_info=final_account_info,
                 source="file",
             )
 
@@ -1261,6 +1309,19 @@ async def upload_session(
             )
 
         logger.info(f"Session '{safe_name}' uploaded successfully")
+
+        # Store encrypted 2FA password if provided in JSON
+        if twofa_password:
+            try:
+                from chatfilter.security import SecureCredentialManager
+
+                storage_dir = session_dir
+                manager = SecureCredentialManager(storage_dir)
+                manager.store_2fa(safe_name, twofa_password)
+                logger.info(f"Stored encrypted 2FA password for session: {safe_name}")
+            except Exception:
+                logger.exception("Failed to store 2FA password")
+                # Don't fail the upload if 2FA storage fails
 
         # Prepare response with duplicate account warning if needed
         response_data = {
