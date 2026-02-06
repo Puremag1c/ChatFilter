@@ -2530,6 +2530,78 @@ async def _do_connect_in_background(session_id: str, session_path: Path, config_
         await get_event_bus().publish(session_id, error_state)
 
 
+async def _send_verification_code_and_create_auth(
+    session_id: str,
+    session_path: Path,
+    config_path: Path,
+    phone: str,
+) -> None:
+    """Helper: send verification code and create AuthState for reconnect.
+
+    This is the minimal difference from normal connection flow.
+    Publishes 'needs_code' via SSE, then user completes auth via existing /api/sessions/auth/code.
+    """
+    import asyncio
+    import json
+
+    from telethon import TelegramClient
+
+    from chatfilter.telegram.error_mapping import get_user_friendly_message
+    from chatfilter.web.auth_state import get_auth_state_manager
+    from chatfilter.web.dependencies import get_proxy_manager
+    from chatfilter.web.events import get_event_bus
+
+    try:
+        # Load config
+        with config_path.open("r") as f:
+            config = json.load(f)
+        api_id = config["api_id"]
+        api_hash = config["api_hash"]
+        proxy_id = config["proxy_id"]
+
+        # Get proxy
+        proxy_manager = get_proxy_manager()
+        proxy_info = proxy_manager.get_proxy(proxy_id)
+        if not proxy_info:
+            await get_event_bus().publish(session_id, "proxy_error")
+            return
+
+        # Create client, send code, create auth state
+        client = TelegramClient(
+            str(session_path),
+            api_id,
+            api_hash,
+            proxy=proxy_info.to_telethon_proxy(),
+        )
+        await asyncio.wait_for(client.connect(), timeout=15.0)
+
+        result = await asyncio.wait_for(
+            client.send_code_request(phone),
+            timeout=15.0,
+        )
+
+        auth_manager = get_auth_state_manager()
+        await auth_manager.create_auth_state(
+            session_name=session_id,
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_id=proxy_id,
+            phone=phone,
+            phone_code_hash=result.phone_code_hash,
+            client=client,
+        )
+
+        await get_event_bus().publish(session_id, "needs_code")
+
+    except asyncio.TimeoutError:
+        await get_event_bus().publish(session_id, "error")
+    except Exception as e:
+        logger.exception(f"Failed to send code for reconnect '{session_id}'")
+        error_message = get_user_friendly_message(e)
+        error_state = classify_error_state(error_message, exception=e)
+        await get_event_bus().publish(session_id, error_state)
+
+
 @router.post("/api/sessions/{session_id}/connect", response_class=HTMLResponse)
 async def connect_session(
     request: Request,
@@ -2595,13 +2667,42 @@ async def connect_session(
             headers={"HX-Trigger": "refreshSessions"},
         )
 
-    # Start connection in background - results delivered via SSE
-    background_tasks.add_task(
-        _do_connect_in_background,
-        safe_name,
-        session_path,
-        config_path,
-    )
+    # Check if session is expired - need reauth instead of reconnect
+    if info and info.state.value == "session_expired":
+        # For session_expired: Can't use _do_connect_in_background because:
+        # 1. SessionManager.connect() tries to use existing session file (AuthKeyUnregisteredError)
+        # 2. We need send_code flow, not client.start() flow
+        # Solution: Delete session file, send code, create AuthState for user to complete auth
+        account_info = load_account_info(session_dir)
+        if not account_info or "phone" not in account_info:
+            return HTMLResponse(
+                content='<span class="error">Cannot reconnect: phone number unknown</span>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        phone = str(account_info["phone"])
+
+        # Delete old session file (invalid)
+        if session_path.exists():
+            session_path.unlink()
+            logger.info(f"Deleted expired session file for '{safe_name}'")
+
+        # Start reauth flow in background
+        background_tasks.add_task(
+            _send_verification_code_and_create_auth,
+            safe_name,
+            session_path,
+            config_path,
+            phone,
+        )
+    else:
+        # Normal connection flow
+        background_tasks.add_task(
+            _do_connect_in_background,
+            safe_name,
+            session_path,
+            config_path,
+        )
 
     # Return immediately with 'connecting' state (template shows spinner)
     session_data = {
