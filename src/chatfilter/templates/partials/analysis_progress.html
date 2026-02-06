@@ -531,8 +531,13 @@
         cancelBtn.disabled = true;
         cancelBtn.textContent = 'Cancelling...';
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
         fetch('/api/analysis/' + taskId + '/cancel', {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': csrfToken
+            }
         })
         .then(response => response.json())
         .then(data => {
