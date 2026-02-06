@@ -41,11 +41,22 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "connecting": "Connecting",
+    "disconnecting": "Disconnecting",
     "error": "Error",
     "ready": "Ready",
     "processing": "Processing",
     "completed": "Completed",
-    "failed": "Failed"
+    "failed": "Failed",
+    "flood_wait": "Flood Wait",
+    "proxy_error": "Proxy Error",
+    "not_configured": "Not configured",
+    "proxy_missing": "Proxy missing",
+    "needs_code": "Needs Verification Code",
+    "needs_2fa": "Needs 2FA Password",
+    "needs_api_id": "Needs API ID",
+    "session_expired": "Session expired",
+    "corrupted": "Corrupted",
+    "banned": "Banned"
   },
   "toast": {
     "error_title": "Error",
@@ -109,5 +120,67 @@
   "language": {
     "current_aria": "Current language: {languageName}. Click to switch to {nextLanguageName}",
     "switch_to": "Switch to {nextLanguageName}"
+  },
+  "sessions": {
+    "actions": {
+      "wait": "Wait...",
+      "reconnect": "Reconnect",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "enter_code": "Enter Verification Code",
+      "retry_verification": "Retry Verification",
+      "enter_2fa": "Enter 2FA Password",
+      "retry_2fa": "Retry 2FA",
+      "verify": "Verify"
+    },
+    "aria": {
+      "disconnect_session": "Disconnect session",
+      "connect_session": "Connect session",
+      "please_wait": "Please wait",
+      "reconnect_session": "Reconnect session",
+      "session_expired_reconnect": "Session has expired - reconnect required",
+      "session_corrupted": "Session corrupted",
+      "session_corrupted_delete": "Session file is corrupted. Please delete and recreate.",
+      "retry_connection": "Retry connection",
+      "connection_error": "Connection error",
+      "configure_account": "Configure account",
+      "enter_verification_code": "Enter verification code",
+      "enter_2fa_password": "Enter 2FA password",
+      "account_banned": "Account banned",
+      "account_banned_by_telegram": "This account has been banned by Telegram",
+      "unknown_state": "Unknown state",
+      "unknown_session_state": "Unknown session state",
+      "delete_account": "Delete account"
+    },
+    "messages": {
+      "still_working": "Still working...",
+      "connection_lost_realtime_paused": "Connection lost. Real-time updates paused.",
+      "retry_initiated": "Retry initiated successfully",
+      "connected_successfully": "Connected successfully",
+      "disconnected_successfully": "Disconnected successfully",
+      "code_accepted": "Verification code accepted successfully",
+      "2fa_accepted": "2FA password accepted successfully",
+      "no_accounts": "No Telegram Accounts",
+      "no_accounts_hint": "You haven't added any Telegram accounts yet. Click \"Add Account\" above to get started."
+    },
+    "operations": {
+      "processing_request": "processing request",
+      "connecting": "connecting",
+      "disconnecting": "disconnecting",
+      "loading_configuration": "loading configuration"
+    },
+    "errors": {
+      "server_error_while": "Server error while",
+      "please_try_again": "Please try again.",
+      "service_unavailable_while": "Service temporarily unavailable while",
+      "please_try_again_later": "Please try again later.",
+      "request_failed_while": "Request failed while",
+      "please_check_and_retry": "Please check and try again.",
+      "network_error_while": "Network error while",
+      "timeout_while": "Request timeout while",
+      "check_connection_and_retry": "Please check your connection and try again.",
+      "connection_failed_while": "Connection failed while",
+      "check_network_and_retry": "Please check your network and try again."
+    }
   }
 }

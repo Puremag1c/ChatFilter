@@ -41,11 +41,22 @@
     "connected": "Подключено",
     "disconnected": "Отключено",
     "connecting": "Подключение",
+    "disconnecting": "Отключение",
     "error": "Ошибка",
     "ready": "Готов",
     "processing": "Обработка",
     "completed": "Завершено",
-    "failed": "Не удалось"
+    "failed": "Не удалось",
+    "flood_wait": "Flood Wait",
+    "proxy_error": "Ошибка прокси",
+    "not_configured": "Не настроено",
+    "proxy_missing": "Прокси отсутствует",
+    "needs_code": "Требуется код подтверждения",
+    "needs_2fa": "Требуется пароль 2FA",
+    "needs_api_id": "Требуется API ID",
+    "session_expired": "Сессия истекла",
+    "corrupted": "Повреждена",
+    "banned": "Заблокирован"
   },
   "toast": {
     "error_title": "Ошибка",
@@ -109,5 +120,67 @@
   "language": {
     "current_aria": "Текущий язык: {languageName}. Нажмите для переключения на {nextLanguageName}",
     "switch_to": "Переключить на {nextLanguageName}"
+  },
+  "sessions": {
+    "actions": {
+      "wait": "Ждите...",
+      "reconnect": "Переподключить",
+      "connect": "Подключить",
+      "disconnect": "Отключить",
+      "enter_code": "Ввести код подтверждения",
+      "retry_verification": "Повторить подтверждение",
+      "enter_2fa": "Ввести пароль 2FA",
+      "retry_2fa": "Повторить 2FA",
+      "verify": "Подтвердить"
+    },
+    "aria": {
+      "disconnect_session": "Отключить сессию",
+      "connect_session": "Подключить сессию",
+      "please_wait": "Пожалуйста, подождите",
+      "reconnect_session": "Переподключить сессию",
+      "session_expired_reconnect": "Сессия истекла - требуется переподключение",
+      "session_corrupted": "Сессия повреждена",
+      "session_corrupted_delete": "Файл сессии поврежден. Пожалуйста, удалите и создайте заново.",
+      "retry_connection": "Повторить подключение",
+      "connection_error": "Ошибка подключения",
+      "configure_account": "Настроить аккаунт",
+      "enter_verification_code": "Ввести код подтверждения",
+      "enter_2fa_password": "Ввести пароль 2FA",
+      "account_banned": "Аккаунт заблокирован",
+      "account_banned_by_telegram": "Этот аккаунт заблокирован Telegram",
+      "unknown_state": "Неизвестное состояние",
+      "unknown_session_state": "Неизвестное состояние сессии",
+      "delete_account": "Удалить аккаунт"
+    },
+    "messages": {
+      "still_working": "Всё ещё работаем...",
+      "connection_lost_realtime_paused": "Соединение потеряно. Обновления в реальном времени приостановлены.",
+      "retry_initiated": "Повтор успешно инициирован",
+      "connected_successfully": "Успешно подключено",
+      "disconnected_successfully": "Успешно отключено",
+      "code_accepted": "Код подтверждения успешно принят",
+      "2fa_accepted": "Пароль 2FA успешно принят",
+      "no_accounts": "Нет аккаунтов Telegram",
+      "no_accounts_hint": "Вы еще не добавили ни одного аккаунта Telegram. Нажмите \"Добавить аккаунт\" выше, чтобы начать."
+    },
+    "operations": {
+      "processing_request": "обработка запроса",
+      "connecting": "подключение",
+      "disconnecting": "отключение",
+      "loading_configuration": "загрузка конфигурации"
+    },
+    "errors": {
+      "server_error_while": "Ошибка сервера при",
+      "please_try_again": "Пожалуйста, попробуйте снова.",
+      "service_unavailable_while": "Сервис временно недоступен при",
+      "please_try_again_later": "Пожалуйста, попробуйте позже.",
+      "request_failed_while": "Запрос не удался при",
+      "please_check_and_retry": "Пожалуйста, проверьте и попробуйте снова.",
+      "network_error_while": "Ошибка сети при",
+      "timeout_while": "Превышено время ожидания при",
+      "check_connection_and_retry": "Пожалуйста, проверьте соединение и попробуйте снова.",
+      "connection_failed_while": "Не удалось подключиться при",
+      "check_network_and_retry": "Пожалуйста, проверьте сеть и попробуйте снова."
+    }
   }
 }
