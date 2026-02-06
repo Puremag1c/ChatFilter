@@ -104,6 +104,7 @@ from pydantic import BaseModel
 
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
+from chatfilter.parsers import parse_telegram_expert_json, validate_account_info_json
 from chatfilter.web.events import get_event_bus
 from chatfilter.storage.file import robust_delete_session_file, secure_delete_file
 from chatfilter.storage.helpers import atomic_write
@@ -552,49 +553,6 @@ async def get_account_info_from_session(
     except Exception as e:
         logger.warning(f"Failed to extract account info from session: {e}")
         return None
-
-
-def validate_account_info_json(json_data: object) -> str | None:
-    """Validate account info JSON from uploaded file.
-
-    Validates:
-    - Must be a dict (no arrays at root)
-    - Only allowed fields: phone, first_name, last_name, twoFA
-    - No nested objects or arrays as values
-    - Phone must be in E.164 format (optional + prefix, 7-15 digits)
-
-    Args:
-        json_data: Parsed JSON data to validate
-
-    Returns:
-        Error message string if invalid, None if valid
-    """
-    # Must be a dict
-    if not isinstance(json_data, dict):
-        return "JSON must be an object, not an array or primitive"
-
-    # Allowed fields only
-    allowed_fields = {"phone", "first_name", "last_name", "twoFA"}
-    unknown_fields = set(json_data.keys()) - allowed_fields
-    if unknown_fields:
-        return f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}"
-
-    # No nested objects or arrays
-    for key, value in json_data.items():
-        if isinstance(value, (dict, list)):
-            return f"Field '{key}' cannot contain nested objects or arrays"
-
-    # Validate phone field (required)
-    if "phone" not in json_data or not json_data["phone"]:
-        return "JSON file must contain 'phone' field"
-
-    phone = str(json_data["phone"])
-    # E.164 format: optional +, then 7-15 digits
-    # Examples: +14385515736, 14385515736, +79001234567
-    if not re.match(r"^\+?[1-9]\d{6,14}$", phone):
-        return f"Invalid phone format: '{phone}'. Expected E.164 format (e.g., +14385515736)"
-
-    return None
 
 
 def save_account_info(session_dir: Path, account_info: dict[str, int | str]) -> None:
@@ -1266,9 +1224,6 @@ async def upload_session(
 
             try:
                 json_data = json.loads(json_content)
-                # Security: Zero plaintext JSON after parsing to prevent memory dumps
-                json_content = b'\x00' * len(json_content)
-                del json_content
             except json.JSONDecodeError as e:
                 return templates.TemplateResponse(
                     request=request,
@@ -1276,28 +1231,15 @@ async def upload_session(
                     context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
                 )
 
-            # Validate JSON structure, fields, and phone format
-            validation_error = validate_account_info_json(json_data)
-            if validation_error:
+            # Parse and extract account info from JSON
+            try:
+                json_account_info, twofa_password = parse_telegram_expert_json(json_content, json_data)
+            except ValueError as e:
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/upload_result.html",
-                    context={"success": False, "error": _(validation_error)},
+                    context={"success": False, "error": _(str(e))},
                 )
-
-            # Extract account info from JSON (validated above)
-            json_account_info = {
-                "phone": str(json_data["phone"]),
-                "first_name": str(json_data.get("first_name", "")),
-                "last_name": str(json_data.get("last_name", "")),
-            }
-
-            # Extract 2FA password if present (will encrypt later)
-            if "twoFA" in json_data and json_data["twoFA"]:
-                twofa_password = str(json_data["twoFA"])
-                # Security: Zero plaintext 2FA in JSON dict to prevent memory leaks
-                json_data["twoFA"] = "\x00" * len(json_data["twoFA"])
-                del json_data["twoFA"]
 
         # Extract account info from session to check for duplicates
         import tempfile
