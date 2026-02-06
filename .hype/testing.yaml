@@ -1,7 +1,7 @@
 # .hype/testing.yaml - Testing configuration (auto-generated)
 type: web
-build_command: ""  # Python doesn't require build step
-start_command: python3 -m chatfilter.main --host 127.0.0.1 --port 8000
+build_command: .venv/bin/pip install -e .
+start_command: .venv/bin/python -m chatfilter.main --host 127.0.0.1 --port 8000
 test_url: http://localhost:8000
 health_check: /  # Root serves the web UI
 startup_timeout: 30
