@@ -3046,6 +3046,43 @@ async def connect_session(
     try:
         loader = TelegramClientLoader(session_path, config_path)
         loader.validate()
+    except FileNotFoundError:
+        # AC2: Session file doesn't exist - trigger send_code flow instead of error
+        account_info = load_account_info(session_dir)
+        if not account_info or not account_info.get("phone"):
+            return HTMLResponse(
+                content='<span class="error">Phone number is required for new session</span>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        phone = account_info["phone"]
+        if not isinstance(phone, str):
+            return HTMLResponse(
+                content='<span class="error">Invalid phone number format</span>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Trigger send_code flow in background
+        background_tasks.add_task(
+            _send_verification_code_and_create_auth,
+            safe_name,
+            session_path,
+            config_path,
+            phone,
+        )
+
+        # Return connecting state (will transition to needs_code via SSE)
+        session_data = {
+            "session_id": safe_name,
+            "state": "connecting",
+            "error_message": None,
+        }
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context={"session": session_data},
+            headers={"HX-Trigger": "refreshSessions"},
+        )
     except Exception as e:
         # Validation error (bad config, missing files, etc.)
         from chatfilter.telegram.error_mapping import get_user_friendly_message
