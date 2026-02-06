@@ -964,7 +964,6 @@ def list_stored_sessions(
     Returns:
         List of session info items
     """
-    from chatfilter.telegram.session_manager import SessionState
     from chatfilter.web.auth_state import AuthStep
 
     sessions = []
@@ -2512,7 +2511,6 @@ async def _do_connect_in_background(session_id: str, session_path: Path, config_
         logger.warning(f"Connection timeout for session '{session_id}'")
         # Ensure session state is set to error
         if session_id in session_manager._sessions:
-            from chatfilter.telegram.session_manager import SessionState
             session_manager._sessions[session_id].state = SessionState.ERROR
             session_manager._sessions[session_id].error_message = "Connection timeout"
         # Publish error via SSE
