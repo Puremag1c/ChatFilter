@@ -169,6 +169,10 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         if error_class in {"FloodWaitError", "SlowModeWaitError"}:
             return "flood_wait"
 
+        # Proxy/connection errors
+        if error_class in {"OSError", "ConnectionError", "ConnectionRefusedError"}:
+            return "proxy_error"
+
         # For wrapper exceptions (SessionConnectError, etc.), check the cause
         if exception.__cause__ is not None:
             cause_result = classify_error_state(error_message, exception.__cause__)
