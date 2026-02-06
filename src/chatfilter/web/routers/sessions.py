@@ -3802,6 +3802,14 @@ async def verify_2fa(
             context={"success": False, "error": _("Invalid password: must be at most 256 characters.")},
         )
 
+    # Security: Reject empty or whitespace-only passwords
+    if not password or not password.strip():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Password cannot be empty.")},
+        )
+
     # Sanitize session name
     try:
         safe_name = sanitize_session_name(session_id)
