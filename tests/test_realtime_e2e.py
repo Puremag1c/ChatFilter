@@ -7,10 +7,13 @@ Tests the SSE integration at the application level:
 4. Multiple subscribers work correctly
 5. Connection cleanup works
 
-Note: httpx 0.28+ removed the `app` parameter from AsyncClient and streaming
-via ASGITransport is not fully compatible with FastAPI's StreamingResponse.
-These tests verify the event bus integration directly, which is the core
-functionality. HTTP layer is tested in test_sse_integration.py.
+Migration notes (httpx 0.28+):
+- httpx 0.28+ removed the `app` parameter from AsyncClient
+- ASGITransport streaming is not compatible with FastAPI's StreamingResponse
+- Tests now verify event bus integration directly (core functionality)
+- HTTP layer SSE streaming is tested separately in test_sse_integration.py
+
+This approach tests the same functionality without relying on httpx internals.
 """
 
 from __future__ import annotations
