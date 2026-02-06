@@ -870,3 +870,151 @@ class TestDeadSessionRecoveryFlow:
 
         # Session ID should be the same
         assert original_id == recovered_id == "my_account"
+
+
+class TestAuthKeyUnregisteredAutoRecovery:
+    """Tests for AuthKeyUnregistered detection and auto-recovery flow.
+
+    When SessionManager detects AuthKeyUnregisteredError during connect():
+    1. It sets session state to ERROR with appropriate message
+    2. It raises SessionInvalidError to signal caller should handle recovery
+    3. The caller (e.g., router) can then delete the invalid session file and retry
+
+    These tests verify SessionManager correctly identifies AuthKeyUnregistered
+    as a recoverable error that requires session file deletion and re-authentication.
+    """
+
+    @pytest.mark.asyncio
+    async def test_connect_authkey_unregistered_auto_delete(self) -> None:
+        """Test that AuthKeyUnregisteredError is correctly identified for auto-recovery.
+
+        SessionManager should:
+        - Raise SessionInvalidError (not SessionConnectError)
+        - Set state to ERROR with recovery-oriented message
+        - Allow the session to be unregistered and re-registered for recovery
+        """
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.AuthKeyUnregisteredError(request=mock_request))
+        manager.register("test_session", MockFactory(client))
+
+        # Connect should raise SessionInvalidError
+        with pytest.raises(SessionInvalidError) as exc_info:
+            await manager.connect("test_session")
+
+        # Verify error type and message indicate recovery is possible
+        error = exc_info.value
+        assert "permanently invalid" in str(error).lower()
+        assert "AuthKeyUnregisteredError" in str(error)
+
+        # Verify session state allows for recovery
+        info = manager.get_info("test_session")
+        assert info is not None
+        assert info.state == SessionState.ERROR
+        # Message should mention getting new session (i.e., recovery is possible)
+        assert "new session" in info.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_session_file_deletion_signaled_for_authkey_unregistered(self) -> None:
+        """Verify SessionManager state indicates session file should be deleted.
+
+        After AuthKeyUnregisteredError, the error message should clearly indicate
+        that the session file is invalid and needs to be replaced.
+        """
+        manager = SessionManager()
+        mock_request = MagicMock()
+        client = MockClient(auth_error=errors.AuthKeyUnregisteredError(request=mock_request))
+        manager.register("invalid_session", MockFactory(client))
+
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("invalid_session")
+
+        info = manager.get_info("invalid_session")
+        assert info is not None
+        # Error should mention "unregistered" or "revoked" - indicating file is corrupt/invalid
+        error_lower = info.error_message.lower()
+        assert "invalid" in error_lower or "unregistered" in error_lower or "revoked" in error_lower
+        # Should mention need for new session file (signals deletion + re-auth needed)
+        assert "new session" in error_lower or "session file" in error_lower
+
+    @pytest.mark.asyncio
+    async def test_reregister_after_authkey_unregistered_allows_recovery(self) -> None:
+        """Test that session can be re-registered after AuthKeyUnregistered for recovery.
+
+        After AuthKeyUnregisteredError:
+        1. Session is in ERROR state
+        2. Disconnect and unregister should work
+        3. Re-registering with new client should allow fresh connection
+
+        This simulates the recovery flow where session file is deleted and
+        a new session file is created.
+        """
+        manager = SessionManager()
+        mock_request = MagicMock()
+        invalid_client = MockClient(auth_error=errors.AuthKeyUnregisteredError(request=mock_request))
+        manager.register("recovering_session", MockFactory(invalid_client))
+
+        # First connect fails with AuthKeyUnregistered
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("recovering_session")
+
+        # Verify session is in error state
+        info = manager.get_info("recovering_session")
+        assert info is not None
+        assert info.state == SessionState.ERROR
+
+        # Unregister the failed session (simulates cleanup before re-auth)
+        manager.unregister("recovering_session")
+
+        # Re-register with a new "valid" client (simulates new session file after send_code)
+        valid_client = MockClient()
+        manager.register("recovering_session", MockFactory(valid_client))
+
+        # Now connection should succeed
+        result = await manager.connect("recovering_session")
+        assert result is valid_client
+        assert valid_client.connected
+
+        # Session should be connected
+        info = manager.get_info("recovering_session")
+        assert info is not None
+        assert info.state == SessionState.CONNECTED
+
+    @pytest.mark.asyncio
+    async def test_authkey_unregistered_vs_other_auth_errors(self) -> None:
+        """Verify AuthKeyUnregisteredError is handled same as SessionRevokedError.
+
+        Both AuthKeyUnregisteredError and SessionRevokedError should:
+        - Raise SessionInvalidError (not SessionReauthRequiredError)
+        - Indicate permanent session invalidity
+        - Require new session file (not just re-authentication)
+
+        This is different from SessionExpiredError which raises SessionReauthRequiredError.
+        """
+        manager = SessionManager()
+        mock_request = MagicMock()
+
+        # Test AuthKeyUnregisteredError
+        client1 = MockClient(auth_error=errors.AuthKeyUnregisteredError(request=mock_request))
+        manager.register("unregistered", MockFactory(client1))
+
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("unregistered")
+
+        info1 = manager.get_info("unregistered")
+        manager.unregister("unregistered")
+
+        # Test SessionRevokedError - should behave the same
+        client2 = MockClient(auth_error=errors.SessionRevokedError(request=mock_request))
+        manager.register("revoked", MockFactory(client2))
+
+        with pytest.raises(SessionInvalidError):
+            await manager.connect("revoked")
+
+        info2 = manager.get_info("revoked")
+
+        # Both should have similar error handling
+        assert info1.state == info2.state == SessionState.ERROR
+        # Both should mention new session needed
+        assert "new session" in info1.error_message.lower()
+        assert "new session" in info2.error_message.lower()
