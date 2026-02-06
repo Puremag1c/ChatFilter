@@ -1289,9 +1289,6 @@ async def upload_session(
 
             try:
                 json_data = json.loads(json_content)
-                # Security: Zero plaintext JSON after parsing to prevent memory dumps
-                json_content = b'\x00' * len(json_content)
-                del json_content
             except json.JSONDecodeError as e:
                 return templates.TemplateResponse(
                     request=request,
@@ -1299,28 +1296,15 @@ async def upload_session(
                     context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
                 )
 
-            # Validate JSON structure, fields, and phone format
-            validation_error = validate_account_info_json(json_data)
-            if validation_error:
+            # Use parser module to validate and extract account info
+            try:
+                json_account_info, twofa_password = parse_telegram_expert_json(json_content, json_data)
+            except ValueError as e:
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/upload_result.html",
-                    context={"success": False, "error": _(validation_error)},
+                    context={"success": False, "error": _(str(e))},
                 )
-
-            # Extract account info from JSON (validated above)
-            json_account_info = {
-                "phone": str(json_data["phone"]),
-                "first_name": str(json_data.get("first_name", "")),
-                "last_name": str(json_data.get("last_name", "")),
-            }
-
-            # Extract 2FA password if present (will encrypt later)
-            if "twoFA" in json_data and json_data["twoFA"]:
-                twofa_password = str(json_data["twoFA"])
-                # Security: Zero plaintext 2FA in JSON dict to prevent memory leaks
-                json_data["twoFA"] = "\x00" * len(json_data["twoFA"])
-                del json_data["twoFA"]
 
         # Extract account info from session to check for duplicates
         import tempfile
