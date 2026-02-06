@@ -3452,11 +3452,19 @@ async def verify_code(
     auth_manager = get_auth_state_manager()
 
     # Validate input parameters
-    if not isinstance(code, str) or len(code) > 10:
+    if not isinstance(code, str):
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": _("Invalid code: must be at most 10 characters.")},
+            context={"success": False, "error": _("Invalid code format.")},
+        )
+
+    # Security: Telegram codes are always 5-6 digits, reject any other format
+    if not code.isdigit() or len(code) not in (5, 6):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={"success": False, "error": _("Code must be 5-6 digits.")},
         )
 
     # Sanitize session name
