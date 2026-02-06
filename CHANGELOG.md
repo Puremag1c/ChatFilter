@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-06
+
+### Security
+- **CSRF Token Fix**: All fetch POST/DELETE requests now include X-CSRF-Token header
+  - Fixed sessions_list.html verify-code and verify-2fa
+  - Fixed analysis_results.html export/csv
+  - Fixed chats.html dismiss_notification
+  - Fixed analysis_progress.html cancel
+  - Fixed results.html export/csv and dismiss_notification
+- **Input Validation**: Added format validation for verification code (5-6 digits only)
+- **Input Validation**: Added validation for 2FA password input
+
+### Changed
+- **Clean Session UI**: Reconnect no longer shows modal - directly initiates connection
+  - Removed reconnect_modal.html and related endpoints
+  - Session status now determines action button (Connect/Disconnect/Reconnect/Enter Code/Enter 2FA/Edit)
+  - Simplified three-button layout: [Action] [Edit] [Delete]
+- **Add Account Modal**: Button changed from "Send Code" to "Save" for clarity
+- **i18n**: Added translations for all new/changed UI strings (EN and RU)
+
+### Fixed
+- **Mobile CSS**: All buttons now have consistent sizing with 44px minimum tap target
+- **Double-click Prevention**: Connect/Disconnect buttons now disabled during operation
+
+### Removed
+- Orphaned /reconnect-form endpoint
+- Orphaned /send-code endpoint
+- Orphaned reconnect templates
+
 ## [0.7.2] - 2026-02-05
 
 ### Fixed
@@ -442,7 +471,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.6.4...v0.7.0
