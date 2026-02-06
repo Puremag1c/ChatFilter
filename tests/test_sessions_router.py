@@ -16,6 +16,7 @@ from chatfilter.web.routers.sessions import (
     migrate_legacy_sessions,
     read_upload_with_size_limit,
     sanitize_session_name,
+    validate_account_info_json,
     validate_config_file_format,
     validate_session_file_format,
 )
@@ -2651,3 +2652,97 @@ class TestBackwardCompatibilityLegacySessions:
             assert (
                 migrated_session.state == "disconnected"
             ), "After adding account_info, session should be 'disconnected'"
+
+
+class TestValidateAccountInfoJson:
+    """Tests for JSON account info validation."""
+
+    def test_valid_json_minimal(self) -> None:
+        """Test valid JSON with only required phone field."""
+        json_data = {"phone": "+14385515736"}
+        assert validate_account_info_json(json_data) is None
+
+    def test_valid_json_all_fields(self) -> None:
+        """Test valid JSON with all allowed fields."""
+        json_data = {
+            "phone": "+79001234567",
+            "first_name": "John",
+            "last_name": "Doe",
+            "twoFA": "secret123",
+        }
+        assert validate_account_info_json(json_data) is None
+
+    def test_valid_phone_without_plus(self) -> None:
+        """Test valid phone without + prefix."""
+        json_data = {"phone": "14385515736"}
+        assert validate_account_info_json(json_data) is None
+
+    def test_invalid_not_dict(self) -> None:
+        """Test rejection of non-dict JSON (array)."""
+        json_data = [{"phone": "+14385515736"}]
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "object" in error.lower()
+
+    def test_invalid_unknown_fields(self) -> None:
+        """Test rejection of unknown fields."""
+        json_data = {"phone": "+14385515736", "malicious": "payload"}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "malicious" in error
+
+    def test_invalid_nested_object(self) -> None:
+        """Test rejection of nested objects."""
+        json_data = {"phone": "+14385515736", "first_name": {"nested": "value"}}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "nested" in error.lower() or "first_name" in error
+
+    def test_invalid_nested_array(self) -> None:
+        """Test rejection of arrays in fields."""
+        json_data = {"phone": "+14385515736", "last_name": ["array", "value"]}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "nested" in error.lower() or "last_name" in error
+
+    def test_invalid_missing_phone(self) -> None:
+        """Test rejection of missing phone field."""
+        json_data = {"first_name": "John"}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "phone" in error.lower()
+
+    def test_invalid_empty_phone(self) -> None:
+        """Test rejection of empty phone field."""
+        json_data = {"phone": ""}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "phone" in error.lower()
+
+    def test_invalid_phone_format_letters(self) -> None:
+        """Test rejection of phone with letters."""
+        json_data = {"phone": "+1abc5515736"}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "format" in error.lower() or "invalid" in error.lower()
+
+    def test_invalid_phone_too_short(self) -> None:
+        """Test rejection of too short phone."""
+        json_data = {"phone": "+12345"}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "format" in error.lower() or "invalid" in error.lower()
+
+    def test_invalid_phone_too_long(self) -> None:
+        """Test rejection of too long phone."""
+        json_data = {"phone": "+1234567890123456789"}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "format" in error.lower() or "invalid" in error.lower()
+
+    def test_invalid_phone_leading_zero(self) -> None:
+        """Test rejection of phone starting with 0 after country code."""
+        json_data = {"phone": "+0123456789"}
+        error = validate_account_info_json(json_data)
+        assert error is not None
+        assert "format" in error.lower() or "invalid" in error.lower()
