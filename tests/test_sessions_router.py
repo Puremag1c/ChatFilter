@@ -3505,3 +3505,231 @@ class TestVerifyCode2FAAutoEntry:
             assert response.status_code in (200, 503), f"Expected 200 or 503, got {response.status_code}"
             # Verify that needs_2fa event was published or form shown
             assert "auth_2fa_form_reconnect" in response.text or "2FA" in response.text or response.status_code == 503
+class TestSessionImport:
+    """Tests for session import endpoints (dual file upload)."""
+
+    @staticmethod
+    def _create_valid_session_file() -> bytes:
+        """Create a valid Telethon session file (SQLite) with required tables and data."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as session_f:
+            conn = sqlite3.connect(session_f.name)
+            # Create both required tables: sessions and entities
+            conn.execute(
+                "CREATE TABLE sessions (dc_id INTEGER, server_address TEXT, port INTEGER, auth_key BLOB)"
+            )
+            conn.execute(
+                "CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER, username TEXT, phone TEXT, name TEXT)"
+            )
+            # Add at least one row to sessions table to pass "non-empty" validation
+            conn.execute(
+                "INSERT INTO sessions (dc_id, server_address, port, auth_key) VALUES (?, ?, ?, ?)",
+                (2, "149.154.167.50", 443, b"dummy_auth_key_12345678901234567890123456"),
+            )
+            conn.commit()
+            conn.close()
+            return Path(session_f.name).read_bytes()
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        """Create test client."""
+        app = create_app(debug=True)
+        return TestClient(app)
+
+    @pytest.fixture
+    def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
+        """Create clean data directory for tests."""
+        from unittest.mock import patch
+
+        data_dir = tmp_path / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+
+        with patch("chatfilter.web.routers.sessions.get_settings") as mock_settings_fn:
+            from unittest.mock import MagicMock
+
+            mock_settings = MagicMock()
+            mock_settings.sessions_dir = data_dir
+            mock_settings_fn.return_value = mock_settings
+            yield data_dir
+
+    def test_validate_import_session_success(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test successful validation with both session and JSON files."""
+        # Create valid session file (SQLite)
+        session_content = self._create_valid_session_file()
+
+        # Create valid JSON file
+        json_data = {"phone": "+79001234567", "first_name": "John", "twoFA": "secret"}
+        json_content = json.dumps(json_data).encode()
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        # Send validation request
+        response = client.post(
+            "/api/sessions/import/validate",
+            files={
+                "session_file": ("test.session", session_content, "application/octet-stream"),
+                "json_file": ("test.json", json_content, "application/json"),
+            },
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        assert response.status_code == 200
+        assert "success" in response.text.lower() or response.text == ""
+
+    def test_validate_import_session_invalid_json_missing_phone(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test validation fails when JSON missing phone field."""
+        # Valid session file
+        session_content = self._create_valid_session_file()
+
+        # Invalid JSON (missing phone)
+        json_data = {"first_name": "John"}
+        json_content = json.dumps(json_data).encode()
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        response = client.post(
+            "/api/sessions/import/validate",
+            files={
+                "session_file": ("test.session", session_content, "application/octet-stream"),
+                "json_file": ("test.json", json_content, "application/json"),
+            },
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        assert response.status_code == 200
+        assert "phone" in response.text.lower()
+
+    def test_validate_import_session_invalid_phone_format(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test validation fails with invalid phone format."""
+        # Valid session file
+        session_content = self._create_valid_session_file()
+
+        # Invalid phone format (too short for E.164)
+        json_data = {"phone": "+123"}
+        json_content = json.dumps(json_data).encode()
+
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        response = client.post(
+            "/api/sessions/import/validate",
+            files={
+                "session_file": ("test.session", session_content, "application/octet-stream"),
+                "json_file": ("test.json", json_content, "application/json"),
+            },
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        assert response.status_code == 200
+        assert "phone" in response.text.lower() or "must start with" in response.text.lower()
+
+    def test_save_import_session_success(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test successful session import with JSON account info."""
+        from unittest.mock import MagicMock, patch
+
+        # Create valid session file
+        session_content = self._create_valid_session_file()
+
+        # Create JSON with all fields
+        json_data = {
+            "phone": "+79001234567",
+            "first_name": "John",
+            "last_name": "Doe",
+            "twoFA": "secret123",
+        }
+        json_content = json.dumps(json_data).encode()
+
+        # Mock proxy validation (correct import path)
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
+            mock_get_proxy.return_value = MagicMock()
+
+            home_response = client.get("/")
+            csrf_token = extract_csrf_token(home_response.text)
+            assert csrf_token is not None
+
+            response = client.post(
+                "/api/sessions/import/save",
+                data={
+                    "session_name": "test_import",
+                    "api_id": "12345",
+                    "api_hash": "abcd1234abcd1234abcd1234abcd1234",
+                    "proxy_id": "test-proxy",
+                },
+                files={
+                    "session_file": ("test.session", session_content, "application/octet-stream"),
+                    "json_file": ("test.json", json_content, "application/json"),
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+            assert response.status_code == 200
+
+            # Verify session was created
+            session_dir = clean_data_dir / "test_import"
+            assert session_dir.exists()
+
+            # Verify account_info.json contains phone
+            account_info_path = session_dir / ".account_info.json"
+            assert account_info_path.exists()
+            account_info = json.loads(account_info_path.read_text())
+            assert account_info["phone"] == "+79001234567"
+            assert account_info["first_name"] == "John"
+            assert account_info["last_name"] == "Doe"
+            # 2FA should be encrypted (not plain text)
+            assert "twoFA" not in account_info or account_info.get("twoFA") != "secret123"
+
+    def test_save_import_session_duplicate_name(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that duplicate session name is rejected."""
+        from unittest.mock import MagicMock, patch
+
+        # Create existing session
+        existing_dir = clean_data_dir / "duplicate_test"
+        existing_dir.mkdir()
+
+        # Create valid session file
+        session_content = self._create_valid_session_file()
+
+        json_data = {"phone": "+79001234567"}
+        json_content = json.dumps(json_data).encode()
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
+            mock_get_proxy.return_value = MagicMock()
+
+            home_response = client.get("/")
+            csrf_token = extract_csrf_token(home_response.text)
+            assert csrf_token is not None
+
+            response = client.post(
+                "/api/sessions/import/save",
+                data={
+                    "session_name": "duplicate_test",
+                    "api_id": "12345",
+                    "api_hash": "abcd1234abcd1234abcd1234abcd1234",
+                    "proxy_id": "test-proxy",
+                },
+                files={
+                    "session_file": ("test.session", session_content, "application/octet-stream"),
+                    "json_file": ("test.json", json_content, "application/json"),
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+            assert response.status_code == 200
+            assert "already exists" in response.text.lower() or "exist" in response.text.lower()

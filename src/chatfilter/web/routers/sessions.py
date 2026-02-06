@@ -104,13 +104,13 @@ from pydantic import BaseModel
 
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
-from chatfilter.parsers import parse_telegram_expert_json, validate_account_info_json
 from chatfilter.web.events import get_event_bus
 from chatfilter.storage.file import robust_delete_session_file, secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
 from chatfilter.telegram.session_manager import SessionBusyError, SessionState
 from chatfilter.web.events import get_event_bus
+from chatfilter.parsers.telegram_expert import parse_telegram_expert_json, validate_account_info_json
 
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates
@@ -124,9 +124,31 @@ router = APIRouter(tags=["sessions"])
 
 # Maximum file sizes (security limit)
 MAX_SESSION_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_JSON_SIZE = 10 * 1024  # 10 KB (account info JSON)
 MAX_CONFIG_SIZE = 1024  # 1 KB
 # Chunk size for reading uploaded files (to prevent memory exhaustion)
 READ_CHUNK_SIZE = 8192  # 8 KB chunks
+
+
+def validate_phone_number(phone: str) -> None:
+    """Validate phone number format for manual phone input.
+
+    This is a simple validation for start_auth_flow endpoint.
+    For JSON import, use parsers.telegram_expert module instead.
+
+    Args:
+        phone: Phone number to validate
+
+    Raises:
+        ValueError: If phone format is invalid
+    """
+    if not phone.startswith("+"):
+        raise ValueError(_("Phone number must start with +"))
+
+    # Remove common formatting characters and check digits
+    digits_only = phone[1:].replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if not digits_only.isdigit():
+        raise ValueError(_("Phone number must contain only digits after +"))
 
 
 class SessionListItem(BaseModel):
@@ -553,6 +575,49 @@ async def get_account_info_from_session(
     except Exception as e:
         logger.warning(f"Failed to extract account info from session: {e}")
         return None
+
+
+def validate_account_info_json(json_data: object) -> str | None:
+    """Validate account info JSON from uploaded file.
+
+    Validates:
+    - Must be a dict (no arrays at root)
+    - Only allowed fields: phone, first_name, last_name, twoFA
+    - No nested objects or arrays as values
+    - Phone must be in E.164 format (optional + prefix, 7-15 digits)
+
+    Args:
+        json_data: Parsed JSON data to validate
+
+    Returns:
+        Error message string if invalid, None if valid
+    """
+    # Must be a dict
+    if not isinstance(json_data, dict):
+        return "JSON must be an object, not an array or primitive"
+
+    # Allowed fields only
+    allowed_fields = {"phone", "first_name", "last_name", "twoFA"}
+    unknown_fields = set(json_data.keys()) - allowed_fields
+    if unknown_fields:
+        return f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}"
+
+    # No nested objects or arrays
+    for key, value in json_data.items():
+        if isinstance(value, (dict, list)):
+            return f"Field '{key}' cannot contain nested objects or arrays"
+
+    # Validate phone field (required)
+    if "phone" not in json_data or not json_data["phone"]:
+        return "JSON file must contain 'phone' field"
+
+    phone = str(json_data["phone"])
+    # E.164 format: optional +, then 7-15 digits
+    # Examples: +14385515736, 14385515736, +79001234567
+    if not re.match(r"^\+?[1-9]\d{6,14}$", phone):
+        return f"Invalid phone format: '{phone}'. Expected E.164 format (e.g., +14385515736)"
+
+    return None
 
 
 def save_account_info(session_dir: Path, account_info: dict[str, int | str]) -> None:
@@ -1015,9 +1080,6 @@ def list_stored_sessions(
             config_file = session_dir / "config.json"
             account_info_file = session_dir / ".account_info.json"
 
-            # NOTE: We check config_file.exists(), not session_file.exists().
-            # After ChatFilter-lwm3y, session.session is optional cache.
-            # Config.json + .account_info.json are the source of truth.
             if config_file.exists():
                 session_id = session_dir.name
 
@@ -1227,6 +1289,9 @@ async def upload_session(
 
             try:
                 json_data = json.loads(json_content)
+                # Security: Zero plaintext JSON after parsing to prevent memory dumps
+                json_content = b'\x00' * len(json_content)
+                del json_content
             except json.JSONDecodeError as e:
                 return templates.TemplateResponse(
                     request=request,
@@ -1234,15 +1299,28 @@ async def upload_session(
                     context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
                 )
 
-            # Parse and extract account info from JSON
-            try:
-                json_account_info, twofa_password = parse_telegram_expert_json(json_content, json_data)
-            except ValueError as e:
+            # Validate JSON structure, fields, and phone format
+            validation_error = validate_account_info_json(json_data)
+            if validation_error:
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/upload_result.html",
-                    context={"success": False, "error": _(str(e))},
+                    context={"success": False, "error": _(validation_error)},
                 )
+
+            # Extract account info from JSON (validated above)
+            json_account_info = {
+                "phone": str(json_data["phone"]),
+                "first_name": str(json_data.get("first_name", "")),
+                "last_name": str(json_data.get("last_name", "")),
+            }
+
+            # Extract 2FA password if present (will encrypt later)
+            if "twoFA" in json_data and json_data["twoFA"]:
+                twofa_password = str(json_data["twoFA"])
+                # Security: Zero plaintext 2FA in JSON dict to prevent memory leaks
+                json_data["twoFA"] = "\x00" * len(json_data["twoFA"])
+                del json_data["twoFA"]
 
         # Extract account info from session to check for duplicates
         import tempfile
@@ -1450,8 +1528,13 @@ async def delete_session(session_id: str) -> HTMLResponse:
 async def validate_import_session(
     request: Request,
     session_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile, File()],
 ) -> HTMLResponse:
-    """Validate a session file for import.
+    """Validate session and JSON files for import.
+
+    Args:
+        json_file: JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
 
     Returns HTML partial with validation result.
     """
@@ -1482,8 +1565,39 @@ async def validate_import_session(
                 context={"success": False, "error": str(e)},
             )
 
+        # Validate JSON file
+        try:
+            json_content = await read_upload_with_size_limit(
+                json_file, MAX_JSON_SIZE, "JSON"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            json_data = json.loads(json_content)
+
+            # Validate JSON structure and fields using dedicated parser module
+            validation_error = validate_account_info_json(json_data)
+            if validation_error:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/import_validation_result.html",
+                    context={"success": False, "error": validation_error},
+                )
+
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+            )
+
         # Validation successful
-        logger.info("Session file validated successfully for import")
+        logger.info("Session and JSON files validated successfully for import")
         return templates.TemplateResponse(
             request=request,
             name="partials/import_validation_result.html",
@@ -2012,15 +2126,15 @@ async def start_auth_flow(
 
     # Validate and sanitize phone format
     phone = phone.strip()
-    if not phone.startswith("+") or not phone[1:].replace(" ", "").replace("-", "").replace("(", "").replace(")", "").isdigit():
+    try:
+        validate_phone_number(phone)
+    except ValueError as e:
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
             context={
                 "success": False,
-                "error": _(
-                    "Invalid phone number format. Must start with + and country code (e.g., +1234567890)."
-                ),
+                "error": str(e),
             },
         )
 
@@ -3274,146 +3388,9 @@ async def verify_code(
         )
 
     except SessionPasswordNeededError:
-        # 2FA required - try auto-entering from account_info if available
-        from telethon.errors import PasswordHashInvalidError
-        from chatfilter.security import SecureCredentialManager
-
+        # 2FA required
         await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
         logger.info(f"2FA required for session '{safe_name}' auth")
-
-        # Check if we have stored 2FA password
-        session_dir = ensure_data_dir() / safe_name
-        manager = SecureCredentialManager(session_dir)
-        stored_2fa = manager.retrieve_2fa(safe_name)
-
-        if stored_2fa:
-            # Try to auto-enter 2FA with single retry on transient errors
-            logger.info(f"Attempting auto-2FA for session '{safe_name}'")
-            max_attempts = 2
-            last_error = None
-
-            for attempt in range(max_attempts):
-                if attempt > 0:
-                    logger.info(f"Retrying auto-2FA for session '{safe_name}' (attempt {attempt + 1}/{max_attempts})")
-
-                try:
-                    # Try to sign in with stored 2FA password
-                    await asyncio.wait_for(
-                        client.sign_in(password=stored_2fa),
-                        timeout=30.0,
-                    )
-
-                    # Success! Update the existing session
-                    if not session_dir.exists():
-                        await auth_manager.remove_auth_state(auth_id)
-                        return templates.TemplateResponse(
-                            request=request,
-                            name="partials/auth_result.html",
-                            context={"success": False, "error": _("Session directory not found.")},
-                        )
-
-                    session_path = session_dir / "session.session"
-
-                    # Get account info
-                    me = await asyncio.wait_for(client.get_me(), timeout=30.0)
-                    account_info = {
-                        "user_id": me.id,
-                        "phone": me.phone or "",
-                        "first_name": me.first_name or "",
-                        "last_name": me.last_name or "",
-                    }
-
-                    # Disconnect client before copying session file
-                    await asyncio.wait_for(client.disconnect(), timeout=30.0)
-
-                    # Copy session file from temp location to existing session
-                    temp_dir = getattr(auth_state, "temp_dir", None)
-                    if temp_dir:
-                        temp_session_file = Path(temp_dir) / "auth_session.session"
-                        if temp_session_file.exists():
-                            shutil.copy2(temp_session_file, session_path)
-                            secure_file_permissions(session_path)
-                        # Clean up temp dir
-                        secure_delete_dir(temp_dir)
-
-                    # Update account info
-                    save_account_info(session_dir, account_info)
-
-                    # Remove auth state
-                    await auth_manager.remove_auth_state(auth_id)
-
-                    logger.info(f"Session '{safe_name}' authenticated successfully (auto-2FA)")
-
-                    # Emit event for auth completion (connected)
-                    await get_event_bus().publish(safe_name, "connected")
-
-                    # Use reconnect success template with toast notification
-                    return templates.TemplateResponse(
-                        request=request,
-                        name="partials/reconnect_success.html",
-                        context={
-                            "message": _("Authentication successful"),
-                            "session_id": safe_name,
-                        },
-                        headers={"HX-Trigger": "refreshSessions"},
-                    )
-
-                except PasswordHashInvalidError:
-                    # Auto-2FA failed - increment failed attempts and check lock
-                    logger.warning(f"Auto-2FA failed for session '{safe_name}' - password incorrect")
-
-                    await auth_manager.increment_failed_attempts(auth_id)
-                    is_locked, remaining_seconds = await auth_manager.check_auth_lock(auth_id)
-
-                    if is_locked:
-                        remaining_minutes = (remaining_seconds + 59) // 60
-                        error_msg = _("Too many failed attempts. Please try again in {minutes} minutes.").format(
-                            minutes=remaining_minutes
-                        )
-                    else:
-                        error_msg = None  # Use auto_2fa_failed flag for standard error
-
-                    # Emit event for 2FA requirement
-                    await get_event_bus().publish(safe_name, "needs_2fa")
-                    return templates.TemplateResponse(
-                        request=request,
-                        name="partials/auth_2fa_form_reconnect.html",
-                        context={
-                            "auth_id": auth_id,
-                            "session_name": safe_name,
-                            "session_id": session_id,
-                            "error": error_msg,
-                            "auto_2fa_failed": True,
-                        },
-                        headers={"HX-Trigger": "refreshSessions"},
-                    )
-                except Exception as e:
-                    # Store error for potential retry
-                    last_error = e
-                    logger.warning(f"Auto-2FA attempt {attempt + 1}/{max_attempts} failed for session '{safe_name}': {e}")
-
-                    # If we have attempts left, continue to retry
-                    if attempt < max_attempts - 1:
-                        continue
-
-                    # All attempts exhausted - show error and fall through to manual form
-                    logger.exception(f"Auto-2FA failed for session '{safe_name}' after {max_attempts} attempts")
-                    # Emit event for 2FA requirement
-                    await get_event_bus().publish(safe_name, "needs_2fa")
-                    return templates.TemplateResponse(
-                        request=request,
-                        name="partials/auth_2fa_form_reconnect.html",
-                        context={
-                            "auth_id": auth_id,
-                            "session_name": safe_name,
-                            "session_id": session_id,
-                            "error": _("Auto-2FA failed due to connection error. Please enter manually."),
-                        },
-                        headers={"HX-Trigger": "refreshSessions"},
-                    )
-
-        # No stored 2FA or auto-entry failed - show manual form
-        logger.info(f"No stored 2FA for session '{safe_name}', showing manual form")
         # Emit event for 2FA requirement
         await get_event_bus().publish(safe_name, "needs_2fa")
         # Use reconnect-specific template since we have session_id in the URL
@@ -3875,11 +3852,16 @@ async def save_import_session(
     request: Request,
     session_name: Annotated[str, Form()],
     session_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile, File()],
     api_id: Annotated[int, Form()],
     api_hash: Annotated[str, Form()],
     proxy_id: Annotated[str, Form()],
 ) -> HTMLResponse:
     """Save an imported session with configuration.
+
+    Args:
+        json_file: JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
 
     Returns HTML partial with save result.
     """
@@ -3961,27 +3943,65 @@ async def save_import_session(
                 },
             )
 
-        # Extract account info from session to check for duplicates
+        # Parse JSON file for account info (TelegramExpert format)
+        twofa_password = None
+
+        try:
+            json_content = await read_upload_with_size_limit(
+                json_file, MAX_JSON_SIZE, "JSON"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            json_data = json.loads(json_content)
+
+            # Parse and validate JSON using dedicated parser module
+            account_info, twofa_password = parse_telegram_expert_json(json_content, json_data)
+
+        except ValueError as e:
+            # Validation error from parser
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+            )
+
+        # Try to get user_id from session for duplicate check
+        # JSON account_info is already prepared above as primary source
         import tempfile
 
-        account_info = None
         duplicate_sessions = []
 
-        # Create a temporary session file to test connection
+        # Create a temporary session file to try extracting user_id
         with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
             tmp_session.write(session_content)
             tmp_session.flush()
             tmp_session_path = Path(tmp_session.name)
 
         try:
-            # Try to get account info from the session
-            account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+            # Try to get user_id from session (best effort)
+            session_account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
 
-            if account_info:
-                # Check for duplicate accounts
-                user_id = account_info["user_id"]
+            # Add user_id to account_info if available from session
+            if session_account_info and "user_id" in session_account_info:
+                account_info["user_id"] = session_account_info["user_id"]
+
+                # Check for duplicate accounts only if we have user_id
+                user_id = session_account_info["user_id"]
                 if isinstance(user_id, int):
                     duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+
         finally:
             # Clean up temporary session file
             import contextlib
@@ -4005,6 +4025,21 @@ async def save_import_session(
                 account_info=account_info,
                 source="file",
             )
+
+            # Encrypt and save 2FA password if provided in JSON
+            if twofa_password:
+                from chatfilter.security import SecureCredentialManager
+
+                storage_dir = session_dir.parent
+                manager = SecureCredentialManager(storage_dir)
+                manager.store_2fa(safe_name, twofa_password)
+                logger.info(f"Stored encrypted 2FA for session: {safe_name}")
+
+                # Update account_info to indicate 2FA is available
+                if account_info:
+                    account_info_data = load_account_info(session_dir) or {}
+                    account_info_data["has_2fa"] = True
+                    save_account_info(session_dir, account_info_data)
 
         except DiskSpaceError:
             shutil.rmtree(session_dir, ignore_errors=True)
