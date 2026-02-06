@@ -94,7 +94,7 @@ from pydantic import BaseModel
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
 from chatfilter.web.events import get_event_bus
-from chatfilter.storage.file import secure_delete_file
+from chatfilter.storage.file import robust_delete_session_file, secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
 from chatfilter.telegram.session_manager import SessionBusyError, SessionState
@@ -2521,18 +2521,23 @@ async def _do_connect_in_background(session_id: str, session_path: Path, config_
         # Auto-recover: delete session file and trigger send_code flow
         logger.info(f"Session '{session_id}' has invalid auth key ({type(e).__name__}), triggering reauth")
 
-        # Delete invalid session file
-        if session_path.exists():
-            session_path.unlink()
-            logger.info(f"Deleted invalid session file for '{session_id}'")
+        # Robustly delete invalid session file (or rename to .backup on failure)
+        session_file = session_path / "session.session"
+        delete_success = robust_delete_session_file(session_file)
 
-        # Load phone number from account_info
+        # Load and update account_info
         session_dir = session_path.parent
         account_info = load_account_info(session_dir)
         if not account_info or "phone" not in account_info:
             logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
             await get_event_bus().publish(session_id, "error")
             return
+
+        # Mark session as needs_reauth if delete failed
+        if not delete_success:
+            account_info["needs_reauth"] = True
+            save_account_info(session_dir, account_info)
+            logger.warning(f"Session '{session_id}' marked as needs_reauth (delete failed)")
 
         phone = str(account_info["phone"])
 

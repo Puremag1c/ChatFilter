@@ -105,6 +105,78 @@ def secure_delete_file(file_path: Path) -> None:
         file_path.unlink(missing_ok=True)
 
 
+def cleanup_backup_session_files(sessions_dir: Path) -> int:
+    """Clean up orphaned .backup session files on startup.
+
+    Removes session.session.backup files that were created when
+    deletion failed (e.g., Windows file lock, permission error).
+
+    Args:
+        sessions_dir: Directory containing session subdirectories
+
+    Returns:
+        Number of backup files cleaned up
+    """
+    if not sessions_dir.exists() or not sessions_dir.is_dir():
+        return 0
+
+    cleaned_count = 0
+    try:
+        for backup_file in sessions_dir.rglob("session.session.backup"):
+            if backup_file.is_file():
+                try:
+                    backup_file.unlink()
+                    logger.info(f"Cleaned up orphaned backup session file: {backup_file}")
+                    cleaned_count += 1
+                except OSError as e:
+                    logger.warning(f"Failed to clean up backup file {backup_file}: {e}")
+    except OSError as e:
+        logger.warning(f"Error scanning directory {sessions_dir} for backup files: {e}")
+
+    return cleaned_count
+
+
+def robust_delete_session_file(session_file: Path) -> bool:
+    """Robustly delete a session file with fallback to rename on failure.
+
+    If deletion fails (e.g., permission error, locked file on Windows),
+    renames the file with .backup suffix to prevent reuse.
+
+    Args:
+        session_file: Path to session.session file to delete
+
+    Returns:
+        True if file was deleted successfully, False if renamed as backup
+    """
+    if not session_file.exists():
+        logger.debug(f"Session file does not exist, nothing to delete: {session_file}")
+        return True
+
+    try:
+        # Try secure delete first
+        secure_delete_file(session_file)
+        logger.info(f"Successfully deleted session file: {session_file}")
+        return True
+    except (PermissionError, OSError) as e:
+        # Delete failed - rename to .backup to prevent reuse
+        backup_path = session_file.with_suffix(session_file.suffix + ".backup")
+        try:
+            session_file.rename(backup_path)
+            logger.warning(
+                f"Failed to delete session file (error: {e}), "
+                f"renamed to backup: {backup_path}"
+            )
+            return False
+        except (PermissionError, OSError) as rename_error:
+            # Even rename failed - log critical error but don't crash
+            logger.error(
+                f"CRITICAL: Cannot delete or rename session file {session_file}: "
+                f"delete_error={e}, rename_error={rename_error}. "
+                f"Manual cleanup required."
+            )
+            return False
+
+
 def cleanup_old_session_files(sessions_dir: Path, cleanup_days: float) -> int:
     """Clean up old session files that haven't been accessed recently.
 

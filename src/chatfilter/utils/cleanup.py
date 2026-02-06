@@ -181,6 +181,7 @@ def cleanup_orphaned_resources(
 
     Resources cleaned:
     1. Temporary files (.*.tmp) from atomic write operations
+    1b. Backup session files (.backup) from failed deletion attempts
     2. SQLite journal files from database transactions
     3. Old session files based on age threshold
 
@@ -217,6 +218,16 @@ def cleanup_orphaned_resources(
             logger.info(f"✓ Cleaned {stats.temp_files} orphaned temp file(s)")
     except Exception as e:
         logger.error(f"Error during temp file cleanup: {e}")
+        stats.errors += 1
+
+    # 1b. Clean up backup session files (failed deletes)
+    try:
+        from chatfilter.storage.file import cleanup_backup_session_files
+        backup_count = cleanup_backup_session_files(sessions_dir)
+        if backup_count > 0:
+            logger.info(f"✓ Cleaned {backup_count} backup session file(s)")
+    except Exception as e:
+        logger.error(f"Error during backup session cleanup: {e}")
         stats.errors += 1
 
     # 2. Clean up orphaned SQLite journal files
