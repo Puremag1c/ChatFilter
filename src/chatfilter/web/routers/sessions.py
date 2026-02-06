@@ -16,7 +16,6 @@ States
 - needs_2fa: Waiting for 2FA password
 - needs_api_id: Missing API ID/hash configuration
 - proxy_missing: Configured proxy not found in pool
-- session_expired: Session auth key is invalid, needs reconnect
 - corrupted_session: Session file is corrupt, cannot recover
 - banned: Account banned by Telegram
 - flood_wait: Rate limited, temporary wait required
@@ -45,7 +44,7 @@ flood_wait          | retry button           | connecting    | -         | POST 
 Error State Classification
 --------------------------
 Errors are classified by `classify_error_state()` function:
-- session_expired: AuthKeyUnregistered, SessionRevoked, SessionExpired
+- disconnected: AuthKeyUnregistered, SessionRevoked, SessionExpired (treated as disconnected, Connect triggers send_code)
 - banned: UserDeactivated, UserDeactivatedBan, PhoneNumberBanned
 - flood_wait: FloodWaitError, SlowModeWaitError
 - proxy_error: OSError, ConnectionError, ConnectionRefused
@@ -135,7 +134,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         exception: The original exception object (if available)
 
     Returns:
-        One of: 'session_expired', 'banned', 'flood_wait', 'proxy_error', 'corrupted_session', 'error'
+        One of: 'disconnected', 'banned', 'flood_wait', 'proxy_error', 'corrupted_session', 'error'
     """
     # First check exception type if provided
     if exception is not None:
@@ -146,6 +145,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             return "corrupted_session"
 
         # Session expired/auth errors (both Telethon and custom errors)
+        # Treated as 'disconnected' — Connect button will trigger send_code flow
         if error_class in {
             "SessionExpiredError",
             "AuthKeyUnregisteredError",
@@ -155,7 +155,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             "SessionReauthRequiredError",  # Custom error for expired sessions
             "SessionInvalidError",  # Wrapper error from session_manager
         }:
-            return "session_expired"
+            return "disconnected"
 
         # Banned/deactivated account
         if error_class in {
@@ -200,6 +200,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         return "corrupted_session"
 
     # Check for expired/revoked session (dead session)
+    # Treated as 'disconnected' — Connect button will trigger send_code flow
     if any(
         phrase in error_lower
         for phrase in [
@@ -215,7 +216,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             "unauthorized",
         ]
     ):
-        return "session_expired"
+        return "disconnected"
 
     # Check for banned/deactivated account
     if any(
@@ -2670,49 +2671,13 @@ async def connect_session(
             headers={"HX-Trigger": "refreshSessions"},
         )
 
-    # Check if session is expired - need reauth instead of reconnect
-    if info and info.state == SessionState.ERROR:
-        error_state = classify_error_state(info.error_message)
-        if error_state == "session_expired":
-            # For session_expired: Can't use _do_connect_in_background because:
-            # 1. SessionManager.connect() tries to use existing session file (AuthKeyUnregisteredError)
-            # 2. We need send_code flow, not client.start() flow
-            # Solution: Delete session file, send code, create AuthState for user to complete auth
-            account_info = load_account_info(session_dir)
-            if not account_info or "phone" not in account_info:
-                return HTMLResponse(
-                    content='<span class="error">Cannot reconnect: phone number unknown</span>',
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                )
-
-            phone = str(account_info["phone"])
-
-            # Delete old session file (invalid)
-            if session_path.exists():
-                session_path.unlink()
-                logger.info(f"Deleted expired session file for '{safe_name}'")
-
-            # Reset EventBus deduplication state so SSE can send session_expired again if error
-            # Without this: session_expired → connecting → session_expired (DROPPED - same status)
-            # With this: session_expired → reset → connecting → session_expired (sent via SSE)
-            get_event_bus().reset_session_status(safe_name)
-
-            # Start reauth flow in background
-            background_tasks.add_task(
-                _send_verification_code_and_create_auth,
-                safe_name,
-                session_path,
-                config_path,
-                phone,
-            )
-    else:
-        # Normal connection flow
-        background_tasks.add_task(
-            _do_connect_in_background,
-            safe_name,
-            session_path,
-            config_path,
-        )
+    # Normal connection flow
+    background_tasks.add_task(
+        _do_connect_in_background,
+        safe_name,
+        session_path,
+        config_path,
+    )
 
     # Return immediately with 'connecting' state (template shows spinner)
     session_data = {

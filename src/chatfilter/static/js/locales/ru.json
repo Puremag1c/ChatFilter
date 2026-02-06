@@ -54,7 +54,6 @@
     "needs_code": "Требуется код подтверждения",
     "needs_2fa": "Требуется пароль 2FA",
     "needs_api_id": "Требуется API ID",
-    "session_expired": "Сессия истекла",
     "corrupted": "Повреждена",
     "banned": "Заблокирован"
   },
@@ -138,7 +137,6 @@
       "connect_session": "Подключить сессию",
       "please_wait": "Пожалуйста, подождите",
       "reconnect_session": "Переподключить сессию",
-      "session_expired_reconnect": "Сессия истекла - требуется переподключение",
       "session_corrupted": "Сессия повреждена",
       "session_corrupted_delete": "Файл сессии поврежден. Пожалуйста, удалите и создайте заново.",
       "retry_connection": "Повторить подключение",

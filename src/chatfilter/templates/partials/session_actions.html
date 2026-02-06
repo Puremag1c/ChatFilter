@@ -29,18 +29,6 @@
             <span class="btn-text">{{ _("Wait...") }}</span>
             <span class="spinner"></span>
         </button>
-        {% elif session.state == 'session_expired' %}
-        {# Expired session - reconnect via direct connect #}
-        <button class="btn btn-sm btn-warning session-connect-btn"
-                hx-post="/api/sessions/{{ session.session_id }}/connect"
-                hx-target="#session-{{ session.session_id }}"
-                hx-swap="outerHTML"
-                hx-disabled-elt="this"
-                onclick="this.disabled=true"
-                aria-label="{{ _('Reconnect session') }}"
-                title="{{ session.error_message or _('Session has expired - reconnect required') }}">
-            <span class="btn-text">{{ _("Reconnect") }}</span>
-        </button>
         {% elif session.state == 'corrupted_session' %}
         {# Corrupted session - show message, user must delete #}
         <button class="btn btn-sm btn-danger session-connect-btn" disabled

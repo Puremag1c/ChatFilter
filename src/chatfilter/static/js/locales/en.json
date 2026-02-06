@@ -54,7 +54,6 @@
     "needs_code": "Needs Verification Code",
     "needs_2fa": "Needs 2FA Password",
     "needs_api_id": "Needs API ID",
-    "session_expired": "Session expired",
     "corrupted": "Corrupted",
     "banned": "Banned"
   },
@@ -138,7 +137,6 @@
       "connect_session": "Connect session",
       "please_wait": "Please wait",
       "reconnect_session": "Reconnect session",
-      "session_expired_reconnect": "Session has expired - reconnect required",
       "session_corrupted": "Session corrupted",
       "session_corrupted_delete": "Session file is corrupted. Please delete and recreate.",
       "retry_connection": "Retry connection",

@@ -143,15 +143,15 @@ class SessionEventBus:
     def reset_session_status(self, session_id: str) -> None:
         """Reset deduplication state for a session.
 
-        Call this when starting a new connection flow (e.g., reconnect after session_expired).
+        Call this when starting a new connection flow (e.g., reconnect after disconnected state).
         This allows SSE to send the same status again if the flow fails with the same error.
 
         Without this reset, the sequence:
-            session_expired → connecting (HTMX) → [error→session_expired] (SSE dropped!)
+            disconnected → connecting (HTMX) → [error→disconnected] (SSE dropped!)
         becomes stuck because EventBus deduplicates consecutive same-status events.
 
         After reset:
-            session_expired → reset → connecting (HTMX) → session_expired (SSE sent)
+            disconnected → reset → connecting (HTMX) → disconnected (SSE sent)
         """
         self._last_status.pop(session_id, None)
         self._event_times.pop(session_id, None)

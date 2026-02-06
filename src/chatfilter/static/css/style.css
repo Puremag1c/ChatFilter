@@ -3205,8 +3205,7 @@ body:has(.update-notification.show) {
     color: var(--danger);
 }
 
-.account-status.status-banned,
-.account-status.status-session_expired {
+.account-status.status-banned {
     background: var(--danger-bg);
     color: var(--danger);
 }

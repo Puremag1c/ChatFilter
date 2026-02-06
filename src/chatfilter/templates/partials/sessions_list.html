@@ -64,9 +64,6 @@
                         {%- elif session.state == 'needs_api_id' -%}
                             <span class="status-icon" aria-hidden="true">⚙️</span>
                             {{ _("Needs API ID") }}
-                        {%- elif session.state == 'session_expired' -%}
-                            <span class="status-icon" aria-hidden="true">❌</span>
-                            {{ _("Session expired") }}
                         {%- elif session.state == 'corrupted_session' -%}
                             <span class="status-icon" aria-hidden="true">💥</span>
                             {{ _("Corrupted") }}
