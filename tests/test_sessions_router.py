@@ -2302,16 +2302,29 @@ class TestBackwardCompatibilityLegacySessions:
         return TestClient(app)
 
     @pytest.fixture
-    def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
+    def clean_data_dir(self, tmp_path: Path, monkeypatch) -> Iterator[Path]:
         """Create temporary data directory."""
-        from unittest.mock import patch
+        # Use monkeypatch to ensure the mock persists for the test duration
+        from unittest.mock import MagicMock
 
-        with patch("chatfilter.web.routers.sessions.ensure_data_dir", return_value=tmp_path):
-            yield tmp_path
+        mock_ensure_data_dir = MagicMock(return_value=tmp_path)
+        monkeypatch.setattr(
+            "chatfilter.web.routers.sessions.ensure_data_dir", mock_ensure_data_dir
+        )
+        yield tmp_path
 
-    @pytest.fixture
-    def legacy_session_without_account_info(self, clean_data_dir: Path) -> Path:
-        """Create a legacy session with config.json + session.session but NO account_info.json."""
+    def test_list_sessions_legacy_format_without_account_info(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that sessions without account_info.json appear with 'needs_account_info' state.
+
+        Legacy sessions (old format with config.json but no account_info.json) should:
+        1. Not crash list_stored_sessions
+        2. Appear in the list with state='needs_account_info'
+        """
+        from chatfilter.web.routers.sessions import list_stored_sessions
+
+        # Create legacy session directly in clean_data_dir
         session_dir = clean_data_dir / "legacy_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2332,21 +2345,6 @@ class TestBackwardCompatibilityLegacySessions:
         }
         config_path = session_dir / "config.json"
         config_path.write_text(json.dumps(config_data))
-
-        # NOTE: NO account_info.json - this is what makes it "legacy"
-
-        return session_dir
-
-    def test_list_sessions_legacy_format_without_account_info(
-        self, client: TestClient, legacy_session_without_account_info: Path
-    ) -> None:
-        """Test that sessions without account_info.json appear with 'needs_account_info' state.
-
-        Legacy sessions (old format with config.json but no account_info.json) should:
-        1. Not crash list_stored_sessions
-        2. Appear in the list with state='needs_account_info'
-        """
-        from chatfilter.web.routers.sessions import list_stored_sessions
 
         # Call list_stored_sessions directly
         sessions = list_stored_sessions()
