@@ -1403,6 +1403,166 @@ class TestSessionConnectDisconnectAPI:
         assert response.status_code == 200
         assert "Connecting" in response.text or "connecting" in response.text.lower()
 
+    def test_connect_session_missing_session_file(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test connect with missing session.session file triggers send_code flow.
+
+        Scenario: Session exists with config.json but NO session.session file
+        Expected: HTTP 200 with 'connecting' state, background task triggers send_code → 'needs_code' via SSE
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        # Remove the session.session file to simulate missing session
+        session_file = configured_session / "session.session"
+        if session_file.exists():
+            session_file.unlink()
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        # Read the proxy_id from config
+        config_path = configured_session / "config.json"
+        config_data = json.loads(config_path.read_text())
+        test_proxy_id = config_data["proxy_id"]
+
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.get_info.return_value = None
+
+        # Mock loader - will fail to load non-existent session
+        mock_loader = MagicMock()
+        mock_loader.validate.return_value = None
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+            patch(
+                "chatfilter.telegram.client.TelegramClientLoader",
+                return_value=mock_loader,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions._send_verification_code_and_create_auth",
+                new_callable=AsyncMock,
+            ) as mock_send_code,
+        ):
+            response = client.post(
+                "/api/sessions/test_session/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # HTTP returns 200 with 'connecting' state immediately
+        assert response.status_code == 200
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
+
+    def test_connect_session_invalid_session_auto_reauth(
+        self, client: TestClient, clean_data_dir: Path, configured_session: Path
+    ) -> None:
+        """Test connect with invalid session.session (AuthKeyUnregistered) triggers auto-reauth.
+
+        Scenario: Session exists with config.json and corrupted session.session
+        Expected: HTTP 200 with 'connecting' state, background task detects AuthKeyUnregistered,
+                  deletes file, triggers send_code → 'needs_code' via SSE
+                  (no 'session_expired' status shown)
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from chatfilter.models.proxy import ProxyEntry
+        from telethon.errors import AuthKeyUnregisteredError
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = clean_data_dir
+
+        # Read the proxy_id from config
+        config_path = configured_session / "config.json"
+        config_data = json.loads(config_path.read_text())
+        test_proxy_id = config_data["proxy_id"]
+
+        mock_proxy = ProxyEntry(
+            id=test_proxy_id,
+            name="Test Proxy",
+            type="socks5",
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.get_info.return_value = None
+        mock_session_manager.register = MagicMock()
+        # connect() will raise AuthKeyUnregisteredError to simulate invalid session
+        mock_session_manager.connect = AsyncMock(side_effect=AuthKeyUnregisteredError(request=None))
+
+        # Mock loader
+        mock_loader = MagicMock()
+        mock_loader.validate.return_value = None
+
+        with (
+            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.storage.proxy_pool.get_proxy_by_id",
+                return_value=mock_proxy,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+            patch(
+                "chatfilter.telegram.client.TelegramClientLoader",
+                return_value=mock_loader,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions._send_verification_code_and_create_auth",
+                new_callable=AsyncMock,
+            ) as mock_send_code,
+            patch(
+                "chatfilter.web.routers.sessions.robust_delete_session_file",
+                return_value=True,
+            ) as mock_delete,
+            patch(
+                "chatfilter.web.routers.sessions.load_account_info",
+                return_value={"phone": "1234567890"},
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.save_account_info",
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/test_session/connect",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # HTTP returns 200 with 'connecting' state immediately
+        assert response.status_code == 200
+        assert "Connecting" in response.text or "connecting" in response.text.lower()
+
     def test_disconnect_session_invalid_name(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
