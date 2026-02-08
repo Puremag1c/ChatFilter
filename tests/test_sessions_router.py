@@ -3487,6 +3487,7 @@ class TestVerifyCode2FAAutoEntry:
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
             mock_mgr.update_auth_state = AsyncMock()
             mock_mgr.check_auth_lock = AsyncMock(return_value=(False, 0))
+            mock_mgr.increment_failed_attempts = AsyncMock()
             mock_get_mgr.return_value = mock_mgr
 
             mock_event_bus = MagicMock()
@@ -3502,11 +3503,15 @@ class TestVerifyCode2FAAutoEntry:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-            # Either response is 200 or 503 (template not found), the important thing is 
+            # Either response is 200 or 503 (template not found), the important thing is
             # that the needs_2fa flow was triggered (no success response)
             assert response.status_code in (200, 503), f"Expected 200 or 503, got {response.status_code}"
             # Verify that needs_2fa event was published or form shown
             assert "auth_2fa_form_reconnect" in response.text or "2FA" in response.text or response.status_code == 503
+            # Verify rate limiting was applied (increment_failed_attempts called)
+            mock_mgr.increment_failed_attempts.assert_called_once_with("test_auth_id_wrong")
+
+
 class TestSessionImport:
     """Tests for session import endpoints (dual file upload)."""
 
