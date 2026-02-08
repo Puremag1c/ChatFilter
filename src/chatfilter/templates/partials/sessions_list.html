@@ -648,8 +648,8 @@
         }
     });
 
-    // Auto-open verification code modal when session transitions to needs_code
-    // This happens when Connect auto-detects invalid/missing session.session and triggers send_code
+    // Show toast notification when session transitions to needs_code
+    // User must explicitly click "Enter Verification Code" button to open modal
     const needsCodeTracker = new Set(); // Track which sessions we've already shown feedback for
 
     const sessionObserver = new MutationObserver(function(mutations) {
@@ -670,20 +670,17 @@
                         // First time seeing this session in needs_code state
                         needsCodeTracker.add(sessionId);
 
-                        // Show explanatory toast
-                        if (typeof ToastManager !== 'undefined') {
-                            ToastManager.info('{{ _("Session requires verification. Telegram sent a code to your phone.") }}', {
-                                duration: 5000
-                            });
+                        // Show explanatory toast (only for dynamic transitions, not initial page load)
+                        if (mutation.type !== 'childList' || mutation.addedNodes.length === 0) {
+                            if (typeof ToastManager !== 'undefined') {
+                                ToastManager.info('{{ _("Session requires verification. Click Enter Verification Code button to proceed.") }}', {
+                                    duration: 5000
+                                });
+                            }
                         }
 
-                        // Auto-open code modal after 2 second delay (so user can read toast)
-                        setTimeout(function() {
-                            const codeBtn = row.querySelector('.session-code-modal-btn');
-                            if (codeBtn) {
-                                codeBtn.click();
-                            }
-                        }, 2000);
+                        // User must explicitly click "Enter Verification Code" button
+                        // Modal no longer auto-opens to avoid blocking the page on load
                     }
 
                     // Clean up tracker if session leaves needs_code state
