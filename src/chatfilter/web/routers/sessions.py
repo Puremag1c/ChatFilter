@@ -3076,6 +3076,12 @@ async def connect_session(
         )
 
         # Return connecting state (will transition to needs_code via SSE)
+        # NOTE: Do NOT include HX-Trigger: refreshSessions here!
+        # The session is not registered in session_manager yet, so a full
+        # session list refresh would show it as "disconnected", immediately
+        # reverting the "connecting" state we just set.
+        # The SSE event from _send_verification_code_and_create_auth will
+        # update the UI when the code is sent (needs_code) or on error.
         session_data = {
             "session_id": safe_name,
             "state": "connecting",
@@ -3085,7 +3091,6 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context={"session": session_data},
-            headers={"HX-Trigger": "refreshSessions"},
         )
     except Exception as e:
         # Validation error (bad config, missing files, etc.)
