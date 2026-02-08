@@ -26,8 +26,13 @@
                 <td class="account-status-cell">
                     <span class="account-status status-{{ session.state }}"{% if session.error_message %} title="{{ session.error_message }}"{% endif %}>
                         {%- if session.state == 'disconnected' -%}
-                            <span class="status-icon" aria-hidden="true">✓</span>
-                            {{ _("Ready") }}
+                            {%- if session.has_session_file -%}
+                                <span class="status-icon" aria-hidden="true">✓</span>
+                                {{ _("Ready") }}
+                            {%- else -%}
+                                <span class="status-icon" aria-hidden="true">📱</span>
+                                {{ _("Needs Auth") }}
+                            {%- endif -%}
                         {%- elif session.state == 'connected' -%}
                             <span class="status-icon" aria-hidden="true">●</span>
                             {{ _("Connected") }}
