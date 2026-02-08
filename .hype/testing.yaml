@@ -1,6 +1,6 @@
 # .hype/testing.yaml - Testing configuration (auto-generated)
 type: web
-build_command: (test -d .venv || python3 -m venv .venv) && .venv/bin/pip install -e .
+build_command: if [ ! -d .venv ]; then python3 -m venv .venv; fi && .venv/bin/pip install -e .
 start_command: .venv/bin/python -m chatfilter.main --host 127.0.0.1 --port 8000
 test_url: http://localhost:8000
 health_check: /  # Root serves the web UI
