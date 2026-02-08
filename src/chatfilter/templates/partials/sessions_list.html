@@ -72,6 +72,9 @@
                         {%- elif session.state == 'corrupted_session' -%}
                             <span class="status-icon" aria-hidden="true">💥</span>
                             {{ _("Corrupted") }}
+                        {%- elif session.state == 'needs_account_info' -%}
+                            <span class="status-icon" aria-hidden="true">⚙️</span>
+                            {{ _("Setup Required") }}
                         {%- else -%}
                             <span class="status-icon" aria-hidden="true">?</span>
                             {{ session.state }}
