@@ -1949,7 +1949,7 @@ class TestSessionConnectDisconnectAPI:
 
         # Should succeed - disconnect is idempotent
         assert response.status_code == 200
-        assert "Connect" in response.text
+        assert "Authorize" in response.text
 
 
 class TestDeadSessionRecoveryUX:
