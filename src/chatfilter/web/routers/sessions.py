@@ -1092,7 +1092,7 @@ def list_stored_sessions(
                             state="needs_account_info",
                             error_message=None,
                             auth_id=None,
-                            has_session_file=session_file.exists(),
+                            has_session_file=session_file.is_file(),
                         )
                     )
                     continue
@@ -1152,7 +1152,7 @@ def list_stored_sessions(
                         state=state,
                         error_message=error_message,
                         auth_id=auth_id,
-                        has_session_file=session_file.exists(),
+                        has_session_file=session_file.is_file(),
                         retry_available=retry_available,
                     )
                 )
