@@ -3096,8 +3096,15 @@ async def connect_session(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Register loader — this creates session entry in session_manager._sessions
+    # Register loader — this ONLY saves factory in _factories
     session_manager.register(safe_name, loader)
+
+    # Create ManagedSession entry now (before background task starts)
+    # This ensures _do_connect_in_background_v2 will find the session
+    from chatfilter.telegram.session_manager import ManagedSession
+    if safe_name not in session_manager._sessions:
+        client = loader.create_client()
+        session_manager._sessions[safe_name] = ManagedSession(client=client)
 
     # Set state to CONNECTING synchronously (prevents race condition)
     session = session_manager._sessions.get(safe_name)
@@ -3429,22 +3436,117 @@ async def verify_code(
         )
 
     except SessionPasswordNeededError:
-        # 2FA required
-        await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
-        logger.info(f"2FA required for session '{safe_name}' auth")
-        # Emit event for 2FA requirement
-        await get_event_bus().publish(safe_name, "needs_2fa")
-        # Use reconnect-specific template since we have session_id in the URL
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/auth_2fa_form_reconnect.html",
-            context={
-                "auth_id": auth_id,
-                "session_name": safe_name,
-                "session_id": session_id,
-            },
-            headers={"HX-Trigger": "refreshSessions"},
-        )
+        # 2FA required - check if we have stored 2FA password for auto-login
+        from telethon.errors import PasswordHashInvalidError
+        from chatfilter.security import SecureCredentialManager
+
+        session_dir = ensure_data_dir() / safe_name
+        manager = SecureCredentialManager(session_dir)
+
+        # Try to retrieve stored 2FA password (returns None if not found)
+        stored_2fa_password = manager.retrieve_2fa(safe_name)
+
+        if stored_2fa_password:
+            logger.info(f"Found stored 2FA password for session '{safe_name}', attempting auto-login")
+
+            # Attempt automatic sign-in with stored 2FA password
+            try:
+                await asyncio.wait_for(
+                    client.sign_in(password=stored_2fa_password),
+                    timeout=30.0,
+                )
+
+                # Success! Continue with session completion
+                if not session_dir.exists():
+                    await auth_manager.remove_auth_state(auth_id)
+                    return templates.TemplateResponse(
+                        request=request,
+                        name="partials/auth_result.html",
+                        context={"success": False, "error": _("Session directory not found.")},
+                    )
+
+                session_path = session_dir / "session.session"
+
+                # Get account info
+                me = await asyncio.wait_for(client.get_me(), timeout=30.0)
+                account_info = {
+                    "user_id": me.id,
+                    "phone": me.phone or "",
+                    "first_name": me.first_name or "",
+                    "last_name": me.last_name or "",
+                }
+
+                # Disconnect client before copying session file
+                await asyncio.wait_for(client.disconnect(), timeout=30.0)
+
+                # Copy session file from temp location to existing session
+                temp_dir = getattr(auth_state, "temp_dir", None)
+                if temp_dir:
+                    temp_session_file = Path(temp_dir) / "auth_session.session"
+                    if temp_session_file.exists():
+                        shutil.copy2(temp_session_file, session_path)
+                        secure_file_permissions(session_path)
+                    # Clean up temp dir
+                    secure_delete_dir(temp_dir)
+
+                # Update account info
+                save_account_info(session_dir, account_info)
+
+                # Remove auth state
+                await auth_manager.remove_auth_state(auth_id)
+
+                logger.info(f"Session '{safe_name}' re-authenticated successfully (auto 2FA)")
+
+                # Emit event for auth completion (connected)
+                await get_event_bus().publish(safe_name, "connected")
+
+                # Use reconnect success template with toast notification
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/reconnect_success.html",
+                    context={
+                        "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
+                        "session_id": safe_name,
+                    },
+                    headers={"HX-Trigger": "refreshSessions"},
+                )
+
+            except PasswordHashInvalidError:
+                # Stored 2FA password is wrong/outdated - increment failed attempts and show manual form
+                await auth_manager.increment_failed_attempts(auth_id)
+                await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
+                logger.warning(f"Stored 2FA password invalid for session '{safe_name}', showing manual entry form")
+                # Emit event for 2FA requirement
+                await get_event_bus().publish(safe_name, "needs_2fa")
+                # Use reconnect-specific template with error message
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/auth_2fa_form_reconnect.html",
+                    context={
+                        "auth_id": auth_id,
+                        "session_name": safe_name,
+                        "session_id": session_id,
+                        "error": _("Stored 2FA password is incorrect. Please enter it manually."),
+                    },
+                    headers={"HX-Trigger": "refreshSessions"},
+                )
+        else:
+            # No stored 2FA password - show manual entry form
+            await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
+            logger.info(f"2FA required for session '{safe_name}' auth (no stored password)")
+            # Emit event for 2FA requirement
+            await get_event_bus().publish(safe_name, "needs_2fa")
+            # Use reconnect-specific template since we have session_id in the URL
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/auth_2fa_form_reconnect.html",
+                context={
+                    "auth_id": auth_id,
+                    "session_name": safe_name,
+                    "session_id": session_id,
+                },
+                headers={"HX-Trigger": "refreshSessions"},
+            )
 
     except PhoneCodeInvalidError:
         # Increment failed attempts and check if locked
