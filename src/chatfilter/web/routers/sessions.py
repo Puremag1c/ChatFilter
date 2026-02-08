@@ -710,8 +710,8 @@ def _save_session_to_disk(
     # Calculate total space needed (session file + marker file)
     total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
 
-    # Check disk space before writing
-    ensure_space_available(session_dir / "session.session", total_bytes_needed)
+    # Check disk space before writing (use parent dir since session_dir doesn't exist yet)
+    ensure_space_available(session_dir.parent / ".space_check", total_bytes_needed)
 
     # Create temporary directory for atomic transaction
     # Use parent directory to ensure same filesystem (for atomic rename)
@@ -751,19 +751,20 @@ def _save_session_to_disk(
         marker_file = temp_dir / ".secure_storage"
         atomic_write(marker_file, marker_text)
 
-        # Validate that TelegramClientLoader can use secure storage
-        # Only validate if api_id and api_hash are provided
-        if api_id and api_hash:
-            loader = TelegramClientLoader(session_path, use_secure_storage=True)
-            loader.validate()
-
         # Save account info if we successfully extracted it
         if account_info:
             save_account_info(temp_dir, account_info)
-            logger.info(
-                f"Saved account info for session '{safe_name}': "
-                f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
-            )
+            # user_id might not be available if get_account_info_from_session failed
+            if "user_id" in account_info:
+                logger.info(
+                    f"Saved account info for session '{safe_name}': "
+                    f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
+                )
+            else:
+                logger.info(
+                    f"Saved account info for session '{safe_name}' (user_id not available): "
+                    f"phone={account_info.get('phone', 'N/A')}"
+                )
 
         # All writes succeeded → atomic rename (POSIX atomic operation)
         temp_dir.rename(session_dir)
@@ -4046,9 +4047,7 @@ async def save_import_session(
             with contextlib.suppress(Exception):
                 tmp_session_path.unlink()
 
-        # Create session directory and save files
-        session_dir.mkdir(parents=True, exist_ok=True)
-
+        # Save session files (directory created atomically by _save_session_to_disk)
         try:
             from chatfilter.utils.disk import DiskSpaceError
 
