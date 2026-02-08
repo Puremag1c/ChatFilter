@@ -407,9 +407,9 @@ class TestStatusCellSpinner:
 
         html = template.render(session=session_data)
 
-        # Verify status changed from "Disconnecting" to "Ready"
-        assert "Ready" in html
-        assert 'class="status-icon"' in html and "✓" in html
+        # Verify status changed from "Disconnecting" to "Needs Auth"
+        assert "Needs Auth" in html
+        assert 'class="status-icon"' in html and "📱" in html
 
 
 class TestAllActionTypesComplete:

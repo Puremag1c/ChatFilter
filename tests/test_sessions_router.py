@@ -1893,7 +1893,7 @@ class TestSessionConnectDisconnectAPI:
             )
 
         assert response.status_code == 200
-        assert "Connect" in response.text
+        assert "Authorize" in response.text
         assert "HX-Trigger" in response.headers
         assert response.headers["HX-Trigger"] == "refreshSessions"
         mock_session_manager.disconnect.assert_called_once_with("test_session")
