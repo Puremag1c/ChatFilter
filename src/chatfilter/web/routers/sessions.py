@@ -2854,7 +2854,8 @@ async def _send_verification_code_and_create_auth(
     from chatfilter.telegram.error_mapping import get_user_friendly_message
     from chatfilter.telegram.retry import calculate_backoff_delay
     from chatfilter.web.auth_state import get_auth_state_manager
-    from chatfilter.web.dependencies import get_proxy_manager
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
     from chatfilter.web.events import get_event_bus
 
     def save_error_metadata(error_message: str, retry_available: bool) -> None:
@@ -2886,9 +2887,11 @@ async def _send_verification_code_and_create_auth(
         return
 
     # Get proxy once (no retry needed)
-    proxy_manager = get_proxy_manager()
-    proxy_info = proxy_manager.get_proxy(proxy_id)
-    if not proxy_info:
+    try:
+        proxy_info = get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        error_message = f"Proxy '{proxy_id}' not found in pool"
+        save_error_metadata(error_message, retry_available=False)
         await get_event_bus().publish(session_id, "proxy_error")
         return
 
