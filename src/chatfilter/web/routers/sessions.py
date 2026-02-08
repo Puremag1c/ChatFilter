@@ -3440,7 +3440,8 @@ async def verify_code(
         )
 
     except SessionPasswordNeededError:
-        # 2FA required - check if we have stored 2FA password for auto-login
+        # 2FA required — attempt auto-login with stored password (SPEC.md AC #4)
+        # Flow: sign_in(code) → SessionPasswordNeededError → sign_in(password) → success or manual form
         from telethon.errors import PasswordHashInvalidError
         from chatfilter.security import SecureCredentialManager
 
