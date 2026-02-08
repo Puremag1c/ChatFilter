@@ -2753,21 +2753,21 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
     config_path: Path | None = None
 
     try:
-        # Get session info to extract paths (loader is already registered)
-        session = session_manager._sessions.get(session_id)
-        if not session:
-            logger.error(f"Session '{session_id}' not found in _do_connect_in_background_v2")
+        # Get paths from the registered factory (loader), NOT from _sessions.
+        # register() stores in _factories; _sessions entry is only created by connect().
+        factory = session_manager._factories.get(session_id)
+        if not factory:
+            logger.error(f"Session '{session_id}' factory not found in _do_connect_in_background_v2")
             await get_event_bus().publish(session_id, "error")
             return
 
-        # Extract paths from the registered client (TelegramClient has .session.filename)
-        session_filename = session.client.session.filename
-        if session_filename:
-            session_path = Path(session_filename)
+        # Extract paths from the factory (TelegramClientLoader has session_path/config_path)
+        if hasattr(factory, 'session_path'):
+            session_path = factory.session_path
             config_path = session_path.parent / "config.json"
 
         # Connect with timeout (30 seconds)
-        # session_manager.connect() publishes SSE events on success/failure
+        # session_manager.connect() creates _sessions entry and publishes SSE events
         await asyncio.wait_for(
             session_manager.connect(session_id),
             timeout=30.0
@@ -3101,21 +3101,15 @@ async def connect_session(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Register loader — this ONLY saves factory in _factories
+    # Register loader factory (stores in _factories, NOT _sessions)
     session_manager.register(safe_name, loader)
 
-    # Create ManagedSession entry now (before background task starts)
-    # This ensures _do_connect_in_background_v2 will find the session
+    # Eagerly create _sessions entry so state is CONNECTING before background task runs.
+    # This prevents race conditions from parallel requests and ensures get_info() works.
     from chatfilter.telegram.session_manager import ManagedSession
-    if safe_name not in session_manager._sessions:
-        client = loader.create_client()
-        session_manager._sessions[safe_name] = ManagedSession(client=client)
-
-    # Set state to CONNECTING synchronously (prevents race condition)
-    session = session_manager._sessions.get(safe_name)
-    if session:
-        # Use lock to ensure atomic state transition
-        async with session.lock:
+    async with session_manager._global_lock:
+        session = session_manager._sessions.get(safe_name)
+        if session:
             if session.state in (SessionState.CONNECTED, SessionState.CONNECTING):
                 # Another request beat us to it — return current state
                 session_data = {
@@ -3129,8 +3123,13 @@ async def connect_session(
                     context={"session": session_data},
                     headers={"HX-Trigger": "refreshSessions"},
                 )
-            # Transition to CONNECTING
             session.state = SessionState.CONNECTING
+        else:
+            # Create ManagedSession with a client from the factory
+            client = loader.create_client()
+            session_manager._sessions[safe_name] = ManagedSession(
+                client=client, state=SessionState.CONNECTING
+            )
 
     # Now schedule background task (loader already registered, state already CONNECTING)
     background_tasks.add_task(
