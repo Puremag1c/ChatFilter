@@ -66,8 +66,8 @@ class TestExtractWaitTime:
 class TestGetUserFriendlyMessage:
     """Tests for get_user_friendly_message function."""
 
-    def test_session_expired_error(self) -> None:
-        """Test session expired error mapping."""
+    def test_telethon_auth_expiry_error(self) -> None:
+        """Test Telethon SessionExpiredError exception mapping."""
 
         class SessionExpiredError(Exception):
             pass

@@ -170,8 +170,8 @@ class TestSessionStore:
 
         assert result is None
 
-    def test_get_session_expired(self) -> None:
-        """get_session() should return None for expired session."""
+    def test_get_session_beyond_ttl(self) -> None:
+        """get_session() should return None for session beyond TTL."""
         store = SessionStore()
         session = store.create_session()
         session.last_accessed = time.time() - SESSION_TTL - 1

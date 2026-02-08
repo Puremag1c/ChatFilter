@@ -426,11 +426,11 @@ class TestEventThrottling:
     async def test_reset_session_status_allows_duplicate(self) -> None:
         """reset_session_status allows same status to be sent again.
 
-        This is critical for the session_expired reconnect flow:
-        - session_expired (initial state)
+        This is critical for reconnect flows:
+        - disconnected (initial state)
         - reset_session_status() called
         - connecting (HTMX response)
-        - session_expired (SSE if reconnect fails) <- must not be dropped!
+        - disconnected (SSE if reconnect fails) <- must not be dropped!
         """
         bus = SessionEventBus()
         received = []
@@ -441,21 +441,21 @@ class TestEventThrottling:
         bus.subscribe(handler)
 
         # First event
-        await bus.publish("session1", "session_expired")
+        await bus.publish("session1", "disconnected")
         assert len(received) == 1
 
         # Same status - should be dropped (deduplication)
-        await bus.publish("session1", "session_expired")
+        await bus.publish("session1", "disconnected")
         assert len(received) == 1  # Still 1
 
         # Reset session status
         bus.reset_session_status("session1")
 
         # Same status again - NOW it should be sent!
-        await bus.publish("session1", "session_expired")
+        await bus.publish("session1", "disconnected")
         assert len(received) == 2  # Now 2
-        assert received[0] == ("session1", "session_expired")
-        assert received[1] == ("session1", "session_expired")
+        assert received[0] == ("session1", "disconnected")
+        assert received[1] == ("session1", "disconnected")
 
     def test_reset_session_status_nonexistent_session(self) -> None:
         """reset_session_status should not raise for nonexistent session."""

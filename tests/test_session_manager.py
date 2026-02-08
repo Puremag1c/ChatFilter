@@ -457,8 +457,8 @@ class TestSessionAuthErrors:
             await manager.connect("test")
 
     @pytest.mark.asyncio
-    async def test_connect_session_expired_error(self) -> None:
-        """Test connection with SessionExpiredError raises SessionReauthRequiredError."""
+    async def test_connect_telethon_auth_expiry_error(self) -> None:
+        """Test connection with Telethon SessionExpiredError raises SessionReauthRequiredError."""
         manager = SessionManager()
         mock_request = MagicMock()
         client = MockClient(auth_error=errors.SessionExpiredError(request=mock_request))
@@ -714,8 +714,8 @@ class TestDeadSessionRecoveryFlow:
     """Tests for dead session detection and recovery UX flow."""
 
     @pytest.mark.asyncio
-    async def test_dead_session_shows_session_expired_status(self) -> None:
-        """Test that dead session shows 'Session expired' status, not generic 'Error'."""
+    async def test_dead_session_shows_expired_error_message(self) -> None:
+        """Test that dead session shows 'Session expired' error message, not generic 'Error'."""
         manager = SessionManager()
         mock_request = MagicMock()
         client = MockClient(auth_error=errors.SessionExpiredError(request=mock_request))

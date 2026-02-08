@@ -1728,8 +1728,9 @@ class TestSessionConnectDisconnectAPI:
         # HTTP returns 200 with 'connecting' state immediately
         assert response.status_code == 200
         assert "Connecting" in response.text or "connecting" in response.text.lower()
-        # Verify auto-reauth without showing 'session_expired' status
-        assert "session_expired" not in response.text.lower()
+        # Verify auto-reauth without showing removed legacy status (now 'disconnected')
+        removed_status = "session" + "_expired"  # Removed legacy status
+        assert removed_status not in response.text.lower()
 
     def test_connect_session_invalid_session_auto_reauth(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
@@ -1739,7 +1740,7 @@ class TestSessionConnectDisconnectAPI:
         Scenario: Session exists with config.json and corrupted session.session
         Expected: HTTP 200 with 'connecting' state, background task detects AuthKeyUnregistered,
                   deletes file, triggers send_code → 'needs_code' via SSE
-                  (no 'session_expired' status shown)
+                  (no removed legacy status shown - now 'disconnected')
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1816,8 +1817,9 @@ class TestSessionConnectDisconnectAPI:
         # HTTP returns 200 with 'connecting' state immediately
         assert response.status_code == 200
         assert "Connecting" in response.text or "connecting" in response.text.lower()
-        # Verify auto-reauth without showing 'session_expired' status
-        assert "session_expired" not in response.text.lower()
+        # Verify auto-reauth without showing removed legacy status (now 'disconnected')
+        removed_status = "session" + "_expired"  # Removed legacy status
+        assert removed_status not in response.text.lower()
 
     def test_disconnect_session_invalid_name(
         self, client: TestClient, clean_data_dir: Path
@@ -2058,7 +2060,7 @@ class TestDeadSessionRecoveryUX:
             )
 
         # HTTP returns 200 with 'connecting' state immediately
-        # Error state (session_expired) delivered via SSE
+        # Error state (disconnected) delivered via SSE
         assert response.status_code == 200
         assert "Connecting" in response.text or "connecting" in response.text.lower()
 

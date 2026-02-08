@@ -156,41 +156,43 @@ class TestLoadingStateDisconnect:
 class TestLoadingStateReconnect:
     """Tests for Reconnect button loading state."""
 
-    def test_reconnect_button_appears_for_expired_session(self) -> None:
-        """Reconnect button should appear when session is expired."""
+    def test_connect_button_for_disconnected_with_session_file(self) -> None:
+        """Connect button should appear for disconnected session with session file."""
         env = _setup_template_env()
         template = env.get_template("partials/session_row.html")
 
-        # Mock an expired session
+        # Mock a disconnected session with existing session file (expired sessions map to disconnected state)
         session_data = {
             "session_id": "test_session",
-            "state": "session_expired",
+            "state": "disconnected",
             "error_message": "Session has expired",
+            "has_session_file": True,  # Has existing session file
         }
 
         html = template.render(session=session_data)
 
-        # Verify Reconnect button is shown with correct endpoint
-        # Reconnect uses same flow as connect (posts to /connect, not /reconnect-form)
-        assert "Reconnect" in html
+        # Verify Connect button is shown with correct endpoint
+        # Connect uses same flow (posts to /connect)
+        assert "Connect" in html
         assert 'hx-post="/api/sessions/test_session/connect"' in html
         assert 'hx-target="#session-test_session"' in html
 
-    def test_reconnect_button_target_and_swap(self) -> None:
-        """Reconnect button should target session row and swap outerHTML."""
+    def test_connect_button_target_and_swap(self) -> None:
+        """Connect button should target session row and swap outerHTML."""
         env = _setup_template_env()
         template = env.get_template("partials/session_row.html")
 
         session_data = {
             "session_id": "test_session",
-            "state": "session_expired",
+            "state": "disconnected",
             "error_message": None,
+            "has_session_file": True,
         }
 
         html = template.render(session=session_data)
 
         # Verify HTMX target and swap configuration
-        # Reconnect uses same flow as connect (updates session row, not modal)
+        # Connect uses same flow (updates session row, not modal)
         assert 'hx-target="#session-test_session"' in html
         assert 'hx-swap="outerHTML"' in html
 
@@ -427,9 +429,14 @@ class TestAllActionTypesComplete:
         env = _setup_template_env()
         template = env.get_template("partials/session_row.html")
 
-        # Test 1: Connect
+        # Test 1: Connect (with session file)
         connect_html = template.render(
-            session={"session_id": "s1", "state": "disconnected", "error_message": None}
+            session={
+                "session_id": "s1",
+                "state": "disconnected",
+                "error_message": None,
+                "has_session_file": True,
+            }
         )
         assert "Connect" in connect_html
         assert "session-connect-btn" in connect_html
@@ -441,15 +448,16 @@ class TestAllActionTypesComplete:
         assert "Disconnect" in disconnect_html
         assert "session-disconnect-btn" in disconnect_html
 
-        # Test 3: Reconnect
+        # Test 3: Connect for disconnected session with file (e.g., from expired session)
         reconnect_html = template.render(
             session={
                 "session_id": "s3",
-                "state": "session_expired",
+                "state": "disconnected",
                 "error_message": "Expired",
+                "has_session_file": True,
             }
         )
-        assert "Reconnect" in reconnect_html
+        assert "Connect" in reconnect_html
 
         # Test 4: Send Code (Enter Verification Code)
         code_html = template.render(
