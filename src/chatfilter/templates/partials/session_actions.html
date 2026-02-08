@@ -102,6 +102,21 @@
                 title="{{ session.error_message or _('This account has been banned by Telegram') }}">
             <span class="btn-text">{{ _("Banned") }}</span>
         </button>
+        {% elif session.state == 'needs_account_info' %}
+        {# Account setup required - open config panel via Edit action #}
+        <button class="btn btn-sm btn-warning session-config-btn"
+                data-session-id="{{ session.session_id }}"
+                hx-get="/api/sessions/{{ session.session_id }}/config"
+                hx-target="#session-config-{{ session.session_id }}"
+                hx-swap="innerHTML"
+                hx-disabled-elt="this"
+                onclick="this.disabled=true"
+                aria-label="{{ _('Setup account') }}"
+                aria-expanded="false"
+                aria-controls="session-config-{{ session.session_id }}"
+                {% if session.error_message %}title="{{ session.error_message }}"{% endif %}>
+            {{ _("Setup") }}
+        </button>
         {% else %}
         {# Unknown state - disabled #}
         <button class="btn btn-sm btn-secondary session-connect-btn" disabled
