@@ -67,6 +67,40 @@
             </div>
 
             <div class="import-config-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="import-api-id"
+                               data-tooltip="{{ _('Your Telegram API ID from my.telegram.org') }}"
+                               data-tooltip-position="right">{{ _("API ID") }}</label>
+                        <input type="number"
+                               id="import-api-id"
+                               name="api_id"
+                               required
+                               placeholder="{{ _('e.g., 12345678') }}"
+                               min="1"
+                               aria-describedby="import-api-id-hint"
+                               aria-required="true">
+                        <small id="import-api-id-hint" class="form-hint">{{ _("Numeric ID from my.telegram.org/apps") }}</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="import-api-hash"
+                               data-tooltip="{{ _('Your Telegram API Hash from my.telegram.org') }}"
+                               data-tooltip-position="right">{{ _("API Hash") }}</label>
+                        <input type="text"
+                               id="import-api-hash"
+                               name="api_hash"
+                               required
+                               placeholder="{{ _('e.g., 0123456789abcdef...') }}"
+                               pattern="[a-fA-F0-9]+"
+                               minlength="32"
+                               maxlength="32"
+                               aria-describedby="import-api-hash-hint"
+                               aria-required="true">
+                        <small id="import-api-hash-hint" class="form-hint">{{ _("32-character hex string from my.telegram.org/apps") }}</small>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="import-proxy-id"
                            data-tooltip="{{ _('Select a proxy for this session') }}"
