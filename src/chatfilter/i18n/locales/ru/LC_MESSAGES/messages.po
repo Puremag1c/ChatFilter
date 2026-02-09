@@ -2552,3 +2552,47 @@ msgstr "Файл сессии повреждён. Пожалуйста, удал
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Session corrupted"
 msgstr "Сессия повреждена"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs Auth"
+msgstr "Требуется авторизация"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs API ID"
+msgstr "Требуется API ID"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Setup Required"
+msgstr "Требуется настройка"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "No cached session - authorization required"
+msgstr "Нет сохранённой сессии - требуется авторизация"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Permanent error: Account has been banned by Telegram"
+msgstr "Постоянная ошибка: Аккаунт заблокирован Telegram"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Temporary error: Proxy connection issue - retry may help"
+msgstr "Временная ошибка: Проблема с прокси - попробуйте повторить"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Temporary error: Rate limit from Telegram - wait before retry"
+msgstr "Временная ошибка: Ограничение от Telegram - подождите перед повтором"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Temporary error: Connection issue - retry may help"
+msgstr "Временная ошибка: Проблема с подключением - попробуйте повторить"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configuration required: API credentials missing"
+msgstr "Требуется настройка: Отсутствуют учётные данные API"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configuration required: Session not fully configured"
+msgstr "Требуется настройка: Сессия не полностью настроена"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configuration required: Proxy settings missing"
+msgstr "Требуется настройка: Отсутствуют настройки прокси"
