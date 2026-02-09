@@ -759,12 +759,12 @@ def _save_session_to_disk(
             if "user_id" in account_info:
                 logger.info(
                     f"Saved account info for session '{safe_name}': "
-                    f"user_id={account_info['user_id']}, phone={account_info.get('phone', 'N/A')}"
+                    f"user_id={account_info['user_id']}, phone=[REDACTED]"
                 )
             else:
                 logger.info(
                     f"Saved account info for session '{safe_name}' (user_id not available): "
-                    f"phone={account_info.get('phone', 'N/A')}"
+                    f"phone=[REDACTED]"
                 )
 
         # All writes succeeded → atomic rename (POSIX atomic operation)
@@ -945,8 +945,10 @@ def get_session_config_status(session_dir: Path) -> str:
         except Exception as e:
             # Handle corrupted .credentials.enc gracefully (addresses ChatFilter-f540m)
             # Treat as credentials absent
+            # Redact exception message to prevent credential leakage
             logger.warning(
-                f"Failed to check encrypted credentials for session '{session_dir.name}': {e}"
+                f"Failed to check encrypted credentials for session '{session_dir.name}': "
+                f"{type(e).__name__} [REDACTED]"
             )
             return "needs_api_id"
 
@@ -2221,7 +2223,7 @@ async def start_auth_flow(
         # Dynamic attribute for temp session files; cleaned up in complete/cancel handlers
         auth_state.temp_dir = temp_dir  # type: ignore[attr-defined]
 
-        logger.info(f"Auth flow started for '{safe_name}', code sent to {phone}")
+        logger.info(f"Auth flow started for '{safe_name}', code sent to [REDACTED]")
 
         # Return code input form
         return templates.TemplateResponse(
