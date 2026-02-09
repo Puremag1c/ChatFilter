@@ -279,3 +279,217 @@ class TestGetSessionConfigStatus:
         # Should check encrypted credentials because api_hash is None
         assert status == "disconnected"
         mock_manager.has_credentials.assert_called_once()
+
+
+class TestConnectSessionErrorHandling:
+    """Regression tests for Bug 2: connect error handling.
+
+    Bug 2 fixed silent failures when Connect is clicked. These tests verify
+    that error messages are published via SSE and saved to config.json when:
+    - Phone number is missing from account_info
+    - Proxy is not found in pool
+    - Network is unavailable (after retries)
+    """
+
+    @pytest.mark.asyncio
+    async def test_connect_session_publishes_error_when_phone_missing(self, tmp_path: Path):
+        """Test that missing phone number triggers error event.
+
+        Scenario: User clicks Connect but account_info.json has no phone number.
+        Expected: Telethon raises PhoneNumberInvalidError, error event published.
+        """
+        from chatfilter.web.routers.sessions import _send_verification_code_and_create_auth
+
+        session_id = "test_no_phone"
+        session_dir = tmp_path / session_id
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        config_path = session_dir / "config.json"
+
+        # Config with valid credentials and proxy
+        config_data = {
+            "api_id": 12345,
+            "api_hash": "valid_hash",
+            "proxy_id": "proxy-123",
+        }
+        config_path.write_text(json.dumps(config_data), encoding="utf-8")
+
+        # Mock event bus to capture published events (publish is async)
+        publish_calls = []
+
+        async def mock_publish(sid, state):
+            publish_calls.append((sid, state))
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = mock_publish
+
+        # Mock proxy lookup to succeed
+        mock_proxy = MagicMock()
+        mock_proxy.to_telethon_proxy.return_value = ("socks5", "127.0.0.1", 1080, True, None, None)
+
+        # Mock TelegramClient and make send_code_request raise PhoneNumberInvalidError
+        mock_client = MagicMock()
+
+        async def mock_connect():
+            pass  # connect succeeds
+
+        mock_client.connect = mock_connect
+
+        # Import error class for patching
+        from telethon.errors import PhoneNumberInvalidError
+
+        # Make send_code_request raise PhoneNumberInvalidError (empty phone is invalid)
+        async def mock_send_code_request(phone):
+            raise PhoneNumberInvalidError("PHONE_NUMBER_INVALID")
+
+        mock_client.send_code_request = mock_send_code_request
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy), patch(
+            "chatfilter.web.events.get_event_bus", return_value=mock_event_bus
+        ), patch("telethon.TelegramClient", return_value=mock_client):
+            await _send_verification_code_and_create_auth(
+                session_id=session_id,
+                session_path=session_path,
+                config_path=config_path,
+                phone="",  # Empty phone triggers PhoneNumberInvalidError
+            )
+
+        # Verify error event was published
+        assert len(publish_calls) == 1
+        # Check published event
+        published_session_id, published_state = publish_calls[0]
+        assert published_session_id == session_id
+        # Should publish error state (PhoneNumberInvalidError is non-retryable)
+        assert published_state != "needs_code"  # Should NOT succeed
+
+        # Verify error_message saved to config.json
+        with config_path.open("r") as f:
+            saved_config = json.load(f)
+        assert "error_message" in saved_config
+        assert saved_config["retry_available"] is False  # Non-retryable error
+
+    @pytest.mark.asyncio
+    async def test_connect_session_publishes_error_when_proxy_fails(self, tmp_path: Path):
+        """Test that proxy not found triggers proxy_error event.
+
+        Scenario: User clicks Connect but proxy_id references non-existent proxy.
+        Expected: SSE event published with 'proxy_error' state and error saved to config.json.
+        """
+        import asyncio
+        from chatfilter.web.routers.sessions import _send_verification_code_and_create_auth
+        from chatfilter.storage.errors import StorageNotFoundError
+
+        session_id = "test_proxy_error"
+        session_dir = tmp_path / session_id
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        config_path = session_dir / "config.json"
+
+        config_data = {
+            "api_id": 12345,
+            "api_hash": "valid_hash",
+            "proxy_id": "nonexistent-proxy",
+        }
+        config_path.write_text(json.dumps(config_data), encoding="utf-8")
+
+        # Mock event bus to capture published events
+        publish_calls = []
+
+        async def mock_publish(sid, state):
+            publish_calls.append((sid, state))
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = mock_publish
+
+        # Mock proxy lookup to fail with StorageNotFoundError
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy, patch(
+            "chatfilter.web.events.get_event_bus", return_value=mock_event_bus
+        ):
+            mock_get_proxy.side_effect = StorageNotFoundError("Proxy not found")
+
+            await _send_verification_code_and_create_auth(
+                session_id=session_id,
+                session_path=session_path,
+                config_path=config_path,
+                phone="+1234567890",
+            )
+
+        # Verify proxy_error event was published
+        assert len(publish_calls) == 1
+        published_session_id, published_state = publish_calls[0]
+        assert published_session_id == session_id
+        assert published_state == "proxy_error"
+
+        # Verify error_message saved to config.json
+        with config_path.open("r") as f:
+            saved_config = json.load(f)
+        assert "error_message" in saved_config
+        assert "Proxy" in saved_config["error_message"] or "proxy" in saved_config["error_message"].lower()
+        assert saved_config["retry_available"] is False
+
+    @pytest.mark.asyncio
+    async def test_connect_session_publishes_error_when_network_unavailable(self, tmp_path: Path):
+        """Test that network error (after retries) triggers error event.
+
+        Scenario: User clicks Connect but network is unavailable (ConnectionError on all retries).
+        Expected: SSE event published with 'error' state, error_message saved with retry_available=True.
+        """
+        import asyncio
+        from chatfilter.web.routers.sessions import _send_verification_code_and_create_auth
+
+        session_id = "test_network_error"
+        session_dir = tmp_path / session_id
+        session_dir.mkdir(parents=True)
+        session_path = session_dir / "session.session"
+        config_path = session_dir / "config.json"
+
+        config_data = {
+            "api_id": 12345,
+            "api_hash": "valid_hash",
+            "proxy_id": "proxy-123",
+        }
+        config_path.write_text(json.dumps(config_data), encoding="utf-8")
+
+        # Mock event bus to capture published events
+        publish_calls = []
+
+        async def mock_publish(sid, state):
+            publish_calls.append((sid, state))
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = mock_publish
+
+        # Mock proxy lookup to succeed
+        mock_proxy = MagicMock()
+        mock_proxy.to_telethon_proxy.return_value = ("socks5", "127.0.0.1", 1080, True, None, None)
+
+        # Mock TelegramClient to raise ConnectionError (simulates network failure)
+        mock_client = MagicMock()
+
+        async def mock_connect():
+            raise ConnectionError("Network unreachable")
+
+        mock_client.connect = mock_connect
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy), patch(
+            "chatfilter.web.events.get_event_bus", return_value=mock_event_bus
+        ), patch("telethon.TelegramClient", return_value=mock_client):
+            await _send_verification_code_and_create_auth(
+                session_id=session_id,
+                session_path=session_path,
+                config_path=config_path,
+                phone="+1234567890",
+            )
+
+        # Verify error event was published (after all retries failed)
+        assert len(publish_calls) == 1
+        published_session_id, published_state = publish_calls[0]
+        assert published_session_id == session_id
+        # Should publish error state (not proxy_error or needs_code)
+        assert published_state != "needs_code"  # Should NOT succeed
+
+        # Verify error_message saved to config.json with retry_available=True (transient error)
+        with config_path.open("r") as f:
+            saved_config = json.load(f)
+        assert "error_message" in saved_config
+        assert saved_config["retry_available"] is True  # Network errors are retryable
