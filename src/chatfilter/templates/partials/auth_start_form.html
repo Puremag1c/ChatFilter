@@ -44,12 +44,10 @@
                 <input type="number"
                        id="auth-api-id"
                        name="api_id"
-                       required
                        placeholder="{{ _('e.g., 12345678') }}"
                        min="1"
-                       aria-describedby="auth-api-id-hint"
-                       aria-required="true">
-                <small id="auth-api-id-hint" class="form-hint">{{ _("Numeric ID from my.telegram.org/apps") }}</small>
+                       aria-describedby="auth-api-id-hint">
+                <small id="auth-api-id-hint" class="form-hint">{{ _("Optional: Numeric ID from my.telegram.org/apps") }}</small>
             </div>
 
             <div class="form-group">
@@ -59,14 +57,12 @@
                 <input type="text"
                        id="auth-api-hash"
                        name="api_hash"
-                       required
                        placeholder="{{ _('e.g., 0123456789abcdef...') }}"
                        pattern="[a-fA-F0-9]+"
                        minlength="32"
                        maxlength="32"
-                       aria-describedby="auth-api-hash-hint"
-                       aria-required="true">
-                <small id="auth-api-hash-hint" class="form-hint">{{ _("32-character hex string from my.telegram.org/apps") }}</small>
+                       aria-describedby="auth-api-hash-hint">
+                <small id="auth-api-hash-hint" class="form-hint">{{ _("Optional: 32-character hex string from my.telegram.org/apps") }}</small>
             </div>
         </div>
 
@@ -76,9 +72,7 @@
                    data-tooltip-position="right">{{ _("Proxy") }}</label>
             <select id="auth-proxy-id"
                     name="proxy_id"
-                    required
-                    aria-describedby="auth-proxy-id-hint"
-                    aria-required="true">
+                    aria-describedby="auth-proxy-id-hint">
                 <option value="">{{ _("-- Select a proxy --") }}</option>
                 {% for proxy in proxies %}
                 {% if proxy.is_available %}
@@ -93,7 +87,7 @@
                 {% endfor %}
             </select>
             <small id="auth-proxy-id-hint" class="form-hint">
-                {{ _("A proxy is required for Telegram connection.") }}
+                {{ _("Optional: Select a proxy for Telegram connection.") }}
                 {% if not proxies %}
                 <a href="/proxy">{{ _("Add a proxy first") }}</a>
                 {% endif %}
@@ -113,7 +107,7 @@
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary" {% if not proxies %}disabled{% endif %}>
+            <button type="submit" class="btn btn-primary">
                 <span class="btn-text">{{ _("Save") }}</span>
                 <span id="auth-start-spinner" class="htmx-indicator spinner"></span>
             </button>
