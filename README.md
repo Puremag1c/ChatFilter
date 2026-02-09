@@ -174,6 +174,41 @@ ruff check --fix .        # auto-fix
 mypy src/                 # type checking
 ```
 
+### Internationalization (i18n)
+
+ChatFilter uses Babel for internationalization. The workflow consists of three steps:
+
+**1. Extract translatable strings from source code:**
+```bash
+pybabel extract -F babel.cfg -o src/chatfilter/i18n/messages.pot src/chatfilter
+```
+
+This extracts strings from Python files (`.py`) and Jinja2 templates (`.html`) according to `babel.cfg` configuration.
+
+**2. Update or initialize locale-specific .po files:**
+```bash
+# Initialize new locale (first time only)
+pybabel init -i src/chatfilter/i18n/messages.pot -d src/chatfilter/i18n/locales -l ru
+
+# Update existing locale with new strings
+pybabel update -i src/chatfilter/i18n/messages.pot -d src/chatfilter/i18n/locales
+```
+
+Then manually translate strings in `src/chatfilter/i18n/locales/ru/LC_MESSAGES/messages.po` (or other locales).
+
+**3. Compile .po files to binary .mo format:**
+```bash
+msgfmt -c -v -o src/chatfilter/i18n/locales/ru/LC_MESSAGES/messages.mo \
+              src/chatfilter/i18n/locales/ru/LC_MESSAGES/messages.po
+```
+
+The `-c` flag checks for errors, `-v` provides verbose output. The compiled `.mo` files are used at runtime.
+
+**Verification:**
+- `pybabel extract` should complete without errors
+- `messages.po` should contain all translatable strings from templates
+- `msgfmt` should compile without warnings
+
 ### Project Structure
 
 ```
