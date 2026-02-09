@@ -2104,6 +2104,7 @@ button[disabled].htmx-request {
     /* Reduce main container max-width for better tablet fit */
     main {
         padding: 1.5rem;
+        max-width: 100%; /* Fill viewport width on tablet */
     }
 
     /* Scale down page headers slightly */
@@ -2142,6 +2143,7 @@ button[disabled].htmx-request {
     /* Main container - reduce padding significantly */
     main {
         padding: 1rem;
+        max-width: 100%; /* Fill viewport width on mobile */
     }
 
     footer {
@@ -2290,6 +2292,7 @@ button[disabled].htmx-request {
     /* Ultra-compact main container */
     main {
         padding: 0.75rem;
+        max-width: 100%; /* Fill viewport width on small mobile */
     }
 
     /* Status indicators - make more compact */
@@ -2538,6 +2541,12 @@ button[disabled].htmx-request {
         justify-content: flex-start;
         flex-wrap: wrap;
         order: unset; /* Reset order for column layout */
+    }
+
+    /* Ultra-compact main container */
+    main {
+        padding: 0.5rem;
+        max-width: 100%; /* Fill viewport width on ultra-small mobile */
     }
 }
 
