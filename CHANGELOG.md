@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-02-09
+
+### Fixed
+- **SMOKE: Backend Russian translations**: Fixed missing Russian translations for session statuses
+- **SMOKE: session_expired rendering**: Fixed session_expired status not being rendered in template (shows raw key in EN+RU)
+- **SMOKE: session_expired translation**: Fixed session_expired status not translated to Russian
+- **Connect error visibility**: Fixed Connect button failing silently - now shows error message when connection fails
+- **Session status detection**: Fixed get_session_config_status() to check SecureCredentialManager for encrypted credentials
+- **API credential validation**: Re-validates API credentials when changed
+
+### Changed
+- **Conflict resolution**: Resolved multiple rebase conflicts from parallel bug fixes
+- **Shell environment**: Fixed broken shell environment in executor-0 worktree
+- **Error handling**: Improved error handling for missing phone in account_info BEFORE send_code
+- **Race condition prevention**: Prevents race condition on parallel Connect clicks
+- **Timeout handling**: Added timeout for _send_verification_code_and_create_auth() and background connect task
+- **Security improvements**: Sanitized error messages before publishing to SSE
+- **Credential logging**: Prevented credential leakage in get_session_config_status() logs
+- **File corruption handling**: Handles corrupted .credentials.enc gracefully
+
 ## [0.8.2] - 2026-02-09
 
 ### Fixed
