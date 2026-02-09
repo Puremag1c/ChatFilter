@@ -8,20 +8,15 @@ Each transition triggers both an HTML response update and an SSE event publicati
 
 States
 ------
+Core states (8-state model):
 - disconnected: Session is ready but not connected to Telegram
 - connected: Session is actively connected to Telegram
 - connecting: Transient state during connection establishment
-- disconnecting: Transient state during disconnection
 - needs_code: Waiting for SMS/app verification code
 - needs_2fa: Waiting for 2FA password
-- needs_api_id: Missing API ID/hash configuration
-- proxy_missing: Configured proxy not found in pool
-- corrupted_session: Session file is corrupt, cannot recover
-- session_expired: Session has expired or been revoked, requires re-authentication
-- banned: Account banned by Telegram
-- flood_wait: Rate limited, temporary wait required
-- proxy_error: Proxy connection failed
-- error: Generic error state
+- needs_config: Configuration required (API ID/hash, proxy misconfigured)
+- banned: Account banned by Telegram (terminal state)
+- error: Generic error state (includes flood_wait, expired/corrupted sessions - auto-handled by connect flow)
 
 Transition Matrix
 -----------------
@@ -41,18 +36,14 @@ needs_2fa           | password verified      | connected     | connected | POST 
 needs_2fa           | password invalid       | needs_2fa     | -         | POST /api/sessions/{id}/verify-2fa
 needs_2fa           | modal cancelled        | needs_2fa     | -         | UI only (no API call)
 error               | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
-proxy_error         | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
-flood_wait          | retry button           | connecting    | -         | POST /api/sessions/{id}/connect
+needs_config        | edit button            | -             | -         | GET /dashboard (edit session config)
 
 Error State Classification
 --------------------------
-Errors are classified by `classify_error_state()` function:
-- session_expired: AuthKeyUnregistered, SessionRevoked, SessionExpired (dead session, needs re-auth)
-- banned: UserDeactivated, UserDeactivatedBan, PhoneNumberBanned
-- flood_wait: FloodWaitError, SlowModeWaitError
-- proxy_error: OSError, ConnectionError, ConnectionRefused
-- corrupted_session: SessionFileError, invalid database
-- error: Generic/unknown errors
+Errors are classified by `classify_error_state()` function (simplified 3-state model):
+- banned: UserDeactivated, UserDeactivatedBan, PhoneNumberBanned (terminal state)
+- needs_config: OSError, ConnectionError, proxy errors (configuration required)
+- error: All other errors (including expired/corrupted sessions, flood_wait - handled by connect flow)
 
 SSE Event Publishing
 --------------------
@@ -183,35 +174,23 @@ class SessionListItem(BaseModel):
 def classify_error_state(error_message: str | None, exception: Exception | None = None) -> str:
     """Classify an error message or exception into a specific state.
 
+    Simplified 3-state model (8-state model is handled by connect flow):
+    - session_expired, corrupted_session → handled by auto-reauth/auto-delete in connect flow
+    - flood_wait → merged into 'error' (with tooltip)
+    - proxy_error → merged into 'needs_config' or 'error' based on context
+
     Args:
         error_message: The error message from the session
         exception: The original exception object (if available)
 
     Returns:
-        One of: 'disconnected', 'session_expired', 'banned', 'flood_wait', 'proxy_error', 'corrupted_session', 'error'
+        One of: 'banned', 'needs_config', 'error'
     """
     # First check exception type if provided
     if exception is not None:
         error_class = type(exception).__name__
 
-        # Corrupted session file
-        if error_class == "SessionFileError":
-            return "corrupted_session"
-
-        # Session expired/auth errors (both Telethon and custom errors)
-        # Treated as 'session_expired' — distinct state for dead sessions requiring re-auth
-        if error_class in {
-            "SessionExpiredError",
-            "AuthKeyUnregisteredError",
-            "SessionRevokedError",
-            "UnauthorizedError",
-            "AuthKeyInvalidError",
-            "SessionReauthRequiredError",  # Custom error for expired sessions
-            "SessionInvalidError",  # Wrapper error from session_manager
-        }:
-            return "session_expired"
-
-        # Banned/deactivated account
+        # Banned/deactivated account (terminal state)
         if error_class in {
             "UserDeactivatedError",
             "UserDeactivatedBanError",
@@ -219,13 +198,9 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         }:
             return "banned"
 
-        # Rate limiting
-        if error_class in {"FloodWaitError", "SlowModeWaitError"}:
-            return "flood_wait"
-
-        # Proxy/connection errors
+        # Proxy/connection errors → needs_config (proxy misconfigured)
         if error_class in {"OSError", "ConnectionError", "ConnectionRefusedError"}:
-            return "proxy_error"
+            return "needs_config"
 
         # For wrapper exceptions (SessionConnectError, etc.), check the cause
         if exception.__cause__ is not None:
@@ -239,39 +214,6 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
 
     error_lower = error_message.lower()
 
-    # Check for corrupted session file
-    if any(
-        phrase in error_lower
-        for phrase in [
-            "invalid session file",
-            "not a valid database",
-            "corrupted",
-            "session file is locked",
-            "incompatible",
-            "database error",
-        ]
-    ):
-        return "corrupted_session"
-
-    # Check for expired/revoked session (dead session)
-    # Treated as 'session_expired' — distinct state for dead sessions requiring re-auth
-    if any(
-        phrase in error_lower
-        for phrase in [
-            "sessionexpired",
-            "authkeyunregistered",
-            "sessionrevoked",
-            "session expired",
-            "session has expired",
-            "session revoked",
-            "re-authorization required",
-            "reauthentication",
-            "auth key",
-            "unauthorized",
-        ]
-    ):
-        return "session_expired"
-
     # Check for banned/deactivated account
     if any(
         phrase in error_lower
@@ -279,16 +221,12 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
     ):
         return "banned"
 
-    # Check for flood wait
-    if "floodwait" in error_lower or "flood" in error_lower:
-        return "flood_wait"
-
-    # Check for proxy errors
+    # Check for proxy/connection errors → needs_config
     if any(
         phrase in error_lower
         for phrase in ["proxy", "socks", "connection refused", "cannot connect"]
     ):
-        return "proxy_error"
+        return "needs_config"
 
     return "error"
 
@@ -309,13 +247,8 @@ def sanitize_error_message_for_client(error_message: str, error_state: str) -> s
 
     # Map error states to safe fallback messages
     SAFE_MESSAGES = {
-        "proxy_error": "Connection failed. Please check your proxy settings and try again.",
-        "network_error": "Network connection error. Please check your internet connection and try again.",
-        "timeout": "Connection timeout. Please try again.",
-        "disconnected": "Session expired. Please reconnect.",
+        "needs_config": "Configuration error. Please check your proxy settings.",
         "banned": "Account restricted. Please check your Telegram account status.",
-        "flood_wait": "Rate limit exceeded. Please wait before trying again.",
-        "corrupted_session": "Session file is invalid. Please re-upload your session.",
         "error": "An error occurred. Please try again or contact support.",
     }
 
