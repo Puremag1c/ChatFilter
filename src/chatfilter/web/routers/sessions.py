@@ -110,11 +110,11 @@ from chatfilter.storage.file import robust_delete_session_file, secure_delete_fi
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
 from chatfilter.telegram.session_manager import SessionBusyError, SessionState
-from chatfilter.web.events import get_event_bus
 from chatfilter.parsers.telegram_expert import parse_telegram_expert_json, validate_account_info_json
 
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates
+    from telethon import TelegramClient
 
     from chatfilter.models.proxy import ProxyEntry
     from chatfilter.web.auth_state import AuthState, AuthStateManager
@@ -576,49 +576,6 @@ async def get_account_info_from_session(
     except Exception as e:
         logger.warning(f"Failed to extract account info from session: {e}")
         return None
-
-
-def validate_account_info_json(json_data: object) -> str | None:
-    """Validate account info JSON from uploaded file.
-
-    Validates:
-    - Must be a dict (no arrays at root)
-    - Only allowed fields: phone, first_name, last_name, twoFA
-    - No nested objects or arrays as values
-    - Phone must be in E.164 format (optional + prefix, 7-15 digits)
-
-    Args:
-        json_data: Parsed JSON data to validate
-
-    Returns:
-        Error message string if invalid, None if valid
-    """
-    # Must be a dict
-    if not isinstance(json_data, dict):
-        return "JSON must be an object, not an array or primitive"
-
-    # Allowed fields only
-    allowed_fields = {"phone", "first_name", "last_name", "twoFA"}
-    unknown_fields = set(json_data.keys()) - allowed_fields
-    if unknown_fields:
-        return f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}"
-
-    # No nested objects or arrays
-    for key, value in json_data.items():
-        if isinstance(value, (dict, list)):
-            return f"Field '{key}' cannot contain nested objects or arrays"
-
-    # Validate phone field (required)
-    if "phone" not in json_data or not json_data["phone"]:
-        return "JSON file must contain 'phone' field"
-
-    phone = str(json_data["phone"])
-    # E.164 format: optional +, then 7-15 digits
-    # Examples: +14385515736, 14385515736, +79001234567
-    if not re.match(r"^\+?[1-9]\d{6,14}$", phone):
-        return f"Invalid phone format: '{phone}'. Expected E.164 format (e.g., +14385515736)"
-
-    return None
 
 
 def save_account_info(session_dir: Path, account_info: dict[str, int | str]) -> None:
@@ -2131,7 +2088,7 @@ async def start_auth_flow(
     from chatfilter.storage.errors import StorageNotFoundError
     from chatfilter.storage.proxy_pool import get_proxy_by_id
     from chatfilter.web.app import get_templates
-    from chatfilter.web.auth_state import DuplicateOperationError, get_auth_state_manager
+    from chatfilter.web.auth_state import get_auth_state_manager
 
     templates = get_templates()
 
@@ -2770,6 +2727,67 @@ async def _complete_auth_flow(
             },
         )
 
+
+async def _finalize_reconnect_auth(
+    client: TelegramClient,
+    auth_state: AuthState,
+    auth_manager: AuthStateManager,
+    safe_name: str,
+    log_context: str,
+) -> None:
+    """Finalize reconnect auth: save session file, account info, clean up.
+
+    Common logic used after successful code verification or 2FA in reconnect flows.
+
+    Args:
+        client: Connected and authenticated TelegramClient
+        auth_state: Current auth state (will be removed)
+        auth_manager: Auth state manager
+        safe_name: Sanitized session name
+        log_context: Context string for log message (e.g. "code verified", "2FA verified")
+
+    Raises:
+        FileNotFoundError: If session directory doesn't exist
+    """
+    session_dir = ensure_data_dir() / safe_name
+    if not session_dir.exists():
+        await auth_manager.remove_auth_state(auth_state.auth_id)
+        raise FileNotFoundError(f"Session directory not found for '{safe_name}'")
+
+    session_path = session_dir / "session.session"
+
+    # Get account info
+    me = await asyncio.wait_for(client.get_me(), timeout=30.0)
+    account_info = {
+        "user_id": me.id,
+        "phone": me.phone or "",
+        "first_name": me.first_name or "",
+        "last_name": me.last_name or "",
+    }
+
+    # Disconnect client before copying session file
+    await asyncio.wait_for(client.disconnect(), timeout=30.0)
+
+    # Copy session file from temp location to existing session
+    temp_dir = getattr(auth_state, "temp_dir", None)
+    if temp_dir:
+        temp_session_file = Path(temp_dir) / "auth_session.session"
+        if temp_session_file.exists():
+            shutil.copy2(temp_session_file, session_path)
+            secure_file_permissions(session_path)
+        # Clean up temp dir
+        secure_delete_dir(temp_dir)
+
+    # Update account info
+    save_account_info(session_dir, account_info)
+
+    # Remove auth state
+    await auth_manager.remove_auth_state(auth_state.auth_id)
+
+    logger.info(f"Session '{safe_name}' re-authenticated successfully ({log_context})")
+
+    # Emit event for auth completion (connected)
+    await get_event_bus().publish(safe_name, "connected")
 
 
 async def _do_connect_in_background_v2(session_id: str) -> None:
@@ -3496,50 +3514,17 @@ async def verify_code(
             timeout=30.0,
         )
 
-        # Success! Update the existing session
-        session_dir = ensure_data_dir() / safe_name
-        if not session_dir.exists():
-            await auth_manager.remove_auth_state(auth_id)
+        # Success! Finalize reconnect auth
+        try:
+            await _finalize_reconnect_auth(
+                client, auth_state, auth_manager, safe_name, "code verified"
+            )
+        except FileNotFoundError:
             return templates.TemplateResponse(
                 request=request,
                 name="partials/auth_result.html",
                 context={"success": False, "error": _("Session directory not found.")},
             )
-
-        session_path = session_dir / "session.session"
-
-        # Get account info
-        me = await asyncio.wait_for(client.get_me(), timeout=30.0)
-        account_info = {
-            "user_id": me.id,
-            "phone": me.phone or "",
-            "first_name": me.first_name or "",
-            "last_name": me.last_name or "",
-        }
-
-        # Disconnect client before copying session file
-        await asyncio.wait_for(client.disconnect(), timeout=30.0)
-
-        # Copy session file from temp location to existing session
-        temp_dir = getattr(auth_state, "temp_dir", None)
-        if temp_dir:
-            temp_session_file = Path(temp_dir) / "auth_session.session"
-            if temp_session_file.exists():
-                shutil.copy2(temp_session_file, session_path)
-                secure_file_permissions(session_path)
-            # Clean up temp dir
-            secure_delete_dir(temp_dir)
-
-        # Update account info
-        save_account_info(session_dir, account_info)
-
-        # Remove auth state
-        await auth_manager.remove_auth_state(auth_id)
-
-        logger.info(f"Session '{safe_name}' re-authenticated successfully (code verified)")
-
-        # Emit event for auth completion (connected)
-        await get_event_bus().publish(safe_name, "connected")
 
         # Use reconnect success template with toast notification
         return templates.TemplateResponse(
@@ -3574,49 +3559,17 @@ async def verify_code(
                     timeout=30.0,
                 )
 
-                # Success! Continue with session completion
-                if not session_dir.exists():
-                    await auth_manager.remove_auth_state(auth_id)
+                # Success! Finalize reconnect auth
+                try:
+                    await _finalize_reconnect_auth(
+                        client, auth_state, auth_manager, safe_name, "auto 2FA"
+                    )
+                except FileNotFoundError:
                     return templates.TemplateResponse(
                         request=request,
                         name="partials/auth_result.html",
                         context={"success": False, "error": _("Session directory not found.")},
                     )
-
-                session_path = session_dir / "session.session"
-
-                # Get account info
-                me = await asyncio.wait_for(client.get_me(), timeout=30.0)
-                account_info = {
-                    "user_id": me.id,
-                    "phone": me.phone or "",
-                    "first_name": me.first_name or "",
-                    "last_name": me.last_name or "",
-                }
-
-                # Disconnect client before copying session file
-                await asyncio.wait_for(client.disconnect(), timeout=30.0)
-
-                # Copy session file from temp location to existing session
-                temp_dir = getattr(auth_state, "temp_dir", None)
-                if temp_dir:
-                    temp_session_file = Path(temp_dir) / "auth_session.session"
-                    if temp_session_file.exists():
-                        shutil.copy2(temp_session_file, session_path)
-                        secure_file_permissions(session_path)
-                    # Clean up temp dir
-                    secure_delete_dir(temp_dir)
-
-                # Update account info
-                save_account_info(session_dir, account_info)
-
-                # Remove auth state
-                await auth_manager.remove_auth_state(auth_id)
-
-                logger.info(f"Session '{safe_name}' re-authenticated successfully (auto 2FA)")
-
-                # Emit event for auth completion (connected)
-                await get_event_bus().publish(safe_name, "connected")
 
                 # Use reconnect success template with toast notification
                 return templates.TemplateResponse(
@@ -3920,50 +3873,17 @@ async def verify_2fa(
             timeout=30.0,
         )
 
-        # Success! Update the existing session
-        session_dir = ensure_data_dir() / safe_name
-        if not session_dir.exists():
-            await auth_manager.remove_auth_state(auth_id)
+        # Success! Finalize reconnect auth
+        try:
+            await _finalize_reconnect_auth(
+                client, auth_state, auth_manager, safe_name, "2FA verified"
+            )
+        except FileNotFoundError:
             return templates.TemplateResponse(
                 request=request,
                 name="partials/auth_result.html",
                 context={"success": False, "error": _("Session directory not found.")},
             )
-
-        session_path = session_dir / "session.session"
-
-        # Get account info
-        me = await asyncio.wait_for(client.get_me(), timeout=30.0)
-        account_info = {
-            "user_id": me.id,
-            "phone": me.phone or "",
-            "first_name": me.first_name or "",
-            "last_name": me.last_name or "",
-        }
-
-        # Disconnect client before copying session file
-        await asyncio.wait_for(client.disconnect(), timeout=30.0)
-
-        # Copy session file from temp location to existing session
-        temp_dir = getattr(auth_state, "temp_dir", None)
-        if temp_dir:
-            temp_session_file = Path(temp_dir) / "auth_session.session"
-            if temp_session_file.exists():
-                shutil.copy2(temp_session_file, session_path)
-                secure_file_permissions(session_path)
-            # Clean up temp dir
-            secure_delete_dir(temp_dir)
-
-        # Update account info
-        save_account_info(session_dir, account_info)
-
-        # Remove auth state
-        await auth_manager.remove_auth_state(auth_id)
-
-        logger.info(f"Session '{safe_name}' re-authenticated successfully (2FA verified)")
-
-        # Emit event for auth completion (connected)
-        await get_event_bus().publish(safe_name, "connected")
 
         # Use reconnect success template with toast notification
         return templates.TemplateResponse(
