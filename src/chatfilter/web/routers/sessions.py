@@ -2955,8 +2955,8 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
             phone = str(account_info["phone"])
 
-            # Trigger send_code flow
-            await _send_verification_code_and_create_auth(
+            # Trigger send_code flow (with timeout protection)
+            await _send_verification_code_with_timeout(
                 session_id,
                 session_path,
                 config_path,
@@ -3001,6 +3001,36 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             await get_event_bus().publish(session_id, error_state)
 
 
+async def _send_verification_code_with_timeout(
+    session_id: str,
+    session_path: Path,
+    config_path: Path,
+    phone: str,
+) -> None:
+    """Wrapper: run _send_verification_code_and_create_auth with 30s timeout.
+
+    If timeout occurs, publishes 'error' SSE and saves error to config.json.
+    This prevents indefinite hangs if network operations stall.
+    """
+    import asyncio
+    from chatfilter.web.events import get_event_bus
+
+    try:
+        await asyncio.wait_for(
+            _send_verification_code_and_create_auth(
+                session_id, session_path, config_path, phone
+            ),
+            timeout=30.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Verification code request timeout for session '{session_id}'")
+        error_message = "Connection timeout"
+        # Save error to config.json for UI display (Bug 2 fix)
+        _save_error_to_config(config_path, error_message, retry_available=True)
+        # Publish error via SSE
+        await get_event_bus().publish(session_id, "error")
+
+
 async def _send_verification_code_and_create_auth(
     session_id: str,
     session_path: Path,
@@ -3014,6 +3044,9 @@ async def _send_verification_code_and_create_auth(
 
     Retries transient network errors (ConnectionError, TimeoutError) with exponential backoff.
     Does NOT retry on permanent errors (AuthKeyUnregistered, PhoneNumberInvalid).
+
+    NOTE: This function should be called via _send_verification_code_with_timeout() wrapper
+    which enforces a 30s overall timeout to prevent indefinite hangs.
     """
     import asyncio
     import json
@@ -3254,9 +3287,9 @@ async def connect_session(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Trigger send_code flow in background
+        # Trigger send_code flow in background (with timeout protection)
         background_tasks.add_task(
-            _send_verification_code_and_create_auth,
+            _send_verification_code_with_timeout,
             safe_name,
             session_path,
             config_path,
@@ -3386,9 +3419,9 @@ async def reconnect_session_start(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Trigger send_code flow in background
+    # Trigger send_code flow in background (with timeout protection)
     background_tasks.add_task(
-        _send_verification_code_and_create_auth,
+        _send_verification_code_with_timeout,
         safe_name,
         session_path,
         config_path,
