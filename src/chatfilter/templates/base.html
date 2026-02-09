@@ -677,18 +677,18 @@
                 if (error) {
                     // Error state (offline)
                     container.classList.add('status-error');
-                    text.textContent = 'Offline';
-                    container.title = `Network Status: ${error}`;
+                    text.textContent = window.i18n.t('status.offline');
+                    container.title = `${window.i18n.t('status.network_disconnected')}: ${error}`;
                 } else if (online) {
                     // Online state
                     container.classList.add('status-connected');
-                    text.textContent = 'Online';
-                    container.title = 'Network Status: Connected';
+                    text.textContent = window.i18n.t('status.online');
+                    container.title = window.i18n.t('status.network_connected');
                 } else {
                     // Offline state
                     container.classList.add('status-disconnected');
-                    text.textContent = 'Offline';
-                    container.title = 'Network Status: Disconnected';
+                    text.textContent = window.i18n.t('status.offline');
+                    container.title = window.i18n.t('status.network_disconnected');
                 }
             },
 
