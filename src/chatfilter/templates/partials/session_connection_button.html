@@ -29,8 +29,8 @@
         <span class="btn-text">{{ _("Disconnecting...") }}</span>
         <span class="spinner"></span>
     </button>
-    {% elif state in ['error', 'proxy_error', 'flood_wait'] %}
-    {# Error states that can be retried #}
+    {% elif state == 'error' %}
+    {# Error state that can be retried #}
     <button class="btn btn-sm btn-danger session-connect-btn"
             hx-post="/api/sessions/{{ session_id }}/connect"
             hx-target="#session-connection-{{ session_id }}"
@@ -46,7 +46,7 @@
             title="{{ error or _('This account has been banned by Telegram') }}">
         <span class="btn-text">{{ _("Banned") }}</span>
     </button>
-    {% elif state == 'not_configured' or state == 'proxy_missing' %}
+    {% elif state == 'needs_config' %}
     <button class="btn btn-sm btn-secondary session-connect-btn" disabled
             aria-label="{{ _('Not configured') }}"
             title="{{ _('Configure session first') }}">
