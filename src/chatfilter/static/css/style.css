@@ -3425,6 +3425,7 @@ body:has(.update-notification.show) {
 
     .accounts-table tbody tr.account-row {
         display: block;
+        width: 100%;
         margin-bottom: 0.75rem;
         border: 1px solid var(--border-light);
         border-radius: 8px;
