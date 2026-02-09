@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-02-08
+
+### Fixed
+- **Session not found in background task**: Fixed silent connection failures when session.session file was missing
+- **Auto 2FA entry**: Fixed sign_in being called only once instead of twice for 2FA authentication
+- **Verification code modal**: Fixed modal auto-opening and blocking page on load
+- **Upload form validation**: Fixed 422 errors caused by missing api_id/api_hash fields in form submission
+- **Connect ImportError**: Fixed crashes with "get_proxy_manager missing" import error
+- **Upload directory creation**: Fixed upload save logic failing when directory not created
+- **Build configuration**: Fixed build command failures in testing.yaml
+- **Testing configuration**: Fixed testing.yaml configuration issues
+- **Deployment sync**: Fixed server running outdated code due to FileNotFoundError fix not being deployed
+- **FileNotFoundError handling**: Fixed connect failures when session.session file is missing
+- **Setup Required UI**: Fixed disabled "Wait..." button appearing instead of actionable Setup/Edit button
+- **Session list template**: Fixed missing has_session_file check for disconnected status in sessions_list.html
+- **has_session_file check**: Fixed reporting True when session.session file is actually missing
+- **Test regression**: Fixed button label test failures after changing 'Connect' to 'Authorize'
+- **Upload file input**: Fixed upload form only accepting .session files, now also accepts .json files
+- **Race condition**: Fixed race condition in connect_session logic
+
+### Changed
+- **Upload form**: Simplified upload form to accept both .session and .json files
+- **TOCTOU protection**: Improved upload_session security against race conditions
+- **Connect logic**: Simplified connect_session to auto-delete invalid sessions and resend codes
+- **Session status**: Removed session_expired status entirely from codebase
+- **Session listing**: Refactored list_stored_sessions to use config.json + account_info as source of truth
+
 ## [0.8.0] - 2026-02-06
 
 ### Security
@@ -471,7 +498,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.0...v0.7.1
