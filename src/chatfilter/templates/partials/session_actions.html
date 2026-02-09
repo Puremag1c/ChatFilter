@@ -126,6 +126,8 @@
         </button>
         {% endif %}
     </div>
+    {# Edit button - only show if no special config button was already shown #}
+    {% if session.state not in ['needs_api_id', 'proxy_error', 'proxy_missing', 'needs_account_info'] %}
     <button class="btn btn-sm btn-secondary session-config-btn"
             data-session-id="{{ session.session_id }}"
             hx-get="/api/sessions/{{ session.session_id }}/config"
@@ -138,6 +140,7 @@
             aria-controls="session-config-{{ session.session_id }}">
         {{ _("Edit") }}
     </button>
+    {% endif %}
     <button class="btn btn-sm btn-danger session-delete-btn"
             data-session-id="{{ session.session_id }}"
             data-lock="session:{{ session.session_id }}:delete"
