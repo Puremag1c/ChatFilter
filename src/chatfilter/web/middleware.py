@@ -398,7 +398,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         # Only check state-changing methods
-        if request.method not in ("POST", "DELETE"):
+        if request.method not in ("POST", "PUT", "DELETE"):
             return await call_next(request)
 
         # Skip CSRF check for exempt paths
