@@ -2034,13 +2034,27 @@ async def update_session_credentials(
 
     # If credentials changed, need to trigger reconnect flow
     if credentials_changed:
-        # Return success message indicating re-auth is needed
-        # The session will be disconnected already, user needs to reconnect with new credentials
+        # Delete session.session file to force re-authorization
+        session_file = session_dir / "session.session"
+        if session_file.exists():
+            try:
+                session_file.unlink()
+                logger.info(f"Deleted session file for '{safe_name}' to trigger re-auth")
+            except Exception as e:
+                logger.warning(f"Failed to delete session file for '{safe_name}': {e}")
+                # Non-fatal - continue with reconnect
+
+        # Return success message with auto-trigger for reconnect
         return HTMLResponse(
             content=f'''
                 <div class="alert alert-success">
-                    Credentials updated successfully. Session disconnected - please reconnect to re-authorize.
+                    Credentials updated. Re-authorization required...
                 </div>
+                <form hx-post="/api/sessions/{safe_name}/reconnect/start"
+                      hx-target="#session-config-result-{safe_name}"
+                      hx-swap="innerHTML"
+                      hx-trigger="load">
+                </form>
             ''',
             headers={"HX-Trigger": "refreshSessions"},
         )
@@ -3174,6 +3188,75 @@ async def connect_session(
         "error_message": None,
     }
 
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_row.html",
+        context={"session": session_data},
+    )
+
+
+@router.post("/api/sessions/{session_id}/reconnect/start", response_class=HTMLResponse)
+async def reconnect_session_start(
+    request: Request,
+    session_id: str,
+    background_tasks: BackgroundTasks,
+) -> HTMLResponse:
+    """Start reconnect flow after credential change.
+
+    Triggers send_code flow in background. Returns 'connecting' state immediately.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{e}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    session_path = session_dir / "session.session"
+    config_path = session_dir / "config.json"
+
+    if not config_path.exists():
+        return HTMLResponse(
+            content='<div class="alert alert-error">Session not found</div>',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Load phone from account_info
+    account_info = load_account_info(session_dir)
+    if not account_info or not account_info.get("phone"):
+        return HTMLResponse(
+            content='<div class="alert alert-error">Phone number required for re-authorization</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    phone = account_info["phone"]
+    if not isinstance(phone, str):
+        return HTMLResponse(
+            content='<div class="alert alert-error">Invalid phone number format</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Trigger send_code flow in background
+    background_tasks.add_task(
+        _send_verification_code_and_create_auth,
+        safe_name,
+        session_path,
+        config_path,
+        phone,
+    )
+
+    # Return connecting state
+    session_data = {
+        "session_id": safe_name,
+        "state": "connecting",
+        "error_message": None,
+    }
     return templates.TemplateResponse(
         request=request,
         name="partials/session_row.html",
