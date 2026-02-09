@@ -65,6 +65,27 @@ class TestGetTranslations:
         # Should get default language translations
         assert result is not None
 
+    def test_missing_mo_fallback(self, tmp_path, monkeypatch) -> None:
+        """Should fallback gracefully when .mo files are missing."""
+        from chatfilter.i18n import translations as trans_module
+
+        # Clear cache
+        trans_module._translations_cache.clear()
+
+        # Mock LOCALES_DIR to empty directory
+        monkeypatch.setattr(trans_module, "LOCALES_DIR", tmp_path)
+
+        # Get Russian translations - .mo missing, should return NullTranslations
+        result_ru = get_translations("ru")
+        assert hasattr(result_ru, "gettext")
+        # NullTranslations returns msgid as-is (English strings)
+        assert result_ru.gettext("test_message") == "test_message"
+
+        # Get English translations - .mo missing, should also return NullTranslations
+        result_en = get_translations("en")
+        assert hasattr(result_en, "gettext")
+        assert result_en.gettext("test_message") == "test_message"
+
 
 class TestGetSetCurrentLocale:
     """Tests for get/set current locale functions."""

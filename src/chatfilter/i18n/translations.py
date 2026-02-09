@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import gettext
+import logging
 from contextvars import ContextVar
 from pathlib import Path
 
-from babel.support import Translations
+from babel.support import NullTranslations, Translations
+
+logger = logging.getLogger(__name__)
 
 # Supported languages
 SUPPORTED_LANGUAGES = ["en", "ru"]
@@ -41,8 +44,12 @@ def get_translations(locale: str) -> gettext.GNUTranslations | gettext.NullTrans
             )
             _translations_cache[locale] = translations
         except FileNotFoundError:
-            # Return null translations if locale files not found
-            _translations_cache[locale] = gettext.NullTranslations()
+            # Log warning and use NullTranslations (returns msgid as-is, i.e., English strings)
+            logger.warning(
+                f"Translation file (.mo) missing for locale '{locale}' at {LOCALES_DIR}. "
+                f"Using English strings (msgid)."
+            )
+            _translations_cache[locale] = NullTranslations()
 
     return _translations_cache[locale]
 
