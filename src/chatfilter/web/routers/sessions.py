@@ -2790,6 +2790,25 @@ async def _finalize_reconnect_auth(
     await get_event_bus().publish(safe_name, "connected")
 
 
+def _save_error_to_config(config_path: Path, error_message: str, retry_available: bool) -> None:
+    """Save error message to config.json for UI display (Bug 2 fix).
+
+    Args:
+        config_path: Path to config.json
+        error_message: User-facing error message
+        retry_available: Whether retry button should be shown
+    """
+    import json
+    try:
+        with config_path.open("r") as f:
+            config = json.load(f)
+        config["error_message"] = error_message
+        config["retry_available"] = retry_available
+        config_content = json.dumps(config, indent=2).encode("utf-8")
+        atomic_write(config_path, config_content)
+    except Exception:
+        logger.exception(f"Failed to save error message to config.json")
+
 async def _do_connect_in_background_v2(session_id: str) -> None:
     """Background task that performs the actual Telegram connection (v2 - no registration).
 
@@ -2855,6 +2874,9 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
         account_info = load_account_info(session_dir)
         if not account_info or "phone" not in account_info:
             logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
+            # Bug 2 fix: save error message to config.json
+            if config_path:
+                _save_error_to_config(config_path, "Phone number required", retry_available=False)
             await get_event_bus().publish(session_id, "error")
             return
 
@@ -2870,10 +2892,14 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
     except asyncio.TimeoutError:
         logger.warning(f"Connection timeout for session '{session_id}'")
+        error_message = "Connection timeout"
         # Ensure session state is set to error
         if session_id in session_manager._sessions:
             session_manager._sessions[session_id].state = SessionState.ERROR
-            session_manager._sessions[session_id].error_message = "Connection timeout"
+            session_manager._sessions[session_id].error_message = error_message
+        # Bug 2 fix: save error message to config.json
+        if config_path:
+            _save_error_to_config(config_path, error_message, retry_available=True)
         # Publish error via SSE
         await get_event_bus().publish(session_id, "error")
 
@@ -2889,6 +2915,11 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
         # Get classified error state
         error_message = get_user_friendly_message(e)
         error_state = classify_error_state(error_message, exception=e)
+        # Bug 2 fix: save error message to config.json
+        if config_path:
+            # Retry available depends on error type (proxy_error = yes, error = no)
+            retry_available = error_state == "proxy_error"
+            _save_error_to_config(config_path, error_message, retry_available=retry_available)
         # Publish error state via SSE
         await get_event_bus().publish(session_id, error_state)
 

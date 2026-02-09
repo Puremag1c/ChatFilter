@@ -109,6 +109,10 @@
                         title="{{ session.error_message or _('Session file is corrupted. Please delete and recreate.') }}">
                     <span class="btn-text">{{ _("Corrupted") }}</span>
                 </button>
+                {# Bug 2: Show error message inline if available #}
+                {% if session.error_message %}
+                <small class="text-danger d-block mt-1" style="font-size: 0.75rem;">{{ session.error_message }}</small>
+                {% endif %}
                 {% elif session.state in ['error', 'proxy_error', 'flood_wait'] %}
                 {# Error states - show Retry only if retry_available is True or not set (backward compat) #}
                 {% if session.retry_available is none or session.retry_available %}
@@ -128,6 +132,10 @@
                         title="{{ session.error_message or _('Permanent error - cannot retry') }}">
                     {{ _("Error") }}
                 </button>
+                {% endif %}
+                {# Bug 2: Show error message inline if available #}
+                {% if session.error_message %}
+                <small class="text-danger d-block mt-1" style="font-size: 0.75rem;">{{ session.error_message }}</small>
                 {% endif %}
                 {% elif session.state == 'needs_api_id' %}
                 {# Needs API credentials - show configure button #}
