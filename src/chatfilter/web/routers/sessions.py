@@ -293,6 +293,56 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
     return "error"
 
 
+def sanitize_error_message_for_client(error_message: str, error_state: str) -> str:
+    """Sanitize error message before sending to client via SSE or config.json.
+
+    Prevents information disclosure by removing technical details.
+
+    Args:
+        error_message: Original error message
+        error_state: Classified error state
+
+    Returns:
+        Safe error message for display to users
+    """
+    import re
+
+    # Map error states to safe fallback messages
+    SAFE_MESSAGES = {
+        "proxy_error": "Connection failed. Please check your proxy settings and try again.",
+        "network_error": "Network connection error. Please check your internet connection and try again.",
+        "timeout": "Connection timeout. Please try again.",
+        "disconnected": "Session expired. Please reconnect.",
+        "banned": "Account restricted. Please check your Telegram account status.",
+        "flood_wait": "Rate limit exceeded. Please wait before trying again.",
+        "corrupted_session": "Session file is invalid. Please re-upload your session.",
+        "error": "An error occurred. Please try again or contact support.",
+    }
+
+    # Patterns that indicate technical/sensitive information
+    SENSITIVE_PATTERNS = [
+        r"/[\w/\\. -]+",  # Unix file paths
+        r"[A-Z]:\\[\w\\. -]+",  # Windows paths
+        r"\b[0-9a-f]{8,}\b",  # IDs/hashes
+        r"\bTraceback\b",  # Stack traces
+        r'File ".*?"',  # Python file references
+        r"line \d+",  # Line numbers
+        r"\w+Error\b",  # Error class names
+        r"\w+Exception\b",  # Exception class names
+        r"'[\w-]+'.*not found",  # Internal IDs (e.g., "Proxy 'abc123' not found")
+    ]
+
+    # Check if message contains sensitive information
+    has_sensitive = any(re.search(pattern, error_message) for pattern in SENSITIVE_PATTERNS)
+
+    if has_sensitive:
+        # Use safe fallback based on error_state
+        return SAFE_MESSAGES.get(error_state, SAFE_MESSAGES["error"])
+
+    # Message looks safe, pass through
+    return error_message
+
+
 def ensure_data_dir() -> Path:
     """Ensure sessions directory exists with proper permissions."""
     sessions_dir = get_settings().sessions_dir
@@ -2894,9 +2944,12 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             account_info = load_account_info(session_dir)
             if not account_info or "phone" not in account_info:
                 logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
+                # Security: sanitize error message before publishing to client
+                error_message = "Phone number required"
+                safe_error_message = sanitize_error_message_for_client(error_message, "error")
                 # Bug 2 fix: save error message to config.json
                 if config_path:
-                    _save_error_to_config(config_path, "Phone number required", retry_available=False)
+                    _save_error_to_config(config_path, safe_error_message, retry_available=False)
                 await get_event_bus().publish(session_id, "error")
                 return
 
@@ -2913,13 +2966,15 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
         except asyncio.TimeoutError:
             logger.warning(f"Connection timeout for session '{session_id}'")
             error_message = "Connection timeout"
+            # Security: sanitize error message before publishing to client
+            safe_error_message = sanitize_error_message_for_client(error_message, "timeout")
             # Ensure session state is set to error
             if session_id in session_manager._sessions:
                 session_manager._sessions[session_id].state = SessionState.ERROR
-                session_manager._sessions[session_id].error_message = error_message
+                session_manager._sessions[session_id].error_message = safe_error_message
             # Bug 2 fix: save error message to config.json
             if config_path:
-                _save_error_to_config(config_path, error_message, retry_available=True)
+                _save_error_to_config(config_path, safe_error_message, retry_available=True)
             # Publish error via SSE
             await get_event_bus().publish(session_id, "error")
 
@@ -2935,11 +2990,13 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             # Get classified error state
             error_message = get_user_friendly_message(e)
             error_state = classify_error_state(error_message, exception=e)
+            # Security: sanitize error message before publishing to client
+            safe_error_message = sanitize_error_message_for_client(error_message, error_state)
             # Bug 2 fix: save error message to config.json
             if config_path:
                 # Retry available depends on error type (proxy_error = yes, error = no)
                 retry_available = error_state == "proxy_error"
-                _save_error_to_config(config_path, error_message, retry_available=retry_available)
+                _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
             # Publish error state via SSE
             await get_event_bus().publish(session_id, error_state)
 
@@ -2995,16 +3052,20 @@ async def _send_verification_code_and_create_auth(
         error_message = get_user_friendly_message(e)
         error_state = classify_error_state(error_message, exception=e)
         # Config read failure is permanent (file corruption/missing)
-        save_error_metadata(error_message, retry_available=False)
+        # Security: sanitize error message before publishing to client
+        safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+        save_error_metadata(safe_error_message, retry_available=False)
         await get_event_bus().publish(session_id, error_state)
         return
 
     # Get proxy once (no retry needed)
     try:
         proxy_info = get_proxy_by_id(proxy_id)
-    except StorageNotFoundError:
+    except StorageNotFoundError as e:
+        # Security: sanitize error message before publishing to client
         error_message = f"Proxy '{proxy_id}' not found in pool"
-        save_error_metadata(error_message, retry_available=False)
+        safe_error_message = sanitize_error_message_for_client(error_message, "proxy_error")
+        save_error_metadata(safe_error_message, retry_available=False)
         await get_event_bus().publish(session_id, "proxy_error")
         return
 
@@ -3051,7 +3112,9 @@ async def _send_verification_code_and_create_auth(
             logger.error(f"Non-retryable error for session '{session_id}': {type(e).__name__}")
             error_message = get_user_friendly_message(e)
             error_state = classify_error_state(error_message, exception=e)
-            save_error_metadata(error_message, retry_available=False)
+            # Security: sanitize error message before publishing to client
+            safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+            save_error_metadata(safe_error_message, retry_available=False)
             await get_event_bus().publish(session_id, error_state)
             return
 
@@ -3066,7 +3129,9 @@ async def _send_verification_code_and_create_auth(
                 )
                 error_message = get_user_friendly_message(e)
                 error_state = classify_error_state(error_message, exception=e)
-                save_error_metadata(error_message, retry_available=True)
+                # Security: sanitize error message before publishing to client
+                safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+                save_error_metadata(safe_error_message, retry_available=True)
                 await get_event_bus().publish(session_id, error_state)
                 return
             else:
@@ -3083,7 +3148,9 @@ async def _send_verification_code_and_create_auth(
             logger.exception(f"Unexpected error sending code for session '{session_id}'")
             error_message = get_user_friendly_message(e)
             error_state = classify_error_state(error_message, exception=e)
-            save_error_metadata(error_message, retry_available=False)
+            # Security: sanitize error message before publishing to client
+            safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+            save_error_metadata(safe_error_message, retry_available=False)
             await get_event_bus().publish(session_id, error_state)
             return
 
