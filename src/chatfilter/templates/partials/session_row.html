@@ -8,14 +8,9 @@
         <span class="account-status status-{{ session.state }}{% if session.state == 'disconnected' and not session.has_session_file %} status-needs-auth{% endif %}"
               {% if session.error_message %}title="{{ session.error_message }}"
               {% elif session.state == 'disconnected' and not session.has_session_file %}title="{{ _('No cached session - authorization required') }}"
-              {% elif session.state == 'session_expired' %}title="{{ _('Session has expired or been revoked - re-authentication required') }}"
               {% elif session.state == 'banned' %}title="{{ _('Permanent error: Account has been banned by Telegram') }}"
-              {% elif session.state == 'proxy_error' %}title="{{ _('Temporary error: Proxy connection issue - retry may help') }}"
-              {% elif session.state == 'flood_wait' %}title="{{ _('Temporary error: Rate limit from Telegram - wait before retry') }}"
               {% elif session.state == 'error' %}title="{{ _('Temporary error: Connection issue - retry may help') }}"
-              {% elif session.state == 'needs_api_id' %}title="{{ _('Configuration required: API credentials missing') }}"
               {% elif session.state == 'not_configured' %}title="{{ _('Configuration required: Session not fully configured') }}"
-              {% elif session.state == 'proxy_missing' %}title="{{ _('Configuration required: Proxy settings missing') }}"
               {% endif %}>
             {%- if session.state == 'disconnected' -%}
                 {%- if session.has_session_file -%}
@@ -37,28 +32,22 @@
             {%- elif session.state == 'banned' -%}
                 <span class="status-icon" aria-hidden="true">⛔</span>
                 {{ _("Banned") }}
-            {%- elif session.state == 'flood_wait' -%}
                 <span class="status-icon" aria-hidden="true">⚠️</span>
                 {{ _("Flood Wait") }}
-            {%- elif session.state == 'proxy_error' -%}
                 <span class="status-icon" aria-hidden="true">⚠️</span>
                 {{ _("Proxy Error") }}
             {%- elif session.state == 'not_configured' -%}
                 <span class="status-icon" aria-hidden="true">⚙️</span>
                 {{ _("Not configured") }}
-            {%- elif session.state == 'proxy_missing' -%}
                 <span class="status-icon" aria-hidden="true">⚙️</span>
                 {{ _("Proxy missing") }}
-            {%- elif session.state == 'corrupted_session' -%}
                 <span class="status-icon" aria-hidden="true">💥</span>
                 {{ _("Corrupted") }}
-            {%- elif session.state == 'session_expired' -%}
                 <span class="status-icon" aria-hidden="true">⏱️</span>
                 {{ _("Session Expired") }}
             {%- elif session.state == 'error' -%}
                 <span class="status-icon" aria-hidden="true">⚠️</span>
                 {{ _("Error") }}
-            {%- elif session.state == 'needs_api_id' -%}
                 <span class="status-icon" aria-hidden="true">⚙️</span>
                 {{ _("Needs API ID") }}
             {%- elif session.state == 'needs_code' -%}
@@ -102,7 +91,6 @@
                     <span class="btn-text">{{ _("Wait...") }}</span>
                     <span class="spinner"></span>
                 </button>
-                {% elif session.state == 'corrupted_session' %}
                 {# Corrupted session - show message, user must delete #}
                 <button class="btn btn-sm btn-danger session-connect-btn" disabled
                         aria-label="{{ _('Session corrupted') }}"
@@ -113,7 +101,6 @@
                 {% if session.error_message %}
                 <small class="text-danger d-block mt-1" style="font-size: 0.75rem;">{{ session.error_message }}</small>
                 {% endif %}
-                {% elif session.state in ['error', 'proxy_error', 'flood_wait'] %}
                 {# Error states - show Retry only if retry_available is True or not set (backward compat) #}
                 {% if session.retry_available is none or session.retry_available %}
                 <button class="btn btn-sm btn-danger session-connect-btn"
@@ -137,7 +124,6 @@
                 {% if session.error_message %}
                 <small class="text-danger d-block mt-1" style="font-size: 0.75rem;">{{ session.error_message }}</small>
                 {% endif %}
-                {% elif session.state == 'needs_api_id' %}
                 {# Needs API credentials - show configure button #}
                 <button class="btn btn-sm btn-warning session-connect-btn" disabled
                         aria-label="{{ _('Configure API credentials') }}"
@@ -176,7 +162,6 @@
                     </span>
                     <span class="spinner" style="display: none;"></span>
                 </button>
-                {% elif session.state == 'session_expired' %}
                 {# Session expired - show Reconnect button to initiate re-auth flow #}
                 <button class="btn btn-sm btn-warning session-connect-btn"
                         hx-post="/api/sessions/{{ session.session_id }}/connect"
@@ -195,7 +180,7 @@
                     <span class="btn-text">{{ _("Banned") }}</span>
                 </button>
                 {% else %}
-                {# proxy_missing or unknown - disabled #}
+                {# Unknown state - fallback #}
                 <button class="btn btn-sm btn-secondary session-connect-btn" disabled
                         aria-label="{{ _('Not configured') }}"
                         title="{{ _('Configure session first') }}">
