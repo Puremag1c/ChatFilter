@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-02-09
+
+### Fixed
+- **Session status detection**: Fixed get_session_config_status() to check SecureCredentialManager for encrypted credentials
+  - Sessions with valid encrypted credentials now show correct status instead of "Setup Required"
+  - Maintains backward compatibility with plaintext config.json
+- **Error message visibility**: Fixed Connect button failing silently without showing error messages
+  - Error messages now displayed inline in session row when Connect fails
+  - Clear "Phone number required" message when phone is missing
+  - Proxy and network errors now visible to user
+- **Russian translations**: Added missing Russian translations for session statuses
+  - All session statuses now translated (Needs Auth, Needs API ID, Setup Required)
+  - Added tooltip translations for authorization and error states
+
 ## [0.8.1] - 2026-02-08
 
 ### Fixed
@@ -498,7 +512,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.2...v0.8.0
 [0.7.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.1...v0.7.2
