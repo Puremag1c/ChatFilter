@@ -26,6 +26,97 @@ msgstr "Требуется номер телефона для повторной
 
 msgid "Invalid phone number format"
 msgstr "Неверный формат номера телефона"
+
+msgid "Setup Required"
+msgstr "Требуется настройка"
+
+msgid "2FA password accepted successfully"
+msgstr "Пароль 2FA успешно принят"
+
+msgid "Authentication cancelled. Session remains disconnected. You can try again anytime."
+msgstr "Авторизация отменена. Сессия остаётся отключенной. Вы можете повторить попытку в любое время."
+
+msgid "Authorize"
+msgstr "Авторизовать"
+
+msgid "Configure"
+msgstr "Настроить"
+
+msgid "Connected successfully"
+msgstr "Успешно подключено"
+
+msgid "Connection failed while"
+msgstr "Не удалось подключиться во время"
+
+msgid "Connection lost. Real-time updates paused."
+msgstr "Соединение потеряно. Обновления в реальном времени приостановлены."
+
+msgid "Disconnected successfully"
+msgstr "Успешно отключено"
+
+msgid "Network error while"
+msgstr "Ошибка сети во время"
+
+msgid "Please check and try again."
+msgstr "Пожалуйста, проверьте и попробуйте снова."
+
+msgid "Please check your connection and try again."
+msgstr "Пожалуйста, проверьте соединение и попробуйте снова."
+
+msgid "Please check your network and try again."
+msgstr "Пожалуйста, проверьте сеть и попробуйте снова."
+
+msgid "Please try again later."
+msgstr "Пожалуйста, попробуйте позже."
+
+msgid "Please try again."
+msgstr "Пожалуйста, попробуйте снова."
+
+msgid "Request failed while"
+msgstr "Запрос не выполнен во время"
+
+msgid "Request timeout while"
+msgstr "Таймаут запроса во время"
+
+msgid "Retry 2FA"
+msgstr "Повторить 2FA"
+
+msgid "Retry Verification"
+msgstr "Повторить проверку"
+
+msgid "Retry initiated successfully"
+msgstr "Повтор успешно инициирован"
+
+msgid "Server error while"
+msgstr "Ошибка сервера во время"
+
+msgid "Service temporarily unavailable while"
+msgstr "Сервис временно недоступен во время"
+
+msgid "Session requires verification. Click Enter Verification Code button to proceed."
+msgstr "Сессия требует проверки. Нажмите кнопку Введите код подтверждения для продолжения."
+
+msgid "Still working..."
+msgstr "Всё ещё работаю..."
+
+msgid "This action cannot be undone. All session data and credentials will be permanently removed."
+msgstr "Это действие необратимо. Все данные сессии и учётные данные будут безвозвратно удалены."
+
+msgid "Verification code accepted successfully"
+msgstr "Код подтверждения успешно принят"
+
+msgid "connecting"
+msgstr "подключение"
+
+msgid "disconnecting"
+msgstr "отключение"
+
+msgid "loading configuration"
+msgstr "загрузка конфигурации"
+
+msgid "processing request"
+msgstr "обработка запроса"
+
 #~ msgid ""
 #~ "Session '{session_id}' has no api_id "
 #~ "configured. Please configure api_id before "
@@ -808,8 +899,8 @@ msgstr "Ошибка"
 #~ msgid "Proxy authentication password"
 #~ msgstr "Пароль для аутентификации прокси"
 
-#~ msgid "Cancel"
-#~ msgstr "Отмена"
+msgid "Cancel"
+msgstr "Отмена"
 
 #~ msgid "Save"
 #~ msgstr "Сохранить"
@@ -874,8 +965,8 @@ msgstr "Ошибка"
 #~ msgid "session(s). They will be blocked. Continue?"
 #~ msgstr "сессиями. Они будут заблокированы. Продолжить?"
 
-#~ msgid "Delete"
-#~ msgstr "Удалить"
+msgid "Delete"
+msgstr "Удалить"
 
 #~ msgid "Proxy deleted successfully"
 #~ msgstr "Прокси успешно удалён"
@@ -883,8 +974,8 @@ msgstr "Ошибка"
 #~ msgid "Proxy Deleted"
 #~ msgstr "Прокси удалён"
 
-#~ msgid "Deletion Failed"
-#~ msgstr "Ошибка удаления"
+msgid "Deletion Failed"
+msgstr "Ошибка удаления"
 
 #~ msgid "Analysis Results"
 #~ msgstr "Результаты анализа"
@@ -1122,68 +1213,68 @@ msgstr "Ошибка"
 #~ msgid "No analysis results yet."
 #~ msgstr "Пока нет результатов анализа."
 
-#~ msgid "Telegram Sessions"
-#~ msgstr "Telegram сессии"
+msgid "Telegram Sessions"
+msgstr "Telegram сессии"
 
-#~ msgid "Telegram Accounts"
-#~ msgstr "Telegram аккаунты"
+msgid "Telegram Accounts"
+msgstr "Telegram аккаунты"
 
-#~ msgid "Manage your Telegram sessions for chat analysis"
-#~ msgstr "Управление сессиями для анализа чатов"
+msgid "Manage your Telegram sessions for chat analysis"
+msgstr "Управление сессиями для анализа чатов"
 
-#~ msgid "Accounts"
-#~ msgstr "Аккаунты"
+msgid "Accounts"
+msgstr "Аккаунты"
 
 #~ msgid "Add new account"
 #~ msgstr "Добавить аккаунт"
 
-#~ msgid "Add Account"
-#~ msgstr "Добавить аккаунт"
+msgid "Add Account"
+msgstr "Добавить аккаунт"
 
-#~ msgid "Failed to load accounts. Please refresh the page."
-#~ msgstr "Не удалось загрузить аккаунты. Пожалуйста, обновите страницу."
+msgid "Failed to load accounts. Please refresh the page."
+msgstr "Не удалось загрузить аккаунты. Пожалуйста, обновите страницу."
 
-#~ msgid "List of Telegram accounts"
-#~ msgstr "Список Telegram аккаунтов"
+msgid "List of Telegram accounts"
+msgstr "Список Telegram аккаунтов"
 
-#~ msgid "Loading accounts..."
-#~ msgstr "Загрузка аккаунтов..."
+msgid "Loading accounts..."
+msgstr "Загрузка аккаунтов..."
 
-#~ msgid "Add Telegram Account"
-#~ msgstr "Добавить Telegram аккаунт"
+msgid "Add Telegram Account"
+msgstr "Добавить Telegram аккаунт"
 
 #~ msgid "Close modal"
 #~ msgstr "Закрыть окно"
 
-#~ msgid "Phone Authorization"
-#~ msgstr "Авторизация по телефону"
+msgid "Phone Authorization"
+msgstr "Авторизация по телефону"
 
-#~ msgid "Upload Session"
-#~ msgstr "Загрузить сессию"
+msgid "Upload Session"
+msgstr "Загрузить сессию"
 
-#~ msgid "Authenticate with your phone number to create a new session."
-#~ msgstr "Войдите по номеру телефона, чтобы создать новую сессию."
+msgid "Authenticate with your phone number to create a new session."
+msgstr "Войдите по номеру телефона, чтобы создать новую сессию."
 
-#~ msgid "Already have a .session file? Upload it here with your API credentials."
-#~ msgstr ""
+msgid "Already have a .session file? Upload it here with your API credentials."
+msgstr ""
 #~ "Уже есть файл .session? Загрузите его"
 #~ " здесь вместе со своими API учётными"
 #~ " данными."
 
-#~ msgid "Deletion is already in progress in another tab"
-#~ msgstr "Удаление уже выполняется в другой вкладке"
+msgid "Deletion is already in progress in another tab"
+msgstr "Удаление уже выполняется в другой вкладке"
 
-#~ msgid "s ago"
-#~ msgstr "с назад"
+msgid "s ago"
+msgstr "с назад"
 
-#~ msgid "Operation in Progress"
-#~ msgstr "Операция выполняется"
+msgid "Operation in Progress"
+msgstr "Операция выполняется"
 
-#~ msgid "Delete Telegram Account"
-#~ msgstr "Удалить Telegram аккаунт"
+msgid "Delete Telegram Account"
+msgstr "Удалить Telegram аккаунт"
 
-#~ msgid "Are you sure you want to delete the account"
-#~ msgstr "Вы уверены, что хотите удалить аккаунт"
+msgid "Are you sure you want to delete the account"
+msgstr "Вы уверены, что хотите удалить аккаунт"
 
 #~ msgid ""
 #~ "This action cannot be undone. All "
@@ -1194,20 +1285,20 @@ msgstr "Ошибка"
 #~ "сессии и учётные данные будут "
 #~ "безвозвратно удалены."
 
-#~ msgid "Delete Account"
-#~ msgstr "Удалить аккаунт"
+msgid "Delete Account"
+msgstr "Удалить аккаунт"
 
-#~ msgid "Account has been deleted."
-#~ msgstr "Аккаунт удалён."
+msgid "Account has been deleted."
+msgstr "Аккаунт удалён."
 
-#~ msgid "Account Deleted"
-#~ msgstr "Аккаунт удалён"
+msgid "Account Deleted"
+msgstr "Аккаунт удалён"
 
-#~ msgid "Failed to delete account:"
-#~ msgstr "Не удалось удалить аккаунт:"
+msgid "Failed to delete account:"
+msgstr "Не удалось удалить аккаунт:"
 
-#~ msgid "Retry"
-#~ msgstr "Повторить"
+msgid "Retry"
+msgstr "Повторить"
 
 #~ msgid "What to do:"
 #~ msgstr "Что делать:"
@@ -1510,8 +1601,8 @@ msgstr "Ошибка"
 #~ msgid "Proxy servers list"
 #~ msgstr "Список прокси-серверов"
 
-#~ msgid "Status"
-#~ msgstr "Статус"
+msgid "Status"
+msgstr "Статус"
 
 #~ msgid "Address"
 #~ msgstr "Адрес"
@@ -1519,8 +1610,8 @@ msgstr "Ошибка"
 #~ msgid "Auth"
 #~ msgstr "Авторизация"
 
-#~ msgid "Actions"
-#~ msgstr "Действия"
+msgid "Actions"
+msgstr "Действия"
 
 #~ msgid "Working - last checked"
 #~ msgstr "Работает — последняя проверка"
@@ -1567,8 +1658,8 @@ msgstr "Ошибка"
 #~ msgid "Edit proxy"
 #~ msgstr "Редактировать прокси"
 
-#~ msgid "Edit"
-#~ msgstr "Редактировать"
+msgid "Edit"
+msgstr "Редактировать"
 
 #~ msgid "Delete this proxy"
 #~ msgstr "Удалить этот прокси"
@@ -1595,14 +1686,14 @@ msgstr "Ошибка"
 #~ msgid "Disconnect session"
 #~ msgstr "Отключить сессию"
 
-#~ msgid "Disconnect"
-#~ msgstr "Отключить"
+msgid "Disconnect"
+msgstr "Отключить"
 
 #~ msgid "Connect session"
 #~ msgstr "Подключить сессию"
 
-#~ msgid "Connect"
-#~ msgstr "Подключить"
+msgid "Connect"
+msgstr "Подключить"
 
 #~ msgid "Connecting..."
 #~ msgstr "Подключение..."
@@ -1724,8 +1815,8 @@ msgstr "Прокси отсутствует"
 #~ msgid "Please wait"
 #~ msgstr "Пожалуйста, подождите"
 
-#~ msgid "Wait..."
-#~ msgstr "Подождите..."
+msgid "Wait..."
+msgstr "Подождите..."
 
 #~ msgid "Configure account"
 #~ msgstr "Настроить аккаунт"
@@ -1733,11 +1824,11 @@ msgstr "Прокси отсутствует"
 #~ msgid "Delete account"
 #~ msgstr "Удалить аккаунт"
 
-#~ msgid "Account"
-#~ msgstr "Аккаунт"
+msgid "Account"
+msgstr "Аккаунт"
 
-#~ msgid "No Telegram Accounts"
-#~ msgstr "Нет Telegram аккаунтов"
+msgid "No Telegram Accounts"
+msgstr "Нет Telegram аккаунтов"
 
 #~ msgid ""
 #~ "You haven't added any Telegram accounts"
@@ -2058,8 +2149,8 @@ msgstr "Требуется пароль 2FA"
 #~ msgid "Get credentials at my.telegram.org"
 #~ msgstr "Получите учётные данные на my.telegram.org"
 
-#~ msgid "Enter Verification Code"
-#~ msgstr "Введите код подтверждения"
+msgid "Enter Verification Code"
+msgstr "Введите код подтверждения"
 
 #~ msgid "Code"
 #~ msgstr "Код"
@@ -2067,8 +2158,8 @@ msgstr "Требуется пароль 2FA"
 #~ msgid "Enter the 5-6 digit code sent to your phone"
 #~ msgstr "Введите 5-6 значный код, отправленный на ваш телефон"
 
-#~ msgid "Enter 2FA Password"
-#~ msgstr "Введите пароль 2FA"
+msgid "Enter 2FA Password"
+msgstr "Введите пароль 2FA"
 
 #~ msgid "Password"
 #~ msgstr "Пароль"
@@ -2079,8 +2170,8 @@ msgstr "Требуется пароль 2FA"
 #~ msgid "Submit"
 #~ msgstr "Отправить"
 
-#~ msgid "Verify"
-#~ msgstr "Проверить"
+msgid "Verify"
+msgstr "Проверить"
 
 #~ msgid "Session '{name}' reconnected successfully"
 #~ msgstr "Сессия '{name}' успешно переподключена"
@@ -2102,8 +2193,8 @@ msgstr "Сессия истекла"
 #~ msgid "Session expired - click to reconnect"
 #~ msgstr "Сессия истекла - нажмите для переподключения"
 
-#~ msgid "Reconnect"
-#~ msgstr "Переподключить"
+msgid "Reconnect"
+msgstr "Переподключить"
 
 #~ msgid "Reconnect session"
 #~ msgstr "Переподключить сессию"
