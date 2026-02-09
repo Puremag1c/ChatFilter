@@ -123,6 +123,23 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["sessions"])
 
+# Per-session locks to prevent race conditions on parallel operations
+_session_locks: dict[str, asyncio.Lock] = {}
+_locks_lock = asyncio.Lock()  # Lock for _session_locks dict access
+
+
+async def _get_session_lock(session_id: str) -> asyncio.Lock:
+    """Get or create a lock for a specific session.
+
+    This prevents race conditions when multiple requests operate on the same session.
+    Example: User double-clicks Connect → only one background task runs.
+    """
+    async with _locks_lock:
+        if session_id not in _session_locks:
+            _session_locks[session_id] = asyncio.Lock()
+        return _session_locks[session_id]
+
+
 # Maximum file sizes (security limit)
 MAX_SESSION_SIZE = 10 * 1024 * 1024  # 10 MB
 MAX_JSON_SIZE = 10 * 1024  # 10 KB (account info JSON)
@@ -2829,99 +2846,102 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
     from chatfilter.web.dependencies import get_session_manager
     from chatfilter.web.events import get_event_bus
 
-    session_manager = get_session_manager()
-    session_path: Path | None = None
-    config_path: Path | None = None
+    # Acquire per-session lock to prevent parallel operations
+    lock = await _get_session_lock(session_id)
+    async with lock:
+        session_manager = get_session_manager()
+        session_path: Path | None = None
+        config_path: Path | None = None
 
-    try:
-        # Get paths from the registered factory (loader), NOT from _sessions.
-        # register() stores in _factories; _sessions entry is only created by connect().
-        factory = session_manager._factories.get(session_id)
-        if not factory:
-            logger.error(f"Session '{session_id}' factory not found in _do_connect_in_background_v2")
-            await get_event_bus().publish(session_id, "error")
-            return
+        try:
+            # Get paths from the registered factory (loader), NOT from _sessions.
+            # register() stores in _factories; _sessions entry is only created by connect().
+            factory = session_manager._factories.get(session_id)
+            if not factory:
+                logger.error(f"Session '{session_id}' factory not found in _do_connect_in_background_v2")
+                await get_event_bus().publish(session_id, "error")
+                return
 
-        # Extract paths from the factory (TelegramClientLoader has session_path/config_path)
-        if hasattr(factory, 'session_path'):
-            session_path = factory.session_path
-            config_path = session_path.parent / "config.json"
+            # Extract paths from the factory (TelegramClientLoader has session_path/config_path)
+            if hasattr(factory, 'session_path'):
+                session_path = factory.session_path
+                config_path = session_path.parent / "config.json"
 
-        # Connect with timeout (30 seconds)
-        # session_manager.connect() creates _sessions entry and publishes SSE events
-        await asyncio.wait_for(
-            session_manager.connect(session_id),
-            timeout=30.0
-        )
-        # Success - SSE "connected" event already published by session_manager
+            # Connect with timeout (30 seconds)
+            # session_manager.connect() creates _sessions entry and publishes SSE events
+            await asyncio.wait_for(
+                session_manager.connect(session_id),
+                timeout=30.0
+            )
+            # Success - SSE "connected" event already published by session_manager
 
-    except (AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError) as e:
-        # Session file is invalid (expired/revoked auth key)
-        # Auto-recover: delete session file and trigger send_code flow
-        logger.info(f"Session '{session_id}' has invalid auth key ({type(e).__name__}), triggering reauth")
+        except (AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError) as e:
+            # Session file is invalid (expired/revoked auth key)
+            # Auto-recover: delete session file and trigger send_code flow
+            logger.info(f"Session '{session_id}' has invalid auth key ({type(e).__name__}), triggering reauth")
 
-        if not session_path or not config_path:
-            logger.error(f"Cannot reauth session '{session_id}': paths not available")
-            await get_event_bus().publish(session_id, "error")
-            return
+            if not session_path or not config_path:
+                logger.error(f"Cannot reauth session '{session_id}': paths not available")
+                await get_event_bus().publish(session_id, "error")
+                return
 
-        # Securely delete invalid session file (overwrite with random data before unlink)
-        # secure_delete_file has internal fallback to regular unlink if secure deletion fails
-        secure_delete_file(session_path)
+            # Securely delete invalid session file (overwrite with random data before unlink)
+            # secure_delete_file has internal fallback to regular unlink if secure deletion fails
+            secure_delete_file(session_path)
 
-        # Load account_info
-        session_dir = session_path.parent
-        account_info = load_account_info(session_dir)
-        if not account_info or "phone" not in account_info:
-            logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
+            # Load account_info
+            session_dir = session_path.parent
+            account_info = load_account_info(session_dir)
+            if not account_info or "phone" not in account_info:
+                logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
+                # Bug 2 fix: save error message to config.json
+                if config_path:
+                    _save_error_to_config(config_path, "Phone number required", retry_available=False)
+                await get_event_bus().publish(session_id, "error")
+                return
+
+            phone = str(account_info["phone"])
+
+            # Trigger send_code flow
+            await _send_verification_code_and_create_auth(
+                session_id,
+                session_path,
+                config_path,
+                phone,
+            )
+
+        except asyncio.TimeoutError:
+            logger.warning(f"Connection timeout for session '{session_id}'")
+            error_message = "Connection timeout"
+            # Ensure session state is set to error
+            if session_id in session_manager._sessions:
+                session_manager._sessions[session_id].state = SessionState.ERROR
+                session_manager._sessions[session_id].error_message = error_message
             # Bug 2 fix: save error message to config.json
             if config_path:
-                _save_error_to_config(config_path, "Phone number required", retry_available=False)
+                _save_error_to_config(config_path, error_message, retry_available=True)
+            # Publish error via SSE
             await get_event_bus().publish(session_id, "error")
-            return
 
-        phone = str(account_info["phone"])
+        except SessionBusyError:
+            # Session is already busy - publish current state
+            logger.warning(f"Session busy during background connect: {session_id}")
+            info = session_manager.get_info(session_id)
+            if info:
+                await get_event_bus().publish(session_id, info.state.value)
 
-        # Trigger send_code flow
-        await _send_verification_code_and_create_auth(
-            session_id,
-            session_path,
-            config_path,
-            phone,
-        )
-
-    except asyncio.TimeoutError:
-        logger.warning(f"Connection timeout for session '{session_id}'")
-        error_message = "Connection timeout"
-        # Ensure session state is set to error
-        if session_id in session_manager._sessions:
-            session_manager._sessions[session_id].state = SessionState.ERROR
-            session_manager._sessions[session_id].error_message = error_message
-        # Bug 2 fix: save error message to config.json
-        if config_path:
-            _save_error_to_config(config_path, error_message, retry_available=True)
-        # Publish error via SSE
-        await get_event_bus().publish(session_id, "error")
-
-    except SessionBusyError:
-        # Session is already busy - publish current state
-        logger.warning(f"Session busy during background connect: {session_id}")
-        info = session_manager.get_info(session_id)
-        if info:
-            await get_event_bus().publish(session_id, info.state.value)
-
-    except Exception as e:
-        logger.exception(f"Failed to connect session '{session_id}' in background")
-        # Get classified error state
-        error_message = get_user_friendly_message(e)
-        error_state = classify_error_state(error_message, exception=e)
-        # Bug 2 fix: save error message to config.json
-        if config_path:
-            # Retry available depends on error type (proxy_error = yes, error = no)
-            retry_available = error_state == "proxy_error"
-            _save_error_to_config(config_path, error_message, retry_available=retry_available)
-        # Publish error state via SSE
-        await get_event_bus().publish(session_id, error_state)
+        except Exception as e:
+            logger.exception(f"Failed to connect session '{session_id}' in background")
+            # Get classified error state
+            error_message = get_user_friendly_message(e)
+            error_state = classify_error_state(error_message, exception=e)
+            # Bug 2 fix: save error message to config.json
+            if config_path:
+                # Retry available depends on error type (proxy_error = yes, error = no)
+                retry_available = error_state == "proxy_error"
+                _save_error_to_config(config_path, error_message, retry_available=retry_available)
+            # Publish error state via SSE
+            await get_event_bus().publish(session_id, error_state)
 
 
 async def _send_verification_code_and_create_auth(
@@ -3092,10 +3112,18 @@ async def connect_session(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
+    # Check if operation already in progress (prevents race condition)
+    lock = await _get_session_lock(safe_name)
+    if lock.locked():
+        return HTMLResponse(
+            content='<span class="error">Operation already in progress</span>',
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
     session_dir = ensure_data_dir() / safe_name
     session_path = session_dir / "session.session"
     config_path = session_dir / "config.json"
-    
+
     # Check if session exists (must have at least config.json)
     # Note: session.session can be missing (will trigger send_code flow)
     if not config_path.exists():
