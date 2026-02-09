@@ -750,8 +750,9 @@ msgstr "Неверный формат номера телефона"
 #~ msgid "Add Proxy"
 #~ msgstr "Добавить прокси"
 
-#~ msgid "Error"
-#~ msgstr "Ошибка"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Error"
+msgstr "Ошибка"
 
 #~ msgid "Failed to load proxies. Please refresh the page."
 #~ msgstr "Не удалось загрузить прокси. Пожалуйста, обновите страницу."
@@ -1621,11 +1622,13 @@ msgstr "Неверный формат номера телефона"
 #~ msgid "This account has been banned by Telegram"
 #~ msgstr "Этот аккаунт заблокирован Telegram"
 
-#~ msgid "Banned"
-#~ msgstr "Заблокирован"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Banned"
+msgstr "Заблокирован"
 
-#~ msgid "Not configured"
-#~ msgstr "Не настроено"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Not configured"
+msgstr "Не настроено"
 
 #~ msgid "Configure session first"
 #~ msgstr "Сначала настройте сессию"
@@ -1690,26 +1693,33 @@ msgstr "Неверный формат номера телефона"
 #~ msgid "Failed to validate session file. Please try again."
 #~ msgstr "Не удалось проверить файл сессии. Пожалуйста, попробуйте снова."
 
-#~ msgid "Ready"
-#~ msgstr "Готово"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Ready"
+msgstr "Готово"
 
-#~ msgid "Connected"
-#~ msgstr "Подключено"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Connected"
+msgstr "Подключено"
 
-#~ msgid "Connecting"
-#~ msgstr "Подключение"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Connecting"
+msgstr "Подключение"
 
-#~ msgid "Disconnecting"
-#~ msgstr "Отключение"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Disconnecting"
+msgstr "Отключение"
 
-#~ msgid "Flood Wait"
-#~ msgstr "Превышен лимит запросов"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Flood Wait"
+msgstr "Превышен лимит запросов"
 
-#~ msgid "Proxy Error"
-#~ msgstr "Ошибка прокси"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Proxy Error"
+msgstr "Ошибка прокси"
 
-#~ msgid "Proxy missing"
-#~ msgstr "Прокси отсутствует"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Proxy missing"
+msgstr "Прокси отсутствует"
 
 #~ msgid "Please wait"
 #~ msgstr "Пожалуйста, подождите"
@@ -2034,11 +2044,13 @@ msgstr "Неверный формат номера телефона"
 #~ msgid "Needs API Credentials"
 #~ msgstr "Требуются учётные данные API"
 
-#~ msgid "Needs Verification Code"
-#~ msgstr "Требуется код подтверждения"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs Verification Code"
+msgstr "Требуется код подтверждения"
 
-#~ msgid "Needs 2FA Password"
-#~ msgstr "Требуется пароль 2FA"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs 2FA Password"
+msgstr "Требуется пароль 2FA"
 
 #~ msgid "Enter API Credentials"
 #~ msgstr "Введите учётные данные API"
@@ -2076,9 +2088,11 @@ msgstr "Неверный формат номера телефона"
 #~ msgid "Session expired"
 #~ msgstr "Сессия истекла"
 
-#~ msgid "Corrupted"
-#~ msgstr "Повреждена"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Corrupted"
+msgstr "Повреждена"
 
+#: src/chatfilter/templates/partials/session_row.html
 msgid "Session Expired"
 msgstr "Сессия истекла"
 
@@ -2103,11 +2117,13 @@ msgstr "Сессия истекла"
 #~ msgid "Session corrupted"
 #~ msgstr "Сессия повреждена"
 
-#~ msgid "Needs Auth"
-#~ msgstr "Требуется авторизация"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs Auth"
+msgstr "Требуется авторизация"
 
-#~ msgid "Needs API ID"
-#~ msgstr "Требуется API ID"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Needs API ID"
+msgstr "Требуется API ID"
 
 #~ msgid "Setup Required"
 #~ msgstr "Требуется настройка"
