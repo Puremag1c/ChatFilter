@@ -75,12 +75,10 @@
                         <input type="number"
                                id="import-api-id"
                                name="api_id"
-                               required
                                placeholder="{{ _('e.g., 12345678') }}"
                                min="1"
-                               aria-describedby="import-api-id-hint"
-                               aria-required="true">
-                        <small id="import-api-id-hint" class="form-hint">{{ _("Numeric ID from my.telegram.org/apps") }}</small>
+                               aria-describedby="import-api-id-hint">
+                        <small id="import-api-id-hint" class="form-hint">{{ _("Numeric ID from my.telegram.org/apps (optional)") }}</small>
                     </div>
 
                     <div class="form-group">
@@ -90,14 +88,12 @@
                         <input type="text"
                                id="import-api-hash"
                                name="api_hash"
-                               required
                                placeholder="{{ _('e.g., 0123456789abcdef...') }}"
                                pattern="[a-fA-F0-9]+"
                                minlength="32"
                                maxlength="32"
-                               aria-describedby="import-api-hash-hint"
-                               aria-required="true">
-                        <small id="import-api-hash-hint" class="form-hint">{{ _("32-character hex string from my.telegram.org/apps") }}</small>
+                               aria-describedby="import-api-hash-hint">
+                        <small id="import-api-hash-hint" class="form-hint">{{ _("32-character hex string from my.telegram.org/apps (optional)") }}</small>
                     </div>
                 </div>
 
@@ -107,9 +103,7 @@
                            data-tooltip-position="right">{{ _("Proxy") }}</label>
                     <select id="import-proxy-id"
                             name="proxy_id"
-                            required
-                            aria-describedby="import-proxy-id-hint"
-                            aria-required="true">
+                            aria-describedby="import-proxy-id-hint">
                         <option value="">{{ _("-- Select a proxy --") }}</option>
                         {% for proxy in proxies %}
                         {% if proxy.is_available %}
@@ -124,9 +118,9 @@
                         {% endfor %}
                     </select>
                     <small id="import-proxy-id-hint" class="form-hint">
-                        {{ _("A proxy is required for Telegram connection.") }}
+                        {{ _("Optional: Select a proxy for Telegram connection.") }}
                         {% if not proxies %}
-                        <a href="/proxy">{{ _("Add a proxy first") }}</a>
+                        <a href="/proxy">{{ _("Add a proxy") }}</a>
                         {% endif %}
                     </small>
                 </div>
