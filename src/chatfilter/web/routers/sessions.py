@@ -854,20 +854,19 @@ def get_session_config_status(session_dir: Path) -> str:
     Returns:
         Status string:
         - "disconnected": Configuration is valid
-        - "needs_api_id": Missing api_id/api_hash (auth credentials needed)
-        - "proxy_missing": proxy_id is set but proxy not found in pool
+        - "needs_config": Missing credentials or proxy configuration
     """
     config_file = session_dir / "config.json"
 
     if not config_file.exists():
-        return "needs_api_id"
+        return "needs_config"
 
     try:
         with config_file.open("r", encoding="utf-8") as f:
             config = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to read config for session {session_dir.name}: {e}")
-        return "needs_api_id"
+        return "needs_config"
 
     # Check fields
     api_id = config.get("api_id")
@@ -884,7 +883,7 @@ def get_session_config_status(session_dir: Path) -> str:
 
             # Guard: storage_dir must exist (addresses ChatFilter-hv39r)
             if not storage_dir.exists():
-                return "needs_api_id"
+                return "needs_config"
 
             manager = SecureCredentialManager(storage_dir)
             session_name = session_dir.name
@@ -898,7 +897,7 @@ def get_session_config_status(session_dir: Path) -> str:
                 )
             else:
                 # No credentials in encrypted storage or plaintext config
-                return "needs_api_id"
+                return "needs_config"
         except Exception as e:
             # Handle corrupted .credentials.enc gracefully (addresses ChatFilter-f540m)
             # Treat as credentials absent
@@ -907,11 +906,11 @@ def get_session_config_status(session_dir: Path) -> str:
                 f"Failed to check encrypted credentials for session '{session_dir.name}': "
                 f"{type(e).__name__} [REDACTED]"
             )
-            return "needs_api_id"
+            return "needs_config"
 
     # proxy_id is required for session to be connectable
     if not proxy_id:
-        return "needs_api_id"
+        return "needs_config"
 
     # Verify proxy exists in pool
     from chatfilter.storage.errors import StorageNotFoundError
@@ -920,7 +919,7 @@ def get_session_config_status(session_dir: Path) -> str:
     try:
         get_proxy_by_id(proxy_id)
     except StorageNotFoundError:
-        return "proxy_missing"
+        return "needs_config"
 
     return "disconnected"
 
@@ -1047,8 +1046,7 @@ def list_stored_sessions(
     - "banned": Account banned by Telegram
     - "flood_wait": Temporary rate limit
     - "proxy_error": Proxy connection failed
-    - "needs_api_id": Missing required configuration (api_id, api_hash, or proxy_id)
-    - "proxy_missing": proxy_id references a proxy that no longer exists in pool
+    - "needs_config": Missing configuration (API credentials or proxy)
 
     Args:
         session_manager: Optional session manager to check runtime state
@@ -3103,14 +3101,9 @@ async def connect_session(
 
     # Check if session is properly configured
     config_status = get_session_config_status(session_dir)
-    if config_status == "needs_api_id":
+    if config_status == "needs_config":
         return HTMLResponse(
-            content='<span class="error">Session needs API credentials</span>',
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-    if config_status == "proxy_missing":
-        return HTMLResponse(
-            content='<span class="error">Proxy not found</span>',
+            content='<span class="error">Session configuration incomplete</span>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
