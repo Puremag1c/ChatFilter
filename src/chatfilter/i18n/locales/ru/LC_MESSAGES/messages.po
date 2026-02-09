@@ -2528,6 +2528,18 @@ msgstr "Сессия истекла"
 msgid "Corrupted"
 msgstr "Повреждена"
 
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session Expired"
+msgstr "Сессия истекла"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session has expired or been revoked - re-authentication required"
+msgstr "Сессия истекла или была отозвана - требуется повторная авторизация"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session expired - click to reconnect"
+msgstr "Сессия истекла - нажмите для переподключения"
+
 #: src/chatfilter/templates/partials/sessions_list.html
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Reconnect"

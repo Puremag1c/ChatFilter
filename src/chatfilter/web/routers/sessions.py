@@ -17,6 +17,7 @@ States
 - needs_api_id: Missing API ID/hash configuration
 - proxy_missing: Configured proxy not found in pool
 - corrupted_session: Session file is corrupt, cannot recover
+- session_expired: Session has expired or been revoked, requires re-authentication
 - banned: Account banned by Telegram
 - flood_wait: Rate limited, temporary wait required
 - proxy_error: Proxy connection failed
@@ -46,7 +47,7 @@ flood_wait          | retry button           | connecting    | -         | POST 
 Error State Classification
 --------------------------
 Errors are classified by `classify_error_state()` function:
-- disconnected: AuthKeyUnregistered, SessionRevoked, SessionExpired (treated as disconnected, Connect triggers send_code)
+- session_expired: AuthKeyUnregistered, SessionRevoked, SessionExpired (dead session, needs re-auth)
 - banned: UserDeactivated, UserDeactivatedBan, PhoneNumberBanned
 - flood_wait: FloodWaitError, SlowModeWaitError
 - proxy_error: OSError, ConnectionError, ConnectionRefused
@@ -170,7 +171,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         exception: The original exception object (if available)
 
     Returns:
-        One of: 'disconnected', 'banned', 'flood_wait', 'proxy_error', 'corrupted_session', 'error'
+        One of: 'disconnected', 'session_expired', 'banned', 'flood_wait', 'proxy_error', 'corrupted_session', 'error'
     """
     # First check exception type if provided
     if exception is not None:
@@ -181,7 +182,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             return "corrupted_session"
 
         # Session expired/auth errors (both Telethon and custom errors)
-        # Treated as 'disconnected' — Connect button will trigger send_code flow
+        # Treated as 'session_expired' — distinct state for dead sessions requiring re-auth
         if error_class in {
             "SessionExpiredError",
             "AuthKeyUnregisteredError",
@@ -191,7 +192,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             "SessionReauthRequiredError",  # Custom error for expired sessions
             "SessionInvalidError",  # Wrapper error from session_manager
         }:
-            return "disconnected"
+            return "session_expired"
 
         # Banned/deactivated account
         if error_class in {
@@ -236,7 +237,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
         return "corrupted_session"
 
     # Check for expired/revoked session (dead session)
-    # Treated as 'disconnected' — Connect button will trigger send_code flow
+    # Treated as 'session_expired' — distinct state for dead sessions requiring re-auth
     if any(
         phrase in error_lower
         for phrase in [
@@ -252,7 +253,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             "unauthorized",
         ]
     ):
-        return "disconnected"
+        return "session_expired"
 
     # Check for banned/deactivated account
     if any(
