@@ -2596,3 +2596,11 @@ msgstr "Требуется настройка: Сессия не полност�
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Configuration required: Proxy settings missing"
 msgstr "Требуется настройка: Отсутствуют настройки прокси"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Permanent error - cannot retry"
+msgstr "Постоянная ошибка - нельзя повторить"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Please configure API ID and hash in Edit section"
+msgstr "Пожалуйста, настройте API ID и hash в разделе Редактирование"
