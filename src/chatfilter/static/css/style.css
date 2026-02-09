@@ -3266,6 +3266,11 @@ body:has(.update-notification.show) {
     color: var(--warning);
 }
 
+.account-status.status-session_expired {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
 .account-status.status-connecting,
 .account-status.status-disconnecting {
     background: var(--bg-tertiary);

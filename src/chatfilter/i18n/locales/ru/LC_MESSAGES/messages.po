@@ -2079,8 +2079,8 @@ msgstr "Неверный формат номера телефона"
 #~ msgid "Corrupted"
 #~ msgstr "Повреждена"
 
-#~ msgid "Session Expired"
-#~ msgstr "Сессия истекла"
+msgid "Session Expired"
+msgstr "Сессия истекла"
 
 #~ msgid "Session has expired or been revoked - re-authentication required"
 #~ msgstr "Сессия истекла или была отозвана - требуется повторная авторизация"
