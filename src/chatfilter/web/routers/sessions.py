@@ -916,11 +916,38 @@ def get_session_config_status(session_dir: Path) -> str:
     api_hash = config.get("api_hash")
     proxy_id = config.get("proxy_id")
 
-    # If api_id or api_hash are null, check if we need them
+    # If api_id or api_hash are null, check encrypted storage first
     if api_id is None or api_hash is None:
-        # For source=phone, missing credentials means needs_api_id
-        # (user will provide them via auth flow)
-        return "needs_api_id"
+        # Bug 1 fix: Check if credentials exist in SecureCredentialManager (Pattern A)
+        try:
+            from chatfilter.security import SecureCredentialManager
+
+            storage_dir = session_dir.parent  # Pattern A: credentials stored at parent level
+
+            # Guard: storage_dir must exist (addresses ChatFilter-hv39r)
+            if not storage_dir.exists():
+                return "needs_api_id"
+
+            manager = SecureCredentialManager(storage_dir)
+            session_name = session_dir.name
+
+            # Check if encrypted credentials exist
+            if manager.has_credentials(session_name):
+                # Credentials exist in encrypted storage - continue to proxy check
+                logger.debug(
+                    f"Session '{session_name}' has credentials in encrypted storage, "
+                    "continuing to proxy check"
+                )
+            else:
+                # No credentials in encrypted storage or plaintext config
+                return "needs_api_id"
+        except Exception as e:
+            # Handle corrupted .credentials.enc gracefully (addresses ChatFilter-f540m)
+            # Treat as credentials absent
+            logger.warning(
+                f"Failed to check encrypted credentials for session '{session_dir.name}': {e}"
+            )
+            return "needs_api_id"
 
     # proxy_id is required for session to be connectable
     if not proxy_id:
