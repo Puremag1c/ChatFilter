@@ -20,19 +20,19 @@ msgstr ""
 
 #: src/chatfilter/telegram/client.py:480
 msgid "Session '{session_id}' has no api_id configured. Please configure api_id before connecting."
-msgstr "Сессия '{session_id}' не имеет настроенного api_id. Пожалуйста, настройте api_id перед подключением."
+msgstr "В сессии '{session_id}' не указан api_id. Укажите api_id перед подключением."
 
 #: src/chatfilter/telegram/client.py:489
 msgid "Session '{session_id}' has no api_hash configured. Please configure api_hash before connecting."
-msgstr "Сессия '{session_id}' не имеет настроенного api_hash. Пожалуйста, настройте api_hash перед подключением."
+msgstr "В сессии '{session_id}' не указан api_hash. Укажите api_hash перед подключением."
 
 #: src/chatfilter/telegram/client.py:498 src/chatfilter/telegram/client.py:623
 msgid "Session '{session_id}' has no proxy configured. Please configure a proxy for this session before connecting."
-msgstr "Сессия '{session_id}' не имеет настроенного прокси. Пожалуйста, настройте прокси для этой сессии перед подключением."
+msgstr "В сессии '{session_id}' не указан прокси. Укажите прокси перед подключением."
 
 #: src/chatfilter/telegram/client.py:512 src/chatfilter/telegram/client.py:613
 msgid "Session '{session_id}' requires proxy '{proxy_id}' which is not found in proxy pool. Please add the proxy to the pool or update the session configuration."
-msgstr "Сессия '{session_id}' требует прокси '{proxy_id}', который не найден в пуле прокси. Пожалуйста, добавьте прокси в пул или обновите конфигурацию сессии."
+msgstr "Для сессии '{session_id}' указан прокси '{proxy_id}', который не найден в списке прокси. Добавьте прокси или обновите настройки сессии."
 
 #: src/chatfilter/telegram/error_mapping.py:57
 #, python-format
@@ -61,19 +61,19 @@ msgstr[2] "%(num)d часов"
 #: src/chatfilter/telegram/error_mapping.py:97
 #: src/chatfilter/telegram/error_mapping.py:622
 msgid "Your session has expired. Please log in again with a new session file."
-msgstr "Ваша сессия истекла. Пожалуйста, войдите снова с новым файлом сессии."
+msgstr "Срок действия сессии истёк. Войдите повторно."
 
 #: src/chatfilter/telegram/error_mapping.py:100
 msgid "Your session has expired or been revoked. Please log in again with a new session file."
-msgstr "Ваша сессия истекла или была отозвана. Пожалуйста, войдите снова с новым файлом сессии."
+msgstr "Срок действия сессии истёк или она была отозвана. Войдите повторно."
 
 #: src/chatfilter/telegram/error_mapping.py:103
 msgid "Your session has been logged out from another device. Please upload a new session file."
-msgstr "Ваша сессия была завершена с другого устройства. Пожалуйста, загрузите новый файл сессии с этого устройства."
+msgstr "Сессия была завершена на другом устройстве. Загрузите новый файл сессии."
 
 #: src/chatfilter/telegram/error_mapping.py:106
 msgid "This session is being used on another device. Please use a unique session file."
-msgstr "Эта сессия используется на другом устройстве. Пожалуйста, используйте уникальный файл сессии."
+msgstr "Эта сессия используется на другом устройстве. Используйте отдельный файл сессии для каждого устройства."
 
 #: src/chatfilter/telegram/error_mapping.py:109
 msgid "Authentication failed. Please verify your session and try again."
@@ -475,7 +475,7 @@ msgstr "Главная навигация"
 
 #: src/chatfilter/templates/base.html:33
 msgid "Manage your Telegram session files"
-msgstr "Управление Telegram сессиями"
+msgstr "Управление сессиями Telegram"
 
 #: src/chatfilter/templates/base.html:33
 #: src/chatfilter/templates/partials/proxy_pool_list.html:11
@@ -519,7 +519,7 @@ msgstr "История"
 #: src/chatfilter/templates/base.html:38
 #: src/chatfilter/templates/proxies.html:8
 msgid "Manage proxy servers for Telegram sessions"
-msgstr "Управление прокси-серверами для сессий Telegram"
+msgstr "Управление прокси-серверами для Telegram"
 
 #: src/chatfilter/templates/base.html:38
 msgid "Proxies"
@@ -678,15 +678,15 @@ msgstr "Сессия"
 
 #: src/chatfilter/templates/chats.html:173
 msgid "Select Telegram session"
-msgstr "Выберите Telegram сессию"
+msgstr "Выберите сессию Telegram"
 
 #: src/chatfilter/templates/chats.html:181
 msgid "Select Telegram session to load chats"
-msgstr "Выберите Telegram сессию для загрузки чатов"
+msgstr "Выберите сессию Telegram для загрузки чатов"
 
 #: src/chatfilter/templates/chats.html:182
 msgid "Choose a Telegram session to load your chats and groups"
-msgstr "Выберите Telegram сессию для загрузки ваших чатов и групп"
+msgstr "Выберите сессию Telegram для загрузки чатов и групп"
 
 #: src/chatfilter/templates/chats.html:184
 msgid "Select a session"
@@ -1340,7 +1340,7 @@ msgstr "Telegram аккаунты"
 
 #: src/chatfilter/templates/upload.html:8
 msgid "Manage your Telegram sessions for chat analysis"
-msgstr "Управление сессиями Telegram для анализа чатов"
+msgstr "Управление сессиями для анализа чатов"
 
 #: src/chatfilter/templates/upload.html:13
 msgid "Accounts"
@@ -1384,7 +1384,7 @@ msgstr "Загрузить сессию"
 
 #: src/chatfilter/templates/upload.html:58
 msgid "Authenticate with your phone number to create a new session."
-msgstr "Авторизуйтесь по номеру телефона, чтобы создать новую сессию."
+msgstr "Войдите по номеру телефона, чтобы создать новую сессию."
 
 #: src/chatfilter/templates/upload.html:72
 msgid "Already have a .session file? Upload it here with your API credentials."
@@ -1413,7 +1413,7 @@ msgstr "Вы уверены, что хотите удалить аккаунт"
 
 #: src/chatfilter/templates/upload.html:201
 msgid "This action cannot be undone. All session data and credentials will be permanently removed."
-msgstr "Это действие нельзя отменить. Все данные сессии и учётные данные будут окончательно удалены."
+msgstr "Это действие необратимо. Все данные сессии и учётные данные будут безвозвратно удалены."
 
 #: src/chatfilter/templates/upload.html:202
 msgid "Delete Account"
@@ -1593,7 +1593,7 @@ msgstr "Попробовать снова"
 #: src/chatfilter/templates/partials/auth_start_form.html:11
 #: src/chatfilter/templates/partials/session_import.html:56
 msgid "A unique identifier for this Telegram session"
-msgstr "Уникальный идентификатор для этой Telegram сессии"
+msgstr "Уникальный идентификатор сессии Telegram"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:12
 #: src/chatfilter/templates/partials/session_import.html:57
@@ -1608,7 +1608,7 @@ msgstr "например, my_account"
 #: src/chatfilter/templates/partials/auth_start_form.html:21
 #: src/chatfilter/templates/partials/session_import.html:66
 msgid "A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed."
-msgstr "Уникальное имя для идентификации этой сессии. Допускаются только буквы, цифры, подчёркивания и дефисы."
+msgstr "Уникальное имя сессии. Можно использовать буквы, цифры, подчёркивания и дефисы."
 
 #: src/chatfilter/templates/partials/auth_start_form.html:26
 msgid "Your Telegram phone number with country code"
@@ -1712,7 +1712,7 @@ msgstr "Сначала добавьте прокси"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:110
 msgid "I understand that session files provide complete access to my Telegram account and accept the security risks."
-msgstr "Я понимаю, что файлы сессий предоставляют полный доступ к моему аккаунту Telegram, и принимаю связанные с этим риски безопасности."
+msgstr "Я понимаю, что файлы сессий дают полный доступ к моему аккаунту Telegram, и принимаю риски безопасности."
 
 #: src/chatfilter/templates/partials/auth_start_form.html:116
 msgid "Send Verification Code"
@@ -1805,7 +1805,7 @@ msgstr "Чаты не найдены"
 
 #: src/chatfilter/templates/partials/chat_list.html:212
 msgid "This Telegram session doesn't have any chats available for analysis. Try selecting a different session or verify that your session has active chats."
-msgstr "В этой сессии Telegram нет доступных для анализа чатов. Попробуйте выбрать другую сессию или проверьте, есть ли в вашей сессии активные чаты."
+msgstr "В этой сессии нет доступных для анализа чатов. Попробуйте выбрать другую сессию или проверьте наличие активных чатов."
 
 #: src/chatfilter/templates/partials/import_validation_result.html:4
 msgid "Session file is valid!"
@@ -2053,7 +2053,7 @@ msgstr "Теперь настройте параметры сессии ниже
 
 #: src/chatfilter/templates/partials/session_import.html:142
 msgid "I understand that session files provide complete access to my Telegram account and accept the security risks. I confirm this session was created on a trusted device and will be stored securely."
-msgstr "Я понимаю, что файлы сессий предоставляют полный доступ к моему аккаунту Telegram, и принимаю связанные с этим риски безопасности. Я подтверждаю, что эта сессия создана на доверенном устройстве и будет храниться безопасно."
+msgstr "Я понимаю, что файлы сессий дают полный доступ к моему аккаунту Telegram, и принимаю риски безопасности. Подтверждаю, что сессия создана на доверенном устройстве и будет храниться безопасно."
 
 #: src/chatfilter/templates/partials/session_import.html:149
 msgid "Back"
@@ -2153,7 +2153,7 @@ msgstr "Сессия не выбрана"
 
 #: src/chatfilter/web/routers/analysis.py:185
 msgid "Select a Telegram session from the dropdown above"
-msgstr "Выберите Telegram сессию из выпадающего списка выше"
+msgstr "Выберите сессию из выпадающего списка выше"
 
 #: src/chatfilter/web/routers/analysis.py:195
 msgid "No chats selected for analysis"
@@ -2173,7 +2173,7 @@ msgstr "Установите значение «Сообщений на чат»
 
 #: src/chatfilter/web/routers/analysis.py:222
 msgid "Upload a valid session file from the Sessions page"
-msgstr "Загрузите корректный файл сессии со страницы Сессий"
+msgstr "Загрузите файл сессии на странице Сессий"
 
 #: src/chatfilter/web/routers/analysis.py:254
 msgid "All selected chats are no longer accessible"
@@ -2280,35 +2280,35 @@ msgstr "Список не найден или истёк"
 
 #: src/chatfilter/web/routers/chats.py:171
 msgid "Session is invalid and has been removed. The session may have been revoked, logged out from another device, or the account may be banned or deactivated."
-msgstr "Сессия недействительна и была удалена. Сессия могла быть отозвана, завершена с другого устройства, или аккаунт может быть заблокирован либо деактивирован."
+msgstr "Сессия недействительна и была удалена. Возможные причины: сессия отозвана, завершена на другом устройстве, аккаунт заблокирован или деактивирован."
 
 #: src/chatfilter/web/routers/chats.py:176
 msgid "Upload a new session file from an active Telegram account"
-msgstr "Загрузите новый файл сессии из активного Telegram аккаунта"
+msgstr "Загрузите новый файл сессии от активного аккаунта"
 
 #: src/chatfilter/web/routers/chats.py:187
 msgid "Two-factor authentication (2FA) is required. This session needs re-authorization with your 2FA password."
-msgstr "Требуется двухфакторная аутентификация (2FA). Эта сессия требует повторной авторизации с использованием вашего пароля 2FA."
+msgstr "Требуется двухфакторная аутентификация (2FA). Сессия требует повторной авторизации с паролем 2FA."
 
 #: src/chatfilter/web/routers/chats.py:191
 msgid "Create a new session file using Telethon or Pyrogram and enter your 2FA password during authentication. See the Upload page for instructions."
-msgstr "Создайте новый файл сессии с помощью Telethon или Pyrogram и введите ваш пароль 2FA при аутентификации. Инструкции см. на странице «Загрузка»."
+msgstr "Создайте новый файл сессии через Telethon или Pyrogram, указав пароль 2FA при авторизации. См. инструкции на странице загрузки."
 
 #: src/chatfilter/web/routers/chats.py:196
 msgid "Session has expired and requires re-authorization."
-msgstr "Срок действия сессии истёк и требуется повторная авторизация."
+msgstr "Срок действия сессии истёк. Требуется повторная авторизация."
 
 #: src/chatfilter/web/routers/chats.py:197
 msgid "Create and upload a new session file from your Telegram account. See the Upload page for step-by-step instructions."
-msgstr "Создайте и загрузите новый файл сессии из своего аккаунта Telegram. Пошаговые инструкции см. на странице «Загрузка»."
+msgstr "Создайте и загрузите новый файл сессии. Инструкции см. на странице загрузки."
 
 #: src/chatfilter/web/routers/chats.py:243
 msgid "Failed to connect to Telegram. Please check your session."
-msgstr "Не удалось подключиться к Telegram. Пожалуйста, проверьте вашу сессию или попробуйте позже."
+msgstr "Не удалось подключиться к Telegram. Проверьте сессию."
 
 #: src/chatfilter/web/routers/chats.py:244
 msgid "Verify your session file is valid or try uploading a new one"
-msgstr "Проверьте, что файл сессии действителен, или попробуйте загрузить новый"
+msgstr "Проверьте файл сессии или загрузите новый"
 
 #: src/chatfilter/web/routers/chats.py:370
 msgid "Session not found"
@@ -2395,7 +2395,7 @@ msgstr "Не удалось отправить код: {error}"
 #: src/chatfilter/web/routers/sessions.py:1464
 #: src/chatfilter/web/routers/sessions.py:1611
 msgid "Auth session expired or not found. Please start over."
-msgstr "Сессия авторизации истекла или не найдена. Пожалуйста, начните заново."
+msgstr "Срок действия сессии авторизации истёк или сессия не найдена. Начните заново."
 
 #: src/chatfilter/web/routers/sessions.py:1478
 msgid "Invalid code format. Please enter the numeric code you received."
