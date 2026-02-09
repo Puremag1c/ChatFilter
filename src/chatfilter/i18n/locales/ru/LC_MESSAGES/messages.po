@@ -1256,10 +1256,7 @@ msgid "Authenticate with your phone number to create a new session."
 msgstr "Войдите по номеру телефона, чтобы создать новую сессию."
 
 msgid "Already have a .session file? Upload it here with your API credentials."
-msgstr ""
-#~ "Уже есть файл .session? Загрузите его"
-#~ " здесь вместе со своими API учётными"
-#~ " данными."
+msgstr "Уже есть файл .session? Загрузите его здесь вместе со своими API учётными данными."
 
 msgid "Deletion is already in progress in another tab"
 msgstr "Удаление уже выполняется в другой вкладке"
@@ -1275,15 +1272,6 @@ msgstr "Удалить Telegram аккаунт"
 
 msgid "Are you sure you want to delete the account"
 msgstr "Вы уверены, что хотите удалить аккаунт"
-
-#~ msgid ""
-#~ "This action cannot be undone. All "
-#~ "session data and credentials will be "
-#~ "permanently removed."
-#~ msgstr ""
-#~ "Это действие необратимо. Все данные "
-#~ "сессии и учётные данные будут "
-#~ "безвозвратно удалены."
 
 msgid "Delete Account"
 msgstr "Удалить аккаунт"
@@ -1683,14 +1671,16 @@ msgstr "Редактировать"
 #~ "Выбранный прокси сейчас недоступен. "
 #~ "Рассмотрите выбор работающего прокси."
 
-#~ msgid "Disconnect session"
-#~ msgstr "Отключить сессию"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Disconnect session"
+msgstr "Отключить сессию"
 
 msgid "Disconnect"
 msgstr "Отключить"
 
-#~ msgid "Connect session"
-#~ msgstr "Подключить сессию"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Connect session"
+msgstr "Подключить сессию"
 
 msgid "Connect"
 msgstr "Подключить"
@@ -1701,17 +1691,21 @@ msgstr "Подключить"
 #~ msgid "Disconnecting..."
 #~ msgstr "Отключение..."
 
-#~ msgid "Retry connection"
-#~ msgstr "Повторить подключение"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Retry connection"
+msgstr "Повторить подключение"
 
-#~ msgid "Connection error"
-#~ msgstr "Ошибка соединения"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Connection error"
+msgstr "Ошибка соединения"
 
-#~ msgid "Account banned"
-#~ msgstr "Аккаунт заблокирован"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Account banned"
+msgstr "Аккаунт заблокирован"
 
-#~ msgid "This account has been banned by Telegram"
-#~ msgstr "Этот аккаунт заблокирован Telegram"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "This account has been banned by Telegram"
+msgstr "Этот аккаунт заблокирован Telegram"
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Banned"
@@ -1721,8 +1715,9 @@ msgstr "Заблокирован"
 msgid "Not configured"
 msgstr "Не настроено"
 
-#~ msgid "Configure session first"
-#~ msgstr "Сначала настройте сессию"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configure session first"
+msgstr "Сначала настройте сессию"
 
 #~ msgid "Unknown state"
 #~ msgstr "Неизвестное состояние"
@@ -1812,17 +1807,20 @@ msgstr "Ошибка прокси"
 msgid "Proxy missing"
 msgstr "Прокси отсутствует"
 
-#~ msgid "Please wait"
-#~ msgstr "Пожалуйста, подождите"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Please wait"
+msgstr "Пожалуйста, подождите"
 
 msgid "Wait..."
 msgstr "Подождите..."
 
-#~ msgid "Configure account"
-#~ msgstr "Настроить аккаунт"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configure account"
+msgstr "Настроить аккаунт"
 
-#~ msgid "Delete account"
-#~ msgstr "Удалить аккаунт"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Delete account"
+msgstr "Удалить аккаунт"
 
 msgid "Account"
 msgstr "Аккаунт"
@@ -2187,26 +2185,31 @@ msgstr "Повреждена"
 msgid "Session Expired"
 msgstr "Сессия истекла"
 
-#~ msgid "Session has expired or been revoked - re-authentication required"
-#~ msgstr "Сессия истекла или была отозвана - требуется повторная авторизация"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session has expired or been revoked - re-authentication required"
+msgstr "Сессия истекла или была отозвана - требуется повторная авторизация"
 
-#~ msgid "Session expired - click to reconnect"
-#~ msgstr "Сессия истекла - нажмите для переподключения"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session expired - click to reconnect"
+msgstr "Сессия истекла - нажмите для переподключения"
 
 msgid "Reconnect"
 msgstr "Переподключить"
 
-#~ msgid "Reconnect session"
-#~ msgstr "Переподключить сессию"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Reconnect session"
+msgstr "Переподключить сессию"
 
 #~ msgid "Session has expired - reconnect required"
 #~ msgstr "Сессия истекла - требуется переподключение"
 
-#~ msgid "Session file is corrupted. Please delete and recreate."
-#~ msgstr "Файл сессии повреждён. Пожалуйста, удалите и создайте заново."
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session file is corrupted. Please delete and recreate."
+msgstr "Файл сессии повреждён. Пожалуйста, удалите и создайте заново."
 
-#~ msgid "Session corrupted"
-#~ msgstr "Сессия повреждена"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Session corrupted"
+msgstr "Сессия повреждена"
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Needs Auth"
@@ -2216,38 +2219,45 @@ msgstr "Требуется авторизация"
 msgid "Needs API ID"
 msgstr "Требуется API ID"
 
-#~ msgid "Setup Required"
-#~ msgstr "Требуется настройка"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "No cached session - authorization required"
+msgstr "Нет сохранённой сессии - требуется авторизация"
 
-#~ msgid "No cached session - authorization required"
-#~ msgstr "Нет сохранённой сессии - требуется авторизация"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Permanent error: Account has been banned by Telegram"
+msgstr "Постоянная ошибка: Аккаунт заблокирован Telegram"
 
-#~ msgid "Permanent error: Account has been banned by Telegram"
-#~ msgstr "Постоянная ошибка: Аккаунт заблокирован Telegram"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Temporary error: Proxy connection issue - retry may help"
+msgstr "Временная ошибка: Проблема с прокси - попробуйте повторить"
 
-#~ msgid "Temporary error: Proxy connection issue - retry may help"
-#~ msgstr "Временная ошибка: Проблема с прокси - попробуйте повторить"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Temporary error: Rate limit from Telegram - wait before retry"
+msgstr "Временная ошибка: Ограничение от Telegram - подождите перед повтором"
 
-#~ msgid "Temporary error: Rate limit from Telegram - wait before retry"
-#~ msgstr "Временная ошибка: Ограничение от Telegram - подождите перед повтором"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Temporary error: Connection issue - retry may help"
+msgstr "Временная ошибка: Проблема с подключением - попробуйте повторить"
 
-#~ msgid "Temporary error: Connection issue - retry may help"
-#~ msgstr "Временная ошибка: Проблема с подключением - попробуйте повторить"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configuration required: API credentials missing"
+msgstr "Требуется настройка: Отсутствуют учётные данные API"
 
-#~ msgid "Configuration required: API credentials missing"
-#~ msgstr "Требуется настройка: Отсутствуют учётные данные API"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configuration required: Session not fully configured"
+msgstr "Требуется настройка: Сессия не полностью настроена"
 
-#~ msgid "Configuration required: Session not fully configured"
-#~ msgstr "Требуется настройка: Сессия не полностью настроена"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configuration required: Proxy settings missing"
+msgstr "Требуется настройка: Отсутствуют настройки прокси"
 
-#~ msgid "Configuration required: Proxy settings missing"
-#~ msgstr "Требуется настройка: Отсутствуют настройки прокси"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Permanent error - cannot retry"
+msgstr "Постоянная ошибка - нельзя повторить"
 
-#~ msgid "Permanent error - cannot retry"
-#~ msgstr "Постоянная ошибка - нельзя повторить"
-
-#~ msgid "Please configure API ID and hash in Edit section"
-#~ msgstr "Пожалуйста, настройте API ID и hash в разделе Редактирование"
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Please configure API ID and hash in Edit section"
+msgstr "Пожалуйста, настройте API ID и hash в разделе Редактирование"
 
 
 #: src/chatfilter/templates/partials/session_actions.html
@@ -2265,3 +2275,23 @@ msgstr "Введите 5-6-значный код, отправленный на 
 #: src/chatfilter/templates/partials/modals/modal_2fa.html
 msgid "Enter your two-factor authentication password. If you cancel, your session will remain disconnected, but you can try again anytime."
 msgstr "Введите пароль двухфакторной аутентификации. Если вы отмените, ваша сессия останется отключенной, но вы сможете повторить попытку в любое время."
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Authorize session"
+msgstr "Авторизовать сессию"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Configure API credentials"
+msgstr "Настроить учётные данные API"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Enter 2FA password"
+msgstr "Введите пароль 2FA"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Enter verification code"
+msgstr "Введите код подтверждения"
+
+#: src/chatfilter/templates/partials/session_row.html
+msgid "Permanent error"
+msgstr "Постоянная ошибка"
