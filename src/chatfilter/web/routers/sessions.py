@@ -2945,7 +2945,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             if not account_info or "phone" not in account_info:
                 logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
                 # Security: sanitize error message before publishing to client
-                error_message = "Phone number required"
+                error_message = _("Phone number required")
                 safe_error_message = sanitize_error_message_for_client(error_message, "error")
                 # Bug 2 fix: save error message to config.json
                 if config_path:
@@ -3408,14 +3408,14 @@ async def reconnect_session_start(
     account_info = load_account_info(session_dir)
     if not account_info or not account_info.get("phone"):
         return HTMLResponse(
-            content='<div class="alert alert-error">Phone number required for re-authorization</div>',
+            content=f'<div class="alert alert-error">{_("Phone number required for re-authorization")}</div>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     phone = account_info["phone"]
     if not isinstance(phone, str):
         return HTMLResponse(
-            content='<div class="alert alert-error">Invalid phone number format</div>',
+            content=f'<div class="alert alert-error">{_("Invalid phone number format")}</div>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
