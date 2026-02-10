@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -11,7 +11,6 @@ from starlette.responses import Response
 from chatfilter.i18n.translations import (
     DEFAULT_LANGUAGE,
     SUPPORTED_LANGUAGES,
-    get_translations,
     set_current_locale,
 )
 
@@ -42,10 +41,6 @@ class LocaleMiddleware(BaseHTTPMiddleware):
         """
         locale = self._detect_locale(request)
         set_current_locale(locale)
-
-        # Install translations for Jinja2 _() function
-        # Must be done per-request to use the correct locale
-        self._install_jinja2_translations(locale)
 
         response = await call_next(request)
 
@@ -93,23 +88,6 @@ class LocaleMiddleware(BaseHTTPMiddleware):
 
         # 4. Fallback to default
         return DEFAULT_LANGUAGE
-
-    def _install_jinja2_translations(self, locale: str) -> None:
-        """Install translations for Jinja2 templates.
-
-        This ensures the _() function in templates uses the correct locale.
-
-        Args:
-            locale: Language code (e.g., 'en', 'ru')
-        """
-        # Lazy import to avoid circular dependency
-        from chatfilter.web.app import get_templates
-
-        # Note: install_gettext_translations is added by jinja2.ext.i18n extension
-        translations = get_translations(locale)
-        templates = get_templates()
-        env = cast(Any, templates.env)
-        env.install_gettext_translations(translations)
 
     def _parse_accept_language(self, accept_language: str) -> str | None:
         """Parse Accept-Language header and return best matching locale.
