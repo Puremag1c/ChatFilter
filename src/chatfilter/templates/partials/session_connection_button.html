@@ -23,12 +23,6 @@
         <span class="btn-text">{{ _("Connecting...") }}</span>
         <span class="spinner"></span>
     </button>
-    {% elif state == 'disconnecting' %}
-    <button class="btn btn-sm btn-secondary session-disconnect-btn" disabled
-            aria-label="{{ _('Disconnecting...') }}">
-        <span class="btn-text">{{ _("Disconnecting...") }}</span>
-        <span class="spinner"></span>
-    </button>
     {% elif state == 'error' %}
     {# Error state that can be retried #}
     <button class="btn btn-sm btn-danger session-connect-btn"

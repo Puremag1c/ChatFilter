@@ -3260,8 +3260,7 @@ body:has(.update-notification.show) {
     color: var(--danger);
 }
 
-.account-status.status-connecting,
-.account-status.status-disconnecting {
+.account-status.status-connecting {
     background: var(--bg-tertiary);
     color: var(--text-secondary);
 }

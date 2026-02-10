@@ -358,23 +358,6 @@ class TestStatusCellSpinner:
         assert 'class="status-icon spinner-small"' in html
         assert "Connecting" in html
 
-    def test_status_cell_shows_spinner_when_disconnecting(self) -> None:
-        """Status cell should show spinner and 'Disconnecting' text during disconnection."""
-        env = _setup_template_env()
-        template = env.get_template("partials/session_row.html")
-
-        session_data = {
-            "session_id": "test_session",
-            "state": "disconnecting",
-            "error_message": None,
-        }
-
-        html = template.render(session=session_data)
-
-        # Verify spinner icon and status text
-        assert 'class="status-icon spinner-small"' in html
-        assert "Disconnecting" in html
-
     def test_status_cell_updates_after_connection(self) -> None:
         """Status cell should show connected state after successful connection."""
         env = _setup_template_env()

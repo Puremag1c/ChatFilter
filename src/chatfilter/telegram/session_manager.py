@@ -355,9 +355,9 @@ class SessionManager:
                     session.error_message = (
                         f"Session is invalid ({error_type}). Please provide a new session file."
                     )
-                    # Emit event for status change (lazy import to avoid circular dependency)
-                    from chatfilter.web.events import get_event_bus
-                    await get_event_bus().publish(session_id, "error")
+                    # Don't emit 'error' SSE event for recoverable session invalid errors
+                    # (_handle_session_recovery will publish the appropriate event: 'needs_code')
+                    # This prevents error flash during auto-recovery (connecting → error → needs_code)
                     raise SessionInvalidError(
                         f"Session '{session_id}' is permanently invalid: {error_type}. "
                         "The session has been revoked, the auth key is unregistered, "

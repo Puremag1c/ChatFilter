@@ -1136,7 +1136,7 @@ def list_stored_sessions(
                         elif info.state == SessionState.CONNECTING:
                             state = "connecting"
                         elif info.state == SessionState.DISCONNECTING:
-                            state = "disconnecting"
+                            state = "connecting"
                         elif info.state == SessionState.ERROR:
                             error_message = info.error_message
                             state = classify_error_state(error_message)
