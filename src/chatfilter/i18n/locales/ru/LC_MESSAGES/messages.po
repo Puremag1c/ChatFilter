@@ -575,38 +575,38 @@ msgstr "обработка запроса"
 #~ msgid "Manage your Telegram session files"
 #~ msgstr "Управление сессиями Telegram"
 
-#~ msgid "Sessions"
-#~ msgstr "Сессии"
+msgid "Sessions"
+msgstr "Сессии"
 
-#~ msgid "Select chats to analyze from your Telegram account"
-#~ msgstr "Выберите чаты для анализа из вашего Telegram аккаунта"
+msgid "Select chats to analyze from your Telegram account"
+msgstr "Выберите чаты для анализа из вашего Telegram аккаунта"
 
-#~ msgid "Chats"
-#~ msgstr "Чаты"
+msgid "Chats"
+msgstr "Чаты"
 
-#~ msgid "Import a list of chats from a file or Google Sheets"
-#~ msgstr "Импорт списка чатов из файла или Google Sheets"
+msgid "Import a list of chats from a file or Google Sheets"
+msgstr "Импорт списка чатов из файла или Google Sheets"
 
-#~ msgid "Import"
-#~ msgstr "Импорт"
+msgid "Import"
+msgstr "Импорт"
 
-#~ msgid "View analysis results and export data"
-#~ msgstr "Просмотр результатов анализа и экспорт данных"
+msgid "View analysis results and export data"
+msgstr "Просмотр результатов анализа и экспорт данных"
 
-#~ msgid "Results"
-#~ msgstr "Результаты"
+msgid "Results"
+msgstr "Результаты"
 
-#~ msgid "Browse your past analysis history"
-#~ msgstr "Просмотр истории анализов"
+msgid "Browse your past analysis history"
+msgstr "Просмотр истории анализов"
 
-#~ msgid "History"
-#~ msgstr "История"
+msgid "History"
+msgstr "История"
 
-#~ msgid "Manage proxy servers for Telegram sessions"
-#~ msgstr "Управление прокси-серверами для Telegram"
+msgid "Manage proxy servers for Telegram sessions"
+msgstr "Управление прокси-серверами для Telegram"
 
-#~ msgid "Proxies"
-#~ msgstr "Прокси"
+msgid "Proxies"
+msgstr "Прокси"
 
 #~ msgid "Shows your internet connection status"
 #~ msgstr "Показывает статус интернет-соединения"
