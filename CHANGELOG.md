@@ -10,6 +10,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Device confirmation detection**: Fixed Telegram "Is this you?" confirmation showing fake "connected" status. Now shows "Awaiting Confirmation" with clear message to confirm in other Telegram app, auto-updates when confirmed
 
+## [0.8.5] - 2026-02-10
+
+### Fixed
+- **Bug1: JS code modal handler**: Close modal and update row after code verification
+- **Bug1: verify-code endpoint**: Return session_row on needs_2fa instead of reconnect_success
+- **Bug2: JS 2FA modal handler**: Verify close and update row after 2FA verification
+- **Bug2: _finalize_reconnect_auth**: Connect via session_manager after successful 2FA
+- **Bug2: verify-2fa endpoint**: Return session_row on success
+- **Bug2: verify-code success**: Return session_row instead of reconnect_success
+- **SMOKE: Disconnect triggers querySelector JS error**: Fixed JS error when disconnecting session
+- **SMOKE: Missing auth_code_form_reconnect.html**: Fixed 500 error on code verify errors due to missing template
+- **SMOKE: Navigation not translated**: Fixed .po entries marked obsolete causing navigation to show untranslated strings
+
+### Changed
+- **[OPS] Integration tests**: Added integration tests for auth flow fixes
+- **[Reliability] Session manager connection**: Added proper session_manager connection after auth completion
+- **[Reliability] Auth flow timeout**: Added timeout for auth flow operations to prevent hangs
+- **[Reliability] Translation race condition**: Fixed race condition in translation loading
+- **[Reliability] Telegram confirmation**: Handle Telegram "Is this you?" confirmation dialog
+- **[Security] Rate limiting**: Added rate limiting for auth endpoints to prevent abuse
+- **[Security] Session ID validation**: Added session_id validation to prevent path traversal attacks
+- **[Security] HTTPS validation**: Validate HTTPS in production environment
+- **[Security] Zero sensitive data**: Zero sensitive data in memory after use
+- **[Troubleshoot] Persistent timeout**: Resolved persistent timeout for ChatFilter-gvnoc
+- **[UX] Telegram confirmation flow**: Handle Telegram "Is this you?" confirmation flow with better UX
+
 ## [0.8.4] - 2026-02-10
 
 ### Fixed
@@ -553,7 +579,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.4...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.5...HEAD
+[0.8.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.1...v0.8.2
