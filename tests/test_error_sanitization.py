@@ -73,7 +73,7 @@ class TestSanitizeErrorMessageForClient:
         """Test that internal IDs are sanitized."""
         error_message = "Proxy 'abc123-xyz' not found in pool"
         result = sanitize_error_message_for_client(error_message, "needs_config")
-        assert result == "Configuration required. Please check your settings."
+        assert result == "Configuration error. Please check your proxy settings."
         assert "abc123-xyz" not in result
 
     def test_hex_hashes_sanitized(self) -> None:
@@ -88,13 +88,13 @@ class TestSanitizeErrorMessageForClient:
         error_message = "ConnectionError at line 123"
 
         result_needs_config = sanitize_error_message_for_client(error_message, "needs_config")
-        assert result_needs_config == "Configuration required. Please check your settings."
+        assert result_needs_config == "Configuration error. Please check your proxy settings."
 
         result_network = sanitize_error_message_for_client(error_message, "network_error")
-        assert result_network == "Network connection error. Please check your internet connection and try again."
+        assert result_network == "An error occurred. Please try again or contact support."
 
         result_timeout = sanitize_error_message_for_client(error_message, "timeout")
-        assert result_timeout == "Connection timeout. Please try again."
+        assert result_timeout == "An error occurred. Please try again or contact support."
 
         result_banned = sanitize_error_message_for_client(error_message, "banned")
         assert result_banned == "Account restricted. Please check your Telegram account status."
@@ -109,7 +109,7 @@ class TestSanitizeErrorMessageForClient:
         """Test message with multiple sensitive patterns."""
         error_message = "ConnectionError in /home/user/app.py line 123: session abc123 failed"
         result = sanitize_error_message_for_client(error_message, "network_error")
-        assert result == "Network connection error. Please check your internet connection and try again."
+        assert result == "An error occurred. Please try again or contact support."
         assert "/home/user" not in result
         assert "line 123" not in result
         assert "abc123" not in result
