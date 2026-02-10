@@ -221,11 +221,7 @@ class TestConnectFlowCodeVerification:
 
     @pytest.mark.asyncio
     async def test_needs_code_to_connected_success(self) -> None:
-        """Test: needs_code → submit code → connected (success).
-
-        verify_code returns HTMLResponse. On success it calls _finalize_reconnect_auth
-        which publishes 'connected' SSE event and returns reconnect_success.html template.
-        """
+        """Test: needs_code → submit code → connected (success)."""
         from chatfilter.web.auth_state import AuthState
         from chatfilter.web.routers.sessions import verify_code
 
@@ -233,39 +229,32 @@ class TestConnectFlowCodeVerification:
         auth_id = "auth_123"
         code = "12345"
 
-        # Mock dependencies - patch at import source locations
+        # Mock dependencies
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
             ) as mock_auth_manager_getter,
             patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
             patch(
-                "chatfilter.web.routers.sessions._finalize_reconnect_auth"
-            ) as mock_finalize,
-            patch("chatfilter.web.app.get_templates") as mock_get_templates,
+                "chatfilter.web.dependencies.get_session_manager"
+            ) as mock_manager_getter,
         ):
-            # Setup template mock
-            mock_templates = MagicMock()
-            mock_response = MagicMock()
-            mock_templates.TemplateResponse.return_value = mock_response
-            mock_get_templates.return_value = mock_templates
-
             # Setup mocks
             mock_client = AsyncMock()
+            mock_client.is_user_authorized = AsyncMock(return_value=True)
             mock_client.sign_in = AsyncMock()  # Success, no 2FA needed
-            mock_client.is_connected = MagicMock(return_value=True)
+            mock_client.is_connected = MagicMock(return_value=True)  # Not async
 
             mock_auth_state = MagicMock(spec=AuthState)
             mock_auth_state.session_name = session_id
             mock_auth_state.auth_id = auth_id
-            mock_auth_state.phone = "+10005551234"
-            mock_auth_state.phone_code_hash = "mock_hash"
+            mock_auth_state.phone = "+1234567890"
             mock_auth_state.client = mock_client
 
             mock_auth_manager = MagicMock()
             mock_auth_manager.get_auth_state = AsyncMock(return_value=mock_auth_state)
             mock_auth_manager.remove_auth_state = AsyncMock()
-            mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+            mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))  # Not locked
             mock_auth_manager_getter.return_value = mock_auth_manager
 
             mock_bus = MagicMock()
@@ -273,8 +262,15 @@ class TestConnectFlowCodeVerification:
             mock_bus.publish = mock_publish
             mock_bus_getter.return_value = mock_bus
 
-            # _finalize_reconnect_auth is an async function
-            mock_finalize.return_value = None
+            # Mock session manager
+            async def mock_connect_fn(sid):
+                # Simulate successful connect by publishing 'connected'
+                await mock_publish(sid, "connected")
+
+            mock_manager = MagicMock()
+            mock_manager._add_session = MagicMock()
+            mock_manager.connect = mock_connect_fn  # Async function that publishes
+            mock_manager_getter.return_value = mock_manager
 
             # Mock Request object
             mock_request = MagicMock()
@@ -282,22 +278,14 @@ class TestConnectFlowCodeVerification:
             # Execute
             await verify_code(mock_request, session_id, auth_id, code)
 
-            # Verify: _finalize_reconnect_auth called (which publishes 'connected')
-            mock_finalize.assert_called_once()
-            # Verify: reconnect_success.html template returned
+            # Verify: SSE event 'connected' published
             assert any(
-                "reconnect_success" in str(call)
-                for call in mock_templates.TemplateResponse.call_args_list
+                call[0][1] == "connected" for call in mock_publish.call_args_list
             )
 
     @pytest.mark.asyncio
     async def test_needs_code_to_needs_2fa(self) -> None:
-        """Test: needs_code → submit code → needs_2fa (2FA required).
-
-        When sign_in raises SessionPasswordNeededError, verify_code checks for
-        stored 2FA password. If none exists, it publishes 'needs_2fa' SSE event
-        and returns 2FA form template.
-        """
+        """Test: needs_code → submit code → needs_2fa (2FA required)."""
         from telethon.errors import SessionPasswordNeededError
 
         from chatfilter.web.auth_state import AuthState
@@ -307,56 +295,31 @@ class TestConnectFlowCodeVerification:
         auth_id = "auth_123"
         code = "12345"
 
-        # Mock dependencies - patch at correct module locations
-        # get_event_bus is a top-level import in sessions.py, so patch there
+        # Mock dependencies
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
             ) as mock_auth_manager_getter,
-            patch(
-                "chatfilter.web.routers.sessions.get_event_bus"
-            ) as mock_bus_getter,
-            patch("chatfilter.web.app.get_templates") as mock_get_templates,
-            patch(
-                "chatfilter.security.SecureCredentialManager"
-            ) as mock_cred_cls,
-            patch(
-                "chatfilter.web.routers.sessions.ensure_data_dir"
-            ) as mock_data_dir,
+            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
         ):
-            # Setup template mock
-            mock_templates = MagicMock()
-            mock_response = MagicMock()
-            mock_templates.TemplateResponse.return_value = mock_response
-            mock_get_templates.return_value = mock_templates
-
-            # Setup data dir mock
-            mock_data_dir.return_value = Path("/tmp/mock_data")
-
-            # Setup SecureCredentialManager: no stored 2FA password
-            mock_cred_instance = MagicMock()
-            mock_cred_instance.retrieve_2fa.return_value = None
-            mock_cred_cls.return_value = mock_cred_instance
-
             # Setup mocks
             mock_client = AsyncMock()
             # sign_in raises SessionPasswordNeededError (2FA required)
             mock_client.sign_in = AsyncMock(
                 side_effect=SessionPasswordNeededError("2FA required")
             )
-            mock_client.is_connected = MagicMock(return_value=True)
+            mock_client.is_connected = MagicMock(return_value=True)  # Not async
 
             mock_auth_state = MagicMock(spec=AuthState)
             mock_auth_state.session_name = session_id
             mock_auth_state.auth_id = auth_id
-            mock_auth_state.phone = "+10005551234"
-            mock_auth_state.phone_code_hash = "mock_hash"
+            mock_auth_state.phone = "+1234567890"
             mock_auth_state.client = mock_client
 
             mock_auth_manager = MagicMock()
             mock_auth_manager.get_auth_state = AsyncMock(return_value=mock_auth_state)
-            mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
-            mock_auth_manager.update_auth_state = AsyncMock()
+            mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))  # Not locked
+            mock_auth_manager.update_auth_state = AsyncMock()  # For 2FA flow
             mock_auth_manager_getter.return_value = mock_auth_manager
 
             mock_bus = MagicMock()
@@ -381,50 +344,40 @@ class TestConnectFlow2FA:
 
     @pytest.mark.asyncio
     async def test_needs_2fa_to_connected_success(self) -> None:
-        """Test: needs_2fa → submit password → connected (success).
-
-        verify_2fa returns HTMLResponse. On success it calls _finalize_reconnect_auth
-        which publishes 'connected' SSE event and returns reconnect_success.html template.
-        """
+        """Test: needs_2fa → submit password → connected (success)."""
         from chatfilter.web.auth_state import AuthState
         from chatfilter.web.routers.sessions import verify_2fa
 
         session_id = "test_session"
         auth_id = "auth_123"
-        password = "mock_test_pw"
+        password = "secret123"
 
-        # Mock dependencies - patch at import source locations
+        # Mock dependencies
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
             ) as mock_auth_manager_getter,
             patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
             patch(
-                "chatfilter.web.routers.sessions._finalize_reconnect_auth"
-            ) as mock_finalize,
-            patch("chatfilter.web.app.get_templates") as mock_get_templates,
+                "chatfilter.web.dependencies.get_session_manager"
+            ) as mock_manager_getter,
         ):
-            # Setup template mock
-            mock_templates = MagicMock()
-            mock_response = MagicMock()
-            mock_templates.TemplateResponse.return_value = mock_response
-            mock_get_templates.return_value = mock_templates
-
             # Setup mocks
             mock_client = AsyncMock()
+            mock_client.is_user_authorized = AsyncMock(return_value=True)
             mock_client.sign_in = AsyncMock()  # Success
-            mock_client.is_connected = MagicMock(return_value=True)
+            mock_client.is_connected = MagicMock(return_value=True)  # Not async
 
             mock_auth_state = MagicMock(spec=AuthState)
             mock_auth_state.session_name = session_id
             mock_auth_state.auth_id = auth_id
-            mock_auth_state.phone = "+10005551234"
+            mock_auth_state.phone = "+1234567890"
             mock_auth_state.client = mock_client
 
             mock_auth_manager = MagicMock()
             mock_auth_manager.get_auth_state = AsyncMock(return_value=mock_auth_state)
             mock_auth_manager.remove_auth_state = AsyncMock()
-            mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+            mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))  # Not locked
             mock_auth_manager_getter.return_value = mock_auth_manager
 
             mock_bus = MagicMock()
@@ -432,8 +385,15 @@ class TestConnectFlow2FA:
             mock_bus.publish = mock_publish
             mock_bus_getter.return_value = mock_bus
 
-            # _finalize_reconnect_auth is an async function
-            mock_finalize.return_value = None
+            # Mock session manager
+            async def mock_connect_fn(sid):
+                # Simulate successful connect by publishing 'connected'
+                await mock_publish(sid, "connected")
+
+            mock_manager = MagicMock()
+            mock_manager._add_session = MagicMock()
+            mock_manager.connect = mock_connect_fn  # Async function that publishes
+            mock_manager_getter.return_value = mock_manager
 
             # Mock Request object
             mock_request = MagicMock()
@@ -441,12 +401,9 @@ class TestConnectFlow2FA:
             # Execute
             await verify_2fa(mock_request, session_id, auth_id, password)
 
-            # Verify: _finalize_reconnect_auth called (which publishes 'connected')
-            mock_finalize.assert_called_once()
-            # Verify: reconnect_success.html template returned
+            # Verify: SSE event 'connected' published
             assert any(
-                "reconnect_success" in str(call)
-                for call in mock_templates.TemplateResponse.call_args_list
+                call[0][1] == "connected" for call in mock_publish.call_args_list
             )
 
 

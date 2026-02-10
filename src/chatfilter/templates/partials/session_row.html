@@ -32,24 +32,12 @@
             {%- elif session.state == 'banned' -%}
                 <span class="status-icon" aria-hidden="true">⛔</span>
                 {{ _("Banned") }}
-                <span class="status-icon" aria-hidden="true">⚠️</span>
-                {{ _("Flood Wait") }}
-                <span class="status-icon" aria-hidden="true">⚠️</span>
-                {{ _("Proxy Error") }}
             {%- elif session.state == 'not_configured' -%}
                 <span class="status-icon" aria-hidden="true">⚙️</span>
                 {{ _("Not configured") }}
-                <span class="status-icon" aria-hidden="true">⚙️</span>
-                {{ _("Proxy missing") }}
-                <span class="status-icon" aria-hidden="true">💥</span>
-                {{ _("Corrupted") }}
-                <span class="status-icon" aria-hidden="true">⏱️</span>
-                {{ _("Session Expired") }}
             {%- elif session.state == 'error' -%}
                 <span class="status-icon" aria-hidden="true">⚠️</span>
                 {{ _("Error") }}
-                <span class="status-icon" aria-hidden="true">⚙️</span>
-                {{ _("Needs API ID") }}
             {%- elif session.state == 'needs_code' -%}
                 <span class="status-icon" aria-hidden="true">📱</span>
                 {{ _("Needs Verification Code") }}
@@ -91,17 +79,8 @@
                     <span class="btn-text">{{ _("Wait...") }}</span>
                     <span class="spinner"></span>
                 </button>
-                {# Corrupted session - show message, user must delete #}
-                <button class="btn btn-sm btn-danger session-connect-btn" disabled
-                        aria-label="{{ _('Session corrupted') }}"
-                        title="{{ session.error_message or _('Session file is corrupted. Please delete and recreate.') }}">
-                    <span class="btn-text">{{ _("Corrupted") }}</span>
-                </button>
-                {# Bug 2: Show error message inline if available #}
-                {% if session.error_message %}
-                <small class="text-danger d-block mt-1" style="font-size: 0.75rem;">{{ session.error_message }}</small>
-                {% endif %}
-                {# Error states - show Retry only if retry_available is True or not set (backward compat) #}
+                {% elif session.state == 'error' %}
+                {# Error state - show Retry button with error tooltip #}
                 {% if session.retry_available is none or session.retry_available %}
                 <button class="btn btn-sm btn-danger session-connect-btn"
                         hx-post="/api/sessions/{{ session.session_id }}/connect"
@@ -113,23 +92,15 @@
                     {{ _("Retry") }}
                 </button>
                 {% else %}
-                {# Permanent error - show disabled button with error message #}
                 <button class="btn btn-sm btn-danger session-connect-btn" disabled
                         aria-label="{{ _('Permanent error') }}"
                         title="{{ session.error_message or _('Permanent error - cannot retry') }}">
                     {{ _("Error") }}
                 </button>
                 {% endif %}
-                {# Bug 2: Show error message inline if available #}
                 {% if session.error_message %}
                 <small class="text-danger d-block mt-1" style="font-size: 0.75rem;">{{ session.error_message }}</small>
                 {% endif %}
-                {# Needs API credentials - show configure button #}
-                <button class="btn btn-sm btn-warning session-connect-btn" disabled
-                        aria-label="{{ _('Configure API credentials') }}"
-                        title="{{ _('Please configure API ID and hash in Edit section') }}">
-                    <span class="btn-text">{{ _("Configure") }}</span>
-                </button>
                 {% elif session.state == 'needs_code' %}
                 {# Verification code required #}
                 <button class="btn btn-sm {% if session.error_message %}btn-warning{% else %}btn-info{% endif %} session-code-modal-btn"
@@ -161,16 +132,6 @@
                         {%- endif -%}
                     </span>
                     <span class="spinner" style="display: none;"></span>
-                </button>
-                {# Session expired - show Reconnect button to initiate re-auth flow #}
-                <button class="btn btn-sm btn-warning session-connect-btn"
-                        hx-post="/api/sessions/{{ session.session_id }}/connect"
-                        hx-target="#session-{{ session.session_id }}"
-                        hx-swap="outerHTML"
-                        hx-disabled-elt="this"
-                        aria-label="{{ _('Reconnect session') }}"
-                        title="{{ session.error_message or _('Session expired - click to reconnect') }}">
-                    {{ _("Reconnect") }}
                 </button>
                 {% elif session.state == 'banned' %}
                 {# Banned - cannot retry, account issue #}
