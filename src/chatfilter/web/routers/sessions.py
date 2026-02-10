@@ -2211,6 +2211,22 @@ async def start_auth_flow(
         else:
             logger.info(f"Session '{safe_name}' saved without credentials (will need config later)")
 
+        # Create minimal config.json so session is discoverable by list_stored_sessions()
+        # Include phone for visibility, api_id/api_hash/proxy_id as provided (can be None)
+        session_config: dict[str, int | str | None] = {
+            "api_id": api_id,
+            "api_hash": api_hash,
+            "proxy_id": proxy_id,
+            "phone": phone,
+            "source": "phone",  # Credentials came from add account form
+        }
+        config_path = session_dir / "config.json"
+        config_content = json.dumps(session_config, indent=2).encode("utf-8")
+        atomic_write(config_path, config_content)
+        secure_file_permissions(config_path)
+
+        logger.info(f"Session '{safe_name}' config.json created (discoverable)")
+
         # Return success message
         return templates.TemplateResponse(
             request=request,
