@@ -3156,6 +3156,7 @@ class TestVerifyCode2FAAutoEntry:
 
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
+            mock_mgr.get_auth_state_by_session = MagicMock(return_value=auth_state)
             mock_mgr.remove_auth_state = AsyncMock()
             mock_mgr.update_auth_state = AsyncMock()
             mock_mgr.check_auth_lock = AsyncMock(return_value=(False, 0))
