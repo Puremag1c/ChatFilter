@@ -3917,13 +3917,13 @@ async def verify_code(
 
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
         # Proxy connection failure
-        # Update session state to proxy_error and notify SSE subscribers
+        # Update session state to needs_config and notify SSE subscribers
         session_dir = ensure_data_dir() / safe_name
         account_info = load_account_info(session_dir) or {}
-        account_info["status"] = "proxy_error"
+        account_info["status"] = "needs_config"
         account_info["error_message"] = f"Proxy connection failed during code verification: {type(e).__name__}"
         save_account_info(session_dir, account_info)
-        await get_event_bus().publish(safe_name, "proxy_error")
+        await get_event_bus().publish(safe_name, "needs_config")
 
         logger.error(f"Proxy connection failed during code verification for session '{safe_name}': {e}")
         # Use reconnect-specific template since we have session_id in the URL
@@ -3940,13 +3940,13 @@ async def verify_code(
         )
 
     except TimeoutError:
-        # Update session state to proxy_error for timeout and notify SSE subscribers
+        # Update session state to needs_config for timeout and notify SSE subscribers
         session_dir = ensure_data_dir() / safe_name
         account_info = load_account_info(session_dir) or {}
-        account_info["status"] = "proxy_error"
+        account_info["status"] = "needs_config"
         account_info["error_message"] = "Proxy connection timeout during code verification"
         save_account_info(session_dir, account_info)
-        await get_event_bus().publish(safe_name, "proxy_error")
+        await get_event_bus().publish(safe_name, "needs_config")
 
         # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
@@ -4202,13 +4202,13 @@ async def verify_2fa(
 
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
         # Proxy connection failure
-        # Update session state to proxy_error and notify SSE subscribers
+        # Update session state to needs_config and notify SSE subscribers
         session_dir = ensure_data_dir() / safe_name
         account_info = load_account_info(session_dir) or {}
-        account_info["status"] = "proxy_error"
+        account_info["status"] = "needs_config"
         account_info["error_message"] = f"Proxy connection failed during 2FA verification: {type(e).__name__}"
         save_account_info(session_dir, account_info)
-        await get_event_bus().publish(safe_name, "proxy_error")
+        await get_event_bus().publish(safe_name, "needs_config")
 
         logger.error(f"Proxy connection failed during 2FA verification for session '{safe_name}': {e}")
         return templates.TemplateResponse(
@@ -4222,13 +4222,13 @@ async def verify_2fa(
         )
 
     except TimeoutError:
-        # Update session state to proxy_error for timeout and notify SSE subscribers
+        # Update session state to needs_config for timeout and notify SSE subscribers
         session_dir = ensure_data_dir() / safe_name
         account_info = load_account_info(session_dir) or {}
-        account_info["status"] = "proxy_error"
+        account_info["status"] = "needs_config"
         account_info["error_message"] = "Proxy connection timeout during 2FA verification"
         save_account_info(session_dir, account_info)
-        await get_event_bus().publish(safe_name, "proxy_error")
+        await get_event_bus().publish(safe_name, "needs_config")
 
         return templates.TemplateResponse(
             request=request,
