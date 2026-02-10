@@ -3078,11 +3078,13 @@ async def connect_session(
     try:
         safe_name = sanitize_session_name(session_id)
     except ValueError as e:
-        session_data = {
-            "session_id": session_id,
-            "state": "error",
-            "error_message": str(e),
-        }
+        session_data = SessionListItem(
+            session_id=session_id,
+            state="error",
+            error_message=str(e),
+            has_session_file=False,
+            retry_available=False,  # Invalid session name is permanent error
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
@@ -3093,11 +3095,13 @@ async def connect_session(
     # Check if operation already in progress (prevents race condition)
     lock = await _get_session_lock(safe_name)
     if lock.locked():
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": "Operation already in progress",
-        }
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="error",
+            error_message="Operation already in progress",
+            has_session_file=False,
+            retry_available=True,  # Transient error, can retry later
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
@@ -3112,11 +3116,13 @@ async def connect_session(
     # Check if session exists (must have at least config.json)
     # Note: session.session can be missing (will trigger send_code flow)
     if not config_path.exists():
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": "Session not found",
-        }
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="error",
+            error_message="Session not found",
+            has_session_file=False,
+            retry_available=False,  # No config = permanent error
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
@@ -3127,11 +3133,13 @@ async def connect_session(
     # Check if session is properly configured
     config_status, _config_reason = get_session_config_status(session_dir)
     if config_status == "needs_config":
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": "Session configuration incomplete",
-        }
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="error",
+            error_message="Session configuration incomplete",
+            has_session_file=session_path.exists(),
+            retry_available=False,  # Must configure first
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
@@ -3145,11 +3153,13 @@ async def connect_session(
     info = session_manager.get_info(safe_name)
     if info and info.state.value in ("connected", "connecting"):
         # Session is already connected or connecting
-        session_data = {
-            "session_id": safe_name,
-            "state": info.state.value,
-            "error_message": None,
-        }
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state=info.state.value,
+            error_message=None,
+            has_session_file=session_path.exists(),
+            retry_available=None,
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
@@ -3169,11 +3179,13 @@ async def connect_session(
         # AC2: Session file doesn't exist - trigger send_code flow instead of error
         account_info = load_account_info(session_dir)
         if not account_info or not account_info.get("phone"):
-            session_data = {
-                "session_id": safe_name,
-                "state": "error",
-                "error_message": "Phone number is required for new session",
-            }
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="error",
+                error_message="Phone number is required for new session",
+                has_session_file=False,
+                retry_available=False,  # Must configure phone first
+            )
             return templates.TemplateResponse(
                 request=request,
                 name="partials/session_row.html",
@@ -3183,11 +3195,13 @@ async def connect_session(
 
         phone = account_info["phone"]
         if not isinstance(phone, str):
-            session_data = {
-                "session_id": safe_name,
-                "state": "error",
-                "error_message": "Invalid phone number format",
-            }
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="error",
+                error_message="Invalid phone number format",
+                has_session_file=False,
+                retry_available=False,  # Must fix phone format first
+            )
             return templates.TemplateResponse(
                 request=request,
                 name="partials/session_row.html",
@@ -3211,11 +3225,13 @@ async def connect_session(
         # reverting the "connecting" state we just set.
         # The SSE event from _send_verification_code_and_create_auth will
         # update the UI when the code is sent (needs_code) or on error.
-        session_data = {
-            "session_id": safe_name,
-            "state": "connecting",
-            "error_message": None,
-        }
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="connecting",
+            error_message=None,
+            has_session_file=False,
+            retry_available=None,
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
@@ -3225,11 +3241,13 @@ async def connect_session(
         # Validation error (bad config, missing files, etc.)
         from chatfilter.telegram.error_mapping import get_user_friendly_message
         error_message = get_user_friendly_message(e)
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": error_message,
-        }
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="error",
+            error_message=error_message,
+            has_session_file=session_path.exists(),
+            retry_available=True,  # Validation errors are usually transient
+        )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
