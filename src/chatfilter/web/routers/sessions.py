@@ -3671,12 +3671,9 @@ async def disconnect_session(
 ) -> HTMLResponse:
     """Disconnect a session from Telegram.
 
-    Returns HTML partial with updated button state.
+    Returns empty response; SSE OOB swap handles DOM update.
     """
-    from chatfilter.web.app import get_templates
     from chatfilter.web.dependencies import get_session_manager
-
-    templates = get_templates()
 
     try:
         safe_name = sanitize_session_name(session_id)
@@ -3691,69 +3688,26 @@ async def disconnect_session(
     # Check current session state before attempting disconnect
     info = session_manager.get_info(safe_name)
     if info and info.state.value in ("disconnected", "disconnecting"):
-        # Session is already disconnected or disconnecting
-        session_dir = ensure_data_dir() / safe_name
-        config_status, _config_reason = get_session_config_status(session_dir)
-        session_data = {
-            "session_id": safe_name,
-            "state": config_status,
-            "error_message": None,
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context=get_template_context(request, session=session_data),
-            headers={"HX-Trigger": "refreshSessions"},
-        )
+        # Session is already disconnected or disconnecting — DOM already correct
+        return HTMLResponse(content="", headers={"HX-Reswap": "none"})
 
     try:
-        # Disconnect
+        # Disconnect — this publishes "disconnected" via SSE event bus
+        # (session_manager.py:440), which triggers an OOB swap that updates the <tr> in the DOM.
         await session_manager.disconnect(safe_name)
 
-        # Get updated state - check config status since session might not be registered anymore
-        session_dir = ensure_data_dir() / safe_name
-        config_status, _config_reason = get_session_config_status(session_dir)
-
-        # NOTE: session_manager.disconnect() already publishes "disconnected" via event bus,
-        # so we do NOT publish again here to avoid a double SSE OOB swap race condition
-        # that causes htmx:swapError when the HTMX response tries to outerHTML a detached element.
-
-        # Create session object for template
-        session_data = {
-            "session_id": safe_name,
-            "state": config_status,
-            "error_message": None,
-        }
-
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context=get_template_context(request, session=session_data),
-            headers={"HX-Trigger": "refreshSessions"},
-        )
+        # Return empty response with HX-Reswap:none so HTMX doesn't also try to swap the row,
+        # which would race with SSE and cause htmx:swapError on the detached element.
+        return HTMLResponse(content="", headers={"HX-Reswap": "none"})
 
     except Exception as e:
         logger.exception(f"Failed to disconnect session '{safe_name}'")
 
-        # Get user-friendly error message
-        from chatfilter.telegram.error_mapping import get_user_friendly_message
-        error_message = get_user_friendly_message(e)
-
-        # Publish state change event for SSE
+        # Publish state change event for SSE — this triggers OOB swap to update the row
         await get_event_bus().publish(safe_name, "error")
 
-        # Create session object for template with error
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": error_message,
-        }
-
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context=get_template_context(request, session=session_data),
-        )
+        # Return empty response; SSE OOB swap handles the DOM update.
+        return HTMLResponse(content="", headers={"HX-Reswap": "none"})
 
 
 @router.post("/api/sessions/{session_id}/verify-code", response_class=HTMLResponse)
