@@ -1192,10 +1192,6 @@ button[disabled].htmx-request {
     color: var(--warning);
 }
 
-.session-status.proxy_missing {
-    color: var(--danger);
-}
-
 .session-actions {
     display: flex;
     gap: 0.5rem; /* 8px spacing between buttons for mobile accessibility */
@@ -3249,9 +3245,12 @@ body:has(.update-notification.show) {
     color: var(--warning);
 }
 
-.account-status.status-proxy_missing,
-.account-status.status-error,
-.account-status.status-proxy_error {
+.account-status.status-needs_config {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.account-status.status-error {
     background: var(--danger-bg);
     color: var(--danger);
 }
@@ -3259,16 +3258,6 @@ body:has(.update-notification.show) {
 .account-status.status-banned {
     background: var(--danger-bg);
     color: var(--danger);
-}
-
-.account-status.status-flood_wait {
-    background: var(--warning-bg);
-    color: var(--warning);
-}
-
-.account-status.status-session_expired {
-    background: var(--warning-bg);
-    color: var(--warning);
 }
 
 .account-status.status-connecting,
