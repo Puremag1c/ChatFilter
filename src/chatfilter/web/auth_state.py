@@ -36,6 +36,7 @@ class AuthStep(str, Enum):
     PHONE_SENT = "phone_sent"  # Code sent, waiting for user to enter code
     CODE_INVALID = "code_invalid"  # Code was invalid, user can retry
     NEED_2FA = "need_2fa"  # 2FA password required
+    NEED_CONFIRMATION = "need_confirmation"  # Device confirmation required ("Is this you?" prompt)
     COMPLETED = "completed"  # Auth successful, session created
     FAILED = "failed"  # Auth failed permanently
 

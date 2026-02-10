@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Device confirmation detection**: Fixed Telegram "Is this you?" confirmation showing fake "connected" status. Now shows "Awaiting Confirmation" with clear message to confirm in other Telegram app, auto-updates when confirmed
+
 ## [0.8.4] - 2026-02-10
 
 ### Fixed

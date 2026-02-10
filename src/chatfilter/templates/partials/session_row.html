@@ -9,6 +9,7 @@
               {% if session.error_message %}title="{{ session.error_message }}"
               {% elif session.state == 'disconnected' and not session.has_session_file %}title="{{ _('No cached session - authorization required') }}"
               {% elif session.state == 'banned' %}title="{{ _('Permanent error: Account has been banned by Telegram') }}"
+              {% elif session.state == 'needs_confirmation' %}title="{{ _('Please confirm this login in your other Telegram app. This will auto-update when confirmed.') }}"
               {% elif session.state == 'error' %}title="{{ _('Temporary error: Connection issue - retry may help') }}"
               {% elif session.state == 'needs_config' %}title="{{ _('API credentials required') }}"
               {% endif %}>
@@ -41,6 +42,9 @@
             {%- elif session.state == 'needs_2fa' -%}
                 <span class="status-icon" aria-hidden="true">🔐</span>
                 {{ _("Needs 2FA Password") }}
+            {%- elif session.state == 'needs_confirmation' -%}
+                <span class="status-icon spinner-small" aria-hidden="true"></span>
+                {{ _("Awaiting Confirmation") }}
             {%- else -%}
                 <span class="status-icon" aria-hidden="true">?</span>
                 {{ session.state }}
@@ -129,6 +133,14 @@
                         {%- endif -%}
                     </span>
                     <span class="spinner" style="display: none;"></span>
+                </button>
+                {% elif session.state == 'needs_confirmation' %}
+                {# Device confirmation required - waiting for user to confirm on another device #}
+                <button class="btn btn-sm btn-info" disabled
+                        aria-label="{{ _('Waiting for device confirmation') }}"
+                        title="{{ _('Please confirm this login in your other Telegram app. This will auto-update when confirmed.') }}">
+                    <span class="btn-text">{{ _("Confirm in Telegram") }}</span>
+                    <span class="spinner-small" aria-hidden="true"></span>
                 </button>
                 {% elif session.state == 'banned' %}
                 {# Banned - cannot retry, account issue #}

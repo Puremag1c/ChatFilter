@@ -8,12 +8,13 @@ Each transition triggers both an HTML response update and an SSE event publicati
 
 States
 ------
-Core states (8-state model):
+Core states (9-state model):
 - disconnected: Session is ready but not connected to Telegram
 - connected: Session is actively connected to Telegram
 - connecting: Transient state during connection establishment
 - needs_code: Waiting for SMS/app verification code
 - needs_2fa: Waiting for 2FA password
+- needs_confirmation: Waiting for device confirmation in another Telegram client ("Is this you?")
 - needs_config: Configuration required (API ID/hash, proxy misconfigured)
 - banned: Account banned by Telegram (terminal state)
 - error: Generic error state (includes flood_wait, expired/corrupted sessions - auto-handled by connect flow)
@@ -2685,6 +2686,113 @@ async def _complete_auth_flow(
         )
 
 
+
+
+async def _handle_needs_confirmation(
+    safe_name: str,
+    auth_id: str,
+    auth_manager: AuthStateManager,
+    request: Request,
+    log_context: str,
+) -> templates.TemplateResponse:
+    """Return needs_confirmation session_row and update auth state.
+
+    Helper to avoid code duplication across verify-code, verify-2fa, and auto-2FA paths.
+
+    Args:
+        safe_name: Sanitized session name
+        auth_id: Auth flow ID
+        auth_manager: Auth state manager
+        request: FastAPI request for template rendering
+        log_context: Context string for log message (e.g., "verify-code", "auto 2FA")
+
+    Returns:
+        TemplateResponse with needs_confirmation session_row
+    """
+    from chatfilter.web.auth_state import AuthStep
+    from chatfilter.web.events import get_event_bus
+
+    # Update auth state to track confirmation
+    await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_CONFIRMATION)
+
+    # Publish SSE event so UI updates
+    await get_event_bus().publish(safe_name, "needs_confirmation")
+
+    logger.info(f"Session '{safe_name}' requires device confirmation ({log_context})")
+
+    # Return needs_confirmation session_row
+    session_path = ensure_data_dir() / safe_name / "session.session"
+    session_data = SessionListItem(
+        session_id=safe_name,
+        state="needs_confirmation",
+        auth_id=auth_id,
+        error_message=None,
+        has_session_file=session_path.exists(),
+        retry_available=None,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_row.html",
+        context=get_template_context(request, session=session_data),
+    )
+
+
+async def _check_device_confirmation(client: TelegramClient) -> bool:
+    """Check if current session requires device confirmation.
+
+    After successful sign_in, Telegram may require the user to confirm
+    the login from another device ("Is this you?" prompt).
+
+    Args:
+        client: Connected and authenticated TelegramClient
+
+    Returns:
+        True if session is waiting for device confirmation, False otherwise
+
+    Raises:
+        TimeoutError: If API call times out
+        TelegramError: Other Telegram API errors that indicate real problems
+    """
+    import asyncio
+    from telethon.tl.functions.account import GetAuthorizationsRequest
+    from telethon.errors import RPCError
+
+    try:
+        # Get all authorizations for this account
+        authorizations = await asyncio.wait_for(
+            client(GetAuthorizationsRequest()),
+            timeout=10.0
+        )
+
+        # Find current session (the one we just logged into)
+        current_session = next(
+            (auth for auth in authorizations.authorizations if auth.current),
+            None
+        )
+
+        # Check if current session is unconfirmed
+        # unconfirmed flag indicates "Is this you?" pending
+        if current_session and getattr(current_session, 'unconfirmed', False):
+            return True
+
+        return False
+
+    except (TimeoutError, asyncio.TimeoutError):
+        # Timeout checking confirmation status — log but don't fail auth
+        # Better to proceed than block on edge case
+        logger.warning("Timeout checking device confirmation status - assuming no confirmation needed")
+        return False
+    except RPCError as e:
+        # Telegram API error — this could be a real problem, re-raise
+        logger.error(f"Telegram API error checking device confirmation: {e}")
+        raise
+    except Exception as e:
+        # Unexpected error — log and assume no confirmation needed
+        # (better to proceed than block, but log for investigation)
+        logger.warning(f"Unexpected error checking device confirmation status: {e}", exc_info=True)
+        return False
+
+
 async def _finalize_reconnect_auth(
     client: TelegramClient,
     auth_state: AuthState,
@@ -3785,6 +3893,19 @@ async def verify_code(
             timeout=30.0,
         )
 
+
+        # Check if session requires device confirmation ("Is this you?" prompt)
+        needs_confirmation = await _check_device_confirmation(client)
+
+        if needs_confirmation:
+            return await _handle_needs_confirmation(
+                safe_name=safe_name,
+                auth_id=auth_id,
+                auth_manager=auth_manager,
+                request=request,
+                log_context="verify-code",
+            )
+
         # Success! Finalize reconnect auth
         try:
             await _finalize_reconnect_auth(
@@ -3844,6 +3965,19 @@ async def verify_code(
                     client.sign_in(password=stored_2fa_password),
                     timeout=30.0,
                 )
+
+
+                # Check if session requires device confirmation
+                needs_confirmation = await _check_device_confirmation(client)
+
+                if needs_confirmation:
+                    return await _handle_needs_confirmation(
+                        safe_name=safe_name,
+                        auth_id=auth_id,
+                        auth_manager=auth_manager,
+                        request=request,
+                        log_context="auto-2FA",
+                    )
 
                 # Success! Finalize reconnect auth
                 try:
@@ -4179,6 +4313,19 @@ async def verify_2fa(
             client.sign_in(password=password),
             timeout=30.0,
         )
+
+
+        # Check if session requires device confirmation
+        needs_confirmation = await _check_device_confirmation(client)
+
+        if needs_confirmation:
+            return await _handle_needs_confirmation(
+                safe_name=safe_name,
+                auth_id=auth_id,
+                auth_manager=auth_manager,
+                request=request,
+                log_context="verify-2fa",
+            )
 
         # Success! Finalize reconnect auth
         try:
