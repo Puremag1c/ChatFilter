@@ -63,6 +63,9 @@ class AuthState:
     # Telethon client (kept alive during auth flow)
     client: TelegramClient | None = None
 
+    # Background polling task (for device confirmation)
+    polling_task: asyncio.Task | None = None
+
     # Failed attempts tracking
     failed_attempts: int = 0
     locked_until: float = 0.0  # Timestamp when lock expires
@@ -288,13 +291,23 @@ class AuthStateManager:
     async def _remove_state_unlocked(self, auth_id: str) -> None:
         """Remove a state without acquiring the lock (caller must hold lock)."""
         state = self._states.pop(auth_id, None)
-        if state and state.client:
-            try:
-                if state.client.is_connected():
-                    await state.client.disconnect()
-                logger.info(f"Disconnected and removed auth state {auth_id}")
-            except Exception as e:
-                logger.warning(f"Error disconnecting client for auth {auth_id}: {e}")
+        if state:
+            # Cancel background polling task first (if exists)
+            if state.polling_task and not state.polling_task.done():
+                state.polling_task.cancel()
+                # Wait for cancellation to complete
+                with contextlib.suppress(asyncio.CancelledError):
+                    await state.polling_task
+                logger.debug(f"Cancelled polling task for auth {auth_id}")
+
+            # Then disconnect client
+            if state.client:
+                try:
+                    if state.client.is_connected():
+                        await state.client.disconnect()
+                    logger.info(f"Disconnected and removed auth state {auth_id}")
+                except Exception as e:
+                    logger.warning(f"Error disconnecting client for auth {auth_id}: {e}")
 
     async def _cleanup_expired_unlocked(self) -> None:
         """Clean up expired states (caller must hold lock)."""
