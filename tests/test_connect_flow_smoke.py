@@ -1,16 +1,18 @@
 """Smoke tests for connection flow covering all SPEC scenarios.
 
-Tests all 5 scenarios from SPEC.md:
+Tests all 6 scenarios from SPEC.md:
 1. Save without api_id/proxy → disconnected in list
 2. Connect without credentials → needs_config + Edit button
 3. Connect with expired session → auto send_code → needs_code
 4. Connect normal → connecting → needs_code or connected
 5. Banned account → banned + tooltip
+6. Connect with corrupted session → auto send_code → needs_code
 
 Test approach: Mock Telethon client, simulate each scenario, verify UI state via SSE events.
 """
 
 import json
+import struct
 import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch, call
@@ -295,3 +297,60 @@ class TestConnectFlowSmoke:
             assert any(
                 call[0][1] == "banned" for call in mock_event_bus.publish.call_args_list
             )
+
+    @pytest.mark.asyncio
+    async def test_scenario_6_corrupted_session_auto_send_code(
+        self, tmp_path, mock_event_bus, mock_session_manager, mock_session_lock
+    ):
+        """Scenario 6: Connect with corrupted session → auto send_code → needs_code.
+
+        This scenario tests auto-recovery from corrupted session (struct.error).
+        Uses same recovery path as expired session (SessionReauthRequiredError).
+        Should delete old session file and trigger send_code flow.
+        """
+        from chatfilter.telegram.session_manager import SessionReauthRequiredError
+        import struct
+
+        session_id = "test_session"
+        session_dir = tmp_path / session_id
+        session_dir.mkdir()
+
+        # Create valid config with credentials (so config check passes)
+        config = {"api_id": 12345, "api_hash": "test_hash", "proxy_id": "proxy1"}
+        (session_dir / "config.json").write_text(json.dumps(config))
+
+        # Create account_info.json with phone
+        account_info = {"phone": "+1234567890"}
+        (session_dir / "account_info.json").write_text(json.dumps(account_info))
+
+        # Create session file (simulates existing corrupted session)
+        session_path = session_dir / f"{session_id}.session"
+        session_path.write_bytes(b"SQLite format 3\x00" + b"\x00" * 100)
+
+        # Setup: Factory with session path
+        factory = MagicMock()
+        factory.session_path = session_path
+        mock_session_manager._factories[session_id] = factory
+
+        # session_manager.connect() wraps struct.error in SessionReauthRequiredError
+        original = struct.error("unpack requires a buffer of 4 bytes")
+        wrapped = SessionReauthRequiredError("Session corrupted")
+        wrapped.__cause__ = original
+        mock_session_manager.connect.side_effect = wrapped
+
+        with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
+             patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
+             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
+             patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_delete, \
+             patch("chatfilter.web.routers.sessions._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
+             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
+
+            from chatfilter.web.routers.sessions import _do_connect_in_background_v2
+
+            await _do_connect_in_background_v2(session_id)
+
+            # Verify: Should delete old session file and trigger send_code
+            mock_delete.assert_called_once()
+            mock_send_code.assert_called_once()
+            # _send_verification_code_with_timeout internally publishes 'needs_code'
