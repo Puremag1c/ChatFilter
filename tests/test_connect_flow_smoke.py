@@ -152,36 +152,49 @@ class TestConnectFlowSmoke:
 
     @pytest.mark.asyncio
     async def test_scenario_3_expired_session_auto_send_code(
-        self, session_dir, mock_event_bus, mock_session_manager, mock_session_lock
+        self, tmp_path, mock_event_bus, mock_session_manager, mock_session_lock
     ):
         """Scenario 3: Connect with expired session → auto send_code → needs_code.
 
         This scenario tests auto-recovery from expired session.
         Should delete old session file and trigger send_code flow (publishes 'needs_code').
         """
-        session_id = "test_session"
+        from chatfilter.telegram.session_manager import SessionReauthRequiredError
 
-        # Setup: Factory with session path
-        factory = MagicMock()
-        factory.session_path = session_dir / f"{session_id}.session"
-        factory.config_path = session_dir / "config.json"
-        mock_session_manager._factories[session_id] = factory
-        create_session_file(session_dir)
+        session_id = "test_session"
+        session_dir = tmp_path / session_id
+        session_dir.mkdir()
+
+        # Create valid config with credentials (so config check passes)
+        config = {"api_id": 12345, "api_hash": "test_hash", "proxy_id": "proxy1"}
+        (session_dir / "config.json").write_text(json.dumps(config))
 
         # Create account_info.json with phone
         account_info = {"phone": "+1234567890"}
-        account_info_file = session_dir / "account_info.json"
-        account_info_file.write_text(json.dumps(account_info))
+        (session_dir / "account_info.json").write_text(json.dumps(account_info))
 
-        # Mock connect to raise SessionExpiredError
-        mock_session_manager.connect.side_effect = SessionExpiredError("Session expired")
+        # Create session file (simulates existing session)
+        session_path = session_dir / f"{session_id}.session"
+        session_path.write_bytes(b"SQLite format 3\x00" + b"\x00" * 100)
+
+        # Setup: Factory with session path
+        factory = MagicMock()
+        factory.session_path = session_path
+        mock_session_manager._factories[session_id] = factory
+
+        # session_manager.connect() wraps SessionExpiredError in SessionReauthRequiredError
+        original = SessionExpiredError(request=None)
+        wrapped = SessionReauthRequiredError("Session expired")
+        wrapped.__cause__ = original
+        mock_session_manager.connect.side_effect = wrapped
 
         with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
-             patch("chatfilter.web.routers.sessions.get_event_bus", return_value=mock_event_bus), \
+             patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
              patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_delete, \
-             patch("chatfilter.web.routers.sessions._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code:
+             patch("chatfilter.web.routers.sessions._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
+             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
             from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
@@ -194,7 +207,7 @@ class TestConnectFlowSmoke:
 
     @pytest.mark.asyncio
     async def test_scenario_4_normal_connect_success(
-        self, session_dir, mock_event_bus, mock_session_manager, mock_session_lock
+        self, tmp_path, mock_event_bus, mock_session_manager, mock_session_lock
     ):
         """Scenario 4: Connect normal → connecting → connected.
 
@@ -202,19 +215,28 @@ class TestConnectFlowSmoke:
         Should call session_manager.connect() which publishes 'connected' SSE.
         """
         session_id = "test_session"
+        session_dir = tmp_path / session_id
+        session_dir.mkdir()
+
+        # Create valid config with credentials (so config check passes)
+        config = {"api_id": 12345, "api_hash": "test_hash", "proxy_id": "proxy1"}
+        (session_dir / "config.json").write_text(json.dumps(config))
+
+        # Create session file (simulates existing valid session)
+        session_path = session_dir / f"{session_id}.session"
+        session_path.write_bytes(b"SQLite format 3\x00" + b"\x00" * 100)
 
         # Setup: Factory with session path
         factory = MagicMock()
-        factory.session_path = session_dir / f"{session_id}.session"
-        factory.config_path = session_dir / "config.json"
+        factory.session_path = session_path
         mock_session_manager._factories[session_id] = factory
-        create_session_file(session_dir)
 
         # Mock connect to succeed (publishes 'connected' internally)
         mock_session_manager.connect = AsyncMock()
 
         with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
-             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock):
+             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
             from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
@@ -225,42 +247,51 @@ class TestConnectFlowSmoke:
 
     @pytest.mark.asyncio
     async def test_scenario_5_banned_account(
-        self, session_dir, mock_event_bus, mock_session_manager, mock_session_lock
+        self, tmp_path, mock_event_bus, mock_session_manager, mock_session_lock
     ):
         """Scenario 5: Banned account → banned + tooltip.
 
         This scenario tests connecting with a banned account.
         Should publish 'banned' SSE event.
         """
+        from chatfilter.telegram.session_manager import SessionInvalidError
+
         session_id = "test_session"
+        session_dir = tmp_path / session_id
+        session_dir.mkdir()
+
+        # Create valid config with credentials (so config check passes)
+        config = {"api_id": 12345, "api_hash": "test_hash", "proxy_id": "proxy1"}
+        (session_dir / "config.json").write_text(json.dumps(config))
+
+        # Create session file
+        session_path = session_dir / f"{session_id}.session"
+        session_path.write_bytes(b"SQLite format 3\x00" + b"\x00" * 100)
 
         # Setup: Factory exists
         factory = MagicMock()
-        factory.session_path = session_dir / f"{session_id}.session"
-        factory.config_path = session_dir / "config.json"
+        factory.session_path = session_path
         mock_session_manager._factories[session_id] = factory
 
-        # Mock connect to raise UserDeactivatedBanError
-        mock_session_manager.connect.side_effect = UserDeactivatedBanError("User is banned")
+        # session_manager.connect() wraps UserDeactivatedBanError in SessionInvalidError
+        original = UserDeactivatedBanError(request=None)
+        wrapped = SessionInvalidError("Account banned")
+        wrapped.__cause__ = original
+        mock_session_manager.connect.side_effect = wrapped
 
-        # Need to mock SessionState enum for state assignment
-        from chatfilter.telegram.session_manager import SessionState
-        mock_session_manager._sessions = {}
-
-        # CRITICAL: patch get_event_bus at module level (chatfilter.web.events)
-        # so that import inside _do_connect_in_background_v2 gets the mock
         with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
-             patch("chatfilter.web.routers.sessions.classify_error_state", return_value="banned"), \
              patch("chatfilter.telegram.error_mapping.get_user_friendly_message", return_value="Account banned"), \
              patch("chatfilter.web.routers.sessions.sanitize_error_message_for_client", return_value="Account banned"), \
              patch("chatfilter.web.routers.sessions._save_error_to_config"), \
-             patch("chatfilter.web.routers.sessions.SessionState", SessionState):
+             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
             from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
             await _do_connect_in_background_v2(session_id)
 
             # Verify: Should publish 'banned' SSE event
-            mock_event_bus.publish.assert_called_once_with(session_id, "banned")
+            assert any(
+                call[0][1] == "banned" for call in mock_event_bus.publish.call_args_list
+            )

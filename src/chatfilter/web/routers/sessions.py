@@ -2792,14 +2792,37 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
     from telethon.errors import (
         ApiIdInvalidError,
         AuthKeyUnregisteredError,
-        SessionRevokedError,
+        PhoneNumberBannedError,
         SessionExpiredError,
+        SessionRevokedError,
+        UserDeactivatedBanError,
+        UserDeactivatedError,
     )
     from chatfilter.telegram.client import SessionFileError
+    from chatfilter.telegram.session_manager import (
+        SessionConnectError,
+        SessionInvalidError,
+        SessionReauthRequiredError,
+    )
 
     from chatfilter.telegram.error_mapping import get_user_friendly_message
     from chatfilter.web.dependencies import get_session_manager
     from chatfilter.web.events import get_event_bus
+
+    # Exception types that indicate session file is invalid and needs auto-recovery
+    _SESSION_INVALID_CAUSES = (
+        AuthKeyUnregisteredError,
+        SessionRevokedError,
+        SessionExpiredError,
+        SessionFileError,
+        struct.error,
+    )
+    # Exception types that indicate account is banned (terminal state)
+    _BANNED_CAUSES = (
+        UserDeactivatedBanError,
+        UserDeactivatedError,
+        PhoneNumberBannedError,
+    )
 
     # Acquire per-session lock to prevent parallel operations
     lock = await _get_session_lock(session_id)
@@ -2878,61 +2901,49 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 _save_error_to_config(config_path, safe_error_message, retry_available=False)
             await get_event_bus().publish(session_id, "needs_config")
 
-        except (AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError, SessionFileError, struct.error) as e:
-            # CASE 5 & 6: Session file is invalid (expired/revoked auth key) or corrupted
-            # Auto-recover: delete session file and trigger send_code flow
-            logger.info(f"Session '{session_id}' has invalid/corrupted session ({type(e).__name__}), triggering reauth")
+        except (SessionInvalidError, SessionReauthRequiredError, SessionConnectError) as e:
+            # session_manager.connect() wraps Telethon errors:
+            #   SessionInvalidError  ← AuthKeyUnregistered, SessionRevoked, Banned
+            #   SessionReauthRequiredError ← SessionExpired, SessionPasswordNeeded
+            #   SessionConnectError  ← SessionFileError, struct.error, other
+            # Inspect __cause__ to determine correct action.
+            cause = e.__cause__
 
-            if not session_path or not config_path:
-                logger.error(f"Cannot reauth session '{session_id}': paths not available")
-                await get_event_bus().publish(session_id, "error")
-                return
-
-            # Securely delete invalid session file (overwrite with random data before unlink)
-            # secure_delete_file has internal fallback to regular unlink if secure deletion fails
-            secure_delete_file(session_path)
-
-            # Load account_info (handles corrupted JSON gracefully - returns None on parse errors)
-            session_dir = session_path.parent
-            account_info = load_account_info(session_dir)
-            if not account_info or "phone" not in account_info:
-                # Handle both cases:
-                # 1. account_info is None (corrupted/missing .account_info.json)
-                # 2. phone key missing from valid JSON
-                # → publish needs_config (not error) so user can fix via Edit button
-                logger.error(f"Cannot reauth session '{session_id}': phone number unknown or corrupted account info")
-                # Security: sanitize error message before publishing to client
-                error_message = _("Phone number required")
-                safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
-                # Bug 2 fix: save error message to config.json
+            if isinstance(cause, _BANNED_CAUSES):
+                # CASE 3: Account banned → terminal state
+                logger.warning(f"Session '{session_id}' is banned ({type(cause).__name__})")
                 if config_path:
+                    error_message = get_user_friendly_message(cause)
+                    safe_error_message = sanitize_error_message_for_client(error_message, "banned")
                     _save_error_to_config(config_path, safe_error_message, retry_available=False)
-                await get_event_bus().publish(session_id, "needs_config")
-                return
+                await get_event_bus().publish(session_id, "banned")
 
-            phone = str(account_info["phone"])
+            elif isinstance(cause, _SESSION_INVALID_CAUSES):
+                # CASE 5 & 6: Session expired/revoked/corrupted → auto-delete + send_code
+                await _handle_session_recovery(
+                    session_id, session_path, config_path, cause,
+                )
 
-            # Trigger send_code flow (with timeout protection)
-            await _send_verification_code_with_timeout(
-                session_id,
-                session_path,
-                config_path,
-                phone,
-            )
+            else:
+                # Unknown cause → classify and publish
+                logger.exception(f"Failed to connect session '{session_id}' in background")
+                error_message = get_user_friendly_message(e)
+                error_state = classify_error_state(error_message, exception=e)
+                safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+                if config_path:
+                    retry_available = error_state == "error"
+                    _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
+                await get_event_bus().publish(session_id, error_state)
 
         except asyncio.TimeoutError:
             logger.warning(f"Connection timeout for session '{session_id}'")
             error_message = "Connection timeout"
-            # Security: sanitize error message before publishing to client
             safe_error_message = sanitize_error_message_for_client(error_message, "timeout")
-            # Ensure session state is set to error
             if session_id in session_manager._sessions:
                 session_manager._sessions[session_id].state = SessionState.ERROR
                 session_manager._sessions[session_id].error_message = safe_error_message
-            # Bug 2 fix: save error message to config.json
             if config_path:
                 _save_error_to_config(config_path, safe_error_message, retry_available=True)
-            # Publish error via SSE
             await get_event_bus().publish(session_id, "error")
 
         except SessionBusyError:
@@ -2944,20 +2955,56 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
         except Exception as e:
             logger.exception(f"Failed to connect session '{session_id}' in background")
-            # Get classified error state
             error_message = get_user_friendly_message(e)
             error_state = classify_error_state(error_message, exception=e)
-            # Security: sanitize error message before publishing to client
             safe_error_message = sanitize_error_message_for_client(error_message, error_state)
-            # Bug 2 fix: save error message to config.json
             if config_path:
-                # Retry available depends on error type
-                # needs_config = no retry (user must fix config)
-                # error = retry available (transient error)
                 retry_available = error_state == "error"
                 _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
-            # Publish error state via SSE
             await get_event_bus().publish(session_id, error_state)
+
+
+async def _handle_session_recovery(
+    session_id: str,
+    session_path: Path | None,
+    config_path: Path | None,
+    cause: Exception,
+) -> None:
+    """Auto-recover from invalid/corrupted session: delete file and trigger send_code.
+
+    Handles CASE 5 (expired/revoked) and CASE 6 (corrupted) from the SPEC.
+    """
+    from chatfilter.web.events import get_event_bus
+
+    logger.info(f"Session '{session_id}' has invalid/corrupted session ({type(cause).__name__}), triggering reauth")
+
+    if not session_path or not config_path:
+        logger.error(f"Cannot reauth session '{session_id}': paths not available")
+        await get_event_bus().publish(session_id, "error")
+        return
+
+    # Securely delete invalid session file
+    secure_delete_file(session_path)
+
+    # Load account_info (handles corrupted JSON gracefully - returns None on parse errors)
+    session_dir = session_path.parent
+    account_info = load_account_info(session_dir)
+    if not account_info or "phone" not in account_info:
+        logger.error(f"Cannot reauth session '{session_id}': phone number unknown or corrupted account info")
+        error_message = _("Phone number required")
+        safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+        if config_path:
+            _save_error_to_config(config_path, safe_error_message, retry_available=False)
+        await get_event_bus().publish(session_id, "needs_config")
+        return
+
+    phone = str(account_info["phone"])
+    await _send_verification_code_with_timeout(
+        session_id,
+        session_path,
+        config_path,
+        phone,
+    )
 
 
 async def _send_verification_code_with_timeout(

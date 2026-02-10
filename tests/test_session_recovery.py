@@ -7,6 +7,10 @@ Tests verify that _do_connect_in_background_v2 automatically handles:
 - Corrupted session file → delete session.session → send_code → 'needs_code'
 
 User should NEVER see 'session_expired' or 'corrupted_session' state.
+
+NOTE: session_manager.connect() wraps Telethon errors in SessionInvalidError/
+SessionReauthRequiredError/SessionConnectError. Tests must use these wrappers
+with __cause__ set to the original Telethon error.
 """
 
 import json
@@ -16,7 +20,33 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from chatfilter.telegram.session_manager import (
+    SessionConnectError,
+    SessionInvalidError,
+    SessionReauthRequiredError,
+)
 from chatfilter.web.routers.sessions import _do_connect_in_background_v2
+
+
+def _wrap_as_invalid(original: Exception) -> SessionInvalidError:
+    """Wrap an exception as SessionInvalidError (mimics session_manager.connect)."""
+    wrapped = SessionInvalidError(f"Session permanently invalid: {type(original).__name__}")
+    wrapped.__cause__ = original
+    return wrapped
+
+
+def _wrap_as_reauth(original: Exception) -> SessionReauthRequiredError:
+    """Wrap an exception as SessionReauthRequiredError (mimics session_manager.connect)."""
+    wrapped = SessionReauthRequiredError(f"Reauth required: {type(original).__name__}")
+    wrapped.__cause__ = original
+    return wrapped
+
+
+def _wrap_as_connect_error(original: Exception) -> SessionConnectError:
+    """Wrap an exception as SessionConnectError (mimics session_manager.connect)."""
+    wrapped = SessionConnectError(f"Connection failed: {type(original).__name__}")
+    wrapped.__cause__ = original
+    return wrapped
 
 
 @pytest.fixture
@@ -81,6 +111,9 @@ async def test_authkey_unregistered_triggers_recovery(
     # Verify session file exists before test
     assert session_path.exists()
 
+    # session_manager.connect() wraps in SessionInvalidError
+    wrapped = _wrap_as_invalid(AuthKeyUnregisteredError(request=None))
+
     with (
         patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
         patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
@@ -90,13 +123,14 @@ async def test_authkey_unregistered_triggers_recovery(
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
         mock_sm = MagicMock()
         mock_factory = MagicMock()
         mock_factory.session_path = session_path
         mock_sm._factories = {session_id: mock_factory}
-        mock_sm.connect = AsyncMock(side_effect=AuthKeyUnregisteredError("Auth key not found"))
+        mock_sm.connect = AsyncMock(side_effect=wrapped)
         mock_get_sm.return_value = mock_sm
 
         mock_bus = MagicMock()
@@ -141,6 +175,9 @@ async def test_session_revoked_triggers_recovery(
 
     assert session_path.exists()
 
+    # session_manager.connect() wraps in SessionInvalidError
+    wrapped = _wrap_as_invalid(SessionRevokedError(request=None))
+
     with (
         patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
         patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
@@ -150,13 +187,14 @@ async def test_session_revoked_triggers_recovery(
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
         mock_sm = MagicMock()
         mock_factory = MagicMock()
         mock_factory.session_path = session_path
         mock_sm._factories = {session_id: mock_factory}
-        mock_sm.connect = AsyncMock(side_effect=SessionRevokedError("Session revoked"))
+        mock_sm.connect = AsyncMock(side_effect=wrapped)
         mock_get_sm.return_value = mock_sm
 
         mock_bus = MagicMock()
@@ -197,6 +235,9 @@ async def test_session_expired_triggers_recovery(
 
     assert session_path.exists()
 
+    # session_manager.connect() wraps SessionExpiredError in SessionReauthRequiredError
+    wrapped = _wrap_as_reauth(SessionExpiredError(request=None))
+
     with (
         patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
         patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
@@ -206,13 +247,14 @@ async def test_session_expired_triggers_recovery(
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
         mock_sm = MagicMock()
         mock_factory = MagicMock()
         mock_factory.session_path = session_path
         mock_sm._factories = {session_id: mock_factory}
-        mock_sm.connect = AsyncMock(side_effect=SessionExpiredError("Session expired"))
+        mock_sm.connect = AsyncMock(side_effect=wrapped)
         mock_get_sm.return_value = mock_sm
 
         mock_bus = MagicMock()
@@ -251,6 +293,9 @@ async def test_recovery_without_phone_publishes_error(
     session_id = "test_session"
     session_path = mock_session_file
 
+    # session_manager.connect() wraps in SessionInvalidError
+    wrapped = _wrap_as_invalid(AuthKeyUnregisteredError(request=None))
+
     with (
         patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
         patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
@@ -258,13 +303,14 @@ async def test_recovery_without_phone_publishes_error(
         patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
         patch("chatfilter.web.routers.sessions._save_error_to_config") as mock_save_error,
+        patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
         mock_sm = MagicMock()
         mock_factory = MagicMock()
         mock_factory.session_path = session_path
         mock_sm._factories = {session_id: mock_factory}
-        mock_sm.connect = AsyncMock(side_effect=AuthKeyUnregisteredError("Auth key not found"))
+        mock_sm.connect = AsyncMock(side_effect=wrapped)
         mock_get_sm.return_value = mock_sm
 
         mock_bus = MagicMock()

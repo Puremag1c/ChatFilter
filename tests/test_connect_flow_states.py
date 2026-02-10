@@ -547,9 +547,14 @@ class TestConnectFlowErrorRecovery:
 
     @pytest.mark.asyncio
     async def test_banned_terminal_state(self, tmp_path: Path) -> None:
-        """Test: banned → no action (terminal state, no recovery)."""
+        """Test: banned → no action (terminal state, no recovery).
+
+        session_manager.connect() wraps UserDeactivatedBanError in SessionInvalidError.
+        _do_connect_in_background_v2 inspects __cause__ and publishes 'banned'.
+        """
         from telethon.errors import UserDeactivatedBanError
 
+        from chatfilter.telegram.session_manager import SessionInvalidError
         from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
         session_id = "test_session"
@@ -564,6 +569,11 @@ class TestConnectFlowErrorRecovery:
         # Create session.session file
         session_path = session_dir / "session.session"
         session_path.write_bytes(b"dummy_session_data")
+
+        # Build wrapped exception (as session_manager.connect() does)
+        original = UserDeactivatedBanError(request=None)
+        wrapped = SessionInvalidError("Account banned")
+        wrapped.__cause__ = original
 
         # Mock dependencies
         with (
@@ -582,10 +592,8 @@ class TestConnectFlowErrorRecovery:
             mock_factory = MagicMock()
             mock_factory.session_path = session_path
             mock_manager._factories = {session_id: mock_factory}
-            # connect() raises banned error
-            mock_manager.connect = AsyncMock(
-                side_effect=UserDeactivatedBanError("User banned")
-            )
+            # connect() raises SessionInvalidError wrapping UserDeactivatedBanError
+            mock_manager.connect = AsyncMock(side_effect=wrapped)
             mock_manager_getter.return_value = mock_manager
 
             mock_bus = MagicMock()
@@ -601,9 +609,10 @@ class TestConnectFlowErrorRecovery:
             # Execute
             await _do_connect_in_background_v2(session_id)
 
-            # Verify: SSE event 'banned' published (handled by classify_error_state)
-            # The actual implementation catches this in the outer except block
-            assert mock_publish.called
+            # Verify: SSE event 'banned' published
+            assert any(
+                call[0][1] == "banned" for call in mock_publish.call_args_list
+            )
 
 
 class TestConnectFlowIntermediateStates:
@@ -639,9 +648,14 @@ class TestConnectFlowSessionExpiredRecovery:
 
     @pytest.mark.asyncio
     async def test_expired_session_auto_recovery(self, tmp_path: Path) -> None:
-        """Test: expired session → auto-delete → send_code (auto-recovery)."""
+        """Test: expired session → auto-delete → send_code (auto-recovery).
+
+        session_manager.connect() wraps AuthKeyUnregisteredError in SessionInvalidError.
+        _do_connect_in_background_v2 must inspect __cause__ to trigger recovery.
+        """
         from telethon.errors import AuthKeyUnregisteredError
 
+        from chatfilter.telegram.session_manager import SessionInvalidError
         from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
         session_id = "test_session"
@@ -661,6 +675,11 @@ class TestConnectFlowSessionExpiredRecovery:
         # Create EXPIRED session.session file
         session_path = session_dir / "session.session"
         session_path.write_bytes(b"expired_session_data")
+
+        # Build wrapped exception (as session_manager.connect() does)
+        original = AuthKeyUnregisteredError(request=None)
+        wrapped = SessionInvalidError("Session permanently invalid")
+        wrapped.__cause__ = original
 
         # Mock dependencies
         with (
@@ -684,10 +703,8 @@ class TestConnectFlowSessionExpiredRecovery:
             mock_factory = MagicMock()
             mock_factory.session_path = session_path
             mock_manager._factories = {session_id: mock_factory}
-            # connect() raises AuthKeyUnregisteredError
-            mock_manager.connect = AsyncMock(
-                side_effect=AuthKeyUnregisteredError("Auth key expired")
-            )
+            # connect() raises SessionInvalidError wrapping AuthKeyUnregisteredError
+            mock_manager.connect = AsyncMock(side_effect=wrapped)
             mock_manager_getter.return_value = mock_manager
 
             mock_bus = MagicMock()
