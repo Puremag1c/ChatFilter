@@ -84,6 +84,7 @@
     const operationTimers = new Map();
 
     function showTimeoutFeedback(element, sessionId, startTime) {
+        if (!element || !element.isConnected) return;
         const spinner = element.querySelector('.htmx-indicator, .spinner');
         if (!spinner) return;
 
@@ -157,14 +158,14 @@
                 clearInterval(timer.interval);
             }
 
-            // Clean up feedback message
-            const feedback = timer.element.querySelector('.operation-feedback');
-            if (feedback) {
-                feedback.remove();
-            }
-
-            // Reset button visibility
-            if (timer.element) {
+            // Only manipulate DOM if element is still connected
+            if (timer.element && timer.element.isConnected) {
+                // Clean up feedback message
+                const feedback = timer.element.querySelector('.operation-feedback');
+                if (feedback) {
+                    feedback.remove();
+                }
+                // Reset button visibility
                 timer.element.style.display = '';
             }
 
@@ -175,7 +176,8 @@
     // Clear on successful response
     document.body.addEventListener('htmx:afterRequest', function(evt) {
         const element = evt.detail.elt;
-        if (!element) return;
+        // Guard: element may have been removed from DOM by outerHTML swap
+        if (!element || !element.isConnected) return;
 
         const sessionId = element.dataset.sessionId ||
                          element.closest('[data-session-id]')?.dataset.sessionId ||
@@ -291,7 +293,8 @@
         }
 
         const triggerElement = evt.detail.elt;
-        if (!triggerElement) return;
+        // Guard: trigger element may have been removed from DOM by OOB swap
+        if (!triggerElement || !triggerElement.isConnected) return;
 
         // Determine which action succeeded based on button class
         let successMessage = null;
@@ -318,7 +321,7 @@
 
     // Helper: Extract action name from button element
     function getActionName(element) {
-        if (!element) return '{{ _("processing request") }}';
+        if (!element || !element.isConnected) return '{{ _("processing request") }}';
 
         if (element.classList.contains('session-connect-btn') ||
             element.closest('.session-connect-btn')) {
