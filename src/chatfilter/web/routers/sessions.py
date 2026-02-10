@@ -88,6 +88,7 @@ import logging
 import re
 import shutil
 import sqlite3
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -2690,6 +2691,125 @@ async def _complete_auth_flow(
 
 
 
+async def _poll_device_confirmation(
+    safe_name: str,
+    auth_id: str,
+    auth_manager: AuthStateManager,
+) -> None:
+    """Background task to poll for device confirmation and auto-transition to connected.
+
+    Polls GetAuthorizationsRequest every 5-10 seconds (with backoff) until:
+    - User confirms on another device → call _finalize_reconnect_auth
+    - Timeout (5 minutes) → cleanup and publish error
+    - Auth state removed externally → exit silently
+
+    Args:
+        safe_name: Sanitized session name
+        auth_id: Auth flow ID
+        auth_manager: Auth state manager
+    """
+    from telethon.tl.functions.account import GetAuthorizationsRequest
+    from telethon.errors import AuthKeyUnregisteredError, RPCError
+
+    timeout_seconds = 300  # 5 minutes
+    poll_interval = 5  # Start with 5 seconds
+    max_poll_interval = 10  # Max 10 seconds
+    start_time = time.time()
+
+    logger.info(f"Starting device confirmation polling for session '{safe_name}' (timeout: {timeout_seconds}s)")
+
+    try:
+        while True:
+            # Check timeout
+            elapsed = time.time() - start_time
+            if elapsed >= timeout_seconds:
+                logger.warning(f"Device confirmation timeout for session '{safe_name}' after {timeout_seconds}s")
+
+                # Cleanup: get auth state, disconnect client, remove state
+                auth_state = await auth_manager.get_auth_state(auth_id)
+                if auth_state and auth_state.client:
+                    try:
+                        await asyncio.wait_for(auth_state.client.disconnect(), timeout=10.0)
+                    except Exception as e:
+                        logger.error(f"Error disconnecting client during timeout cleanup: {e}")
+
+                await auth_manager.remove_auth_state(auth_id)
+                await get_event_bus().publish(safe_name, "disconnected")
+                return
+
+            # Get current auth state
+            auth_state = await auth_manager.get_auth_state(auth_id)
+            if not auth_state:
+                # Auth state removed (e.g., expired, or user retried) — exit silently
+                logger.debug(f"Auth state removed for '{safe_name}', stopping polling")
+                return
+
+            client = auth_state.client
+            if not client:
+                logger.error(f"No client in auth state for '{safe_name}', stopping polling")
+                await get_event_bus().publish(safe_name, "error")
+                return
+
+            # Poll GetAuthorizationsRequest
+            try:
+                authorizations = await asyncio.wait_for(
+                    client(GetAuthorizationsRequest()),
+                    timeout=10.0
+                )
+
+                # Find current session
+                current_session = next(
+                    (auth for auth in authorizations.authorizations if auth.current),
+                    None
+                )
+
+                # Check if still unconfirmed
+                if current_session and getattr(current_session, 'unconfirmed', False):
+                    # Still waiting for confirmation
+                    logger.debug(f"Session '{safe_name}' still unconfirmed, continuing to poll")
+                else:
+                    # Confirmed! Finalize auth
+                    logger.info(f"Device confirmation detected for session '{safe_name}', finalizing auth")
+
+                    try:
+                        await _finalize_reconnect_auth(
+                            client, auth_state, auth_manager, safe_name, "device confirmation"
+                        )
+                    except Exception as e:
+                        logger.error(f"Error finalizing reconnect auth after confirmation: {e}")
+                        await get_event_bus().publish(safe_name, "error")
+
+                    return
+
+            except AuthKeyUnregisteredError:
+                # Expected during confirmation wait — continue polling
+                logger.debug(f"AuthKeyUnregisteredError during polling for '{safe_name}' - still waiting")
+            except (TimeoutError, asyncio.TimeoutError):
+                # API call timeout — log and continue
+                logger.warning(f"Timeout polling device confirmation for '{safe_name}', will retry")
+            except RPCError as e:
+                # Telegram API error — could be serious
+                logger.error(f"Telegram API error polling device confirmation for '{safe_name}': {e}")
+                await auth_manager.remove_auth_state(auth_id)
+                await get_event_bus().publish(safe_name, "error")
+                return
+            except Exception as e:
+                # Unexpected error
+                logger.error(f"Unexpected error polling device confirmation for '{safe_name}': {e}")
+                await auth_manager.remove_auth_state(auth_id)
+                await get_event_bus().publish(safe_name, "error")
+                return
+
+            # Exponential backoff (5s → 10s)
+            await asyncio.sleep(poll_interval)
+            poll_interval = min(poll_interval * 1.5, max_poll_interval)
+
+    except asyncio.CancelledError:
+        # Task cancelled (e.g., app shutdown)
+        logger.info(f"Device confirmation polling cancelled for session '{safe_name}'")
+        raise
+
+
 async def _handle_needs_confirmation(
     safe_name: str,
     auth_id: str,
@@ -2700,6 +2820,8 @@ async def _handle_needs_confirmation(
     """Return needs_confirmation session_row and update auth state.
 
     Helper to avoid code duplication across verify-code, verify-2fa, and auto-2FA paths.
+
+    Launches a background task to poll for device confirmation and auto-transition to connected.
 
     Args:
         safe_name: Sanitized session name
@@ -2721,6 +2843,9 @@ async def _handle_needs_confirmation(
     await get_event_bus().publish(safe_name, "needs_confirmation")
 
     logger.info(f"Session '{safe_name}' requires device confirmation ({log_context})")
+
+    # Launch background polling task (fire-and-forget)
+    asyncio.create_task(_poll_device_confirmation(safe_name, auth_id, auth_manager))
 
     # Return needs_confirmation session_row
     session_path = ensure_data_dir() / safe_name / "session.session"
