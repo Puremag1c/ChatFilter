@@ -3808,6 +3808,7 @@ async def verify_code(
         from chatfilter.security import SecureCredentialManager
 
         session_dir = ensure_data_dir() / safe_name
+        session_path = session_dir / "session.session"
         manager = SecureCredentialManager(session_dir)
 
         # Try to retrieve stored 2FA password (returns None if not found)
@@ -3847,39 +3848,46 @@ async def verify_code(
                 )
 
             except PasswordHashInvalidError:
-                # Stored 2FA password is wrong/outdated - increment failed attempts and show manual form
+                # Stored 2FA password is wrong/outdated - increment failed attempts and return needs_2fa row
                 await auth_manager.increment_failed_attempts(auth_id)
                 await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
-                logger.warning(f"Stored 2FA password invalid for session '{safe_name}', showing manual entry form")
+                logger.warning(f"Stored 2FA password invalid for session '{safe_name}', returning needs_2fa row")
                 # Emit event for 2FA requirement
                 await get_event_bus().publish(safe_name, "needs_2fa")
-                # Use reconnect-specific template with error message
+                # Return session_row with needs_2fa state (proper tr element)
+                session_data = SessionListItem(
+                    session_id=safe_name,
+                    state="needs_2fa",
+                    auth_id=auth_id,
+                    error_message=None,
+                    has_session_file=session_path.exists(),
+                    retry_available=None,
+                )
                 return templates.TemplateResponse(
                     request=request,
-                    name="partials/auth_2fa_form_reconnect.html",
-                    context={
-                        "auth_id": auth_id,
-                        "session_name": safe_name,
-                        "session_id": session_id,
-                        "error": _("Stored 2FA password is incorrect. Please enter it manually."),
-                    },
+                    name="partials/session_row.html",
+                    context=get_template_context(request, session=session_data),
                     headers={"HX-Trigger": "refreshSessions"},
                 )
         else:
-            # No stored 2FA password - show manual entry form
+            # No stored 2FA password - return needs_2fa row
             await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_2FA)
             logger.info(f"2FA required for session '{safe_name}' auth (no stored password)")
             # Emit event for 2FA requirement
             await get_event_bus().publish(safe_name, "needs_2fa")
-            # Use reconnect-specific template since we have session_id in the URL
+            # Return session_row with needs_2fa state (proper tr element)
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="needs_2fa",
+                auth_id=auth_id,
+                error_message=None,
+                has_session_file=session_path.exists(),
+                retry_available=None,
+            )
             return templates.TemplateResponse(
                 request=request,
-                name="partials/auth_2fa_form_reconnect.html",
-                context={
-                    "auth_id": auth_id,
-                    "session_name": safe_name,
-                    "session_id": session_id,
-                },
+                name="partials/session_row.html",
+                context=get_template_context(request, session=session_data),
                 headers={"HX-Trigger": "refreshSessions"},
             )
 
