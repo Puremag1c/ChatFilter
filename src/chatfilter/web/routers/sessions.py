@@ -838,7 +838,7 @@ def migrate_legacy_sessions() -> list[str]:
     return migrated
 
 
-def get_session_config_status(session_dir: Path) -> str:
+def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
     """Check session configuration status.
 
     Validates that the session has required configuration:
@@ -852,21 +852,22 @@ def get_session_config_status(session_dir: Path) -> str:
         session_dir: Path to session directory
 
     Returns:
-        Status string:
-        - "disconnected": Configuration is valid
-        - "needs_config": Missing credentials or proxy configuration
+        Tuple of (status, reason):
+        - ("disconnected", None): Configuration is valid
+        - ("needs_config", reason): Missing credentials or proxy configuration
+          where reason is a specific message like "API credentials required"
     """
     config_file = session_dir / "config.json"
 
     if not config_file.exists():
-        return "needs_config"
+        return ("needs_config", "Configuration file missing")
 
     try:
         with config_file.open("r", encoding="utf-8") as f:
             config = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         logger.warning(f"Failed to read config for session {session_dir.name}: {e}")
-        return "needs_config"
+        return ("needs_config", "Configuration file corrupted")
 
     # Check fields
     api_id = config.get("api_id")
@@ -883,7 +884,7 @@ def get_session_config_status(session_dir: Path) -> str:
 
             # Guard: storage_dir must exist (addresses ChatFilter-hv39r)
             if not storage_dir.exists():
-                return "needs_config"
+                return ("needs_config", "API credentials required")
 
             manager = SecureCredentialManager(storage_dir)
             session_name = session_dir.name
@@ -897,7 +898,7 @@ def get_session_config_status(session_dir: Path) -> str:
                 )
             else:
                 # No credentials in encrypted storage or plaintext config
-                return "needs_config"
+                return ("needs_config", "API credentials required")
         except Exception as e:
             # Handle corrupted .credentials.enc gracefully (addresses ChatFilter-f540m)
             # Treat as credentials absent
@@ -906,11 +907,11 @@ def get_session_config_status(session_dir: Path) -> str:
                 f"Failed to check encrypted credentials for session '{session_dir.name}': "
                 f"{type(e).__name__} [REDACTED]"
             )
-            return "needs_config"
+            return ("needs_config", "API credentials required")
 
     # proxy_id is required for session to be connectable
     if not proxy_id:
-        return "needs_config"
+        return ("needs_config", "Proxy configuration required")
 
     # Verify proxy exists in pool
     from chatfilter.storage.errors import StorageNotFoundError
@@ -919,9 +920,9 @@ def get_session_config_status(session_dir: Path) -> str:
     try:
         get_proxy_by_id(proxy_id)
     except StorageNotFoundError:
-        return "needs_config"
+        return ("needs_config", "Proxy not found in pool")
 
-    return "disconnected"
+    return ("disconnected", None)
 
 
 async def validate_telegram_credentials_with_retry(
@@ -1083,11 +1084,11 @@ def list_stored_sessions(
                     continue
 
                 # First check config status
-                config_status = get_session_config_status(session_dir)
+                config_status, config_reason = get_session_config_status(session_dir)
 
                 # If session manager available, check runtime state
                 state = config_status
-                error_message = None
+                error_message = config_reason if config_status == "needs_config" else None
                 retry_available = None
 
                 # If state is an error state from config, read error_message and retry_available
