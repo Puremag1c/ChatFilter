@@ -603,6 +603,13 @@
 
         // HTMX swap error (invalid response format)
         document.body.addEventListener('htmx:swapError', function(event) {
+            var target = event.detail.target;
+            if (target && !target.isConnected) {
+                // Race condition: SSE OOB swap already replaced the element
+                console.log('HTMX swap race (suppressed): target already replaced by SSE');
+                return;
+            }
+
             console.error('HTMX swap error:', event.detail);
 
             ToastManager.error(
