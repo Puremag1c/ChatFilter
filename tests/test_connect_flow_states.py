@@ -220,7 +220,7 @@ class TestConnectFlowCodeVerification:
     """Tests for verification code submission."""
 
     @pytest.mark.asyncio
-    async def test_needs_code_to_connected_success(self) -> None:
+    async def test_needs_code_to_connected_success(self, tmp_path: Path) -> None:
         """Test: needs_code → submit code → connected (success)."""
         from chatfilter.web.auth_state import AuthState
         from chatfilter.web.routers.sessions import verify_code
@@ -229,27 +229,44 @@ class TestConnectFlowCodeVerification:
         auth_id = "auth_123"
         code = "12345"
 
+        # Create session directory
+        session_dir = tmp_path / session_id
+        session_dir.mkdir()
+
         # Mock dependencies
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
             ) as mock_auth_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_bus_getter,
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
+            patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.save_account_info") as mock_save_info,
+            patch("chatfilter.web.routers.sessions.secure_file_permissions") as mock_secure_perms,
+            patch("chatfilter.web.routers.sessions.secure_delete_dir") as mock_secure_delete,
+            patch("chatfilter.web.app.get_templates") as mock_get_templates,
         ):
             # Setup mocks
             mock_client = AsyncMock()
             mock_client.is_user_authorized = AsyncMock(return_value=True)
             mock_client.sign_in = AsyncMock()  # Success, no 2FA needed
             mock_client.is_connected = MagicMock(return_value=True)  # Not async
+            mock_client.get_me = AsyncMock(return_value=MagicMock(
+                id=123456,
+                phone="+1234567890",
+                first_name="Test",
+                last_name="User"
+            ))
+            mock_client.disconnect = AsyncMock()
 
             mock_auth_state = MagicMock(spec=AuthState)
             mock_auth_state.session_name = session_id
             mock_auth_state.auth_id = auth_id
             mock_auth_state.phone = "+1234567890"
             mock_auth_state.client = mock_client
+            mock_auth_state.temp_dir = None
 
             mock_auth_manager = MagicMock()
             mock_auth_manager.get_auth_state = AsyncMock(return_value=mock_auth_state)
@@ -272,6 +289,16 @@ class TestConnectFlowCodeVerification:
             mock_manager.connect = mock_connect_fn  # Async function that publishes
             mock_manager_getter.return_value = mock_manager
 
+            # Mock file I/O functions
+            mock_ensure_dir.return_value = tmp_path
+            mock_save_info.return_value = None
+            mock_secure_perms.return_value = None
+            mock_secure_delete.return_value = None
+
+            # Mock templates
+            mock_templates = MagicMock()
+            mock_get_templates.return_value = mock_templates
+
             # Mock Request object
             mock_request = MagicMock()
 
@@ -284,7 +311,7 @@ class TestConnectFlowCodeVerification:
             )
 
     @pytest.mark.asyncio
-    async def test_needs_code_to_needs_2fa(self) -> None:
+    async def test_needs_code_to_needs_2fa(self, tmp_path: Path) -> None:
         """Test: needs_code → submit code → needs_2fa (2FA required)."""
         from telethon.errors import SessionPasswordNeededError
 
@@ -295,12 +322,17 @@ class TestConnectFlowCodeVerification:
         auth_id = "auth_123"
         code = "12345"
 
+        # Create session directory
+        session_dir = tmp_path / session_id
+        session_dir.mkdir()
+
         # Mock dependencies
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
             ) as mock_auth_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.app.get_templates") as mock_get_templates,
         ):
             # Setup mocks
             mock_client = AsyncMock()
@@ -327,6 +359,11 @@ class TestConnectFlowCodeVerification:
             mock_bus.publish = mock_publish
             mock_bus_getter.return_value = mock_bus
 
+            # Mock templates with TemplateResponse method
+            mock_templates = MagicMock()
+            mock_templates.TemplateResponse = MagicMock()
+            mock_get_templates.return_value = mock_templates
+
             # Mock Request object
             mock_request = MagicMock()
 
@@ -343,7 +380,7 @@ class TestConnectFlow2FA:
     """Tests for 2FA password verification."""
 
     @pytest.mark.asyncio
-    async def test_needs_2fa_to_connected_success(self) -> None:
+    async def test_needs_2fa_to_connected_success(self, tmp_path: Path) -> None:
         """Test: needs_2fa → submit password → connected (success)."""
         from chatfilter.web.auth_state import AuthState
         from chatfilter.web.routers.sessions import verify_2fa
@@ -352,27 +389,44 @@ class TestConnectFlow2FA:
         auth_id = "auth_123"
         password = "secret123"
 
+        # Create session directory
+        session_dir = tmp_path / session_id
+        session_dir.mkdir()
+
         # Mock dependencies
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
             ) as mock_auth_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_bus_getter,
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
+            patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.save_account_info") as mock_save_info,
+            patch("chatfilter.web.routers.sessions.secure_file_permissions") as mock_secure_perms,
+            patch("chatfilter.web.routers.sessions.secure_delete_dir") as mock_secure_delete,
+            patch("chatfilter.web.app.get_templates") as mock_get_templates,
         ):
             # Setup mocks
             mock_client = AsyncMock()
             mock_client.is_user_authorized = AsyncMock(return_value=True)
             mock_client.sign_in = AsyncMock()  # Success
             mock_client.is_connected = MagicMock(return_value=True)  # Not async
+            mock_client.get_me = AsyncMock(return_value=MagicMock(
+                id=123456,
+                phone="+1234567890",
+                first_name="Test",
+                last_name="User"
+            ))
+            mock_client.disconnect = AsyncMock()
 
             mock_auth_state = MagicMock(spec=AuthState)
             mock_auth_state.session_name = session_id
             mock_auth_state.auth_id = auth_id
             mock_auth_state.phone = "+1234567890"
             mock_auth_state.client = mock_client
+            mock_auth_state.temp_dir = None
 
             mock_auth_manager = MagicMock()
             mock_auth_manager.get_auth_state = AsyncMock(return_value=mock_auth_state)
@@ -394,6 +448,16 @@ class TestConnectFlow2FA:
             mock_manager._add_session = MagicMock()
             mock_manager.connect = mock_connect_fn  # Async function that publishes
             mock_manager_getter.return_value = mock_manager
+
+            # Mock file I/O functions
+            mock_ensure_dir.return_value = tmp_path
+            mock_save_info.return_value = None
+            mock_secure_perms.return_value = None
+            mock_secure_delete.return_value = None
+
+            # Mock templates
+            mock_templates = MagicMock()
+            mock_get_templates.return_value = mock_templates
 
             # Mock Request object
             mock_request = MagicMock()
