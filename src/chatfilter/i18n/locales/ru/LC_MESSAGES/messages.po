@@ -1796,18 +1796,6 @@ msgid "Disconnecting"
 msgstr "Отключение"
 
 #: src/chatfilter/templates/partials/session_row.html
-msgid "Flood Wait"
-msgstr "Превышен лимит запросов"
-
-#: src/chatfilter/templates/partials/session_row.html
-msgid "Proxy Error"
-msgstr "Ошибка прокси"
-
-#: src/chatfilter/templates/partials/session_row.html
-msgid "Proxy missing"
-msgstr "Прокси отсутствует"
-
-#: src/chatfilter/templates/partials/session_row.html
 msgid "Please wait"
 msgstr "Пожалуйста, подождите"
 

@@ -2055,6 +2055,8 @@ msgstr ""
 #: src/chatfilter/templates/partials/sessions_list.html:103
 msgid "Banned"
 msgstr ""
+msgid "Setup Required"
+msgstr ""
 
 #: src/chatfilter/templates/partials/session_connection_button.html:57
 #: src/chatfilter/templates/partials/session_row.html:32
@@ -2155,21 +2157,6 @@ msgstr ""
 #: src/chatfilter/templates/partials/session_row.html:20
 #: src/chatfilter/templates/partials/sessions_list.html:30
 msgid "Disconnecting"
-msgstr ""
-
-#: src/chatfilter/templates/partials/session_row.html:26
-#: src/chatfilter/templates/partials/sessions_list.html:36
-msgid "Flood Wait"
-msgstr ""
-
-#: src/chatfilter/templates/partials/session_row.html:29
-#: src/chatfilter/templates/partials/sessions_list.html:39
-msgid "Proxy Error"
-msgstr ""
-
-#: src/chatfilter/templates/partials/session_row.html:35
-#: src/chatfilter/templates/partials/sessions_list.html:45
-msgid "Proxy missing"
 msgstr ""
 
 #: src/chatfilter/templates/partials/session_row.html:72
