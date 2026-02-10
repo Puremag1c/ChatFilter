@@ -4164,15 +4164,29 @@ async def verify_2fa(
                 context={"success": False, "error": _("Session directory not found.")},
             )
 
-        # Use reconnect success template with toast notification
+        # Get updated session data after reconnect
+        from chatfilter.web.dependencies import get_session_manager
+        session_manager = get_session_manager()
+        all_sessions = list_stored_sessions(session_manager, auth_manager)
+        session_data = next(
+            (s for s in all_sessions if s.session_id == safe_name),
+            None
+        )
+
+        # Fallback if session not found (shouldn't happen, but be defensive)
+        if session_data is None:
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="connected",
+                has_session_file=True,
+                retry_available=False,
+            )
+
+        # Return session row HTML (tr element)
         return templates.TemplateResponse(
             request=request,
-            name="partials/reconnect_success.html",
-            context={
-                "message": _("Session '{name}' reconnected successfully").format(name=safe_name),
-                "session_id": safe_name,
-            },
-            headers={"HX-Trigger": "refreshSessions"},
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
         )
 
     except SessionRevokedError:
