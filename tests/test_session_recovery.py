@@ -284,6 +284,79 @@ async def test_session_expired_triggers_recovery(
 
 
 @pytest.mark.asyncio
+async def test_corrupted_session_file_triggers_recovery(
+    mock_session_dir: Path, mock_session_file: Path
+) -> None:
+    """Test corrupted session.session file triggers auto-recovery flow.
+
+    When session.session SQLite file is corrupted (e.g., struct.error during connect),
+    the system should:
+    1. Delete the corrupted file
+    2. Trigger send_code flow
+    3. NOT publish 'corrupted_session' event
+
+    This verifies SPEC.md Must Have #3: auto-recovery without exposing 'corrupted_session' to user.
+    """
+    import struct
+
+    session_id = "test_session"
+    session_path = mock_session_file
+
+    assert session_path.exists()
+
+    # session_manager.connect() wraps struct.error in SessionConnectError
+    wrapped = _wrap_as_connect_error(struct.error("invalid session file format"))
+
+    with (
+        patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
+        patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
+        patch(
+            "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
+        ) as mock_send_code,
+        patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+        patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
+        patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
+    ):
+        # Setup mocks
+        mock_sm = MagicMock()
+        mock_factory = MagicMock()
+        mock_factory.session_path = session_path
+        mock_sm._factories = {session_id: mock_factory}
+        mock_sm.connect = AsyncMock(side_effect=wrapped)
+        mock_get_sm.return_value = mock_sm
+
+        mock_bus = MagicMock()
+        mock_bus.publish = AsyncMock()
+        mock_get_bus.return_value = mock_bus
+
+        mock_lock_ctx = AsyncMock()
+        mock_lock_ctx.__aenter__ = AsyncMock()
+        mock_lock_ctx.__aexit__ = AsyncMock()
+        mock_lock.return_value = mock_lock_ctx
+
+        mock_load_account.return_value = {"phone": "+1234567890"}
+        mock_send_code.return_value = None
+
+        # Execute
+        await _do_connect_in_background_v2(session_id)
+
+        # Verify session file was deleted (auto-recovery)
+        mock_secure_delete.assert_called_once_with(session_path)
+
+        # Verify send_code was called (triggers needs_code flow)
+        mock_send_code.assert_called_once()
+        call_args = mock_send_code.call_args
+        assert call_args[0][0] == session_id
+        assert call_args[0][1] == session_path
+        assert call_args[0][3] == "+1234567890"
+
+        # Verify NO 'corrupted_session' event was published (SPEC.md Must Have #3)
+        for call in mock_bus.publish.call_args_list:
+            assert call[0][1] != "corrupted_session"
+
+
+@pytest.mark.asyncio
 async def test_recovery_without_phone_publishes_error(
     mock_session_dir: Path, mock_session_file: Path
 ) -> None:
