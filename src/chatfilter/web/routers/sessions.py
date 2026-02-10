@@ -2750,14 +2750,30 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
     This prevents race conditions from parallel requests.
 
     This runs after HTTP response is sent. Results are delivered via SSE.
-    session_manager.connect() already publishes SSE events for all outcomes.
 
-    If session.session is missing or invalid (AuthKeyUnregistered), automatically
-    deletes session file and triggers send_code flow.
+    Handles ALL cases per SPEC (8-state model):
+    1. No api_id/api_hash → publish 'needs_config'
+    2. Proxy error → publish 'needs_config' with tooltip
+    3. Banned → publish 'banned'
+    4. No session.session → create client, send_code → publish 'needs_code'
+    5. session.session expired/revoked → auto-delete file, send_code → publish 'needs_code'
+    6. session.session corrupted → auto-delete file, send_code → publish 'needs_code'
+    7. Valid session → connect → publish 'connected'
+    8. Needs 2FA → publish 'needs_2fa' (handled by auth flow, not here)
+    9. Any other error → publish 'error' with tooltip
+
+    No more 'session_expired', 'corrupted_session', 'flood_wait', 'proxy_error' SSE events.
     """
     import asyncio
+    import struct
 
-    from telethon.errors import AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError
+    from telethon.errors import (
+        ApiIdInvalidError,
+        AuthKeyUnregisteredError,
+        SessionRevokedError,
+        SessionExpiredError,
+    )
+    from chatfilter.telegram.client import SessionFileError
 
     from chatfilter.telegram.error_mapping import get_user_friendly_message
     from chatfilter.web.dependencies import get_session_manager
@@ -2783,8 +2799,47 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             if hasattr(factory, 'session_path'):
                 session_path = factory.session_path
                 config_path = session_path.parent / "config.json"
+                session_dir = session_path.parent
 
-            # Connect with timeout (30 seconds)
+            # CASE 1: Check config validity (no api_id/api_hash or proxy missing)
+            # This catches ApiIdInvalidError BEFORE attempting connection
+            config_status, config_reason = get_session_config_status(session_dir)
+            if config_status == "needs_config":
+                # Missing credentials or proxy → needs_config
+                logger.warning(f"Session '{session_id}' has config issue: {config_reason}")
+                error_message = config_reason or "Configuration incomplete"
+                safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+                if config_path:
+                    _save_error_to_config(config_path, safe_error_message, retry_available=False)
+                await get_event_bus().publish(session_id, "needs_config")
+                return
+
+            # CASE 4: Check if session.session file exists (first time auth)
+            # If missing → trigger send_code flow
+            if not session_path.exists():
+                logger.info(f"Session '{session_id}' has no session file, triggering send_code")
+                # Load account_info for phone number
+                account_info = load_account_info(session_dir)
+                if not account_info or "phone" not in account_info:
+                    logger.error(f"Cannot send code for session '{session_id}': phone number unknown")
+                    error_message = "Phone number required"
+                    safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+                    if config_path:
+                        _save_error_to_config(config_path, safe_error_message, retry_available=False)
+                    await get_event_bus().publish(session_id, "needs_config")
+                    return
+
+                phone = str(account_info["phone"])
+                # Trigger send_code flow (with timeout protection)
+                await _send_verification_code_with_timeout(
+                    session_id,
+                    session_path,
+                    config_path,
+                    phone,
+                )
+                return
+
+            # CASE 7: Attempt connection with timeout (30 seconds)
             # session_manager.connect() creates _sessions entry and publishes SSE events
             await asyncio.wait_for(
                 session_manager.connect(session_id),
@@ -2792,10 +2847,19 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             )
             # Success - SSE "connected" event already published by session_manager
 
-        except (AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError) as e:
-            # Session file is invalid (expired/revoked auth key)
+        except ApiIdInvalidError as e:
+            # CASE 2: Invalid api_id/api_hash → needs_config
+            logger.warning(f"Session '{session_id}' has invalid api_id/api_hash")
+            error_message = get_user_friendly_message(e)
+            safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+            if config_path:
+                _save_error_to_config(config_path, safe_error_message, retry_available=False)
+            await get_event_bus().publish(session_id, "needs_config")
+
+        except (AuthKeyUnregisteredError, SessionRevokedError, SessionExpiredError, SessionFileError, struct.error) as e:
+            # CASE 5 & 6: Session file is invalid (expired/revoked auth key) or corrupted
             # Auto-recover: delete session file and trigger send_code flow
-            logger.info(f"Session '{session_id}' has invalid auth key ({type(e).__name__}), triggering reauth")
+            logger.info(f"Session '{session_id}' has invalid/corrupted session ({type(e).__name__}), triggering reauth")
 
             if not session_path or not config_path:
                 logger.error(f"Cannot reauth session '{session_id}': paths not available")
@@ -2865,8 +2929,10 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             safe_error_message = sanitize_error_message_for_client(error_message, error_state)
             # Bug 2 fix: save error message to config.json
             if config_path:
-                # Retry available depends on error type (proxy_error = yes, error = no)
-                retry_available = error_state == "proxy_error"
+                # Retry available depends on error type
+                # needs_config = no retry (user must fix config)
+                # error = retry available (transient error)
+                retry_available = error_state == "error"
                 _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
             # Publish error state via SSE
             await get_event_bus().publish(session_id, error_state)
