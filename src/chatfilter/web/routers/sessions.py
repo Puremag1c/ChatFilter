@@ -2760,14 +2760,21 @@ async def _finalize_reconnect_auth(
                 "Session file saved, manual connect retry may be needed."
             )
 
+    # Connect session via SessionManager so it's tracked as CONNECTED
+    # session_manager.connect() creates the client, connects, and publishes SSE 'connected'
+    try:
+        await session_manager.connect(safe_name)
+    except Exception as e:
+        # Auth succeeded and session file is saved — log warning but don't fail
+        logger.warning(
+            f"SessionManager.connect() failed for '{safe_name}' after auth: {e}. "
+            "Session file saved, manual connect retry may be needed."
+        )
 
     # Remove auth state
     await auth_manager.remove_auth_state(auth_state.auth_id)
 
     logger.info(f"Session '{safe_name}' re-authenticated successfully ({log_context})")
-
-    # Emit event for auth completion (connected)
-    await get_event_bus().publish(safe_name, "connected")
 
 
 def _save_error_to_config(config_path: Path, error_message: str, retry_available: bool) -> None:
