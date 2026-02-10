@@ -248,6 +248,9 @@ def sanitize_error_message_for_client(error_message: str, error_state: str) -> s
     # Map error states to safe fallback messages
     SAFE_MESSAGES = {
         "needs_config": "Configuration error. Please check your proxy settings.",
+        "proxy_error": "Connection failed. Please check your proxy settings and try again.",
+        "network_error": "Network connection error. Please check your internet connection and try again.",
+        "timeout": "Connection timeout. Please try again.",
         "banned": "Account restricted. Please check your Telegram account status.",
         "error": "An error occurred. Please try again or contact support.",
     }
@@ -1084,6 +1087,13 @@ def list_stored_sessions(
 
                 # First check config status
                 config_status, config_reason = get_session_config_status(session_dir)
+
+                # For list display, map needs_config to disconnected.
+                # Sessions saved without credentials are valid (spec: Save-only flow).
+                # The connect_session endpoint will check credentials at connect time.
+                if config_status == "needs_config":
+                    config_status = "disconnected"
+                    config_reason = None
 
                 # If session manager available, check runtime state
                 state = config_status
@@ -2209,6 +2219,18 @@ async def start_auth_flow(
             logger.info(f"Session '{safe_name}' saved with credentials")
         else:
             logger.info(f"Session '{safe_name}' saved without credentials (will need config later)")
+
+        # Create config.json so session is visible in list_stored_sessions
+        session_config: dict[str, int | str | None] = {
+            "api_id": api_id,
+            "api_hash": api_hash,
+            "proxy_id": proxy_id,
+            "source": "phone",
+        }
+        config_path = session_dir / "config.json"
+        config_content = json.dumps(session_config, indent=2).encode("utf-8")
+        atomic_write(config_path, config_content)
+        secure_file_permissions(config_path)
 
         # Return success message
         return templates.TemplateResponse(
