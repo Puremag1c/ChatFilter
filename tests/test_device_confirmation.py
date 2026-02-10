@@ -2,9 +2,11 @@
 
 Tests Bug 2 fix: Telegram requires device confirmation detection.
 These are integration tests that verify the needs_confirmation state is properly
-handled across verify-code and verify-2fa endpoints.
+handled across verify-code and verify-2fa endpoints, and that
+list_stored_sessions maps NEED_CONFIRMATION auth step correctly.
 """
 
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -279,3 +281,47 @@ class TestDeviceConfirmation:
             mock_event_bus.publish.assert_called_with(
                 "test_2fa_needs_confirmation", "needs_confirmation"
             )
+
+    async def test_list_stored_sessions_needs_confirmation_state(
+        self, mock_ensure_data_dir: Path
+    ) -> None:
+        """Test list_stored_sessions maps NEED_CONFIRMATION auth step to needs_confirmation state."""
+        from chatfilter.web.routers.sessions import list_stored_sessions, save_account_info
+
+        session_name = "test_list_confirm"
+        session_dir = mock_ensure_data_dir / session_name
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        save_account_info(session_dir, {
+            "user_id": 123456789,
+            "phone": "+14385515736",
+            "first_name": "Test",
+            "last_name": "User",
+        })
+
+        # Create config.json
+        config = {"api_id": 12345, "api_hash": "abcdefghijklmnopqrstuvwxyzabcd"}
+        (session_dir / "config.json").write_text(json.dumps(config))
+
+        # Mock auth manager with NEED_CONFIRMATION state
+        auth_state = AuthState(
+            auth_id="auth_list_confirm",
+            session_name=session_name,
+            api_id=12345,
+            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
+            proxy_id="proxy-1",
+            phone="+14385515736",
+            phone_code_hash="test_hash",
+            step=AuthStep.NEED_CONFIRMATION,
+        )
+
+        mock_auth_manager = MagicMock()
+        mock_auth_manager.get_auth_state_by_session.return_value = auth_state
+
+        sessions = list_stored_sessions(
+            session_manager=None, auth_manager=mock_auth_manager
+        )
+
+        confirm_sessions = [s for s in sessions if s.session_id == session_name]
+        assert len(confirm_sessions) == 1
+        assert confirm_sessions[0].state == "needs_confirmation"

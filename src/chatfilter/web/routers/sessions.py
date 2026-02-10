@@ -1122,6 +1122,8 @@ def list_stored_sessions(
                             state = "needs_code"
                         elif auth_state.step == AuthStep.NEED_2FA:
                             state = "needs_2fa"
+                        elif auth_state.step == AuthStep.NEED_CONFIRMATION:
+                            state = "needs_confirmation"
 
                 # Check runtime session state only if no auth flow and config is ready
                 if (
@@ -2694,7 +2696,7 @@ async def _handle_needs_confirmation(
     auth_manager: AuthStateManager,
     request: Request,
     log_context: str,
-) -> templates.TemplateResponse:
+) -> HTMLResponse:
     """Return needs_confirmation session_row and update auth state.
 
     Helper to avoid code duplication across verify-code, verify-2fa, and auto-2FA paths.
