@@ -19,6 +19,7 @@ async def favicon() -> FileResponse:
 
 
 @router.get("/", response_class=HTMLResponse)
+@router.get("/sessions", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     """Home page - session upload."""
     from chatfilter import __version__
