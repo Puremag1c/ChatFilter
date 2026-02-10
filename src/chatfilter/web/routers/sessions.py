@@ -2738,6 +2738,29 @@ async def _finalize_reconnect_auth(
     # Update account info
     save_account_info(session_dir, account_info)
 
+    # Ensure session is registered in SessionManager
+    # During reconnect, session may not be registered yet (disconnect can happen before connect completes)
+    from chatfilter.telegram.client import TelegramClientLoader
+    from chatfilter.web.dependencies import get_session_manager
+
+    session_manager = get_session_manager()
+    config_path = session_dir / "config.json"
+
+    if safe_name not in session_manager._factories:
+        # Session not registered — create and register loader
+        try:
+            loader = TelegramClientLoader(session_path, config_path)
+            loader.validate()
+            session_manager.register(safe_name, loader)
+            logger.info(f"Registered session '{safe_name}' in SessionManager during reconnect auth")
+        except Exception as e:
+            # Log warning but don't fail — session file is saved, user can retry connect
+            logger.warning(
+                f"Failed to register session '{safe_name}' in SessionManager: {e}. "
+                "Session file saved, manual connect retry may be needed."
+            )
+
+
     # Remove auth state
     await auth_manager.remove_auth_state(auth_state.auth_id)
 
