@@ -97,6 +97,7 @@ from pydantic import BaseModel
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
 from chatfilter.web.events import get_event_bus
+from chatfilter.web.template_helpers import get_template_context
 from chatfilter.storage.file import robust_delete_session_file, secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
@@ -2040,7 +2041,7 @@ async def update_session_credentials(
     return templates.TemplateResponse(
         request=request,
         name="partials/session_row.html",
-        context={"session": session_info},
+        context=get_template_context(request, session=session_info),
         headers={"HX-Trigger": "refreshSessions"},
     )
 
@@ -3223,7 +3224,7 @@ async def connect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -3240,7 +3241,7 @@ async def connect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             status_code=status.HTTP_409_CONFLICT,
         )
 
@@ -3261,7 +3262,7 @@ async def connect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
@@ -3278,7 +3279,7 @@ async def connect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             status_code=status.HTTP_200_OK,
         )
 
@@ -3298,7 +3299,7 @@ async def connect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             headers={"HX-Trigger": "refreshSessions"},
         )
 
@@ -3324,7 +3325,7 @@ async def connect_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/session_row.html",
-                context={"session": session_data},
+                context=get_template_context(request, session=session_data),
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -3340,7 +3341,7 @@ async def connect_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/session_row.html",
-                context={"session": session_data},
+                context=get_template_context(request, session=session_data),
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -3370,7 +3371,7 @@ async def connect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
         )
     except Exception as e:
         # Validation error (bad config, missing files, etc.)
@@ -3386,7 +3387,7 @@ async def connect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -3409,7 +3410,7 @@ async def connect_session(
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/session_row.html",
-                    context={"session": session_data},
+                    context=get_template_context(request, session=session_data),
                     headers={"HX-Trigger": "refreshSessions"},
                 )
             session.state = SessionState.CONNECTING
@@ -3436,7 +3437,7 @@ async def connect_session(
     return templates.TemplateResponse(
         request=request,
         name="partials/session_row.html",
-        context={"session": session_data},
+        context=get_template_context(request, session=session_data),
     )
 
 
@@ -3505,7 +3506,7 @@ async def reconnect_session_start(
     return templates.TemplateResponse(
         request=request,
         name="partials/session_row.html",
-        context={"session": session_data},
+        context=get_template_context(request, session=session_data),
     )
 
 
@@ -3547,7 +3548,7 @@ async def disconnect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             headers={"HX-Trigger": "refreshSessions"},
         )
 
@@ -3572,7 +3573,7 @@ async def disconnect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
             headers={"HX-Trigger": "refreshSessions"},
         )
 
@@ -3596,7 +3597,7 @@ async def disconnect_session(
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
-            context={"session": session_data},
+            context=get_template_context(request, session=session_data),
         )
 
 
@@ -4564,7 +4565,7 @@ async def session_events(request: Request):
                     if session_data:
                         # Render session row HTML with hx-swap-oob
                         html = templates.get_template("partials/session_row.html").render(
-                            session=session_data
+                            get_template_context(request, session=session_data)
                         )
                         # Add hx-swap-oob="true" to both rows (main row + config row)
                         # The template renders two <tr> elements that need OOB swaps

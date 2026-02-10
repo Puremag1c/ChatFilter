@@ -11,6 +11,7 @@
               {% elif session.state == 'banned' %}title="{{ _('Permanent error: Account has been banned by Telegram') }}"
               {% elif session.state == 'error' %}title="{{ _('Temporary error: Connection issue - retry may help') }}"
               {% elif session.state == 'not_configured' %}title="{{ _('Configuration required: Session not fully configured') }}"
+              {% elif session.state == 'needs_config' %}title="{{ _('API credentials required') }}"
               {% endif %}>
             {%- if session.state == 'disconnected' -%}
                 {%- if session.has_session_file -%}
@@ -35,6 +36,9 @@
             {%- elif session.state == 'not_configured' -%}
                 <span class="status-icon" aria-hidden="true">⚙️</span>
                 {{ _("Not configured") }}
+            {%- elif session.state == 'needs_config' -%}
+                <span class="status-icon" aria-hidden="true">⚙️</span>
+                {{ _("Setup Required") }}
             {%- elif session.state == 'error' -%}
                 <span class="status-icon" aria-hidden="true">⚠️</span>
                 {{ _("Error") }}
@@ -140,6 +144,9 @@
                         title="{{ session.error_message or _('This account has been banned by Telegram') }}">
                     <span class="btn-text">{{ _("Banned") }}</span>
                 </button>
+                {% elif session.state == 'needs_config' or session.state == 'not_configured' %}
+                {# Needs configuration - no connect button, only Edit button available #}
+                {# Edit button is always visible (see below), so no action button here #}
                 {% else %}
                 {# Unknown state - fallback #}
                 <button class="btn btn-sm btn-secondary session-connect-btn" disabled
