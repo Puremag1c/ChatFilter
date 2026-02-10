@@ -2972,13 +2972,44 @@ async def _finalize_reconnect_auth(
     # Disconnect client before copying session file
     await asyncio.wait_for(client.disconnect(), timeout=30.0)
 
-    # Copy session file from temp location to existing session
+    # Copy session file from temp location to existing session (with atomic write + backup)
     temp_dir = getattr(auth_state, "temp_dir", None)
     if temp_dir:
         temp_session_file = Path(temp_dir) / "auth_session.session"
         if temp_session_file.exists():
-            shutil.copy2(temp_session_file, session_path)
-            secure_file_permissions(session_path)
+            # Atomic write with backup to prevent corruption
+            tmp_path = session_path.with_suffix('.session.tmp')
+            backup_path = session_path.with_suffix('.session.bak')
+
+            try:
+                # 1. Write to temp file
+                shutil.copy2(temp_session_file, tmp_path)
+                secure_file_permissions(tmp_path)
+
+                # 2. Backup existing session if it exists
+                if session_path.exists():
+                    shutil.copy2(session_path, backup_path)
+
+                # 3. Atomic rename (POSIX guarantees atomicity)
+                tmp_path.replace(session_path)
+
+                # 4. Remove backup on success
+                if backup_path.exists():
+                    backup_path.unlink()
+
+            except Exception as e:
+                # Rollback: restore from backup if exists
+                if backup_path.exists():
+                    shutil.copy2(backup_path, session_path)
+                    backup_path.unlink()
+                    logger.warning(f"Session file write failed, restored from backup: {e}")
+
+                # Clean up temp file if still exists
+                if tmp_path.exists():
+                    tmp_path.unlink()
+
+                raise  # Re-raise to propagate error
+
         # Clean up temp dir
         secure_delete_dir(temp_dir)
 
