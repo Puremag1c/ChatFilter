@@ -2709,13 +2709,13 @@ async def _handle_needs_confirmation(
     Returns:
         TemplateResponse with needs_confirmation session_row
     """
+    from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import AuthStep
-    from chatfilter.web.events import get_event_bus
 
     # Update auth state to track confirmation
     await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_CONFIRMATION)
 
-    # Publish SSE event so UI updates
+    # Publish SSE event so UI updates (use module-level import)
     await get_event_bus().publish(safe_name, "needs_confirmation")
 
     logger.info(f"Session '{safe_name}' requires device confirmation ({log_context})")
@@ -2730,6 +2730,7 @@ async def _handle_needs_confirmation(
         has_session_file=session_path.exists(),
         retry_available=None,
     )
+    templates = get_templates()
     return templates.TemplateResponse(
         request=request,
         name="partials/session_row.html",

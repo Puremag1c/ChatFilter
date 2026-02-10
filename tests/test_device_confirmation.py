@@ -64,7 +64,8 @@ class TestDeviceConfirmation:
 
         save_account_info(session_dir, account_info)
 
-        mock_client = MagicMock()
+        # Use AsyncMock for the client to handle all async operations
+        mock_client = AsyncMock()
         mock_client.is_connected.return_value = True
 
         # Mock successful sign_in
@@ -78,10 +79,17 @@ class TestDeviceConfirmation:
         mock_authorizations = MagicMock()
         mock_authorizations.authorizations = [mock_authorization]
 
-        async def mock_call(*args, **kwargs):
-            return mock_authorizations
+        # Make client(...) return an awaitable
+        # AsyncMock's __call__ is already async-aware, just set return_value
+        mock_client.return_value = mock_authorizations
 
-        mock_client.__call__ = mock_call
+        # Mock get_me() for account info retrieval
+        mock_user = MagicMock()
+        mock_user.id = 123456789
+        mock_user.phone = "+14385515736"
+        mock_user.first_name = "Test"
+        mock_user.last_name = "User"
+        mock_client.get_me = AsyncMock(return_value=mock_user)
 
         mock_client.disconnect = AsyncMock()
 
@@ -178,7 +186,8 @@ class TestDeviceConfirmation:
 
         save_account_info(session_dir, account_info)
 
-        mock_client = MagicMock()
+        # Use AsyncMock for the client to handle all async operations
+        mock_client = AsyncMock()
         mock_client.is_connected.return_value = True
 
         # Mock successful sign_in with 2FA
@@ -192,10 +201,17 @@ class TestDeviceConfirmation:
         mock_authorizations = MagicMock()
         mock_authorizations.authorizations = [mock_authorization]
 
-        async def mock_call(*args, **kwargs):
-            return mock_authorizations
+        # Make client(...) return an awaitable
+        # AsyncMock's __call__ is already async-aware, just set return_value
+        mock_client.return_value = mock_authorizations
 
-        mock_client.__call__ = mock_call
+        # Mock get_me() for account info retrieval
+        mock_user = MagicMock()
+        mock_user.id = 123456789
+        mock_user.phone = "+14385515736"
+        mock_user.first_name = "Test"
+        mock_user.last_name = "User"
+        mock_client.get_me = AsyncMock(return_value=mock_user)
 
         mock_client.disconnect = AsyncMock()
 
