@@ -493,17 +493,37 @@
             const html = await response.text();
 
             if (response.ok) {
-                // Success - update the session row and close modal
-                const sessionRow = document.getElementById(`session-${sessionId}`);
-                if (sessionRow) {
-                    sessionRow.outerHTML = html;
-                }
-                modal.classList.remove('show');
-                // Show success toast notification
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.success('{{ _("Verification code accepted successfully") }}', {
-                        duration: 4000
-                    });
+                // Determine response type: <tr> (needs_2fa) or <div> (full success)
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const firstElement = doc.body.firstElementChild;
+
+                if (firstElement && firstElement.tagName === 'TR') {
+                    // Response is a table row (needs_2fa case)
+                    // Replace the session row and close modal
+                    const sessionRow = document.getElementById(`session-${sessionId}`);
+                    if (sessionRow) {
+                        sessionRow.outerHTML = html;
+                    }
+                    modal.classList.remove('show');
+                    // Show info toast: code accepted but needs 2FA
+                    if (typeof ToastManager !== 'undefined') {
+                        ToastManager.info('{{ _("Code verified. Please enter your 2FA password.") }}', {
+                            duration: 4000
+                        });
+                    }
+                } else {
+                    // Response is success notification (full success case)
+                    // Insert the success div (contains script that triggers refresh)
+                    modal.classList.remove('show');
+                    const modalContainer = modal.parentElement;
+                    if (modalContainer) {
+                        // Insert success notification after modal
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        modalContainer.appendChild(tempDiv.firstChild);
+                    }
+                    // Don't show additional toast - success template handles it
                 }
                 // Note: button stays disabled, modal closes
                 codeModalProcessing = false;
