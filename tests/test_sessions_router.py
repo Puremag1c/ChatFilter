@@ -1043,7 +1043,11 @@ class TestSessionConfigAPI:
         assert "proxy_id" in response.text or "Proxy" in response.text
 
     def test_get_session_config_not_found(self, client: TestClient, clean_data_dir: Path) -> None:
-        """Test getting config for non-existent session."""
+        """Test getting config for non-existent session.
+
+        Edit button should always return config form, even if files are missing.
+        This allows users to fix configuration issues via the Edit form.
+        """
         from unittest.mock import MagicMock, patch
 
         mock_settings = MagicMock()
@@ -1052,7 +1056,10 @@ class TestSessionConfigAPI:
         with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.get("/api/sessions/nonexistent/config")
 
-        assert response.status_code == 404
+        # Returns 200 OK with config form (not an error)
+        assert response.status_code == 200
+        # Config form should be present
+        assert "session_config" in response.text or "api_id" in response.text or "api_hash" in response.text
 
     def test_get_session_config_invalid_name(
         self, client: TestClient, clean_data_dir: Path
@@ -1068,7 +1075,9 @@ class TestSessionConfigAPI:
         with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
             response = client.get("/api/sessions/.../config")
 
-        assert response.status_code == 400
+        # Returns 200 OK with HTML error to prevent HTMX from destroying session list
+        assert response.status_code == 200
+        assert "Invalid session name" in response.text
 
     def test_update_session_config_success(
         self, client: TestClient, clean_data_dir: Path, session_with_config: Path

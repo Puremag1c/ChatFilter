@@ -1620,6 +1620,9 @@ async def get_session_config(
     """Get session configuration form.
 
     Returns HTML partial with proxy dropdown showing current selection.
+
+    Always returns the config form, even if session files are missing or corrupted.
+    This ensures the Edit button always works - users can fix missing config via the form.
     """
     from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
@@ -1629,32 +1632,29 @@ async def get_session_config(
     try:
         safe_name = sanitize_session_name(session_id)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid session name",
-        ) from e
+        # Return error as HTML with 200 OK to prevent HTMX error handler from destroying session list
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{_("Invalid session name")}</div>',
+        )
 
     session_dir = ensure_data_dir() / safe_name
     config_file = session_dir / "config.json"
 
-    if not session_dir.exists() or not config_file.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
-
-    # Load current config
+    # Load current config (use empty values if missing/corrupted)
+    # This allows users to fix configuration issues via the Edit form
     current_api_id = None
     current_api_hash = None
     current_proxy_id = None
-    try:
-        with config_file.open("r", encoding="utf-8") as f:
-            config = json.load(f)
-            current_api_id = config.get("api_id")
-            current_api_hash = config.get("api_hash")
-            current_proxy_id = config.get("proxy_id")
-    except (json.JSONDecodeError, OSError) as e:
-        logger.warning(f"Failed to read config for session {safe_name}: {e}")
+
+    if config_file.exists():
+        try:
+            with config_file.open("r", encoding="utf-8") as f:
+                config = json.load(f)
+                current_api_id = config.get("api_id")
+                current_api_hash = config.get("api_hash")
+                current_proxy_id = config.get("proxy_id")
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to read config for session {safe_name}: {e}")
 
     # Load proxy pool
     proxies = load_proxy_pool()
