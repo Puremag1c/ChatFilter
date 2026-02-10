@@ -33,51 +33,27 @@
                                 <span class="status-icon" aria-hidden="true">📱</span>
                                 {{ _("Needs Auth") }}
                             {%- endif -%}
-                        {%- elif session.state == 'connected' -%}
-                            <span class="status-icon" aria-hidden="true">●</span>
-                            {{ _("Connected") }}
                         {%- elif session.state == 'connecting' -%}
                             <span class="status-icon spinner-small" aria-hidden="true"></span>
                             {{ _("Connecting") }}
-                        {%- elif session.state == 'disconnecting' -%}
-                            <span class="status-icon spinner-small" aria-hidden="true"></span>
-                            {{ _("Disconnecting") }}
-                        {%- elif session.state == 'banned' -%}
-                            <span class="status-icon" aria-hidden="true">⛔</span>
-                            {{ _("Banned") }}
-                        {%- elif session.state == 'flood_wait' -%}
-                            <span class="status-icon" aria-hidden="true">⏳</span>
-                            {{ _("Flood Wait") }}
-                        {%- elif session.state == 'proxy_error' -%}
-                            <span class="status-icon" aria-hidden="true">🔌</span>
-                            {{ _("Proxy Error") }}
-                        {%- elif session.state == 'not_configured' -%}
-                            <span class="status-icon" aria-hidden="true">⚠</span>
-                            {{ _("Not configured") }}
-                        {%- elif session.state == 'proxy_missing' -%}
-                            <span class="status-icon" aria-hidden="true">✗</span>
-                            {{ _("Proxy missing") }}
-                        {%- elif session.state == 'error' -%}
-                            <span class="status-icon" aria-hidden="true">✗</span>
-                            {{ _("Error") }}
+                        {%- elif session.state == 'connected' -%}
+                            <span class="status-icon" aria-hidden="true">●</span>
+                            {{ _("Connected") }}
                         {%- elif session.state == 'needs_code' -%}
                             <span class="status-icon" aria-hidden="true">📱</span>
                             {{ _("Needs Verification Code") }}
                         {%- elif session.state == 'needs_2fa' -%}
                             <span class="status-icon" aria-hidden="true">🔐</span>
                             {{ _("Needs 2FA Password") }}
-                        {%- elif session.state == 'needs_api_id' -%}
-                            <span class="status-icon" aria-hidden="true">⚙️</span>
-                            {{ _("Needs API ID") }}
-                        {%- elif session.state == 'corrupted_session' -%}
-                            <span class="status-icon" aria-hidden="true">💥</span>
-                            {{ _("Corrupted") }}
-                        {%- elif session.state == 'session_expired' -%}
-                            <span class="status-icon" aria-hidden="true">⏱️</span>
-                            {{ _("Session Expired") }}
-                        {%- elif session.state == 'needs_account_info' -%}
+                        {%- elif session.state == 'needs_config' -%}
                             <span class="status-icon" aria-hidden="true">⚙️</span>
                             {{ _("Setup Required") }}
+                        {%- elif session.state == 'banned' -%}
+                            <span class="status-icon" aria-hidden="true">⛔</span>
+                            {{ _("Banned") }}
+                        {%- elif session.state == 'error' -%}
+                            <span class="status-icon" aria-hidden="true">✗</span>
+                            {{ _("Error") }}
                         {%- else -%}
                             <span class="status-icon" aria-hidden="true">?</span>
                             {{ session.state }}
