@@ -7,7 +7,7 @@ SPEC Requirements:
 #2: Remove session_expired from classify_error_state, templates, CSS, translations
 #3: Remove corrupted_session from templates and CSS
 
-Risk: These states regressed before (session_expired reappeared in v0.8.3 after
+Risk: These states regressed before (session_expired reappeared in v0.8.4 after
 removal in v0.8.1). These tests prevent future regressions.
 """
 

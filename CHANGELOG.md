@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-02-10
+
+### Fixed
+- **disconnecting state usage**: Fixed disconnecting state still used in sessions.py, violates 8-state model
+- **removed state cleanup**: Fixed missing tests for removed state cleanup verification
+- **needs_config localization**: Fixed needs_config state shows raw text instead of localized label in HTMX response
+- **Connect flow tests**: Fixed needs_config early return blocks testing
+- **Connect without credentials**: Fixed Connect on account without API creds returns HTTP 400 instead of needs_config
+- **Edit button routing**: Fixed Edit button returns 404 for saved account
+- **Connect error handling**: Fixed Connect button error destroys session list
+- **Session list display**: Fixed saved account not appearing in session list
+- **Test state format**: Fixed tests expect string state, got tuple (state, error)
+- **Mock completeness**: Fixed incomplete mocks in test_needs_2fa_to_connected_success, test_needs_code_to_needs_2fa, test_needs_code_to_connected_success
+
+### Changed
+- **Rebase conflict resolution**: Resolved multiple rebase conflicts from parallel bug fixes
+- **Evidence tests**: Updated evidence tests for needs_config state migration
+
 ## [0.8.3] - 2026-02-09
 
 ### Fixed
@@ -532,7 +550,9 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.3...v0.8.4
+[0.8.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.7.2...v0.8.0
