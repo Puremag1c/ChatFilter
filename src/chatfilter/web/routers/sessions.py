@@ -3714,8 +3714,9 @@ async def disconnect_session(
         session_dir = ensure_data_dir() / safe_name
         config_status, _config_reason = get_session_config_status(session_dir)
 
-        # Publish state change event for SSE
-        await get_event_bus().publish(safe_name, config_status)
+        # NOTE: session_manager.disconnect() already publishes "disconnected" via event bus,
+        # so we do NOT publish again here to avoid a double SSE OOB swap race condition
+        # that causes htmx:swapError when the HTMX response tries to outerHTML a detached element.
 
         # Create session object for template
         session_data = {

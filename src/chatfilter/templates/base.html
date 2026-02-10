@@ -601,6 +601,19 @@
             );
         });
 
+        // Cancel HTMX swap if target element was already replaced by SSE OOB swap.
+        // When SSE OOB and HTMX response both target the same element, the SSE swap
+        // replaces the DOM node first, leaving the HTMX response targeting a detached
+        // element. Without this guard, htmx throws "Cannot read properties of null
+        // (reading 'querySelector')" during outerHTML swap on the detached node.
+        document.body.addEventListener('htmx:beforeSwap', function(event) {
+            var target = event.detail.target;
+            if (target && !target.isConnected) {
+                console.log('HTMX swap cancelled: target already replaced by SSE');
+                event.detail.shouldSwap = false;
+            }
+        });
+
         // HTMX swap error (invalid response format)
         document.body.addEventListener('htmx:swapError', function(event) {
             var target = event.detail.target;
