@@ -285,8 +285,8 @@ async def test_recovery_without_phone_publishes_error(
         # Verify session file was deleted
         mock_secure_delete.assert_called_once()
 
-        # Verify error event was published (NOT session_expired)
-        mock_bus.publish.assert_called_once_with(session_id, "error")
+        # Verify needs_config event was published per SPEC.md 4.1
+        mock_bus.publish.assert_called_once_with(session_id, "needs_config")
 
         # Verify error was saved to config
         mock_save_error.assert_called_once()
