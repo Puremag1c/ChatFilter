@@ -3252,13 +3252,26 @@ async def connect_session(
     # Check if session exists (must have at least config.json)
     # Note: session.session can be missing (will trigger send_code flow)
     if not config_path.exists():
-        session_data = SessionListItem(
-            session_id=safe_name,
-            state="error",
-            error_message="Session not found",
-            has_session_file=False,
-            retry_available=False,  # No config = permanent error
-        )
+        # If session directory exists with .account_info.json, this is needs_config state
+        # (account was saved but config.json wasn't created yet)
+        account_info_path = session_dir / ".account_info.json"
+        if session_dir.exists() and account_info_path.exists():
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="needs_config",
+                error_message="Session configuration required",
+                has_session_file=session_path.exists(),
+                retry_available=False,  # Must configure first
+            )
+        else:
+            # Session directory doesn't exist or no account info - true error
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="error",
+                error_message="Session not found",
+                has_session_file=False,
+                retry_available=False,  # No config = permanent error
+            )
         return templates.TemplateResponse(
             request=request,
             name="partials/session_row.html",
