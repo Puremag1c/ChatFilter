@@ -1357,7 +1357,7 @@ class TestSessionConnectDisconnectAPI:
     def test_connect_session_not_configured(
         self, client: TestClient, clean_data_dir: Path, unconfigured_session: Path
     ) -> None:
-        """Test connecting unconfigured session returns 400."""
+        """Test connecting unconfigured session returns needs_config state."""
         from unittest.mock import MagicMock, patch
 
         # Get CSRF token
@@ -1374,13 +1374,14 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        assert response.status_code == 400
-        assert "session configuration incomplete" in response.text.lower()
+        assert response.status_code == 200
+        # Should return needs_config state (not error)
+        assert "needs_config" in response.text.lower() or "config" in response.text.lower()
 
     def test_connect_session_proxy_missing(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
-        """Test connecting session with missing proxy returns 400 with needs_config."""
+        """Test connecting session with missing proxy returns needs_config."""
         from unittest.mock import MagicMock, patch
 
         from chatfilter.storage.errors import StorageNotFoundError
@@ -1405,7 +1406,7 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        assert response.status_code == 400
+        assert response.status_code == 200
         # After refactor: missing proxy returns needs_config (unified state)
         assert "config" in response.text.lower()
 

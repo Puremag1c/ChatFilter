@@ -3223,8 +3223,8 @@ async def connect_session(
     if config_status == "needs_config":
         session_data = SessionListItem(
             session_id=safe_name,
-            state="error",
-            error_message="Session configuration incomplete",
+            state="needs_config",
+            error_message=_config_reason,
             has_session_file=session_path.exists(),
             retry_available=False,  # Must configure first
         )
@@ -3232,7 +3232,7 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context={"session": session_data},
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_200_OK,
         )
 
     session_manager = get_session_manager()
