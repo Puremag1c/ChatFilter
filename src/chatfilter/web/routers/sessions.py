@@ -2016,7 +2016,7 @@ async def update_session_credentials(
         )
 
     # Get updated session status
-    config_status, config_reason = get_session_config_status(session_dir)
+    config_status, _config_reason = get_session_config_status(session_dir)
     session_info = SessionListItem(
         session_id=safe_name,
         state=config_status,
@@ -2210,22 +2210,6 @@ async def start_auth_flow(
             logger.info(f"Session '{safe_name}' saved with credentials")
         else:
             logger.info(f"Session '{safe_name}' saved without credentials (will need config later)")
-
-        # Create minimal config.json so session is discoverable by list_stored_sessions()
-        # Include phone for visibility, api_id/api_hash/proxy_id as provided (can be None)
-        session_config: dict[str, int | str | None] = {
-            "api_id": api_id,
-            "api_hash": api_hash,
-            "proxy_id": proxy_id,
-            "phone": phone,
-            "source": "phone",  # Credentials came from add account form
-        }
-        config_path = session_dir / "config.json"
-        config_content = json.dumps(session_config, indent=2).encode("utf-8")
-        atomic_write(config_path, config_content)
-        secure_file_permissions(config_path)
-
-        logger.info(f"Session '{safe_name}' config.json created (discoverable)")
 
         # Return success message
         return templates.TemplateResponse(
@@ -3095,30 +3079,16 @@ async def connect_session(
     try:
         safe_name = sanitize_session_name(session_id)
     except ValueError as e:
-        session_data = {
-            "session_id": session_id,
-            "state": "error",
-            "error_message": str(e),
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content=f'<span class="error">{e}</span>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     # Check if operation already in progress (prevents race condition)
     lock = await _get_session_lock(safe_name)
     if lock.locked():
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": "Operation already in progress",
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content='<span class="error">Operation already in progress</span>',
             status_code=status.HTTP_409_CONFLICT,
         )
 
@@ -3129,30 +3099,16 @@ async def connect_session(
     # Check if session exists (must have at least config.json)
     # Note: session.session can be missing (will trigger send_code flow)
     if not config_path.exists():
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": "Session not found",
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content='<span class="error">Session not found</span>',
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
     # Check if session is properly configured
-    config_status, config_reason = get_session_config_status(session_dir)
+    config_status, _config_reason = get_session_config_status(session_dir)
     if config_status == "needs_config":
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": "Session configuration incomplete",
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content='<span class="error">Session configuration incomplete</span>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -3186,29 +3142,15 @@ async def connect_session(
         # AC2: Session file doesn't exist - trigger send_code flow instead of error
         account_info = load_account_info(session_dir)
         if not account_info or not account_info.get("phone"):
-            session_data = {
-                "session_id": safe_name,
-                "state": "error",
-                "error_message": "Phone number is required for new session",
-            }
-            return templates.TemplateResponse(
-                request=request,
-                name="partials/session_row.html",
-                context={"session": session_data},
+            return HTMLResponse(
+                content='<span class="error">Phone number is required for new session</span>',
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         phone = account_info["phone"]
         if not isinstance(phone, str):
-            session_data = {
-                "session_id": safe_name,
-                "state": "error",
-                "error_message": "Invalid phone number format",
-            }
-            return templates.TemplateResponse(
-                request=request,
-                name="partials/session_row.html",
-                context={"session": session_data},
+            return HTMLResponse(
+                content='<span class="error">Invalid phone number format</span>',
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -3242,15 +3184,8 @@ async def connect_session(
         # Validation error (bad config, missing files, etc.)
         from chatfilter.telegram.error_mapping import get_user_friendly_message
         error_message = get_user_friendly_message(e)
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": error_message,
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content=f'<span class="error">{error_message}</span>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -3321,15 +3256,8 @@ async def reconnect_session_start(
     try:
         safe_name = sanitize_session_name(session_id)
     except ValueError as e:
-        session_data = {
-            "session_id": session_id,
-            "state": "error",
-            "error_message": str(e),
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{e}</div>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -3338,44 +3266,23 @@ async def reconnect_session_start(
     config_path = session_dir / "config.json"
 
     if not config_path.exists():
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": "Session not found",
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content='<div class="alert alert-error">Session not found</div>',
             status_code=status.HTTP_404_NOT_FOUND,
         )
 
     # Load phone from account_info
     account_info = load_account_info(session_dir)
     if not account_info or not account_info.get("phone"):
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": _("Phone number required for re-authorization"),
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{_("Phone number required for re-authorization")}</div>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     phone = account_info["phone"]
     if not isinstance(phone, str):
-        session_data = {
-            "session_id": safe_name,
-            "state": "error",
-            "error_message": _("Invalid phone number format"),
-        }
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/session_row.html",
-            context={"session": session_data},
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{_("Invalid phone number format")}</div>',
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -3430,7 +3337,7 @@ async def disconnect_session(
     if info and info.state.value in ("disconnected", "disconnecting"):
         # Session is already disconnected or disconnecting
         session_dir = ensure_data_dir() / safe_name
-        config_status, config_reason = get_session_config_status(session_dir)
+        config_status, _config_reason = get_session_config_status(session_dir)
         session_data = {
             "session_id": safe_name,
             "state": config_status,
@@ -3449,7 +3356,7 @@ async def disconnect_session(
 
         # Get updated state - check config status since session might not be registered anymore
         session_dir = ensure_data_dir() / safe_name
-        config_status, config_reason = get_session_config_status(session_dir)
+        config_status, _config_reason = get_session_config_status(session_dir)
 
         # Publish state change event for SSE
         await get_event_bus().publish(safe_name, config_status)

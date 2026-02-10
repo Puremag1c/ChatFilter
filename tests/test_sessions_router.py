@@ -1348,7 +1348,7 @@ class TestSessionConnectDisconnectAPI:
     def test_connect_session_not_configured(
         self, client: TestClient, clean_data_dir: Path, unconfigured_session: Path
     ) -> None:
-        """Test connecting unconfigured session returns 400 with error row."""
+        """Test connecting unconfigured session returns 400."""
         from unittest.mock import MagicMock, patch
 
         # Get CSRF token
@@ -1366,10 +1366,7 @@ class TestSessionConnectDisconnectAPI:
             )
 
         assert response.status_code == 400
-        # Should return session_row.html partial with error state
-        assert 'class="account-row"' in response.text
-        # Error message should be visible (either in tooltip or inline)
-        assert "error" in response.text.lower()
+        assert "session configuration incomplete" in response.text.lower()
 
     def test_connect_session_proxy_missing(
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
