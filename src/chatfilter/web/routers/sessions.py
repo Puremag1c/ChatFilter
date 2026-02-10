@@ -2844,13 +2844,14 @@ async def _handle_needs_confirmation(
 
     logger.info(f"Session '{safe_name}' requires device confirmation ({log_context})")
 
-    # Launch background polling task and store reference in auth state
-    polling_task = asyncio.create_task(_poll_device_confirmation(safe_name, auth_id, auth_manager))
-
-    # Store task reference in auth state for cleanup
+    # Launch background polling task only if not already running (deduplication)
     auth_state = await auth_manager.get_auth_state(auth_id)
-    if auth_state:
+    if auth_state and (auth_state.polling_task is None or auth_state.polling_task.done()):
+        polling_task = asyncio.create_task(_poll_device_confirmation(safe_name, auth_id, auth_manager))
         auth_state.polling_task = polling_task
+        logger.info(f"Launched device confirmation polling task for session '{safe_name}'")
+    else:
+        logger.debug(f"Polling task already running for session '{safe_name}', skipping duplicate launch")
 
     # Return needs_confirmation session_row
     session_path = ensure_data_dir() / safe_name / "session.session"
