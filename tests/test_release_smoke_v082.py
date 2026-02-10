@@ -59,10 +59,11 @@ def test_bug1_encrypted_credentials_logic(smoke_settings: Settings):
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_proxy:
             mock_proxy.return_value = {"id": "test-proxy", "host": "127.0.0.1"}
 
-            status = get_session_config_status(session_dir)
+            status, reason = get_session_config_status(session_dir)
 
             # Bug 1 fix: Should be "disconnected" because credentials exist
             assert status == "disconnected"  # Ready to connect
+            assert reason is None  # No error
 
 
 def test_bug2_error_message_in_template():

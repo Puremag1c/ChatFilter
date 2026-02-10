@@ -2016,7 +2016,7 @@ async def update_session_credentials(
         )
 
     # Get updated session status
-    config_status = get_session_config_status(session_dir)
+    config_status, config_reason = get_session_config_status(session_dir)
     session_info = SessionListItem(
         session_id=safe_name,
         state=config_status,
@@ -3142,7 +3142,7 @@ async def connect_session(
         )
 
     # Check if session is properly configured
-    config_status = get_session_config_status(session_dir)
+    config_status, config_reason = get_session_config_status(session_dir)
     if config_status == "needs_config":
         session_data = {
             "session_id": safe_name,
@@ -3430,7 +3430,7 @@ async def disconnect_session(
     if info and info.state.value in ("disconnected", "disconnecting"):
         # Session is already disconnected or disconnecting
         session_dir = ensure_data_dir() / safe_name
-        config_status = get_session_config_status(session_dir)
+        config_status, config_reason = get_session_config_status(session_dir)
         session_data = {
             "session_id": safe_name,
             "state": config_status,
@@ -3449,7 +3449,7 @@ async def disconnect_session(
 
         # Get updated state - check config status since session might not be registered anymore
         session_dir = ensure_data_dir() / safe_name
-        config_status = get_session_config_status(session_dir)
+        config_status, config_reason = get_session_config_status(session_dir)
 
         # Publish state change event for SSE
         await get_event_bus().publish(safe_name, config_status)
