@@ -72,8 +72,8 @@ class TestSanitizeErrorMessageForClient:
     def test_internal_ids_sanitized(self) -> None:
         """Test that internal IDs are sanitized."""
         error_message = "Proxy 'abc123-xyz' not found in pool"
-        result = sanitize_error_message_for_client(error_message, "proxy_error")
-        assert result == "Connection failed. Please check your proxy settings and try again."
+        result = sanitize_error_message_for_client(error_message, "needs_config")
+        assert result == "Configuration required. Please check your settings."
         assert "abc123-xyz" not in result
 
     def test_hex_hashes_sanitized(self) -> None:
@@ -87,8 +87,8 @@ class TestSanitizeErrorMessageForClient:
         """Test that error state determines fallback message."""
         error_message = "ConnectionError at line 123"
 
-        result_proxy = sanitize_error_message_for_client(error_message, "proxy_error")
-        assert result_proxy == "Connection failed. Please check your proxy settings and try again."
+        result_needs_config = sanitize_error_message_for_client(error_message, "needs_config")
+        assert result_needs_config == "Configuration required. Please check your settings."
 
         result_network = sanitize_error_message_for_client(error_message, "network_error")
         assert result_network == "Network connection error. Please check your internet connection and try again."

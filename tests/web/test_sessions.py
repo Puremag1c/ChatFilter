@@ -380,16 +380,16 @@ class TestConnectSessionErrorHandling:
 
     @pytest.mark.asyncio
     async def test_connect_session_publishes_error_when_proxy_fails(self, tmp_path: Path):
-        """Test that proxy not found triggers proxy_error event.
+        """Test that proxy not found triggers needs_config event.
 
         Scenario: User clicks Connect but proxy_id references non-existent proxy.
-        Expected: SSE event published with 'proxy_error' state and error saved to config.json.
+        Expected: SSE event published with 'needs_config' state and error saved to config.json.
         """
         import asyncio
         from chatfilter.web.routers.sessions import _send_verification_code_and_create_auth
         from chatfilter.storage.errors import StorageNotFoundError
 
-        session_id = "test_proxy_error"
+        session_id = "test_proxy_needs_config"
         session_dir = tmp_path / session_id
         session_dir.mkdir(parents=True)
         session_path = session_dir / "session.session"
@@ -424,11 +424,11 @@ class TestConnectSessionErrorHandling:
                 phone="+1234567890",
             )
 
-        # Verify proxy_error event was published
+        # Verify needs_config event was published
         assert len(publish_calls) == 1
         published_session_id, published_state = publish_calls[0]
         assert published_session_id == session_id
-        assert published_state == "proxy_error"
+        assert published_state == "needs_config"
 
         # Verify error_message saved to config.json
         with config_path.open("r") as f:
@@ -495,7 +495,7 @@ class TestConnectSessionErrorHandling:
         assert len(publish_calls) == 1
         published_session_id, published_state = publish_calls[0]
         assert published_session_id == session_id
-        # Should publish error state (not proxy_error or needs_code)
+        # Should publish error state (not needs_code)
         assert published_state != "needs_code"  # Should NOT succeed
 
         # Verify error_message saved to config.json with retry_available=True (transient error)

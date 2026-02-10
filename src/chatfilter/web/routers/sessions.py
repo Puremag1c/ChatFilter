@@ -2969,9 +2969,9 @@ async def _send_verification_code_and_create_auth(
     except StorageNotFoundError as e:
         # Security: sanitize error message before publishing to client
         error_message = f"Proxy '{proxy_id}' not found in pool"
-        safe_error_message = sanitize_error_message_for_client(error_message, "proxy_error")
+        safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
         save_error_metadata(safe_error_message, retry_available=False)
-        await get_event_bus().publish(session_id, "proxy_error")
+        await get_event_bus().publish(session_id, "needs_config")
         return
 
     # Retry configuration

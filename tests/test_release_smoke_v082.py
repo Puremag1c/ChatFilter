@@ -61,8 +61,7 @@ def test_bug1_encrypted_credentials_logic(smoke_settings: Settings):
 
             status = get_session_config_status(session_dir)
 
-            # Bug 1 fix: Should NOT be "needs_api_id" because encrypted credentials exist
-            assert status not in ["needs_api_id", "setup_required"]
+            # Bug 1 fix: Should be "disconnected" because credentials exist
             assert status == "disconnected"  # Ready to connect
 
 
