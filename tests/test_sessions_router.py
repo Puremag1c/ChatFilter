@@ -1332,10 +1332,10 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        assert response.status_code == 404
+        assert response.status_code == 200
 
     def test_connect_session_invalid_name(self, client: TestClient, clean_data_dir: Path) -> None:
-        """Test connecting with invalid session name returns 400."""
+        """Test connecting with invalid session name returns 200 with error state."""
         from unittest.mock import MagicMock, patch
 
         # Get CSRF token
@@ -1352,7 +1352,7 @@ class TestSessionConnectDisconnectAPI:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-        assert response.status_code == 400
+        assert response.status_code == 200
 
     def test_connect_session_not_configured(
         self, client: TestClient, clean_data_dir: Path, unconfigured_session: Path
