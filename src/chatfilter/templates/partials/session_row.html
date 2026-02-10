@@ -142,6 +142,15 @@
                     <span class="btn-text">{{ _("Confirm in Telegram") }}</span>
                     <span class="spinner-small" aria-hidden="true"></span>
                 </button>
+                <button class="btn btn-sm btn-secondary session-cancel-btn"
+                        hx-post="/api/sessions/{{ session.session_id }}/disconnect"
+                        hx-target="#session-{{ session.session_id }}"
+                        hx-swap="outerHTML"
+                        hx-disabled-elt="this"
+                        aria-label="{{ _('Cancel authentication') }}"
+                        title="{{ _('Cancel the authentication process and return to disconnected state') }}">
+                    {{ _("Cancel") }}
+                </button>
                 {% elif session.state == 'banned' %}
                 {# Banned - cannot retry, account issue #}
                 <button class="btn btn-sm btn-danger session-connect-btn" disabled
