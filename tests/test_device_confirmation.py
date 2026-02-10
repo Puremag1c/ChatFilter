@@ -325,3 +325,347 @@ class TestDeviceConfirmation:
         confirm_sessions = [s for s in sessions if s.session_id == session_name]
         assert len(confirm_sessions) == 1
         assert confirm_sessions[0].state == "needs_confirmation"
+
+    async def test_check_device_confirmation_auth_key_unregistered(self) -> None:
+        """Test _check_device_confirmation returns True when AuthKeyUnregisteredError is raised."""
+        from chatfilter.web.routers.sessions import _check_device_confirmation
+        from telethon.errors import AuthKeyUnregisteredError
+
+        # Mock client that raises AuthKeyUnregisteredError when calling GetAuthorizationsRequest
+        mock_client = AsyncMock()
+        # When called as a function (client(...)), raise AuthKeyUnregisteredError
+        mock_client.side_effect = AuthKeyUnregisteredError("Auth key unregistered")
+
+        # _check_device_confirmation should catch AuthKeyUnregisteredError and return True
+        result = await _check_device_confirmation(mock_client)
+        assert result is True
+
+    async def test_verify_2fa_auth_key_unregistered_needs_confirmation(
+        self, fastapi_test_client, mock_ensure_data_dir: Path
+    ) -> None:
+        """Test verify_2fa: sign_in succeeds, AuthKeyUnregisteredError → needs_confirmation (not error)."""
+        from telethon.errors import AuthKeyUnregisteredError
+
+        session_dir = mock_ensure_data_dir / "test_2fa_auth_key"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session file
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create account_info.json
+        account_info = {
+            "user_id": 123456789,
+            "phone": "+14385515736",
+            "first_name": "Test",
+            "last_name": "User",
+        }
+        from chatfilter.web.routers.sessions import save_account_info
+        save_account_info(session_dir, account_info)
+
+        mock_client = AsyncMock()
+        mock_client.is_connected.return_value = True
+        mock_client.sign_in = AsyncMock(return_value=MagicMock())
+
+        # Mock GetAuthorizationsRequest to raise AuthKeyUnregisteredError
+        mock_client.side_effect = AuthKeyUnregisteredError("Auth key unregistered")
+
+        mock_client.get_me = AsyncMock(return_value=MagicMock(
+            id=123456789,
+            phone="+14385515736",
+            first_name="Test",
+            last_name="User",
+        ))
+        mock_client.disconnect = AsyncMock()
+
+        auth_state = AuthState(
+            auth_id="test_auth_2fa_key",
+            session_name="test_2fa_auth_key",
+            api_id=12345,
+            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
+            proxy_id="proxy-1",
+            phone="+14385515736",
+            phone_code_hash="test_hash",
+            step=AuthStep.NEED_2FA,
+            client=mock_client,
+        )
+
+        home_response = fastapi_test_client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        with (
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
+            patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
+        ):
+            mock_mgr = MagicMock()
+            mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
+            mock_mgr.update_auth_state = AsyncMock()
+            mock_mgr.remove_auth_state = AsyncMock()  # Must mock remove_auth_state
+            mock_mgr.check_auth_lock = AsyncMock(return_value=(False, 0))
+            mock_get_mgr.return_value = mock_mgr
+
+            mock_event_bus = MagicMock()
+            mock_event_bus.publish = AsyncMock()
+            mock_event_bus_fn.return_value = mock_event_bus
+
+            mock_sm = MagicMock()
+            mock_sm._factories = {}
+            mock_get_sm.return_value = mock_sm
+
+            response = fastapi_test_client.post(
+                "/api/sessions/test_2fa_auth_key/verify-2fa",
+                data={
+                    "auth_id": "test_auth_2fa_key",
+                    "password": "test_password",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+            assert response.status_code == 200
+            html = response.text
+
+            # Should show needs_confirmation, NOT error about deleting session
+            assert "needs_confirmation" in html
+            assert "Awaiting Confirmation" in html
+            assert "delete" not in html.lower() or "recreate" not in html.lower()
+
+            # Should have transitioned to NEED_CONFIRMATION step
+            mock_mgr.update_auth_state.assert_called()
+            calls = mock_mgr.update_auth_state.call_args_list
+            assert any(
+                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
+            )
+
+    async def test_verify_code_auth_key_unregistered_needs_confirmation(
+        self, fastapi_test_client, mock_ensure_data_dir: Path
+    ) -> None:
+        """Test verify_code: sign_in succeeds, AuthKeyUnregisteredError → needs_confirmation (not error)."""
+        from telethon.errors import AuthKeyUnregisteredError
+
+        session_dir = mock_ensure_data_dir / "test_code_auth_key"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session file
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create account_info.json
+        account_info = {
+            "user_id": 123456789,
+            "phone": "+14385515736",
+            "first_name": "Test",
+            "last_name": "User",
+        }
+        from chatfilter.web.routers.sessions import save_account_info
+        save_account_info(session_dir, account_info)
+
+        mock_client = AsyncMock()
+        mock_client.is_connected.return_value = True
+        mock_client.sign_in = AsyncMock(return_value=MagicMock())
+
+        # Mock GetAuthorizationsRequest to raise AuthKeyUnregisteredError
+        mock_client.side_effect = AuthKeyUnregisteredError("Auth key unregistered")
+
+        mock_client.get_me = AsyncMock(return_value=MagicMock(
+            id=123456789,
+            phone="+14385515736",
+            first_name="Test",
+            last_name="User",
+        ))
+        mock_client.disconnect = AsyncMock()
+
+        auth_state = AuthState(
+            auth_id="test_auth_code_key",
+            session_name="test_code_auth_key",
+            api_id=12345,
+            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
+            proxy_id="proxy-1",
+            phone="+14385515736",
+            phone_code_hash="test_hash",
+            step=AuthStep.PHONE_SENT,
+            client=mock_client,
+        )
+
+        home_response = fastapi_test_client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        with (
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
+            patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
+        ):
+            mock_mgr = MagicMock()
+            mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
+            mock_mgr.update_auth_state = AsyncMock()
+            mock_mgr.check_auth_lock = AsyncMock(return_value=(False, 0))
+            mock_get_mgr.return_value = mock_mgr
+
+            mock_event_bus = MagicMock()
+            mock_event_bus.publish = AsyncMock()
+            mock_event_bus_fn.return_value = mock_event_bus
+
+            mock_sm = MagicMock()
+            mock_sm._factories = {}
+            mock_get_sm.return_value = mock_sm
+
+            response = fastapi_test_client.post(
+                "/api/sessions/test_code_auth_key/verify-code",
+                data={
+                    "auth_id": "test_auth_code_key",
+                    "code": "12345",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+            assert response.status_code == 200
+            html = response.text
+
+            # Should show needs_confirmation, NOT error about deleting session
+            assert "needs_confirmation" in html
+            assert "Awaiting Confirmation" in html
+            assert "delete" not in html.lower() or "recreate" not in html.lower()
+
+            # Should have transitioned to NEED_CONFIRMATION step
+            mock_mgr.update_auth_state.assert_called()
+            calls = mock_mgr.update_auth_state.call_args_list
+            assert any(
+                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
+            )
+
+    async def test_auto_2fa_auth_key_unregistered_needs_confirmation(
+        self, fastapi_test_client, mock_ensure_data_dir: Path
+    ) -> None:
+        """Test auto-2FA path: sign_in(code) → 2FA → sign_in(password) succeeds, AuthKeyUnregisteredError → needs_confirmation."""
+        from telethon.errors import SessionPasswordNeededError, AuthKeyUnregisteredError
+
+        session_dir = mock_ensure_data_dir / "test_auto_2fa_key"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create session.session file
+        session_path = session_dir / "session.session"
+        conn = sqlite3.connect(session_path)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
+        cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
+        conn.commit()
+        conn.close()
+
+        # Create account_info.json
+        account_info = {
+            "user_id": 123456789,
+            "phone": "+14385515736",
+            "first_name": "Test",
+            "last_name": "User",
+        }
+        from chatfilter.web.routers.sessions import save_account_info
+        save_account_info(session_dir, account_info)
+
+        # Store 2FA password for auto-login
+        from chatfilter.security import SecureCredentialManager
+        manager = SecureCredentialManager(session_dir)
+        manager.store_2fa("test_auto_2fa_key", "stored_password")
+
+        mock_client = AsyncMock()
+        mock_client.is_connected.return_value = True
+
+        # First sign_in(code) raises SessionPasswordNeededError
+        # Second sign_in(password) succeeds
+        sign_in_call_count = [0]
+        async def mock_sign_in(*args, **kwargs):
+            sign_in_call_count[0] += 1
+            if sign_in_call_count[0] == 1:
+                # First call (with code) triggers 2FA
+                raise SessionPasswordNeededError("2FA required")
+            # Second call (with password) succeeds
+            return MagicMock()
+
+        mock_client.sign_in = mock_sign_in
+
+        # Mock GetAuthorizationsRequest to raise AuthKeyUnregisteredError
+        mock_client.side_effect = AuthKeyUnregisteredError("Auth key unregistered")
+
+        mock_client.get_me = AsyncMock(return_value=MagicMock(
+            id=123456789,
+            phone="+14385515736",
+            first_name="Test",
+            last_name="User",
+        ))
+        mock_client.disconnect = AsyncMock()
+
+        auth_state = AuthState(
+            auth_id="test_auth_auto_2fa",
+            session_name="test_auto_2fa_key",
+            api_id=12345,
+            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
+            proxy_id="proxy-1",
+            phone="+14385515736",
+            phone_code_hash="test_hash",
+            step=AuthStep.PHONE_SENT,
+            client=mock_client,
+        )
+
+        home_response = fastapi_test_client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        with (
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
+            patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
+        ):
+            mock_mgr = MagicMock()
+            mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
+            mock_mgr.update_auth_state = AsyncMock()
+            mock_mgr.check_auth_lock = AsyncMock(return_value=(False, 0))
+            mock_get_mgr.return_value = mock_mgr
+
+            mock_event_bus = MagicMock()
+            mock_event_bus.publish = AsyncMock()
+            mock_event_bus_fn.return_value = mock_event_bus
+
+            mock_sm = MagicMock()
+            mock_sm._factories = {}
+            mock_get_sm.return_value = mock_sm
+
+            response = fastapi_test_client.post(
+                "/api/sessions/test_auto_2fa_key/verify-code",
+                data={
+                    "auth_id": "test_auth_auto_2fa",
+                    "code": "12345",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+            assert response.status_code == 200
+            html = response.text
+
+            # Auto-2FA succeeded → needs_confirmation (not error)
+            assert "needs_confirmation" in html
+            assert "Awaiting Confirmation" in html
+            assert "delete" not in html.lower() or "recreate" not in html.lower()
+
+            # Should have transitioned to NEED_CONFIRMATION step
+            mock_mgr.update_auth_state.assert_called()
+            calls = mock_mgr.update_auth_state.call_args_list
+            assert any(
+                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
+            )
+
+            # Verify sign_in was called twice (code, then password)
+            assert sign_in_call_count[0] == 2
