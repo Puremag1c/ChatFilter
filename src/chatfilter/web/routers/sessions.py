@@ -2723,10 +2723,15 @@ async def _poll_device_confirmation(
             # Check timeout
             elapsed = time.time() - start_time
             if elapsed >= timeout_seconds:
+                # Check if finalization is already in progress (race condition guard)
+                auth_state = await auth_manager.get_auth_state(auth_id)
+                if auth_state and auth_state.finalizing:
+                    logger.info(f"Device confirmation timeout for '{safe_name}' but finalization already in progress, skipping cleanup")
+                    return
+
                 logger.warning(f"Device confirmation timeout for session '{safe_name}' after {timeout_seconds}s")
 
-                # Cleanup: get auth state, disconnect client, remove state
-                auth_state = await auth_manager.get_auth_state(auth_id)
+                # Cleanup: disconnect client, remove state
                 if auth_state and auth_state.client:
                     try:
                         await asyncio.wait_for(auth_state.client.disconnect(), timeout=10.0)
@@ -2768,7 +2773,8 @@ async def _poll_device_confirmation(
                     # Still waiting for confirmation
                     logger.debug(f"Session '{safe_name}' still unconfirmed, continuing to poll")
                 else:
-                    # Confirmed! Finalize auth
+                    # Confirmed! Set finalizing flag to prevent timeout race
+                    auth_state.finalizing = True
                     logger.info(f"Device confirmation detected for session '{safe_name}', finalizing auth")
 
                     try:

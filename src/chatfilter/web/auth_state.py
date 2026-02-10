@@ -66,6 +66,9 @@ class AuthState:
     # Background polling task (for device confirmation)
     polling_task: asyncio.Task | None = None
 
+    # Flag to prevent race between polling completion and timeout
+    finalizing: bool = False
+
     # Failed attempts tracking
     failed_attempts: int = 0
     locked_until: float = 0.0  # Timestamp when lock expires
