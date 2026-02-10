@@ -39,10 +39,7 @@ class TestLocaleMiddleware:
         response.set_cookie = MagicMock()
         call_next = AsyncMock(return_value=response)
 
-        with (
-            patch.object(middleware, "_install_jinja2_translations"),
-            patch("chatfilter.i18n.middleware.set_current_locale") as mock_set,
-        ):
+        with patch("chatfilter.i18n.middleware.set_current_locale") as mock_set:
             await middleware.dispatch(request, call_next)
 
             mock_set.assert_called_with("ru")
@@ -59,10 +56,7 @@ class TestLocaleMiddleware:
         response.set_cookie = MagicMock()
         call_next = AsyncMock(return_value=response)
 
-        with (
-            patch.object(middleware, "_install_jinja2_translations"),
-            patch("chatfilter.i18n.middleware.set_current_locale") as mock_set,
-        ):
+        with patch("chatfilter.i18n.middleware.set_current_locale") as mock_set:
             await middleware.dispatch(request, call_next)
 
             mock_set.assert_called_with("ru")
@@ -79,13 +73,12 @@ class TestLocaleMiddleware:
         response.set_cookie = MagicMock()
         call_next = AsyncMock(return_value=response)
 
-        with patch.object(middleware, "_install_jinja2_translations"):
-            await middleware.dispatch(request, call_next)
+        await middleware.dispatch(request, call_next)
 
-            response.set_cookie.assert_called_once()
-            call_kwargs = response.set_cookie.call_args[1]
-            assert call_kwargs["key"] == "lang"
-            assert call_kwargs["httponly"] is False  # Allow JS access
+        response.set_cookie.assert_called_once()
+        call_kwargs = response.set_cookie.call_args[1]
+        assert call_kwargs["key"] == "lang"
+        assert call_kwargs["httponly"] is False  # Allow JS access
 
 
 class TestDetectLocale:
