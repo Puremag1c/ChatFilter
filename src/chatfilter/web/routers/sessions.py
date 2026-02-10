@@ -1042,6 +1042,7 @@ def list_stored_sessions(
     - "connecting": Connection in progress
     - "needs_code": Waiting for verification code (runtime state during auth)
     - "needs_2fa": Waiting for 2FA password (runtime state during auth)
+    - "needs_account_info": Missing account_info.json (old session format)
     - "error": Connection error (generic)
     - "banned": Account banned by Telegram
     - "flood_wait": Temporary rate limit
@@ -1066,7 +1067,7 @@ def list_stored_sessions(
             config_file = session_dir / "config.json"
             account_info_file = session_dir / ".account_info.json"
 
-            if config_file.exists():
+            if config_file.exists() or account_info_file.exists():
                 session_id = session_dir.name
 
                 # Handle missing account_info.json (old sessions)
@@ -1074,8 +1075,8 @@ def list_stored_sessions(
                     sessions.append(
                         SessionListItem(
                             session_id=session_id,
-                            state="needs_config",
-                            error_message="Account information missing",
+                            state="needs_account_info",
+                            error_message=None,
                             auth_id=None,
                             has_session_file=session_file.is_file(),
                         )
