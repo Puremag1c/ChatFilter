@@ -2807,18 +2807,22 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             # secure_delete_file has internal fallback to regular unlink if secure deletion fails
             secure_delete_file(session_path)
 
-            # Load account_info
+            # Load account_info (handles corrupted JSON gracefully - returns None on parse errors)
             session_dir = session_path.parent
             account_info = load_account_info(session_dir)
             if not account_info or "phone" not in account_info:
-                logger.error(f"Cannot reauth session '{session_id}': phone number unknown")
+                # Handle both cases:
+                # 1. account_info is None (corrupted/missing .account_info.json)
+                # 2. phone key missing from valid JSON
+                # → publish needs_config (not error) so user can fix via Edit button
+                logger.error(f"Cannot reauth session '{session_id}': phone number unknown or corrupted account info")
                 # Security: sanitize error message before publishing to client
                 error_message = _("Phone number required")
-                safe_error_message = sanitize_error_message_for_client(error_message, "error")
+                safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
                 # Bug 2 fix: save error message to config.json
                 if config_path:
                     _save_error_to_config(config_path, safe_error_message, retry_available=False)
-                await get_event_bus().publish(session_id, "error")
+                await get_event_bus().publish(session_id, "needs_config")
                 return
 
             phone = str(account_info["phone"])
