@@ -3225,7 +3225,7 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context=get_template_context(request, session=session_data),
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_200_OK,
         )
 
     # Check if operation already in progress (prevents race condition)
@@ -3242,7 +3242,7 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context=get_template_context(request, session=session_data),
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=status.HTTP_200_OK,
         )
 
     session_dir = ensure_data_dir() / safe_name
@@ -3263,7 +3263,7 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context=get_template_context(request, session=session_data),
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_200_OK,
         )
 
     # Check if session is properly configured
@@ -3326,7 +3326,7 @@ async def connect_session(
                 request=request,
                 name="partials/session_row.html",
                 context=get_template_context(request, session=session_data),
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_200_OK,
             )
 
         phone = account_info["phone"]
