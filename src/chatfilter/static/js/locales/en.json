@@ -52,7 +52,9 @@
     "needs_2fa": "Needs 2FA Password",
     "needs_config": "Setup Required",
     "corrupted": "Corrupted",
-    "banned": "Banned"
+    "banned": "Banned",
+    "network_connected": "Network: Connected",
+    "network_disconnected": "Network: Disconnected"
   },
   "toast": {
     "error_title": "Error",
