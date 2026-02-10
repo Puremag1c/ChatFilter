@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-10
+
 ### Fixed
 - **Device confirmation detection**: Fixed Telegram "Is this you?" confirmation showing fake "connected" status. Now shows "Awaiting Confirmation" with clear message to confirm in other Telegram app, auto-updates when confirmed
+- **AuthKeyUnregisteredError handling**: Fixed _check_device_confirmation to catch AuthKeyUnregisteredError and return needs_confirmation instead of propagating error to verify_2fa/verify_code callers
+- **Background polling for confirmation**: Added background polling task that detects when user confirms on another device and auto-transitions session to connected state via SSE
 
 ## [0.8.5] - 2026-02-10
 
@@ -579,7 +583,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.2...v0.8.3
