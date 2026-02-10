@@ -2758,7 +2758,7 @@ async def _check_device_confirmation(client: TelegramClient) -> bool:
     """
     import asyncio
     from telethon.tl.functions.account import GetAuthorizationsRequest
-    from telethon.errors import RPCError
+    from telethon.errors import AuthKeyUnregisteredError, RPCError
 
     try:
         # Get all authorizations for this account
@@ -2785,6 +2785,11 @@ async def _check_device_confirmation(client: TelegramClient) -> bool:
         # Better to proceed than block on edge case
         logger.warning("Timeout checking device confirmation status - assuming no confirmation needed")
         return False
+    except AuthKeyUnregisteredError:
+        # AuthKeyUnregisteredError means session not yet confirmed on another device
+        # This is expected during device confirmation flow — return True
+        logger.info("AuthKeyUnregisteredError during confirmation check - needs device confirmation")
+        return True
     except RPCError as e:
         # Telegram API error — this could be a real problem, re-raise
         logger.error(f"Telegram API error checking device confirmation: {e}")
