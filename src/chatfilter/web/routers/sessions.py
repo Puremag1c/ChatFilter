@@ -3342,7 +3342,7 @@ async def connect_session(
                 request=request,
                 name="partials/session_row.html",
                 context=get_template_context(request, session=session_data),
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_200_OK,
             )
 
         # Trigger send_code flow in background (with timeout protection)
@@ -3388,7 +3388,7 @@ async def connect_session(
             request=request,
             name="partials/session_row.html",
             context=get_template_context(request, session=session_data),
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_200_OK,
         )
 
     # Register loader factory (stores in _factories, NOT _sessions)
