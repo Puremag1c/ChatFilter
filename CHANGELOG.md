@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-02-11
+
+### Fixed
+- **Bug 3: API credentials extraction**: Extract api_id/api_hash from uploaded JSON and pass to validation template
+- **Bug 2: JSON field validation**: Remove strict field allowlist in validate_account_info_json()
+- **Bug 1b: AuthKeyUnregisteredError handling**: Fix AuthKeyUnregisteredError handling in verify_2fa()
+- **Bug 1a: AuthKeyUnregisteredError handling**: Fix AuthKeyUnregisteredError handling in verify_code()
+- **Bug 4: Version sync**: Update __version__ to 0.9.2 in __init__.py
+- **SMOKE: API credentials auto-fill**: Fix api_id/api_hash from JSON not auto-filled in import form
+
+### Changed
+- **[Security] Credential cleanup**: Zero extracted api_id/api_hash after encryption
+- **[OPS] Manual test protocol**: Create manual test protocol for v0.10.0 release
+- **[Reliability] Device confirmation fallback**: Add fallback if _check_device_confirmation() fails
+
+### Testing
+- Added test verifying api_id/api_hash data attributes in validation response
+- Verified all 4 bug fixes pass integration tests
+
 ## [0.9.2] - 2026-02-11
 
 ### Fixed
@@ -637,7 +656,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.5...v0.9.0
