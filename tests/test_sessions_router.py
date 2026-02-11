@@ -3483,6 +3483,43 @@ class TestSessionImport:
         assert response.status_code == 200
         assert "phone" in response.text.lower() or "must start with" in response.text.lower()
 
+    def test_validate_import_session_extracts_api_credentials(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Test that api_id/api_hash are extracted from JSON and included in validation response."""
+        # Create valid session file (SQLite)
+        session_content = self._create_valid_session_file()
+
+        # Create valid JSON file with api_id and api_hash (as app_id/app_hash per TelegramExpert format)
+        json_data = {
+            "phone": "+79001234567",
+            "first_name": "John",
+            "app_id": 12345678,
+            "app_hash": "0123456789abcdef0123456789abcdef",
+        }
+        json_content = json.dumps(json_data).encode()
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        # Send validation request
+        response = client.post(
+            "/api/sessions/import/validate",
+            files={
+                "session_file": ("test.session", session_content, "application/octet-stream"),
+                "json_file": ("test.json", json_content, "application/json"),
+            },
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        assert response.status_code == 200
+        assert "success" in response.text.lower()
+        # Verify that data attributes are present in the response
+        assert 'data-api-id="12345678"' in response.text
+        assert 'data-api-hash="0123456789abcdef0123456789abcdef"' in response.text
+
     def test_save_import_session_success(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:

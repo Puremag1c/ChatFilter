@@ -1636,12 +1636,20 @@ async def validate_import_session(
                 context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
             )
 
-        # Validation successful
+        # Validation successful - extract API credentials if present
+        from chatfilter.parsers.telegram_expert import extract_api_credentials
+
+        api_id, api_hash = extract_api_credentials(json_data)
+
         logger.info("Session and JSON files validated successfully for import")
         return templates.TemplateResponse(
             request=request,
             name="partials/import_validation_result.html",
-            context={"success": True},
+            context={
+                "success": True,
+                "api_id": api_id,
+                "api_hash": api_hash,
+            },
         )
 
     except Exception:
