@@ -2860,12 +2860,28 @@ async def _poll_device_confirmation(
             except RPCError as e:
                 # Telegram API error — could be serious
                 logger.error(f"Telegram API error polling device confirmation for '{safe_name}': {e}")
+
+                # Disconnect client
+                if client and client.is_connected():
+                    try:
+                        await asyncio.wait_for(client.disconnect(), timeout=10.0)
+                    except Exception as disconnect_err:
+                        logger.error(f"Error disconnecting client during fatal error cleanup: {disconnect_err}")
+
                 await auth_manager.remove_auth_state(auth_id)
                 await get_event_bus().publish(safe_name, "error")
                 return
             except Exception as e:
                 # Unexpected error
                 logger.error(f"Unexpected error polling device confirmation for '{safe_name}': {e}")
+
+                # Disconnect client
+                if client and client.is_connected():
+                    try:
+                        await asyncio.wait_for(client.disconnect(), timeout=10.0)
+                    except Exception as disconnect_err:
+                        logger.error(f"Error disconnecting client during fatal error cleanup: {disconnect_err}")
+
                 await auth_manager.remove_auth_state(auth_id)
                 await get_event_bus().publish(safe_name, "error")
                 return
