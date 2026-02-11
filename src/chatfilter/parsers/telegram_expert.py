@@ -45,6 +45,37 @@ def validate_account_info_json(json_data: object) -> str | None:
     return None
 
 
+def extract_api_credentials(json_data: dict) -> tuple[Optional[int], Optional[str]]:
+    """Extract Telegram API credentials from TelegramExpert JSON.
+
+    Supports both field name variants:
+    - app_id/api_id → api_id (int)
+    - app_hash/api_hash → api_hash (str)
+
+    Args:
+        json_data: Parsed JSON dict from TelegramExpert
+
+    Returns:
+        Tuple of (api_id, api_hash) or (None, None) if not found
+    """
+    # Extract api_id (try both app_id and api_id)
+    api_id_value = json_data.get("app_id") or json_data.get("api_id")
+    api_id = None
+    if api_id_value is not None:
+        try:
+            api_id = int(api_id_value)
+        except (ValueError, TypeError):
+            pass
+
+    # Extract api_hash (try both app_hash and api_hash)
+    api_hash_value = json_data.get("app_hash") or json_data.get("api_hash")
+    api_hash = None
+    if api_hash_value:
+        api_hash = str(api_hash_value)
+
+    return api_id, api_hash
+
+
 def parse_telegram_expert_json(
     json_content: bytes, json_data: dict
 ) -> tuple[dict[str, str], Optional[str]]:

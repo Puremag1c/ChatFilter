@@ -1274,6 +1274,8 @@ async def upload_session(
         # Parse JSON file if provided (TelegramExpert format)
         json_account_info = None
         twofa_password = None
+        json_api_id = None
+        json_api_hash = None
         if json_file:
             try:
                 # Read JSON with size limit (10KB max)
@@ -1323,6 +1325,11 @@ async def upload_session(
                 json_data["twoFA"] = "\x00" * len(json_data["twoFA"])
                 del json_data["twoFA"]
 
+            # Extract API credentials from JSON (if present)
+            from chatfilter.parsers.telegram_expert import extract_api_credentials
+
+            json_api_id, json_api_hash = extract_api_credentials(json_data)
+
         # Extract account info from session to check for duplicates
         import tempfile
 
@@ -1335,13 +1342,32 @@ async def upload_session(
             tmp_session.flush()
             tmp_session_path = Path(tmp_session.name)
 
+        # Track credential sources for later storage
+        config_has_credentials = False
+        json_has_credentials = False
+
         try:
+            # Priority: config.json credentials > JSON credentials
             api_id_value = config_data.get("api_id")
             api_hash_value = config_data.get("api_hash")
 
             # Convert to appropriate types, handling None
             api_id = int(api_id_value) if api_id_value is not None else None
             api_hash = str(api_hash_value) if api_hash_value is not None else None
+
+            # Fallback to JSON credentials if config doesn't have them
+            config_has_credentials = api_id is not None and api_hash is not None
+            json_has_credentials = (
+                json_api_id is not None and json_api_hash is not None
+            )
+
+            if not config_has_credentials and json_has_credentials:
+                # Use credentials from JSON
+                api_id = json_api_id
+                api_hash = json_api_hash
+                logger.info(
+                    f"Using API credentials from JSON file for session: {safe_name}"
+                )
 
             # Try to get account info from the session only if both api_id and api_hash are available
             account_info = None
@@ -1421,6 +1447,19 @@ async def upload_session(
             )
 
         logger.info(f"Session '{safe_name}' uploaded successfully")
+
+        # Store API credentials if they came from JSON (not config.json)
+        if not config_has_credentials and json_has_credentials:
+            try:
+                from chatfilter.security import SecureCredentialManager
+
+                storage_dir = session_dir
+                manager = SecureCredentialManager(storage_dir)
+                manager.store_credentials(safe_name, api_id, api_hash)
+                logger.info(f"Stored API credentials from JSON for session: {safe_name}")
+            except Exception:
+                logger.exception("Failed to store API credentials from JSON")
+                # Don't fail the upload if credential storage fails
 
         # Store encrypted 2FA password if provided in JSON
         if twofa_password:
