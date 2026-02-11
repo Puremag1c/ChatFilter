@@ -2994,12 +2994,17 @@ class TestValidateAccountInfoJson:
         assert error is not None
         assert "object" in error.lower()
 
-    def test_invalid_unknown_fields(self) -> None:
-        """Test rejection of unknown fields."""
-        json_data = {"phone": "+14385515736", "malicious": "payload"}
+    def test_unknown_fields_accepted(self) -> None:
+        """Test acceptance of unknown fields (TelegramExpert exports have 20+ fields)."""
+        json_data = {
+            "phone": "+14385515736",
+            "app_id": "12345",
+            "app_hash": "abcdef",
+            "app_version": "1.0",
+            "extra_field": "ignored",
+        }
         error = validate_account_info_json(json_data)
-        assert error is not None
-        assert "malicious" in error
+        assert error is None  # Unknown fields should be accepted
 
     def test_invalid_nested_object(self) -> None:
         """Test rejection of nested objects."""

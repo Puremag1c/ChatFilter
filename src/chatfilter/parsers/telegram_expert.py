@@ -10,9 +10,12 @@ def validate_account_info_json(json_data: object) -> str | None:
 
     Validates:
     - Must be a dict (no arrays at root)
-    - Only allowed fields: phone, first_name, last_name, twoFA
-    - No nested objects or arrays as values
+    - No nested objects or arrays as values (security requirement)
     - Phone must be in E.164 format (optional + prefix, 7-15 digits)
+
+    Accepts any top-level fields to support TelegramExpert exports with 20+ fields
+    (app_id, app_hash, app_version, etc.). Only phone/first_name/last_name/twoFA
+    are extracted; additional fields are ignored.
 
     Args:
         json_data: Parsed JSON data to validate
@@ -23,12 +26,6 @@ def validate_account_info_json(json_data: object) -> str | None:
     # Must be a dict
     if not isinstance(json_data, dict):
         return "JSON must be an object, not an array or primitive"
-
-    # Allowed fields only
-    allowed_fields = {"phone", "first_name", "last_name", "twoFA"}
-    unknown_fields = set(json_data.keys()) - allowed_fields
-    if unknown_fields:
-        return f"Unknown fields not allowed: {', '.join(sorted(unknown_fields))}"
 
     # No nested objects or arrays
     for key, value in json_data.items():
