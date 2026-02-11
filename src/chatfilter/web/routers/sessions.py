@@ -4535,6 +4535,17 @@ async def verify_2fa(
         )
 
     except AuthKeyUnregisteredError:
+        # Check if this is a device confirmation issue before removing auth state
+        needs_confirmation = await _check_device_confirmation(client)
+        if needs_confirmation:
+            return await _handle_needs_confirmation(
+                safe_name=safe_name,
+                auth_id=auth_id,
+                auth_manager=auth_manager,
+                request=request,
+                log_context="verify-2fa-auth-key-unregistered",
+            )
+        # Not a device confirmation issue - proceed with cleanup
         await auth_manager.remove_auth_state(auth_id)
         return templates.TemplateResponse(
             request=request,
