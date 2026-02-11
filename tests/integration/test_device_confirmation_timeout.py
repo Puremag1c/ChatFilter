@@ -30,7 +30,7 @@ def _make_auth_state_with_client(
     """
     # Create an AsyncMock for the client so that client(...) is properly awaitable
     client = AsyncMock()
-    client.is_connected.return_value = True
+    client.is_connected = MagicMock(return_value=True)  # sync method in Telethon
     client.disconnect = AsyncMock()
 
     # Mock GetAuthorizationsRequest - returns unconfirmed state by default
@@ -185,65 +185,36 @@ class TestDeviceConfirmationTimeout:
 
     @pytest.mark.asyncio
     async def test_polling_task_handles_auth_key_unregistered_error(self) -> None:
-        """Polling task should continue polling if GetAuthorizationsRequest raises AuthKeyUnregisteredError."""
+        """Polling task should immediately stop and publish error when AuthKeyUnregisteredError is raised.
+
+        AuthKeyUnregisteredError = session dead. Polling should NOT continue —
+        it should immediately cleanup and publish 'error' (not 'disconnected').
+        """
         from chatfilter.web.routers.sessions import _poll_device_confirmation
         from telethon.errors import AuthKeyUnregisteredError
 
         auth_state = _make_auth_state_with_client()
 
-        # First call: AuthKeyUnregisteredError (expected during confirmation wait)
-        # Second call: still unconfirmed
-        # Third call: timeout
-        call_count = 0
-
-        async def mock_call_side_effect(*args):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise AuthKeyUnregisteredError(request=None)
-            # Subsequent calls return unconfirmed state
-            mock_result = MagicMock()
-            mock_auth = MagicMock()
-            mock_auth.current = True
-            mock_auth.unconfirmed = True
-            mock_result.authorizations = [mock_auth]
-            return mock_result
-
-        auth_state.client.side_effect = mock_call_side_effect
+        # AuthKeyUnregisteredError on first call → immediate fatal error
+        auth_state.client.side_effect = AuthKeyUnregisteredError(request=None)
 
         safe_name = "testsession"
         auth_id = "auth-timeout-test"
 
         mock_auth_manager = AsyncMock()
-        # Return auth_state for first 3 checks, then trigger timeout
         mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
         mock_auth_manager.remove_auth_state = AsyncMock()
 
         mock_event_bus = MagicMock()
         mock_event_bus.publish = AsyncMock()
 
-        # Mock time: start, after first poll, then timeout
-        initial_time = 1000.0
-        timeout_time = initial_time + 301
-
-        def time_gen():
-            yield initial_time  # Start
-            yield initial_time + 5  # After first poll (AuthKeyUnregisteredError)
-            yield initial_time + 10  # After second poll (still unconfirmed)
-            while True:
-                yield timeout_time  # Timeout
-
-        with (
-            patch("chatfilter.web.routers.sessions.get_event_bus", return_value=mock_event_bus),
-            patch("chatfilter.web.routers.sessions.time.time", side_effect=time_gen()),
-            patch("asyncio.sleep", new_callable=AsyncMock),  # Skip actual sleep
-        ):
+        with patch("chatfilter.web.routers.sessions.get_event_bus", return_value=mock_event_bus):
             await _poll_device_confirmation(safe_name, auth_id, mock_auth_manager)
 
-        # Should timeout and cleanup despite AuthKeyUnregisteredError
+        # Should immediately cleanup and publish error (not disconnected)
         auth_state.client.disconnect.assert_called_once()
         mock_auth_manager.remove_auth_state.assert_called_once_with(auth_id)
-        mock_event_bus.publish.assert_called_once_with(safe_name, "disconnected")
+        mock_event_bus.publish.assert_called_once_with(safe_name, "error")
 
     @pytest.mark.asyncio
     async def test_polling_task_cleanup_on_rpc_error(self) -> None:
