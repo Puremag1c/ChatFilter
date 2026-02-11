@@ -402,6 +402,71 @@ class SessionManager:
                 await get_event_bus().publish(session_id, "error")
                 raise SessionConnectError(f"Failed to connect session '{session_id}': {e}") from e
 
+    async def adopt_client(self, session_id: str, client: TelegramClient) -> None:
+        """Adopt an already-connected and authorized TelegramClient.
+
+        This method is used when you have an existing connected client
+        (e.g., from device auth flow) and want to register it with the manager.
+
+        Args:
+            session_id: Unique identifier for this session
+            client: Already-connected and authorized TelegramClient
+
+        Raises:
+            SessionConnectError: If client is not connected or not authorized
+
+        Note:
+            If a session already exists and is CONNECTED, the old client
+            will be disconnected first.
+        """
+        # Security validation: client must be connected and authorized
+        if not client.is_connected():
+            raise SessionConnectError(
+                f"Cannot adopt client for session '{session_id}': client is not connected"
+            )
+
+        if not await client.is_user_authorized():
+            raise SessionConnectError(
+                f"Cannot adopt client for session '{session_id}': client is not authorized"
+            )
+
+        async with self._global_lock:
+            # If session already exists and is CONNECTED, disconnect old client first
+            if session_id in self._sessions:
+                existing_session = self._sessions[session_id]
+                if existing_session.state == SessionState.CONNECTED:
+                    logger.info(
+                        f"Session '{session_id}' already exists and is CONNECTED. "
+                        "Disconnecting old client..."
+                    )
+                    try:
+                        await asyncio.wait_for(
+                            existing_session.client.disconnect(),
+                            timeout=self._disconnect_timeout,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error disconnecting old client for session '{session_id}': {e}"
+                        )
+
+            # Create ManagedSession with CONNECTED state
+            current_time = asyncio.get_event_loop().time()
+            managed_session = ManagedSession(
+                client=client,
+                state=SessionState.CONNECTED,
+                connected_at=current_time,
+                last_activity=current_time,
+            )
+
+            # Register in _sessions dict
+            self._sessions[session_id] = managed_session
+
+            logger.info(f"Adopted client for session '{session_id}'")
+
+            # Publish SSE 'connected' event
+            from chatfilter.web.events import get_event_bus
+            await get_event_bus().publish(session_id, "connected")
+
     async def disconnect(self, session_id: str) -> None:
         """Disconnect a session.
 
