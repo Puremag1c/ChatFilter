@@ -4363,6 +4363,7 @@ async def verify_code(
         # AuthKeyUnregisteredError from sign_in() means the session is dead/expired
         # (device confirmation happens AFTER successful auth, not during sign_in)
         logger.error(f"AuthKeyUnregisteredError during code verification for session '{safe_name}' - session expired")
+        await auth_manager.remove_auth_state(auth_id)
         await get_event_bus().publish(safe_name, "error")
         return templates.TemplateResponse(
             request=request,
@@ -4372,7 +4373,7 @@ async def verify_code(
                 "phone": auth_state.phone,
                 "session_name": safe_name,
                 "session_id": session_id,
-                "error": _("Session expired. Please reconnect."),
+                "error": _("Session expired or invalidated. Please reconnect your account."),
             },
         )
 
@@ -4582,7 +4583,7 @@ async def verify_2fa(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": _("Session expired. Please reconnect.")},
+            context={"success": False, "error": _("Session expired or invalidated. Please reconnect your account.")},
         )
 
     except AuthKeyInvalidError:
