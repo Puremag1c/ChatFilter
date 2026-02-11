@@ -1904,9 +1904,9 @@ class TestSessionConnectDisconnectAPI:
             )
 
         assert response.status_code == 200
-        assert "Authorize" in response.text
-        assert "HX-Trigger" in response.headers
-        assert response.headers["HX-Trigger"] == "refreshSessions"
+        # v0.8.5: endpoint returns empty body, relies on SSE OOB swaps
+        assert response.text == ""
+        assert "HX-Reswap" in response.headers
         mock_session_manager.disconnect.assert_called_once_with("test_session")
 
     def test_disconnect_session_not_connected(
@@ -1960,7 +1960,8 @@ class TestSessionConnectDisconnectAPI:
 
         # Should succeed - disconnect is idempotent
         assert response.status_code == 200
-        assert "Authorize" in response.text
+        # v0.8.5: endpoint returns empty body, relies on SSE OOB swaps
+        assert response.text == ""
 
 
 class TestDeadSessionRecoveryUX:
