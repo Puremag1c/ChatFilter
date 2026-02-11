@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-02-11
+
+### Fixed
+- Update 5 device confirmation tests to match new AuthKeyUnregisteredError semantics
+- [Bug1] Fix _poll_device_confirmation() to handle AuthKeyUnregisteredError as fatal
+- [Bug1] Fix _check_device_confirmation() to not return True on AuthKeyUnregisteredError
+- [Bug1] Remove false-positive device confirmation detection from AuthKeyUnregisteredError handlers
+- [Bug2] Fix JS error 'Cannot read properties of null' in upload_result.html
+
+### Changed
+- [UX] Add device confirmation feedback in modal before close
+- [OPS] Add automated test suite for device confirmation flow (prevent regression)
+- [Reliability] Add auth_state cleanup when _poll_device_confirmation() fails fatally
+- [OPS] Add automated tests for Bug2 (JS error in upload_result.html)
+- [Bug1] Manual test: device confirmation flow
+- [Bug1] Improve error message for AuthKeyUnregisteredError in verify_code/verify_2fa
+- [Reliability] Protect _finalize_reconnect_auth() from timeout race condition
+
 ## [0.9.3] - 2026-02-11
 
 ### Fixed
@@ -656,7 +674,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.0...v0.9.1
