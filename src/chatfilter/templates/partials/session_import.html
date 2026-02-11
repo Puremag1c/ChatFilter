@@ -278,6 +278,20 @@
                     sessionNameInput.value = suggestedName;
                 }
 
+                // Extract and populate API credentials from validation result
+                const successAlert = validationResult.querySelector('.alert-success');
+                if (successAlert) {
+                    const apiId = successAlert.getAttribute('data-api-id');
+                    const apiHash = successAlert.getAttribute('data-api-hash');
+
+                    if (apiId) {
+                        document.getElementById('import-api-id').value = apiId;
+                    }
+                    if (apiHash) {
+                        document.getElementById('import-api-hash').value = apiHash;
+                    }
+                }
+
                 // Store files for later submission
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(selectedSessionFile);

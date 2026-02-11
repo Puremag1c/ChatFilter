@@ -1,6 +1,8 @@
 {# Session import validation result #}
 {% if success %}
-<div class="alert alert-success">
+<div class="alert alert-success"
+     {% if api_id %}data-api-id="{{ api_id }}"{% endif %}
+     {% if api_hash %}data-api-hash="{{ api_hash }}"{% endif %}>
     <strong>{{ _("Session file is valid!") }}</strong>
     {{ _("Proceed to configure the session settings.") }}
 </div>
