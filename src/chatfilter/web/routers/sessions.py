@@ -3904,6 +3904,7 @@ async def verify_code(
     import shutil
 
     from telethon.errors import (
+        AuthKeyUnregisteredError,
         FloodWaitError,
         PhoneCodeEmptyError,
         PhoneCodeExpiredError,
@@ -4302,6 +4303,36 @@ async def verify_code(
                 "session_name": safe_name,
                 "session_id": session_id,
                 "error": _("Request timeout. Please try again."),
+            },
+        )
+
+    except AuthKeyUnregisteredError:
+        # AuthKeyUnregisteredError may mean device confirmation is required
+        # Check if this is a device confirmation scenario
+        needs_confirmation = await _check_device_confirmation(auth_state.client)
+
+        if needs_confirmation:
+            # Device confirmation required - transition to NEED_CONFIRMATION state
+            return await _handle_needs_confirmation(
+                safe_name=safe_name,
+                auth_id=auth_id,
+                auth_manager=auth_manager,
+                request=request,
+                log_context="verify_code",
+            )
+
+        # Not device confirmation - fall through to generic error handling
+        logger.error(f"AuthKeyUnregisteredError during code verification for session '{safe_name}' (not device confirmation)")
+        await get_event_bus().publish(safe_name, "error")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_code_form_reconnect.html",
+            context={
+                "auth_id": auth_id,
+                "phone": auth_state.phone,
+                "session_name": safe_name,
+                "session_id": session_id,
+                "error": _("Failed to verify code. Please check the code and try again."),
             },
         )
 
