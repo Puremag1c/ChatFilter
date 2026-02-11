@@ -2835,8 +2835,14 @@ async def _poll_device_confirmation(
                     return
 
             except AuthKeyUnregisteredError:
-                # Expected during confirmation wait — continue polling
-                logger.debug(f"AuthKeyUnregisteredError during polling for '{safe_name}' - still waiting")
+                # FATAL: Client session died during polling — stop immediately
+                logger.error(
+                    f"AuthKeyUnregisteredError during polling for '{safe_name}' - "
+                    "session invalidated, stopping polling"
+                )
+                await auth_manager.remove_auth_state(auth_id)
+                await get_event_bus().publish(safe_name, "error")
+                return
             except (TimeoutError, asyncio.TimeoutError):
                 # API call timeout — log and continue
                 logger.warning(f"Timeout polling device confirmation for '{safe_name}', will retry")
@@ -4354,22 +4360,9 @@ async def verify_code(
         )
 
     except AuthKeyUnregisteredError:
-        # AuthKeyUnregisteredError may mean device confirmation is required
-        # Check if this is a device confirmation scenario
-        needs_confirmation = await _check_device_confirmation(auth_state.client)
-
-        if needs_confirmation:
-            # Device confirmation required - transition to NEED_CONFIRMATION state
-            return await _handle_needs_confirmation(
-                safe_name=safe_name,
-                auth_id=auth_id,
-                auth_manager=auth_manager,
-                request=request,
-                log_context="verify_code",
-            )
-
-        # Not device confirmation - fall through to generic error handling
-        logger.error(f"AuthKeyUnregisteredError during code verification for session '{safe_name}' (not device confirmation)")
+        # AuthKeyUnregisteredError from sign_in() means the session is dead/expired
+        # (device confirmation happens AFTER successful auth, not during sign_in)
+        logger.error(f"AuthKeyUnregisteredError during code verification for session '{safe_name}' - session expired")
         await get_event_bus().publish(safe_name, "error")
         return templates.TemplateResponse(
             request=request,
@@ -4379,7 +4372,7 @@ async def verify_code(
                 "phone": auth_state.phone,
                 "session_name": safe_name,
                 "session_id": session_id,
-                "error": _("Failed to verify code. Please check the code and try again."),
+                "error": _("Session expired. Please reconnect."),
             },
         )
 
@@ -4582,22 +4575,14 @@ async def verify_2fa(
         )
 
     except AuthKeyUnregisteredError:
-        # Check if this is a device confirmation issue before removing auth state
-        needs_confirmation = await _check_device_confirmation(client)
-        if needs_confirmation:
-            return await _handle_needs_confirmation(
-                safe_name=safe_name,
-                auth_id=auth_id,
-                auth_manager=auth_manager,
-                request=request,
-                log_context="verify-2fa-auth-key-unregistered",
-            )
-        # Not a device confirmation issue - proceed with cleanup
+        # AuthKeyUnregisteredError from sign_in() means the session is dead/expired
+        # (device confirmation happens AFTER successful auth, not during sign_in)
+        logger.error(f"AuthKeyUnregisteredError during 2FA verification for session '{safe_name}' - session expired")
         await auth_manager.remove_auth_state(auth_id)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": _("Authorization key is unregistered. Please delete and recreate the session.")},
+            context={"success": False, "error": _("Session expired. Please reconnect.")},
         )
 
     except AuthKeyInvalidError:
