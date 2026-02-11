@@ -2835,12 +2835,23 @@ async def _poll_device_confirmation(
                     return
 
             except AuthKeyUnregisteredError:
-                # FATAL: Client session died during polling — stop immediately
+                # FATAL: Client session died during polling — cleanup and stop
                 logger.error(
-                    f"AuthKeyUnregisteredError during polling for '{safe_name}' - "
-                    "session invalidated, stopping polling"
+                    f"Session invalidated during device confirmation polling for '{safe_name}' - "
+                    "disconnecting client and stopping"
                 )
+
+                # Disconnect client
+                if client and client.is_connected():
+                    try:
+                        await asyncio.wait_for(client.disconnect(), timeout=10.0)
+                    except Exception as e:
+                        logger.error(f"Error disconnecting client during fatal error cleanup: {e}")
+
+                # Remove auth state
                 await auth_manager.remove_auth_state(auth_id)
+
+                # Signal frontend (keep 'error' event for compatibility)
                 await get_event_bus().publish(safe_name, "error")
                 return
             except (TimeoutError, asyncio.TimeoutError):
