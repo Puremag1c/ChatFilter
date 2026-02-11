@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-02-11
+
+### Fixed
+- **AuthKeyUnregisteredError handling**: Fixed _check_device_confirmation to catch AuthKeyUnregisteredError and return needs_confirmation instead of propagating error
+- **Integration test mocks**: Fixed broken mocks causing device confirmation integration tests to fail
+
+### Changed
+- **[Security] Rate limiting**: Added rate limiting to device confirmation polling to prevent API abuse
+- **[Reliability] Polling cleanup**: Added cleanup for background polling task on auth state expiry
+- **[Reliability] Duplicate polling prevention**: Prevent duplicate polling tasks for device confirmation
+- **[Reliability] AuthKeyUnregisteredError verification**: Verify AuthKeyUnregisteredError handling in polling loop
+- **[Reliability] Session file atomicity**: Add atomic session file write with backup in _finalize_reconnect_auth
+- **[Reliability] Fallback handling**: Add fallback if _finalize_reconnect_auth fails during polling
+- **[Reliability] Race condition handling**: Handle race between polling completion and timeout
+- **[Reliability] Concurrent verify prevention**: Prevent concurrent verify operations during device confirmation polling
+- **[Security] Expired confirmation disconnect**: Add forced disconnect for expired device confirmation
+- **[Security] AuthKeyUnregisteredError validation**: Validate AuthKeyUnregisteredError legitimacy in device confirmation
+- **[UX] Network error handling**: Handle network error during confirmation polling
+- **[Architecture] Polling task deduplication**: Prevent duplicate polling tasks for same session
+- **[Architecture] Auth state client access**: Ensure polling has access to auth_state client
+- **[OPS] Shutdown cleanup verification**: Verify background polling task cleanup on app shutdown
+
+### Testing
+- Added integration test for device confirmation timeout scenario
+- Added test for AuthKeyUnregisteredError → needs_confirmation flow
+- Added background polling task for device confirmation → connected transition test
+
 ## [0.9.0] - 2026-02-10
 
 ### Fixed
@@ -583,7 +610,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.5...v0.9.0
 [0.8.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.8.3...v0.8.4
