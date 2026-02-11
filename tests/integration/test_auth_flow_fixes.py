@@ -363,3 +363,96 @@ class TestFullAuthFlowNoRefresh:
         # Both are <tr> elements with the same id — HTMX outerHTML swap works
         assert 'id="session-testsession"' in step1_html
         assert 'id="session-testsession"' in step2_html
+
+
+class TestAdoptClientFailureHandling:
+    """Test 5: adopt_client failure triggers proper cleanup.
+
+    Reliability fix: If adopt_client() fails (EventBus down, threading race, etc.),
+    we must:
+    1. Disconnect the orphaned client
+    2. Remove auth_state
+    3. Publish SSE error event
+    4. Re-raise exception (don't swallow it)
+    """
+
+    @pytest.mark.asyncio
+    async def test_adopt_client_failure_cleanup(self, tmp_path: Path) -> None:
+        """When adopt_client fails, finalize_reconnect_auth should cleanup and raise."""
+        from chatfilter.web.routers.sessions import _finalize_reconnect_auth
+        from chatfilter.web.auth_state import AuthStateManager
+
+        # Create mock client
+        mock_client = MagicMock()
+        mock_client.get_me = AsyncMock(
+            return_value=MagicMock(
+                id=123456,
+                phone="+79001234567",
+                first_name="Test",
+                last_name="User",
+            )
+        )
+        mock_client.session = MagicMock()
+        mock_client.session.save = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+
+        # Create mock auth_state
+        auth_state = _make_auth_state()
+        auth_state.temp_dir = None  # No temp dir for this test
+
+        # Create mock auth_manager
+        mock_auth_manager = AsyncMock(spec=AuthStateManager)
+        mock_auth_manager.remove_auth_state = AsyncMock()
+
+        # Create session directory
+        session_dir = tmp_path / "testsession"
+        session_dir.mkdir()
+        (session_dir / "session.session").touch()
+        (session_dir / "config.json").write_text('{"api_id": 12345, "api_hash": "test"}')
+
+        # Mock SessionManager that raises exception on adopt_client
+        mock_session_manager = MagicMock()
+        adopt_error = RuntimeError("EventBus is down!")
+        mock_session_manager.adopt_client = AsyncMock(side_effect=adopt_error)
+
+        # Mock EventBus
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = AsyncMock()
+
+        with (
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir",
+                return_value=tmp_path,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=mock_session_manager,
+            ),
+            patch(
+                "chatfilter.web.events.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.save_account_info",
+                MagicMock(),
+            ),
+        ):
+            # Call _finalize_reconnect_auth — should raise
+            with pytest.raises(RuntimeError, match="EventBus is down!"):
+                await _finalize_reconnect_auth(
+                    client=mock_client,
+                    auth_state=auth_state,
+                    auth_manager=mock_auth_manager,
+                    safe_name="testsession",
+                    log_context="test",
+                )
+
+        # Verify cleanup happened BEFORE re-raising
+        # 1. Client was disconnected
+        mock_client.disconnect.assert_awaited_once()
+
+        # 2. Auth state was removed
+        mock_auth_manager.remove_auth_state.assert_awaited_once_with(auth_state.auth_id)
+
+        # 3. SSE error event was published
+        mock_event_bus.publish.assert_awaited_once_with("testsession", "error")

@@ -3025,12 +3025,13 @@ async def _finalize_reconnect_auth(
     safe_name: str,
     log_context: str,
 ) -> None:
-    """Finalize reconnect auth: save session file, account info, clean up.
+    """Finalize reconnect auth: save session file, adopt client, clean up.
 
     Common logic used after successful code verification or 2FA in reconnect flows.
+    Adopts the existing connected client instead of disconnecting and reconnecting.
 
     Args:
-        client: Connected and authenticated TelegramClient
+        client: Connected and authenticated TelegramClient (will be adopted by SessionManager)
         auth_state: Current auth state (will be removed)
         auth_manager: Auth state manager
         safe_name: Sanitized session name
@@ -3055,8 +3056,8 @@ async def _finalize_reconnect_auth(
         "last_name": me.last_name or "",
     }
 
-    # Disconnect client before copying session file
-    await asyncio.wait_for(client.disconnect(), timeout=30.0)
+    # Save session to disk (Telethon will save to the path it was initialized with)
+    await client.session.save()
 
     # Copy session file from temp location to existing session (with atomic write + backup)
     temp_dir = getattr(auth_state, "temp_dir", None)
@@ -3102,38 +3103,41 @@ async def _finalize_reconnect_auth(
     # Update account info
     save_account_info(session_dir, account_info)
 
-    # Ensure session is registered in SessionManager
-    # During reconnect, session may not be registered yet (disconnect can happen before connect completes)
-    from chatfilter.telegram.client import TelegramClientLoader
+    # Adopt the existing client into SessionManager (registers as CONNECTED and publishes SSE)
     from chatfilter.web.dependencies import get_session_manager
-
     session_manager = get_session_manager()
-    config_path = session_dir / "config.json"
 
-    if safe_name not in session_manager._factories:
-        # Session not registered — create and register loader
-        try:
-            loader = TelegramClientLoader(session_path, config_path)
-            loader.validate()
-            session_manager.register(safe_name, loader)
-            logger.info(f"Registered session '{safe_name}' in SessionManager during reconnect auth")
-        except Exception as e:
-            # Log warning but don't fail — session file is saved, user can retry connect
-            logger.warning(
-                f"Failed to register session '{safe_name}' in SessionManager: {e}. "
-                "Session file saved, manual connect retry may be needed."
-            )
-
-    # Connect session via SessionManager so it's tracked as CONNECTED
-    # session_manager.connect() creates the client, connects, and publishes SSE 'connected'
     try:
-        await session_manager.connect(safe_name)
+        await session_manager.adopt_client(safe_name, client)
     except Exception as e:
-        # Auth succeeded and session file is saved — log warning but don't fail
-        logger.warning(
-            f"SessionManager.connect() failed for '{safe_name}' after auth: {e}. "
-            "Session file saved, manual connect retry may be needed."
+        # CRITICAL: adopt_client failed — client is orphaned
+        # We have: authorized client, saved session file, BUT SessionManager doesn't track it
+        # User will see "Disconnected" → retry connect → may create duplicate client
+        logger.error(
+            f"CRITICAL: adopt_client failed for '{safe_name}': {e}. "
+            "Client is orphaned. Cleaning up connection and auth state."
         )
+
+        # Cleanup orphaned client
+        try:
+            await client.disconnect()
+            logger.info(f"Disconnected orphaned client for '{safe_name}'")
+        except Exception as disconnect_err:
+            logger.warning(f"Failed to disconnect orphaned client: {disconnect_err}")
+
+        # Cleanup auth state
+        try:
+            await auth_manager.remove_auth_state(auth_state.auth_id)
+            logger.info(f"Removed auth state after adopt_client failure for '{safe_name}'")
+        except Exception as cleanup_err:
+            logger.warning(f"Failed to remove auth state: {cleanup_err}")
+
+        # Publish SSE error event (so UI shows error instead of hanging)
+        from chatfilter.web.events import get_event_bus
+        await get_event_bus().publish(safe_name, "error")
+
+        # Re-raise original exception (don't swallow it)
+        raise
 
     # Remove auth state
     await auth_manager.remove_auth_state(auth_state.auth_id)
