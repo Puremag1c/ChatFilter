@@ -2970,10 +2970,10 @@ async def _check_device_confirmation(client: TelegramClient) -> bool:
         logger.warning("Timeout checking device confirmation status - assuming no confirmation needed")
         return False
     except AuthKeyUnregisteredError:
-        # AuthKeyUnregisteredError means session not yet confirmed on another device
-        # This is expected during device confirmation flow — return True
-        logger.info("AuthKeyUnregisteredError during confirmation check - needs device confirmation")
-        return True
+        # AuthKeyUnregisteredError after successful sign_in() indicates a problem,
+        # NOT device confirmation. Device confirmation is detected via 'unconfirmed' flag only.
+        logger.warning("Unexpected AuthKeyUnregisteredError after successful sign_in - this indicates an issue, not device confirmation")
+        return False
     except RPCError as e:
         # Telegram API error — this could be a real problem, re-raise
         logger.error(f"Telegram API error checking device confirmation: {e}")
