@@ -31,8 +31,9 @@
         });
         // Refresh the sessions list after successful upload
         htmx.trigger('#sessions-list', 'load');
-        // Clear the form
-        document.getElementById('upload-form').reset();
+        // Clear the form (handle both upload and import flows)
+        const form = document.getElementById('upload-form') || document.getElementById('session-config-form');
+        if (form) form.reset();
     </script>
 </div>
 {% else %}
@@ -41,7 +42,7 @@
     <div style="margin-top: 0.75rem;">
         <button type="button"
                 class="btn btn-sm btn-primary"
-                onclick="document.getElementById('upload-form').querySelector('button[type=submit]').click()">
+                onclick="(document.getElementById('upload-form') || document.getElementById('session-config-form')).querySelector('button[type=submit]').click()">
             Retry Upload
         </button>
     </div>
