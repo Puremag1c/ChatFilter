@@ -378,3 +378,53 @@ class GroupDatabase(SQLiteDatabase):
             "by_type": by_type,
             "by_status": by_status,
         }
+
+    def load_all_groups_with_stats(self) -> list[dict[str, Any]]:
+        """Load all chat groups with their chat counts in a single query.
+
+        Optimized version of load_all_groups that avoids N+1 queries by
+        joining with group_chats to get counts in a single database roundtrip.
+
+        Returns:
+            List of group data dicts with 'chat_count' field, sorted by creation time (newest first)
+        """
+        with self._connection() as conn:
+            cursor = conn.execute("""
+                SELECT
+                    g.id,
+                    g.name,
+                    g.settings,
+                    g.status,
+                    g.created_at,
+                    g.updated_at,
+                    COUNT(gc.id) as chat_count
+                FROM chat_groups g
+                LEFT JOIN group_chats gc ON g.id = gc.group_id
+                GROUP BY g.id
+                ORDER BY g.created_at DESC
+            """)
+            rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "settings": json.loads(row["settings"]),
+                "status": row["status"],
+                "created_at": self._str_to_datetime(row["created_at"]),
+                "updated_at": self._str_to_datetime(row["updated_at"]),
+                "chat_count": row["chat_count"],
+            }
+            for row in rows
+        ]
+
+    def delete_group(self, group_id: str) -> None:
+        """Delete a chat group and all associated data.
+
+        Removes the group and all related chats and results via CASCADE.
+
+        Args:
+            group_id: Group identifier
+        """
+        with self._connection() as conn:
+            conn.execute("DELETE FROM chat_groups WHERE id = ?", (group_id,))
