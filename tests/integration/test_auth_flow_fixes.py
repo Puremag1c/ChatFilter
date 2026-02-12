@@ -127,6 +127,7 @@ class TestVerifyCodeNeeds2FA:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
+        # Success case still returns 200
         assert response.status_code == 200
         html = response.text
 
@@ -456,3 +457,505 @@ class TestAdoptClientFailureHandling:
 
         # 3. SSE error event was published
         mock_event_bus.publish.assert_awaited_once_with("testsession", "error")
+
+
+class TestVerifyCodeHTTPStatusCodes:
+    """Test HTTP status codes for verify_code error responses (Fix 2)."""
+
+    def test_verify_code_invalid_code_returns_422(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-code with invalid code returns HTTP 422."""
+        from telethon.errors import PhoneCodeInvalidError
+
+        auth_state = _make_auth_state()
+        auth_state.client.sign_in = AsyncMock(side_effect=PhoneCodeInvalidError(request=None))
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+        mock_auth_manager.update_auth_state = AsyncMock()
+        mock_auth_manager.increment_failed_attempts = AsyncMock()
+
+        with patch(
+            "chatfilter.web.auth_state.get_auth_state_manager",
+            return_value=mock_auth_manager,
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-code",
+                data={"auth_id": "auth-test-123", "code": "99999"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # PhoneCodeInvalidError should return 422
+        assert response.status_code == 422
+        assert "Invalid code" in response.text or "invalid" in response.text.lower()
+
+    def test_verify_code_expired_code_returns_422(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-code with expired code returns HTTP 422."""
+        from telethon.errors import PhoneCodeExpiredError
+
+        auth_state = _make_auth_state()
+        auth_state.client.sign_in = AsyncMock(side_effect=PhoneCodeExpiredError(request=None))
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+        mock_auth_manager.remove_auth_state = AsyncMock()
+
+        with patch(
+            "chatfilter.web.auth_state.get_auth_state_manager",
+            return_value=mock_auth_manager,
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-code",
+                data={"auth_id": "auth-test-123", "code": "12345"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # PhoneCodeExpiredError should return 422
+        assert response.status_code == 422
+        assert "expired" in response.text.lower()
+
+    def test_verify_code_flood_wait_returns_429(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-code with flood wait returns HTTP 429."""
+        from telethon.errors import FloodWaitError
+
+        auth_state = _make_auth_state()
+        mock_request = MagicMock()
+        # FloodWaitError needs request parameter
+        flood_error = FloodWaitError(request=mock_request)
+        auth_state.client.sign_in = AsyncMock(side_effect=flood_error)
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+
+        with patch(
+            "chatfilter.web.auth_state.get_auth_state_manager",
+            return_value=mock_auth_manager,
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-code",
+                data={"auth_id": "auth-test-123", "code": "12345"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # FloodWaitError should return 429
+        assert response.status_code == 429
+
+    def test_verify_code_connection_error_returns_502(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-code with connection error returns HTTP 502."""
+        auth_state = _make_auth_state()
+        auth_state.client.sign_in = AsyncMock(side_effect=ConnectionError("Network unreachable"))
+
+        session_dir = tmp_path / "testsession"
+        session_dir.mkdir()
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = AsyncMock()
+
+        with (
+            patch(
+                "chatfilter.web.auth_state.get_auth_state_manager",
+                return_value=mock_auth_manager,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir",
+                return_value=tmp_path,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-code",
+                data={"auth_id": "auth-test-123", "code": "12345"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # ConnectionError should return 502
+        assert response.status_code == 502
+        assert "proxy" in response.text.lower() or "connection" in response.text.lower()
+
+    def test_verify_code_timeout_returns_502(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-code with timeout returns HTTP 502 (TimeoutError caught as OSError)."""
+        auth_state = _make_auth_state()
+        auth_state.client.sign_in = AsyncMock(side_effect=TimeoutError())
+
+        session_dir = tmp_path / "testsession"
+        session_dir.mkdir()
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = AsyncMock()
+
+        with (
+            patch(
+                "chatfilter.web.auth_state.get_auth_state_manager",
+                return_value=mock_auth_manager,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir",
+                return_value=tmp_path,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-code",
+                data={"auth_id": "auth-test-123", "code": "12345"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # TimeoutError is subclass of OSError, so caught by ConnectionError handler (502)
+        assert response.status_code == 502
+
+    def test_verify_code_generic_exception_returns_500_and_cleans_auth_state(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-code generic exception returns HTTP 500, cleans auth_state, publishes SSE error."""
+        auth_state = _make_auth_state()
+        # sign_in succeeds (no SessionPasswordNeededError)
+        auth_state.client.sign_in = AsyncMock(return_value=MagicMock())
+
+        session_dir = tmp_path / "testsession"
+        session_dir.mkdir()
+        (session_dir / "session.session").touch()
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+        mock_auth_manager.remove_auth_state = AsyncMock()
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = AsyncMock()
+
+        # Make list_stored_sessions raise exception AFTER finalize succeeds
+        with (
+            patch(
+                "chatfilter.web.auth_state.get_auth_state_manager",
+                return_value=mock_auth_manager,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir",
+                return_value=tmp_path,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions._check_device_confirmation",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions._finalize_reconnect_auth",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.list_stored_sessions",
+                side_effect=RuntimeError("Unexpected error fetching sessions"),
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-code",
+                data={"auth_id": "auth-test-123", "code": "12345"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # Generic exception after finalize should return 500
+        assert response.status_code == 500
+        # Verify message says "Code accepted" not "Failed to verify code"
+        assert "code accepted" in response.text.lower() or "connection failed" in response.text.lower()
+
+        # Verify auth_state was cleaned
+        mock_auth_manager.remove_auth_state.assert_awaited_once_with("auth-test-123")
+
+        # Verify SSE error event published
+        mock_event_bus.publish.assert_awaited_with("testsession", "error")
+
+
+class TestVerify2FAHTTPStatusCodes:
+    """Test HTTP status codes for verify_2fa error responses (Fix 2)."""
+
+    def test_verify_2fa_invalid_password_returns_422(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-2fa with invalid password returns HTTP 422."""
+        from telethon.errors import PasswordHashInvalidError
+
+        auth_state = _make_auth_state(step=AuthStep.NEED_2FA)
+        auth_state.client.sign_in = AsyncMock(side_effect=PasswordHashInvalidError(request=None))
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+        mock_auth_manager.increment_failed_attempts = AsyncMock()
+
+        with patch(
+            "chatfilter.web.auth_state.get_auth_state_manager",
+            return_value=mock_auth_manager,
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-2fa",
+                data={"auth_id": "auth-test-123", "password": "wrongpass"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # PasswordHashInvalidError should return 422
+        assert response.status_code == 422
+        assert "incorrect" in response.text.lower() or "invalid" in response.text.lower()
+
+    def test_verify_2fa_flood_wait_returns_429(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-2fa with flood wait returns HTTP 429."""
+        from telethon.errors import FloodWaitError
+
+        auth_state = _make_auth_state(step=AuthStep.NEED_2FA)
+        mock_request = MagicMock()
+        flood_error = FloodWaitError(request=mock_request)
+        auth_state.client.sign_in = AsyncMock(side_effect=flood_error)
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+
+        with patch(
+            "chatfilter.web.auth_state.get_auth_state_manager",
+            return_value=mock_auth_manager,
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-2fa",
+                data={"auth_id": "auth-test-123", "password": "mypassword"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # FloodWaitError should return 429
+        assert response.status_code == 429
+
+    def test_verify_2fa_session_revoked_returns_401(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-2fa with session revoked returns HTTP 401."""
+        from telethon.errors import SessionRevokedError
+
+        auth_state = _make_auth_state(step=AuthStep.NEED_2FA)
+        auth_state.client.sign_in = AsyncMock(side_effect=SessionRevokedError(request=None))
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+        mock_auth_manager.remove_auth_state = AsyncMock()
+
+        with patch(
+            "chatfilter.web.auth_state.get_auth_state_manager",
+            return_value=mock_auth_manager,
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-2fa",
+                data={"auth_id": "auth-test-123", "password": "mypassword"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # SessionRevokedError should return 401
+        assert response.status_code == 401
+        assert "revoked" in response.text.lower()
+
+    def test_verify_2fa_connection_error_returns_502(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-2fa with connection error returns HTTP 502."""
+        auth_state = _make_auth_state(step=AuthStep.NEED_2FA)
+        auth_state.client.sign_in = AsyncMock(side_effect=ConnectionError("Network unreachable"))
+
+        session_dir = tmp_path / "testsession"
+        session_dir.mkdir()
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = AsyncMock()
+
+        with (
+            patch(
+                "chatfilter.web.auth_state.get_auth_state_manager",
+                return_value=mock_auth_manager,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir",
+                return_value=tmp_path,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-2fa",
+                data={"auth_id": "auth-test-123", "password": "mypassword"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # ConnectionError should return 502
+        assert response.status_code == 502
+        assert "proxy" in response.text.lower() or "connection" in response.text.lower()
+
+    def test_verify_2fa_timeout_returns_502(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-2fa with timeout returns HTTP 502 (TimeoutError caught as OSError)."""
+        auth_state = _make_auth_state(step=AuthStep.NEED_2FA)
+        auth_state.client.sign_in = AsyncMock(side_effect=TimeoutError())
+
+        session_dir = tmp_path / "testsession"
+        session_dir.mkdir()
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = AsyncMock()
+
+        with (
+            patch(
+                "chatfilter.web.auth_state.get_auth_state_manager",
+                return_value=mock_auth_manager,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir",
+                return_value=tmp_path,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-2fa",
+                data={"auth_id": "auth-test-123", "password": "mypassword"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # TimeoutError is subclass of OSError, so caught by ConnectionError handler (502)
+        assert response.status_code == 502
+
+    def test_verify_2fa_generic_exception_returns_500_and_cleans_auth_state(
+        self, client: TestClient, tmp_path: Path
+    ) -> None:
+        """verify-2fa generic exception returns HTTP 500, cleans auth_state, publishes SSE error."""
+        auth_state = _make_auth_state(step=AuthStep.NEED_2FA)
+        # sign_in succeeds
+        auth_state.client.sign_in = AsyncMock(return_value=MagicMock())
+
+        session_dir = tmp_path / "testsession"
+        session_dir.mkdir()
+        (session_dir / "session.session").touch()
+
+        csrf_token = _get_csrf_token(client)
+
+        mock_auth_manager = AsyncMock()
+        mock_auth_manager.get_auth_state = AsyncMock(return_value=auth_state)
+        mock_auth_manager.check_auth_lock = AsyncMock(return_value=(False, 0))
+        mock_auth_manager.remove_auth_state = AsyncMock()
+
+        mock_event_bus = MagicMock()
+        mock_event_bus.publish = AsyncMock()
+
+        # Make list_stored_sessions raise exception AFTER finalize succeeds
+        with (
+            patch(
+                "chatfilter.web.auth_state.get_auth_state_manager",
+                return_value=mock_auth_manager,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir",
+                return_value=tmp_path,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions._check_device_confirmation",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions._finalize_reconnect_auth",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.list_stored_sessions",
+                side_effect=RuntimeError("Unexpected error fetching sessions"),
+            ),
+        ):
+            response = client.post(
+                "/api/sessions/testsession/verify-2fa",
+                data={"auth_id": "auth-test-123", "password": "mypassword"},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        # Generic exception after finalize should return 500
+        assert response.status_code == 500
+        # Verify message says "Password accepted" not "Failed to verify password"
+        assert "password accepted" in response.text.lower() or "connection failed" in response.text.lower()
+
+        # Verify auth_state was cleaned
+        mock_auth_manager.remove_auth_state.assert_awaited_once_with("auth-test-123")
+
+        # Verify SSE error event published
+        mock_event_bus.publish.assert_awaited_with("testsession", "error")
