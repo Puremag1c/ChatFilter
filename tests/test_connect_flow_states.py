@@ -284,9 +284,14 @@ class TestConnectFlowCodeVerification:
                 # Simulate successful connect by publishing 'connected'
                 await mock_publish(sid, "connected")
 
+            # Mock adopt_client to publish 'connected' event (mimics real behavior)
+            async def mock_adopt_client(sid, client):
+                await mock_publish(sid, "connected")
+
             mock_manager = MagicMock()
             mock_manager._add_session = MagicMock()
             mock_manager.connect = mock_connect_fn  # Async function that publishes
+            mock_manager.adopt_client = mock_adopt_client
             mock_manager_getter.return_value = mock_manager
 
             # Mock file I/O functions
@@ -444,9 +449,14 @@ class TestConnectFlow2FA:
                 # Simulate successful connect by publishing 'connected'
                 await mock_publish(sid, "connected")
 
+            # Mock adopt_client to publish 'connected' event (mimics real behavior)
+            async def mock_adopt_client(sid, client):
+                await mock_publish(sid, "connected")
+
             mock_manager = MagicMock()
             mock_manager._add_session = MagicMock()
             mock_manager.connect = mock_connect_fn  # Async function that publishes
+            mock_manager.adopt_client = mock_adopt_client
             mock_manager_getter.return_value = mock_manager
 
             # Mock file I/O functions
