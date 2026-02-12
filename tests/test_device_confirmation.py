@@ -417,6 +417,9 @@ class TestDeviceConfirmation:
             mock_mgr.update_auth_state = AsyncMock()
             mock_mgr.remove_auth_state = AsyncMock()
             mock_mgr.check_auth_lock = AsyncMock(return_value=(False, 0))
+            # After _finalize_reconnect_auth, list_stored_sessions queries auth state by session.
+            # Return None to simulate auth state already cleaned up by finalize.
+            mock_mgr.get_auth_state_by_session = MagicMock(return_value=None)
             mock_get_mgr.return_value = mock_mgr
 
             mock_event_bus = MagicMock()
@@ -526,7 +529,11 @@ class TestDeviceConfirmation:
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
             mock_mgr.update_auth_state = AsyncMock()
+            mock_mgr.remove_auth_state = AsyncMock()
             mock_mgr.check_auth_lock = AsyncMock(return_value=(False, 0))
+            # After _finalize_reconnect_auth, list_stored_sessions queries auth state by session.
+            # Return None to simulate auth state already cleaned up by finalize.
+            mock_mgr.get_auth_state_by_session = MagicMock(return_value=None)
             mock_get_mgr.return_value = mock_mgr
 
             mock_event_bus = MagicMock()
