@@ -353,7 +353,7 @@ class SessionManager:
                     ) from e
                 else:
                     session.error_message = (
-                        f"Session is invalid ({error_type}). Please provide a new session file."
+                        f"Session authentication expired ({error_type}). Attempting automatic recovery..."
                     )
                     # Don't emit 'error' SSE event for recoverable session invalid errors
                     # (_handle_session_recovery will publish the appropriate event: 'needs_code')
@@ -550,7 +550,7 @@ class SessionManager:
             error_type = type(e).__name__
             session.state = SessionState.ERROR
             session.error_message = (
-                f"Session is invalid ({error_type}). Please provide a new session file."
+                f"Session authentication expired ({error_type}). Attempting automatic recovery..."
             )
             logger.error(f"Session '{session_id}' is permanently invalid: {error_type}")
             return False

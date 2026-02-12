@@ -484,8 +484,8 @@ class TestSessionAuthErrors:
         info = manager.get_info("test")
         assert info is not None
         assert info.state == SessionState.ERROR
-        assert "Session is invalid" in info.error_message
-        assert "new session file" in info.error_message
+        assert "expired" in info.error_message.lower()
+        assert "automatic recovery" in info.error_message.lower()
 
     @pytest.mark.asyncio
     async def test_reauth_required_state_and_error_message(self) -> None:
@@ -745,8 +745,8 @@ class TestDeadSessionRecoveryFlow:
         assert info is not None
         assert info.state == SessionState.ERROR
         # Error message should indicate permanent session death
-        assert "invalid" in info.error_message.lower()
-        assert "new session" in info.error_message.lower()
+        assert "expired" in info.error_message.lower()
+        assert "automatic recovery" in info.error_message.lower()
 
     @pytest.mark.asyncio
     async def test_dead_session_banned_account_shows_permanent_status(self) -> None:
@@ -797,8 +797,8 @@ class TestDeadSessionRecoveryFlow:
         assert temp_info.state == SessionState.ERROR
         assert perm_info.state == SessionState.ERROR
 
-        # Permanent error should mention needing new session
-        assert "new session" in perm_info.error_message.lower()
+        # Permanent error should mention automatic recovery
+        assert "automatic recovery" in perm_info.error_message.lower()
         # Temporary error should mention connection failure
         assert ("connection" in temp_info.error_message.lower() or
                 "connect" in temp_info.error_message.lower())
@@ -911,8 +911,8 @@ class TestAuthKeyUnregisteredAutoRecovery:
         info = manager.get_info("test_session")
         assert info is not None
         assert info.state == SessionState.ERROR
-        # Message should mention getting new session (i.e., recovery is possible)
-        assert "new session" in info.error_message.lower()
+        # Message should mention automatic recovery (i.e., recovery is possible)
+        assert "automatic recovery" in info.error_message.lower()
 
     @pytest.mark.asyncio
     async def test_session_file_deletion_signaled_for_authkey_unregistered(self) -> None:
@@ -931,11 +931,11 @@ class TestAuthKeyUnregisteredAutoRecovery:
 
         info = manager.get_info("invalid_session")
         assert info is not None
-        # Error should mention "unregistered" or "revoked" - indicating file is corrupt/invalid
+        # Error should mention "expired" and "automatic recovery"
         error_lower = info.error_message.lower()
-        assert "invalid" in error_lower or "unregistered" in error_lower or "revoked" in error_lower
-        # Should mention need for new session file (signals deletion + re-auth needed)
-        assert "new session" in error_lower or "session file" in error_lower
+        assert "expired" in error_lower
+        # Should mention automatic recovery (signals recovery is possible)
+        assert "automatic recovery" in error_lower
 
     @pytest.mark.asyncio
     async def test_reregister_after_authkey_unregistered_allows_recovery(self) -> None:
@@ -1015,6 +1015,6 @@ class TestAuthKeyUnregisteredAutoRecovery:
 
         # Both should have similar error handling
         assert info1.state == info2.state == SessionState.ERROR
-        # Both should mention new session needed
-        assert "new session" in info1.error_message.lower()
-        assert "new session" in info2.error_message.lower()
+        # Both should mention automatic recovery
+        assert "automatic recovery" in info1.error_message.lower()
+        assert "automatic recovery" in info2.error_message.lower()
