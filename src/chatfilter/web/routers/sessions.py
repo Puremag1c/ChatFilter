@@ -92,19 +92,31 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from chatfilter.config import get_settings
 from chatfilter.i18n import _
-from chatfilter.web.events import get_event_bus
-from chatfilter.web.template_helpers import get_template_context
-from chatfilter.storage.file import robust_delete_session_file, secure_delete_file
+from chatfilter.parsers.telegram_expert import (
+    parse_telegram_expert_json,
+    validate_account_info_json,
+)
+from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
 from chatfilter.telegram.session_manager import SessionBusyError, SessionState
-from chatfilter.parsers.telegram_expert import parse_telegram_expert_json, validate_account_info_json
+from chatfilter.web.events import get_event_bus
+from chatfilter.web.template_helpers import get_template_context
 
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates
@@ -660,9 +672,10 @@ def _save_session_to_disk(
         TelegramConfigError: If validation fails
         Exception: On other failures (temp dir is cleaned up)
     """
+    import tempfile
+
     from chatfilter.security import SecureCredentialManager
     from chatfilter.utils.disk import ensure_space_available
-    import tempfile
 
     safe_name = session_dir.name
 
@@ -959,6 +972,7 @@ async def validate_telegram_credentials_with_retry(
     import asyncio
     import tempfile
     from pathlib import Path
+
     from telethon import TelegramClient
     from telethon.errors import ApiIdInvalidError
 
@@ -998,7 +1012,7 @@ async def validate_telegram_credentials_with_retry(
             logger.warning(f"Invalid API credentials for session '{session_name}'")
             return (False, "Invalid API ID or API Hash. Credentials not saved.")
 
-        except (OSError, ConnectionError, TimeoutError, asyncio.TimeoutError) as e:
+        except (OSError, ConnectionError, TimeoutError) as e:
             # Transient network error - retry with backoff
             if client and client.is_connected():
                 await asyncio.wait_for(client.disconnect(), timeout=30.0)
@@ -1137,9 +1151,7 @@ def list_stored_sessions(
                     if info:
                         if info.state == SessionState.CONNECTED:
                             state = "connected"
-                        elif info.state == SessionState.CONNECTING:
-                            state = "connecting"
-                        elif info.state == SessionState.DISCONNECTING:
+                        elif info.state == SessionState.CONNECTING or info.state == SessionState.DISCONNECTING:
                             state = "connecting"
                         elif info.state == SessionState.ERROR:
                             error_message = info.error_message
@@ -1683,7 +1695,7 @@ async def get_session_config(
 
     try:
         safe_name = sanitize_session_name(session_id)
-    except ValueError as e:
+    except ValueError:
         # Return error as HTML with 200 OK to prevent HTMX error handler from destroying session list
         return HTMLResponse(
             content=f'<div class="alert alert-error">{_("Invalid session name")}</div>',
@@ -2294,7 +2306,7 @@ async def start_auth_flow(
             },
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to save session '{safe_name}'")
         # Clean up on failure
         if session_dir.exists():
@@ -2721,7 +2733,7 @@ async def _complete_auth_flow(
             headers={"HX-Trigger": "refreshSessions"},
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to complete auth flow for '{session_name}'")
         # Clean up on failure
         session_dir = ensure_data_dir() / session_name
@@ -2761,8 +2773,8 @@ async def _poll_device_confirmation(
         auth_id: Auth flow ID
         auth_manager: Auth state manager
     """
-    from telethon.tl.functions.account import GetAuthorizationsRequest
     from telethon.errors import AuthKeyUnregisteredError, RPCError
+    from telethon.tl.functions.account import GetAuthorizationsRequest
 
     timeout_seconds = 300  # 5 minutes
     poll_interval = 5  # Start with 5 seconds
@@ -2861,7 +2873,7 @@ async def _poll_device_confirmation(
                 # Signal frontend (keep 'error' event for compatibility)
                 await get_event_bus().publish(safe_name, "error")
                 return
-            except (TimeoutError, asyncio.TimeoutError):
+            except TimeoutError:
                 # API call timeout — log and continue
                 logger.warning(f"Timeout polling device confirmation for '{safe_name}', will retry")
             except RPCError as e:
@@ -2981,8 +2993,9 @@ async def _check_device_confirmation(client: TelegramClient) -> bool:
         TelegramError: Other Telegram API errors that indicate real problems
     """
     import asyncio
-    from telethon.tl.functions.account import GetAuthorizationsRequest
+
     from telethon.errors import AuthKeyUnregisteredError, RPCError
+    from telethon.tl.functions.account import GetAuthorizationsRequest
 
     try:
         # Get all authorizations for this account
@@ -3004,7 +3017,7 @@ async def _check_device_confirmation(client: TelegramClient) -> bool:
 
         return False
 
-    except (TimeoutError, asyncio.TimeoutError):
+    except TimeoutError:
         # Timeout checking confirmation status — log but don't fail auth
         # Better to proceed than block on edge case
         logger.warning("Timeout checking device confirmation status - assuming no confirmation needed")
@@ -3169,7 +3182,7 @@ def _save_error_to_config(config_path: Path, error_message: str, retry_available
         config_content = json.dumps(config, indent=2).encode("utf-8")
         atomic_write(config_path, config_content)
     except Exception:
-        logger.exception(f"Failed to save error message to config.json")
+        logger.exception("Failed to save error message to config.json")
 
 async def _do_connect_in_background_v2(session_id: str) -> None:
     """Background task that performs the actual Telegram connection (v2 - no registration).
@@ -3204,14 +3217,13 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
         UserDeactivatedBanError,
         UserDeactivatedError,
     )
-    from chatfilter.telegram.client import SessionFileError
+
+    from chatfilter.telegram.error_mapping import get_user_friendly_message
     from chatfilter.telegram.session_manager import (
         SessionConnectError,
         SessionInvalidError,
         SessionReauthRequiredError,
     )
-
-    from chatfilter.telegram.error_mapping import get_user_friendly_message
     from chatfilter.web.dependencies import get_session_manager
     from chatfilter.web.events import get_event_bus
 
@@ -3341,7 +3353,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                     _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
                 await get_event_bus().publish(session_id, error_state)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Connection timeout for session '{session_id}'")
             error_message = "Connection timeout"
             safe_error_message = sanitize_error_message_for_client(error_message, "timeout")
@@ -3425,6 +3437,7 @@ async def _send_verification_code_with_timeout(
     This prevents indefinite hangs if network operations stall.
     """
     import asyncio
+
     from chatfilter.web.events import get_event_bus
 
     try:
@@ -3434,7 +3447,7 @@ async def _send_verification_code_with_timeout(
             ),
             timeout=30.0,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(f"Verification code request timeout for session '{session_id}'")
         error_message = "Connection timeout"
         # Save error to config.json for UI display (Bug 2 fix)
@@ -3466,11 +3479,11 @@ async def _send_verification_code_and_create_auth(
     from telethon import TelegramClient
     from telethon.errors import AuthKeyUnregisteredError, PhoneNumberInvalidError
 
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
     from chatfilter.telegram.error_mapping import get_user_friendly_message
     from chatfilter.telegram.retry import calculate_backoff_delay
     from chatfilter.web.auth_state import get_auth_state_manager
-    from chatfilter.storage.errors import StorageNotFoundError
-    from chatfilter.storage.proxy_pool import get_proxy_by_id
     from chatfilter.web.events import get_event_bus
 
     def save_error_metadata(error_message: str, retry_available: bool) -> None:
@@ -3506,7 +3519,7 @@ async def _send_verification_code_and_create_auth(
     # Get proxy once (no retry needed)
     try:
         proxy_info = get_proxy_by_id(proxy_id)
-    except StorageNotFoundError as e:
+    except StorageNotFoundError:
         # Security: sanitize error message before publishing to client
         error_message = f"Proxy '{proxy_id}' not found in pool"
         safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
@@ -3723,7 +3736,6 @@ async def connect_session(
 
     # FIX RACE CONDITION: Register loader and set state BEFORE scheduling background task
     # This prevents parallel requests from both seeing DISCONNECTED and scheduling duplicate tasks
-    from chatfilter.telegram.client import TelegramClientLoader
     from chatfilter.telegram.session_manager import SessionState
 
     try:
@@ -3964,7 +3976,7 @@ async def disconnect_session(
         # which would race with SSE and cause htmx:swapError on the detached element.
         return HTMLResponse(content="", headers={"HX-Reswap": "none"})
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to disconnect session '{safe_name}'")
 
         # Publish state change event for SSE — this triggers OOB swap to update the row
@@ -3992,7 +4004,6 @@ async def verify_code(
     - Error message if code invalid
     """
     import asyncio
-    import shutil
 
     from telethon.errors import (
         AuthKeyUnregisteredError,
@@ -4015,6 +4026,7 @@ async def verify_code(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("Invalid code format.")},
+            status_code=400,
         )
 
     # Security: Telegram codes are always 5-6 digits, reject any other format
@@ -4023,6 +4035,7 @@ async def verify_code(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("Code must be 5-6 digits.")},
+            status_code=400,
         )
 
     # Sanitize session name
@@ -4033,6 +4046,7 @@ async def verify_code(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": str(e)},
+            status_code=400,
         )
 
     # Get auth state
@@ -4045,6 +4059,7 @@ async def verify_code(
                 "success": False,
                 "error": _("Auth session expired or not found. Please start over."),
             },
+            status_code=401,
         )
 
     # Check if auth is locked due to too many failed attempts
@@ -4064,6 +4079,7 @@ async def verify_code(
                     minutes=remaining_minutes
                 ),
             },
+            status_code=429,
         )
 
     # Verify this auth state is for the correct session
@@ -4075,6 +4091,7 @@ async def verify_code(
                 "success": False,
                 "error": _("Auth session mismatch. Please start over."),
             },
+            status_code=400,
         )
 
     # Validate code format (digits only)
@@ -4091,6 +4108,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": _("Invalid code format. Please enter the numeric code you received."),
             },
+            status_code=400,
         )
 
     client = auth_state.client
@@ -4103,6 +4121,7 @@ async def verify_code(
                 "success": False,
                 "error": _("Connection lost. Please start over."),
             },
+            status_code=502,
         )
 
     try:
@@ -4179,6 +4198,7 @@ async def verify_code(
         # 2FA required — attempt auto-login with stored password (SPEC.md AC #4)
         # Flow: sign_in(code) → SessionPasswordNeededError → sign_in(password) → success or manual form
         from telethon.errors import PasswordHashInvalidError
+
         from chatfilter.security import SecureCredentialManager
 
         session_dir = ensure_data_dir() / safe_name
@@ -4326,6 +4346,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": error_msg,
             },
+            status_code=422,
         )
 
     except PhoneCodeExpiredError:
@@ -4337,6 +4358,7 @@ async def verify_code(
                 "success": False,
                 "error": _("Code has expired. Please start over."),
             },
+            status_code=422,
         )
 
     except FloodWaitError as e:
@@ -4353,6 +4375,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": get_user_friendly_message(e),
             },
+            status_code=429,
         )
 
     except PhoneCodeEmptyError:
@@ -4367,6 +4390,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": _("Please enter the verification code."),
             },
+            status_code=400,
         )
 
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
@@ -4391,6 +4415,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": _("Proxy connection failed. Please check your proxy settings and try again."),
             },
+            status_code=502,
         )
 
     except TimeoutError:
@@ -4413,6 +4438,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": _("Request timeout. Please try again."),
             },
+            status_code=504,
         )
 
     except AuthKeyUnregisteredError:
@@ -4431,6 +4457,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": _("Session expired or invalidated. Please reconnect your account."),
             },
+            status_code=401,
         )
 
     except Exception:
@@ -4453,6 +4480,7 @@ async def verify_code(
                 "session_id": session_id,
                 "error": _("Code accepted. Connection failed — please try Connect again."),
             },
+            status_code=500,
         )
 
 
@@ -4474,12 +4502,11 @@ async def verify_2fa(
     - Error message if password invalid
     """
     import asyncio
-    import shutil
 
     from telethon.errors import (
-        FloodWaitError,
         AuthKeyInvalidError,
         AuthKeyUnregisteredError,
+        FloodWaitError,
         PasswordHashInvalidError,
         SessionRevokedError,
         UserDeactivatedBanError,
@@ -4498,6 +4525,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("Invalid password: must be at most 256 characters.")},
+            status_code=400,
         )
 
     # Security: Reject empty or whitespace-only passwords
@@ -4506,6 +4534,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("Password cannot be empty.")},
+            status_code=400,
         )
 
     # Sanitize session name
@@ -4516,6 +4545,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": str(e)},
+            status_code=400,
         )
 
     # Get auth state
@@ -4528,6 +4558,7 @@ async def verify_2fa(
                 "success": False,
                 "error": _("Auth session expired or not found. Please start over."),
             },
+            status_code=410,
         )
 
     # Check if auth is locked due to too many failed attempts
@@ -4544,6 +4575,7 @@ async def verify_2fa(
                     minutes=remaining_minutes
                 ),
             },
+            status_code=429,
         )
 
     # Verify this auth state is for the correct session
@@ -4555,6 +4587,7 @@ async def verify_2fa(
                 "success": False,
                 "error": _("Auth session mismatch. Please start over."),
             },
+            status_code=400,
         )
 
     client = auth_state.client
@@ -4567,6 +4600,7 @@ async def verify_2fa(
                 "success": False,
                 "error": _("Connection lost. Please start over."),
             },
+            status_code=502,
         )
 
     try:
@@ -4613,6 +4647,7 @@ async def verify_2fa(
                 request=request,
                 name="partials/auth_result.html",
                 context={"success": False, "error": _("Failed to finalize connection. Please try Connect again.")},
+                status_code=500,
             )
 
         # Get updated session data after reconnect
@@ -4646,6 +4681,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("This session has been revoked. Please delete and recreate the session.")},
+            status_code=401,
         )
 
     except AuthKeyUnregisteredError:
@@ -4657,6 +4693,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("Session expired or invalidated. Please reconnect your account.")},
+            status_code=401,
         )
 
     except AuthKeyInvalidError:
@@ -4665,6 +4702,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("Authorization key is invalid. Please delete and recreate the session.")},
+            status_code=401,
         )
 
     except UserDeactivatedError:
@@ -4673,6 +4711,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("This account has been deactivated.")},
+            status_code=401,
         )
 
     except UserDeactivatedBanError:
@@ -4681,6 +4720,7 @@ async def verify_2fa(
             request=request,
             name="partials/auth_result.html",
             context={"success": False, "error": _("This account has been banned.")},
+            status_code=401,
         )
 
     except PasswordHashInvalidError:
@@ -4704,6 +4744,7 @@ async def verify_2fa(
                 "session_name": safe_name,
                 "error": error_msg,
             },
+            status_code=422,
         )
 
     except FloodWaitError as e:
@@ -4717,6 +4758,7 @@ async def verify_2fa(
                 "session_name": safe_name,
                 "error": get_user_friendly_message(e),
             },
+            status_code=429,
         )
 
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
@@ -4738,6 +4780,7 @@ async def verify_2fa(
                 "session_name": safe_name,
                 "error": _("Proxy connection failed. Please check your proxy settings and try again."),
             },
+            status_code=502,
         )
 
     except TimeoutError:
@@ -4757,6 +4800,7 @@ async def verify_2fa(
                 "session_name": safe_name,
                 "error": _("Request timeout. Please try again."),
             },
+            status_code=504,
         )
 
     except Exception:
@@ -4776,6 +4820,7 @@ async def verify_2fa(
                 "session_name": safe_name,
                 "error": _("Password accepted. Connection failed — please try Connect again."),
             },
+            status_code=500,
         )
 
 @router.post("/api/sessions/import/save", response_class=HTMLResponse)
@@ -5102,7 +5147,7 @@ async def session_events(request: Request):
                         html_compact = html_with_oob.replace('\n', ' ').replace('  ', ' ')
                         yield f"event: message\ndata: {html_compact}\n\n"
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send keepalive comment to prevent timeout
                     yield ": keepalive\n\n"
 
