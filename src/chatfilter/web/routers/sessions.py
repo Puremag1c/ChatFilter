@@ -4406,6 +4406,7 @@ async def verify_code(
         await get_event_bus().publish(safe_name, "needs_config")
 
         logger.error(f"Proxy connection failed during code verification for session '{safe_name}': {e}")
+        await auth_manager.remove_auth_state(auth_id)
         # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
@@ -4429,6 +4430,7 @@ async def verify_code(
         save_account_info(session_dir, account_info)
         await get_event_bus().publish(safe_name, "needs_config")
 
+        await auth_manager.remove_auth_state(auth_id)
         # Use reconnect-specific template since we have session_id in the URL
         return templates.TemplateResponse(
             request=request,
@@ -4775,6 +4777,7 @@ async def verify_2fa(
         await get_event_bus().publish(safe_name, "needs_config")
 
         logger.error(f"Proxy connection failed during 2FA verification for session '{safe_name}': {e}")
+        await auth_manager.remove_auth_state(auth_id)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_2fa_form.html",
@@ -4795,6 +4798,7 @@ async def verify_2fa(
         save_account_info(session_dir, account_info)
         await get_event_bus().publish(safe_name, "needs_config")
 
+        await auth_manager.remove_auth_state(auth_id)
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_2fa_form.html",
