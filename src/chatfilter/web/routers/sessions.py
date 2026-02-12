@@ -4451,7 +4451,7 @@ async def verify_code(
                 "phone": auth_state.phone,
                 "session_name": safe_name,
                 "session_id": session_id,
-                "error": _("Failed to verify code. Please check the code and try again."),
+                "error": _("Code accepted. Connection failed — please try Connect again."),
             },
         )
 
@@ -4774,7 +4774,7 @@ async def verify_2fa(
             context={
                 "auth_id": auth_id,
                 "session_name": safe_name,
-                "error": _("Failed to verify password. Please try again."),
+                "error": _("Password accepted. Connection failed — please try Connect again."),
             },
         )
 
