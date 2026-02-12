@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-02-12
+
+### Fixed
+- **Infinite 2FA loop**: Fixed TypeError from awaiting synchronous session.save() method (commit e09e690)
+  - Root cause: `await client.session.save()` but Telethon's session.save() returns None (not awaitable)
+  - Symptom: Generic exception handler caught TypeError → returned HTTP 200 → UI showed success but auth failed → infinite loop
+  - Solution: Changed to `client.session.save()` without await on line 3060 in sessions.py
+
 ## [0.9.5] - 2026-02-12
 
 ### Fixed
@@ -697,7 +705,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.2...v0.9.3
