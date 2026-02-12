@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-02-12
+
+### Fixed
+- Fix: 9 connect_session tests fail - SessionBlockedError instead of Connecting
+- Fix: 2 device_confirmation tests fail - MagicMock not AsyncMock for remove_auth_state
+- [Reliability] Fix race condition in adopt_client validation
+- Fix 2: Return HTTP 4xx/5xx for error responses in verify_2fa and verify_code
+- Fix 1: Add auth_state cleanup in generic exception handlers
+- Fix 3: Remove await from client.session.save() (root cause)
+- SMOKE: [API] FileNotFoundError handlers missing status_code
+- [Reliability] Add auth_state cleanup in verify_code generic exception handler
+- Fix 4: Accurate error messages (not 'Failed to verify password')
+- Sync __init__.py version 0.9.4 → 0.9.5
+
+### Changed
+- [Security] Prevent 2FA password leakage in exception traceback
+- [Security] Add session file write lock (race condition)
+- [UX] Fix button states and loading feedback in 2FA/SMS modals
+- Nice-to-have: Add auth_state cleanup in OSError/TimeoutError handlers
+
 ## [0.9.6] - 2026-02-12
 
 ### Fixed
