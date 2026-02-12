@@ -1458,7 +1458,7 @@ class TestSessionConnectDisconnectAPI:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -1522,7 +1522,7 @@ class TestSessionConnectDisconnectAPI:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -1588,7 +1588,7 @@ class TestSessionConnectDisconnectAPI:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -1652,7 +1652,7 @@ class TestSessionConnectDisconnectAPI:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -1723,7 +1723,7 @@ class TestSessionConnectDisconnectAPI:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
             patch(
@@ -1801,7 +1801,7 @@ class TestSessionConnectDisconnectAPI:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
             patch(
@@ -1809,8 +1809,8 @@ class TestSessionConnectDisconnectAPI:
                 new_callable=AsyncMock,
             ) as mock_send_code,
             patch(
-                "chatfilter.web.routers.sessions.robust_delete_session_file",
-                return_value=True,
+                "chatfilter.web.routers.sessions.secure_delete_file",
+                return_value=None,
             ) as mock_delete,
             patch(
                 "chatfilter.web.routers.sessions.load_account_info",
@@ -2062,7 +2062,7 @@ class TestDeadSessionRecoveryUX:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -2126,7 +2126,7 @@ class TestDeadSessionRecoveryUX:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -2190,7 +2190,7 @@ class TestDeadSessionRecoveryUX:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -2256,7 +2256,7 @@ class TestDeadSessionRecoveryUX:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
@@ -2288,7 +2288,7 @@ class TestDeadSessionRecoveryUX:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.telegram.client.TelegramClientLoader",
+                "chatfilter.web.routers.sessions.TelegramClientLoader",
                 return_value=mock_loader,
             ),
         ):
