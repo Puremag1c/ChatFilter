@@ -2544,10 +2544,16 @@ async def submit_auth_2fa(
 
     try:
         # Try to sign in with 2FA password
-        await asyncio.wait_for(
-            client.sign_in(password=password),
-            timeout=30.0,
-        )
+        # Separate try-except to prevent password leakage in traceback
+        try:
+            await asyncio.wait_for(
+                client.sign_in(password=password),
+                timeout=30.0,
+            )
+            password = None  # Clear immediately after success
+        except Exception:
+            password = None  # Clear before re-raising
+            raise
 
         # Success! Save the session
         return await _complete_auth_flow(request, auth_state, templates, auth_manager)
@@ -4543,11 +4549,16 @@ async def verify_2fa(
 
     try:
         # Try to sign in with 2FA password
-        await asyncio.wait_for(
-            client.sign_in(password=password),
-            timeout=30.0,
-        )
-
+        # Separate try-except to prevent password leakage in traceback
+        try:
+            await asyncio.wait_for(
+                client.sign_in(password=password),
+                timeout=30.0,
+            )
+            password = None  # Clear immediately after success
+        except Exception:
+            password = None  # Clear before re-raising
+            raise
 
         # Check if session requires device confirmation
         needs_confirmation = await _check_device_confirmation(client)
