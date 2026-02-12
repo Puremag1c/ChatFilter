@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-02-12
+
+### Fixed
+- Fix: Add AsyncMock for session_manager.adopt_client in test_verify_code_auto_2fa_success
+- SMOKE: [Backend] Test mock incomplete - client.session.save() not AsyncMock
+- Fix: Add AsyncMock for adopt_client in 2 test setups
+- SMOKE: [Backend] 6 tests expect old error message format
+
+### Changed
+- Rewrite _finalize_reconnect_auth() to use adopt_client instead of disconnect+reconnect
+- Add adopt_client() method to SessionManager
+- [Reliability] Add client cleanup for RPCError/Exception in _poll_device_confirmation
+- [Reliability] Add error handling for adopt_client failure in _finalize_reconnect_auth
+- [UX] Device confirmation timeout should publish 'error' not 'disconnected'
+- [Security] Add authorization validation in adopt_client()
+- [OPS] Add E2E test for full auth flow (reauth → 2FA → device confirmation → connected)
+- Write tests for adopt_client() and rewritten _finalize_reconnect_auth()
+- Update _poll_device_confirmation to use adopt_client path
+- Add unit tests for SessionManager.adopt_client()
+- [UX] Add specific error message when adopt_client fails
+- Planning complete for v0.10.0
+- Nice-to-have: Improve error logging in _finalize_reconnect_auth
+
 ## [0.9.4] - 2026-02-11
 
 ### Fixed
@@ -674,7 +697,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.1...v0.9.2
