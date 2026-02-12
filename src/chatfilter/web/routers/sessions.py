@@ -2836,6 +2836,7 @@ async def _poll_device_confirmation(
                         )
                     except Exception as e:
                         logger.error(f"Error finalizing reconnect auth after confirmation: {e}")
+                        await auth_manager.remove_auth_state(auth_id)
                         await get_event_bus().publish(safe_name, "error")
 
                     return
@@ -4134,10 +4135,19 @@ async def verify_code(
                 client, auth_state, auth_manager, safe_name, "code verified"
             )
         except FileNotFoundError:
+            await auth_manager.remove_auth_state(auth_id)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/auth_result.html",
                 context={"success": False, "error": _("Session directory not found.")},
+            )
+        except Exception as e:
+            logger.error(f"Error finalizing reconnect auth after code verification: {e}")
+            await auth_manager.remove_auth_state(auth_id)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/auth_result.html",
+                context={"success": False, "error": _("Failed to finalize connection. Please try Connect again.")},
             )
 
         # Get updated session data after reconnect
@@ -4207,10 +4217,19 @@ async def verify_code(
                         client, auth_state, auth_manager, safe_name, "auto 2FA"
                     )
                 except FileNotFoundError:
+                    await auth_manager.remove_auth_state(auth_id)
                     return templates.TemplateResponse(
                         request=request,
                         name="partials/auth_result.html",
                         context={"success": False, "error": _("Session directory not found.")},
+                    )
+                except Exception as e:
+                    logger.error(f"Error finalizing reconnect auth after auto 2FA: {e}")
+                    await auth_manager.remove_auth_state(auth_id)
+                    return templates.TemplateResponse(
+                        request=request,
+                        name="partials/auth_result.html",
+                        context={"success": False, "error": _("Failed to finalize connection. Please try Connect again.")},
                     )
 
                 # Get updated session data after reconnect
@@ -4417,6 +4436,9 @@ async def verify_code(
     except Exception:
         logger.exception(f"Failed to verify code for session '{safe_name}'")
 
+        # Cleanup auth state to allow retry with Connect
+        await auth_manager.remove_auth_state(auth_id)
+
         # Publish error state to SSE
         await get_event_bus().publish(safe_name, "error")
 
@@ -4578,10 +4600,19 @@ async def verify_2fa(
                 client, auth_state, auth_manager, safe_name, "2FA verified"
             )
         except FileNotFoundError:
+            await auth_manager.remove_auth_state(auth_id)
             return templates.TemplateResponse(
                 request=request,
                 name="partials/auth_result.html",
                 context={"success": False, "error": _("Session directory not found.")},
+            )
+        except Exception as e:
+            logger.error(f"Error finalizing reconnect auth after 2FA verification: {e}")
+            await auth_manager.remove_auth_state(auth_id)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/auth_result.html",
+                context={"success": False, "error": _("Failed to finalize connection. Please try Connect again.")},
             )
 
         # Get updated session data after reconnect
@@ -4730,6 +4761,9 @@ async def verify_2fa(
 
     except Exception:
         logger.exception(f"Failed to verify 2FA for session '{safe_name}'")
+
+        # Cleanup auth state to allow retry with Connect
+        await auth_manager.remove_auth_state(auth_id)
 
         # Publish error state to SSE
         await get_event_bus().publish(safe_name, "error")
