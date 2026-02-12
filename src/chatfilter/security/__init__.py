@@ -18,6 +18,11 @@ from chatfilter.security.key_manager import (
     MachineKeyBackend,
     PasswordBackend,
 )
+from chatfilter.security.url_validator import (
+    URLValidationError,
+    get_allowed_domains,
+    validate_url,
+)
 
 __all__ = [
     # Credentials
@@ -33,4 +38,8 @@ __all__ = [
     "PasswordBackend",
     "EnvironmentBackend",
     "MachineKeyBackend",
+    # URL Validation
+    "URLValidationError",
+    "validate_url",
+    "get_allowed_domains",
 ]

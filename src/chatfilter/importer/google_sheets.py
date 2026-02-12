@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from chatfilter.importer.parser import ChatListEntry, ParseError, parse_csv
+from chatfilter.security.url_validator import URLValidationError, validate_url
 
 # Regex patterns for Google Sheets URLs
 SHEETS_URL_PATTERNS = [
@@ -112,6 +113,12 @@ async def fetch_google_sheet(
     Raises:
         GoogleSheetsError: If fetching or parsing fails.
     """
+    # Validate URL security before processing
+    try:
+        validate_url(url)
+    except URLValidationError as e:
+        raise GoogleSheetsError(f"URL validation failed: {e}") from e
+
     try:
         sheet_id = extract_sheet_id(url)
     except GoogleSheetsError:
@@ -119,6 +126,12 @@ async def fetch_google_sheet(
 
     gid = extract_gid(url)
     export_url = build_csv_export_url(sheet_id, gid)
+
+    # Validate export URL as well (defense in depth)
+    try:
+        validate_url(export_url)
+    except URLValidationError as e:
+        raise GoogleSheetsError(f"Export URL validation failed: {e}") from e
 
     async with httpx.AsyncClient(
         timeout=timeout,

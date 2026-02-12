@@ -339,6 +339,22 @@ class Settings(BaseSettings):
         description="Days after which unused session files are auto-deleted (None=disabled)",
     )
 
+    # URL security settings
+    allowed_file_domains: list[str] = Field(
+        default_factory=list,
+        description="Additional domains allowed for external file fetching (comma-separated in env var)",
+    )
+
+    @field_validator("allowed_file_domains", mode="before")
+    @classmethod
+    def parse_allowed_domains(cls, v: Any) -> list[str]:
+        """Parse allowed domains from comma-separated string or list."""
+        if isinstance(v, str):
+            return [domain.strip() for domain in v.split(",") if domain.strip()]
+        if isinstance(v, list):
+            return list(v)
+        return []
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
