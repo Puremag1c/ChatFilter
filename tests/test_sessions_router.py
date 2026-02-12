@@ -3164,7 +3164,7 @@ class TestVerifyCode2FAAutoEntry:
             client=mock_client,
         )
 
-        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn:
+        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,              patch("chatfilter.web.dependencies.get_session_manager") as mock_session_mgr_fn:
 
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
@@ -3177,6 +3177,10 @@ class TestVerifyCode2FAAutoEntry:
             mock_event_bus = MagicMock()
             mock_event_bus.publish = AsyncMock()
             mock_event_bus_fn.return_value = mock_event_bus
+
+            mock_session_manager = MagicMock()
+            mock_session_manager.adopt_client = AsyncMock()
+            mock_session_mgr_fn.return_value = mock_session_manager
 
             home_response = client.get("/")
             csrf_token = extract_csrf_token(home_response.text)
