@@ -4159,6 +4159,7 @@ async def verify_code(
                 request=request,
                 name="partials/auth_result.html",
                 context={"success": False, "error": _("Session directory not found.")},
+                status_code=500,
             )
         except Exception as e:
             logger.error(f"Error finalizing reconnect auth after code verification: {e}")
@@ -4242,6 +4243,7 @@ async def verify_code(
                         request=request,
                         name="partials/auth_result.html",
                         context={"success": False, "error": _("Session directory not found.")},
+                        status_code=500,
                     )
                 except Exception as e:
                     logger.error(f"Error finalizing reconnect auth after auto 2FA: {e}")
@@ -4639,6 +4641,7 @@ async def verify_2fa(
                 request=request,
                 name="partials/auth_result.html",
                 context={"success": False, "error": _("Session directory not found.")},
+                status_code=500,
             )
         except Exception as e:
             logger.error(f"Error finalizing reconnect auth after 2FA verification: {e}")
