@@ -21,8 +21,8 @@ class MockSessionFile:
         self.temp_path = temp_path
         self.save_calls = 0
 
-    async def save(self) -> None:
-        """Mock session.save()."""
+    def save(self) -> None:
+        """Mock session.save() (synchronous, like real Telethon)."""
         self.save_calls += 1
         # Create a real session file to test file copy logic
         self.temp_path.parent.mkdir(parents=True, exist_ok=True)

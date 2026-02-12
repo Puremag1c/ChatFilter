@@ -393,7 +393,7 @@ class TestAdoptClientFailureHandling:
             )
         )
         mock_client.session = MagicMock()
-        mock_client.session.save = AsyncMock()
+        mock_client.session.save = MagicMock()
         mock_client.disconnect = AsyncMock()
 
         # Create mock auth_state

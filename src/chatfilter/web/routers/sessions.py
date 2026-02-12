@@ -3057,7 +3057,7 @@ async def _finalize_reconnect_auth(
     }
 
     # Save session to disk (Telethon will save to the path it was initialized with)
-    await client.session.save()
+    client.session.save()
 
     # Copy session file from temp location to existing session (with atomic write + backup)
     temp_dir = getattr(auth_state, "temp_dir", None)

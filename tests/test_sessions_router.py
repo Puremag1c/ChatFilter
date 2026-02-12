@@ -3127,9 +3127,9 @@ class TestVerifyCode2FAAutoEntry:
         mock_client.is_connected.return_value = True
         mock_client.is_user_authorized = AsyncMock(return_value=True)
 
-        # Mock session.save() for the 2FA auto-entry success path
+        # Mock session.save() for the 2FA auto-entry success path (synchronous, like real Telethon)
         mock_session = MagicMock()
-        mock_session.save = AsyncMock()
+        mock_session.save = MagicMock()
         mock_client.session = mock_session
 
         mock_me = MagicMock()
