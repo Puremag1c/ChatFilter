@@ -3125,6 +3125,12 @@ class TestVerifyCode2FAAutoEntry:
 
         mock_client = MagicMock()
         mock_client.is_connected.return_value = True
+        mock_client.is_user_authorized = AsyncMock(return_value=True)
+
+        # Mock session.save() for the 2FA auto-entry success path
+        mock_session = MagicMock()
+        mock_session.save = AsyncMock()
+        mock_client.session = mock_session
 
         mock_me = MagicMock()
         mock_me.id = 123456789
