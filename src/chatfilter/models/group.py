@@ -364,6 +364,3 @@ class GroupStats(BaseModel):
             failed=failed if failed is not None else 1,
         )
 
-
-# Backward compatibility alias
-GroupChatType = ChatTypeEnum
