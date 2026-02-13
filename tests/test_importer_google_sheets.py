@@ -229,6 +229,70 @@ class TestIsGoogleSheetsUrl:
         assert is_google_sheets_url(url) is True
 
 
+def _create_mock_stream_response(csv_content: str, headers: dict | None = None):
+    """Helper to create a properly mocked httpx streaming response.
+
+    Args:
+        csv_content: CSV content to return
+        headers: Response headers (defaults to text/csv)
+
+    Returns:
+        Tuple of (mock_client_class, mock_response) for patching
+    """
+    if headers is None:
+        headers = {"content-type": "text/csv"}
+
+    # Mock the streaming response
+    mock_response = MagicMock()
+    mock_response.headers = headers
+    mock_response.raise_for_status = MagicMock()
+
+    # Create an async generator for aiter_bytes
+    async def mock_aiter_bytes():
+        yield csv_content.encode("utf-8")
+
+    mock_response.aiter_bytes = mock_aiter_bytes
+
+    # Create mock client instance
+    mock_client = AsyncMock()
+    # stream() returns an async context manager
+    mock_stream_cm = AsyncMock()
+    mock_stream_cm.__aenter__.return_value = mock_response
+    mock_client.stream = MagicMock(return_value=mock_stream_cm)
+
+    # Mock the AsyncClient class
+    mock_client_class = MagicMock()
+    # AsyncClient() returns an async context manager (the client)
+    mock_client_class.return_value.__aenter__.return_value = mock_client
+
+    return mock_client_class, mock_response
+
+
+def _create_mock_stream_error(exception):
+    """Helper to create a properly mocked httpx client that raises an exception.
+
+    Args:
+        exception: Exception to raise when stream() is called
+
+    Returns:
+        mock_client_class for patching
+    """
+    # Create mock client instance
+    mock_client = AsyncMock()
+
+    # stream() returns an async context manager that raises on __aenter__
+    mock_stream_cm = AsyncMock()
+    mock_stream_cm.__aenter__.side_effect = exception
+    mock_client.stream = MagicMock(return_value=mock_stream_cm)
+
+    # Mock the AsyncClient class
+    mock_client_class = MagicMock()
+    # AsyncClient() returns an async context manager (the client)
+    mock_client_class.return_value.__aenter__.return_value = mock_client
+
+    return mock_client_class
+
+
 class TestFetchGoogleSheet:
     """Tests for fetch_google_sheet async function."""
 
@@ -238,16 +302,9 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit#gid=0"
         csv_content = "username\n@channel1\n@channel2\ntest_user"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         assert len(result) == 3
@@ -262,21 +319,14 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "username\n@test"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             await fetch_google_sheet(url, timeout=60.0)
 
             # Verify AsyncClient was called with correct timeout
-            mock_client.assert_called_once()
-            call_kwargs = mock_client.call_args[1]
+            mock_client_class.assert_called_once()
+            call_kwargs = mock_client_class.call_args[1]
             assert call_kwargs["timeout"] == 60.0
             assert call_kwargs["follow_redirects"] is True
 
@@ -286,29 +336,23 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit#gid=456"
         csv_content = "username\n@test"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_get = AsyncMock(return_value=mock_response)
-            mock_context.__aenter__.return_value.get = mock_get
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             await fetch_google_sheet(url)
 
-            # Verify the correct export URL was called
+            # Verify the correct export URL was called via stream()
             expected_url = "https://docs.google.com/spreadsheets/d/abc123/export?format=csv&gid=456"
-            mock_get.assert_called_once_with(expected_url)
+            # Get the mock client instance
+            mock_client = mock_client_class.return_value.__aenter__.return_value
+            mock_client.stream.assert_called_once_with("GET", expected_url)
 
     @pytest.mark.asyncio
     async def test_invalid_url_raises_error(self) -> None:
         """Test that invalid URL raises GoogleSheetsError immediately."""
         url = "https://example.com/not-a-sheet"
 
-        with pytest.raises(GoogleSheetsError, match="Invalid Google Sheets URL"):
+        with pytest.raises(GoogleSheetsError, match="URL validation failed"):
             await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
@@ -316,13 +360,11 @@ class TestFetchGoogleSheet:
         """Test that timeout exception is caught and wrapped."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.TimeoutException("Request timed out")
-            )
-            mock_client.return_value = mock_context
+        mock_client_class = _create_mock_stream_error(
+            httpx.TimeoutException("Request timed out")
+        )
 
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             with pytest.raises(GoogleSheetsError, match="Request timed out"):
                 await fetch_google_sheet(url)
 
@@ -334,17 +376,15 @@ class TestFetchGoogleSheet:
         mock_response = MagicMock()
         mock_response.status_code = 404
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.HTTPStatusError(
-                    "Not found",
-                    request=MagicMock(),
-                    response=mock_response,
-                )
+        mock_client_class = _create_mock_stream_error(
+            httpx.HTTPStatusError(
+                "Not found",
+                request=MagicMock(),
+                response=mock_response,
             )
-            mock_client.return_value = mock_context
+        )
 
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             with pytest.raises(GoogleSheetsError, match="Spreadsheet not found"):
                 await fetch_google_sheet(url)
 
@@ -356,17 +396,15 @@ class TestFetchGoogleSheet:
         mock_response = MagicMock()
         mock_response.status_code = 403
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.HTTPStatusError(
-                    "Forbidden",
-                    request=MagicMock(),
-                    response=mock_response,
-                )
+        mock_client_class = _create_mock_stream_error(
+            httpx.HTTPStatusError(
+                "Forbidden",
+                request=MagicMock(),
+                response=mock_response,
             )
-            mock_client.return_value = mock_context
+        )
 
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             with pytest.raises(GoogleSheetsError, match="Access denied"):
                 await fetch_google_sheet(url)
 
@@ -378,17 +416,15 @@ class TestFetchGoogleSheet:
         mock_response = MagicMock()
         mock_response.status_code = 500
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.HTTPStatusError(
-                    "Server error",
-                    request=MagicMock(),
-                    response=mock_response,
-                )
+        mock_client_class = _create_mock_stream_error(
+            httpx.HTTPStatusError(
+                "Server error",
+                request=MagicMock(),
+                response=mock_response,
             )
-            mock_client.return_value = mock_context
+        )
 
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             with pytest.raises(GoogleSheetsError, match="HTTP error"):
                 await fetch_google_sheet(url)
 
@@ -397,13 +433,11 @@ class TestFetchGoogleSheet:
         """Test that general request error is caught and wrapped."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(
-                side_effect=httpx.RequestError("Connection failed")
-            )
-            mock_client.return_value = mock_context
+        mock_client_class = _create_mock_stream_error(
+            httpx.RequestError("Connection failed")
+        )
 
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             with pytest.raises(GoogleSheetsError, match="Request failed"):
                 await fetch_google_sheet(url)
 
@@ -412,16 +446,12 @@ class TestFetchGoogleSheet:
         """Test that HTML response (instead of CSV) raises error."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
 
-        mock_response = MagicMock()
-        mock_response.text = "<html><body>Login required</body></html>"
-        mock_response.headers = {"content-type": "text/html; charset=utf-8"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(
+            "<html><body>Login required</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"}
+        )
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             with pytest.raises(GoogleSheetsError, match="Received HTML instead of CSV"):
                 await fetch_google_sheet(url)
 
@@ -430,16 +460,9 @@ class TestFetchGoogleSheet:
         """Test that ParseError is caught and wrapped in GoogleSheetsError."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
 
-        mock_response = MagicMock()
-        mock_response.text = "invalid csv content"
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response("invalid csv content")
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             with patch("chatfilter.importer.google_sheets.parse_csv") as mock_parse:
                 mock_parse.side_effect = ParseError("Parse failed")
 
@@ -450,18 +473,10 @@ class TestFetchGoogleSheet:
     async def test_empty_sheet(self) -> None:
         """Test fetching empty sheet returns empty list."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
-        csv_content = ""
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response("")
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         assert result == []
@@ -470,18 +485,10 @@ class TestFetchGoogleSheet:
     async def test_sheet_with_headers_only(self) -> None:
         """Test fetching sheet with only headers."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
-        csv_content = "username,description\n"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response("username,description\n")
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         assert result == []
@@ -492,16 +499,9 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "username,category,notes\n@channel1,tech,interesting\n@channel2,news,daily"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         assert len(result) == 2
@@ -514,16 +514,9 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "link\nhttps://t.me/channel1\nt.me/channel2"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         assert len(result) == 2
@@ -536,16 +529,9 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "id\n1234567890\n-1001234567890"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         assert len(result) == 2
@@ -558,16 +544,9 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "username\n@channel1\n\n#comment line\n@channel2\n"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         # Should only get the two valid channels, comments/empty lines filtered
@@ -581,21 +560,14 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "username\n@test"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_get = AsyncMock(return_value=mock_response)
-            mock_context.__aenter__.return_value.get = mock_get
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             await fetch_google_sheet(url)
 
             # Verify URL doesn't include gid parameter
-            called_url = mock_get.call_args[0][0]
+            mock_client = mock_client_class.return_value.__aenter__.return_value
+            called_url = mock_client.stream.call_args[0][1]
             assert "gid=" not in called_url
 
     @pytest.mark.asyncio
@@ -604,16 +576,12 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "username\n@test"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv; charset=utf-8"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(
+            csv_content,
+            headers={"content-type": "text/csv; charset=utf-8"}
+        )
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         assert len(result) == 1
@@ -624,16 +592,12 @@ class TestFetchGoogleSheet:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "username\n@test"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {}  # No content-type header
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(
+            csv_content,
+            headers={}  # No content-type header
+        )
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         # Should still work if content is valid CSV
@@ -692,16 +656,9 @@ class TestEdgeCases:
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
         csv_content = "username\n@канал1\n@チャンネル2\n@قناة3"
 
-        mock_response = MagicMock()
-        mock_response.text = csv_content
-        mock_response.headers = {"content-type": "text/csv"}
-        mock_response.raise_for_status = MagicMock()
+        mock_client_class, _ = _create_mock_stream_response(csv_content)
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient") as mock_client:
-            mock_context = AsyncMock()
-            mock_context.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_context
-
+        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
             result = await fetch_google_sheet(url)
 
         # Should handle Unicode usernames
