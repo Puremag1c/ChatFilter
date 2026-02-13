@@ -418,6 +418,57 @@ class GroupDatabase(SQLiteDatabase):
             for row in rows
         ]
 
+    def load_chats(
+        self,
+        group_id: str,
+        status: str | None = None,
+        chat_type: str | None = None,
+        assigned_account: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Load chats for a group with optional filtering.
+
+        Args:
+            group_id: Group identifier
+            status: Optional status filter (pending/joining/analyzing/done/failed)
+            chat_type: Optional chat_type filter
+            assigned_account: Optional assigned account filter
+
+        Returns:
+            List of chat data dicts matching the filters
+        """
+        with self._connection() as conn:
+            # Build query with dynamic filters
+            query = "SELECT * FROM group_chats WHERE group_id = ?"
+            params: list[Any] = [group_id]
+
+            if status is not None:
+                query += " AND status = ?"
+                params.append(status)
+
+            if chat_type is not None:
+                query += " AND chat_type = ?"
+                params.append(chat_type)
+
+            if assigned_account is not None:
+                query += " AND assigned_account = ?"
+                params.append(assigned_account)
+
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "group_id": row["group_id"],
+                "chat_ref": row["chat_ref"],
+                "chat_type": row["chat_type"],
+                "status": row["status"],
+                "assigned_account": row["assigned_account"],
+                "error": row["error"],
+            }
+            for row in rows
+        ]
+
     def delete_group(self, group_id: str) -> None:
         """Delete a chat group and all associated data.
 
