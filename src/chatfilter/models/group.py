@@ -29,6 +29,10 @@ class ChatTypeEnum(str, Enum):
     DEAD = "dead"
 
 
+# Alias used by group_service.py
+GroupChatType = ChatTypeEnum
+
+
 class GroupChatStatus(str, Enum):
     """Processing status for individual chat in group."""
 

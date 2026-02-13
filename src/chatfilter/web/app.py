@@ -31,6 +31,7 @@ from chatfilter.web.routers.history import router as history_router
 from chatfilter.web.routers.monitoring import router as monitoring_router
 from chatfilter.web.routers.pages import router as pages_router
 from chatfilter.web.routers.proxy_pool import router as proxy_pool_router
+from chatfilter.web.routers.groups import router as groups_router
 from chatfilter.web.routers.sessions import router as sessions_router
 
 logger = logging.getLogger(__name__)
@@ -309,7 +310,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=effective_cors,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE"],  # Explicit methods used by API
+        allow_methods=["GET", "POST", "PUT", "DELETE"],  # Explicit methods used by API
         allow_headers=[  # Only allow headers needed for the application
             "Content-Type",
             "Accept",
@@ -330,6 +331,7 @@ def create_app(
     app.include_router(sessions_router)
     app.include_router(chatlist_router)
     app.include_router(chats_router)
+    app.include_router(groups_router)
     app.include_router(analysis_router)
     app.include_router(monitoring_router)
     app.include_router(proxy_pool_router)

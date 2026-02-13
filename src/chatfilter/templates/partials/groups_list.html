@@ -1,0 +1,15 @@
+{# Groups list partial - shows all group cards #}
+{# Receives: groups_with_stats (list of dicts with group + stats) #}
+<div id="groups-list">
+    {% if groups_with_stats %}
+        {% for item in groups_with_stats %}
+            {% set group = item.group %}
+            {% set stats = item.stats %}
+            {% include "partials/group_card.html" %}
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <p>{{ _("No groups yet. Upload a chat list to create one.") }}</p>
+        </div>
+    {% endif %}
+</div>

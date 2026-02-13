@@ -15,6 +15,7 @@ from chatfilter.telegram.session_manager import SessionManager
 from chatfilter.web.session import SessionData, get_session
 
 if TYPE_CHECKING:
+    from chatfilter.service.group_service import GroupService
     from chatfilter.storage.database import TaskDatabase
 
 
@@ -45,6 +46,7 @@ WebSession = Annotated[SessionData, Depends(get_web_session)]
 _session_manager: SessionManager | None = None
 _chat_service: ChatAnalysisService | None = None
 _database: TaskDatabase | None = None
+_group_service: GroupService | None = None
 
 
 def get_session_manager() -> SessionManager:
@@ -79,6 +81,22 @@ def get_chat_analysis_service() -> ChatAnalysisService:
             data_dir=settings.sessions_dir,
         )
     return _chat_service
+
+
+def get_group_service() -> GroupService:
+    """Get or create the group service instance."""
+    global _group_service
+    if _group_service is None:
+        from chatfilter.config import get_settings
+        from chatfilter.service.group_service import GroupService
+        from chatfilter.storage.group_database import GroupDatabase
+
+        settings = get_settings()
+        db_path = settings.data_dir / "groups.db"
+        settings.data_dir.mkdir(parents=True, exist_ok=True)
+        group_db = GroupDatabase(db_path)
+        _group_service = GroupService(group_db)
+    return _group_service
 
 
 def get_database() -> TaskDatabase:

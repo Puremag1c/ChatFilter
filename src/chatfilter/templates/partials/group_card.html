@@ -1,0 +1,47 @@
+{# Single group card partial #}
+{# Receives: group (ChatGroup), stats (GroupStats) #}
+<div id="group-{{ group.id }}" class="group-card">
+    <div class="group-card-header">
+        <h3 class="group-name">{{ group.name }}</h3>
+        <span class="group-status status-{{ group.status.value }}">{{ group.status.value }}</span>
+    </div>
+
+    <div class="group-card-stats">
+        <span class="stat-item">{{ stats.total }} {{ _("chats") }}</span>
+        {% if stats.analyzed > 0 %}
+        <span class="stat-item stat-success">{{ stats.analyzed }} {{ _("analyzed") }}</span>
+        {% endif %}
+        {% if stats.failed > 0 %}
+        <span class="stat-item stat-error">{{ stats.failed }} {{ _("failed") }}</span>
+        {% endif %}
+        {% if stats.dead > 0 %}
+        <span class="stat-item stat-muted">{{ stats.dead }} {{ _("dead") }}</span>
+        {% endif %}
+    </div>
+
+    {% if stats.total > 0 %}
+    <div class="group-progress">
+        {% set done_pct = ((stats.analyzed + stats.failed + stats.dead) * 100 / stats.total) | int %}
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ done_pct }}%"></div>
+        </div>
+        <span class="progress-text">{{ done_pct }}%</span>
+    </div>
+    {% endif %}
+
+    <div class="group-card-actions">
+        <button class="btn btn-sm btn-secondary"
+                hx-get="/api/groups/{{ group.id }}"
+                hx-target="#group-{{ group.id }}"
+                hx-swap="outerHTML">
+            {{ _("Refresh") }}
+        </button>
+        <button class="btn btn-sm btn-danger"
+                hx-delete="/api/groups/{{ group.id }}"
+                hx-target="#group-{{ group.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="{{ _('Delete this group?') }}">
+            {{ _("Delete") }}
+        </button>
+    </div>
+</div>
