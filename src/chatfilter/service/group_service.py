@@ -280,6 +280,39 @@ class GroupService:
         # Reload and return updated group
         return self.get_group(group_id)
 
+    def update_status(self, group_id: str, new_status: GroupStatus) -> ChatGroup | None:
+        """Update a chat group's status.
+
+        Args:
+            group_id: Group identifier.
+            new_status: New group status.
+
+        Returns:
+            Updated ChatGroup or None if group not found.
+
+        Example:
+            >>> group = service.update_status("group-123", GroupStatus.IN_PROGRESS)
+            >>> group.status
+            <GroupStatus.IN_PROGRESS: 'in_progress'>
+        """
+        # Load existing group
+        group = self.get_group(group_id)
+        if not group:
+            return None
+
+        # Save with new status (save_group handles upsert)
+        self._db.save_group(
+            group_id=group.id,
+            name=group.name,
+            settings=group.settings.model_dump(),
+            status=new_status.value,
+            created_at=group.created_at,
+            updated_at=datetime.now(UTC),
+        )
+
+        # Reload and return updated group
+        return self.get_group(group_id)
+
     def delete_group(self, group_id: str) -> None:
         """Delete a chat group.
 
