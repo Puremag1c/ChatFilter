@@ -8,8 +8,8 @@ from datetime import UTC, datetime
 from chatfilter.importer.parser import _classify_entry
 from chatfilter.models.group import (
     ChatGroup,
+    ChatTypeEnum,
     GroupChatStatus,
-    GroupChatType,
     GroupSettings,
     GroupStats,
     GroupStatus,
@@ -103,7 +103,7 @@ class GroupService:
                 self._db.save_chat(
                     group_id=group_id,
                     chat_ref=entry.value,
-                    chat_type=GroupChatType.PENDING.value,
+                    chat_type=ChatTypeEnum.PENDING.value,
                     status=GroupChatStatus.PENDING.value,
                 )
                 chat_count += 1
@@ -237,12 +237,12 @@ class GroupService:
 
         return GroupStats(
             total=stats_data["total"],
-            pending=by_type.get(GroupChatType.PENDING.value, 0),
-            dead=by_type.get(GroupChatType.DEAD.value, 0),
-            groups=by_type.get(GroupChatType.GROUP.value, 0),
-            forums=by_type.get(GroupChatType.FORUM.value, 0),
-            channels_with_comments=by_type.get(GroupChatType.CHANNEL_COMMENTS.value, 0),
-            channels_no_comments=by_type.get(GroupChatType.CHANNEL_NO_COMMENTS.value, 0),
+            pending=by_type.get(ChatTypeEnum.PENDING.value, 0),
+            dead=by_type.get(ChatTypeEnum.DEAD.value, 0),
+            groups=by_type.get(ChatTypeEnum.GROUP.value, 0),
+            forums=by_type.get(ChatTypeEnum.FORUM.value, 0),
+            channels_with_comments=by_type.get(ChatTypeEnum.CHANNEL_COMMENTS.value, 0),
+            channels_no_comments=by_type.get(ChatTypeEnum.CHANNEL_NO_COMMENTS.value, 0),
             analyzed=by_status.get(GroupChatStatus.DONE.value, 0),
             failed=by_status.get(GroupChatStatus.FAILED.value, 0),
         )
