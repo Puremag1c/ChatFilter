@@ -20,15 +20,15 @@
     }
 
     .group-card {
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         padding: 1.5rem;
-        background: white;
+        background: var(--bg-card);
         transition: box-shadow 0.2s;
     }
 
     .group-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 12px var(--shadow-md);
     }
 
     .group-card h3 {
@@ -51,7 +51,7 @@
 
     .progress-bar {
         height: 8px;
-        background: #eee;
+        background: var(--bg-skeleton);
         border-radius: 4px;
         overflow: hidden;
         margin: 0.5rem 0;
@@ -116,8 +116,8 @@
     .no-groups {
         padding: 3rem;
         text-align: center;
-        color: #666;
-        border: 2px dashed #ddd;
+        color: var(--text-secondary);
+        border: 2px dashed var(--border-color);
         border-radius: 8px;
     }
 
