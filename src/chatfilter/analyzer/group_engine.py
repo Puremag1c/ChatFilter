@@ -284,8 +284,8 @@ class GroupAnalysisEngine:
                 error=f"FloodWait: {wait_seconds}s",
             )
 
-            # Raise to stop processing more chats for this account
-            raise
+            # Stop processing more chats for this account
+            break
 
         except (
             errors.ChatForbiddenError,
