@@ -852,6 +852,13 @@ async def start_group_analysis(
 
     except HTTPException:
         raise
+    except ValueError as e:
+        # Status transition validation error
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": str(e)},
+        )
     except Exception as e:
         logger.exception("Failed to start analysis for group %s", group_id)
         return templates.TemplateResponse(
@@ -906,6 +913,13 @@ async def stop_group_analysis(
 
     except HTTPException:
         raise
+    except ValueError as e:
+        # Status transition validation error
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": str(e)},
+        )
     except Exception as e:
         logger.exception("Failed to stop analysis for group %s", group_id)
         return templates.TemplateResponse(

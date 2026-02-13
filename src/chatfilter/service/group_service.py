@@ -325,3 +325,83 @@ class GroupService:
             >>> service.delete_group("group-123")
         """
         self._db.delete_group(group_id)
+
+    def update_status(self, group_id: str, new_status: GroupStatus) -> ChatGroup | None:
+        """Update a chat group's status with validation.
+
+        Validates status transitions to prevent invalid state changes.
+
+        Args:
+            group_id: Group identifier.
+            new_status: New group status.
+
+        Returns:
+            Updated ChatGroup or None if group not found.
+
+        Raises:
+            ValueError: If status transition is invalid.
+
+        Example:
+            >>> group = service.update_status("group-123", GroupStatus.IN_PROGRESS)
+            >>> group.status
+            GroupStatus.IN_PROGRESS
+        """
+        # Load existing group
+        group = self.get_group(group_id)
+        if not group:
+            return None
+
+        # Validate status transition
+        current = group.status
+        if not self._is_valid_transition(current, new_status):
+            raise ValueError(
+                f"Invalid status transition from {current.value} to {new_status.value}"
+            )
+
+        # Save with new status
+        self._db.save_group(
+            group_id=group.id,
+            name=group.name,
+            settings=group.settings.model_dump(),
+            status=new_status.value,
+            created_at=group.created_at,
+            updated_at=datetime.now(UTC),
+        )
+
+        # Reload and return updated group
+        return self.get_group(group_id)
+
+    @staticmethod
+    def _is_valid_transition(current: GroupStatus, new: GroupStatus) -> bool:
+        """Check if status transition is valid.
+
+        Transition rules:
+        - PENDING → IN_PROGRESS (start analysis)
+        - IN_PROGRESS → PAUSED (stop/pause analysis)
+        - IN_PROGRESS → DONE (analysis completed)
+        - IN_PROGRESS → FAILED (analysis failed)
+        - PAUSED → IN_PROGRESS (resume analysis)
+        - PAUSED → DONE (completed after pause)
+        - Any status can transition to itself (idempotent)
+
+        Args:
+            current: Current status.
+            new: New status.
+
+        Returns:
+            True if transition is valid, False otherwise.
+        """
+        # Allow idempotent transitions
+        if current == new:
+            return True
+
+        # Define valid transitions
+        valid_transitions = {
+            GroupStatus.PENDING: {GroupStatus.IN_PROGRESS},
+            GroupStatus.IN_PROGRESS: {GroupStatus.PAUSED, GroupStatus.DONE, GroupStatus.FAILED},
+            GroupStatus.PAUSED: {GroupStatus.IN_PROGRESS, GroupStatus.DONE},
+            # DONE and FAILED are terminal states (no outgoing transitions except to self)
+        }
+
+        allowed = valid_transitions.get(current, set())
+        return new in allowed
