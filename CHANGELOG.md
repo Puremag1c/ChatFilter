@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-02-13
+
+### Fixed
+- SMOKE: [API] GET /api/groups returns error 'group' is undefined
+- SMOKE: [Backend] Google Sheets importer async mock issue
+- SMOKE: [Backend] Group API endpoints have 0% test coverage
+- SMOKE: [Backend] GroupDatabase has 0% test coverage
+- SMOKE: [Backend] GroupStatus missing FAILED state causes runtime error
+- SMOKE: [Backend] Resume analysis does not clear failed chat errors
+- SMOKE: [Must Have] /chats page not replaced with groups interface
+- SMOKE: [Must Have] CSV export button missing from group cards
+- SMOKE: [Must Have] Excessive SSE polling during in_progress (~7 req/sec)
+- SMOKE: [Must Have] No analysis settings modal per group
+- SMOKE: [Must Have] No create-group modal (upload file/URL/GSheets)
+- SMOKE: [Must Have] Stop analysis causes JS error querySelector null
+- Start analysis fails silently (no error shown to user)
+- Wire GroupAnalysisEngine into router start/stop endpoints
+
+### Changed
+- API router: /api/groups SSE progress + CSV export
+- DI + Groups router: CRUD endpoints
+- GroupAnalysisEngine: Phase 1 — join/resolve chats
+- GroupAnalysisEngine: Phase 2 — analysis via TaskQueue
+- GroupAnalysisEngine: Phase 3 leave + stop/resume/subscribe
+- MERGE READY: GroupEngine Phase 1 — delete stale untracked file then merge branch
+- Security: Google Sheets response size limit
+- UI: Build groups frontend (replace /chats page)
+
 ## [0.9.7] - 2026-02-12
 
 ### Fixed
@@ -725,7 +753,9 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.6...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.8...HEAD
+[0.9.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.7...v0.9.8
+[0.9.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.3...v0.9.4
