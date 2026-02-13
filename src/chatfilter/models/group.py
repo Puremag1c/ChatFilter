@@ -363,7 +363,3 @@ class GroupStats(BaseModel):
             analyzed=analyzed if analyzed is not None else 4,
             failed=failed if failed is not None else 1,
         )
-
-
-# Backward compatibility alias
-GroupChatType = ChatTypeEnum
