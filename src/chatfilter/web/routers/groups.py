@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
@@ -23,6 +24,8 @@ from chatfilter.models.group import ChatTypeEnum, GroupSettings, GroupStatus
 from chatfilter.security.url_validator import URLValidationError, validate_url
 from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -850,6 +853,7 @@ async def start_group_analysis(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("Failed to start analysis for group %s", group_id)
         return templates.TemplateResponse(
             request=request,
             name="partials/error_message.html",
@@ -903,6 +907,7 @@ async def stop_group_analysis(
     except HTTPException:
         raise
     except Exception as e:
+        logger.exception("Failed to stop analysis for group %s", group_id)
         return templates.TemplateResponse(
             request=request,
             name="partials/error_message.html",
