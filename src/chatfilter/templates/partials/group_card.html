@@ -124,4 +124,13 @@
         }
     })();
     </script>
+
+    {% if error_message %}
+    <script>
+        ToastManager.error('{{ error_message | replace("'", "\\'") }}', {
+            title: 'Cannot Start Analysis',
+            duration: 8000
+        });
+    </script>
+    {% endif %}
 </div>

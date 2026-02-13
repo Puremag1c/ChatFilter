@@ -938,8 +938,19 @@ async def start_group_analysis(
             await engine.start_analysis(group_id)
         except NoConnectedAccountsError as e:
             # Rollback status update
-            service.update_status(group_id, GroupStatus.PENDING)
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            updated_group = service.update_status(group_id, GroupStatus.PENDING)
+            stats = service.get_group_stats(group_id)
+
+            # Return updated group card with error message for toast
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/group_card.html",
+                context={
+                    "group": updated_group,
+                    "stats": stats,
+                    "error_message": str(e),
+                },
+            )
 
         stats = service.get_group_stats(group_id)
 
