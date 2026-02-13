@@ -688,6 +688,7 @@ async def _generate_group_sse_events(
 
     finally:
         # Cleanup: queue will be cleaned up by engine
+        pass
 
 
 @router.get("/api/groups/{group_id}/progress")

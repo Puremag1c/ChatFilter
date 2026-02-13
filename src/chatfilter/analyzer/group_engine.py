@@ -526,6 +526,10 @@ class GroupAnalysisEngine:
         )
 
         # Create TaskQueue task
+        group_data = self._db.load_group(group_id)
+        if not group_data:
+            logger.error(f"Group '{group_id}' not found during Phase 2 analysis")
+            return
         group_settings = group_data["settings"]
         message_limit = group_settings.get("message_limit", 1000)
 
