@@ -98,6 +98,7 @@ def build_csv_export_url(sheet_id: str, gid: str | None = None) -> str:
 async def fetch_google_sheet(
     url: str,
     timeout: float = 30.0,
+    max_size_bytes: int = 10 * 1024 * 1024,  # 10MB default
 ) -> list[ChatListEntry]:
     """Fetch and parse a Google Sheets document.
 
@@ -106,6 +107,7 @@ async def fetch_google_sheet(
     Args:
         url: Google Sheets URL.
         timeout: Request timeout in seconds.
+        max_size_bytes: Maximum response size in bytes (default: 10MB).
 
     Returns:
         List of parsed chat entries.
@@ -138,8 +140,33 @@ async def fetch_google_sheet(
         follow_redirects=True,
     ) as client:
         try:
-            response = await client.get(export_url)
-            response.raise_for_status()
+            # Stream the response to enforce size limit
+            async with client.stream("GET", export_url) as response:
+                response.raise_for_status()
+
+                # Check content type early
+                content_type = response.headers.get("content-type", "")
+                if "text/html" in content_type:
+                    raise GoogleSheetsError(
+                        "Received HTML instead of CSV. Make sure the spreadsheet is publicly accessible."
+                    )
+
+                # Read response in chunks while enforcing size limit
+                accumulated_size = 0
+                chunks: list[bytes] = []
+
+                async for chunk in response.aiter_bytes():
+                    accumulated_size += len(chunk)
+                    if accumulated_size > max_size_bytes:
+                        raise GoogleSheetsError(
+                            f"Response too large (>{max_size_bytes / (1024 * 1024):.1f}MB). "
+                            "Please reduce the spreadsheet size or use a smaller sheet."
+                        )
+                    chunks.append(chunk)
+
+                # Combine chunks into final response
+                content_bytes = b"".join(chunks)
+
         except httpx.TimeoutException as e:
             raise GoogleSheetsError(f"Request timed out: {e}") from e
         except httpx.HTTPStatusError as e:
@@ -156,15 +183,8 @@ async def fetch_google_sheet(
         except httpx.RequestError as e:
             raise GoogleSheetsError(f"Request failed: {e}") from e
 
-    # Check content type
-    content_type = response.headers.get("content-type", "")
-    if "text/html" in content_type:
-        raise GoogleSheetsError(
-            "Received HTML instead of CSV. Make sure the spreadsheet is publicly accessible."
-        )
-
     try:
-        content = response.text
+        content = content_bytes.decode("utf-8")
         return parse_csv(content)
     except ParseError as e:
         raise GoogleSheetsError(f"Failed to parse sheet data: {e}") from e
