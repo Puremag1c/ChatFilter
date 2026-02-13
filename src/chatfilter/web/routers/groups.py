@@ -6,15 +6,21 @@ file uploads, Google Sheets imports, and direct URL imports.
 
 from __future__ import annotations
 
+import asyncio
 import io
+import json
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
+from chatfilter.exporter import export_to_csv
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
+from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
+from chatfilter.models.group import ChatTypeEnum
 from chatfilter.security.url_validator import URLValidationError, validate_url
 from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
@@ -538,3 +544,200 @@ async def delete_group(group_id: str) -> HTMLResponse:
             status_code=500,
             detail=f"Failed to delete group: {str(e)}"
         )
+
+
+async def _generate_group_sse_events(
+    group_id: str,
+    request: Request,
+) -> AsyncGenerator[str, None]:
+    """Generate SSE events for group analysis progress.
+
+    Currently a placeholder until GroupAnalysisEngine is implemented.
+    Returns immediate completion with current group stats.
+
+    Args:
+        group_id: Group identifier
+        request: FastAPI request for disconnect detection
+
+    Yields:
+        SSE formatted event strings
+    """
+    service = _get_group_service()
+
+    # Verify group exists
+    group = service.get_group(group_id)
+    if not group:
+        yield f"event: error\ndata: {json.dumps({'error': 'Group not found'})}\n\n"
+        return
+
+    # Get current stats
+    stats = service.get_group_stats(group_id)
+
+    # Send initial event with current state
+    init_data = {
+        "group_id": group_id,
+        "total": stats.total,
+        "analyzed": stats.analyzed,
+        "failed": stats.failed,
+        "pending": stats.pending,
+    }
+    yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
+
+    # TODO: When GroupAnalysisEngine is implemented, subscribe to real progress events here
+    # For now, just send completion event immediately
+    await asyncio.sleep(0.1)  # Small delay to prevent client-side race conditions
+
+    complete_data = {
+        "group_id": group_id,
+        "total": stats.total,
+        "analyzed": stats.analyzed,
+        "message": "No active analysis",
+    }
+    yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+
+
+@router.get("/api/groups/{group_id}/progress")
+async def get_group_progress(
+    group_id: str,
+    request: Request,
+) -> StreamingResponse:
+    """SSE endpoint for streaming group analysis progress.
+
+    Currently returns immediate completion. Will stream real-time progress
+    when GroupAnalysisEngine is implemented.
+
+    Args:
+        group_id: Group identifier
+        request: FastAPI request
+
+    Returns:
+        StreamingResponse with SSE events
+
+    Raises:
+        HTTPException: If group not found
+    """
+    # Verify group exists
+    service = _get_group_service()
+    group = service.get_group(group_id)
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    return StreamingResponse(
+        _generate_group_sse_events(group_id, request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )
+
+
+@router.get("/api/groups/{group_id}/export")
+async def export_group_results(group_id: str) -> Response:
+    """Export group analysis results as CSV.
+
+    Downloads all analyzed chats for the group with their metrics.
+
+    Args:
+        group_id: Group identifier
+
+    Returns:
+        CSV file with analysis results
+
+    Raises:
+        HTTPException: If group not found or no results available
+    """
+    from chatfilter.config import get_settings
+
+    settings = get_settings()
+    db_path = settings.data_dir / "groups.db"
+    db = GroupDatabase(db_path)
+
+    # Verify group exists
+    service = _get_group_service()
+    group = service.get_group(group_id)
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Load results from database
+    results_data = db.load_results(group_id)
+
+    if not results_data:
+        raise HTTPException(
+            status_code=404,
+            detail="No analysis results available for this group",
+        )
+
+    # Convert database results to AnalysisResult objects
+    analysis_results: list[AnalysisResult] = []
+
+    for result in results_data:
+        metrics_dict = result["metrics_data"]
+
+        # Extract chat info from metrics_data
+        # The metrics_data structure varies, but typically includes chat metadata
+        chat_ref = result["chat_ref"]
+
+        # Try to determine chat type from group_chats table
+        with db._connection() as conn:
+            cursor = conn.execute(
+                "SELECT chat_type FROM group_chats WHERE group_id = ? AND chat_ref = ?",
+                (group_id, chat_ref),
+            )
+            row = cursor.fetchone()
+
+        if row:
+            chat_type_str = row["chat_type"]
+            # Map ChatTypeEnum to ChatType
+            type_mapping = {
+                ChatTypeEnum.GROUP.value: ChatType.GROUP,
+                ChatTypeEnum.FORUM.value: ChatType.FORUM,
+                ChatTypeEnum.CHANNEL_COMMENTS.value: ChatType.CHANNEL_WITH_COMMENTS,
+                ChatTypeEnum.CHANNEL_NO_COMMENTS.value: ChatType.CHANNEL_NO_COMMENTS,
+                ChatTypeEnum.DEAD.value: ChatType.CHANNEL_NO_COMMENTS,  # Fallback
+                ChatTypeEnum.PENDING.value: ChatType.GROUP,  # Fallback
+            }
+            chat_type = type_mapping.get(chat_type_str, ChatType.GROUP)
+        else:
+            chat_type = ChatType.GROUP  # Fallback
+
+        # Create AnalysisResult
+        # Note: metrics_data might not have all fields, use sensible defaults
+        analysis_result = AnalysisResult(
+            chat=Chat(
+                id=metrics_dict.get("chat_id", 0),
+                title=metrics_dict.get("chat_title", chat_ref),
+                chat_type=chat_type,
+                username=metrics_dict.get("chat_username"),
+            ),
+            metrics=ChatMetrics(
+                message_count=metrics_dict.get("message_count", 0),
+                unique_authors=metrics_dict.get("unique_authors", 0),
+                history_hours=metrics_dict.get("history_hours", 0.0),
+                first_message_at=metrics_dict.get("first_message_at"),
+                last_message_at=metrics_dict.get("last_message_at"),
+            ),
+            analyzed_at=result["analyzed_at"],
+        )
+
+        analysis_results.append(analysis_result)
+
+    # Generate CSV using existing exporter
+    csv_content = export_to_csv(analysis_results, include_bom=True)
+
+    # Generate filename
+    from datetime import UTC, datetime
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    filename = f"{group.name.replace(' ', '_')}_{timestamp}.csv"
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
