@@ -1,0 +1,54 @@
+<div class="group-detail">
+    <h2>{{ group.name }}</h2>
+
+    <div class="group-stats">
+        <div class="stat-item">
+            <span class="stat-label">Total Chats:</span>
+            <span class="stat-value">{{ stats.total }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Analyzed:</span>
+            <span class="stat-value">{{ stats.analyzed }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Pending:</span>
+            <span class="stat-value">{{ stats.pending }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Dead:</span>
+            <span class="stat-value">{{ stats.dead }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Groups:</span>
+            <span class="stat-value">{{ stats.groups }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Forums:</span>
+            <span class="stat-value">{{ stats.forums }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Channels (with comments):</span>
+            <span class="stat-value">{{ stats.channels_with_comments }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Channels (no comments):</span>
+            <span class="stat-value">{{ stats.channels_no_comments }}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Failed:</span>
+            <span class="stat-value">{{ stats.failed }}</span>
+        </div>
+    </div>
+
+    <div class="group-info">
+        <p><strong>Status:</strong> {{ group.status.value }}</p>
+        <p><strong>Created:</strong> {{ group.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+        <p><strong>Updated:</strong> {{ group.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    </div>
+
+    <div class="group-settings">
+        <h3>Settings</h3>
+        <p><strong>Message Limit:</strong> {{ group.settings.message_limit }}</p>
+        <p><strong>Leave After Analysis:</strong> {{ 'Yes' if group.settings.leave_after_analysis else 'No' }}</p>
+    </div>
+</div>

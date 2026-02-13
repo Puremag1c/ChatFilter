@@ -1,0 +1,29 @@
+{% if groups %}
+    {% for group in groups %}
+    <div class="group-card" id="group-{{ group.id }}">
+        <div class="group-header">
+            <h3>{{ group.name }}</h3>
+            <span class="chat-count">{{ group.chat_count }} chats</span>
+        </div>
+        <div class="group-actions">
+            <button class="btn btn-sm btn-secondary"
+                    hx-get="/api/groups/{{ group.id }}"
+                    hx-target="#group-detail"
+                    hx-swap="innerHTML">
+                View Details
+            </button>
+            <button class="btn btn-sm btn-danger"
+                    hx-delete="/api/groups/{{ group.id }}"
+                    hx-target="#group-{{ group.id }}"
+                    hx-swap="outerHTML"
+                    hx-confirm="Are you sure you want to delete this group?">
+                Delete
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">
+        <p>No groups yet. Create your first group to get started!</p>
+    </div>
+{% endif %}

@@ -1,0 +1,31 @@
+{% if success %}
+<div class="alert alert-success">
+    Group "{{ group.name }}" created successfully with {{ group.chat_count }} chats!
+    <script>
+        // Show success toast notification
+        ToastManager.success('Group created successfully!', {
+            title: 'Group Created',
+            duration: 5000
+        });
+        // Refresh the groups list
+        htmx.trigger('#groups-list', 'load');
+        // Close the modal
+        const modal = document.getElementById('modal-create-group');
+        if (modal) modal.close();
+        // Clear the form
+        const form = document.getElementById('create-group-form');
+        if (form) form.reset();
+    </script>
+</div>
+{% else %}
+<div class="alert alert-error">
+    <div><strong>Failed to create group:</strong> {{ error }}</div>
+    <div style="margin-top: 0.75rem;">
+        <button type="button"
+                class="btn btn-sm btn-primary"
+                onclick="document.getElementById('create-group-form').querySelector('button[type=submit]').click()">
+            Retry
+        </button>
+    </div>
+</div>
+{% endif %}
