@@ -55,7 +55,7 @@ class TestChatsPage:
         response = client.get("/chats")
 
         assert response.status_code == 200
-        assert "Select Chats" in response.text
+        assert "Chat Groups" in response.text
 
 
 class TestChatsAPI:
