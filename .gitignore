@@ -80,6 +80,7 @@ SPEC.draft.md
 # hype
 .hype/*
 !.hype/testing.yaml
+!.hype/evidence/
 .hype-worktrees/
 scripts
 project-scripts/
