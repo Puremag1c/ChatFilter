@@ -16,6 +16,7 @@ class GroupStatus(str, Enum):
     IN_PROGRESS = "in_progress"
     PAUSED = "paused"
     COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class ChatTypeEnum(str, Enum):
