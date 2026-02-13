@@ -19,7 +19,7 @@ from telethon import errors
 from chatfilter.analyzer.task_queue import ProgressEvent, TaskStatus
 from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupStatus
 from chatfilter.storage.group_database import GroupDatabase
-from chatfilter.telegram.client import join_chat
+from chatfilter.telegram.client import join_chat, leave_chat
 from chatfilter.telegram.session_manager import SessionManager
 
 if TYPE_CHECKING:
@@ -111,6 +111,11 @@ class GroupAnalysisEngine:
         self._session_mgr = session_manager
         self._task_queue = task_queue
         self._executor = executor
+        # Track active tasks for lifecycle management
+        self._active_phase1_tasks: dict[str, list[asyncio.Task]] = {}
+        self._task_queue_tasks: dict[str, list[UUID]] = {}
+        # Track progress subscribers per group
+        self._subscribers: dict[str, list[asyncio.Queue[GroupProgressEvent]]] = {}
 
     async def start_analysis(self, group_id: str) -> None:
         """Phase 1: Join chats and resolve chat types.
@@ -199,8 +204,14 @@ class GroupAnalysisEngine:
             )
             tasks.append(task)
 
+        # Track Phase 1 tasks for cancellation support
+        self._active_phase1_tasks[group_id] = tasks
+
         # Wait for all accounts to complete
         results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Clean up tracked tasks
+        self._active_phase1_tasks.pop(group_id, None)
 
         # Log errors from any failed account tasks
         for account_id, result in zip(connected_accounts, results):
@@ -524,6 +535,9 @@ class GroupAnalysisEngine:
             message_limit=message_limit,
         )
 
+        # Track TaskQueue task for cancellation support
+        self._task_queue_tasks.setdefault(group_id, []).append(task.task_id)
+
         # Subscribe to progress events
         progress_queue = await self._task_queue.subscribe(task.task_id)
 
@@ -541,8 +555,25 @@ class GroupAnalysisEngine:
                     if event is None:
                         break  # Task completed
 
-                    # Proxy to group progress event
-                    # (In full implementation, this would publish to group subscribers)
+                    # Create GroupProgressEvent from TaskQueue event
+                    group_event = GroupProgressEvent(
+                        group_id=group_id,
+                        status=event.status.value,
+                        current=event.current,
+                        total=event.total,
+                        chat_title=event.chat_title,
+                        message=event.message,
+                        error=event.error,
+                        task_id=event.task_id,
+                    )
+
+                    # Publish to all group subscribers
+                    for subscriber_queue in self._subscribers.get(group_id, []):
+                        try:
+                            subscriber_queue.put_nowait(group_event)
+                        except asyncio.QueueFull:
+                            logger.warning(f"Subscriber queue full for group '{group_id}', dropping event")
+
                     logger.debug(
                         f"Group '{group_id}' progress: {event.current}/{event.total} "
                         f"({event.message})"
@@ -630,3 +661,264 @@ class GroupAnalysisEngine:
             yield event
             if event is None:
                 break
+
+    async def _phase3_leave(self, group_id: str) -> None:
+        """Phase 3: Leave analyzed chats (if leave_after_analysis enabled).
+
+        This method:
+        1. Loads group settings
+        2. Checks if leave_after_analysis is enabled
+        3. Loads all DONE chats with analysis results
+        4. For each chat: leaves using assigned account
+        5. Handles errors gracefully (chat may already be left, etc.)
+
+        Args:
+            group_id: Group identifier.
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist.
+
+        Example:
+            >>> await engine._phase3_leave("group-abc123")
+        """
+        # Load group and validate
+        group_data = self._db.load_group(group_id)
+        if not group_data:
+            raise GroupNotFoundError(f"Group not found: {group_id}")
+
+        # Check if leave_after_analysis is enabled
+        settings = group_data.get("settings", {})
+        leave_after_analysis = settings.get("leave_after_analysis", False)
+
+        if not leave_after_analysis:
+            logger.info(f"Phase 3: leave_after_analysis disabled for group '{group_id}', skipping")
+            return
+
+        # Load all chats with results (DONE status + has result)
+        all_chats = self._db.load_chats(group_id=group_id)
+        chats_with_results = [
+            chat for chat in all_chats
+            if chat.get("status") == GroupChatStatus.DONE.value
+            and self._db.load_result(group_id=group_id, chat_ref=chat["chat_ref"])
+        ]
+
+        if not chats_with_results:
+            logger.info(f"Phase 3: No analyzed chats to leave for group '{group_id}'")
+            return
+
+        logger.info(f"Phase 3: Leaving {len(chats_with_results)} analyzed chats for group '{group_id}'")
+
+        # Leave chats per account
+        chats_by_account: dict[str, list[dict]] = {}
+        for chat in chats_with_results:
+            account_id = chat.get("assigned_account")
+            if not account_id:
+                logger.warning(f"Chat {chat['id']} has no assigned_account, skipping leave")
+                continue
+            chats_by_account.setdefault(account_id, []).append(chat)
+
+        # Leave chats in parallel per account
+        for account_id, account_chats in chats_by_account.items():
+            try:
+                async with self._session_mgr.session(
+                    account_id,
+                    auto_disconnect=False,
+                ) as client:
+                    for chat in account_chats:
+                        try:
+                            # Re-resolve chat_id to get numeric ID for leave_chat
+                            joined_chat = await join_chat(client, chat["chat_ref"])
+                            numeric_chat_id = joined_chat.chat_id
+
+                            # Leave the chat
+                            await leave_chat(client, numeric_chat_id)
+                            logger.info(
+                                f"Account '{account_id}': left chat '{chat['chat_ref']}'"
+                            )
+                        except Exception as e:
+                            # Non-critical error - log and continue
+                            logger.warning(
+                                f"Account '{account_id}': failed to leave '{chat['chat_ref']}': {e}"
+                            )
+            except Exception as e:
+                logger.error(
+                    f"Account '{account_id}': unexpected error during Phase 3 leave: {e}",
+                    exc_info=True,
+                )
+
+        logger.info(f"Phase 3: Leave complete for group '{group_id}'")
+
+    def stop_analysis(self, group_id: str) -> None:
+        """Stop ongoing analysis for a group.
+
+        Cancels all active Phase 1 tasks and Phase 2 TaskQueue tasks.
+        Updates group status to STOPPED.
+
+        Args:
+            group_id: Group identifier to stop.
+
+        Example:
+            >>> engine.stop_analysis("group-abc123")
+        """
+        # Cancel Phase 1 tasks
+        phase1_tasks = self._active_phase1_tasks.get(group_id, [])
+        for task in phase1_tasks:
+            if not task.done():
+                task.cancel()
+                logger.info(f"Cancelled Phase 1 task for group '{group_id}'")
+
+        # Clear Phase 1 tasks list
+        self._active_phase1_tasks.pop(group_id, None)
+
+        # Cancel Phase 2 TaskQueue tasks
+        tq_task_ids = self._task_queue_tasks.get(group_id, [])
+        for task_id in tq_task_ids:
+            if self._task_queue.cancel_task(task_id):
+                logger.info(f"Cancelled TaskQueue task {task_id} for group '{group_id}'")
+
+        # Clear TaskQueue tasks list
+        self._task_queue_tasks.pop(group_id, None)
+
+        # Update group status to stopped (use a custom status if needed)
+        # For now, we'll set it back to PENDING
+        group_data = self._db.load_group(group_id)
+        if group_data:
+            self._db.save_group(
+                group_id=group_id,
+                name=group_data["name"],
+                settings=group_data["settings"],
+                status=GroupStatus.PENDING.value,
+                created_at=group_data["created_at"],
+                updated_at=datetime.now(UTC),
+            )
+
+        logger.info(f"Analysis stopped for group '{group_id}'")
+
+    async def resume_analysis(self, group_id: str) -> None:
+        """Resume analysis for a group.
+
+        This method:
+        1. Skips DONE chats (already analyzed)
+        2. Retries FAILED chats (resets to PENDING)
+        3. Creates new TaskQueue tasks for unanalyzed chats
+        4. Runs full analysis workflow
+
+        Args:
+            group_id: Group identifier to resume.
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist.
+
+        Example:
+            >>> await engine.resume_analysis("group-abc123")
+        """
+        # Load group and validate
+        group_data = self._db.load_group(group_id)
+        if not group_data:
+            raise GroupNotFoundError(f"Group not found: {group_id}")
+
+        logger.info(f"Resuming analysis for group '{group_id}'")
+
+        # Reset FAILED chats to PENDING for retry
+        failed_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.FAILED.value,
+        )
+
+        for chat in failed_chats:
+            self._db.update_chat_status(
+                chat_id=chat["id"],
+                status=GroupChatStatus.PENDING.value,
+                error=None,  # Clear error
+            )
+
+        logger.info(f"Reset {len(failed_chats)} failed chats to PENDING for retry")
+
+        # Run full analysis workflow (will skip DONE chats automatically)
+        await self._run_analysis(group_id)
+
+    def subscribe(self, group_id: str) -> asyncio.Queue[GroupProgressEvent]:
+        """Subscribe to progress events for a group analysis.
+
+        Returns a queue that will receive GroupProgressEvent objects
+        as the analysis progresses.
+
+        Args:
+            group_id: Group identifier to subscribe to.
+
+        Returns:
+            Queue that will receive progress events.
+
+        Example:
+            >>> queue = engine.subscribe("group-abc123")
+            >>> async for event in queue:
+            ...     print(f"Progress: {event.current}/{event.total}")
+        """
+        queue: asyncio.Queue[GroupProgressEvent] = asyncio.Queue()
+        self._subscribers.setdefault(group_id, []).append(queue)
+        logger.debug(f"New subscriber for group '{group_id}'")
+        return queue
+
+    async def _run_analysis(self, group_id: str) -> None:
+        """Orchestrate all 3 phases of group analysis sequentially.
+
+        Phase 1: Join chats and resolve types
+        Phase 2: Run analysis via TaskQueue
+        Phase 3: Leave chats (if enabled)
+
+        Updates group status to COMPLETED on success.
+
+        Args:
+            group_id: Group identifier to analyze.
+
+        Raises:
+            GroupNotFoundError: If group doesn't exist.
+            NoConnectedAccountsError: If no accounts available.
+            GroupEngineError: For other errors.
+
+        Example:
+            >>> await engine._run_analysis("group-abc123")
+        """
+        logger.info(f"Starting full analysis workflow for group '{group_id}'")
+
+        try:
+            # Phase 1: Join and resolve
+            await self.start_analysis(group_id)
+
+            # Phase 2: Analyze
+            await self._phase2_analyze(group_id)
+
+            # Phase 3: Leave (if configured)
+            await self._phase3_leave(group_id)
+
+            # Update group status to COMPLETED
+            group_data = self._db.load_group(group_id)
+            if group_data:
+                self._db.save_group(
+                    group_id=group_id,
+                    name=group_data["name"],
+                    settings=group_data["settings"],
+                    status=GroupStatus.COMPLETED.value,
+                    created_at=group_data["created_at"],
+                    updated_at=datetime.now(UTC),
+                )
+
+            logger.info(f"Analysis workflow completed for group '{group_id}'")
+
+        except Exception as e:
+            logger.error(
+                f"Analysis workflow failed for group '{group_id}': {e}",
+                exc_info=True,
+            )
+            # Update group status to FAILED
+            group_data = self._db.load_group(group_id)
+            if group_data:
+                self._db.save_group(
+                    group_id=group_id,
+                    name=group_data["name"],
+                    settings=group_data["settings"],
+                    status=GroupStatus.FAILED.value,
+                    created_at=group_data["created_at"],
+                    updated_at=datetime.now(UTC),
+                )
+            raise
