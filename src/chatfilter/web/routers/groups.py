@@ -15,6 +15,7 @@ import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
+from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 from chatfilter.exporter import export_to_csv
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
@@ -199,6 +200,29 @@ def _get_group_service() -> GroupService:
 
     db = GroupDatabase(db_path)
     return GroupService(db)
+
+
+def _get_group_analysis_engine() -> GroupAnalysisEngine:
+    """Get or create GroupAnalysisEngine instance.
+
+    Returns:
+        GroupAnalysisEngine instance
+    """
+    from chatfilter.analyzer.executor import RealAnalysisExecutor
+    from chatfilter.analyzer.task_queue import get_task_queue
+    from chatfilter.config import get_settings
+    from chatfilter.telegram.session_manager import SessionManager
+
+    settings = get_settings()
+    db_path = settings.data_dir / "groups.db"
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+
+    db = GroupDatabase(db_path)
+    session_manager = SessionManager()
+    task_queue = get_task_queue()
+    executor = RealAnalysisExecutor()
+
+    return GroupAnalysisEngine(db, session_manager, task_queue, executor)
 
 
 @router.post("/api/groups", response_class=HTMLResponse)
@@ -902,6 +926,195 @@ async def stop_group_analysis(
 
     except HTTPException:
         raise
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Failed to stop analysis: {str(e)}"},
+        )
+
+
+@router.put("/api/groups/{group_id}/settings", response_class=HTMLResponse)
+async def update_group_settings(
+    request: Request,
+    group_id: str,
+    message_limit: Annotated[int, Form()],
+    leave_after_analysis: Annotated[bool, Form()] = False,
+) -> HTMLResponse:
+    """Update group analysis settings.
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+        message_limit: Maximum messages to analyze per chat (10-10000)
+        leave_after_analysis: Whether to leave chat after analysis
+
+    Returns:
+        HTML partial with updated group card or error message
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        # Create settings object (validation happens in Pydantic model)
+        settings = GroupSettings(
+            message_limit=message_limit,
+            leave_after_analysis=leave_after_analysis,
+        )
+
+        # Update settings via service
+        service = _get_group_service()
+        service.update_settings(group_id, settings)
+
+        # Get updated group for rendering
+        group = service.get_group(group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        stats = service.get_group_stats(group_id)
+
+        # Return updated group card
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context={"group": group, "stats": stats},
+        )
+
+    except ValueError as e:
+        # Pydantic validation error or group not found
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": str(e)},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Failed to update settings: {str(e)}"},
+        )
+
+
+@router.post("/api/groups/{group_id}/start", response_class=HTMLResponse)
+async def start_analysis(request: Request, group_id: str) -> HTMLResponse:
+    """Start group analysis.
+
+    Initiates analysis via GroupAnalysisEngine which handles:
+    - Phase 1: Joining chats and resolving types
+    - Phase 2: Running analysis tasks via TaskQueue
+    - Phase 3: Cleanup and completion
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+
+    Returns:
+        HTML partial with updated group card or error message
+    """
+    from chatfilter.analyzer.group_engine import (
+        GroupNotFoundError,
+        NoConnectedAccountsError,
+    )
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        engine = _get_group_analysis_engine()
+
+        # Start analysis via GroupAnalysisEngine
+        await engine.start_analysis(group_id)
+
+        # Get updated group for rendering
+        service = _get_group_service()
+        updated_group = service.get_group(group_id)
+
+        if not updated_group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        # Get stats for rendering
+        stats = service.get_group_stats(group_id)
+
+        # Return updated group card
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context={"group": updated_group, "stats": stats},
+        )
+
+    except GroupNotFoundError:
+        raise HTTPException(status_code=404, detail="Group not found")
+    except NoConnectedAccountsError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": str(e)},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Failed to start analysis: {str(e)}"},
+        )
+
+
+@router.post("/api/groups/{group_id}/stop", response_class=HTMLResponse)
+async def stop_analysis(request: Request, group_id: str) -> HTMLResponse:
+    """Stop group analysis.
+
+    Updates group status to PAUSED and attempts to cancel running tasks.
+
+    TODO: Implement proper task cancellation via GroupAnalysisEngine.
+    Current implementation only updates status. Full implementation needs:
+    1. GroupAnalysisEngine.stop_analysis(group_id) method
+    2. Track task_ids per group in database
+    3. Cancel all associated TaskQueue tasks via task_queue.cancel_task()
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+
+    Returns:
+        HTML partial with updated group card or error message
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        service = _get_group_service()
+
+        # Update status to PAUSED
+        # TODO: Also cancel TaskQueue tasks when GroupAnalysisEngine.stop_analysis() is implemented
+        updated_group = service.update_status(group_id, GroupStatus.PAUSED)
+
+        if not updated_group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        # Get stats for rendering
+        stats = service.get_group_stats(group_id)
+
+        # Return updated group card
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context={"group": updated_group, "stats": stats},
+        )
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Status transition validation error
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": str(e)},
+        )
     except Exception as e:
         return templates.TemplateResponse(
             request=request,
