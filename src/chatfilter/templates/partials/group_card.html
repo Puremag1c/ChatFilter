@@ -88,44 +88,29 @@
         </button>
     </div>
 
-    <!-- SSE progress updates (for in_progress status) -->
-    {% if group.status.value == 'in_progress' %}
+    <!-- Progress polling (for in_progress status) -->
     <script>
     (function() {
         const groupId = '{{ group.id }}';
-        const eventSource = new EventSource('/api/groups/' + groupId + '/progress');
 
-        eventSource.addEventListener('init', function(e) {
-            const data = JSON.parse(e.data);
-            console.log('Progress init:', data);
-        });
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
 
-        eventSource.addEventListener('progress', function(e) {
-            const data = JSON.parse(e.data);
-            console.log('Progress update:', data);
-            // Refresh group card
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        {% if group.status.value == 'in_progress' %}
+        // Poll every 3 seconds
+        window.groupProgressIntervals[groupId] = setInterval(function() {
             htmx.ajax('GET', '/api/groups/' + groupId, {
                 target: '#group-' + groupId,
                 swap: 'outerHTML'
             });
-        });
-
-        eventSource.addEventListener('complete', function(e) {
-            const data = JSON.parse(e.data);
-            console.log('Progress complete:', data);
-            // Final refresh and close connection
-            htmx.ajax('GET', '/api/groups/' + groupId, {
-                target: '#group-' + groupId,
-                swap: 'outerHTML'
-            });
-            eventSource.close();
-        });
-
-        eventSource.addEventListener('error', function(e) {
-            console.error('SSE error:', e);
-            eventSource.close();
-        });
+        }, 3000);
+        {% endif %}
     })();
     </script>
-    {% endif %}
 </div>
