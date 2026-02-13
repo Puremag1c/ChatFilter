@@ -43,6 +43,15 @@ class GroupService:
         """
         self._db = db
 
+    @property
+    def db(self) -> GroupDatabase:
+        """Public read-only access to database instance.
+
+        Returns:
+            GroupDatabase instance.
+        """
+        return self._db
+
     def create_group(
         self,
         name: str,
