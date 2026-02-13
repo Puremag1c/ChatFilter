@@ -7,7 +7,8 @@
         </div>
         <form id="create-group-form"
               hx-post="/api/groups"
-              hx-swap="none"
+              hx-target="#groups-list"
+              hx-swap="afterbegin"
               hx-encoding="multipart/form-data">
             <div class="modal-body">
                 <div class="form-group">
@@ -114,10 +115,13 @@ sourceTypeSelect.dispatchEvent(new Event('change'));
 // Form submission handler
 document.getElementById('create-group-form').addEventListener('htmx:afterRequest', function(event) {
     if (event.detail.successful) {
-        // Close modal on success
+        // Remove "no groups" placeholder if it exists
+        const noGroupsEl = document.querySelector('.no-groups');
+        if (noGroupsEl) {
+            noGroupsEl.remove();
+        }
+        // Close modal on success - HTMX will auto-swap the new group card
         closeModal('create-group-modal');
-        // Refresh groups list
-        htmx.trigger('#groups-container', 'load');
     } else {
         // Show error
         const errorDiv = document.getElementById('create-group-error');
