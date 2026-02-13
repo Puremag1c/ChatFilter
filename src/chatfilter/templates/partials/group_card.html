@@ -92,6 +92,7 @@
     <script>
     (function() {
         const groupId = '{{ group.id }}';
+        const cardElement = document.getElementById('group-' + groupId);
 
         // Global registry to prevent multiple intervals for same group
         window.groupProgressIntervals = window.groupProgressIntervals || {};
@@ -111,6 +112,16 @@
             });
         }, 3000);
         {% endif %}
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
     })();
     </script>
 </div>
