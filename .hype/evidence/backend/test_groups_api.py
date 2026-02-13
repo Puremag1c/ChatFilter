@@ -1,5 +1,11 @@
 """Tests for link format support in chat parser."""
 
+import sys
+from pathlib import Path
+
+# Add project src to path so chatfilter.importer is importable
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+
 import pytest
 
 
