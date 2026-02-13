@@ -6,12 +6,14 @@ file uploads, Google Sheets imports, and direct URL imports.
 
 from __future__ import annotations
 
+import csv
 import io
+from datetime import datetime
 from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
@@ -537,4 +539,117 @@ async def delete_group(group_id: str) -> HTMLResponse:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete group: {str(e)}"
+        )
+
+
+@router.get("/api/groups/{group_id}/export")
+async def export_group_results(group_id: str) -> StreamingResponse:
+    """Export analysis results for a group as CSV.
+
+    Args:
+        group_id: Group identifier
+
+    Returns:
+        CSV file with analyzed chat results
+
+    Raises:
+        HTTPException: If group not found or export fails
+    """
+    try:
+        service = _get_group_service()
+        db = service.db
+
+        # Load group to get name
+        group_data = db.load_group(group_id)
+        if not group_data:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        # Load all analysis results for this group
+        results = db.load_results(group_id)
+
+        # Build CSV in memory
+        output = io.StringIO()
+
+        # UTF-8 BOM for Excel compatibility
+        output.write("\ufeff")
+
+        writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+
+        # Write header row
+        headers = [
+            "chat_ref",
+            "chat_type",
+            "chat_title",
+            "status",
+            "message_count",
+            "unique_authors",
+            "history_hours",
+            "messages_per_hour",
+            "first_message_at",
+            "last_message_at",
+            "analyzed_at",
+        ]
+        writer.writerow(headers)
+
+        # Write data rows
+        for result in results:
+            metrics_data = result["metrics_data"]
+
+            # FIX #2: Safe datetime formatting with type check
+            def safe_datetime_format(value):
+                """Format datetime safely, handling both datetime objects and strings."""
+                if value is None:
+                    return ""
+                if isinstance(value, str):
+                    # Already a string, potentially from JSON
+                    return value
+                if hasattr(value, "isoformat"):
+                    # datetime object
+                    return value.isoformat()
+                # Fallback for unexpected types
+                return str(value)
+
+            row = [
+                result["chat_ref"],
+                metrics_data.get("chat_type", ""),
+                metrics_data.get("chat_title", ""),
+                "done",  # If result exists, analysis is done
+                metrics_data.get("message_count", ""),
+                metrics_data.get("unique_authors", ""),
+                f"{metrics_data.get('history_hours', 0):.2f}",
+                f"{metrics_data.get('messages_per_hour', 0):.2f}",
+                safe_datetime_format(metrics_data.get("first_message_at")),
+                safe_datetime_format(metrics_data.get("last_message_at")),
+                safe_datetime_format(result.get("analyzed_at")),
+            ]
+            writer.writerow(row)
+
+        # Get CSV content
+        csv_content = output.getvalue()
+        output.close()
+
+        # FIX #1: Sanitize filename to prevent broken downloads
+        # Remove/replace invalid filename characters: / \ : * ? " < > |
+        safe_name = "".join(
+            c if c.isalnum() or c in (' ', '-', '_') else '_'
+            for c in group_data["name"]
+        )
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{safe_name}_results_{timestamp}.csv"
+
+        # Return as downloadable file
+        return StreamingResponse(
+            io.BytesIO(csv_content.encode("utf-8")),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to export results: {str(e)}"
         )
