@@ -203,19 +203,37 @@ class GroupAnalysisEngine:
                 auto_disconnect=False,
             ) as client:
                 for chat in account_chats:
-                    await self._join_and_resolve_chat(
-                        client=client,
-                        group_id=group_id,
-                        chat=chat,
-                        account_id=account_id,
-                    )
+                    try:
+                        await self._join_and_resolve_chat(
+                            client=client,
+                            group_id=group_id,
+                            chat=chat,
+                            account_id=account_id,
+                        )
+                    except errors.FloodWaitError as e:
+                        wait_seconds = getattr(e, "seconds", 0)
+                        logger.warning(
+                            f"Account '{account_id}': FloodWait {wait_seconds}s "
+                            f"on chat '{chat['chat_ref']}'. Stopping account."
+                        )
+                        self._db.update_chat_status(
+                            chat_id=chat["id"],
+                            status=GroupChatStatus.FAILED.value,
+                            error=f"FloodWait: {wait_seconds}s",
+                        )
+                        break
         except Exception as e:
             logger.error(
                 f"Account '{account_id}': unexpected error: {e}",
                 exc_info=True,
             )
-            # Mark all pending chats for this account as FAILED
-            for chat in account_chats:
+            # Only mark chats still PENDING as FAILED (not already-DONE ones)
+            remaining = self._db.load_chats(
+                group_id=group_id,
+                assigned_account=account_id,
+                status=GroupChatStatus.PENDING.value,
+            )
+            for chat in remaining:
                 self._db.update_chat_status(
                     chat_id=chat["id"],
                     status=GroupChatStatus.FAILED.value,
@@ -269,23 +287,9 @@ class GroupAnalysisEngine:
                 f"(type={chat_type})"
             )
 
-        except errors.FloodWaitError as e:
-            # Rate limited - pause this account and mark chat as FAILED
-            wait_seconds = getattr(e, "seconds", 0)
-            logger.warning(
-                f"Account '{account_id}': FloodWait {wait_seconds}s "
-                f"on chat '{chat_ref}'. Pausing account."
-            )
-
-            # Mark chat as FAILED with error message
-            self._db.update_chat_status(
-                chat_id=chat_id,
-                status=GroupChatStatus.FAILED.value,
-                error=f"FloodWait: {wait_seconds}s",
-            )
-
-            # Stop processing more chats for this account
-            break
+        except errors.FloodWaitError:
+            # Re-raise to be caught by _process_account_chats loop
+            raise
 
         except (
             errors.ChatForbiddenError,
