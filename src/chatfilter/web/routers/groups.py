@@ -29,6 +29,76 @@ READ_CHUNK_SIZE = 8192  # 8 KB chunks
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls", ".txt"}
 
+# MIME type mappings for validation
+ALLOWED_MIME_TYPES = {
+    ".csv": {"text/csv", "text/plain", "application/csv"},
+    ".xlsx": {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/zip",  # XLSX is a ZIP archive
+    },
+    ".xls": {
+        "application/vnd.ms-excel",
+        "application/octet-stream",  # Legacy binary format
+    },
+    ".txt": {"text/plain"},
+}
+
+
+def _detect_mime_type(content: bytes) -> str:
+    """Detect MIME type from file content using magic bytes.
+
+    Args:
+        content: File content bytes
+
+    Returns:
+        Detected MIME type string
+    """
+    if not content:
+        return "application/octet-stream"
+
+    # Check for XLSX (ZIP archive with specific structure)
+    if content[:2] == b"PK":
+        # XLSX files are ZIP archives starting with PK
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    # Check for XLS (old binary format)
+    if content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        return "application/vnd.ms-excel"
+
+    # Check if it's text (CSV or TXT)
+    try:
+        # Try to decode as UTF-8
+        content[:1024].decode("utf-8")
+        # Check if it looks like CSV (contains common delimiters)
+        sample = content[:2048].decode("utf-8", errors="ignore")
+        if any(delimiter in sample for delimiter in [",", ";", "\t"]):
+            return "text/csv"
+        return "text/plain"
+    except (UnicodeDecodeError, AttributeError):
+        pass
+
+    return "application/octet-stream"
+
+
+def _validate_file_type(file_ext: str, content: bytes) -> None:
+    """Validate that file content matches the declared extension.
+
+    Args:
+        file_ext: File extension (e.g., '.csv', '.xlsx')
+        content: File content bytes
+
+    Raises:
+        ValueError: If MIME type doesn't match extension
+    """
+    detected_mime = _detect_mime_type(content)
+    allowed_mimes = ALLOWED_MIME_TYPES.get(file_ext, set())
+
+    if detected_mime not in allowed_mimes:
+        raise ValueError(
+            f"File content type ({detected_mime}) does not match "
+            f"extension ({file_ext}). Expected one of: {', '.join(allowed_mimes)}"
+        )
+
 
 async def read_upload_with_size_limit(
     upload_file: UploadFile, max_size: int, file_type: str = "file"
@@ -193,6 +263,16 @@ async def create_group(
                 file_content = await read_upload_with_size_limit(
                     file_upload, MAX_FILE_SIZE, "file"
                 )
+            except ValueError as e:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/error_message.html",
+                    context={"error": str(e)},
+                )
+
+            # Validate MIME type matches extension
+            try:
+                _validate_file_type(file_ext, file_content)
             except ValueError as e:
                 return templates.TemplateResponse(
                     request=request,
