@@ -7,6 +7,9 @@ from typing import Any
 
 from chatfilter.storage.database import SQLiteDatabase
 
+# Sentinel value to distinguish "not provided" from None
+_UNSET = object()
+
 
 class GroupDatabase(SQLiteDatabase):
     """SQLite database for persisting chat group data and analysis results.
@@ -226,27 +229,27 @@ class GroupDatabase(SQLiteDatabase):
         self,
         chat_id: int,
         status: str,
-        assigned_account: str | None = None,
-        error: str | None = None,
+        assigned_account: str | None = _UNSET,
+        error: str | None = _UNSET,
     ) -> None:
         """Update the status of a group chat.
 
         Args:
             chat_id: Chat ID
             status: New status (pending/joining/analyzing/done/failed)
-            assigned_account: Optional account assignment
-            error: Optional error message
+            assigned_account: Optional account assignment (pass None to clear)
+            error: Optional error message (pass None to clear)
         """
         with self._connection() as conn:
             # Build UPDATE statement dynamically based on provided fields
             updates = ["status = ?"]
             params: list[Any] = [status]
 
-            if assigned_account is not None:
+            if assigned_account is not _UNSET:
                 updates.append("assigned_account = ?")
                 params.append(assigned_account)
 
-            if error is not None:
+            if error is not _UNSET:
                 updates.append("error = ?")
                 params.append(error)
 
