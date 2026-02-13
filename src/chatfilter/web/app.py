@@ -26,6 +26,7 @@ from chatfilter.web.routers.analysis import router as analysis_router
 from chatfilter.web.routers.chatlist import router as chatlist_router
 from chatfilter.web.routers.chats import router as chats_router
 from chatfilter.web.routers.export import router as export_router
+from chatfilter.web.routers.groups import router as groups_router
 from chatfilter.web.routers.health import router as health_router
 from chatfilter.web.routers.history import router as history_router
 from chatfilter.web.routers.monitoring import router as monitoring_router
@@ -330,6 +331,7 @@ def create_app(
     app.include_router(sessions_router)
     app.include_router(chatlist_router)
     app.include_router(chats_router)
+    app.include_router(groups_router)
     app.include_router(analysis_router)
     app.include_router(monitoring_router)
     app.include_router(proxy_pool_router)

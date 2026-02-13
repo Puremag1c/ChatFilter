@@ -247,6 +247,39 @@ class GroupService:
             failed=by_status.get(GroupChatStatus.FAILED.value, 0),
         )
 
+    def update_group_name(self, group_id: str, new_name: str) -> ChatGroup | None:
+        """Update a chat group's name.
+
+        Args:
+            group_id: Group identifier.
+            new_name: New group name.
+
+        Returns:
+            Updated ChatGroup or None if group not found.
+
+        Example:
+            >>> group = service.update_group_name("group-123", "New Name")
+            >>> group.name
+            'New Name'
+        """
+        # Load existing group
+        group = self.get_group(group_id)
+        if not group:
+            return None
+
+        # Save with new name (save_group handles upsert)
+        self._db.save_group(
+            group_id=group.id,
+            name=new_name.strip(),
+            settings=group.settings.model_dump(),
+            status=group.status.value,
+            created_at=group.created_at,
+            updated_at=datetime.now(UTC),
+        )
+
+        # Reload and return updated group
+        return self.get_group(group_id)
+
     def delete_group(self, group_id: str) -> None:
         """Delete a chat group.
 
