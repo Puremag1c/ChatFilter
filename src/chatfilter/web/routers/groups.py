@@ -658,7 +658,7 @@ async def export_group_results(group_id: str) -> Response:
         raise HTTPException(status_code=404, detail="Group not found")
 
     # Load results from database
-    results_data = service.db.load_results(group_id)
+    results_data = service._db.load_results(group_id)
 
     if not results_data:
         raise HTTPException(
@@ -677,7 +677,7 @@ async def export_group_results(group_id: str) -> Response:
         chat_ref = result["chat_ref"]
 
         # Try to determine chat type from group_chats table
-        with service.db._connection() as conn:
+        with service._db._connection() as conn:
             cursor = conn.execute(
                 "SELECT chat_type FROM group_chats WHERE group_id = ? AND chat_ref = ?",
                 (group_id, chat_ref),
