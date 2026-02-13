@@ -1,0 +1,3 @@
+    <title>Telegram Sessions - ChatFilter</title>
+                <li><a href="/proxies" data-tooltip="Manage proxy servers for Telegram sessions" data-tooltip-position="bottom">Proxies</a></li>
+                <li><a href="/" data-tooltip="Manage your Telegram session files" data-tooltip-position="bottom">Sessions</a></li>

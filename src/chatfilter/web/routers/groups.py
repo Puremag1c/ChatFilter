@@ -15,6 +15,11 @@ import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
+from chatfilter.analyzer.group_engine import (
+    GroupAnalysisEngine,
+    NoConnectedAccountsError,
+)
+from chatfilter.analyzer.task_queue import get_task_queue
 from chatfilter.exporter import export_to_csv
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
@@ -199,6 +204,55 @@ def _get_group_service() -> GroupService:
 
     db = GroupDatabase(db_path)
     return GroupService(db)
+
+
+# Singleton for GroupAnalysisEngine
+_group_engine: GroupAnalysisEngine | None = None
+
+
+def _get_group_engine(request: Request) -> GroupAnalysisEngine:
+    """Get or create GroupAnalysisEngine instance (singleton).
+
+    Args:
+        request: FastAPI request to access app state
+
+    Returns:
+        GroupAnalysisEngine instance
+
+    Raises:
+        RuntimeError: If required app state components are not initialized
+    """
+    global _group_engine
+
+    if _group_engine is not None:
+        return _group_engine
+
+    # Import RealAnalysisExecutor from analysis router
+    from chatfilter.web.routers.analysis import RealAnalysisExecutor
+
+    # Get dependencies from app state and singletons
+    session_manager = request.app.state.app_state.session_manager
+    if session_manager is None:
+        raise RuntimeError("SessionManager not initialized in app state")
+
+    task_queue = get_task_queue()
+
+    # Get GroupDatabase from service
+    service = _get_group_service()
+    db = service._db
+
+    # Create executor
+    executor = RealAnalysisExecutor()
+
+    # Create and cache engine
+    _group_engine = GroupAnalysisEngine(
+        db=db,
+        session_manager=session_manager,
+        task_queue=task_queue,
+        executor=executor,
+    )
+
+    return _group_engine
 
 
 @router.post("/api/groups", response_class=HTMLResponse)
@@ -553,8 +607,7 @@ async def _generate_group_sse_events(
 ) -> AsyncGenerator[str, None]:
     """Generate SSE events for group analysis progress.
 
-    Currently a placeholder until GroupAnalysisEngine is implemented.
-    Returns immediate completion with current group stats.
+    Subscribes to GroupAnalysisEngine progress events and streams them as SSE.
 
     Args:
         group_id: Group identifier
@@ -564,6 +617,7 @@ async def _generate_group_sse_events(
         SSE formatted event strings
     """
     service = _get_group_service()
+    engine = _get_group_engine(request)
 
     # Verify group exists
     group = service.get_group(group_id)
@@ -584,17 +638,56 @@ async def _generate_group_sse_events(
     }
     yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
-    # TODO: When GroupAnalysisEngine is implemented, subscribe to real progress events here
-    # For now, just send completion event immediately
-    await asyncio.sleep(0.1)  # Small delay to prevent client-side race conditions
+    # Subscribe to engine progress events
+    progress_queue = engine.subscribe(group_id)
 
-    complete_data = {
-        "group_id": group_id,
-        "total": stats.total,
-        "analyzed": stats.analyzed,
-        "message": "No active analysis",
-    }
-    yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+    try:
+        # Stream progress events until completion
+        while True:
+            # Check for client disconnect
+            if await request.is_disconnected():
+                break
+
+            try:
+                # Wait for next event with timeout to allow disconnect checks
+                event = await asyncio.wait_for(progress_queue.get(), timeout=1.0)
+
+                if event is None:
+                    # Analysis completed
+                    complete_data = {
+                        "group_id": group_id,
+                        "total": stats.total,
+                        "analyzed": stats.analyzed,
+                        "message": "Analysis complete",
+                    }
+                    yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+                    break
+
+                # Send progress event
+                progress_data = {
+                    "group_id": event.group_id,
+                    "status": event.status,
+                    "current": event.current,
+                    "total": event.total,
+                    "chat_title": event.chat_title,
+                    "message": event.message,
+                }
+                yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
+
+                # Send error event if present
+                if event.error:
+                    error_data = {
+                        "group_id": event.group_id,
+                        "error": event.error,
+                    }
+                    yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+
+            except asyncio.TimeoutError:
+                # Timeout waiting for event - continue to check disconnect
+                continue
+
+    finally:
+        # Cleanup: queue will be cleaned up by engine
 
 
 @router.get("/api/groups/{group_id}/progress")
@@ -811,8 +904,8 @@ async def start_group_analysis(
 ) -> HTMLResponse:
     """Start group analysis.
 
-    Updates group status to IN_PROGRESS. Actual analysis engine integration
-    will be added when GroupAnalysisEngine is implemented (ChatFilter-1dx8h).
+    Triggers GroupAnalysisEngine to join chats, resolve types, and analyze them.
+    Requires at least one connected Telegram account.
 
     Args:
         request: FastAPI request object
@@ -822,7 +915,7 @@ async def start_group_analysis(
         HTML partial with updated group card or error message
 
     Raises:
-        HTTPException: If group not found
+        HTTPException: If group not found or no accounts connected
     """
     from chatfilter.web.app import get_templates
 
@@ -830,6 +923,7 @@ async def start_group_analysis(
 
     try:
         service = _get_group_service()
+        engine = _get_group_engine(request)
 
         # Update status to IN_PROGRESS
         updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
@@ -837,7 +931,14 @@ async def start_group_analysis(
         if not updated_group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # TODO: When GroupAnalysisEngine is ready, call engine.start(group_id) here
+        # Start analysis via GroupAnalysisEngine
+        # This runs Phase 1 (join/resolve) in background
+        try:
+            await engine.start_analysis(group_id)
+        except NoConnectedAccountsError as e:
+            # Rollback status update
+            service.update_status(group_id, GroupStatus.PENDING)
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
         stats = service.get_group_stats(group_id)
 
@@ -864,8 +965,7 @@ async def stop_group_analysis(
 ) -> HTMLResponse:
     """Stop group analysis.
 
-    Updates group status to PAUSED. Actual analysis engine integration
-    will be added when GroupAnalysisEngine is implemented (ChatFilter-1dx8h).
+    Cancels all active tasks for the group and updates status to PAUSED.
 
     Args:
         request: FastAPI request object
@@ -883,14 +983,16 @@ async def stop_group_analysis(
 
     try:
         service = _get_group_service()
+        engine = _get_group_engine(request)
+
+        # Stop analysis via GroupAnalysisEngine (sync method)
+        engine.stop_analysis(group_id)
 
         # Update status to PAUSED
         updated_group = service.update_status(group_id, GroupStatus.PAUSED)
 
         if not updated_group:
             raise HTTPException(status_code=404, detail="Group not found")
-
-        # TODO: When GroupAnalysisEngine is ready, call engine.stop(group_id) here
 
         stats = service.get_group_stats(group_id)
 

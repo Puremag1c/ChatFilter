@@ -1,0 +1,25 @@
+API SMOKE TEST SUMMARY
+======================
+
+Test Date: 2026-02-08
+Project: ChatFilter
+Base URL: http://localhost:8000
+
+RESULT: ✅ PASSED
+
+Key Findings:
+- 9 endpoints returned 2xx (success)
+- 6 endpoints returned 4xx (expected client errors)
+- 0 endpoints returned 5xx (server errors)
+
+Critical Endpoints Verified:
+✅ /health - Health check working
+✅ /ready - Readiness probe working
+✅ /api/proxies - Proxies API working
+✅ /api/version/check-updates - Version check working
+✅ CSRF protection - Working (403 on unprotected POST)
+
+No bugs created - all endpoints functioning as expected.
+
+Full report: .hype/evidence/api/report.md
+Test artifacts: .hype/evidence/api/*.txt

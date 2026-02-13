@@ -1,0 +1,42 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, timeout-2.4.0, asyncio-1.3.0, hypothesis-6.151.5
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 13 items
+
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_create_group_with_valid_inputs PASSED [  7%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_create_group_with_empty_name_raises_error PASSED [ 15%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_create_group_with_whitespace_name_raises_error PASSED [ 23%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_create_group_with_empty_chat_refs_raises_error PASSED [ 30%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_create_group_parses_all_link_formats PASSED [ 38%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_get_group_returns_existing_group PASSED [ 46%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_get_group_returns_none_for_nonexistent PASSED [ 53%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_list_all_groups_returns_all FAILED [ 61%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_update_settings_persists_changes PASSED [ 69%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_delete_group_removes_group PASSED [ 76%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_get_group_stats_returns_correct_counts FAILED [ 84%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_unicode_in_group_name PASSED [ 92%]
+.hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_unicode_in_chat_references PASSED [100%]
+
+=================================== FAILURES ===================================
+________ TestGroupServiceBusinessLogic.test_list_all_groups_returns_all ________
+.hype/evidence/backend/generated_test_group_service.py:86: in test_list_all_groups_returns_all
+    groups = service.list_all_groups()
+             ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'GroupService' object has no attribute 'list_all_groups'. Did you mean: 'list_groups'?
+__ TestGroupServiceBusinessLogic.test_get_group_stats_returns_correct_counts ___
+.hype/evidence/backend/generated_test_group_service.py:117: in test_get_group_stats_returns_correct_counts
+    stats = service.get_stats(group.id)
+            ^^^^^^^^^^^^^^^^^
+E   AttributeError: 'GroupService' object has no attribute 'get_stats'
+=========================== short test summary info ============================
+FAILED .hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_list_all_groups_returns_all - AttributeError: 'GroupService' object has no attribute 'list_all_groups'. Did you mean: 'list_groups'?
+FAILED .hype/evidence/backend/generated_test_group_service.py::TestGroupServiceBusinessLogic::test_get_group_stats_returns_correct_counts - AttributeError: 'GroupService' object has no attribute 'get_stats'
+========================= 2 failed, 11 passed in 0.54s =========================

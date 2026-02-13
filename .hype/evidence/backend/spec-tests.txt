@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, timeout-2.4.0, asyncio-1.3.0, hypothesis-6.151.5
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 21 items
+
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_1_save_without_api_id PASSED [  4%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_2_connect_without_credentials PASSED [  9%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_3_expired_session_auto_send_code PASSED [ 14%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_4_normal_connect_success PASSED [ 19%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_5_banned_account PASSED [ 23%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_6_corrupted_session_auto_send_code PASSED [ 28%]
+tests/test_8_state_model.py::test_only_8_states_in_python_code PASSED    [ 33%]
+tests/test_8_state_model.py::test_only_8_states_in_templates PASSED      [ 38%]
+tests/test_8_state_model.py::test_only_8_states_in_javascript PASSED     [ 42%]
+tests/test_8_state_model.py::test_only_8_states_documented PASSED        [ 47%]
+tests/test_8_state_model.py::test_no_state_creep_in_recent_commits PASSED [ 52%]
+tests/test_removed_states_verification.py::test_removed_states_not_in_templates PASSED [ 57%]
+tests/test_removed_states_verification.py::test_removed_states_not_in_css PASSED [ 61%]
+tests/test_removed_states_verification.py::test_removed_states_not_in_translations PASSED [ 66%]
+tests/test_removed_states_verification.py::test_classify_error_state_never_returns_removed PASSED [ 71%]
+tests/test_removed_states_verification.py::test_classify_error_state_exception_types PASSED [ 76%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_account_only_name_phone PASSED [ 80%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_account_appears_disconnected PASSED [ 85%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_validates_credentials_before_connect PASSED [ 90%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_start_auth_flow_no_telethon_call PASSED [ 95%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_with_credentials_no_connect PASSED [100%]
+
+============================== 21 passed in 2.80s ==============================

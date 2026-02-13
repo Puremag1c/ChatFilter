@@ -1,0 +1,29 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, timeout-2.4.0, asyncio-1.3.0, hypothesis-6.151.5
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 14 items
+
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_valid_credentials_accepted PASSED [  7%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_empty_credentials_accepted PASSED [ 14%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_api_id_without_api_hash_rejected PASSED [ 21%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_api_hash_without_api_id_rejected PASSED [ 28%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_zero_api_id_rejected PASSED [ 35%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_negative_api_id_rejected PASSED [ 42%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_invalid_api_hash_format_rejected PASSED [ 50%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_short_api_hash_rejected PASSED [ 57%]
+tests/test_start_auth_flow.py::TestStartAuthFlowValidation::test_non_hex_api_hash_rejected PASSED [ 64%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_1_save_without_api_id PASSED [ 71%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_2_connect_without_credentials PASSED [ 78%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_3_expired_session_auto_send_code PASSED [ 85%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_4_normal_connect_success PASSED [ 92%]
+tests/test_connect_flow_smoke.py::TestConnectFlowSmoke::test_scenario_5_banned_account PASSED [100%]
+
+============================== 14 passed in 0.90s ==============================

@@ -1,0 +1,20 @@
+tests/integration/test_auth_flow_fixes.py:1. Code -> 2FA transition: verify-code with 2FA returns needs_2fa row with button
+tests/integration/test_auth_flow_fixes.py:2. 2FA -> Connected: verify-2fa success returns connected session_row
+tests/integration/test_auth_flow_fixes.py:4. Full flow: verify-code needs_2fa -> verify-2fa connected (no page refresh)
+tests/integration/test_auth_flow_fixes.py:    """Test 1: verify-code with SessionPasswordNeededError returns needs_2fa row.
+tests/integration/test_auth_flow_fixes.py:    Bug1 fix: verify-code on needs_2fa returns <tr> with needs_2fa state,
+tests/integration/test_auth_flow_fixes.py:        """verify-code with 2FA required returns <tr> with needs_2fa state and 2FA button."""
+tests/integration/test_auth_flow_fixes.py:        from telethon.errors import SessionPasswordNeededError
+tests/integration/test_auth_flow_fixes.py:        # Make sign_in raise SessionPasswordNeededError
+tests/integration/test_auth_flow_fixes.py:        auth_state.client.sign_in = AsyncMock(side_effect=SessionPasswordNeededError(request=None))
+tests/integration/test_auth_flow_fixes.py:                "/api/sessions/testsession/verify-code",
+tests/integration/test_auth_flow_fixes.py:    """Test 2: verify-2fa success returns connected session_row.
+tests/integration/test_auth_flow_fixes.py:    Bug2 fix: verify-2fa on success returns <tr> with connected state,
+tests/integration/test_auth_flow_fixes.py:        """verify-2fa success returns <tr> with connected state."""
+tests/integration/test_auth_flow_fixes.py:                "/api/sessions/testsession/verify-2fa",
+tests/integration/test_auth_flow_fixes.py:    Simulates: verify-code(needs_2fa) -> verify-2fa(connected).
+tests/integration/test_auth_flow_fixes.py:        """Full auth flow: verify-code returns needs_2fa row, then verify-2fa returns connected row."""
+tests/integration/test_auth_flow_fixes.py:        from telethon.errors import SessionPasswordNeededError
+tests/integration/test_auth_flow_fixes.py:        auth_state.client.sign_in = AsyncMock(side_effect=SessionPasswordNeededError(request=None))
+tests/integration/test_auth_flow_fixes.py:        # Step 1: verify-code -> needs_2fa
+tests/integration/test_auth_flow_fixes.py:                "/api/sessions/testsession/verify-code",

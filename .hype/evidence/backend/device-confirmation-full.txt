@@ -1,0 +1,39 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, timeout-2.4.0, asyncio-1.3.0, hypothesis-6.151.5
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 7 items
+
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_code_needs_confirmation PASSED [ 14%]
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_2fa_needs_confirmation PASSED [ 28%]
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_list_stored_sessions_needs_confirmation_state PASSED [ 42%]
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_check_device_confirmation_auth_key_unregistered PASSED [ 57%]
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_2fa_auth_key_unregistered_needs_confirmation PASSED [ 71%]
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_code_auth_key_unregistered_needs_confirmation PASSED [ 85%]
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_auto_2fa_auth_key_unregistered_needs_confirmation PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_code_needs_confirmation
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_code_auth_key_unregistered_needs_confirmation
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_auto_2fa_auth_key_unregistered_needs_confirmation
+  /Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py:4005: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if not client or not client.is_connected():
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_2fa_needs_confirmation
+tests/test_device_confirmation.py::TestDeviceConfirmation::test_verify_2fa_auth_key_unregistered_needs_confirmation
+  /Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py:4430: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if not client or not client.is_connected():
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 7 passed, 5 warnings in 20.89s ========================

@@ -1,0 +1,83 @@
+
+
+<form class="session-config-form"
+      hx-put="/api/sessions/nonexistent/config"
+      hx-target="#session-config-result-nonexistent"
+      hx-swap="innerHTML"
+      hx-indicator="#session-config-spinner-nonexistent">
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="session-api-id-nonexistent"
+                   data-tooltip="Your Telegram API ID from my.telegram.org"
+                   data-tooltip-position="right">API ID</label>
+            <input type="number"
+                   id="session-api-id-nonexistent"
+                   name="api_id"
+                   class="form-control"
+                   required
+                   value=""
+                   placeholder="e.g., 12345678"
+                   min="1"
+                   aria-describedby="session-api-id-hint-nonexistent"
+                   aria-required="true">
+            <small id="session-api-id-hint-nonexistent" class="form-hint">Numeric ID from my.telegram.org/apps</small>
+        </div>
+
+        <div class="form-group">
+            <label for="session-api-hash-nonexistent"
+                   data-tooltip="Your Telegram API Hash from my.telegram.org"
+                   data-tooltip-position="right">API Hash</label>
+            <input type="text"
+                   id="session-api-hash-nonexistent"
+                   name="api_hash"
+                   class="form-control"
+                   required
+                   value=""
+                   placeholder="e.g., 0123456789abcdef..."
+                   pattern="[a-fA-F0-9]+"
+                   minlength="32"
+                   maxlength="32"
+                   aria-describedby="session-api-hash-hint-nonexistent"
+                   aria-required="true">
+            <small id="session-api-hash-hint-nonexistent" class="form-hint">32-character hex string from my.telegram.org/apps</small>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="session-proxy-nonexistent"
+               data-tooltip="Select a proxy for this session"
+               data-tooltip-position="right">Proxy</label>
+        <select id="session-proxy-nonexistent"
+                name="proxy_id"
+                class="form-control"
+                required
+                aria-describedby="session-proxy-hint-nonexistent"
+                aria-required="true">
+            <option value="">-- Select a proxy --</option>
+            
+            
+            <option value="3fd6109d-e7e0-4cac-ac83-8c1467fac4fb">
+                &#x1F7E2; NY (socks5://5.252.191.222:64635)
+            </option>
+            
+            
+        </select>
+        <small id="session-proxy-hint-nonexistent" class="form-hint">
+            A proxy is required for Telegram connection.
+            
+        </small>
+        
+        
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-sm btn-primary">
+            <span class="btn-text">Save</span>
+            <span id="session-config-spinner-nonexistent" class="htmx-indicator spinner"></span>
+        </button>
+    </div>
+
+    <div id="session-config-result-nonexistent" class="session-config-result" role="region" aria-live="polite"></div>
+</form>
+200

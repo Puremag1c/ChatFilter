@@ -1,0 +1,2 @@
+{"update_available":false,"current_version":"0.9.7","latest_version":"0.6.3","release_url":"https://github.com/Puremag1c/ChatFilter/releases/tag/v0.6.3","published_at":"2026-02-01T11:35:57+00:00","error":null}
+200

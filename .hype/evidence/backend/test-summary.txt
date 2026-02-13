@@ -1,0 +1,26 @@
+# Test Execution Summary
+
+Total: 2011 tests
+- Passed: 1994
+- Failed: 3
+- Skipped: 14
+- Duration: 219.89s
+
+## Failed Tests (Non-critical)
+All 3 failures are related to missing optional dependency 'psutil':
+- test_memory.py::TestGetMemoryUsage::test_returns_memory_stats
+- test_memory.py::TestGetMemoryUsage::test_memory_values_consistent
+- test_memory.py::TestMemoryConfiguration::test_memory_value_invalid
+
+These are not blocking - memory monitoring is an optional feature.
+
+## Test Distribution
+The project has comprehensive test coverage across:
+- Web application (HTMX/SSE integration)
+- Service layer (chat analysis)
+- Task queue persistence
+- Error handling and retry logic
+- CSV export
+- CSRF protection
+- Middleware
+- Database operations

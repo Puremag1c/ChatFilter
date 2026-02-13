@@ -1,0 +1,150 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, timeout-2.4.0, asyncio-1.3.0, hypothesis-6.151.5
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 100 items
+
+tests/test_sessions_router.py::TestReadUploadWithSizeLimit::test_read_small_file PASSED [  1%]
+tests/test_sessions_router.py::TestReadUploadWithSizeLimit::test_read_file_exceeds_limit PASSED [  2%]
+tests/test_sessions_router.py::TestReadUploadWithSizeLimit::test_read_exact_limit PASSED [  3%]
+tests/test_sessions_router.py::TestReadUploadWithSizeLimit::test_read_chunked_file PASSED [  4%]
+tests/test_sessions_router.py::TestSanitizeSessionName::test_valid_name_alphanumeric PASSED [  5%]
+tests/test_sessions_router.py::TestSanitizeSessionName::test_valid_name_with_underscore PASSED [  6%]
+tests/test_sessions_router.py::TestSanitizeSessionName::test_valid_name_with_hyphen PASSED [  7%]
+tests/test_sessions_router.py::TestSanitizeSessionName::test_removes_path_traversal PASSED [  8%]
+tests/test_sessions_router.py::TestSanitizeSessionName::test_removes_special_characters PASSED [  9%]
+tests/test_sessions_router.py::TestSanitizeSessionName::test_empty_after_sanitization_raises PASSED [ 10%]
+tests/test_sessions_router.py::TestSanitizeSessionName::test_truncates_long_name PASSED [ 11%]
+tests/test_sessions_router.py::TestValidateSessionFileFormat::test_valid_session_file PASSED [ 12%]
+tests/test_sessions_router.py::TestValidateSessionFileFormat::test_invalid_not_sqlite PASSED [ 13%]
+tests/test_sessions_router.py::TestValidateSessionFileFormat::test_invalid_missing_sessions_table PASSED [ 14%]
+tests/test_sessions_router.py::TestValidateSessionFileFormat::test_invalid_empty_sessions PASSED [ 15%]
+tests/test_sessions_router.py::TestValidateSessionFileFormat::test_telethon_2x_session_rejected PASSED [ 16%]
+tests/test_sessions_router.py::TestValidateSessionFileFormat::test_valid_telethon_1x_session PASSED [ 17%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_valid_config PASSED [ 18%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_valid_config_api_id_as_string PASSED [ 19%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_invalid_json PASSED [ 20%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_missing_api_id PASSED [ 21%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_missing_api_hash PASSED [ 22%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_invalid_api_id_type PASSED [ 23%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_empty_api_hash PASSED [ 24%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_empty_config_file PASSED [ 25%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_whitespace_only_config PASSED [ 26%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_not_json_object_array PASSED [ 27%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_not_json_object_string PASSED [ 28%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_invalid_utf8 PASSED [ 29%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_unknown_fields_lenient PASSED [ 30%]
+tests/test_sessions_router.py::TestValidateConfigFileFormat::test_no_warning_for_known_fields_only PASSED [ 31%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_get_sessions_empty PASSED [ 32%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_home_page_loads PASSED [ 33%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_session_invalid_name PASSED [ 34%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_session_invalid_session_file PASSED [ 35%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_session_invalid_config PASSED [ 36%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_delete_session_not_found PASSED [ 37%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_delete_session_invalid_name PASSED [ 38%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_config_file_too_large PASSED [ 39%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_session_file_too_large PASSED [ 40%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_session_with_json_file PASSED [ 41%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_session_json_invalid PASSED [ 42%]
+tests/test_sessions_router.py::TestSessionsAPIEndpoints::test_upload_session_json_with_2fa PASSED [ 43%]
+tests/test_sessions_router.py::TestMigrateLegacySessions::test_migrate_legacy_session_creates_config PASSED [ 44%]
+tests/test_sessions_router.py::TestMigrateLegacySessions::test_migrate_skips_already_migrated PASSED [ 45%]
+tests/test_sessions_router.py::TestMigrateLegacySessions::test_migrate_handles_missing_credentials PASSED [ 46%]
+tests/test_sessions_router.py::TestMigrateLegacySessions::test_migrate_skips_non_session_directories PASSED [ 47%]
+tests/test_sessions_router.py::TestSessionConfigAPI::test_get_session_config_success PASSED [ 48%]
+tests/test_sessions_router.py::TestSessionConfigAPI::test_get_session_config_not_found PASSED [ 49%]
+tests/test_sessions_router.py::TestSessionConfigAPI::test_get_session_config_invalid_name PASSED [ 50%]
+tests/test_sessions_router.py::TestSessionConfigAPI::test_update_session_config_success PASSED [ 51%]
+tests/test_sessions_router.py::TestSessionConfigAPI::test_update_session_config_proxy_required PASSED [ 52%]
+tests/test_sessions_router.py::TestSessionConfigAPI::test_update_session_config_proxy_not_found PASSED [ 53%]
+tests/test_sessions_router.py::TestSessionConfigAPI::test_update_session_config_session_not_found PASSED [ 54%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_not_found PASSED [ 55%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_invalid_name PASSED [ 56%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_not_configured PASSED [ 57%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_proxy_missing PASSED [ 58%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_success PASSED [ 59%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_failure PASSED [ 60%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_concurrent_request_returns_connecting PASSED [ 61%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_timeout_returns_connecting PASSED [ 62%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_missing_session_file PASSED [ 63%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_connect_session_invalid_session_auto_reauth PASSED [ 64%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_disconnect_session_invalid_name PASSED [ 65%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_disconnect_session_success FAILED [ 66%]
+tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_disconnect_session_not_connected FAILED [ 67%]
+tests/test_sessions_router.py::TestDeadSessionRecoveryUX::test_dead_session_returns_connecting_state PASSED [ 68%]
+tests/test_sessions_router.py::TestDeadSessionRecoveryUX::test_expired_session_connect_returns_connecting PASSED [ 69%]
+tests/test_sessions_router.py::TestDeadSessionRecoveryUX::test_session_recovery_preserves_session_id PASSED [ 70%]
+tests/test_sessions_router.py::TestDeadSessionRecoveryUX::test_temporary_error_vs_permanent_session_death_ui PASSED [ 71%]
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_change_api_id_triggers_disconnect_and_reauth PASSED [ 72%]
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_invalid_api_id_rejected_not_saved PASSED [ 73%]
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_valid_credentials_needing_auth_triggers_reconnect PASSED [ 74%]
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_credentials_not_saved_before_validation_success PASSED [ 75%]
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_network_error_during_validation_shows_proxy_error PASSED [ 76%]
+tests/test_sessions_router.py::TestVerify2FA::test_password_validation_logic PASSED [ 77%]
+tests/test_sessions_router.py::TestVerify2FA::test_verify_code_2fa_auto_fails_shows_manual_modal PASSED [ 78%]
+tests/test_sessions_router.py::TestBackwardCompatibilityLegacySessions::test_list_stored_sessions_without_session_file PASSED [ 79%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_valid_json_minimal PASSED [ 80%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_valid_json_all_fields PASSED [ 81%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_valid_phone_without_plus PASSED [ 82%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_not_dict PASSED [ 83%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_unknown_fields PASSED [ 84%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_nested_object PASSED [ 85%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_nested_array PASSED [ 86%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_missing_phone PASSED [ 87%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_empty_phone PASSED [ 88%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_phone_format_letters PASSED [ 89%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_phone_too_short PASSED [ 90%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_phone_too_long PASSED [ 91%]
+tests/test_sessions_router.py::TestValidateAccountInfoJson::test_invalid_phone_leading_zero PASSED [ 92%]
+tests/test_sessions_router.py::TestVerifyCode2FAAutoEntry::test_verify_code_auto_2fa_success PASSED [ 93%]
+tests/test_sessions_router.py::TestVerifyCode2FAAutoEntry::test_verify_code_auto_2fa_missing PASSED [ 94%]
+tests/test_sessions_router.py::TestVerifyCode2FAAutoEntry::test_verify_code_auto_2fa_wrong PASSED [ 95%]
+tests/test_sessions_router.py::TestSessionImport::test_validate_import_session_success PASSED [ 96%]
+tests/test_sessions_router.py::TestSessionImport::test_validate_import_session_invalid_json_missing_phone PASSED [ 97%]
+tests/test_sessions_router.py::TestSessionImport::test_validate_import_session_invalid_phone_format PASSED [ 98%]
+tests/test_sessions_router.py::TestSessionImport::test_save_import_session_success PASSED [ 99%]
+tests/test_sessions_router.py::TestSessionImport::test_save_import_session_duplicate_name PASSED [100%]
+
+=================================== FAILURES ===================================
+_______ TestSessionConnectDisconnectAPI.test_disconnect_session_success ________
+tests/test_sessions_router.py:1907: in test_disconnect_session_success
+    assert "Authorize" in response.text
+E   AssertionError: assert 'Authorize' in ''
+E    +  where '' = <Response [200 OK]>.text
+____ TestSessionConnectDisconnectAPI.test_disconnect_session_not_connected _____
+tests/test_sessions_router.py:1963: in test_disconnect_session_not_connected
+    assert "Authorize" in response.text
+E   AssertionError: assert 'Authorize' in ''
+E    +  where '' = <Response [200 OK]>.text
+=============================== warnings summary ===============================
+tests/test_sessions_router.py::TestSessionConfigAPI::test_update_session_config_proxy_required
+  /Users/m/Zen/Code/ChatFilter/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:59: DeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    response = await handler(conn, exc)
+
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_invalid_api_id_rejected_not_saved
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_credentials_not_saved_before_validation_success
+  /Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py:994: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if client and client.is_connected():
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_sessions_router.py::TestAPICredentialReValidation::test_network_error_during_validation_shows_proxy_error
+  /Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py:1003: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+    if client and client.is_connected():
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_disconnect_session_success - AssertionError: assert 'Authorize' in ''
+ +  where '' = <Response [200 OK]>.text
+FAILED tests/test_sessions_router.py::TestSessionConnectDisconnectAPI::test_disconnect_session_not_connected - AssertionError: assert 'Authorize' in ''
+ +  where '' = <Response [200 OK]>.text
+=================== 2 failed, 98 passed, 4 warnings in 5.98s ===================

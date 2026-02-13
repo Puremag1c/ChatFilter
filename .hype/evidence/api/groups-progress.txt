@@ -1,0 +1,6 @@
+event: init
+data: {"group_id": "group-d70fd7d740a5", "total": 2, "analyzed": 0, "failed": 0, "pending": 2}
+
+event: complete
+data: {"group_id": "group-d70fd7d740a5", "total": 2, "analyzed": 0, "message": "No active analysis"}
+

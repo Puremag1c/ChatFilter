@@ -1,0 +1,8 @@
+
+<div class="empty-state">
+    <div class="empty-state-icon">📱</div>
+    <h3>No Telegram Accounts</h3>
+    <p>You haven&#39;t added any Telegram accounts yet. Click &#34;Add Account&#34; above to get started.</p>
+</div>
+
+200

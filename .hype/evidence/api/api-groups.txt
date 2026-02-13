@@ -1,0 +1,2420 @@
+
+<div class="groups-list">
+    
+        
+        
+        <div class="group-card" id="group-group-a6414ab9b20b">
+    <h3>Test Group for Stop</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-a6414ab9b20b"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-a6414ab9b20b/start"
+                hx-target="#group-group-a6414ab9b20b"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-a6414ab9b20b"
+                hx-target="#group-group-a6414ab9b20b"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-a6414ab9b20b';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-4fc27e20af53">
+    <h3>Test Group for Analysis</h3>
+
+    <span class="status-badge in_progress">in_progress</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-4fc27e20af53"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/group-4fc27e20af53/stop"
+                hx-target="#group-group-4fc27e20af53"
+                hx-swap="outerHTML">
+            Остановить анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-4fc27e20af53"
+                hx-target="#group-group-4fc27e20af53"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-4fc27e20af53';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+        // Poll every 3 seconds
+        window.groupProgressIntervals[groupId] = setInterval(function() {
+            htmx.ajax('GET', '/api/groups/' + groupId, {
+                target: '#group-' + groupId,
+                swap: 'outerHTML'
+            });
+        }, 3000);
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-79c8f7d68d15">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-79c8f7d68d15"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-79c8f7d68d15/start"
+                hx-target="#group-group-79c8f7d68d15"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-79c8f7d68d15"
+                hx-target="#group-group-79c8f7d68d15"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-79c8f7d68d15';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-61c4c739f7db">
+    <h3>Test Group for Stop</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-61c4c739f7db"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-61c4c739f7db/start"
+                hx-target="#group-group-61c4c739f7db"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-61c4c739f7db"
+                hx-target="#group-group-61c4c739f7db"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-61c4c739f7db';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-1b569d1d2ed7">
+    <h3>Test Group for Analysis</h3>
+
+    <span class="status-badge in_progress">in_progress</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-1b569d1d2ed7"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/group-1b569d1d2ed7/stop"
+                hx-target="#group-group-1b569d1d2ed7"
+                hx-swap="outerHTML">
+            Остановить анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-1b569d1d2ed7"
+                hx-target="#group-group-1b569d1d2ed7"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-1b569d1d2ed7';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+        // Poll every 3 seconds
+        window.groupProgressIntervals[groupId] = setInterval(function() {
+            htmx.ajax('GET', '/api/groups/' + groupId, {
+                target: '#group-' + groupId,
+                swap: 'outerHTML'
+            });
+        }, 3000);
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-90943c0cb2a6">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-90943c0cb2a6"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-90943c0cb2a6/start"
+                hx-target="#group-group-90943c0cb2a6"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-90943c0cb2a6"
+                hx-target="#group-group-90943c0cb2a6"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-90943c0cb2a6';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-940bebe97ff4">
+    <h3>Test Group for Stop</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-940bebe97ff4"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-940bebe97ff4/start"
+                hx-target="#group-group-940bebe97ff4"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-940bebe97ff4"
+                hx-target="#group-group-940bebe97ff4"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-940bebe97ff4';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-2eba0dd925d6">
+    <h3>Test Group for Analysis</h3>
+
+    <span class="status-badge in_progress">in_progress</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-2eba0dd925d6"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/group-2eba0dd925d6/stop"
+                hx-target="#group-group-2eba0dd925d6"
+                hx-swap="outerHTML">
+            Остановить анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-2eba0dd925d6"
+                hx-target="#group-group-2eba0dd925d6"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-2eba0dd925d6';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+        // Poll every 3 seconds
+        window.groupProgressIntervals[groupId] = setInterval(function() {
+            htmx.ajax('GET', '/api/groups/' + groupId, {
+                target: '#group-' + groupId,
+                swap: 'outerHTML'
+            });
+        }, 3000);
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-d7ccabfa98b1">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-d7ccabfa98b1"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-d7ccabfa98b1/start"
+                hx-target="#group-group-d7ccabfa98b1"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-d7ccabfa98b1"
+                hx-target="#group-group-d7ccabfa98b1"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-d7ccabfa98b1';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-32b1fc8198a3">
+    <h3>Test Group for Stop</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-32b1fc8198a3"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-32b1fc8198a3/start"
+                hx-target="#group-group-32b1fc8198a3"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-32b1fc8198a3"
+                hx-target="#group-group-32b1fc8198a3"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-32b1fc8198a3';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-73844208ae49">
+    <h3>Test Group for Analysis</h3>
+
+    <span class="status-badge in_progress">in_progress</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-73844208ae49"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/group-73844208ae49/stop"
+                hx-target="#group-group-73844208ae49"
+                hx-swap="outerHTML">
+            Остановить анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-73844208ae49"
+                hx-target="#group-group-73844208ae49"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-73844208ae49';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+        // Poll every 3 seconds
+        window.groupProgressIntervals[groupId] = setInterval(function() {
+            htmx.ajax('GET', '/api/groups/' + groupId, {
+                target: '#group-' + groupId,
+                swap: 'outerHTML'
+            });
+        }, 3000);
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-c18f186c4282">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-c18f186c4282"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-c18f186c4282/start"
+                hx-target="#group-group-c18f186c4282"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-c18f186c4282"
+                hx-target="#group-group-c18f186c4282"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-c18f186c4282';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-39d3aaef79f9">
+    <h3>Test Group for Stop</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-39d3aaef79f9"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-39d3aaef79f9/start"
+                hx-target="#group-group-39d3aaef79f9"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-39d3aaef79f9"
+                hx-target="#group-group-39d3aaef79f9"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-39d3aaef79f9';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-ab90905b431d">
+    <h3>Test Group for Analysis</h3>
+
+    <span class="status-badge in_progress">in_progress</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-ab90905b431d"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/group-ab90905b431d/stop"
+                hx-target="#group-group-ab90905b431d"
+                hx-swap="outerHTML">
+            Остановить анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-ab90905b431d"
+                hx-target="#group-group-ab90905b431d"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-ab90905b431d';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+        // Poll every 3 seconds
+        window.groupProgressIntervals[groupId] = setInterval(function() {
+            htmx.ajax('GET', '/api/groups/' + groupId, {
+                target: '#group-' + groupId,
+                swap: 'outerHTML'
+            });
+        }, 3000);
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-018f5a9d8471">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-018f5a9d8471"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-018f5a9d8471/start"
+                hx-target="#group-group-018f5a9d8471"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-018f5a9d8471"
+                hx-target="#group-group-018f5a9d8471"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-018f5a9d8471';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-fd9981cc700a">
+    <h3>Test Group for Stop</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-fd9981cc700a"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-fd9981cc700a/start"
+                hx-target="#group-group-fd9981cc700a"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-fd9981cc700a"
+                hx-target="#group-group-fd9981cc700a"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-fd9981cc700a';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-512b1a8eb3ff">
+    <h3>Test Group for Analysis</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-512b1a8eb3ff"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-512b1a8eb3ff/start"
+                hx-target="#group-group-512b1a8eb3ff"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-512b1a8eb3ff"
+                hx-target="#group-group-512b1a8eb3ff"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-512b1a8eb3ff';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-459b40e6621e">
+    <h3>Empty Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>1</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 1</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 1</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-459b40e6621e"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-459b40e6621e/start"
+                hx-target="#group-group-459b40e6621e"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-459b40e6621e"
+                hx-target="#group-group-459b40e6621e"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-459b40e6621e';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-b7f147b49fb3">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-b7f147b49fb3"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-b7f147b49fb3/start"
+                hx-target="#group-group-b7f147b49fb3"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-b7f147b49fb3"
+                hx-target="#group-group-b7f147b49fb3"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-b7f147b49fb3';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-d44177b2370b">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 3</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 3</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-d44177b2370b"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-d44177b2370b/start"
+                hx-target="#group-group-d44177b2370b"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-d44177b2370b"
+                hx-target="#group-group-d44177b2370b"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-d44177b2370b';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-30b4ec052f92">
+    <h3>Functional Test CSV Upload</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>5</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 5</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 5</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-30b4ec052f92"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-30b4ec052f92/start"
+                hx-target="#group-group-30b4ec052f92"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-30b4ec052f92"
+                hx-target="#group-group-30b4ec052f92"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-30b4ec052f92';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-db0fd96bd99e">
+    <h3>Smoke Test Group</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>5</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 5</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 5</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-db0fd96bd99e"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-db0fd96bd99e/start"
+                hx-target="#group-group-db0fd96bd99e"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-db0fd96bd99e"
+                hx-target="#group-group-db0fd96bd99e"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-db0fd96bd99e';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-cf1654aa1edc">
+    <h3>Functional Test Group</h3>
+
+    <span class="status-badge paused">paused</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>5</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 5</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 5</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-cf1654aa1edc"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-cf1654aa1edc/start"
+                hx-target="#group-group-cf1654aa1edc"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-cf1654aa1edc"
+                hx-target="#group-group-cf1654aa1edc"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-cf1654aa1edc';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+        
+        
+        <div class="group-card" id="group-group-d70fd7d740a5">
+    <h3>Test Group</h3>
+
+    <span class="status-badge pending">pending</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>Total chats:</span>
+            <strong>2</strong>
+        </div>
+        <div class="stat-row">
+            <span>Analyzed:</span>
+            <strong>0 / 2</strong>
+        </div>
+        <div class="stat-row">
+            <span>Failed:</span>
+            <strong>0</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        
+        <div class="progress-fill" style="width: 0.0%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        
+        <span class="type-badge pending">Pending: 2</span>
+        
+        
+        
+        
+        
+        
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/group-d70fd7d740a5"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            Настроить анализ
+        </button>
+
+        
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/group-d70fd7d740a5/start"
+                hx-target="#group-group-d70fd7d740a5"
+                hx-swap="outerHTML">
+            Начать анализ
+        </button>
+        
+
+        
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/group-d70fd7d740a5"
+                hx-target="#group-group-d70fd7d740a5"
+                hx-swap="outerHTML"
+                hx-confirm="Delete group? This cannot be undone.">
+            Удалить
+        </button>
+    </div>
+
+    <!-- Progress polling (for in_progress status) -->
+    <script>
+    (function() {
+        const groupId = 'group-d70fd7d740a5';
+        const cardElement = document.getElementById('group-' + groupId);
+
+        // Global registry to prevent multiple intervals for same group
+        window.groupProgressIntervals = window.groupProgressIntervals || {};
+
+        // Clear any existing interval for this group
+        if (window.groupProgressIntervals[groupId]) {
+            clearInterval(window.groupProgressIntervals[groupId]);
+            delete window.groupProgressIntervals[groupId];
+        }
+
+        
+
+        // Clean up interval when card is about to be removed/swapped
+        if (cardElement) {
+            cardElement.addEventListener('htmx:beforeSwap', function() {
+                if (window.groupProgressIntervals[groupId]) {
+                    clearInterval(window.groupProgressIntervals[groupId]);
+                    delete window.groupProgressIntervals[groupId];
+                }
+            });
+        }
+    })();
+    </script>
+</div>
+    
+</div>

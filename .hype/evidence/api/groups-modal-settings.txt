@@ -1,0 +1,96 @@
+
+<div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <span class="modal-icon info" aria-hidden="true">⚙️</span>
+            <h2 class="modal-title" id="settings-modal-title">Group Settings</h2>
+        </div>
+        <form id="settings-form"
+              hx-put="/api/groups/group-d70fd7d740a5/settings"
+              hx-target="#group-group-d70fd7d740a5"
+              hx-swap="outerHTML">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="message-limit">Message Limit</label>
+                    <input type="range"
+                           id="message-limit"
+                           name="message_limit"
+                           min="10"
+                           max="10000"
+                           step="10"
+                           value="100"
+                           oninput="document.getElementById('message-limit-value').textContent = this.value">
+                    <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+                        <small>10</small>
+                        <strong id="message-limit-value">100</strong>
+                        <small>10,000</small>
+                    </div>
+                    <small>Maximum messages to analyze per chat</small>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox"
+                               id="leave-after"
+                               name="leave_after"
+                               value="true"
+                               >
+                        Leave chat after analysis
+                    </label>
+                    <small>Automatically leave chats after analysis is complete</small>
+                </div>
+
+                <div id="settings-error" class="alert alert-error" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-button secondary" onclick="closeModal('settings-modal')">
+                    Cancel
+                </button>
+                <button type="submit" class="modal-button primary">
+                    Save Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Show modal
+document.getElementById('settings-modal').classList.add('show');
+
+// Form submission handler
+document.getElementById('settings-form').addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.successful) {
+        // Close modal on success
+        closeModal('settings-modal');
+    } else {
+        // Show error
+        const errorDiv = document.getElementById('settings-error');
+        errorDiv.textContent = event.detail.xhr.responseText || 'Failed to update settings';
+        errorDiv.style.display = 'block';
+    }
+});
+
+// Modal close function
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// Close on overlay click
+document.getElementById('settings-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal('settings-modal');
+    }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal('settings-modal');
+    }
+});
+</script>

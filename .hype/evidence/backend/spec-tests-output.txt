@@ -1,0 +1,34 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, timeout-2.4.0, asyncio-1.3.0, hypothesis-6.151.5
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 19 items
+
+tests/test_8_state_model.py::test_only_8_states_in_python_code PASSED    [  5%]
+tests/test_8_state_model.py::test_only_8_states_in_templates PASSED      [ 10%]
+tests/test_8_state_model.py::test_only_8_states_in_javascript PASSED     [ 15%]
+tests/test_8_state_model.py::test_only_8_states_documented PASSED        [ 21%]
+tests/test_8_state_model.py::test_no_state_creep_in_recent_commits PASSED [ 26%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_account_only_name_phone PASSED [ 31%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_account_appears_disconnected PASSED [ 36%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_validates_credentials_before_connect PASSED [ 42%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_start_auth_flow_no_telethon_call PASSED [ 47%]
+tests/test_save_not_connect.py::TestSaveNotConnect::test_save_with_credentials_no_connect PASSED [ 52%]
+tests/test_session_recovery.py::test_authkey_unregistered_triggers_recovery PASSED [ 57%]
+tests/test_session_recovery.py::test_session_revoked_triggers_recovery PASSED [ 63%]
+tests/test_session_recovery.py::test_session_expired_triggers_recovery PASSED [ 68%]
+tests/test_session_recovery.py::test_recovery_without_phone_publishes_error PASSED [ 73%]
+tests/test_removed_states_verification.py::test_removed_states_not_in_templates PASSED [ 78%]
+tests/test_removed_states_verification.py::test_removed_states_not_in_css PASSED [ 84%]
+tests/test_removed_states_verification.py::test_removed_states_not_in_translations PASSED [ 89%]
+tests/test_removed_states_verification.py::test_classify_error_state_never_returns_removed PASSED [ 94%]
+tests/test_removed_states_verification.py::test_classify_error_state_exception_types PASSED [100%]
+
+============================== 19 passed in 2.86s ==============================

@@ -1,0 +1,119 @@
+
+<div id="auth-flow-container">
+    <form id="auth-start-form"
+          hx-post="/api/sessions/auth/start"
+          hx-target="#auth-flow-result"
+          hx-swap="innerHTML"
+          hx-indicator="#auth-start-spinner"
+          hx-disabled-elt="button[type='submit']">
+
+        <div class="form-group">
+            <label for="auth-session-name"
+                   data-tooltip="A unique identifier for this Telegram session"
+                   data-tooltip-position="right">Session Name</label>
+            <input type="text"
+                   id="auth-session-name"
+                   name="session_name"
+                   required
+                   placeholder="e.g., my_account"
+                   pattern="[a-zA-Z0-9_-]+"
+                   aria-describedby="auth-session-name-hint"
+                   aria-required="true">
+            <small id="auth-session-name-hint" class="form-hint">A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="auth-phone"
+                   data-tooltip="Your Telegram phone number with country code"
+                   data-tooltip-position="right">Phone Number</label>
+            <input type="tel"
+                   id="auth-phone"
+                   name="phone"
+                   required
+                   placeholder="+1234567890"
+                   aria-describedby="auth-phone-hint"
+                   aria-required="true">
+            <small id="auth-phone-hint" class="form-hint">Your Telegram phone number with country code (e.g., +1234567890)</small>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="auth-api-id"
+                       data-tooltip="Your Telegram API ID from my.telegram.org"
+                       data-tooltip-position="right">API ID</label>
+                <input type="number"
+                       id="auth-api-id"
+                       name="api_id"
+                       required
+                       placeholder="e.g., 12345678"
+                       min="1"
+                       aria-describedby="auth-api-id-hint"
+                       aria-required="true">
+                <small id="auth-api-id-hint" class="form-hint">Numeric ID from my.telegram.org/apps</small>
+            </div>
+
+            <div class="form-group">
+                <label for="auth-api-hash"
+                       data-tooltip="Your Telegram API Hash from my.telegram.org"
+                       data-tooltip-position="right">API Hash</label>
+                <input type="text"
+                       id="auth-api-hash"
+                       name="api_hash"
+                       required
+                       placeholder="e.g., 0123456789abcdef..."
+                       pattern="[a-fA-F0-9]+"
+                       minlength="32"
+                       maxlength="32"
+                       aria-describedby="auth-api-hash-hint"
+                       aria-required="true">
+                <small id="auth-api-hash-hint" class="form-hint">32-character hex string from my.telegram.org/apps</small>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="auth-proxy-id"
+                   data-tooltip="Select a proxy for this session"
+                   data-tooltip-position="right">Proxy</label>
+            <select id="auth-proxy-id"
+                    name="proxy_id"
+                    required
+                    aria-describedby="auth-proxy-id-hint"
+                    aria-required="true">
+                <option value="">-- Select a proxy --</option>
+                
+                
+                <option value="3fd6109d-e7e0-4cac-ac83-8c1467fac4fb">
+                    &#x1F7E2; NY (socks5://5.252.191.222:64635)
+                </option>
+                
+                
+            </select>
+            <small id="auth-proxy-id-hint" class="form-hint">
+                A proxy is required for Telegram connection.
+                
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="auth-security-acknowledgment" style="display: flex; align-items: flex-start; cursor: pointer; user-select: none;">
+                <input type="checkbox"
+                       id="auth-security-acknowledgment"
+                       name="security_acknowledgment"
+                       required
+                       aria-required="true"
+                       style="margin-right: 0.5rem; margin-top: 0.25rem; cursor: pointer;">
+                <span>I understand that session files provide complete access to my Telegram account and accept the security risks.</span>
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" >
+                <span class="btn-text">Save</span>
+                <span id="auth-start-spinner" class="htmx-indicator spinner"></span>
+            </button>
+        </div>
+    </form>
+
+    <div id="auth-flow-result" role="region" aria-live="polite" aria-atomic="true"></div>
+</div>
+200

@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="jTfQKZ7WTDgIQMZgk9QxrjKKNjFxn4i5HTYL-BZvaWg">
+    <title>Proxy Pool - ChatFilter</title>
+    <link rel="icon" type="image/x-icon" href="/static/images/logo.ico">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/sse.js"></script>
+    <script src="/static/js/hyperlist.min.js"></script>
+    <script src="/static/js/chart.umd.min.js"></script>
+    <script src="/static/js/i18n.js"></script>
+    <script src="/static/js/language-switcher.js"></script>
+    <script src="/static/js/theme-switcher.js"></script>
+    <script src="/static/js/tab-sync.js"></script>
+    <script src="/static/js/tab-activity.js"></script>
+    <script src="/static/js/request-dedup.js"></script>
+    <script src="/static/js/optimistic-lock.js"></script>
+    <script src="/static/js/conflict-warnings.js"></script>
+    <script src="/static/js/tooltips.js"></script>
+    <script src="/static/js/virtual-chat-list.js"></script>
+    <script src="/static/js/version-check.js"></script>
+    <script src="/static/js/session-config.js"></script>
+    
+</head>
+<body>
+    <!-- Skip to main content link for keyboard navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <header role="banner">
+        <nav role="navigation" aria-label="Main navigation">
+            <a href="/" class="logo">ChatFilter</a>
+            <ul class="nav-links">
+                <li><a href="/proxies" data-tooltip="Manage proxy servers for Telegram sessions" data-tooltip-position="bottom">Proxies</a></li>
+                <li><a href="/" data-tooltip="Manage your Telegram session files" data-tooltip-position="bottom">Sessions</a></li>
+                <li><a href="/chats" data-tooltip="Select chats to analyze from your Telegram account" data-tooltip-position="bottom">Chats</a></li>
+                <li><a href="/chatlist" data-tooltip="Import a list of chats from a file or Google Sheets" data-tooltip-position="bottom">Import</a></li>
+                <li><a href="/results" data-tooltip="View analysis results and export data" data-tooltip-position="bottom">Results</a></li>
+                <li><a href="/history" data-tooltip="Browse your past analysis history" data-tooltip-position="bottom">History</a></li>
+            </ul>
+            <div class="status-indicators">
+                <div class="network-status" id="network-status" role="status" aria-live="polite" data-tooltip="Shows your internet connection status" data-tooltip-position="bottom">
+                    <span class="status-indicator" id="network-indicator" aria-hidden="true"></span>
+                    <span class="status-text" id="network-text">Online</span>
+                </div>
+                <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle dark mode" data-tooltip="Switch between light and dark theme" data-tooltip-position="bottom">
+                    <span class="theme-icon" aria-hidden="true">🌙</span>
+                </button>
+                <button id="language-toggle" class="language-toggle-btn" aria-label="Switch language" data-tooltip="Switch between English and Russian" data-tooltip-position="bottom">
+                    <span class="language-icon" aria-hidden="true">EN</span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- SSE Connection Status Banner (hidden by default, shown on connection failure) -->
+    <div id="sse-status-banner" class="sse-status-banner" role="alert" aria-live="assertive" style="display: none;">
+        <div class="banner-content">
+            <span class="banner-icon" aria-hidden="true">⚠</span>
+            <div class="banner-message">
+                <strong>Real-time updates paused</strong>
+                <span>Connection lost. Please refresh to restore live status updates.</span>
+            </div>
+            <button class="banner-action" onclick="window.location.reload()" aria-label="Refresh page to reconnect">
+                Refresh Now
+            </button>
+            <button class="banner-close" onclick="SSEStatusBanner.hide()" aria-label="Dismiss banner">
+                &times;
+            </button>
+        </div>
+    </div>
+
+    <main id="main-content" role="main">
+        
+<div class="page-header">
+    <h1>Proxy Pool</h1>
+    <p class="subtitle">Manage proxy servers for Telegram sessions</p>
+</div>
+
+<section class="card">
+    <div class="card-header proxy-list-header">
+        <h2>Proxy List</h2>
+        <button type="button"
+                class="btn btn-primary"
+                id="add-proxy-btn"
+                aria-label="Add new proxy">
+            Add Proxy
+        </button>
+    </div>
+
+    <div id="proxy-list"
+         hx-get="/api/proxies/list"
+         hx-trigger="load, refresh"
+         hx-swap="innerHTML"
+         hx-on:htmx:response-error="this.innerHTML = '<div class=\'alert alert-error\'><strong>Error:</strong> Failed to load proxies. Please refresh the page.</div>'"
+         role="region"
+         aria-live="polite"
+         aria-label="List of configured proxies">
+        <div class="loading-state">
+            <span class="spinner"></span>
+            <span>Loading proxies...</span>
+        </div>
+    </div>
+</section>
+
+<!-- Proxy Form Modal -->
+<div id="proxy-form-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="proxy-modal-title">
+    <div class="modal-dialog modal-dialog-form">
+        <div class="modal-header">
+            <span class="modal-icon info" aria-hidden="true">🌐</span>
+            <h2 class="modal-title" id="proxy-modal-title">Add Proxy</h2>
+        </div>
+        <form id="proxy-form" class="modal-body">
+            <input type="hidden" id="proxy-id" name="proxy_id" value="">
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="proxy-name">Name <span class="required">*</span></label>
+                    <input type="text"
+                           id="proxy-name"
+                           name="name"
+                           required
+                           minlength="1"
+                           maxlength="100"
+                           placeholder="My Proxy"
+                           aria-describedby="proxy-name-error"
+                           aria-label="Proxy name for identification">
+                    <span id="proxy-name-error" class="field-error" role="alert"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="proxy-type">Type <span class="required">*</span></label>
+                    <select id="proxy-type" name="type" required aria-label="Select proxy type">
+                        <option value="socks5">SOCKS5</option>
+                        <option value="http">HTTP</option>
+                    </select>
+                    <span id="proxy-type-error" class="field-error" role="alert"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group form-group-wide">
+                    <label for="proxy-host">Host <span class="required">*</span></label>
+                    <input type="text"
+                           id="proxy-host"
+                           name="host"
+                           required
+                           minlength="1"
+                           maxlength="255"
+                           placeholder="proxy.example.com"
+                           aria-describedby="proxy-host-error"
+                           aria-label="Proxy server hostname or IP address">
+                    <span id="proxy-host-error" class="field-error" role="alert"></span>
+                </div>
+
+                <div class="form-group form-group-narrow">
+                    <label for="proxy-port">Port <span class="required">*</span></label>
+                    <input type="number"
+                           id="proxy-port"
+                           name="port"
+                           required
+                           min="1"
+                           max="65535"
+                           placeholder="1080"
+                           aria-describedby="proxy-port-error"
+                           aria-label="Proxy server port number">
+                    <span id="proxy-port-error" class="field-error" role="alert"></span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="proxy-username">Username (optional)</label>
+                    <input type="text"
+                           id="proxy-username"
+                           name="username"
+                           maxlength="255"
+                           placeholder="Leave empty if not required"
+                           aria-label="Proxy authentication username">
+                </div>
+
+                <div class="form-group">
+                    <label for="proxy-password">Password (optional)</label>
+                    <input type="password"
+                           id="proxy-password"
+                           name="password"
+                           maxlength="255"
+                           placeholder="Leave empty if not required"
+                           aria-label="Proxy authentication password">
+                </div>
+            </div>
+        </form>
+        <div class="modal-footer">
+            <button type="button" class="modal-button secondary" id="proxy-form-cancel">
+                Cancel
+            </button>
+            <button type="submit" form="proxy-form" class="modal-button primary" id="proxy-form-submit">
+                <span class="btn-text">Save</span>
+                <span class="spinner htmx-indicator" id="proxy-form-spinner"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
+    </main>
+    <footer role="contentinfo">
+        <p>ChatFilter v0.9.3</p>
+        <div class="footer-actions">
+            <a href="/api/export/diagnostics?format=text"
+               download
+               class="diagnostic-button"
+               aria-label="Export diagnostic information for troubleshooting">
+                Export Diagnostics
+            </a>
+        </div>
+    </footer>
+
+    <!-- Toast notification container with ARIA live region -->
+    <div id="toast-container" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+    <!-- Modal container for HTMX-loaded modals -->
+    <div id="modal-container"></div>
+
+    <!-- CSRF Token Configuration for HTMX -->
+    <script>
+        // Configure HTMX to include CSRF token in all POST/DELETE requests
+        document.addEventListener('DOMContentLoaded', function() {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+            if (csrfToken) {
+                // Add CSRF token to all HTMX requests
+                document.body.addEventListener('htmx:configRequest', function(event) {
+                    // Only add token to POST/PUT/DELETE requests
+                    if (event.detail.verb === 'post' || event.detail.verb === 'put' || event.detail.verb === 'delete') {
+                        event.detail.headers['X-CSRF-Token'] = csrfToken;
+                    }
+                });
+            } else {
+                console.warn('CSRF token not found in page meta tags');
+            }
+        });
+    </script>
+
+    <!-- Global error handling and toast system -->
+    <script>
+        // Toast Notification System
+        const ToastManager = {
+            container: null,
+            queue: [],
+            maxToasts: 3,
+            defaultDuration: 5000,
+
+            init() {
+                this.container = document.getElementById('toast-container');
+                if (!this.container) {
+                    this.container = document.createElement('div');
+                    this.container.id = 'toast-container';
+                    document.body.appendChild(this.container);
+                }
+            },
+
+            show(options) {
+                if (!this.container) this.init();
+
+                const toast = {
+                    id: Date.now() + Math.random(),
+                    type: options.type || 'info',
+                    title: options.title || this.getDefaultTitle(options.type),
+                    message: options.message || '',
+                    duration: options.duration !== undefined ? options.duration : this.defaultDuration,
+                    actions: options.actions || [],
+                    onClose: options.onClose
+                };
+
+                this.queue.push(toast);
+                this.render();
+
+                if (toast.duration > 0) {
+                    setTimeout(() => this.hide(toast.id), toast.duration);
+                }
+
+                return toast.id;
+            },
+
+            hide(toastId) {
+                const toast = this.queue.find(t => t.id === toastId);
+                if (!toast) return;
+
+                const element = document.querySelector(`[data-toast-id="${toastId}"]`);
+                if (element) {
+                    element.classList.add('hiding');
+                    setTimeout(() => {
+                        this.queue = this.queue.filter(t => t.id !== toastId);
+                        this.render();
+                        if (toast.onClose) toast.onClose();
+                    }, 300);
+                }
+            },
+
+            hideAll() {
+                const toastIds = this.queue.map(t => t.id);
+                toastIds.forEach(id => this.hide(id));
+            },
+
+            render() {
+                const visibleToasts = this.queue.slice(-this.maxToasts);
+                this.container.innerHTML = visibleToasts.map(toast => this.createToastHTML(toast)).join('');
+
+                setTimeout(() => {
+                    visibleToasts.forEach(toast => {
+                        const element = document.querySelector(`[data-toast-id="${toast.id}"]`);
+                        if (element) element.classList.add('show');
+                    });
+                }, 10);
+            },
+
+            createToastHTML(toast) {
+                const icons = {
+                    error: '✕',
+                    success: '✓',
+                    warning: '⚠',
+                    info: 'ℹ'
+                };
+
+                const iconLabels = {
+                    error: 'Error',
+                    success: 'Success',
+                    warning: 'Warning',
+                    info: 'Information'
+                };
+
+                const actionsHTML = toast.actions.length > 0 ? `
+                    <div class="toast-actions">
+                        ${toast.actions.map(action => `
+                            <button class="toast-action ${action.class || ''}"
+                                    onclick="ToastManager.handleAction('${toast.id}', '${action.action}')"
+                                    aria-label="${this.escapeHtml(action.label)}">
+                                ${action.label}
+                            </button>
+                        `).join('')}
+                    </div>
+                ` : '';
+
+                return `
+                    <div class="toast toast-${toast.type}" data-toast-id="${toast.id}" role="alert" aria-live="assertive">
+                        <div class="toast-icon" aria-label="${iconLabels[toast.type] || iconLabels.info}" role="img">${icons[toast.type] || icons.info}</div>
+                        <div class="toast-content">
+                            <div class="toast-title">${this.escapeHtml(toast.title)}</div>
+                            ${toast.message ? `<div class="toast-message">${this.escapeHtml(toast.message)}</div>` : ''}
+                            ${actionsHTML}
+                        </div>
+                        <button class="toast-close" onclick="ToastManager.hide('${toast.id}')" aria-label="Close notification">&times;</button>
+                    </div>
+                `;
+            },
+
+            handleAction(toastId, action) {
+                const toast = this.queue.find(t => t.id === toastId);
+                if (!toast) return;
+
+                const actionObj = toast.actions.find(a => a.action === action);
+                if (actionObj && actionObj.callback) {
+                    actionObj.callback();
+                }
+
+                this.hide(toastId);
+            },
+
+            getDefaultTitle(type) {
+                const titles = {
+                    error: 'Error',
+                    success: 'Success',
+                    warning: 'Warning',
+                    info: 'Info'
+                };
+                return titles[type] || 'Notification';
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            // Convenience methods
+            error(message, options = {}) {
+                return this.show({ ...options, type: 'error', message });
+            },
+
+            success(message, options = {}) {
+                return this.show({ ...options, type: 'success', message });
+            },
+
+            warning(message, options = {}) {
+                return this.show({ ...options, type: 'warning', message });
+            },
+
+            info(message, options = {}) {
+                return this.show({ ...options, type: 'info', message });
+            }
+        };
+
+        // Initialize toast system
+        ToastManager.init();
+
+        // Global error boundary
+        window.addEventListener('error', function(event) {
+            console.error('Global error caught:', event.error);
+
+            ToastManager.error(
+                event.error?.message || 'An unexpected error occurred',
+                {
+                    title: 'Application Error',
+                    duration: 0,
+                    actions: [{
+                        label: 'Reload Page',
+                        class: 'retry',
+                        action: 'reload',
+                        callback: () => window.location.reload()
+                    }, {
+                        label: 'Dismiss',
+                        class: 'dismiss',
+                        action: 'dismiss'
+                    }]
+                }
+            );
+        });
+
+        // Global unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+
+            ToastManager.error(
+                event.reason?.message || 'An unexpected error occurred',
+                {
+                    title: 'Application Error',
+                    duration: 8000
+                }
+            );
+        });
+
+        // Make ToastManager globally accessible
+        window.ToastManager = ToastManager;
+
+        // Modal Dialog System
+        const ModalManager = {
+            currentModal: null,
+            overlayElement: null,
+
+            init() {
+                // Create modal overlay container if it doesn't exist
+                this.overlayElement = document.getElementById('modal-overlay');
+                if (!this.overlayElement) {
+                    this.overlayElement = document.createElement('div');
+                    this.overlayElement.id = 'modal-overlay';
+                    this.overlayElement.className = 'modal-overlay';
+                    this.overlayElement.setAttribute('role', 'dialog');
+                    this.overlayElement.setAttribute('aria-modal', 'true');
+                    document.body.appendChild(this.overlayElement);
+                }
+
+                // Close modal on overlay click
+                this.overlayElement.addEventListener('click', (e) => {
+                    if (e.target === this.overlayElement) {
+                        this.hide();
+                    }
+                });
+
+                // Close modal on Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.currentModal) {
+                        this.hide();
+                    }
+                });
+            },
+
+            confirm(options) {
+                return new Promise((resolve) => {
+                    if (!this.overlayElement) this.init();
+
+                    const modal = {
+                        id: Date.now() + Math.random(),
+                        type: options.type || 'warning',
+                        icon: options.icon || this.getDefaultIcon(options.type),
+                        title: options.title || 'Confirm Action',
+                        message: options.message || 'Are you sure?',
+                        confirmText: options.confirmText || 'Confirm',
+                        cancelText: options.cancelText || 'Cancel',
+                        confirmClass: options.confirmClass || 'danger',
+                        onConfirm: () => {
+                            resolve(true);
+                            this.hide();
+                        },
+                        onCancel: () => {
+                            resolve(false);
+                            this.hide();
+                        }
+                    };
+
+                    this.currentModal = modal;
+                    this.render(modal);
+                });
+            },
+
+            getDefaultIcon(type) {
+                const icons = {
+                    warning: '⚠️',
+                    danger: '⛔',
+                    info: 'ℹ️'
+                };
+                return icons[type] || icons.warning;
+            },
+
+            render(modal) {
+                const modalHTML = `
+                    <div class="modal-dialog" role="document">
+                        <div class="modal-header">
+                            <span class="modal-icon ${modal.type}" aria-hidden="true">${modal.icon}</span>
+                            <h2 class="modal-title" id="modal-title-${modal.id}">${this.escapeHtml(modal.title)}</h2>
+                        </div>
+                        <div class="modal-body">
+                            <p class="modal-message">${this.escapeHtml(modal.message)}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="modal-button secondary"
+                                    onclick="ModalManager.currentModal.onCancel()"
+                                    aria-label="${this.escapeHtml(modal.cancelText)}">
+                                ${this.escapeHtml(modal.cancelText)}
+                            </button>
+                            <button class="modal-button ${modal.confirmClass}"
+                                    onclick="ModalManager.currentModal.onConfirm()"
+                                    aria-label="${this.escapeHtml(modal.confirmText)}"
+                                    autofocus>
+                                ${this.escapeHtml(modal.confirmText)}
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                this.overlayElement.innerHTML = modalHTML;
+                this.overlayElement.setAttribute('aria-labelledby', `modal-title-${modal.id}`);
+
+                // Show modal with animation
+                setTimeout(() => {
+                    this.overlayElement.classList.add('show');
+                    // Focus the confirm button for accessibility
+                    const confirmButton = this.overlayElement.querySelector('.modal-button.' + modal.confirmClass);
+                    if (confirmButton) {
+                        confirmButton.focus();
+                    }
+                }, 10);
+
+                // Trap focus within modal
+                this.trapFocus(this.overlayElement);
+            },
+
+            hide() {
+                if (!this.overlayElement) return;
+
+                this.overlayElement.classList.remove('show');
+
+                setTimeout(() => {
+                    this.overlayElement.innerHTML = '';
+                    this.currentModal = null;
+                }, 300);
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            trapFocus(element) {
+                const focusableElements = element.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                );
+
+                if (focusableElements.length === 0) return;
+
+                const firstFocusable = focusableElements[0];
+                const lastFocusable = focusableElements[focusableElements.length - 1];
+
+                element.addEventListener('keydown', function(e) {
+                    if (e.key !== 'Tab') return;
+
+                    if (e.shiftKey) {
+                        if (document.activeElement === firstFocusable) {
+                            lastFocusable.focus();
+                            e.preventDefault();
+                        }
+                    } else {
+                        if (document.activeElement === lastFocusable) {
+                            firstFocusable.focus();
+                            e.preventDefault();
+                        }
+                    }
+                });
+            }
+        };
+
+        // Initialize modal system
+        ModalManager.init();
+
+        // Make ModalManager globally accessible
+        window.ModalManager = ModalManager;
+
+        // HTMX Error Handling Configuration
+        document.body.addEventListener('htmx:responseError', function(event) {
+            const status = event.detail.xhr.status;
+            const statusText = event.detail.xhr.statusText;
+            let message = 'An error occurred while processing your request';
+            let title = 'Request Failed';
+
+            // Parse error response if JSON
+            try {
+                const response = JSON.parse(event.detail.xhr.responseText);
+                if (response.detail) {
+                    message = response.detail;
+                }
+            } catch (e) {
+                // If not JSON, use status text
+                if (status === 404) {
+                    message = 'The requested resource was not found';
+                    title = 'Not Found';
+                } else if (status === 403) {
+                    message = 'You do not have permission to access this resource';
+                    title = 'Access Denied';
+                } else if (status === 422) {
+                    message = 'Invalid input. Please check your data and try again';
+                    title = 'Validation Error';
+                } else if (status >= 500) {
+                    message = 'A server error occurred. Please try again later';
+                    title = 'Server Error';
+                } else if (statusText) {
+                    message = statusText;
+                }
+            }
+
+            // Get the retry action if available
+            const target = event.detail.target;
+            const canRetry = target && (target.tagName === 'FORM' || target.hasAttribute('hx-get') || target.hasAttribute('hx-post'));
+
+            const actions = [];
+            if (canRetry) {
+                actions.push({
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => {
+                        htmx.trigger(target, target.tagName === 'FORM' ? 'submit' : 'click');
+                    }
+                });
+            }
+            actions.push({
+                label: 'Dismiss',
+                class: 'dismiss',
+                action: 'dismiss'
+            });
+
+            ToastManager.error(message, {
+                title: title,
+                duration: 8000,
+                actions: actions
+            });
+        });
+
+        // HTMX network error (timeout, connection failed, etc.)
+        document.body.addEventListener('htmx:sendError', function(event) {
+            const target = event.detail.target;
+            const canRetry = target && (target.tagName === 'FORM' || target.hasAttribute('hx-get') || target.hasAttribute('hx-post'));
+
+            const actions = [];
+            if (canRetry) {
+                actions.push({
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => {
+                        htmx.trigger(target, target.tagName === 'FORM' ? 'submit' : 'click');
+                    }
+                });
+            }
+            actions.push({
+                label: 'Dismiss',
+                class: 'dismiss',
+                action: 'dismiss'
+            });
+
+            ToastManager.error(
+                'Unable to connect to the server. Please check your internet connection',
+                {
+                    title: 'Connection Error',
+                    duration: 8000,
+                    actions: actions
+                }
+            );
+        });
+
+        // HTMX timeout error
+        document.body.addEventListener('htmx:timeout', function(event) {
+            const target = event.detail.target;
+            const canRetry = target && (target.tagName === 'FORM' || target.hasAttribute('hx-get') || target.hasAttribute('hx-post'));
+
+            const actions = [];
+            if (canRetry) {
+                actions.push({
+                    label: 'Retry',
+                    class: 'retry',
+                    action: 'retry',
+                    callback: () => {
+                        htmx.trigger(target, target.tagName === 'FORM' ? 'submit' : 'click');
+                    }
+                });
+            }
+            actions.push({
+                label: 'Dismiss',
+                class: 'dismiss',
+                action: 'dismiss'
+            });
+
+            ToastManager.error(
+                'The request took too long to complete. The server may be busy',
+                {
+                    title: 'Request Timeout',
+                    duration: 8000,
+                    actions: actions
+                }
+            );
+        });
+
+        // Cancel HTMX swap if target element was already replaced by SSE OOB swap.
+        // When SSE OOB and HTMX response both target the same element, the SSE swap
+        // replaces the DOM node first, leaving the HTMX response targeting a detached
+        // element. Without this guard, htmx throws "Cannot read properties of null
+        // (reading 'querySelector')" during outerHTML swap on the detached node.
+        document.body.addEventListener('htmx:beforeSwap', function(event) {
+            var target = event.detail.target;
+            if (target && !target.isConnected) {
+                console.log('HTMX swap cancelled: target already replaced by SSE');
+                event.detail.shouldSwap = false;
+            }
+        });
+
+        // HTMX swap error (invalid response format)
+        document.body.addEventListener('htmx:swapError', function(event) {
+            var target = event.detail.target;
+            if (target && !target.isConnected) {
+                // Race condition: SSE OOB swap already replaced the element
+                console.log('HTMX swap race (suppressed): target already replaced by SSE');
+                return;
+            }
+
+            console.error('HTMX swap error:', event.detail);
+
+            ToastManager.error(
+                'The server returned an unexpected response format',
+                {
+                    title: 'Response Error',
+                    duration: 8000
+                }
+            );
+        });
+
+        // Log successful responses (optional, for debugging)
+        // document.body.addEventListener('htmx:afterSwap', function(event) {
+        //     console.log('HTMX swap successful:', event.detail);
+        // });
+    </script>
+
+    <!-- Network Connectivity Status Monitor -->
+    <script>
+        const NetworkStatusMonitor = {
+            pollInterval: 30000, // Poll every 30 seconds (less frequent than Telegram)
+            timeoutId: null,
+            lastStatus: null,
+            consecutiveErrors: 0,
+            maxErrors: 2,
+            isOnline: true,
+
+            async checkStatus() {
+                try {
+                    const response = await fetch('/health', {
+                        method: 'GET',
+                        cache: 'no-cache',
+                        signal: AbortSignal.timeout(5000) // 5 second timeout
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    this.consecutiveErrors = 0;
+
+                    const networkOnline = data.network && data.network.online;
+                    this.updateUI(networkOnline, null);
+                    this.notifyStatusChange(networkOnline);
+
+                } catch (error) {
+                    console.error('Network status check failed:', error);
+                    this.consecutiveErrors++;
+
+                    // After multiple failures, assume offline
+                    if (this.consecutiveErrors >= this.maxErrors) {
+                        this.updateUI(false, 'Unable to reach server');
+                        this.notifyStatusChange(false);
+                    }
+                }
+
+                // Schedule next poll
+                this.timeoutId = setTimeout(() => this.checkStatus(), this.pollInterval);
+            },
+
+            updateUI(online, error) {
+                const indicator = document.getElementById('network-indicator');
+                const text = document.getElementById('network-text');
+                const container = document.getElementById('network-status');
+
+                if (!indicator || !text || !container) return;
+
+                // Remove all status classes
+                container.classList.remove('status-connected', 'status-disconnected', 'status-error');
+
+                if (error) {
+                    // Error state (offline)
+                    container.classList.add('status-error');
+                    text.textContent = window.i18n.t('status.offline');
+                    container.title = `${window.i18n.t('status.network_disconnected')}: ${error}`;
+                } else if (online) {
+                    // Online state
+                    container.classList.add('status-connected');
+                    text.textContent = window.i18n.t('status.online');
+                    container.title = window.i18n.t('status.network_connected');
+                } else {
+                    // Offline state
+                    container.classList.add('status-disconnected');
+                    text.textContent = window.i18n.t('status.offline');
+                    container.title = window.i18n.t('status.network_disconnected');
+                }
+            },
+
+            notifyStatusChange(isOnline) {
+                // Only notify on actual state changes
+                if (this.lastStatus === null) {
+                    this.lastStatus = isOnline;
+                    return;
+                }
+
+                if (this.lastStatus !== isOnline) {
+                    if (!isOnline) {
+                        // Network went offline
+                        ToastManager.error(
+                            'Please check your internet connection. Operations may fail until connectivity is restored.',
+                            {
+                                title: 'Network Offline',
+                                duration: 0, // Persist until dismissed or network restored
+                                actions: [{
+                                    label: 'Check Now',
+                                    class: 'retry',
+                                    action: 'check',
+                                    callback: () => this.checkStatus()
+                                }, {
+                                    label: 'Dismiss',
+                                    class: 'dismiss',
+                                    action: 'dismiss'
+                                }]
+                            }
+                        );
+
+                        // Broadcast to other tabs
+                        if (typeof TabSync !== 'undefined') {
+                            TabSync.broadcast('network-status', { online: false });
+                        }
+                    } else {
+                        // Network came back online
+                        ToastManager.success(
+                            'Network connectivity restored',
+                            {
+                                title: 'Back Online',
+                                duration: 3000
+                            }
+                        );
+
+                        // Broadcast to other tabs
+                        if (typeof TabSync !== 'undefined') {
+                            TabSync.broadcast('network-status', { online: true });
+                        }
+                    }
+                }
+
+                this.lastStatus = isOnline;
+            },
+
+            start() {
+                console.log('Starting network status monitor');
+                this.checkStatus();
+
+                // Also monitor browser online/offline events
+                window.addEventListener('online', () => {
+                    console.log('Browser reports: online');
+                    this.checkStatus(); // Verify with server
+                });
+
+                window.addEventListener('offline', () => {
+                    console.log('Browser reports: offline');
+                    this.updateUI(false, 'No internet connection');
+                    this.notifyStatusChange(false);
+                });
+
+                // Listen for status updates from other tabs
+                if (typeof TabSync !== 'undefined') {
+                    TabSync.on('network-status', (data) => {
+                        console.log('Received network status update from another tab:', data);
+                        this.checkStatus(); // Verify
+                    });
+                }
+            },
+
+            stop() {
+                console.log('Stopping network status monitor');
+                if (this.timeoutId) {
+                    clearTimeout(this.timeoutId);
+                    this.timeoutId = null;
+                }
+            }
+        };
+
+        // Start monitoring when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            NetworkStatusMonitor.start();
+        });
+
+        // Stop monitoring when page unloads
+        window.addEventListener('beforeunload', function() {
+            NetworkStatusMonitor.stop();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                NetworkStatusMonitor.stop();
+            } else {
+                NetworkStatusMonitor.start();
+            }
+        });
+
+        // Make monitor globally accessible
+        window.NetworkStatusMonitor = NetworkStatusMonitor;
+    </script>
+
+    <!-- SSE Connection Status Banner Manager -->
+    <script>
+        const SSEStatusBanner = {
+            banner: null,
+            visible: false,
+
+            init() {
+                this.banner = document.getElementById('sse-status-banner');
+            },
+
+            show() {
+                if (!this.banner) this.init();
+                if (!this.banner || this.visible) return;
+
+                this.banner.style.display = 'block';
+                this.visible = true;
+
+                // Add CSS styles dynamically if not already present
+                if (!document.getElementById('sse-banner-styles')) {
+                    const style = document.createElement('style');
+                    style.id = 'sse-banner-styles';
+                    style.textContent = `
+                        .sse-status-banner {
+                            position: sticky;
+                            top: 0;
+                            z-index: 1000;
+                            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                            color: white;
+                            padding: 12px 20px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                            animation: slideDown 0.3s ease-out;
+                        }
+
+                        @keyframes slideDown {
+                            from {
+                                transform: translateY(-100%);
+                                opacity: 0;
+                            }
+                            to {
+                                transform: translateY(0);
+                                opacity: 1;
+                            }
+                        }
+
+                        .sse-status-banner .banner-content {
+                            display: flex;
+                            align-items: center;
+                            gap: 16px;
+                            max-width: 1200px;
+                            margin: 0 auto;
+                        }
+
+                        .sse-status-banner .banner-icon {
+                            font-size: 24px;
+                            flex-shrink: 0;
+                        }
+
+                        .sse-status-banner .banner-message {
+                            flex: 1;
+                            display: flex;
+                            flex-direction: column;
+                            gap: 4px;
+                        }
+
+                        .sse-status-banner .banner-message strong {
+                            font-size: 16px;
+                            font-weight: 600;
+                        }
+
+                        .sse-status-banner .banner-message span {
+                            font-size: 14px;
+                            opacity: 0.95;
+                        }
+
+                        .sse-status-banner .banner-action {
+                            background: white;
+                            color: #ee5a24;
+                            border: none;
+                            padding: 8px 20px;
+                            border-radius: 4px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: transform 0.2s, box-shadow 0.2s;
+                            flex-shrink: 0;
+                        }
+
+                        .sse-status-banner .banner-action:hover {
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                        }
+
+                        .sse-status-banner .banner-close {
+                            background: transparent;
+                            border: none;
+                            color: white;
+                            font-size: 28px;
+                            line-height: 1;
+                            cursor: pointer;
+                            padding: 0;
+                            width: 32px;
+                            height: 32px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            border-radius: 4px;
+                            transition: background 0.2s;
+                            flex-shrink: 0;
+                        }
+
+                        .sse-status-banner .banner-close:hover {
+                            background: rgba(255,255,255,0.2);
+                        }
+
+                        @media (max-width: 768px) {
+                            .sse-status-banner .banner-content {
+                                flex-wrap: wrap;
+                                gap: 12px;
+                            }
+
+                            .sse-status-banner .banner-message {
+                                flex-basis: 100%;
+                                order: 1;
+                            }
+
+                            .sse-status-banner .banner-icon {
+                                order: 0;
+                            }
+
+                            .sse-status-banner .banner-action {
+                                order: 2;
+                                flex: 1;
+                            }
+
+                            .sse-status-banner .banner-close {
+                                order: 3;
+                            }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
+                console.log('[SSE Banner] Shown - connection lost');
+            },
+
+            hide() {
+                if (!this.banner || !this.visible) return;
+
+                this.banner.style.display = 'none';
+                this.visible = false;
+                console.log('[SSE Banner] Hidden');
+            },
+
+            isVisible() {
+                return this.visible;
+            }
+        };
+
+        // Make globally accessible
+        window.SSEStatusBanner = SSEStatusBanner;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            SSEStatusBanner.init();
+        });
+    </script>
+
+    <!-- Analysis State Tracker for beforeunload protection -->
+    <script>
+        const AnalysisStateTracker = {
+            activeAnalysis: false,
+
+            setAnalysisRunning(isRunning) {
+                this.activeAnalysis = isRunning;
+                console.log('Analysis state changed:', isRunning ? 'running' : 'stopped');
+            },
+
+            isAnalysisRunning() {
+                return this.activeAnalysis;
+            }
+        };
+
+        // Prevent closing during active analysis
+        window.addEventListener('beforeunload', function(e) {
+            if (AnalysisStateTracker.isAnalysisRunning()) {
+                // Modern browsers require returnValue to be set
+                e.preventDefault();
+                e.returnValue = '';
+
+                // Note: Modern browsers don't show custom messages anymore for security reasons
+                // They show their own generic message like "Leave site? Changes you made may not be saved"
+                return '';
+            }
+        });
+
+        // Make tracker globally accessible
+        window.AnalysisStateTracker = AnalysisStateTracker;
+    </script>
+
+    
+<script>
+    const ProxyFormModal = {
+        overlay: null,
+        form: null,
+        titleEl: null,
+        submitBtn: null,
+        cancelBtn: null,
+        isEditing: false,
+        editingProxyId: null,
+
+        init() {
+            this.overlay = document.getElementById('proxy-form-overlay');
+            this.form = document.getElementById('proxy-form');
+            this.titleEl = document.getElementById('proxy-modal-title');
+            this.submitBtn = document.getElementById('proxy-form-submit');
+            this.cancelBtn = document.getElementById('proxy-form-cancel');
+
+            // Open modal for adding
+            document.getElementById('add-proxy-btn').addEventListener('click', () => this.openForAdd());
+
+            // Close modal handlers
+            this.cancelBtn.addEventListener('click', () => this.close());
+            this.overlay.addEventListener('click', (e) => {
+                if (e.target === this.overlay) this.close();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.overlay.classList.contains('show')) {
+                    this.close();
+                }
+            });
+
+            // Form submission
+            this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+
+            // Real-time validation
+            this.form.querySelectorAll('input[required], select[required]').forEach(input => {
+                input.addEventListener('blur', () => this.validateField(input));
+                input.addEventListener('input', () => this.clearFieldError(input));
+            });
+        },
+
+        openForAdd() {
+            this.isEditing = false;
+            this.editingProxyId = null;
+            this.titleEl.textContent = 'Add Proxy';
+            this.submitBtn.querySelector('.btn-text').textContent = 'Add Proxy';
+            this.form.reset();
+            document.getElementById('proxy-id').value = '';
+            this.clearAllErrors();
+            this.show();
+        },
+
+        openForEdit(proxy) {
+            this.isEditing = true;
+            this.editingProxyId = proxy.id;
+            this.titleEl.textContent = 'Edit Proxy';
+            this.submitBtn.querySelector('.btn-text').textContent = 'Save Changes';
+
+            // Fill form with proxy data
+            document.getElementById('proxy-id').value = proxy.id;
+            document.getElementById('proxy-name').value = proxy.name;
+            document.getElementById('proxy-type').value = proxy.type;
+            document.getElementById('proxy-host').value = proxy.host;
+            document.getElementById('proxy-port').value = proxy.port;
+            document.getElementById('proxy-username').value = proxy.username || '';
+            document.getElementById('proxy-password').value = ''; // Don't fill password for security
+
+            this.clearAllErrors();
+            this.show();
+        },
+
+        show() {
+            this.overlay.classList.add('show');
+            document.getElementById('proxy-name').focus();
+            // Trap focus within modal
+            this.trapFocus();
+        },
+
+        close() {
+            this.overlay.classList.remove('show');
+            this.form.reset();
+            this.clearAllErrors();
+        },
+
+        trapFocus() {
+            const focusableElements = this.overlay.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (focusableElements.length === 0) return;
+
+            const firstFocusable = focusableElements[0];
+            const lastFocusable = focusableElements[focusableElements.length - 1];
+
+            this.overlay.addEventListener('keydown', function trapHandler(e) {
+                if (e.key !== 'Tab') return;
+                if (e.shiftKey) {
+                    if (document.activeElement === firstFocusable) {
+                        lastFocusable.focus();
+                        e.preventDefault();
+                    }
+                } else {
+                    if (document.activeElement === lastFocusable) {
+                        firstFocusable.focus();
+                        e.preventDefault();
+                    }
+                }
+            });
+        },
+
+        validateField(input) {
+            const errorEl = document.getElementById(`${input.id}-error`);
+            let error = '';
+
+            if (input.validity.valueMissing) {
+                error = 'This field is required';
+            } else if (input.validity.tooShort) {
+                error = `Minimum length is ${input.minLength} characters`;
+            } else if (input.validity.tooLong) {
+                error = `Maximum length is ${input.maxLength} characters`;
+            } else if (input.validity.rangeUnderflow) {
+                error = `Minimum value is ${input.min}`;
+            } else if (input.validity.rangeOverflow) {
+                error = `Maximum value is ${input.max}`;
+            } else if (input.id === 'proxy-host' && input.value.includes(' ')) {
+                error = 'Host cannot contain spaces';
+            }
+
+            if (errorEl) {
+                errorEl.textContent = error;
+                input.classList.toggle('invalid', !!error);
+            }
+
+            return !error;
+        },
+
+        clearFieldError(input) {
+            const errorEl = document.getElementById(`${input.id}-error`);
+            if (errorEl) errorEl.textContent = '';
+            input.classList.remove('invalid');
+        },
+
+        clearAllErrors() {
+            this.form.querySelectorAll('.field-error').forEach(el => el.textContent = '');
+            this.form.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
+        },
+
+        validateForm() {
+            let isValid = true;
+            this.form.querySelectorAll('input[required], select[required]').forEach(input => {
+                if (!this.validateField(input)) {
+                    isValid = false;
+                }
+            });
+
+            // Additional custom validation for host
+            const hostInput = document.getElementById('proxy-host');
+            if (hostInput.value.includes(' ')) {
+                const errorEl = document.getElementById('proxy-host-error');
+                if (errorEl) errorEl.textContent = 'Host cannot contain spaces';
+                hostInput.classList.add('invalid');
+                isValid = false;
+            }
+
+            return isValid;
+        },
+
+        async handleSubmit(e) {
+            e.preventDefault();
+
+            if (!this.validateForm()) {
+                ToastManager.warning('Please fix the errors in the form', {
+                    title: 'Validation Error',
+                    duration: 3000
+                });
+                return;
+            }
+
+            const formData = {
+                name: document.getElementById('proxy-name').value.trim(),
+                type: document.getElementById('proxy-type').value,
+                host: document.getElementById('proxy-host').value.trim(),
+                port: parseInt(document.getElementById('proxy-port').value, 10),
+                username: document.getElementById('proxy-username').value.trim(),
+                password: document.getElementById('proxy-password').value
+            };
+
+            this.submitBtn.disabled = true;
+            document.getElementById('proxy-form-spinner').style.display = 'inline-block';
+
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                const url = this.isEditing ? `/api/proxies/${this.editingProxyId}` : '/api/proxies';
+                const method = this.isEditing ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Operation failed');
+                }
+
+                this.close();
+                htmx.trigger('#proxy-list', 'refresh');
+
+                const successMsg = this.isEditing
+                    ? 'Proxy updated successfully'
+                    : 'Proxy added successfully';
+                ToastManager.success(successMsg, {
+                    title: this.isEditing ? 'Proxy Updated' : 'Proxy Added',
+                    duration: 3000
+                });
+
+            } catch (error) {
+                console.error('Failed to save proxy:', error);
+                ToastManager.error(error.message, {
+                    title: 'Save Failed',
+                    duration: 8000
+                });
+            } finally {
+                this.submitBtn.disabled = false;
+                document.getElementById('proxy-form-spinner').style.display = 'none';
+            }
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        ProxyFormModal.init();
+
+        // Handle proxy edit button
+        document.body.addEventListener('click', async function(e) {
+            const editBtn = e.target.closest('.proxy-edit-btn');
+            if (editBtn) {
+                e.preventDefault();
+                const proxyData = {
+                    id: editBtn.dataset.proxyId,
+                    name: editBtn.dataset.proxyName,
+                    type: editBtn.dataset.proxyType,
+                    host: editBtn.dataset.proxyHost,
+                    port: editBtn.dataset.proxyPort,
+                    username: editBtn.dataset.proxyUsername || ''
+                };
+                ProxyFormModal.openForEdit(proxyData);
+                return;
+            }
+
+            // Handle proxy deletion with conditional confirmation
+            const deleteBtn = e.target.closest('.proxy-delete-btn');
+            if (!deleteBtn) return;
+
+            e.preventDefault();
+            const proxyId = deleteBtn.dataset.proxyId;
+            const proxyName = deleteBtn.dataset.proxyName;
+            const usageCount = parseInt(deleteBtn.dataset.proxyUsageCount || '0', 10);
+
+            // Show confirmation only if proxy is used by sessions
+            if (usageCount > 0) {
+                const confirmed = await ModalManager.confirm({
+                    type: 'danger',
+                    icon: '⚠️',
+                    title: 'Delete Proxy',
+                    message: `This proxy is used by ${usageCount} session(s). They will be blocked. Continue?`,
+                    confirmText: 'Delete',
+                    cancelText: 'Cancel',
+                    confirmClass: 'danger'
+                });
+
+                if (!confirmed) return;
+            }
+
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                const response = await fetch(`/api/proxies/${proxyId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Delete failed');
+                }
+
+                // Refresh the list
+                htmx.trigger('#proxy-list', 'refresh');
+
+                ToastManager.success(`Proxy deleted successfully`, {
+                    title: 'Proxy Deleted',
+                    duration: 3000
+                });
+
+            } catch (error) {
+                console.error('Failed to delete proxy:', error);
+                ToastManager.error(error.message, {
+                    title: 'Deletion Failed',
+                    duration: 8000
+                });
+            }
+        });
+    });
+</script>
+
+</body>
+</html>

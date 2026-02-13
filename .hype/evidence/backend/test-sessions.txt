@@ -1,0 +1,28 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, timeout-2.4.0, asyncio-1.3.0, hypothesis-6.151.5
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 13 items
+
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_encrypted_credentials_with_proxy PASSED [  7%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_encrypted_credentials_missing PASSED [ 15%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_plaintext_credentials_backward_compatibility PASSED [ 23%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_missing_config_file PASSED [ 30%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_corrupted_config_file PASSED [ 38%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_missing_proxy_id PASSED [ 46%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_proxy_not_found_in_pool PASSED [ 53%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_encrypted_credentials_check_error_handling PASSED [ 61%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_encrypted_credentials_with_only_api_id_null PASSED [ 69%]
+tests/web/test_sessions.py::TestGetSessionConfigStatus::test_encrypted_credentials_with_only_api_hash_null PASSED [ 76%]
+tests/web/test_sessions.py::TestConnectSessionErrorHandling::test_connect_session_publishes_error_when_phone_missing PASSED [ 84%]
+tests/web/test_sessions.py::TestConnectSessionErrorHandling::test_connect_session_publishes_error_when_proxy_fails PASSED [ 92%]
+tests/web/test_sessions.py::TestConnectSessionErrorHandling::test_connect_session_publishes_error_when_network_unavailable PASSED [100%]
+
+============================== 13 passed in 3.47s ==============================

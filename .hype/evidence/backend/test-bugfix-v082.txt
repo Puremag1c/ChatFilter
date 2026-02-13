@@ -1,0 +1,183 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-9.0.2, pluggy-1.6.0 -- /Users/m/Zen/Code/ChatFilter/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/m/Zen/Code/ChatFilter
+configfile: pyproject.toml
+plugins: anyio-4.12.1, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 8 items
+
+.hype/evidence/backend/test_bugfix_v082.py::TestBug1_SessionConfigStatusWithEncryptedCredentials::test_encrypted_credentials_return_valid_status FAILED [ 12%]
+.hype/evidence/backend/test_bugfix_v082.py::TestBug1_SessionConfigStatusWithEncryptedCredentials::test_plaintext_config_still_works FAILED [ 25%]
+.hype/evidence/backend/test_bugfix_v082.py::TestBug1_SessionConfigStatusWithEncryptedCredentials::test_no_credentials_anywhere_returns_needs_api_id FAILED [ 37%]
+.hype/evidence/backend/test_bugfix_v082.py::TestBug2_ConnectFailureShowsError::test_connect_missing_phone_shows_error ERROR [ 50%]
+.hype/evidence/backend/test_bugfix_v082.py::TestBug2_ConnectFailureShowsError::test_connect_network_error_shows_error ERROR [ 62%]
+.hype/evidence/backend/test_bugfix_v082.py::TestBug3_SessionStatusesTranslatedToRussian::test_all_session_statuses_have_russian_translations FAILED [ 75%]
+.hype/evidence/backend/test_bugfix_v082.py::TestBug3_SessionStatusesTranslatedToRussian::test_po_file_compiled_to_mo PASSED [ 87%]
+.hype/evidence/backend/test_bugfix_v082.py::TestBug3_SessionStatusesTranslatedToRussian::test_javascript_and_python_translations_match SKIPPED [100%]
+
+==================================== ERRORS ====================================
+_ ERROR at setup of TestBug2_ConnectFailureShowsError.test_connect_missing_phone_shows_error _
+file /Users/m/Zen/Code/ChatFilter/.hype/evidence/backend/test_bugfix_v082.py, line 115
+      @pytest.mark.asyncio
+      async def test_connect_missing_phone_shows_error(self, client: TestClient, clean_data_dir: Path):
+          """Connect without phone number should show clear error."""
+          from chatfilter.models.proxy import ProxyEntry
+          from chatfilter.storage.proxy_pool import add_proxy_to_pool
+
+          # Create session without account_info (no phone)
+          session_dir = clean_data_dir / "sessions" / "test_session"
+          session_dir.mkdir(parents=True)
+
+          # Create valid config
+          config = {
+              "api_id": 12345,
+              "api_hash": "test_hash",
+              "proxy_id": "test-proxy",
+              "source": "file",
+          }
+          with (session_dir / "config.json").open("w") as f:
+              json.dump(config, f)
+
+          # Create proxy
+          proxy = ProxyEntry(
+              id="test-proxy",
+              host="proxy.example.com",
+              port=1080,
+              username="user",
+              password="pass",
+          )
+          add_proxy_to_pool(proxy)
+
+          # No account_info.json created (missing phone)
+
+          # Attempt to connect
+          response = client.post("/sessions/test_session/connect")
+
+          # Bug 2 verification: Should show error message, not silent fail
+          assert response.status_code in [200, 400, 500]
+
+          # Response should contain error message about missing phone
+          response_text = response.text.lower()
+          assert any(
+              keyword in response_text
+              for keyword in ["phone", "account_info", "error", "required", "missing"]
+          ), f"Expected error message about missing phone, got: {response.text[:200]}"
+E       fixture 'client' not found
+>       available fixtures: _class_scoped_runner, _function_scoped_runner, _module_scoped_runner, _package_scoped_runner, _session_scoped_runner, anyio_backend, anyio_backend_name, anyio_backend_options, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, doctest_namespace, event_loop_policy, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, subtests, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, unused_tcp_port, unused_tcp_port_factory, unused_udp_port, unused_udp_port_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/Users/m/Zen/Code/ChatFilter/.hype/evidence/backend/test_bugfix_v082.py:115
+_ ERROR at setup of TestBug2_ConnectFailureShowsError.test_connect_network_error_shows_error _
+file /Users/m/Zen/Code/ChatFilter/.hype/evidence/backend/test_bugfix_v082.py, line 160
+      @pytest.mark.asyncio
+      async def test_connect_network_error_shows_error(
+          self, client: TestClient, clean_data_dir: Path
+      ):
+          """Connect with network error should show clear error."""
+          from chatfilter.models.proxy import ProxyEntry
+          from chatfilter.storage.proxy_pool import add_proxy_to_pool
+
+          # Create session with account_info
+          session_dir = clean_data_dir / "sessions" / "test_session"
+          session_dir.mkdir(parents=True)
+
+          config = {
+              "api_id": 12345,
+              "api_hash": "test_hash",
+              "proxy_id": "test-proxy",
+              "source": "file",
+          }
+          with (session_dir / "config.json").open("w") as f:
+              json.dump(config, f)
+
+          account_info = {"phone": "+1234567890"}
+          with (session_dir / "account_info.json").open("w") as f:
+              json.dump(account_info, f)
+
+          # Create proxy
+          proxy = ProxyEntry(
+              id="test-proxy",
+              host="proxy.example.com",
+              port=1080,
+              username="user",
+              password="pass",
+          )
+          add_proxy_to_pool(proxy)
+
+          # Mock TelegramClient to fail with network error
+          with patch("chatfilter.web.routers.sessions.TelegramClient") as mock_client_cls:
+              mock_client = MagicMock()
+              mock_client.connect.side_effect = ConnectionError("Network unreachable")
+              mock_client_cls.return_value = mock_client
+
+              response = client.post("/sessions/test_session/connect")
+
+              # Bug 2 verification: Should show error, not silent spinner disappear
+              assert response.status_code in [200, 400, 500]
+
+              response_text = response.text.lower()
+              # Should mention network/connection/error
+              assert any(
+                  keyword in response_text
+                  for keyword in ["network", "connection", "error", "failed", "unreachable"]
+              ), f"Expected network error message, got: {response.text[:200]}"
+E       fixture 'client' not found
+>       available fixtures: _class_scoped_runner, _function_scoped_runner, _module_scoped_runner, _package_scoped_runner, _session_scoped_runner, anyio_backend, anyio_backend_name, anyio_backend_options, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, doctest_namespace, event_loop_policy, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, subtests, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, unused_tcp_port, unused_tcp_port_factory, unused_udp_port, unused_udp_port_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+/Users/m/Zen/Code/ChatFilter/.hype/evidence/backend/test_bugfix_v082.py:160
+=================================== FAILURES ===================================
+_ TestBug1_SessionConfigStatusWithEncryptedCredentials.test_encrypted_credentials_return_valid_status _
+.hype/evidence/backend/test_bugfix_v082.py:40: in test_encrypted_credentials_return_valid_status
+    with patch("chatfilter.web.routers.sessions.SecureCredentialManager") as mock_scm:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/m/.local/share/uv/python/cpython-3.12.11-macos-aarch64-none/lib/python3.12/unittest/mock.py:1467: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+/Users/m/.local/share/uv/python/cpython-3.12.11-macos-aarch64-none/lib/python3.12/unittest/mock.py:1437: in get_original
+    raise AttributeError(
+E   AttributeError: <module 'chatfilter.web.routers.sessions' from '/Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py'> does not have the attribute 'SecureCredentialManager'
+_ TestBug1_SessionConfigStatusWithEncryptedCredentials.test_plaintext_config_still_works _
+.hype/evidence/backend/test_bugfix_v082.py:77: in test_plaintext_config_still_works
+    with patch("chatfilter.web.routers.sessions.get_proxy_by_id") as mock_proxy:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/m/.local/share/uv/python/cpython-3.12.11-macos-aarch64-none/lib/python3.12/unittest/mock.py:1467: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+/Users/m/.local/share/uv/python/cpython-3.12.11-macos-aarch64-none/lib/python3.12/unittest/mock.py:1437: in get_original
+    raise AttributeError(
+E   AttributeError: <module 'chatfilter.web.routers.sessions' from '/Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py'> does not have the attribute 'get_proxy_by_id'
+_ TestBug1_SessionConfigStatusWithEncryptedCredentials.test_no_credentials_anywhere_returns_needs_api_id _
+.hype/evidence/backend/test_bugfix_v082.py:102: in test_no_credentials_anywhere_returns_needs_api_id
+    with patch("chatfilter.web.routers.sessions.SecureCredentialManager") as mock_scm:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/m/.local/share/uv/python/cpython-3.12.11-macos-aarch64-none/lib/python3.12/unittest/mock.py:1467: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+/Users/m/.local/share/uv/python/cpython-3.12.11-macos-aarch64-none/lib/python3.12/unittest/mock.py:1437: in get_original
+    raise AttributeError(
+E   AttributeError: <module 'chatfilter.web.routers.sessions' from '/Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py'> does not have the attribute 'SecureCredentialManager'
+_ TestBug3_SessionStatusesTranslatedToRussian.test_all_session_statuses_have_russian_translations _
+.hype/evidence/backend/test_bugfix_v082.py:251: in test_all_session_statuses_have_russian_translations
+    assert not missing_translations, (
+E   AssertionError: Missing Russian translations for statuses: ['disconnected', 'connected', 'needs_api_id', 'proxy_missing', 'session_expired', 'error', 'Proxy Missing']
+E     Bug 3: Add these to messages.po
+E   assert not ['disconnected', 'connected', 'needs_api_id', 'proxy_missing', 'session_expired', 'error', 'Proxy Missing']
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1428
+  /Users/m/Zen/Code/ChatFilter/.venv/lib/python3.12/site-packages/_pytest/config/__init__.py:1428: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED .hype/evidence/backend/test_bugfix_v082.py::TestBug1_SessionConfigStatusWithEncryptedCredentials::test_encrypted_credentials_return_valid_status - AttributeError: <module 'chatfilter.web.routers.sessions' from '/Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py'> does not have the attribute 'SecureCredentialManager'
+FAILED .hype/evidence/backend/test_bugfix_v082.py::TestBug1_SessionConfigStatusWithEncryptedCredentials::test_plaintext_config_still_works - AttributeError: <module 'chatfilter.web.routers.sessions' from '/Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py'> does not have the attribute 'get_proxy_by_id'
+FAILED .hype/evidence/backend/test_bugfix_v082.py::TestBug1_SessionConfigStatusWithEncryptedCredentials::test_no_credentials_anywhere_returns_needs_api_id - AttributeError: <module 'chatfilter.web.routers.sessions' from '/Users/m/Zen/Code/ChatFilter/src/chatfilter/web/routers/sessions.py'> does not have the attribute 'SecureCredentialManager'
+FAILED .hype/evidence/backend/test_bugfix_v082.py::TestBug3_SessionStatusesTranslatedToRussian::test_all_session_statuses_have_russian_translations - AssertionError: Missing Russian translations for statuses: ['disconnected', 'connected', 'needs_api_id', 'proxy_missing', 'session_expired', 'error', 'Proxy Missing']
+  Bug 3: Add these to messages.po
+assert not ['disconnected', 'connected', 'needs_api_id', 'proxy_missing', 'session_expired', 'error', 'Proxy Missing']
+ERROR .hype/evidence/backend/test_bugfix_v082.py::TestBug2_ConnectFailureShowsError::test_connect_missing_phone_shows_error
+ERROR .hype/evidence/backend/test_bugfix_v082.py::TestBug2_ConnectFailureShowsError::test_connect_network_error_shows_error
+========= 4 failed, 1 passed, 1 skipped, 1 warning, 2 errors in 0.61s ==========

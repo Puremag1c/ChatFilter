@@ -1,0 +1,26 @@
+# Edge Cases Tested
+
+## Edge Case 1: Invalid verification code
+Manual test needed - requires live Telegram interaction
+
+## Edge Case 2: Invalid 2FA password
+Manual test needed - requires live Telegram account with 2FA
+
+## Edge Case 3: Session file missing/corrupted
+Covered by: tests/web/test_sessions.py::TestGetSessionConfigStatus::test_missing_config_file
+Covered by: tests/web/test_sessions.py::TestGetSessionConfigStatus::test_corrupted_config_file
+
+## Edge Case 4: Proxy unavailable/misconfigured
+Covered by: tests/web/test_sessions.py::TestConnectSessionErrorHandling::test_connect_session_publishes_error_when_proxy_fails
+
+## Edge Case 5: Network timeout during auth
+Covered by: tests/web/test_sessions.py::TestConnectSessionErrorHandling::test_connect_session_publishes_error_when_network_unavailable
+
+## Edge Case 6: Device confirmation required ("Is this you?")
+Covered by: tests/test_device_confirmation.py::TestDeviceConfirmation (3 tests)
+
+## Edge Case 7: Race condition - multiple auth attempts
+Not explicitly tested, but system uses auth_id to prevent conflicts
+
+## Edge Case 8: Session expires mid-auth
+Handled by error state classification (expired sessions trigger error state)
