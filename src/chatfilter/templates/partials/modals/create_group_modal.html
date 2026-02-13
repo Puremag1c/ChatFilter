@@ -1,0 +1,152 @@
+{# Create Group Modal #}
+<div id="create-group-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="create-group-modal-title">
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <span class="modal-icon info" aria-hidden="true">📁</span>
+            <h2 class="modal-title" id="create-group-modal-title">{{ _("Create Chat Group") }}</h2>
+        </div>
+        <form id="create-group-form"
+              hx-post="/api/groups"
+              hx-target="#groups-container"
+              hx-swap="innerHTML"
+              hx-encoding="multipart/form-data">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="group-name">{{ _("Group Name") }} *</label>
+                    <input type="text"
+                           id="group-name"
+                           name="name"
+                           required
+                           placeholder="{{ _('e.g., Marketing Channels') }}"
+                           aria-required="true">
+                </div>
+
+                <div class="form-group">
+                    <label for="source-type">{{ _("Source Type") }} *</label>
+                    <select id="source-type" name="source_type" required aria-required="true">
+                        <option value="file_upload">{{ _("File Upload (CSV/XLS/TXT)") }}</option>
+                        <option value="google_sheets">{{ _("Google Sheets URL") }}</option>
+                        <option value="file_url">{{ _("File URL") }}</option>
+                    </select>
+                </div>
+
+                {# File Upload #}
+                <div id="source-file-upload" class="form-group source-input">
+                    <label for="file-upload">{{ _("Upload File") }}</label>
+                    <input type="file"
+                           id="file-upload"
+                           name="file_upload"
+                           accept=".csv,.xlsx,.xls,.txt"
+                           aria-describedby="file-upload-help">
+                    <small id="file-upload-help">{{ _("Supported formats: CSV, XLS, XLSX, TXT. Max 10MB.") }}</small>
+                    <small>{{ _("Supported chat formats: t.me/xxx, @username, -100xxx") }}</small>
+                </div>
+
+                {# Google Sheets URL #}
+                <div id="source-google-sheets" class="form-group source-input" style="display: none;">
+                    <label for="google-sheets-url">{{ _("Google Sheets URL") }}</label>
+                    <input type="url"
+                           id="google-sheets-url"
+                           name="google_sheets_url"
+                           placeholder="https://docs.google.com/spreadsheets/d/..."
+                           aria-describedby="sheets-url-help">
+                    <small id="sheets-url-help">{{ _("Paste the public Google Sheets URL") }}</small>
+                </div>
+
+                {# File URL #}
+                <div id="source-file-url" class="form-group source-input" style="display: none;">
+                    <label for="file-url-input">{{ _("File URL") }}</label>
+                    <input type="url"
+                           id="file-url-input"
+                           name="file_url"
+                           placeholder="https://example.com/chats.csv"
+                           aria-describedby="file-url-help">
+                    <small id="file-url-help">{{ _("Direct link to CSV/XLS/TXT file") }}</small>
+                </div>
+
+                <div id="create-group-error" class="alert alert-error" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-button secondary" onclick="closeModal('create-group-modal')">
+                    {{ _("Cancel") }}
+                </button>
+                <button type="submit" class="modal-button primary">
+                    {{ _("Create Group") }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Show modal
+document.getElementById('create-group-modal').classList.add('show');
+
+// Source type switching
+const sourceTypeSelect = document.getElementById('source-type');
+const sourceInputs = {
+    'file_upload': document.getElementById('source-file-upload'),
+    'google_sheets': document.getElementById('source-google-sheets'),
+    'file_url': document.getElementById('source-file-url')
+};
+
+sourceTypeSelect.addEventListener('change', function() {
+    // Hide all source inputs
+    Object.values(sourceInputs).forEach(el => {
+        el.style.display = 'none';
+        // Disable inputs
+        const inputs = el.querySelectorAll('input');
+        inputs.forEach(input => input.disabled = true);
+    });
+
+    // Show selected source input
+    const selected = sourceInputs[this.value];
+    if (selected) {
+        selected.style.display = 'block';
+        // Enable inputs
+        const inputs = selected.querySelectorAll('input');
+        inputs.forEach(input => input.disabled = false);
+    }
+});
+
+// Trigger initial state
+sourceTypeSelect.dispatchEvent(new Event('change'));
+
+// Form submission handler
+document.getElementById('create-group-form').addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.successful) {
+        // Close modal on success
+        closeModal('create-group-modal');
+        // Refresh groups list
+        htmx.trigger('#groups-container', 'load');
+    } else {
+        // Show error
+        const errorDiv = document.getElementById('create-group-error');
+        errorDiv.textContent = event.detail.xhr.responseText || 'Failed to create group';
+        errorDiv.style.display = 'block';
+    }
+});
+
+// Modal close function
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// Close on overlay click
+document.getElementById('create-group-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal('create-group-modal');
+    }
+});
+
+// Close on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal('create-group-modal');
+    }
+});
+</script>

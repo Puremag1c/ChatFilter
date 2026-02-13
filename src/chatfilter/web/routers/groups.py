@@ -908,3 +908,65 @@ async def stop_group_analysis(
             name="partials/error_message.html",
             context={"error": f"Failed to stop analysis: {str(e)}"},
         )
+
+
+@router.get("/api/groups/modal/create", response_class=HTMLResponse)
+async def get_create_group_modal(request: Request) -> HTMLResponse:
+    """Get create group modal HTML.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        HTML modal for creating a group
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/modals/create_group_modal.html",
+        context={},
+    )
+
+
+@router.get("/api/groups/modal/settings/{group_id}", response_class=HTMLResponse)
+async def get_settings_modal(request: Request, group_id: str) -> HTMLResponse:
+    """Get group settings modal HTML.
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+
+    Returns:
+        HTML modal for editing group settings
+
+    Raises:
+        HTTPException: If group not found
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        service = _get_group_service()
+        group = service.get_group(group_id)
+
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/modals/settings_modal.html",
+            context={"group": group},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Failed to load settings: {str(e)}"},
+        )

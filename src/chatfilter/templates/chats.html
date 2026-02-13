@@ -1,161 +1,141 @@
 {% extends "base.html" %}
 
-{% block title %}{{ _("Select Chats") }} - ChatFilter{% endblock %}
+{% block title %}{{ _("Chat Groups") }} - ChatFilter{% endblock %}
 
 {% block head %}
 <style>
-    .chat-filters {
+    .groups-header {
         display: flex;
-        gap: 1rem;
-        margin-bottom: 1rem;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
+        gap: 1rem;
     }
-    .chat-filters .form-group {
-        margin-bottom: 0;
-        flex: 1;
-        min-width: 200px;
+
+    .groups-list {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     }
-    .chat-actions {
+
+    .group-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1.5rem;
+        background: white;
+        transition: box-shadow 0.2s;
+    }
+
+    .group-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .group-card h3 {
+        margin: 0 0 1rem 0;
+        font-size: 1.25rem;
+    }
+
+    .group-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.875rem;
+    }
+
+    .progress-bar {
+        height: 8px;
+        background: #eee;
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 0.5rem 0;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #81c784);
+        transition: width 0.3s ease;
+    }
+
+    .type-breakdown {
         display: flex;
         gap: 0.5rem;
-        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        margin: 0.75rem 0;
     }
-    .chat-list {
-        max-height: 500px;
-        overflow-y: auto;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-    }
-    /* Virtual scrolling support */
-    .chat-list.virtual-scroll {
-        position: relative;
-    }
-    .chat-list.virtual-scroll .chat-item {
-        position: absolute;
-        left: 0;
-        right: 0;
-    }
-    .chat-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #eee;
-        transition: background-color 0.1s;
-    }
-    .chat-item:last-child {
-        border-bottom: none;
-    }
-    .chat-item:hover {
-        background-color: #f8f9fa;
-    }
-    .chat-item.selected {
-        background-color: #e3f2fd;
-    }
-    .chat-item input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-    }
-    .chat-info {
-        flex: 1;
-        min-width: 0;
-    }
-    .chat-title {
+
+    .type-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
         font-weight: 500;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
-    .chat-meta {
+
+    .type-badge.group { background-color: #e8f5e9; color: #2e7d32; }
+    .type-badge.forum { background-color: #fce4ec; color: #c2185b; }
+    .type-badge.channel-comments { background-color: #e3f2fd; color: #1565c0; }
+    .type-badge.channel-no-comments { background-color: #f3e5f5; color: #7b1fa2; }
+    .type-badge.dead { background-color: #ffebee; color: #c62828; }
+    .type-badge.pending { background-color: #fff3e0; color: #ef6c00; }
+
+    .group-actions {
         display: flex;
-        gap: 1rem;
-        font-size: 0.875rem;
-        color: #666;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
     }
-    .chat-type {
-        padding: 0.125rem 0.5rem;
+
+    .group-actions .btn {
+        flex: 1;
+        min-width: 100px;
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
         border-radius: 12px;
         font-size: 0.75rem;
         font-weight: 500;
         text-transform: uppercase;
+        margin-bottom: 0.5rem;
     }
-    .chat-type.private { background-color: #e3f2fd; color: #1565c0; }
-    .chat-type.group { background-color: #e8f5e9; color: #2e7d32; }
-    .chat-type.supergroup { background-color: #fff3e0; color: #ef6c00; }
-    .chat-type.channel { background-color: #f3e5f5; color: #7b1fa2; }
-    .chat-type.forum { background-color: #fce4ec; color: #c2185b; }
-    .selection-count {
-        font-size: 0.875rem;
-        color: #666;
-        margin-left: auto;
-    }
-    .no-chats {
-        padding: 2rem;
+
+    .status-badge.pending { background-color: #fff3e0; color: #ef6c00; }
+    .status-badge.in_progress { background-color: #e3f2fd; color: #1565c0; }
+    .status-badge.paused { background-color: #fff9c4; color: #f57f17; }
+    .status-badge.completed { background-color: #e8f5e9; color: #2e7d32; }
+
+    .no-groups {
+        padding: 3rem;
         text-align: center;
         color: #666;
+        border: 2px dashed #ddd;
+        border-radius: 8px;
     }
 
-    /* Responsive improvements for chats page */
+    .no-groups p {
+        margin: 0.5rem 0;
+    }
+
     @media (max-width: 768px) {
-        .chat-filters .form-group {
-            min-width: 100%;
+        .groups-list {
+            grid-template-columns: 1fr;
         }
 
-        .chat-actions {
+        .group-actions {
             flex-direction: column;
-            gap: 0.75rem;
         }
 
-        .chat-actions .btn {
+        .group-actions .btn {
             width: 100%;
-        }
-
-        .chat-list {
-            max-height: 400px;
-        }
-
-        .chat-item {
-            padding: 0.625rem 0.875rem;
-        }
-
-        .chat-meta {
-            gap: 0.75rem;
-            font-size: 0.8125rem;
-        }
-
-        .chat-type {
-            font-size: 0.6875rem;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .chat-filters {
-            gap: 0.75rem;
-        }
-
-        .chat-list {
-            max-height: 350px;
-        }
-
-        .chat-item {
-            padding: 0.5rem 0.75rem;
-            gap: 0.5rem;
-        }
-
-        .chat-meta {
-            flex-direction: column;
-            gap: 0.25rem;
-            font-size: 0.75rem;
-        }
-
-        .chat-type {
-            font-size: 0.65rem;
-            padding: 0.125rem 0.375rem;
-        }
-
-        .selection-count {
-            font-size: 0.8125rem;
         }
     }
 </style>
@@ -163,109 +143,30 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>{{ _("Select Chats for Analysis") }}</h1>
-    <p class="subtitle">{{ _("Choose which chats you want to analyze") }}</p>
+    <h1>{{ _("Chat Groups") }}</h1>
+    <p class="subtitle">{{ _("Manage and analyze groups of chats") }}</p>
 </div>
 
 <section class="card">
-    <h2>{{ _("Session") }}</h2>
-    <div class="form-group">
-        <label for="session-select" class="sr-only">{{ _("Select Telegram session") }}</label>
-        <select id="session-select"
-                name="session_select"
-                hx-get="/api/chats"
-                hx-target="#chats-container"
-                hx-swap="innerHTML"
-                hx-include="this"
-                hx-indicator="#chats-loading"
-                aria-label="{{ _("Select Telegram session to load chats") }}"
-                data-tooltip="{{ _("Choose a Telegram session to load your chats and groups") }}"
-                data-tooltip-position="bottom">
-            <option value="">-- {{ _("Select a session") }} --</option>
-            {% for session in sessions %}
-            <option value="{{ session.session_id }}">{{ session.session_id }}</option>
-            {% endfor %}
-        </select>
+    <div class="groups-header">
+        <h2>{{ _("Groups") }}</h2>
+        <button class="btn btn-primary"
+                hx-get="/api/groups/modal/create"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            {{ _("Загрузить чаты") }}
+        </button>
     </div>
 
-    <!-- Account info with subscription limits (loaded via HTMX when session is selected) -->
-    <div id="account-info-container"></div>
-</section>
-
-<section class="card">
-    <h2>{{ _("Chats") }}</h2>
-
-    <div id="chats-container" role="region" aria-live="polite" aria-label="{{ _("Chat list") }}">
-        <div class="no-chats" role="status">
-            <p>{{ _("Select a session above to load chats") }}</p>
-        </div>
-    </div>
-
-    <div id="chats-loading" class="htmx-indicator">
-        <div class="skeleton-container" aria-busy="true" role="status">
-            <span class="skeleton-sr-text">{{ _("Loading chats...") }}</span>
-            <div class="skeleton-chat-list">
-                <div class="skeleton-chat-item">
-                    <div class="skeleton skeleton-chat-checkbox"></div>
-                    <div class="skeleton-chat-content">
-                        <div class="skeleton-chat-header">
-                            <div class="skeleton skeleton-chat-title"></div>
-                            <div class="skeleton skeleton-badge"></div>
-                        </div>
-                        <div class="skeleton-chat-meta">
-                            <div class="skeleton skeleton-text skeleton-text-short"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="skeleton-chat-item">
-                    <div class="skeleton skeleton-chat-checkbox"></div>
-                    <div class="skeleton-chat-content">
-                        <div class="skeleton-chat-header">
-                            <div class="skeleton skeleton-chat-title"></div>
-                            <div class="skeleton skeleton-badge"></div>
-                        </div>
-                        <div class="skeleton-chat-meta">
-                            <div class="skeleton skeleton-text skeleton-text-short"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="skeleton-chat-item">
-                    <div class="skeleton skeleton-chat-checkbox"></div>
-                    <div class="skeleton-chat-content">
-                        <div class="skeleton-chat-header">
-                            <div class="skeleton skeleton-chat-title"></div>
-                            <div class="skeleton skeleton-badge"></div>
-                        </div>
-                        <div class="skeleton-chat-meta">
-                            <div class="skeleton skeleton-text skeleton-text-short"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="skeleton-chat-item">
-                    <div class="skeleton skeleton-chat-checkbox"></div>
-                    <div class="skeleton-chat-content">
-                        <div class="skeleton-chat-header">
-                            <div class="skeleton skeleton-chat-title"></div>
-                            <div class="skeleton skeleton-badge"></div>
-                        </div>
-                        <div class="skeleton-chat-meta">
-                            <div class="skeleton skeleton-text skeleton-text-short"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="skeleton-chat-item">
-                    <div class="skeleton skeleton-chat-checkbox"></div>
-                    <div class="skeleton-chat-content">
-                        <div class="skeleton-chat-header">
-                            <div class="skeleton skeleton-chat-title"></div>
-                            <div class="skeleton skeleton-badge"></div>
-                        </div>
-                        <div class="skeleton-chat-meta">
-                            <div class="skeleton skeleton-text skeleton-text-short"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <div id="groups-container"
+         hx-get="/api/groups"
+         hx-trigger="load"
+         hx-swap="innerHTML"
+         role="region"
+         aria-live="polite"
+         aria-label="{{ _("Groups list") }}">
+        <div class="no-groups" role="status">
+            <p>{{ _("Loading groups...") }}</p>
         </div>
     </div>
 </section>
@@ -273,445 +174,11 @@
 
 {% block scripts %}
 <script>
-// Global virtual chat list instance
-let virtualChatListInstance = null;
-
-document.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.target.id === 'chats-container') {
-        initChatList();
+// Refresh groups list when a group is created/deleted
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'groups-container') {
+        console.log('Groups list updated');
     }
 });
-
-async function initChatList() {
-    const container = document.getElementById('chats-container');
-    const selectAllBtn = container.querySelector('#select-all');
-    const selectNoneBtn = container.querySelector('#select-none');
-    const searchInput = container.querySelector('#chat-search');
-    const typeFilter = container.querySelector('#chat-type-filter');
-    const clearFiltersBtn = container.querySelector('#clear-chat-filters');
-    const filterCountBadge = container.querySelector('#chat-filter-count');
-    const chatItems = container.querySelectorAll('.chat-item');
-    const checkboxes = container.querySelectorAll('.chat-checkbox');
-    const countDisplay = container.querySelector('#selection-count');
-
-    if (!selectAllBtn) return;
-
-    // Check if we should use virtual scrolling
-    const totalCountText = countDisplay ? countDisplay.textContent : '';
-    const totalMatch = totalCountText.match(/(\d+)\s+chats?$/);
-    const totalCount = totalMatch ? parseInt(totalMatch[1]) : chatItems.length;
-
-    // Use virtual scrolling for lists with more than 100 chats
-    const VIRTUAL_SCROLL_THRESHOLD = 100;
-    if (totalCount > VIRTUAL_SCROLL_THRESHOLD && typeof VirtualChatList !== 'undefined') {
-        await initVirtualChatList(container, selectAllBtn, selectNoneBtn, searchInput, typeFilter, clearFiltersBtn, filterCountBadge, countDisplay);
-        return;
-    }
-
-    // Standard initialization for small lists
-    let searchDebounceTimer = null;
-
-    function updateCount() {
-        const checked = container.querySelectorAll('.chat-checkbox:checked').length;
-        const visible = container.querySelectorAll('.chat-item:not([style*="display: none"])').length;
-        countDisplay.textContent = checked + ' of ' + visible + ' selected';
-
-        // Update visual selection state
-        chatItems.forEach(item => {
-            const checkbox = item.querySelector('.chat-checkbox');
-            if (checkbox && checkbox.checked) {
-                item.classList.add('selected');
-            } else {
-                item.classList.remove('selected');
-            }
-        });
-    }
-
-    function updateFilterCount() {
-        let count = 0;
-        if (searchInput && searchInput.value) count++;
-        if (typeFilter && typeFilter.value) count++;
-
-        if (count > 0 && filterCountBadge && clearFiltersBtn) {
-            filterCountBadge.textContent = count;
-            filterCountBadge.style.display = 'inline-block';
-            clearFiltersBtn.disabled = false;
-        } else if (filterCountBadge && clearFiltersBtn) {
-            filterCountBadge.style.display = 'none';
-            clearFiltersBtn.disabled = true;
-        }
-    }
-
-    function saveFilterState() {
-        const filterState = {
-            search: searchInput ? searchInput.value : '',
-            type: typeFilter ? typeFilter.value : ''
-        };
-        localStorage.setItem('chatfilter_chat_filters', JSON.stringify(filterState));
-    }
-
-    function loadFilterState() {
-        try {
-            const saved = localStorage.getItem('chatfilter_chat_filters');
-            if (saved) {
-                const filterState = JSON.parse(saved);
-                if (searchInput) searchInput.value = filterState.search || '';
-                if (typeFilter) typeFilter.value = filterState.type || '';
-                applyFilters();
-            }
-        } catch (e) {
-            console.error('Failed to load filter state:', e);
-        }
-    }
-
-    function applyFilters() {
-        const query = searchInput ? searchInput.value.toLowerCase() : '';
-        const type = typeFilter ? typeFilter.value : '';
-
-        chatItems.forEach(item => {
-            const title = item.dataset.title.toLowerCase();
-            const username = (item.dataset.username || '').toLowerCase();
-            const itemType = item.dataset.type || '';
-
-            const matchesSearch = !query || title.includes(query) || username.includes(query);
-            const matchesType = !type || itemType === type;
-
-            item.style.display = (matchesSearch && matchesType) ? '' : 'none';
-        });
-
-        updateCount();
-        updateFilterCount();
-        saveFilterState();
-    }
-
-    function clearFilters() {
-        if (searchInput) searchInput.value = '';
-        if (typeFilter) typeFilter.value = '';
-        applyFilters();
-    }
-
-    selectAllBtn.addEventListener('click', function() {
-        const visibleCheckboxes = container.querySelectorAll('.chat-item:not([style*="display: none"]) .chat-checkbox');
-        visibleCheckboxes.forEach(cb => cb.checked = true);
-        updateCount();
-    });
-
-    selectNoneBtn.addEventListener('click', function() {
-        checkboxes.forEach(cb => cb.checked = false);
-        updateCount();
-    });
-
-    checkboxes.forEach(cb => {
-        cb.addEventListener('change', updateCount);
-    });
-
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(applyFilters, 300);
-        });
-    }
-
-    if (typeFilter) {
-        typeFilter.addEventListener('change', applyFilters);
-    }
-
-    if (clearFiltersBtn) {
-        clearFiltersBtn.addEventListener('click', clearFilters);
-    }
-
-    loadFilterState();
-    updateCount();
-}
-
-// Tab synchronization for session selection
-// When session is selected in one tab, sync to other tabs
-const sessionSelect = document.getElementById('session-select');
-if (sessionSelect) {
-    // Load account info when session is selected
-    sessionSelect.addEventListener('change', function() {
-        const selectedSession = this.value;
-        const accountInfoContainer = document.getElementById('account-info-container');
-
-        if (selectedSession && accountInfoContainer) {
-            // Load account info via HTMX
-            htmx.ajax('GET', `/api/account-info?session_select=${encodeURIComponent(selectedSession)}`, {
-                target: '#account-info-container',
-                swap: 'innerHTML'
-            });
-        } else if (accountInfoContainer) {
-            accountInfoContainer.innerHTML = '';
-        }
-    });
-
-    // Broadcast session selection to other tabs
-    sessionSelect.addEventListener('change', function() {
-        const selectedSession = this.value;
-        if (selectedSession) {
-            TabSync.broadcast('session_selected', {
-                sessionId: selectedSession,
-                timestamp: Date.now()
-            });
-
-            // Dispatch event to trigger user indicator refresh
-            document.dispatchEvent(new CustomEvent('session-changed', {
-                detail: { sessionId: selectedSession }
-            }));
-        }
-    });
-
-    // Listen for session selection from other tabs
-    TabSync.on('session_selected', function(data) {
-        if (data && data.sessionId) {
-            const currentValue = sessionSelect.value;
-
-            // Only update if different from current selection
-            if (currentValue !== data.sessionId) {
-                // Find the option and select it
-                const option = sessionSelect.querySelector('option[value="' + data.sessionId + '"]');
-                if (option) {
-                    sessionSelect.value = data.sessionId;
-
-                    // Trigger HTMX request to load chats
-                    htmx.trigger(sessionSelect, 'change');
-
-                    // Dispatch event to trigger user indicator refresh
-                    document.dispatchEvent(new CustomEvent('session-changed', {
-                        detail: { sessionId: data.sessionId }
-                    }));
-
-                    // Show notification
-                    ToastManager.info('Session selection synced from another tab', {
-                        duration: 3000
-                    });
-                }
-            }
-        }
-    });
-}
-
-// Check for orphaned completed analysis on page load
-async function checkOrphanedAnalysis() {
-    try {
-        const response = await fetch('/api/analysis/check_orphaned');
-        if (!response.ok) return;
-
-        const data = await response.json();
-
-        // If no orphaned task, return
-        if (!data || !data.task_id) return;
-
-        // Show notification based on task status
-        const taskId = data.task_id;
-        const status = data.status;
-        const resultsCount = data.results_count || 0;
-        const totalChats = data.total_chats || 0;
-        const error = data.error;
-
-        let title, message, type;
-
-        if (status === 'completed') {
-            title = 'Analysis Complete';
-            message = `Your analysis of ${totalChats} chat(s) completed while you were away. ${resultsCount} result(s) available.`;
-            type = 'success';
-        } else if (status === 'failed') {
-            title = 'Analysis Failed';
-            message = `Your analysis failed: ${error || 'Unknown error'}`;
-            type = 'error';
-        } else if (status === 'cancelled') {
-            title = 'Analysis Cancelled';
-            message = `Your analysis was cancelled. ${resultsCount} partial result(s) available.`;
-            type = 'warning';
-        } else if (status === 'timeout') {
-            title = 'Analysis Timeout';
-            message = `Your analysis timed out. ${resultsCount} partial result(s) available.`;
-            type = 'warning';
-        } else {
-            return; // Unknown status
-        }
-
-        // Show modal with action buttons
-        const confirmed = await ModalManager.confirm({
-            type: type === 'error' ? 'error' : 'info',
-            icon: type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️',
-            title: title,
-            message: message,
-            confirmText: resultsCount > 0 ? 'View Results' : 'Dismiss',
-            cancelText: 'Dismiss',
-            showCancel: resultsCount > 0
-        });
-
-        if (confirmed && resultsCount > 0) {
-            // Navigate to results page or show results
-            window.location.href = `/results?task_id=${taskId}`;
-        } else {
-            // Dismiss notification
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            await fetch(`/api/analysis/${taskId}/dismiss_notification`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-Token': csrfToken
-                }
-            });
-        }
-
-    } catch (error) {
-        console.error('Failed to check orphaned analysis:', error);
-    }
-}
-
-// Run on page load
-document.addEventListener('DOMContentLoaded', checkOrphanedAnalysis);
-
-/**
- * Initialize virtual scrolling for large chat lists
- */
-async function initVirtualChatList(container, selectAllBtn, selectNoneBtn, searchInput, typeFilter, clearFiltersBtn, filterCountBadge, countDisplay) {
-    const sessionSelect = document.getElementById('session-select');
-    const sessionId = sessionSelect ? sessionSelect.value : '';
-
-    if (!sessionId) {
-        console.error('No session ID found for virtual scrolling');
-        return;
-    }
-
-    // Show loading indicator
-    const chatListContainer = container.querySelector('#chat-list');
-    if (!chatListContainer) return;
-
-    chatListContainer.innerHTML = '<div style="padding: 2rem; text-align: center;">Loading chats for virtual scrolling...</div>';
-
-    try {
-        // Fetch all chats via JSON API
-        const response = await fetch(`/api/chats/json?session_select=${encodeURIComponent(sessionId)}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch chats: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const chats = data.chats || [];
-        const totalCount = data.total_count || chats.length;
-
-        // Clear the chat list container
-        chatListContainer.innerHTML = '';
-
-        // Initialize virtual chat list
-        if (virtualChatListInstance) {
-            virtualChatListInstance.destroy();
-        }
-
-        virtualChatListInstance = new VirtualChatList();
-        virtualChatListInstance.init(chatListContainer, chats, {
-            itemHeight: 70,
-            onSelectionChange: (selectedIds) => {
-                // Update selection count
-                const visibleCount = virtualChatListInstance.getVisibleCount();
-                countDisplay.textContent = `${selectedIds.size} of ${visibleCount} selected`;
-
-                // Update hidden inputs for form submission
-                updateHiddenInputs(selectedIds);
-            }
-        });
-
-        // Setup event listeners for controls
-        selectAllBtn.addEventListener('click', () => {
-            virtualChatListInstance.selectAll();
-        });
-
-        selectNoneBtn.addEventListener('click', () => {
-            virtualChatListInstance.selectNone();
-        });
-
-        if (searchInput) {
-            let searchDebounceTimer = null;
-            searchInput.addEventListener('input', () => {
-                clearTimeout(searchDebounceTimer);
-                searchDebounceTimer = setTimeout(() => {
-                    virtualChatListInstance.applyFilters(
-                        searchInput.value,
-                        typeFilter ? typeFilter.value : ''
-                    );
-                    updateSelectionCount();
-                    updateFilterCount();
-                }, 300);
-            });
-        }
-
-        if (typeFilter) {
-            typeFilter.addEventListener('change', () => {
-                virtualChatListInstance.applyFilters(
-                    searchInput ? searchInput.value : '',
-                    typeFilter.value
-                );
-                updateSelectionCount();
-                updateFilterCount();
-            });
-        }
-
-        if (clearFiltersBtn) {
-            clearFiltersBtn.addEventListener('click', () => {
-                if (searchInput) searchInput.value = '';
-                if (typeFilter) typeFilter.value = '';
-                virtualChatListInstance.applyFilters('', '');
-                updateSelectionCount();
-                updateFilterCount();
-            });
-        }
-
-        function updateSelectionCount() {
-            const selectedCount = virtualChatListInstance.getSelectionCount();
-            const visibleCount = virtualChatListInstance.getVisibleCount();
-            countDisplay.textContent = `${selectedCount} of ${visibleCount} selected`;
-        }
-
-        function updateFilterCount() {
-            if (!filterCountBadge || !clearFiltersBtn) return;
-
-            let count = 0;
-            if (searchInput && searchInput.value) count++;
-            if (typeFilter && typeFilter.value) count++;
-
-            if (count > 0) {
-                filterCountBadge.textContent = count;
-                filterCountBadge.style.display = 'inline-block';
-                clearFiltersBtn.disabled = false;
-            } else {
-                filterCountBadge.style.display = 'none';
-                clearFiltersBtn.disabled = true;
-            }
-        }
-
-        function updateHiddenInputs(selectedIds) {
-            // Remove existing hidden inputs
-            const form = document.getElementById('analysis-form');
-            if (!form) return;
-
-            const existingInputs = form.querySelectorAll('input[name="chat_ids"][type="hidden"]');
-            existingInputs.forEach(input => input.remove());
-
-            // Add new hidden inputs for selected chats
-            selectedIds.forEach(chatId => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'chat_ids';
-                input.value = chatId;
-                form.appendChild(input);
-            });
-        }
-
-        // Initial count update
-        updateSelectionCount();
-        updateFilterCount();
-
-    } catch (error) {
-        console.error('Failed to initialize virtual chat list:', error);
-        chatListContainer.innerHTML = `
-            <div class="alert alert-error">
-                <p>Failed to load chats for virtual scrolling. Please try refreshing the page.</p>
-                <button onclick="window.location.reload()" class="btn btn-sm btn-primary">Refresh Page</button>
-            </div>
-        `;
-    }
-}
 </script>
 {% endblock %}

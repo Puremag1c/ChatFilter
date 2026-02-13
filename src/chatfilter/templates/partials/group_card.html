@@ -1,5 +1,131 @@
 <div class="group-card" id="group-{{ group.id }}">
     <h3>{{ group.name }}</h3>
-    <p>Chats: {{ stats.total_chats }}</p>
-    <p>Status: {{ group.status }}</p>
+
+    <span class="status-badge {{ group.status.value }}">{{ group.status.value }}</span>
+
+    <div class="group-stats">
+        <div class="stat-row">
+            <span>{{ _("Total chats") }}:</span>
+            <strong>{{ stats.total }}</strong>
+        </div>
+        <div class="stat-row">
+            <span>{{ _("Analyzed") }}:</span>
+            <strong>{{ stats.analyzed }} / {{ stats.total }}</strong>
+        </div>
+        <div class="stat-row">
+            <span>{{ _("Failed") }}:</span>
+            <strong>{{ stats.failed }}</strong>
+        </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-bar">
+        {% set progress_pct = (stats.analyzed / stats.total * 100) if stats.total > 0 else 0 %}
+        <div class="progress-fill" style="width: {{ progress_pct }}%"></div>
+    </div>
+
+    <!-- Type breakdown -->
+    <div class="type-breakdown">
+        {% if stats.pending > 0 %}
+        <span class="type-badge pending">{{ _("Pending") }}: {{ stats.pending }}</span>
+        {% endif %}
+        {% if stats.groups > 0 %}
+        <span class="type-badge group">{{ _("Groups") }}: {{ stats.groups }}</span>
+        {% endif %}
+        {% if stats.forums > 0 %}
+        <span class="type-badge forum">{{ _("Forums") }}: {{ stats.forums }}</span>
+        {% endif %}
+        {% if stats.channels_with_comments > 0 %}
+        <span class="type-badge channel-comments">{{ _("Channels+") }}: {{ stats.channels_with_comments }}</span>
+        {% endif %}
+        {% if stats.channels_no_comments > 0 %}
+        <span class="type-badge channel-no-comments">{{ _("Channels") }}: {{ stats.channels_no_comments }}</span>
+        {% endif %}
+        {% if stats.dead > 0 %}
+        <span class="type-badge dead">{{ _("Dead") }}: {{ stats.dead }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Action buttons -->
+    <div class="group-actions">
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/settings/{{ group.id }}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            {{ _("Настроить анализ") }}
+        </button>
+
+        {% if group.status.value == 'in_progress' %}
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/{{ group.id }}/stop"
+                hx-target="#group-{{ group.id }}"
+                hx-swap="outerHTML">
+            {{ _("Остановить анализ") }}
+        </button>
+        {% else %}
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/{{ group.id }}/start"
+                hx-target="#group-{{ group.id }}"
+                hx-swap="outerHTML">
+            {{ _("Начать анализ") }}
+        </button>
+        {% endif %}
+
+        {% if stats.analyzed > 0 %}
+        <a class="btn btn-success btn-sm"
+           href="/api/groups/{{ group.id }}/export"
+           download>
+            {{ _("Скачать результат") }}
+        </a>
+        {% endif %}
+
+        <button class="btn btn-danger btn-sm"
+                hx-delete="/api/groups/{{ group.id }}"
+                hx-target="#group-{{ group.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="{{ _('Delete group? This cannot be undone.') }}">
+            {{ _("Удалить") }}
+        </button>
+    </div>
+
+    <!-- SSE progress updates (for in_progress status) -->
+    {% if group.status.value == 'in_progress' %}
+    <script>
+    (function() {
+        const groupId = '{{ group.id }}';
+        const eventSource = new EventSource('/api/groups/' + groupId + '/progress');
+
+        eventSource.addEventListener('init', function(e) {
+            const data = JSON.parse(e.data);
+            console.log('Progress init:', data);
+        });
+
+        eventSource.addEventListener('progress', function(e) {
+            const data = JSON.parse(e.data);
+            console.log('Progress update:', data);
+            // Refresh group card
+            htmx.ajax('GET', '/api/groups/' + groupId, {
+                target: '#group-' + groupId,
+                swap: 'outerHTML'
+            });
+        });
+
+        eventSource.addEventListener('complete', function(e) {
+            const data = JSON.parse(e.data);
+            console.log('Progress complete:', data);
+            // Final refresh and close connection
+            htmx.ajax('GET', '/api/groups/' + groupId, {
+                target: '#group-' + groupId,
+                swap: 'outerHTML'
+            });
+            eventSource.close();
+        });
+
+        eventSource.addEventListener('error', function(e) {
+            console.error('SSE error:', e);
+            eventSource.close();
+        });
+    })();
+    </script>
+    {% endif %}
 </div>
