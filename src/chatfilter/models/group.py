@@ -354,6 +354,7 @@ class GroupStats(BaseModel):
         ...     channels_no_comments=0,
         ...     analyzed=3,
         ...     failed=1,
+        ...     skipped_moderation=0,
         ... )
         >>> stats.total
         10
