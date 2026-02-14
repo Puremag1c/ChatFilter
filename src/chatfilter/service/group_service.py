@@ -144,7 +144,7 @@ class GroupService:
         return ChatGroup(
             id=group_data["id"],
             name=group_data["name"],
-            settings=GroupSettings(**group_data["settings"]),
+            settings=GroupSettings.from_dict(group_data["settings"]),
             status=GroupStatus(group_data["status"]),
             chat_count=chat_count,
             created_at=group_data["created_at"],
@@ -169,7 +169,7 @@ class GroupService:
             ChatGroup(
                 id=group_data["id"],
                 name=group_data["name"],
-                settings=GroupSettings(**group_data["settings"]),
+                settings=GroupSettings.from_dict(group_data["settings"]),
                 status=GroupStatus(group_data["status"]),
                 chat_count=group_data["chat_count"],
                 created_at=group_data["created_at"],

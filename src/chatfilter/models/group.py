@@ -91,6 +91,46 @@ class GroupSettings(BaseModel):
         return self.detect_activity or self.detect_unique_authors or self.detect_captcha
 
     @classmethod
+    def from_dict(cls, data: dict) -> GroupSettings:
+        """Create GroupSettings from dict, handling legacy format.
+
+        Migrates old settings format (message_limit, leave_after_analysis) to new format.
+        Old fields are ignored, defaults are used for new fields.
+
+        Args:
+            data: Settings dictionary (may contain old or new format).
+
+        Returns:
+            GroupSettings instance with migrated data.
+
+        Example:
+            >>> # New format works as-is
+            >>> settings = GroupSettings.from_dict({"detect_chat_type": False})
+            >>> settings.detect_chat_type
+            False
+            >>> # Old format gets default values
+            >>> old_settings = GroupSettings.from_dict({"message_limit": 100})
+            >>> old_settings.detect_chat_type
+            True
+        """
+        # Define known new field names
+        new_fields = {
+            "detect_chat_type",
+            "detect_subscribers",
+            "detect_activity",
+            "detect_unique_authors",
+            "detect_moderation",
+            "detect_captcha",
+            "time_window",
+        }
+
+        # Filter data to only include known new fields
+        filtered_data = {k: v for k, v in data.items() if k in new_fields}
+
+        # Create GroupSettings with filtered data (missing fields use defaults)
+        return cls(**filtered_data)
+
+    @classmethod
     def fake(
         cls,
         detect_chat_type: bool = True,
