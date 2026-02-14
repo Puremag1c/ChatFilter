@@ -20,7 +20,7 @@ from chatfilter.analyzer.group_engine import (
     NoConnectedAccountsError,
 )
 from chatfilter.analyzer.task_queue import get_task_queue
-from chatfilter.exporter import export_to_csv
+from chatfilter.exporter.csv import export_group_results_to_csv
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
@@ -731,9 +731,10 @@ async def get_group_progress(
 
 @router.get("/api/groups/{group_id}/export")
 async def export_group_results(group_id: str) -> Response:
-    """Export group analysis results as CSV.
+    """Export group analysis results as CSV with dynamic columns.
 
-    Downloads all analyzed chats for the group with their metrics.
+    Columns are determined by the group's settings - only selected
+    metrics are included in the CSV output.
 
     Args:
         group_id: Group identifier
@@ -744,7 +745,7 @@ async def export_group_results(group_id: str) -> Response:
     Raises:
         HTTPException: If group not found or no results available
     """
-    # Verify group exists
+    # Verify group exists and load settings
     service = _get_group_service()
     group = service.get_group(group_id)
 
@@ -760,62 +761,12 @@ async def export_group_results(group_id: str) -> Response:
             detail="No analysis results available for this group",
         )
 
-    # Convert database results to AnalysisResult objects
-    analysis_results: list[AnalysisResult] = []
-
-    for result in results_data:
-        metrics_dict = result["metrics_data"]
-
-        # Extract chat info from metrics_data
-        # The metrics_data structure varies, but typically includes chat metadata
-        chat_ref = result["chat_ref"]
-
-        # Try to determine chat type from group_chats table
-        with service._db._connection() as conn:
-            cursor = conn.execute(
-                "SELECT chat_type FROM group_chats WHERE group_id = ? AND chat_ref = ?",
-                (group_id, chat_ref),
-            )
-            row = cursor.fetchone()
-
-        if row:
-            chat_type_str = row["chat_type"]
-            # Map ChatTypeEnum to ChatType
-            type_mapping = {
-                ChatTypeEnum.GROUP.value: ChatType.GROUP,
-                ChatTypeEnum.FORUM.value: ChatType.FORUM,
-                ChatTypeEnum.CHANNEL_COMMENTS.value: ChatType.CHANNEL_WITH_COMMENTS,
-                ChatTypeEnum.CHANNEL_NO_COMMENTS.value: ChatType.CHANNEL_NO_COMMENTS,
-                ChatTypeEnum.DEAD.value: ChatType.CHANNEL_NO_COMMENTS,  # Fallback
-                ChatTypeEnum.PENDING.value: ChatType.GROUP,  # Fallback
-            }
-            chat_type = type_mapping.get(chat_type_str, ChatType.GROUP)
-        else:
-            chat_type = ChatType.GROUP  # Fallback
-
-        # Create AnalysisResult
-        # Note: metrics_data might not have all fields, use sensible defaults
-        analysis_result = AnalysisResult(
-            chat=Chat(
-                id=metrics_dict.get("chat_id", 0),
-                title=metrics_dict.get("chat_title", chat_ref),
-                chat_type=chat_type,
-                username=metrics_dict.get("chat_username"),
-            ),
-            metrics=ChatMetrics(
-                message_count=metrics_dict.get("message_count", 0),
-                unique_authors=metrics_dict.get("unique_authors", 0),
-                history_hours=metrics_dict.get("history_hours", 0.0),
-                first_message_at=metrics_dict.get("first_message_at"),
-                last_message_at=metrics_dict.get("last_message_at"),
-            ),
-            analyzed_at=result["analyzed_at"],
-        )
-
-        analysis_results.append(analysis_result)
-
-    # Generate CSV using existing exporter
-    csv_content = export_to_csv(analysis_results, include_bom=True)
+    # Generate CSV using dynamic exporter with group settings
+    csv_content = export_group_results_to_csv(
+        results_data,
+        settings=group.settings,
+        include_bom=True,
+    )
 
     # Generate filename
     from datetime import UTC, datetime
