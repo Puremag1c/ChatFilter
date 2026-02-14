@@ -5,7 +5,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
+from chatfilter.models.group import GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
 
 
@@ -24,8 +26,13 @@ def sample_group_data():
         "id": "group_123",
         "name": "Test Group",
         "settings": {
-            "message_limit": 100,
-            "leave_after_analysis": False,
+            "detect_chat_type": True,
+            "detect_subscribers": True,
+            "detect_activity": True,
+            "detect_unique_authors": True,
+            "detect_moderation": True,
+            "detect_captcha": True,
+            "time_window": 24,
         },
         "status": "pending",
     }
@@ -108,7 +115,15 @@ def test_update_group(temp_db, sample_group_data):
     )
 
     # Update group
-    new_settings = {"message_limit": 500, "leave_after_analysis": True}
+    new_settings = {
+        "detect_chat_type": False,
+        "detect_subscribers": True,
+        "detect_activity": False,
+        "detect_unique_authors": True,
+        "detect_moderation": False,
+        "detect_captcha": True,
+        "time_window": 48,
+    }
     temp_db.save_group(
         group_id=sample_group_data["id"],
         name="Updated Name",
@@ -130,7 +145,15 @@ def test_load_all_groups(temp_db):
         temp_db.save_group(
             group_id=f"group_{i}",
             name=f"Group {i}",
-            settings={"message_limit": 100},
+            settings={
+                "detect_chat_type": True,
+                "detect_subscribers": True,
+                "detect_activity": True,
+                "detect_unique_authors": True,
+                "detect_moderation": True,
+                "detect_captcha": True,
+                "time_window": 24,
+            },
             status="pending",
         )
 
@@ -418,8 +441,13 @@ def test_timestamps(temp_db, sample_group_data):
 def test_json_serialization(temp_db, sample_group_data):
     """Test that complex JSON structures are properly serialized."""
     complex_settings = {
-        "message_limit": 1000,
-        "leave_after_analysis": True,
+        "detect_chat_type": True,
+        "detect_subscribers": False,
+        "detect_activity": True,
+        "detect_unique_authors": False,
+        "detect_moderation": True,
+        "detect_captcha": False,
+        "time_window": 6,
         "filters": {
             "min_members": 100,
             "max_members": 10000,
@@ -440,3 +468,120 @@ def test_json_serialization(temp_db, sample_group_data):
     assert loaded["settings"] == complex_settings
     assert loaded["settings"]["filters"]["keywords"] == ["test", "demo"]
     assert loaded["settings"]["nested"]["deep"]["value"] == 42
+
+
+class TestGroupSettings:
+    """Test GroupSettings model validation and behavior."""
+
+    def test_default_settings(self):
+        """Test that default settings have all metrics enabled."""
+        settings = GroupSettings()
+        assert settings.detect_chat_type is True
+        assert settings.detect_subscribers is True
+        assert settings.detect_activity is True
+        assert settings.detect_unique_authors is True
+        assert settings.detect_moderation is True
+        assert settings.detect_captcha is True
+        assert settings.time_window == 24
+
+    def test_needs_join_all_disabled(self):
+        """Test needs_join returns False when all join-required metrics are disabled."""
+        settings = GroupSettings(
+            detect_activity=False,
+            detect_unique_authors=False,
+            detect_captcha=False,
+        )
+        assert settings.needs_join() is False
+
+    def test_needs_join_activity_enabled(self):
+        """Test needs_join returns True when detect_activity is enabled."""
+        settings = GroupSettings(
+            detect_activity=True,
+            detect_unique_authors=False,
+            detect_captcha=False,
+        )
+        assert settings.needs_join() is True
+
+    def test_needs_join_unique_authors_enabled(self):
+        """Test needs_join returns True when detect_unique_authors is enabled."""
+        settings = GroupSettings(
+            detect_activity=False,
+            detect_unique_authors=True,
+            detect_captcha=False,
+        )
+        assert settings.needs_join() is True
+
+    def test_needs_join_captcha_enabled(self):
+        """Test needs_join returns True when detect_captcha is enabled."""
+        settings = GroupSettings(
+            detect_activity=False,
+            detect_unique_authors=False,
+            detect_captcha=True,
+        )
+        assert settings.needs_join() is True
+
+    def test_needs_join_multiple_enabled(self):
+        """Test needs_join returns True when multiple join-required metrics are enabled."""
+        settings = GroupSettings(
+            detect_activity=True,
+            detect_unique_authors=True,
+            detect_captcha=True,
+        )
+        assert settings.needs_join() is True
+
+    def test_time_window_valid_values(self):
+        """Test that valid time_window values are accepted."""
+        for value in [1, 6, 24, 48]:
+            settings = GroupSettings(time_window=value)
+            assert settings.time_window == value
+
+    def test_time_window_invalid_value(self):
+        """Test that invalid time_window values are rejected."""
+        with pytest.raises(ValidationError, match="time_window must be one of"):
+            GroupSettings(time_window=12)
+
+    def test_time_window_negative(self):
+        """Test that negative time_window values are rejected."""
+        with pytest.raises(ValidationError, match="time_window must be one of"):
+            GroupSettings(time_window=-1)
+
+    def test_fake_method_defaults(self):
+        """Test that fake() method creates settings with default values."""
+        settings = GroupSettings.fake()
+        assert settings.detect_chat_type is True
+        assert settings.detect_subscribers is True
+        assert settings.detect_activity is True
+        assert settings.detect_unique_authors is True
+        assert settings.detect_moderation is True
+        assert settings.detect_captcha is True
+        assert settings.time_window == 24
+
+    def test_fake_method_custom_values(self):
+        """Test that fake() method accepts custom values."""
+        settings = GroupSettings.fake(
+            detect_chat_type=False,
+            detect_subscribers=False,
+            detect_activity=False,
+            detect_unique_authors=False,
+            detect_moderation=False,
+            detect_captcha=False,
+            time_window=6,
+        )
+        assert settings.detect_chat_type is False
+        assert settings.detect_subscribers is False
+        assert settings.detect_activity is False
+        assert settings.detect_unique_authors is False
+        assert settings.detect_moderation is False
+        assert settings.detect_captcha is False
+        assert settings.time_window == 6
+
+    def test_model_is_frozen(self):
+        """Test that GroupSettings is frozen (immutable)."""
+        settings = GroupSettings()
+        with pytest.raises(ValidationError):
+            settings.detect_chat_type = False
+
+    def test_extra_fields_forbidden(self):
+        """Test that extra fields are forbidden."""
+        with pytest.raises(ValidationError):
+            GroupSettings(unknown_field="value")

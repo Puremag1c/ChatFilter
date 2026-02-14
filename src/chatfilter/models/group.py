@@ -44,13 +44,20 @@ class GroupSettings(BaseModel):
     """Settings for group analysis.
 
     Attributes:
-        message_limit: Maximum messages to analyze per chat (10-10000).
-        leave_after_analysis: Whether to leave chat after analysis.
+        detect_chat_type: Whether to detect chat type (group/channel/forum).
+        detect_subscribers: Whether to detect subscriber count.
+        detect_activity: Whether to detect message activity metrics.
+        detect_unique_authors: Whether to detect unique author count.
+        detect_moderation: Whether to detect moderation settings.
+        detect_captcha: Whether to detect captcha presence.
+        time_window: Time window in hours for activity analysis (1/6/24/48).
 
     Example:
-        >>> settings = GroupSettings(message_limit=100)
-        >>> settings.message_limit
-        100
+        >>> settings = GroupSettings()
+        >>> settings.detect_chat_type
+        True
+        >>> settings.time_window
+        24
     """
 
     model_config = ConfigDict(
@@ -59,35 +66,63 @@ class GroupSettings(BaseModel):
         extra="forbid",
     )
 
-    message_limit: int = 100
-    leave_after_analysis: bool = False
+    detect_chat_type: bool = True
+    detect_subscribers: bool = True
+    detect_activity: bool = True
+    detect_unique_authors: bool = True
+    detect_moderation: bool = True
+    detect_captcha: bool = True
+    time_window: int = 24
 
-    @field_validator("message_limit")
+    @field_validator("time_window")
     @classmethod
-    def message_limit_in_range(cls, v: int) -> int:
-        """Validate that message_limit is in valid range."""
-        if v < 10 or v > 10000:
-            raise ValueError("message_limit must be between 10 and 10000")
+    def time_window_must_be_valid(cls, v: int) -> int:
+        """Validate that time_window is one of allowed values."""
+        if v not in (1, 6, 24, 48):
+            raise ValueError("time_window must be one of: 1, 6, 24, 48")
         return v
+
+    def needs_join(self) -> bool:
+        """Check if analysis requires joining the chat.
+
+        Returns:
+            True if any metric requires joining the chat.
+        """
+        return self.detect_activity or self.detect_unique_authors or self.detect_captcha
 
     @classmethod
     def fake(
         cls,
-        message_limit: int | None = None,
-        leave_after_analysis: bool = False,
+        detect_chat_type: bool = True,
+        detect_subscribers: bool = True,
+        detect_activity: bool = True,
+        detect_unique_authors: bool = True,
+        detect_moderation: bool = True,
+        detect_captcha: bool = True,
+        time_window: int = 24,
     ) -> GroupSettings:
         """Create fake GroupSettings for testing.
 
         Args:
-            message_limit: Message limit (default: 100).
-            leave_after_analysis: Whether to leave after analysis (default: False).
+            detect_chat_type: Whether to detect chat type (default: True).
+            detect_subscribers: Whether to detect subscribers (default: True).
+            detect_activity: Whether to detect activity (default: True).
+            detect_unique_authors: Whether to detect unique authors (default: True).
+            detect_moderation: Whether to detect moderation (default: True).
+            detect_captcha: Whether to detect captcha (default: True).
+            time_window: Time window in hours (default: 24).
 
         Returns:
             GroupSettings instance with test data.
         """
         return cls(
-            message_limit=message_limit if message_limit is not None else 100,
-            leave_after_analysis=leave_after_analysis,
+            detect_chat_type=detect_chat_type,
+            detect_subscribers=detect_subscribers,
+            detect_activity=detect_activity,
+            detect_unique_authors=detect_unique_authors,
+            detect_moderation=detect_moderation,
+            detect_captcha=detect_captcha,
+            time_window=time_window,
         )
 
 
