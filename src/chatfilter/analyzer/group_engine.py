@@ -148,12 +148,14 @@ class GroupAnalysisEngine:
         if not group_data:
             raise GroupNotFoundError(f"Group not found: {group_id}")
 
-        # Clear old analysis results atomically before starting new analysis.
-        # This ensures re-runs refresh all data. If analysis crashes mid-run,
-        # old data is already cleared, but partial new data from Phase 1/2
-        # will be saved via save_result() calls.
+        # Clear old results AND reset chat statuses before re-analysis.
+        # Both must happen together: clear_results removes group_results rows,
+        # reset_chat_statuses sets all chats back to pending so they get
+        # reprocessed. Without the status reset, done chats would be skipped
+        # but their results would be gone — causing empty CSV exports.
         self._db.clear_results(group_id)
-        logger.info(f"Cleared old results for group '{group_id}'")
+        self._db.reset_chat_statuses(group_id)
+        logger.info(f"Cleared old results and reset chat statuses for group '{group_id}'")
 
         settings = GroupSettings.from_dict(group_data["settings"])
 

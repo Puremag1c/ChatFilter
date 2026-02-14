@@ -544,6 +544,101 @@ def test_export_group_results_returns_csv(
     assert "status" in header
 
 
+def test_export_group_results_includes_data_rows(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+) -> None:
+    """Test that export endpoint returns data rows when results exist.
+
+    This reproduces the SMOKE TEST scenario where a group has analyzed
+    chats with results in the database, and the export should include
+    both header and data rows in the CSV output.
+    """
+    import csv
+    import re
+    from datetime import UTC, datetime
+
+    # Create group via API
+    csrf_token = get_csrf_token(fastapi_test_client)
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "Export Data Rows Test",
+        "source_type": "file_upload",
+    }
+
+    response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert response.status_code == 200
+
+    # Extract group_id
+    match = re.search(r'id="group-([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'/api/groups/([^/"]+)/export', response.text)
+    assert match, f"Could not find group_id in response"
+    group_id = match.group(1)
+
+    # Save analysis results directly to DB (simulating completed analysis)
+    from chatfilter.config import get_settings
+    from chatfilter.storage.group_database import GroupDatabase
+
+    settings = get_settings()
+    db = GroupDatabase(settings.data_dir / "groups.db")
+    db.save_result(
+        group_id=group_id,
+        chat_ref="https://t.me/testchat1",
+        metrics_data={
+            "title": "Test Chat 1",
+            "chat_type": "group",
+            "subscribers": 500,
+            "status": "done",
+        },
+        analyzed_at=datetime.now(UTC),
+    )
+    db.save_result(
+        group_id=group_id,
+        chat_ref="https://t.me/testchat2",
+        metrics_data={
+            "title": "Test Chat 2",
+            "chat_type": "channel",
+            "subscribers": 1000,
+            "status": "done",
+        },
+        analyzed_at=datetime.now(UTC),
+    )
+
+    # Export via HTTP endpoint
+    export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"] == "text/csv; charset=utf-8"
+
+    # Parse CSV content
+    csv_text = export_response.text
+    if csv_text.startswith('\ufeff'):
+        csv_text = csv_text[1:]
+
+    reader = csv.DictReader(io.StringIO(csv_text))
+    rows = list(reader)
+
+    # Must have 2 data rows
+    assert len(rows) == 2, f"Expected 2 data rows, got {len(rows)}"
+
+    # Verify data content
+    chat_refs = {row["chat_ref"] for row in rows}
+    assert "https://t.me/testchat1" in chat_refs
+    assert "https://t.me/testchat2" in chat_refs
+
+    # Cleanup
+    db.delete_group(group_id)
+
+
 def test_export_nonexistent_group_returns_404(
     fastapi_test_client: TestClient,
 ) -> None:

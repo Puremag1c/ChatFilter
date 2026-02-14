@@ -393,6 +393,26 @@ class GroupDatabase(SQLiteDatabase):
                 (group_id,),
             )
 
+    def reset_chat_statuses(self, group_id: str) -> None:
+        """Reset all chat statuses to pending for re-analysis.
+
+        Must be called together with clear_results() when restarting
+        analysis, so that previously-done chats get reprocessed.
+
+        Args:
+            group_id: Group identifier
+        """
+        with self._connection() as conn:
+            conn.execute(
+                """
+                UPDATE group_chats
+                SET status = 'pending', chat_type = 'pending',
+                    assigned_account = NULL, error = NULL
+                WHERE group_id = ?
+                """,
+                (group_id,),
+            )
+
     def get_group_stats(self, group_id: str) -> dict[str, int]:
         """Get statistics for a group's chats.
 
