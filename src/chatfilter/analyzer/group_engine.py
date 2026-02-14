@@ -220,6 +220,11 @@ class GroupAnalysisEngine:
                     exc_info=result,
                 )
 
+        # Check completion after Phase 1 if Phase 2 not needed
+        if not settings.needs_join():
+            self._check_and_complete_if_done(group_id)
+            return
+
         # Phase 2: Activity metrics (only if needed)
         if settings.needs_join():
             logger.info(f"Phase 2: Activity metrics needed for group '{group_id}'")
@@ -240,6 +245,9 @@ class GroupAnalysisEngine:
                         f"Account '{account_id}' Phase 2 failed: {result}",
                         exc_info=result,
                     )
+
+            # Check completion after Phase 2
+            self._check_and_complete_if_done(group_id)
         else:
             logger.info(
                 f"Phase 2 skipped for group '{group_id}': "
@@ -954,6 +962,52 @@ class GroupAnalysisEngine:
             metrics_data=metrics,
         )
 
+    def _check_and_complete_if_done(self, group_id: str) -> None:
+        """Check if all chats processed and mark group COMPLETED if done.
+
+        Counts DONE + FAILED chats vs total. If all processed, sets group
+        status to COMPLETED and publishes completion event to subscribers.
+
+        Args:
+            group_id: Group identifier to check.
+        """
+        all_chats = self._db.load_chats(group_id=group_id)
+        if not all_chats:
+            return
+
+        total = len(all_chats)
+        done = sum(
+            1 for c in all_chats
+            if c["status"] in (GroupChatStatus.DONE.value, GroupChatStatus.FAILED.value)
+        )
+
+        if done >= total:
+            logger.info(
+                f"Group '{group_id}': all {total} chats processed "
+                f"— marking COMPLETED"
+            )
+
+            group_data = self._db.load_group(group_id)
+            if group_data:
+                self._db.save_group(
+                    group_id=group_id,
+                    name=group_data["name"],
+                    settings=group_data["settings"],
+                    status=GroupStatus.COMPLETED.value,
+                    created_at=group_data["created_at"],
+                    updated_at=datetime.now(UTC),
+                )
+
+                # Publish completion event to SSE subscribers
+                event = GroupProgressEvent(
+                    group_id=group_id,
+                    status=GroupStatus.COMPLETED.value,
+                    current=done,
+                    total=total,
+                    message="Analysis completed",
+                )
+                self._publish_event(event)
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -1062,3 +1116,19 @@ class GroupAnalysisEngine:
         queue: asyncio.Queue[GroupProgressEvent] = asyncio.Queue()
         self._subscribers.setdefault(group_id, []).append(queue)
         return queue
+
+    def _publish_event(self, event: GroupProgressEvent) -> None:
+        """Publish progress event to all subscribers of the group.
+
+        Args:
+            event: Progress event to publish.
+        """
+        subscribers = self._subscribers.get(event.group_id, [])
+        for queue in subscribers:
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                logger.warning(
+                    f"Subscriber queue full for group '{event.group_id}', "
+                    f"dropping event"
+                )
