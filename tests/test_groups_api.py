@@ -219,9 +219,12 @@ def test_start_analysis_endpoint(
         headers={"X-CSRF-Token": csrf_token},
     )
 
-    # Should succeed (200), return 404 if group not found,
-    # or 400 if no connected Telegram accounts (expected in test environment)
-    assert response.status_code in (200, 400, 404)
+    # Should succeed (204 No Content with HX-Trigger header), return 404 if group not found,
+    # or 200 with error card if no connected Telegram accounts (expected in test environment)
+    assert response.status_code in (204, 200, 404)
+    # If 200, it should be error card (NoConnectedAccountsError)
+    if response.status_code == 200:
+        assert "error" in response.text.lower() or "account" in response.text.lower()
 
 
 def test_stop_analysis_endpoint(
@@ -276,9 +279,9 @@ def test_stop_analysis_endpoint(
         headers={"X-CSRF-Token": csrf_token},
     )
 
-    # Should succeed (200), return 404 if group not found,
+    # Should succeed (204 No Content with HX-Trigger header), return 404 if group not found,
     # or 400 if no connected Telegram accounts (expected in test environment)
-    assert response.status_code in (200, 400, 404)
+    assert response.status_code in (204, 400, 404)
 
 
 def test_nonexistent_group_operations(

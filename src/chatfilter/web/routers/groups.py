@@ -579,8 +579,8 @@ async def delete_group(group_id: str) -> HTMLResponse:
         service = _get_group_service()
         service.delete_group(group_id)
 
-        # Return empty response - HTMX will handle DOM removal via OOB swap
-        return HTMLResponse(content="", status_code=200)
+        # Return empty response with HX-Trigger header to refresh the container
+        return HTMLResponse(content="", status_code=200, headers={'HX-Trigger': 'refreshGroups'})
 
     except Exception as e:
         raise HTTPException(
@@ -902,13 +902,8 @@ async def start_group_analysis(
                 },
             )
 
-        stats = service.get_group_stats(group_id)
-
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/group_card.html",
-            context={"group": updated_group, "stats": stats},
-        )
+        # Return 204 No Content with HX-Trigger header to refresh the container
+        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
 
     except HTTPException:
         raise
@@ -956,13 +951,8 @@ async def stop_group_analysis(
         if not updated_group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        stats = service.get_group_stats(group_id)
-
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/group_card.html",
-            context={"group": updated_group, "stats": stats},
-        )
+        # Return 204 No Content with HX-Trigger header to refresh the container
+        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
 
     except HTTPException:
         raise

@@ -160,7 +160,7 @@
 
     <div id="groups-container"
          hx-get="/api/groups"
-         hx-trigger="load, every 3s [document.querySelector('.status-badge.in_progress')]"
+         hx-trigger="load, every 3s [document.querySelector('.status-badge.in_progress')], refreshGroups from:body"
          hx-swap="innerHTML"
          role="region"
          aria-live="polite"
@@ -175,6 +175,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/groups.js"></script>
 <script>
 // Refresh groups list when a group is created/deleted
 document.body.addEventListener('htmx:afterSwap', function(event) {
