@@ -131,9 +131,10 @@ class GroupAnalysisEngine:
         """Start two-phase analysis for a group.
 
         1. Load group and validate
-        2. Distribute PENDING chats across connected accounts
-        3. Phase 1: Resolve metadata without joining
-        4. Phase 2: Join for activity metrics (only if needed)
+        2. Clear old results atomically before starting
+        3. Distribute PENDING chats across connected accounts
+        4. Phase 1: Resolve metadata without joining
+        5. Phase 2: Join for activity metrics (only if needed)
 
         Args:
             group_id: Group identifier to analyze.
@@ -145,6 +146,13 @@ class GroupAnalysisEngine:
         group_data = self._db.load_group(group_id)
         if not group_data:
             raise GroupNotFoundError(f"Group not found: {group_id}")
+
+        # Clear old analysis results atomically before starting new analysis.
+        # This ensures re-runs refresh all data. If analysis crashes mid-run,
+        # old data is already cleared, but partial new data from Phase 1/2
+        # will be saved via save_result() calls.
+        self._db.clear_results(group_id)
+        logger.info(f"Cleared old results for group '{group_id}'")
 
         settings = GroupSettings.from_dict(group_data["settings"])
 
