@@ -743,6 +743,29 @@ async def export_group_results(group_id: str) -> Response:
     # Load results from database
     results_data = service._db.load_results(group_id)
 
+    # Fallback: if group_results is empty but group_chats has processed chats,
+    # build minimal result rows from group_chats data. This handles the case
+    # where results were cleared (e.g. analysis restart) but chats still have
+    # done/failed status from a previous or interrupted run.
+    if not results_data:
+        processed_chats = [
+            chat for chat in service._db.load_chats(group_id)
+            if chat["status"] in ("done", "failed")
+        ]
+        if processed_chats:
+            results_data = [
+                {
+                    "chat_ref": chat["chat_ref"],
+                    "metrics_data": {
+                        "chat_type": chat["chat_type"],
+                        "title": "",
+                        "chat_ref": chat["chat_ref"],
+                        "status": chat["status"],
+                    },
+                }
+                for chat in processed_chats
+            ]
+
     # Always return CSV with headers, even if no results yet
     # This prevents browser from saving JSON error as a file
     csv_content = export_group_results_to_csv(

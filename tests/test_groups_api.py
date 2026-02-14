@@ -550,3 +550,77 @@ def test_export_nonexistent_group_returns_404(
     """Test that exporting non-existent group returns 404."""
     response = fastapi_test_client.get("/api/groups/nonexistent-id/export")
     assert response.status_code == 404
+
+
+def test_export_fallback_to_group_chats_when_results_empty(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+) -> None:
+    """Test that export falls back to group_chats data when group_results is empty.
+
+    This reproduces the bug where analysis processes chats (status=done in group_chats)
+    but group_results is empty (e.g. after analysis restart clears results).
+    """
+    import re
+
+    # Create group
+    csrf_token = get_csrf_token(fastapi_test_client)
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "Test Export Group",
+        "source_type": "file_upload",
+    }
+
+    response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert response.status_code == 200
+
+    # Extract group_id
+    match = re.search(r'id="group-([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'/api/groups/([^/"]+)/export', response.text)
+    assert match, f"Could not find group_id in response"
+    group_id = match.group(1)
+
+    # Directly update group_chats to simulate analysis ran (done status)
+    # but group_results is empty (simulating clear_results was called on restart)
+    from chatfilter.web.routers.groups import _get_group_service
+
+    service = _get_group_service()
+    chats = service._db.load_chats(group_id)
+    assert len(chats) >= 1, "Group should have at least one chat"
+
+    # Mark first chat as done with a chat_type
+    service._db.save_chat(
+        group_id=group_id,
+        chat_ref=chats[0]["chat_ref"],
+        chat_type="group",
+        status="done",
+        chat_id=chats[0]["id"],
+    )
+
+    # Verify group_results is empty for this group
+    results = service._db.load_results(group_id)
+    assert len(results) == 0, "group_results should be empty for this test"
+
+    # Export should return CSV with data rows from group_chats fallback
+    export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"] == "text/csv; charset=utf-8"
+
+    csv_text = export_response.text
+    if csv_text.startswith('\ufeff'):
+        csv_text = csv_text[1:]
+
+    lines = csv_text.strip().split('\n')
+    assert len(lines) >= 2, (
+        f"CSV should have header + at least 1 data row, got {len(lines)} lines: {lines}"
+    )
