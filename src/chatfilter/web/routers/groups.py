@@ -19,7 +19,6 @@ from chatfilter.analyzer.group_engine import (
     GroupAnalysisEngine,
     NoConnectedAccountsError,
 )
-from chatfilter.analyzer.task_queue import get_task_queue
 from chatfilter.exporter.csv import export_group_results_to_csv
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
@@ -227,29 +226,19 @@ def _get_group_engine(request: Request) -> GroupAnalysisEngine:
     if _group_engine is not None:
         return _group_engine
 
-    # Import RealAnalysisExecutor from analysis router
-    from chatfilter.web.routers.analysis import RealAnalysisExecutor
-
     # Get dependencies from app state and singletons
     session_manager = request.app.state.app_state.session_manager
     if session_manager is None:
         raise RuntimeError("SessionManager not initialized in app state")
 
-    task_queue = get_task_queue()
-
     # Get GroupDatabase from service
     service = _get_group_service()
     db = service._db
-
-    # Create executor
-    executor = RealAnalysisExecutor()
 
     # Create and cache engine
     _group_engine = GroupAnalysisEngine(
         db=db,
         session_manager=session_manager,
-        task_queue=task_queue,
-        executor=executor,
     )
 
     return _group_engine
