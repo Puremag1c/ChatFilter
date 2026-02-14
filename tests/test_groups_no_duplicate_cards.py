@@ -1,12 +1,12 @@
 """Regression tests for SSE duplicate group cards bug.
 
-Verifies the HX-Trigger single-source-of-truth pattern that prevents
-duplicate group cards on /chats page during HTMX polling.
+Verifies the fix that prevents duplicate group cards on /chats page.
 
-The root cause was competing swap mechanisms: container-level innerHTML poll
-and card-level outerHTML button responses both modified DOM simultaneously.
-The fix ensures action buttons use hx-swap="none" and return HX-Trigger
-headers instead of card HTML, so only the container poll updates the DOM.
+Root cause: HTMX innerHTML swap + settle processing + request-dedup
+interactions caused exponential card duplication during polling.
+Fix: replaced HTMX polling with vanilla JS fetch + innerHTML on
+#groups-container. Action buttons use hx-swap="none" + HX-Trigger
+headers to trigger the JS-based refresh.
 
 Regression for: ChatFilter-4ig52, ChatFilter-x778t
 """
@@ -226,4 +226,45 @@ class TestGroupCardTemplate:
         # The handleExportDownload function should be in groups.js, not inline
         assert "window.handleExportDownload" not in resp.text, (
             "Inline handleExportDownload in card HTML causes re-execution on swap"
+        )
+
+
+class TestChatsPageNoDuplicatePolling:
+    """Verify /chats page uses vanilla JS polling, not HTMX polling."""
+
+    def test_groups_container_no_htmx_polling(
+        self, fastapi_test_client: TestClient, tmp_path: Path
+    ) -> None:
+        """#groups-container must NOT have hx-get or hx-trigger attributes."""
+        import os
+        os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+        resp = fastapi_test_client.get("/chats")
+        assert resp.status_code == 200
+
+        container_match = re.search(r'id="groups-container"[^>]*>', resp.text)
+        assert container_match, "groups-container not found in /chats page"
+        container_html = container_match.group(0)
+        assert "hx-get" not in container_html, (
+            "groups-container has hx-get — HTMX polling causes duplicate cards"
+        )
+        assert "hx-trigger" not in container_html, (
+            "groups-container has hx-trigger — HTMX polling causes duplicate cards"
+        )
+
+    def test_chats_page_has_vanilla_js_polling(
+        self, fastapi_test_client: TestClient, tmp_path: Path
+    ) -> None:
+        """Chats page must include vanilla JS fetch-based polling script."""
+        import os
+        os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+        resp = fastapi_test_client.get("/chats")
+        assert resp.status_code == 200
+
+        assert "fetch('/api/groups')" in resp.text, (
+            "Chats page missing vanilla JS fetch polling for groups"
+        )
+        assert "refreshGroups" in resp.text, (
+            "Chats page missing refreshGroups event listener"
         )

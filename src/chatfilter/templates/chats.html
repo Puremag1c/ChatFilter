@@ -159,9 +159,6 @@
     </div>
 
     <div id="groups-container"
-         hx-get="/api/groups"
-         hx-trigger="load, every 3s [document.querySelector('.status-badge.in_progress')], refreshGroups from:body"
-         hx-swap="innerHTML"
          role="region"
          aria-live="polite"
          aria-label="{{ _("Groups list") }}">
@@ -177,11 +174,43 @@
 {% block scripts %}
 <script src="/static/js/groups.js"></script>
 <script>
-// Refresh groups list when a group is created/deleted
-document.body.addEventListener('htmx:afterSwap', function(event) {
-    if (event.detail.target.id === 'groups-container') {
-        console.log('Groups list updated');
+// Vanilla JS polling replaces HTMX polling to prevent duplicate card accumulation.
+// HTMX innerHTML swap + settle processing + request-dedup interactions caused
+// exponential card duplication. Plain fetch + innerHTML avoids all HTMX swap machinery.
+(function() {
+    var container = document.getElementById('groups-container');
+    var pollTimer = null;
+    var isRefreshing = false;
+
+    function refreshGroups() {
+        if (isRefreshing) return;
+        isRefreshing = true;
+        fetch('/api/groups')
+            .then(function(resp) { return resp.text(); })
+            .then(function(html) {
+                container.innerHTML = html;
+                htmx.process(container);
+                schedulePoll();
+            })
+            .catch(function() { schedulePoll(); })
+            .finally(function() { isRefreshing = false; });
     }
-});
+
+    function schedulePoll() {
+        if (pollTimer) clearTimeout(pollTimer);
+        var hasInProgress = container.querySelector('.status-badge.in_progress');
+        if (hasInProgress) {
+            pollTimer = setTimeout(refreshGroups, 3000);
+        }
+    }
+
+    // Listen for HX-Trigger refreshGroups events from button actions
+    document.body.addEventListener('refreshGroups', function() {
+        refreshGroups();
+    });
+
+    // Initial load
+    refreshGroups();
+})();
 </script>
 {% endblock %}
