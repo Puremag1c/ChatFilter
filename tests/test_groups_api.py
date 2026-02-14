@@ -470,3 +470,80 @@ def test_update_settings_invalid_time_window(
     assert response.status_code in (200, 400)
     if response.status_code == 200:
         assert "error" in response.text.lower() or "must be one of" in response.text.lower()
+
+
+def test_export_group_results_returns_csv(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+) -> None:
+    """Test that export endpoint returns CSV with correct Content-Disposition header."""
+    # Create group
+    csrf_token = get_csrf_token(fastapi_test_client)
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "Export Test Group",
+        "source_type": "file_upload",
+    }
+    
+    response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert response.status_code == 200
+    
+    # Extract group_id from response
+    import re
+    match = re.search(r'id="group-([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'/api/groups/([^/"]+)/export', response.text)
+    assert match, f"Could not find group_id in response. Response text: {response.text[:500]}"
+    group_id = match.group(1)
+    
+    # Export results (empty results is OK - we test the endpoint)
+    export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
+    
+    # Should return 200 with CSV content-type
+    assert export_response.status_code == 200
+    assert export_response.headers["content-type"] == "text/csv; charset=utf-8"
+    
+    # Check Content-Disposition header has filename
+    content_disposition = export_response.headers.get("content-disposition", "")
+    assert "attachment" in content_disposition
+    assert "filename=" in content_disposition
+    assert ".csv" in content_disposition
+    
+    # Verify filename format: export_{timestamp}.csv
+    filename_match = re.search(r'filename="([^"]+)"', content_disposition)
+    assert filename_match, "Filename not found in Content-Disposition"
+    filename = filename_match.group(1)
+    assert filename.startswith("export_")
+    assert filename.endswith(".csv")
+    
+    # Check CSV content is valid (has headers)
+    csv_text = export_response.text
+    # Remove BOM if present
+    if csv_text.startswith('\ufeff'):
+        csv_text = csv_text[1:]
+    
+    lines = csv_text.strip().split('\n')
+    assert len(lines) >= 1, "CSV should have at least header row"
+    
+    # Check header row contains expected columns
+    header = lines[0]
+    assert "chat_ref" in header
+    assert "title" in header
+    assert "status" in header
+
+
+def test_export_nonexistent_group_returns_404(
+    fastapi_test_client: TestClient,
+) -> None:
+    """Test that exporting non-existent group returns 404."""
+    response = fastapi_test_client.get("/api/groups/nonexistent-id/export")
+    assert response.status_code == 404

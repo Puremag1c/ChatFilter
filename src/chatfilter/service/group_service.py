@@ -141,10 +141,15 @@ class GroupService:
         stats_data = self._db.get_group_stats(group_id)
         chat_count = stats_data["total"]
 
+        # Handle legacy data where settings might be None or invalid
+        settings_dict = group_data["settings"]
+        if settings_dict is None or not isinstance(settings_dict, dict):
+            settings_dict = {}
+
         return ChatGroup(
             id=group_data["id"],
             name=group_data["name"],
-            settings=GroupSettings.from_dict(group_data["settings"]),
+            settings=GroupSettings.from_dict(settings_dict),
             status=GroupStatus(group_data["status"]),
             chat_count=chat_count,
             created_at=group_data["created_at"],
@@ -165,18 +170,26 @@ class GroupService:
         # Use optimized query that fetches groups with counts in single DB roundtrip
         groups_data = self._db.load_all_groups_with_stats()
 
-        return [
-            ChatGroup(
-                id=group_data["id"],
-                name=group_data["name"],
-                settings=GroupSettings.from_dict(group_data["settings"]),
-                status=GroupStatus(group_data["status"]),
-                chat_count=group_data["chat_count"],
-                created_at=group_data["created_at"],
-                updated_at=group_data["updated_at"],
+        groups = []
+        for group_data in groups_data:
+            # Handle legacy data where settings might be None or invalid
+            settings_dict = group_data["settings"]
+            if settings_dict is None or not isinstance(settings_dict, dict):
+                settings_dict = {}
+
+            groups.append(
+                ChatGroup(
+                    id=group_data["id"],
+                    name=group_data["name"],
+                    settings=GroupSettings.from_dict(settings_dict),
+                    status=GroupStatus(group_data["status"]),
+                    chat_count=group_data["chat_count"],
+                    created_at=group_data["created_at"],
+                    updated_at=group_data["updated_at"],
+                )
             )
-            for group_data in groups_data
-        ]
+
+        return groups
 
     def update_settings(
         self,

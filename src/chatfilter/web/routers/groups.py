@@ -755,7 +755,7 @@ async def export_group_results(group_id: str) -> Response:
     from datetime import UTC, datetime
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    filename = f"{group.name.replace(' ', '_')}_{timestamp}.csv"
+    filename = f"export_{timestamp}.csv"
 
     return Response(
         content=csv_content,
@@ -764,6 +764,7 @@ async def export_group_results(group_id: str) -> Response:
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
+
 
 
 @router.put("/api/groups/{group_id}/settings", response_class=HTMLResponse)
