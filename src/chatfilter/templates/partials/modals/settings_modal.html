@@ -14,60 +14,78 @@
                     <p style="margin-bottom: 1rem; font-weight: 600;">{{ _("Metrics to Analyze") }}</p>
 
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        <label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox"
                                    id="detect-chat-type"
                                    name="detect_chat_type"
                                    value="true"
                                    {% if group.settings.detect_chat_type %}checked{% endif %}>
-                            {{ _("Detect Chat Type") }}
+                            <span>{{ _("Detect Chat Type") }}</span>
+                            <span class="metric-badge metric-badge-success"
+                                  data-tooltip="{{ _('No join required - uses chat metadata') }}"
+                                  data-tooltip-position="right">✓</span>
                         </label>
 
-                        <label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox"
                                    id="detect-subscribers"
                                    name="detect_subscribers"
                                    value="true"
                                    {% if group.settings.detect_subscribers %}checked{% endif %}>
-                            {{ _("Detect Subscribers Count") }}
+                            <span>{{ _("Detect Subscribers Count") }}</span>
+                            <span class="metric-badge metric-badge-success"
+                                  data-tooltip="{{ _('No join required - uses chat metadata') }}"
+                                  data-tooltip-position="right">✓</span>
                         </label>
 
-                        <label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox"
                                    id="detect-activity"
                                    name="detect_activity"
                                    value="true"
                                    {% if group.settings.detect_activity %}checked{% endif %}
                                    onchange="toggleTimeWindow()">
-                            {{ _("Detect Activity Metrics") }}
+                            <span>{{ _("Detect Activity Metrics") }}</span>
+                            <span class="metric-badge metric-badge-warning"
+                                  data-tooltip="{{ _('Requires joining chats to read messages') }}"
+                                  data-tooltip-position="right">⚠</span>
                         </label>
 
-                        <label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox"
                                    id="detect-unique-authors"
                                    name="detect_unique_authors"
                                    value="true"
                                    {% if group.settings.detect_unique_authors %}checked{% endif %}
                                    onchange="toggleTimeWindow()">
-                            {{ _("Detect Unique Authors") }}
+                            <span>{{ _("Detect Unique Authors") }}</span>
+                            <span class="metric-badge metric-badge-warning"
+                                  data-tooltip="{{ _('Requires joining chats to read messages') }}"
+                                  data-tooltip-position="right">⚠</span>
                         </label>
 
-                        <label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox"
                                    id="detect-moderation"
                                    name="detect_moderation"
                                    value="true"
                                    {% if group.settings.detect_moderation %}checked{% endif %}>
-                            {{ _("Detect Moderation Settings") }}
+                            <span>{{ _("Detect Moderation Settings") }}</span>
+                            <span class="metric-badge metric-badge-success"
+                                  data-tooltip="{{ _('No join required - uses chat settings') }}"
+                                  data-tooltip-position="right">✓</span>
                         </label>
 
-                        <label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox"
                                    id="detect-captcha"
                                    name="detect_captcha"
                                    value="true"
                                    {% if group.settings.detect_captcha %}checked{% endif %}>
-                            {{ _("Detect Captcha Presence") }}
+                            <span>{{ _("Detect Captcha Presence") }}</span>
+                            <span class="metric-badge metric-badge-warning"
+                                  data-tooltip="{{ _('Requires joining chats to check restrictions') }}"
+                                  data-tooltip-position="right">⚠</span>
                         </label>
                     </div>
                 </div>
