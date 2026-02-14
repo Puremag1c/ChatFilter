@@ -268,3 +268,85 @@ class TestChatsPageNoDuplicatePolling:
         assert "refreshGroups" in resp.text, (
             "Chats page missing refreshGroups event listener"
         )
+
+
+class TestPollingStability:
+    """Verify that repeated polling does not accumulate duplicate cards.
+
+    Simulates the vanilla JS polling loop by making rapid sequential requests
+    and verifying the card count and IDs remain stable.
+    """
+
+    def test_polling_does_not_accumulate_cards(
+        self, fastapi_test_client: TestClient, tmp_path: Path
+    ) -> None:
+        """Simulate 10 poll cycles: card count and IDs must not grow."""
+        import os
+
+        os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+        # Create groups with diverse statuses
+        for i in range(3):
+            _create_group(fastapi_test_client, name=f"Stability Test {i}")
+
+        # Simulate 10 polling cycles (each fetches full group list)
+        first_ids = None
+        first_count = None
+        for cycle in range(10):
+            resp = fastapi_test_client.get("/api/groups")
+            assert resp.status_code == 200
+
+            ids = re.findall(r'id="group-([^"]+)"', resp.text)
+            card_count = len(re.findall(r'class="group-card"', resp.text))
+
+            if first_ids is None:
+                first_ids = sorted(ids)
+                first_count = card_count
+            else:
+                assert card_count == first_count, (
+                    f"Card count changed at cycle {cycle}: "
+                    f"{card_count} != {first_count} — polling accumulates cards"
+                )
+                assert sorted(ids) == first_ids, (
+                    f"Group IDs changed at cycle {cycle} — "
+                    f"polling creates phantom groups"
+                )
+
+    def test_each_group_id_unique_in_response(
+        self, fastapi_test_client: TestClient, tmp_path: Path
+    ) -> None:
+        """Every group-card ID in the response must be unique (no DOM ID collisions)."""
+        import os
+
+        os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+        for i in range(5):
+            _create_group(fastapi_test_client, name=f"Unique ID Test {i}")
+
+        resp = fastapi_test_client.get("/api/groups")
+        assert resp.status_code == 200
+
+        ids = re.findall(r'id="group-([^"]+)"', resp.text)
+        assert len(ids) == len(set(ids)), (
+            f"Duplicate group IDs in response: "
+            f"{[gid for gid in ids if ids.count(gid) > 1]}"
+        )
+
+    def test_container_has_single_groups_list(
+        self, fastapi_test_client: TestClient, tmp_path: Path
+    ) -> None:
+        """Response must contain exactly one groups-list wrapper."""
+        import os
+
+        os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+        _create_group(fastapi_test_client, name="Wrapper Test")
+
+        resp = fastapi_test_client.get("/api/groups")
+        assert resp.status_code == 200
+
+        groups_list_count = resp.text.count('id="groups-list"')
+        assert groups_list_count == 1, (
+            f"Found {groups_list_count} groups-list wrappers (expected 1) — "
+            f"innerHTML swap may be nesting instead of replacing"
+        )
