@@ -100,6 +100,7 @@
 
         // Global registry to prevent multiple intervals for same group
         window.groupProgressIntervals = window.groupProgressIntervals || {};
+        window.groupPollInFlight = window.groupPollInFlight || {};
 
         // Clear any existing interval for this group
         if (window.groupProgressIntervals[groupId]) {
@@ -108,11 +109,25 @@
         }
 
         {% if group.status.value == 'in_progress' %}
-        // Poll every 3 seconds
+        // Poll every 3 seconds with mutex to prevent concurrent requests
         window.groupProgressIntervals[groupId] = setInterval(function() {
+            // Skip if a poll request is already in flight for this group
+            if (window.groupPollInFlight[groupId]) {
+                return;
+            }
+
+            // Mark as in-flight
+            window.groupPollInFlight[groupId] = true;
+
             htmx.ajax('GET', '/api/groups/' + groupId, {
                 target: '#group-' + groupId,
                 swap: 'outerHTML'
+            }).then(function() {
+                // Clear in-flight flag on success
+                window.groupPollInFlight[groupId] = false;
+            }).catch(function() {
+                // Clear in-flight flag on error
+                window.groupPollInFlight[groupId] = false;
             });
         }, 3000);
         {% endif %}
@@ -124,6 +139,8 @@
                     clearInterval(window.groupProgressIntervals[groupId]);
                     delete window.groupProgressIntervals[groupId];
                 }
+                // Clean up in-flight flag
+                delete window.groupPollInFlight[groupId];
             });
         }
     })();
