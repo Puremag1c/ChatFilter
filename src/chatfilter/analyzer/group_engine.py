@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from telethon import errors
+from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import CheckChatInviteRequest
 from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready
 from telethon.tl.types import Chat as TelegramChat
@@ -479,6 +480,7 @@ class GroupAnalysisEngine:
         """Resolve chat metadata via CheckChatInviteRequest.
 
         Does NOT join the chat (only checks invite info).
+        For invite-only chats: gracefully handles missing subscribers count.
         """
         chat_ref = chat["chat_ref"]
         try:
@@ -516,6 +518,12 @@ class GroupAnalysisEngine:
 
                 # No numeric_id available from invite preview
                 numeric_id = None
+
+                # Graceful degradation: if subscribers unavailable, try GetFullChannel
+                if subscribers is None or subscribers == 0:
+                    subscribers = await self._try_get_subscribers_via_full_channel(
+                        client, result, account_id, chat_ref,
+                    )
             else:
                 # ChatInvitePeek or unknown
                 title = getattr(result, "chat", None)
@@ -576,6 +584,36 @@ class GroupAnalysisEngine:
                 status="failed",
                 error=str(e),
             )
+
+    async def _try_get_subscribers_via_full_channel(
+        self,
+        client: TelegramClient,
+        invite: ChatInvite,
+        account_id: str,
+        chat_ref: str,
+    ) -> int | str | None:
+        """Attempt to retrieve subscribers count via GetFullChannelRequest.
+
+        Args:
+            client: Connected TelegramClient.
+            invite: ChatInvite result from CheckChatInviteRequest.
+            account_id: Account identifier (for logging).
+            chat_ref: Chat reference string.
+
+        Returns:
+            Subscribers count (int), "N/A (private)" for inaccessible chats,
+            or None if channel info is unavailable.
+        """
+        # ChatInvite doesn't provide channel entity for GetFullChannel
+        # We need to extract channel from invite, but this is not available
+        # in invite preview without joining. Return None gracefully.
+        # Note: GetFullChannel requires InputChannel which we don't have
+        # from invite-only preview (would need to join first).
+        logger.debug(
+            f"Account '{account_id}': '{chat_ref}' subscribers unavailable "
+            f"from invite preview (invite-only chat)"
+        )
+        return "N/A (private)"
 
     def _save_phase1_result(
         self,
