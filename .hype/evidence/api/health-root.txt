@@ -1,2 +1,0 @@
-{"status":"degraded","version":"0.9.2","uptime_seconds":19.87,"telegram":{"connected":false,"sessions_count":0,"error":null},"disk":{"total_gb":1858.19,"used_gb":932.87,"free_gb":925.32,"percent_used":50.2},"network":{"online":true,"check_duration_ms":0.621,"error":null},"update":{"update_available":false,"current_version":"0.9.2","latest_version":"0.6.3","release_url":"https://github.com/Puremag1c/ChatFilter/releases/tag/v0.6.3","published_at":"2026-02-01T11:35:57+00:00","error":null}}
-200

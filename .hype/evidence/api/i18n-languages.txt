@@ -1,2 +1,0 @@
-{"detail":"Not Found"}
-404

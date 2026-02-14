@@ -1,1 +1,0 @@
-{"detail":"Invalid input data","errors":[{"type":"missing","loc":["query","session_select"],"msg":"Field required","input":null}]}

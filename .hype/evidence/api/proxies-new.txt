@@ -1,2 +1,0 @@
-{"proxies":[{"id":"b80b5291-0647-4d40-a406-f84bad47d306","name":"Default","type":"socks5","host":"127.0.0.1","port":1080,"username":"","has_auth":false,"status":"untested","last_ping_at":"2026-02-11T01:26:15.177506+00:00","last_success_at":null,"consecutive_failures":1,"is_available":true}],"count":1}
-200

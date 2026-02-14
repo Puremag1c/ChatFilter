@@ -1,2 +1,0 @@
-{"detail":"Group not found"}
-404

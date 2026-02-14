@@ -1,5 +1,0 @@
-# Backend Test Framework Detection
-Detected: pytest
-Test command: pytest -v
-Test directory: ./tests
-Configuration: pyproject.toml

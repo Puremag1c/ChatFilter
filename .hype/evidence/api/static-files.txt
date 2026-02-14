@@ -1,5 +1,0 @@
-/* ChatFilter base styles - v0.4.0 - Updated: 2026-01-24 - Apple Design */
-
-/* ========== CSS Variables for Theming ========== */
-:root {
-    /* Light mode colors (Apple-style) */

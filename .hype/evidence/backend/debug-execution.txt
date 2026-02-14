@@ -1,6 +1,0 @@
-Starting verify_code...
-
-Total publish calls: 0
-
-Result type: <class 'starlette.templating._TemplateResponse'>
-Result: <starlette.templating._TemplateResponse object at 0x109d352b0>

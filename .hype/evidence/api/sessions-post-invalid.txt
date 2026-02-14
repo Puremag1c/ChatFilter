@@ -1,1 +1,0 @@
-{"detail":"CSRF validation failed: Token missing","error":"csrf_token_missing"}

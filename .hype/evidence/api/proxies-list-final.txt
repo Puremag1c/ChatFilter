@@ -1,2 +1,0 @@
-{"proxies":[{"id":"63db3750-a337-4af4-9e15-add545f8df0a","name":"NY","type":"socks5","host":"5.252.191.222","port":64635,"username":"YNV81jNm","has_auth":true,"status":"working","last_ping_at":"2026-02-13T10:24:06.818270+00:00","last_success_at":"2026-02-13T10:24:06.818270+00:00","consecutive_failures":0,"is_available":true}],"count":1}
-200
