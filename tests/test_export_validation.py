@@ -1,376 +1,392 @@
-"""Tests for export endpoint validation.
+"""Tests for CSV export validation.
 
-Tests validation logic in AnalysisResultInput to ensure corrupted data
-is rejected before CSV export.
+Tests that CSV export columns match exactly the selected metrics in GroupSettings.
+Validates dynamic column generation based on metric checkboxes.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+import csv
+import io
+from datetime import UTC, datetime
 
 import pytest
-from pydantic import ValidationError
+from fastapi.testclient import TestClient
 
-from chatfilter.models import ChatType
-from chatfilter.web.routers.export import AnalysisResultInput
+from chatfilter.models.group import GroupSettings
+from chatfilter.service.group_service import GroupService
+from chatfilter.storage.group_database import GroupDatabase
 
 
-class TestAnalysisResultInputValidation:
-    """Test AnalysisResultInput validation rules."""
+@pytest.fixture
+def group_service(isolated_tmp_dir) -> GroupService:
+    """Create GroupService with isolated database."""
+    db_path = isolated_tmp_dir / "groups.db"
+    db = GroupDatabase(db_path)
+    return GroupService(db)
 
-    def test_valid_input(self):
-        """Test that valid input is accepted."""
-        input_data = AnalysisResultInput(
-            chat_id=123,
-            chat_title="Test Chat",
-            chat_type=ChatType.GROUP,
-            chat_username="testchat",
-            message_count=100,
-            unique_authors=10,
-            history_hours=24.5,
-            first_message_at=datetime(2024, 1, 1, tzinfo=UTC),
-            last_message_at=datetime(2024, 1, 2, tzinfo=UTC),
-            analyzed_at=datetime(2024, 1, 2, 1, 0, tzinfo=UTC),
-        )
-        assert input_data.chat_id == 123
-        assert input_data.message_count == 100
 
-    def test_negative_chat_id(self):
-        """Test that negative or zero chat_id is rejected."""
-        with pytest.raises(ValidationError, match="greater than 0"):
-            AnalysisResultInput(
-                chat_id=0,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-            )
+@pytest.fixture
+def test_group_with_results(group_service: GroupService) -> str:
+    """Create test group with completed analysis results.
 
-        with pytest.raises(ValidationError, match="greater than 0"):
-            AnalysisResultInput(
-                chat_id=-123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-            )
+    Returns group_id with 3 chats analyzed and results stored.
+    """
+    # Create group with default settings
+    group = group_service.create_group(
+        name="Test Export Group",
+        chat_refs=[
+            "https://t.me/testchat1",
+            "https://t.me/testchat2",
+            "@testchat3",
+        ],
+    )
 
-    def test_negative_message_count(self):
-        """Test that negative message_count is rejected."""
-        with pytest.raises(ValidationError, match="greater than or equal to 0"):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=-1,
-                unique_authors=10,
-                history_hours=24.5,
-            )
+    # Store analysis results for each chat
+    results_data = [
+        {
+            "chat_ref": "https://t.me/testchat1",
+            "metrics_data": {
+                "title": "Test Chat 1",
+                "chat_type": "group",
+                "subscribers": 1234,
+                "messages_per_hour": 15.5,
+                "unique_authors_per_hour": 8.2,
+                "moderation": True,
+                "captcha": False,
+                "status": "ok",
+            },
+            "analyzed_at": datetime.now(UTC),
+        },
+        {
+            "chat_ref": "https://t.me/testchat2",
+            "metrics_data": {
+                "title": "Test Chat 2",
+                "chat_type": "channel_comments",
+                "subscribers": 5678,
+                "messages_per_hour": 3.1,
+                "unique_authors_per_hour": 2.0,
+                "moderation": False,
+                "captcha": True,
+                "status": "ok",
+            },
+            "analyzed_at": datetime.now(UTC),
+        },
+        {
+            "chat_ref": "@testchat3",
+            "metrics_data": {
+                "title": "Test Chat 3",
+                "chat_type": "forum",
+                "subscribers": 999,
+                "messages_per_hour": 0.5,
+                "unique_authors_per_hour": 0.3,
+                "moderation": False,
+                "captcha": False,
+                "status": "ok",
+            },
+            "analyzed_at": datetime.now(UTC),
+        },
+    ]
 
-    def test_negative_unique_authors(self):
-        """Test that negative unique_authors is rejected."""
-        with pytest.raises(ValidationError, match="greater than or equal to 0"):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=-1,
-                history_hours=24.5,
-            )
-
-    def test_negative_history_hours(self):
-        """Test that negative history_hours is rejected."""
-        with pytest.raises(ValidationError, match="greater than or equal to 0"):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=-1.0,
-            )
-
-    def test_nan_history_hours(self):
-        """Test that NaN history_hours is rejected."""
-        # NaN is caught by Pydantic's ge=0 constraint before custom validator
-        with pytest.raises(ValidationError, match="greater than or equal to 0"):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=float("nan"),
-            )
-
-    def test_inf_history_hours(self):
-        """Test that infinite history_hours is rejected."""
-        with pytest.raises(ValidationError, match="history_hours cannot be infinite"):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=float("inf"),
-            )
-
-    def test_unique_authors_exceeds_message_count(self):
-        """Test that unique_authors > message_count is rejected."""
-        with pytest.raises(
-            ValidationError,
-            match="unique_authors.*cannot exceed.*message_count",
-        ):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=10,
-                unique_authors=20,
-                history_hours=24.5,
-            )
-
-    def test_messages_without_authors(self):
-        """Test that message_count > 0 requires unique_authors > 0."""
-        with pytest.raises(
-            ValidationError,
-            match="message_count > 0 requires at least one unique_author",
-        ):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=0,
-                history_hours=24.5,
-            )
-
-    def test_inverted_date_range(self):
-        """Test that first_message_at > last_message_at is rejected."""
-        with pytest.raises(
-            ValidationError,
-            match="first_message_at cannot be after last_message_at",
-        ):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-                first_message_at=datetime(2024, 1, 2, tzinfo=UTC),
-                last_message_at=datetime(2024, 1, 1, tzinfo=UTC),
-            )
-
-    def test_future_first_message(self):
-        """Test that first_message_at in the future is rejected."""
-        future = datetime.now(UTC) + timedelta(days=1)
-        with pytest.raises(
-            ValidationError,
-            match="first_message_at cannot be in the future",
-        ):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-                first_message_at=future,
-                last_message_at=future + timedelta(hours=1),
-            )
-
-    def test_future_last_message(self):
-        """Test that last_message_at in the future is rejected."""
-        future = datetime.now(UTC) + timedelta(days=1)
-        with pytest.raises(
-            ValidationError,
-            match="last_message_at cannot be in the future",
-        ):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-                first_message_at=datetime(2024, 1, 1, tzinfo=UTC),
-                last_message_at=future,
-            )
-
-    def test_future_analyzed_at(self):
-        """Test that analyzed_at significantly in the future is rejected."""
-        future = datetime.now(UTC) + timedelta(hours=1)
-        with pytest.raises(
-            ValidationError,
-            match="analyzed_at cannot be in the future",
-        ):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-                analyzed_at=future,
-            )
-
-    def test_analyzed_at_before_last_message(self):
-        """Test that analyzed_at before last_message_at is rejected."""
-        last_msg = datetime(2024, 1, 2, tzinfo=UTC)
-
-        with pytest.raises(
-            ValidationError,
-            match="analyzed_at cannot be before last_message_at",
-        ):
-            AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=ChatType.GROUP,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-                last_message_at=last_msg,
-                analyzed_at=last_msg - timedelta(hours=1),
-            )
-
-    def test_to_analysis_result_conversion(self):
-        """Test that valid input converts to AnalysisResult correctly."""
-        input_data = AnalysisResultInput(
-            chat_id=123,
-            chat_title="Test Chat",
-            chat_type=ChatType.GROUP,
-            chat_username="testchat",
-            message_count=100,
-            unique_authors=10,
-            history_hours=24.5,
-            first_message_at=datetime(2024, 1, 1, tzinfo=UTC),
-            last_message_at=datetime(2024, 1, 2, tzinfo=UTC),
-            analyzed_at=datetime(2024, 1, 2, 1, 0, tzinfo=UTC),
+    for result in results_data:
+        group_service._db.save_result(
+            group_id=group.id,
+            chat_ref=result["chat_ref"],
+            metrics_data=result["metrics_data"],
+            analyzed_at=result["analyzed_at"],
         )
 
-        result = input_data.to_analysis_result()
+    return group.id
 
-        assert result.chat.id == 123
-        assert result.chat.title == "Test Chat"
-        assert result.chat.chat_type == ChatType.GROUP
-        assert result.chat.username == "testchat"
-        assert result.metrics.message_count == 100
-        assert result.metrics.unique_authors == 10
-        assert result.metrics.history_hours == 24.5
-        assert result.analyzed_at == datetime(2024, 1, 2, 1, 0, tzinfo=UTC)
 
-    def test_empty_chat_valid(self):
-        """Test that empty chat data (0 messages, 0 authors) is valid."""
-        input_data = AnalysisResultInput(
-            chat_id=123,
-            chat_title="Empty Chat",
-            chat_type=ChatType.GROUP,
-            message_count=0,
-            unique_authors=0,
-            history_hours=0.0,
+def parse_csv(csv_content: str) -> tuple[list[str], list[dict[str, str]]]:
+    """Parse CSV content into headers and rows.
+
+    Args:
+        csv_content: CSV string content
+
+    Returns:
+        Tuple of (headers, rows) where rows is list of dicts
+    """
+    # Strip BOM if present
+    if csv_content.startswith('\ufeff'):
+        csv_content = csv_content[1:]
+
+    reader = csv.DictReader(io.StringIO(csv_content))
+    headers = reader.fieldnames or []
+    rows = list(reader)
+
+    return headers, rows
+
+
+class TestCSVExportColumnValidation:
+    """Test CSV export columns match selected metrics."""
+
+    def test_metrics_1_2_5_only(
+        self,
+        group_service: GroupService,
+        test_group_with_results: str,
+    ):
+        """Test CSV with metrics 1,2,5: chat_type, subscribers, moderation.
+
+        Expected columns: chat_ref, title, chat_type, subscribers, moderation, status
+        """
+        # Update settings: only metrics 1,2,5
+        settings = GroupSettings(
+            detect_chat_type=True,
+            detect_subscribers=True,
+            detect_activity=False,
+            detect_unique_authors=False,
+            detect_moderation=True,
+            detect_captcha=False,
+            time_window=24,
         )
-        assert input_data.message_count == 0
-        assert input_data.unique_authors == 0
+        group_service.update_settings(test_group_with_results, settings)
 
-    def test_missing_optional_fields(self):
-        """Test that optional fields can be omitted."""
-        input_data = AnalysisResultInput(
-            chat_id=123,
-            chat_title="Test",
-            chat_type=ChatType.PRIVATE,
-            message_count=100,
-            unique_authors=10,
-            history_hours=24.5,
+        # Export CSV
+        from chatfilter.exporter.csv import export_group_results_to_csv
+
+        results_data = group_service._db.load_results(test_group_with_results)
+        csv_content = export_group_results_to_csv(
+            results_data,
+            settings=settings,
+            include_bom=True,
         )
-        assert input_data.chat_username is None
-        assert input_data.first_message_at is None
-        assert input_data.last_message_at is None
-        assert input_data.analyzed_at is None
 
-    def test_all_chat_types_valid(self):
-        """Test that all chat types are accepted."""
-        for chat_type in ChatType:
-            input_data = AnalysisResultInput(
-                chat_id=123,
-                chat_title="Test",
-                chat_type=chat_type,
-                message_count=100,
-                unique_authors=10,
-                history_hours=24.5,
-            )
-            assert input_data.chat_type == chat_type
+        # Parse CSV
+        headers, rows = parse_csv(csv_content)
 
+        # Verify headers
+        expected_headers = [
+            "chat_ref",
+            "title",
+            "chat_type",
+            "subscribers",
+            "moderation",
+            "status",
+        ]
+        assert headers == expected_headers, f"Headers mismatch. Got: {headers}"
 
-class TestExportValidationEdgeCases:
-    """Test edge cases specific to export validation."""
+        # Verify 3 data rows
+        assert len(rows) == 3
 
-    def test_very_long_chat_title(self):
-        """Test that very long chat titles are accepted."""
-        long_title = "A" * 1000
-        input_data = AnalysisResultInput(
-            chat_id=123,
-            chat_title=long_title,
-            chat_type=ChatType.GROUP,
-            message_count=100,
-            unique_authors=10,
-            history_hours=24.5,
+        # Find test chat 1 row (order not guaranteed)
+        test_chat_1 = next(
+            (row for row in rows if row["chat_ref"] == "https://t.me/testchat1"),
+            None,
         )
-        assert len(input_data.chat_title) == 1000
+        assert test_chat_1 is not None, "Test chat 1 not found in results"
 
-    def test_unicode_chat_title(self):
-        """Test that unicode chat titles are accepted."""
-        input_data = AnalysisResultInput(
-            chat_id=123,
-            chat_title="Test 🎉 Тест ✨",
-            chat_type=ChatType.GROUP,
-            message_count=100,
-            unique_authors=10,
-            history_hours=24.5,
-        )
-        assert "🎉" in input_data.chat_title
-        assert "Тест" in input_data.chat_title
+        # Verify test chat 1 data
+        assert test_chat_1["title"] == "Test Chat 1"
+        assert test_chat_1["chat_type"] == "group"
+        assert test_chat_1["subscribers"] == "1234"
+        assert test_chat_1["moderation"] == "yes"
+        assert test_chat_1["status"] == "ok"
 
-    def test_zero_values_valid_for_empty_chat(self):
-        """Test that all zero values are valid for empty chats."""
-        input_data = AnalysisResultInput(
-            chat_id=1,
-            chat_title="Empty",
-            chat_type=ChatType.GROUP,
-            message_count=0,
-            unique_authors=0,
-            history_hours=0.0,
-            first_message_at=None,
-            last_message_at=None,
-        )
-        result = input_data.to_analysis_result()
-        assert result.metrics.message_count == 0
-        assert result.metrics.messages_per_hour == 0.0
+        # Verify NO activity columns present
+        assert "messages_per_hour" not in headers
+        assert "unique_authors_per_hour" not in headers
+        assert "captcha" not in headers
 
-    def test_boundary_positive_chat_id(self):
-        """Test that chat_id = 1 (minimum valid) is accepted."""
-        input_data = AnalysisResultInput(
-            chat_id=1,
-            chat_title="Test",
-            chat_type=ChatType.PRIVATE,
-            message_count=10,
-            unique_authors=2,
-            history_hours=1.0,
-        )
-        assert input_data.chat_id == 1
+    def test_metrics_3_4_6_only(
+        self,
+        group_service: GroupService,
+        test_group_with_results: str,
+    ):
+        """Test CSV with metrics 3,4,6: activity, unique_authors, captcha.
 
-    def test_very_large_chat_id(self):
-        """Test that very large chat IDs are accepted."""
-        large_id = 9_999_999_999_999
-        input_data = AnalysisResultInput(
-            chat_id=large_id,
-            chat_title="Test",
-            chat_type=ChatType.SUPERGROUP,
-            message_count=100,
-            unique_authors=10,
-            history_hours=24.5,
+        Expected columns: chat_ref, title, messages_per_hour,
+                         unique_authors_per_hour, captcha, status
+        """
+        # Update settings: only metrics 3,4,6
+        settings = GroupSettings(
+            detect_chat_type=False,
+            detect_subscribers=False,
+            detect_activity=True,
+            detect_unique_authors=True,
+            detect_moderation=False,
+            detect_captcha=True,
+            time_window=24,
         )
-        assert input_data.chat_id == large_id
+        group_service.update_settings(test_group_with_results, settings)
+
+        # Export CSV
+        from chatfilter.exporter.csv import export_group_results_to_csv
+
+        results_data = group_service._db.load_results(test_group_with_results)
+        csv_content = export_group_results_to_csv(
+            results_data,
+            settings=settings,
+            include_bom=True,
+        )
+
+        # Parse CSV
+        headers, rows = parse_csv(csv_content)
+
+        # Verify headers
+        expected_headers = [
+            "chat_ref",
+            "title",
+            "messages_per_hour",
+            "unique_authors_per_hour",
+            "captcha",
+            "status",
+        ]
+        assert headers == expected_headers, f"Headers mismatch. Got: {headers}"
+
+        # Verify 3 data rows
+        assert len(rows) == 3
+
+        # Find test chat 1 row (order not guaranteed)
+        test_chat_1 = next(
+            (row for row in rows if row["chat_ref"] == "https://t.me/testchat1"),
+            None,
+        )
+        assert test_chat_1 is not None, "Test chat 1 not found in results"
+
+        # Verify test chat 1 data
+        assert test_chat_1["title"] == "Test Chat 1"
+        assert test_chat_1["messages_per_hour"] == "15.50"
+        assert test_chat_1["unique_authors_per_hour"] == "8.20"
+        assert test_chat_1["captcha"] == "no"
+        assert test_chat_1["status"] == "ok"
+
+        # Verify NO type/subscribers/moderation columns
+        assert "chat_type" not in headers
+        assert "subscribers" not in headers
+        assert "moderation" not in headers
+
+    def test_all_6_metrics(
+        self,
+        group_service: GroupService,
+        test_group_with_results: str,
+    ):
+        """Test CSV with all 6 metrics enabled.
+
+        Expected all columns: chat_ref, title, chat_type, subscribers,
+                             messages_per_hour, unique_authors_per_hour,
+                             moderation, captcha, status
+        """
+        # Update settings: all metrics enabled
+        settings = GroupSettings(
+            detect_chat_type=True,
+            detect_subscribers=True,
+            detect_activity=True,
+            detect_unique_authors=True,
+            detect_moderation=True,
+            detect_captcha=True,
+            time_window=24,
+        )
+        group_service.update_settings(test_group_with_results, settings)
+
+        # Export CSV
+        from chatfilter.exporter.csv import export_group_results_to_csv
+
+        results_data = group_service._db.load_results(test_group_with_results)
+        csv_content = export_group_results_to_csv(
+            results_data,
+            settings=settings,
+            include_bom=True,
+        )
+
+        # Parse CSV
+        headers, rows = parse_csv(csv_content)
+
+        # Verify headers
+        expected_headers = [
+            "chat_ref",
+            "title",
+            "chat_type",
+            "subscribers",
+            "messages_per_hour",
+            "unique_authors_per_hour",
+            "moderation",
+            "captcha",
+            "status",
+        ]
+        assert headers == expected_headers, f"Headers mismatch. Got: {headers}"
+
+        # Verify 3 data rows
+        assert len(rows) == 3
+
+        # Find test chat 1 row (order not guaranteed)
+        test_chat_1 = next(
+            (row for row in rows if row["chat_ref"] == "https://t.me/testchat1"),
+            None,
+        )
+        assert test_chat_1 is not None, "Test chat 1 not found in results"
+
+        # Verify all columns present in test chat 1
+        assert test_chat_1["title"] == "Test Chat 1"
+        assert test_chat_1["chat_type"] == "group"
+        assert test_chat_1["subscribers"] == "1234"
+        assert test_chat_1["messages_per_hour"] == "15.50"
+        assert test_chat_1["unique_authors_per_hour"] == "8.20"
+        assert test_chat_1["moderation"] == "yes"
+        assert test_chat_1["captcha"] == "no"
+        assert test_chat_1["status"] == "ok"
+
+    def test_no_metrics_selected(
+        self,
+        group_service: GroupService,
+        test_group_with_results: str,
+    ):
+        """Test CSV with no metrics selected.
+
+        Expected only: chat_ref, title, status
+        """
+        # Update settings: no metrics
+        settings = GroupSettings(
+            detect_chat_type=False,
+            detect_subscribers=False,
+            detect_activity=False,
+            detect_unique_authors=False,
+            detect_moderation=False,
+            detect_captcha=False,
+            time_window=24,
+        )
+        group_service.update_settings(test_group_with_results, settings)
+
+        # Export CSV
+        from chatfilter.exporter.csv import export_group_results_to_csv
+
+        results_data = group_service._db.load_results(test_group_with_results)
+        csv_content = export_group_results_to_csv(
+            results_data,
+            settings=settings,
+            include_bom=True,
+        )
+
+        # Parse CSV
+        headers, rows = parse_csv(csv_content)
+
+        # Verify headers - minimal set
+        expected_headers = [
+            "chat_ref",
+            "title",
+            "status",
+        ]
+        assert headers == expected_headers, f"Headers mismatch. Got: {headers}"
+
+        # Verify 3 data rows
+        assert len(rows) == 3
+
+        # Find test chat 1 row (order not guaranteed)
+        test_chat_1 = next(
+            (row for row in rows if row["chat_ref"] == "https://t.me/testchat1"),
+            None,
+        )
+        assert test_chat_1 is not None, "Test chat 1 not found in results"
+
+        # Verify minimal data
+        assert test_chat_1["title"] == "Test Chat 1"
+        assert test_chat_1["status"] == "ok"
+
+        # Verify NO metric columns present
+        assert "chat_type" not in headers
+        assert "subscribers" not in headers
+        assert "messages_per_hour" not in headers
+        assert "unique_authors_per_hour" not in headers
+        assert "moderation" not in headers
+        assert "captcha" not in headers
