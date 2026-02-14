@@ -322,3 +322,239 @@ class TestExportToCsv:
         assert "Тест" in rows[1][1]
         assert "العربية" in rows[1][1]
         assert "测试" in rows[1][1]
+
+
+class TestDynamicCsvExport:
+    """Tests for dynamic CSV export based on GroupSettings."""
+
+    def test_all_metrics_enabled(self) -> None:
+        """Test CSV export with all metrics enabled (default)."""
+        from chatfilter.exporter.csv import export_group_results_to_csv, to_csv_rows_dynamic
+        from chatfilter.models.group import GroupSettings
+
+        settings = GroupSettings()  # All True by default
+        results_data = [
+            {
+                "chat_ref": "@test_channel",
+                "metrics_data": {
+                    "title": "Test Channel",
+                    "chat_type": "channel",
+                    "subscribers": 1000,
+                    "messages_per_hour": 10.5,
+                    "unique_authors_per_hour": 5.25,
+                    "moderation": True,
+                    "captcha": False,
+                    "status": "done",
+                },
+                "analyzed_at": datetime.now(UTC),
+            }
+        ]
+
+        rows = list(to_csv_rows_dynamic(results_data, settings))
+
+        # Should have all columns
+        assert len(rows) == 2  # Header + 1 data row
+        headers = rows[0]
+        assert "chat_ref" in headers
+        assert "title" in headers
+        assert "chat_type" in headers
+        assert "subscribers" in headers
+        assert "messages_per_hour" in headers
+        assert "unique_authors_per_hour" in headers
+        assert "moderation" in headers
+        assert "captcha" in headers
+        assert "status" in headers
+
+        data_row = rows[1]
+        assert data_row[0] == "@test_channel"
+        assert data_row[1] == "Test Channel"
+
+    def test_selective_metrics(self) -> None:
+        """Test CSV export with only some metrics enabled."""
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
+        from chatfilter.models.group import GroupSettings
+
+        settings = GroupSettings(
+            detect_chat_type=True,
+            detect_subscribers=False,
+            detect_activity=True,
+            detect_unique_authors=False,
+            detect_moderation=False,
+            detect_captcha=False,
+            time_window=24,
+        )
+
+        results_data = [
+            {
+                "chat_ref": "@test_channel",
+                "metrics_data": {
+                    "title": "Test Channel",
+                    "chat_type": "channel",
+                    "messages_per_hour": 10.5,
+                    "status": "done",
+                },
+                "analyzed_at": datetime.now(UTC),
+            }
+        ]
+
+        rows = list(to_csv_rows_dynamic(results_data, settings))
+
+        headers = rows[0]
+        # Should only have selected columns
+        assert "chat_ref" in headers
+        assert "title" in headers
+        assert "chat_type" in headers
+        assert "messages_per_hour" in headers
+        assert "status" in headers
+
+        # Should NOT have disabled columns
+        assert "subscribers" not in headers
+        assert "unique_authors_per_hour" not in headers
+        assert "moderation" not in headers
+        assert "captcha" not in headers
+
+    def test_minimal_metrics(self) -> None:
+        """Test CSV export with all metrics disabled."""
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
+        from chatfilter.models.group import GroupSettings
+
+        settings = GroupSettings(
+            detect_chat_type=False,
+            detect_subscribers=False,
+            detect_activity=False,
+            detect_unique_authors=False,
+            detect_moderation=False,
+            detect_captcha=False,
+            time_window=24,
+        )
+
+        results_data = [
+            {
+                "chat_ref": "@test_channel",
+                "metrics_data": {
+                    "title": "Test Channel",
+                    "status": "done",
+                },
+                "analyzed_at": datetime.now(UTC),
+            }
+        ]
+
+        rows = list(to_csv_rows_dynamic(results_data, settings))
+
+        headers = rows[0]
+        # Should only have mandatory columns
+        assert headers == ["chat_ref", "title", "status"]
+
+        data_row = rows[1]
+        assert data_row[0] == "@test_channel"
+        assert data_row[1] == "Test Channel"
+        assert data_row[2] == "done"
+
+    def test_none_settings_includes_all_columns(self) -> None:
+        """Test that None settings includes all columns (backward compatibility)."""
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
+
+        results_data = [
+            {
+                "chat_ref": "@test_channel",
+                "metrics_data": {
+                    "title": "Test Channel",
+                    "chat_type": "channel",
+                    "subscribers": 1000,
+                    "messages_per_hour": 10.5,
+                    "unique_authors_per_hour": 5.25,
+                    "moderation": True,
+                    "captcha": False,
+                    "status": "done",
+                },
+                "analyzed_at": datetime.now(UTC),
+            }
+        ]
+
+        rows = list(to_csv_rows_dynamic(results_data, settings=None))
+
+        headers = rows[0]
+        # All columns should be included
+        assert "chat_type" in headers
+        assert "subscribers" in headers
+        assert "messages_per_hour" in headers
+        assert "unique_authors_per_hour" in headers
+        assert "moderation" in headers
+        assert "captcha" in headers
+
+    def test_formatting_boolean_fields(self) -> None:
+        """Test that boolean fields are formatted as yes/no."""
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
+        from chatfilter.models.group import GroupSettings
+
+        settings = GroupSettings(
+            detect_moderation=True,
+            detect_captcha=True,
+        )
+
+        results_data = [
+            {
+                "chat_ref": "@test1",
+                "metrics_data": {
+                    "title": "Test 1",
+                    "moderation": True,
+                    "captcha": False,
+                    "status": "done",
+                },
+                "analyzed_at": datetime.now(UTC),
+            },
+            {
+                "chat_ref": "@test2",
+                "metrics_data": {
+                    "title": "Test 2",
+                    "moderation": False,
+                    "captcha": True,
+                    "status": "done",
+                },
+                "analyzed_at": datetime.now(UTC),
+            },
+        ]
+
+        rows = list(to_csv_rows_dynamic(results_data, settings))
+
+        # Row 1: moderation=True, captcha=False
+        assert "yes" in rows[1]
+        assert "no" in rows[1]
+
+        # Row 2: moderation=False, captcha=True
+        assert "no" in rows[2]
+        assert "yes" in rows[2]
+
+    def test_export_to_file_with_settings(self, tmp_path: Path) -> None:
+        """Test exporting group results to file with settings."""
+        from chatfilter.exporter.csv import export_group_results_to_csv
+        from chatfilter.models.group import GroupSettings
+
+        settings = GroupSettings(
+            detect_chat_type=True,
+            detect_activity=True,
+        )
+
+        results_data = [
+            {
+                "chat_ref": "@test_channel",
+                "metrics_data": {
+                    "title": "Test Channel",
+                    "chat_type": "channel",
+                    "messages_per_hour": 10.5,
+                    "status": "done",
+                },
+                "analyzed_at": datetime.now(UTC),
+            }
+        ]
+
+        output_file = tmp_path / "results.csv"
+        content = export_group_results_to_csv(results_data, settings, output_file)
+
+        # File should exist
+        assert output_file.exists()
+
+        # Content should be returned
+        assert isinstance(content, str)
+        assert "chat_ref" in content
+        assert "Test Channel" in content

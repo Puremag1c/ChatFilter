@@ -300,3 +300,173 @@ def test_nonexistent_group_operations(
     assert response.status_code in (404, 200)  # 200 if returns HTML error partial
     if response.status_code == 200:
         assert "not found" in response.text.lower() or "error" in response.text.lower()
+
+
+def test_update_group_settings(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+    tmp_path: Path,
+) -> None:
+    """Test updating group settings endpoint."""
+    # Set up test data directory
+    import os
+    os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+    # First create a group
+    csrf_token = get_csrf_token(fastapi_test_client)
+
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "Test Group for Settings",
+        "source_type": "file_upload",
+    }
+
+    create_response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert create_response.status_code == 200
+
+    # Extract group ID
+    import re
+    match = re.search(r'id="group-([^"]+)"', create_response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', create_response.text)
+    if not match:
+        match = re.search(r'/api/groups/([^/"]+)/settings', create_response.text)
+
+    assert match, f"Could not find group ID in response. Response text: {create_response.text[:500]}"
+    group_id = match.group(1)
+
+    # Get fresh CSRF token for update request
+    csrf_token = get_csrf_token(fastapi_test_client)
+
+    # Update settings with new format
+    settings_data = {
+        "detect_chat_type": True,
+        "detect_subscribers": False,
+        "detect_activity": True,
+        "detect_unique_authors": False,
+        "detect_moderation": True,
+        "detect_captcha": False,
+        "time_window": 48,
+    }
+
+    response = fastapi_test_client.put(
+        f"/api/groups/{group_id}/settings",
+        headers={"X-CSRF-Token": csrf_token},
+        data=settings_data,
+    )
+
+    # Should succeed
+    assert response.status_code == 200
+    # Response should contain updated group card
+    assert "group" in response.text.lower() or group_id in response.text
+
+
+def test_update_settings_all_disabled(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+    tmp_path: Path,
+) -> None:
+    """Test updating settings with all metrics disabled."""
+    import os
+    os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+    # Create a group
+    csrf_token = get_csrf_token(fastapi_test_client)
+
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "Test Group All Disabled",
+        "source_type": "file_upload",
+    }
+
+    create_response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert create_response.status_code == 200
+
+    # Extract group ID
+    import re
+    match = re.search(r'id="group-([^"]+)"', create_response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', create_response.text)
+
+    assert match
+    group_id = match.group(1)
+
+    # Get fresh CSRF token
+    csrf_token = get_csrf_token(fastapi_test_client)
+
+    # Update with all disabled (Form defaults to False)
+    response = fastapi_test_client.put(
+        f"/api/groups/{group_id}/settings",
+        headers={"X-CSRF-Token": csrf_token},
+        data={"time_window": 24},
+    )
+
+    # Should succeed
+    assert response.status_code == 200
+
+
+def test_update_settings_invalid_time_window(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+    tmp_path: Path,
+) -> None:
+    """Test updating settings with invalid time_window value."""
+    import os
+    os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
+
+    # Create a group
+    csrf_token = get_csrf_token(fastapi_test_client)
+
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "Test Group Invalid Time",
+        "source_type": "file_upload",
+    }
+
+    create_response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert create_response.status_code == 200
+
+    # Extract group ID
+    import re
+    match = re.search(r'id="group-([^"]+)"', create_response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', create_response.text)
+
+    assert match
+    group_id = match.group(1)
+
+    # Get fresh CSRF token
+    csrf_token = get_csrf_token(fastapi_test_client)
+
+    # Try invalid time_window (not in 1, 6, 24, 48)
+    response = fastapi_test_client.put(
+        f"/api/groups/{group_id}/settings",
+        headers={"X-CSRF-Token": csrf_token},
+        data={"time_window": 12},  # Invalid!
+    )
+
+    # Should return error (200 with error partial or 400)
+    assert response.status_code in (200, 400)
+    if response.status_code == 200:
+        assert "error" in response.text.lower() or "must be one of" in response.text.lower()

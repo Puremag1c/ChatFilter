@@ -585,3 +585,76 @@ class TestGroupSettings:
         """Test that extra fields are forbidden."""
         with pytest.raises(ValidationError):
             GroupSettings(unknown_field="value")
+
+    def test_from_dict_old_format_migration(self):
+        """Test migration from old settings format to new format."""
+        # Old format with message_limit and leave_after_analysis
+        old_data = {
+            "message_limit": 100,
+            "leave_after_analysis": True,
+        }
+
+        settings = GroupSettings.from_dict(old_data)
+
+        # Should get default values for all new fields
+        assert settings.detect_chat_type is True
+        assert settings.detect_subscribers is True
+        assert settings.detect_activity is True
+        assert settings.detect_unique_authors is True
+        assert settings.detect_moderation is True
+        assert settings.detect_captcha is True
+        assert settings.time_window == 24
+
+    def test_from_dict_new_format(self):
+        """Test that from_dict works with new format."""
+        new_data = {
+            "detect_chat_type": False,
+            "detect_subscribers": True,
+            "detect_activity": False,
+            "detect_unique_authors": True,
+            "detect_moderation": False,
+            "detect_captcha": True,
+            "time_window": 48,
+        }
+
+        settings = GroupSettings.from_dict(new_data)
+
+        assert settings.detect_chat_type is False
+        assert settings.detect_subscribers is True
+        assert settings.detect_activity is False
+        assert settings.detect_unique_authors is True
+        assert settings.detect_moderation is False
+        assert settings.detect_captcha is True
+        assert settings.time_window == 48
+
+    def test_from_dict_mixed_format(self):
+        """Test from_dict with mix of old and new fields."""
+        # Mix of old (ignored) and new (used) fields
+        mixed_data = {
+            "message_limit": 100,  # Old - ignored
+            "leave_after_analysis": True,  # Old - ignored
+            "detect_chat_type": False,  # New - used
+            "time_window": 6,  # New - used
+        }
+
+        settings = GroupSettings.from_dict(mixed_data)
+
+        # Should use provided new fields
+        assert settings.detect_chat_type is False
+        assert settings.time_window == 6
+
+        # Should use defaults for unprovided new fields
+        assert settings.detect_subscribers is True
+        assert settings.detect_activity is True
+
+    def test_from_dict_empty_data(self):
+        """Test from_dict with empty dict uses all defaults."""
+        settings = GroupSettings.from_dict({})
+
+        assert settings.detect_chat_type is True
+        assert settings.detect_subscribers is True
+        assert settings.detect_activity is True
+        assert settings.detect_unique_authors is True
+        assert settings.detect_moderation is True
+        assert settings.detect_captcha is True
+        assert settings.time_window == 24
