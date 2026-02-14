@@ -117,463 +117,111 @@ msgstr "загрузка конфигурации"
 msgid "processing request"
 msgstr "обработка запроса"
 
-#~ msgid ""
-#~ "Session '{session_id}' has no api_id "
-#~ "configured. Please configure api_id before "
-#~ "connecting."
-#~ msgstr ""
-#~ "В сессии '{session_id}' не указан "
-#~ "api_id. Укажите api_id перед подключением."
-
-#~ msgid ""
-#~ "Session '{session_id}' has no api_hash "
-#~ "configured. Please configure api_hash before"
-#~ " connecting."
-#~ msgstr ""
-#~ "В сессии '{session_id}' не указан "
-#~ "api_hash. Укажите api_hash перед подключением."
-
-#~ msgid ""
-#~ "Session '{session_id}' has no proxy "
-#~ "configured. Please configure a proxy for"
-#~ " this session before connecting."
-#~ msgstr ""
-#~ "В сессии '{session_id}' не указан "
-#~ "прокси. Укажите прокси перед подключением."
-
-#~ msgid ""
-#~ "Session '{session_id}' requires proxy "
-#~ "'{proxy_id}' which is not found in "
-#~ "proxy pool. Please add the proxy "
-#~ "to the pool or update the session"
-#~ " configuration."
-#~ msgstr ""
-#~ "Для сессии '{session_id}' указан прокси "
-#~ "'{proxy_id}', который не найден в списке"
-#~ " прокси. Добавьте прокси или обновите "
-#~ "настройки сессии."
-
-#~ msgid "%(num)d second"
-#~ msgid_plural "%(num)d seconds"
-#~ msgstr[0] "%(num)d секунда"
-#~ msgstr[1] "%(num)d секунды"
-#~ msgstr[2] "%(num)d секунд"
-
-#~ msgid "%(num)d minute"
-#~ msgid_plural "%(num)d minutes"
-#~ msgstr[0] "%(num)d минута"
-#~ msgstr[1] "%(num)d минуты"
-#~ msgstr[2] "%(num)d минут"
-
-#~ msgid "%(num)d hour"
-#~ msgid_plural "%(num)d hours"
-#~ msgstr[0] "%(num)d час"
-#~ msgstr[1] "%(num)d часа"
-#~ msgstr[2] "%(num)d часов"
-
-#~ msgid "Your session has expired. Please log in again with a new session file."
-#~ msgstr "Срок действия сессии истёк. Войдите повторно."
-
-#~ msgid ""
-#~ "Your session has expired or been "
-#~ "revoked. Please log in again with "
-#~ "a new session file."
-#~ msgstr "Срок действия сессии истёк или она была отозвана. Войдите повторно."
-
-#~ msgid ""
-#~ "Your session has been logged out "
-#~ "from another device. Please upload a "
-#~ "new session file."
-#~ msgstr ""
-#~ "Сессия была завершена на другом "
-#~ "устройстве. Загрузите новый файл сессии."
-
-#~ msgid ""
-#~ "This session is being used on "
-#~ "another device. Please use a unique "
-#~ "session file."
-#~ msgstr ""
-#~ "Эта сессия используется на другом "
-#~ "устройстве. Используйте отдельный файл сессии"
-#~ " для каждого устройства."
-
-#~ msgid "Authentication failed. Please verify your session and try again."
-#~ msgstr ""
-#~ "Ошибка аутентификации. Пожалуйста, проверьте "
-#~ "вашу сессию и попробуйте снова."
-
-#~ msgid ""
-#~ "Your Telegram account has been "
-#~ "deactivated. Please contact Telegram support."
-#~ msgstr ""
-#~ "Ваш аккаунт Telegram был деактивирован. "
-#~ "Пожалуйста, обратитесь в поддержку Telegram."
-
-#~ msgid "Your Telegram account has been banned. Please contact Telegram support."
-#~ msgstr ""
-#~ "Ваш аккаунт Telegram был заблокирован. "
-#~ "Пожалуйста, обратитесь в поддержку Telegram."
-
-#~ msgid ""
-#~ "Access to this chat is restricted. "
-#~ "You may have been removed or the"
-#~ " chat was deleted."
-#~ msgstr ""
-#~ "Доступ к этому чату ограничен. Возможно,"
-#~ " вас удалили или чат был удалён."
-
-#~ msgid "This channel is private. You need an invite link to access it."
-#~ msgstr "Этот канал приватный. Вам нужна пригласительная ссылка для доступа."
-
-#~ msgid "This chat is restricted and cannot be accessed."
-#~ msgstr "Этот чат ограничен и недоступен."
-
-#~ msgid "You have been banned from this channel."
-#~ msgstr "Вы заблокированы в этом канале."
-
-#~ msgid "You have been banned from this chat."
-#~ msgstr "Вы заблокированы в этом чате."
-
-#~ msgid "This action requires administrator privileges."
-#~ msgstr "Это действие требует прав администратора."
-
-#~ msgid "You don't have permission to send messages in this chat."
-#~ msgstr "У вас нет прав для отправки сообщений в этот чат."
-
-#~ msgid ""
-#~ "Slow mode is enabled in this chat."
-#~ " Please wait before sending another "
-#~ "message."
-#~ msgstr ""
-#~ "В этом чате включен медленный режим. "
-#~ "Пожалуйста, подождите перед отправкой "
-#~ "следующего сообщения."
-
-#~ msgid ""
-#~ "Network connection error. Please check "
-#~ "your internet connection and try again."
-#~ msgstr ""
-#~ "Ошибка сетевого подключения. Пожалуйста, "
-#~ "проверьте интернет-соединение и попробуйте "
-#~ "снова."
-
-#~ msgid "Request timed out. Please try again."
-#~ msgstr "Время ожидания запроса истекло. Пожалуйста, попробуйте снова."
-
-#~ msgid ""
-#~ "Failed to connect to Telegram servers."
-#~ " Please check your connection and try"
-#~ " again."
-#~ msgstr ""
-#~ "Не удалось подключиться к серверам "
-#~ "Telegram. Пожалуйста, проверьте соединение и"
-#~ " попробуйте снова."
-
-#~ msgid "The file has been migrated to another data center. Please try again."
-#~ msgstr "Файл был перемещён в другой дата-центр. Пожалуйста, попробуйте снова."
-
-#~ msgid "Network migration in progress. Please try again in a moment."
-#~ msgstr ""
-#~ "Выполняется миграция сети. Пожалуйста, "
-#~ "попробуйте снова через некоторое время."
-
-#~ msgid ""
-#~ "Your account is being migrated to "
-#~ "another data center. Please try again."
-#~ msgstr ""
-#~ "Ваш аккаунт переносится в другой "
-#~ "дата-центр. Пожалуйста, попробуйте снова."
-
-#~ msgid "Statistics are being migrated to another data center. Please try again."
-#~ msgstr ""
-#~ "Статистика переносится в другой дата-центр."
-#~ " Пожалуйста, попробуйте снова."
-
-#~ msgid "Telegram server request failed. Please try again."
-#~ msgstr "Запрос к серверу Telegram не удался. Пожалуйста, попробуйте снова."
-
-#~ msgid "Telegram server encountered an error. Please try again."
-#~ msgstr "На сервере Telegram произошла ошибка. Пожалуйста, попробуйте снова."
-
-#~ msgid "Invalid username. Please check the username and try again."
-#~ msgstr "Неверное имя пользователя. Пожалуйста, проверьте и попробуйте снова."
-
-#~ msgid "Username not found. Please verify the username is correct."
-#~ msgstr "Имя пользователя не найдено. Пожалуйста, проверьте правильность."
-
-#~ msgid "Invalid invite link. The link may have expired or been revoked."
-#~ msgstr ""
-#~ "Неверная пригласительная ссылка. Срок действия"
-#~ " ссылки мог истечь или она была "
-#~ "отозвана."
-
-#~ msgid "This invite link has expired. Please request a new invite link."
-#~ msgstr ""
-#~ "Срок действия этой пригласительной ссылки "
-#~ "истёк. Пожалуйста, запросите новую."
-
-#~ msgid ""
-#~ "Chat or user not found. The ID "
-#~ "may be incorrect or the chat may"
-#~ " have been deleted."
-#~ msgstr ""
-#~ "Чат или пользователь не найден. ID "
-#~ "может быть неверным или чат был "
-#~ "удалён."
-
-#~ msgid "Invalid chat ID. The chat may have been deleted or is not accessible."
-#~ msgstr "Неверный ID чата. Чат мог быть удалён или недоступен."
-
-#~ msgid "Message not found. It may have been deleted."
-#~ msgstr "Сообщение не найдено. Возможно, оно было удалено."
-
-#~ msgid "File upload failed. Please try uploading the file again."
-#~ msgstr "Ошибка загрузки файла. Пожалуйста, попробуйте загрузить файл снова."
-
-#~ msgid "File reference has expired. Please try again."
-#~ msgstr "Срок действия ссылки на файл истёк. Пожалуйста, попробуйте снова."
-
-#~ msgid "Invalid phone number format. Please check the number and try again."
-#~ msgstr ""
-#~ "Неверный формат номера телефона. Пожалуйста,"
-#~ " проверьте номер и попробуйте снова."
 
-#~ msgid "Invalid verification code. Please check the code and try again."
-#~ msgstr ""
-#~ "Неверный код подтверждения. Пожалуйста, "
-#~ "проверьте код и попробуйте снова."
-
-#~ msgid "Verification code has expired. Please request a new code."
-#~ msgstr ""
-#~ "Срок действия кода подтверждения истёк. "
-#~ "Пожалуйста, запросите новый код."
-
-#~ msgid "Incorrect password. Please try again."
-#~ msgstr "Неверный пароль. Пожалуйста, попробуйте снова."
-
-#~ msgid "Two-factor authentication is enabled. Please provide your password."
-#~ msgstr "Включена двухфакторная аутентификация. Пожалуйста, введите пароль."
 
-#~ msgid "No changes were made. The data is already up to date."
-#~ msgstr "Изменения не внесены. Данные уже актуальны."
 
-#~ msgid "Message was not modified. The content is the same as before."
-#~ msgstr "Сообщение не изменено. Содержимое такое же, как прежде."
 
-#~ msgid "You are already a member of this chat."
-#~ msgstr "Вы уже являетесь участником этого чата."
 
-#~ msgid "This action cannot be performed by bots."
-#~ msgstr "Это действие не может быть выполнено ботами."
 
-#~ msgid "Upload a new session file from your Sessions page"
-#~ msgstr "Загрузите новый файл сессии со страницы «Сессии»"
 
-#~ msgid "Upload a different session file that isn't being used elsewhere"
-#~ msgstr "Загрузите другой файл сессии, который не используется в другом месте"
 
-#~ msgid "Verify your session file is valid or upload a new one"
-#~ msgstr "Проверьте, что файл сессии действителен, или загрузите новый"
 
-#~ msgid "Contact Telegram support to reactivate your account"
-#~ msgstr "Обратитесь в поддержку Telegram для восстановления аккаунта"
 
-#~ msgid "Contact Telegram support to appeal your ban"
-#~ msgstr "Обратитесь в поддержку Telegram для обжалования блокировки"
 
-#~ msgid "Try a different chat or check your Telegram app to verify membership"
-#~ msgstr ""
-#~ "Попробуйте другой чат или проверьте в"
-#~ " приложении Telegram, что вы участник"
 
-#~ msgid "Request an invite link from the channel admin or try a different chat"
-#~ msgstr ""
-#~ "Запросите пригласительную ссылку у "
-#~ "администратора канала или попробуйте другой"
-#~ " чат"
 
-#~ msgid "Contact the chat administrator or try a different chat"
-#~ msgstr "Свяжитесь с администратором чата или попробуйте другой чат"
 
-#~ msgid "Contact the channel admin to appeal or select a different channel"
-#~ msgstr ""
-#~ "Свяжитесь с администратором канала для "
-#~ "обжалования или выберите другой канал"
 
-#~ msgid "Contact the chat admin to appeal or select a different chat"
-#~ msgstr ""
-#~ "Свяжитесь с администратором чата для "
-#~ "обжалования или выберите другой чат"
 
-#~ msgid "Request admin privileges or perform this action as an admin"
-#~ msgstr ""
-#~ "Запросите права администратора или выполните"
-#~ " это действие как администратор"
 
-#~ msgid "Request write permissions from chat admin or skip this chat"
-#~ msgstr "Запросите права на запись у администратора чата или пропустите этот чат"
 
-#~ msgid "Wait for the specified duration before trying again"
-#~ msgstr "Подождите указанное время перед повторной попыткой"
 
-#~ msgid "Check your internet connection and click 'Retry'"
-#~ msgstr "Проверьте интернет-соединение и нажмите «Повторить»"
 
-#~ msgid "Check your connection speed and click 'Retry'"
-#~ msgstr "Проверьте скорость соединения и нажмите «Повторить»"
 
-#~ msgid "Verify your internet connection is stable and click 'Retry'"
-#~ msgstr "Убедитесь, что интернет-соединение стабильно, и нажмите «Повторить»"
 
-#~ msgid "Click 'Retry' - this should resolve automatically"
-#~ msgstr "Нажмите «Повторить» — это должно разрешиться автоматически"
 
-#~ msgid "Wait a moment and click 'Retry'"
-#~ msgstr "Подождите немного и нажмите «Повторить»"
 
-#~ msgid "Click 'Retry' - migration will complete automatically"
-#~ msgstr "Нажмите «Повторить» — миграция завершится автоматически"
 
-#~ msgid "Wait a few moments and click 'Retry'"
-#~ msgstr "Подождите несколько секунд и нажмите «Повторить»"
 
-#~ msgid "Verify the username format is correct (e.g., @username)"
-#~ msgstr "Проверьте правильность формата имени пользователя (например, @username)"
 
-#~ msgid "Double-check the username spelling or try a different username"
-#~ msgstr "Перепроверьте написание имени пользователя или попробуйте другое"
 
-#~ msgid "Request a new invite link or verify the link is correct"
-#~ msgstr ""
-#~ "Запросите новую пригласительную ссылку или "
-#~ "проверьте правильность текущей"
 
-#~ msgid "Request a new invite link from the chat admin"
-#~ msgstr "Запросите новую пригласительную ссылку у администратора чата"
 
-#~ msgid "Verify the chat ID or try accessing the chat by username instead"
-#~ msgstr "Проверьте ID чата или попробуйте получить доступ по имени пользователя"
 
-#~ msgid "Check the chat ID is correct or try accessing by username"
-#~ msgstr ""
-#~ "Проверьте правильность ID чата или "
-#~ "попробуйте доступ по имени пользователя"
 
-#~ msgid "The message may have been deleted - try refreshing the chat"
-#~ msgstr "Сообщение могло быть удалено — попробуйте обновить чат"
 
-#~ msgid "Re-upload the file or try a different file"
-#~ msgstr "Загрузите файл заново или попробуйте другой файл"
 
-#~ msgid "Click 'Retry' to refresh the file reference"
-#~ msgstr "Нажмите «Повторить», чтобы обновить ссылку на файл"
 
-#~ msgid "Verify phone number format includes country code (e.g., +1234567890)"
-#~ msgstr ""
-#~ "Проверьте, что номер телефона включает "
-#~ "код страны (например, +1234567890)"
 
-#~ msgid "Check the verification code from Telegram and try again"
-#~ msgstr "Проверьте код подтверждения из Telegram и попробуйте снова"
 
-#~ msgid "Request a new verification code and try again"
-#~ msgstr "Запросите новый код подтверждения и попробуйте снова"
 
-#~ msgid "Verify your two-factor authentication password and try again"
-#~ msgstr "Проверьте пароль двухфакторной аутентификации и попробуйте снова"
 
-#~ msgid "Provide your two-factor authentication password to continue"
-#~ msgstr "Введите пароль двухфакторной аутентификации для продолжения"
 
-#~ msgid "No action needed - the data is already up to date"
-#~ msgstr "Действие не требуется — данные уже актуальны"
 
-#~ msgid "No action needed - the message content is unchanged"
-#~ msgstr "Действие не требуется — содержимое сообщения не изменилось"
 
-#~ msgid "No action needed - you are already a member"
-#~ msgstr "Действие не требуется — вы уже участник"
 
-#~ msgid "This operation is not available for bot accounts"
-#~ msgstr "Эта операция недоступна для бот-аккаунтов"
 
-#~ msgid "Rate limit exceeded. Please wait %(duration)s before trying again."
-#~ msgstr ""
-#~ "Превышен лимит запросов. Пожалуйста, подождите"
-#~ " %(duration)s перед повторной попыткой."
 
-#~ msgid "Wait %(duration)s and then click 'Retry'"
-#~ msgstr "Подождите %(duration)s и нажмите «Повторить»"
 
-#~ msgid "Rate limit exceeded. Please wait before trying again."
-#~ msgstr ""
-#~ "Превышен лимит запросов. Пожалуйста, подождите"
-#~ " перед повторной попыткой."
 
-#~ msgid "Wait a few minutes and then click 'Retry'"
-#~ msgstr "Подождите несколько минут и нажмите «Повторить»"
 
-#~ msgid ""
-#~ "Slow mode is enabled. Please wait "
-#~ "%(duration)s before sending another message."
-#~ msgstr ""
-#~ "Включен медленный режим. Пожалуйста, подождите"
-#~ " %(duration)s перед отправкой следующего "
-#~ "сообщения."
 
-#~ msgid "Wait %(duration)s before trying again"
-#~ msgstr "Подождите %(duration)s перед повторной попыткой"
 
-#~ msgid "Slow mode is enabled. Please wait before sending another message."
-#~ msgstr ""
-#~ "Включен медленный режим. Пожалуйста, подождите"
-#~ " перед отправкой следующего сообщения."
 
-#~ msgid "Wait for the slow mode cooldown before trying again"
-#~ msgstr ""
-#~ "Подождите окончания времени ожидания "
-#~ "медленного режима перед повторной попыткой"
 
-#~ msgid "Try a different chat or verify your access permissions"
-#~ msgstr "Попробуйте другой чат или проверьте права доступа"
 
-#~ msgid "Check your input and try again with correct information"
-#~ msgstr "Проверьте введённые данные и попробуйте снова с правильной информацией"
 
-#~ msgid "Wait a few minutes and click 'Retry'"
-#~ msgstr "Подождите несколько минут и нажмите «Повторить»"
 
-#~ msgid "Try again or contact support if the issue persists"
-#~ msgstr "Попробуйте снова или обратитесь в поддержку, если проблема сохраняется"
 
-#~ msgid "Access denied. You may have been banned or removed from this chat."
-#~ msgstr "Доступ запрещён. Возможно, вас заблокировали или удалили из этого чата."
 
-#~ msgid "Access to this resource is restricted."
-#~ msgstr "Доступ к этому ресурсу ограничен."
 
-#~ msgid "Chat or user not found. Please verify the information is correct."
-#~ msgstr ""
-#~ "Чат или пользователь не найден. "
-#~ "Пожалуйста, проверьте правильность информации."
 
-#~ msgid ""
-#~ "An error occurred: %(error_class)s. Please "
-#~ "try again or contact support if "
-#~ "the issue persists."
-#~ msgstr ""
-#~ "Произошла ошибка: %(error_class)s. Пожалуйста, "
-#~ "попробуйте снова или обратитесь в "
-#~ "поддержку, если проблема сохраняется."
 
-#~ msgid "Skip to main content"
-#~ msgstr "Перейти к основному содержимому"
 
-#~ msgid "Main navigation"
-#~ msgstr "Главная навигация"
 
-#~ msgid "Manage your Telegram session files"
-#~ msgstr "Управление сессиями Telegram"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 msgid "Sessions"
 msgstr "Сессии"
@@ -608,610 +256,201 @@ msgstr "Управление прокси-серверами для Telegram"
 msgid "Proxies"
 msgstr "Прокси"
 
-#~ msgid "Shows your internet connection status"
-#~ msgstr "Показывает статус интернет-соединения"
 
-#~ msgid "Online"
-#~ msgstr "В сети"
 
-#~ msgid "Toggle dark mode"
-#~ msgstr "Переключить тёмную тему"
 
-#~ msgid "Switch between light and dark theme"
-#~ msgstr "Переключение между светлой и тёмной темой"
 
-#~ msgid "Switch language"
-#~ msgstr "Сменить язык"
 
-#~ msgid "Switch between English and Russian"
-#~ msgstr "Переключение между английским и русским языками"
 
-#~ msgid "Export diagnostic information for troubleshooting"
-#~ msgstr "Экспорт диагностической информации для устранения неполадок"
 
-#~ msgid "Export Diagnostics"
-#~ msgstr "Экспорт диагностики"
 
-#~ msgid "Import Chat List"
-#~ msgstr "Импорт списка чатов"
 
-#~ msgid ""
-#~ "Upload a file or enter a Google"
-#~ " Sheets URL to import a list of"
-#~ " chats for analysis"
-#~ msgstr ""
-#~ "Загрузите файл или введите URL Google"
-#~ " Sheets для импорта списка чатов для"
-#~ " анализа"
 
-#~ msgid "Import Source"
-#~ msgstr "Источник импорта"
 
-#~ msgid "Upload a file containing a list of chats to analyze"
-#~ msgstr "Загрузите файл со списком чатов для анализа"
 
-#~ msgid "Upload File"
-#~ msgstr "Загрузить файл"
 
-#~ msgid ""
-#~ "Upload a text file with one chat"
-#~ " per line, or a CSV/Excel file "
-#~ "with chat usernames, links, or IDs."
-#~ msgstr ""
-#~ "Загрузите текстовый файл с одним чатом"
-#~ " на строку, или CSV/Excel файл с "
-#~ "именами пользователей, ссылками или ID "
-#~ "чатов."
 
-#~ msgid "Upload chat list file"
-#~ msgstr "Загрузить файл списка чатов"
 
-#~ msgid "Select chat list file"
-#~ msgstr "Выберите файл списка чатов"
 
-#~ msgid "Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
-#~ msgstr ""
-#~ "Выберите .txt, .csv или .xlsx файл "
-#~ "с именами пользователей, ссылками или ID"
-#~ " чатов"
 
-#~ msgid "Supported file formats"
-#~ msgstr "Поддерживаемые форматы файлов"
 
-#~ msgid "Upload and parse the selected file"
-#~ msgstr "Загрузить и обработать выбранный файл"
 
-#~ msgid "Upload in progress"
-#~ msgstr "Загрузка выполняется"
 
-#~ msgid "Import chats from a public Google Sheets document"
-#~ msgstr "Импорт чатов из публичного документа Google Sheets"
 
-#~ msgid "Google Sheets"
-#~ msgstr "Google Sheets"
 
-#~ msgid ""
-#~ "Enter a link to a public Google"
-#~ " Sheets document. The sheet must be"
-#~ " shared with \\\"Anyone with the "
-#~ "link\\\"."
-#~ msgstr ""
-#~ "Введите ссылку на публичный документ "
-#~ "Google Sheets. Документ должен быть "
-#~ "открыт для всех по ссылке."
 
-#~ msgid "Import chat list from Google Sheets"
-#~ msgstr "Импорт списка чатов из Google Sheets"
 
-#~ msgid "Enter the full URL of a public Google Sheets document"
-#~ msgstr "Введите полный URL публичного документа Google Sheets"
 
-#~ msgid "Fetch and import chats from the Google Sheets URL"
-#~ msgstr "Получить и импортировать чаты по URL Google Sheets"
 
-#~ msgid "Fetch Sheet"
-#~ msgstr "Получить таблицу"
 
-#~ msgid "Imported Chats"
-#~ msgstr "Импортированные чаты"
 
-#~ msgid "Import a file or Google Sheet to see the list of chats"
-#~ msgstr "Импортируйте файл или Google Sheet, чтобы увидеть список чатов"
 
-#~ msgid "Loading imported chats..."
-#~ msgstr "Загрузка импортированных чатов..."
 
-#~ msgid "File Format Examples"
-#~ msgstr "Примеры форматов файлов"
 
-#~ msgid "Text File (.txt)"
-#~ msgstr "Текстовый файл (.txt)"
 
-#~ msgid "CSV File (.csv)"
-#~ msgstr "CSV файл (.csv)"
 
-#~ msgid "Select Chats"
-#~ msgstr "Выбор чатов"
 
-#~ msgid "Select Chats for Analysis"
-#~ msgstr "Выбор чатов для анализа"
 
-#~ msgid "Choose which chats you want to analyze"
-#~ msgstr "Выберите чаты для анализа"
 
-#~ msgid "Session"
-#~ msgstr "Сессия"
 
-#~ msgid "Select Telegram session"
-#~ msgstr "Выберите сессию Telegram"
 
-#~ msgid "Select Telegram session to load chats"
-#~ msgstr "Выберите сессию Telegram для загрузки чатов"
 
-#~ msgid "Choose a Telegram session to load your chats and groups"
-#~ msgstr "Выберите сессию Telegram для загрузки чатов и групп"
 
-#~ msgid "Select a session"
-#~ msgstr "Выберите сессию"
 
-#~ msgid "Chat list"
-#~ msgstr "Список чатов"
 
-#~ msgid "Select a session above to load chats"
-#~ msgstr "Выберите сессию выше для загрузки чатов"
 
-#~ msgid "Loading chats..."
-#~ msgstr "Загрузка чатов..."
 
-#~ msgid "Analysis History"
-#~ msgstr "История анализов"
 
-#~ msgid "Browse and view your past chat analyses"
-#~ msgstr "Просмотр и изучение ваших прошлых анализов чатов"
 
-#~ msgid "Total"
-#~ msgstr "Всего"
 
-#~ msgid "Completed"
-#~ msgstr "Завершено"
 
-#~ msgid "Failed"
-#~ msgstr "Ошибка"
 
-#~ msgid "Cancelled"
-#~ msgstr "Отменено"
 
-#~ msgid "Timeout"
-#~ msgstr "Таймаут"
 
-#~ msgid "Filter by status"
-#~ msgstr "Фильтр по статусу"
 
-#~ msgid "Filter by analysis status"
-#~ msgstr "Фильтр по статусу анализа"
 
-#~ msgid "All Analyses"
-#~ msgstr "Все анализы"
 
-#~ msgid "Loading history..."
-#~ msgstr "Загрузка истории..."
 
-#~ msgid "No Analysis History"
-#~ msgstr "Нет истории анализов"
 
-#~ msgid ""
-#~ "You haven't run any analyses yet. "
-#~ "Start analyzing your chats to see "
-#~ "results here."
-#~ msgstr ""
-#~ "Вы ещё не запускали анализы. Начните "
-#~ "анализировать чаты, чтобы увидеть результаты"
-#~ " здесь."
 
-#~ msgid "Start Analysis"
-#~ msgstr "Начать анализ"
 
-#~ msgid "Previous page"
-#~ msgstr "Предыдущая страница"
 
-#~ msgid "Previous"
-#~ msgstr "Назад"
 
-#~ msgid "Page"
-#~ msgstr "Страница"
 
-#~ msgid "of"
-#~ msgstr "из"
 
-#~ msgid "Next page"
-#~ msgstr "Следующая страница"
 
-#~ msgid "Next"
-#~ msgstr "Далее"
 
-#~ msgid "Proxy Pool"
-#~ msgstr "Пул прокси"
 
-#~ msgid "Proxy List"
-#~ msgstr "Список прокси"
 
-#~ msgid "Add new proxy"
-#~ msgstr "Добавить прокси"
 
-#~ msgid "Add Proxy"
-#~ msgstr "Добавить прокси"
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Error"
 msgstr "Ошибка"
 
-#~ msgid "Failed to load proxies. Please refresh the page."
-#~ msgstr "Не удалось загрузить прокси. Пожалуйста, обновите страницу."
 
-#~ msgid "List of configured proxies"
-#~ msgstr "Список настроенных прокси"
 
-#~ msgid "Loading proxies..."
-#~ msgstr "Загрузка прокси..."
 
-#~ msgid "Name"
-#~ msgstr "Имя"
 
-#~ msgid "My Proxy"
-#~ msgstr "Мой прокси"
 
-#~ msgid "Proxy name for identification"
-#~ msgstr "Имя прокси для идентификации"
 
-#~ msgid "Type"
-#~ msgstr "Тип"
 
-#~ msgid "Select proxy type"
-#~ msgstr "Выберите тип прокси"
 
-#~ msgid "Host"
-#~ msgstr "Хост"
 
-#~ msgid "proxy.example.com"
-#~ msgstr "proxy.example.com"
 
-#~ msgid "Proxy server hostname or IP address"
-#~ msgstr "Имя хоста или IP-адрес прокси-сервера"
 
-#~ msgid "Port"
-#~ msgstr "Порт"
 
-#~ msgid "Proxy server port number"
-#~ msgstr "Номер порта прокси-сервера"
 
-#~ msgid "Username (optional)"
-#~ msgstr "Имя пользователя (опционально)"
 
-#~ msgid "Leave empty if not required"
-#~ msgstr "Оставьте пустым, если не требуется"
 
-#~ msgid "Proxy authentication username"
-#~ msgstr "Имя пользователя для аутентификации прокси"
 
-#~ msgid "Password (optional)"
-#~ msgstr "Пароль (опционально)"
 
-#~ msgid "Proxy authentication password"
-#~ msgstr "Пароль для аутентификации прокси"
 
 msgid "Cancel"
 msgstr "Отмена"
 
-#~ msgid "Save"
-#~ msgstr "Сохранить"
 
-#~ msgid "Edit Proxy"
-#~ msgstr "Редактировать прокси"
 
-#~ msgid "Save Changes"
-#~ msgstr "Сохранить изменения"
 
-#~ msgid "This field is required"
-#~ msgstr "Это поле обязательно"
 
-#~ msgid "Minimum length is"
-#~ msgstr "Минимальная длина:"
 
-#~ msgid "characters"
-#~ msgstr "символов"
 
-#~ msgid "Maximum length is"
-#~ msgstr "Максимальная длина:"
 
-#~ msgid "Minimum value is"
-#~ msgstr "Минимальное значение:"
 
-#~ msgid "Maximum value is"
-#~ msgstr "Максимальное значение:"
 
-#~ msgid "Host cannot contain spaces"
-#~ msgstr "Хост не может содержать пробелы"
 
-#~ msgid "Please fix the errors in the form"
-#~ msgstr "Пожалуйста, исправьте ошибки в форме"
 
-#~ msgid "Validation Error"
-#~ msgstr "Ошибка валидации"
 
-#~ msgid "Operation failed"
-#~ msgstr "Операция не удалась"
 
-#~ msgid "Proxy updated successfully"
-#~ msgstr "Прокси успешно обновлён"
 
-#~ msgid "Proxy added successfully"
-#~ msgstr "Прокси успешно добавлен"
 
-#~ msgid "Proxy Updated"
-#~ msgstr "Прокси обновлён"
 
-#~ msgid "Proxy Added"
-#~ msgstr "Прокси добавлен"
 
-#~ msgid "Save Failed"
-#~ msgstr "Ошибка сохранения"
 
-#~ msgid "Delete Proxy"
-#~ msgstr "Удалить прокси"
 
-#~ msgid "This proxy is used by"
-#~ msgstr "Этот прокси используется"
 
-#~ msgid "session(s). They will be blocked. Continue?"
-#~ msgstr "сессиями. Они будут заблокированы. Продолжить?"
 
 msgid "Delete"
 msgstr "Удалить"
 
-#~ msgid "Proxy deleted successfully"
-#~ msgstr "Прокси успешно удалён"
 
-#~ msgid "Proxy Deleted"
-#~ msgstr "Прокси удалён"
 
 msgid "Deletion Failed"
 msgstr "Ошибка удаления"
 
-#~ msgid "Analysis Results"
-#~ msgstr "Результаты анализа"
 
-#~ msgid "View and export your chat analysis results"
-#~ msgstr "Просмотр и экспорт результатов анализа чатов"
 
-#~ msgid "Analysis statistics"
-#~ msgstr "Статистика анализа"
 
-#~ msgid "Copy all statistics"
-#~ msgstr "Копировать всю статистику"
 
-#~ msgid "%(count)s chats analyzed"
-#~ msgstr "%(count)s чатов проанализировано"
 
-#~ msgid "Chats Analyzed"
-#~ msgstr "Чатов проанализировано"
 
-#~ msgid "Total messages"
-#~ msgstr "Всего сообщений"
 
-#~ msgid "Total Messages"
-#~ msgstr "Всего сообщений"
 
-#~ msgid "Unique authors"
-#~ msgstr "Уникальных авторов"
 
-#~ msgid "Unique Authors"
-#~ msgstr "Уникальных авторов"
 
-#~ msgid "Active chats in last 7 days"
-#~ msgstr "Активных чатов за последние 7 дней"
 
-#~ msgid "Active (7d)"
-#~ msgstr "Активные (7д)"
 
-#~ msgid "Clock Skew Detected"
-#~ msgstr "Обнаружено расхождение времени"
 
-#~ msgid ""
-#~ "Your system clock appears to be "
-#~ "incorrect, which may affect time-based"
-#~ " calculations (messages per hour, history"
-#~ " length)."
-#~ msgstr ""
-#~ "Системные часы могут быть неточными, что"
-#~ " может повлиять на расчёты, связанные "
-#~ "со временем (сообщений в час, "
-#~ "длительность истории)."
 
-#~ msgid "%(count)s chat(s) affected:"
-#~ msgstr "%(count)s чатов затронуто:"
 
-#~ msgid "System clock is %(minutes)s minutes ahead of Telegram server time"
-#~ msgstr "Системные часы опережают время сервера Telegram на %(minutes)s минут"
 
-#~ msgid "System clock is %(minutes)s minutes behind Telegram server time"
-#~ msgstr "Системные часы отстают от времени сервера Telegram на %(minutes)s минут"
 
-#~ msgid ""
-#~ "Please check your system time settings"
-#~ " and synchronize with a reliable time"
-#~ " server (e.g., NTP)."
-#~ msgstr ""
-#~ "Пожалуйста, проверьте настройки системного "
-#~ "времени и синхронизируйтесь с надёжным "
-#~ "сервером времени (например, NTP)."
 
-#~ msgid "Result filters"
-#~ msgstr "Фильтры результатов"
 
-#~ msgid "Search chats"
-#~ msgstr "Поиск чатов"
 
-#~ msgid "Search chats..."
-#~ msgstr "Поиск чатов..."
 
-#~ msgid "Search chats by title or username"
-#~ msgstr "Поиск чатов по названию или имени пользователя"
 
-#~ msgid "Filter by chat type"
-#~ msgstr "Фильтр по типу чата"
 
-#~ msgid "All Types"
-#~ msgstr "Все типы"
 
-#~ msgid "Private"
-#~ msgstr "Личный"
 
-#~ msgid "Group"
-#~ msgstr "Группа"
 
-#~ msgid "Supergroup"
-#~ msgstr "Супергруппа"
 
-#~ msgid "Channel"
-#~ msgstr "Канал"
 
-#~ msgid "Forum"
-#~ msgstr "Форум"
 
-#~ msgid "Filter by activity"
-#~ msgstr "Фильтр по активности"
 
-#~ msgid "Filter by activity status"
-#~ msgstr "Фильтр по статусу активности"
 
-#~ msgid "All Activity"
-#~ msgstr "Вся активность"
 
-#~ msgid "Inactive"
-#~ msgstr "Неактивный"
 
-#~ msgid "Clear all filters"
-#~ msgstr "Очистить все фильтры"
 
-#~ msgid "Clear Filters"
-#~ msgstr "Очистить фильтры"
 
-#~ msgid "Number of active filters"
-#~ msgstr "Количество активных фильтров"
 
-#~ msgid "Copy selected rows"
-#~ msgstr "Копировать выбранные строки"
 
-#~ msgid "Copy Selected"
-#~ msgstr "Копировать выбранные"
 
-#~ msgid "Compare selected chats"
-#~ msgstr "Сравнить выбранные чаты"
 
-#~ msgid "Compare Selected"
-#~ msgstr "Сравнить выбранные"
 
-#~ msgid "Export results to CSV file"
-#~ msgstr "Экспорт результатов в CSV файл"
 
-#~ msgid "Export CSV"
-#~ msgstr "Экспорт CSV"
 
-#~ msgid "Analysis results table"
-#~ msgstr "Таблица результатов анализа"
 
-#~ msgid "Chat analysis results"
-#~ msgstr "Результаты анализа чатов"
 
-#~ msgid "Select all chats"
-#~ msgstr "Выбрать все чаты"
 
-#~ msgid "Sort by chat name"
-#~ msgstr "Сортировать по названию чата"
 
-#~ msgid "Chat"
-#~ msgstr "Чат"
 
-#~ msgid "Sort by chat type"
-#~ msgstr "Сортировать по типу чата"
 
-#~ msgid "Sort by message count"
-#~ msgstr "Сортировать по количеству сообщений"
 
-#~ msgid "Messages"
-#~ msgstr "Сообщения"
 
-#~ msgid "Sort by author count"
-#~ msgstr "Сортировать по количеству авторов"
 
-#~ msgid "Authors"
-#~ msgstr "Авторы"
 
-#~ msgid "Sort by history hours"
-#~ msgstr "Сортировать по часам истории"
 
-#~ msgid "History (h)"
-#~ msgstr "История (ч)"
 
-#~ msgid "Sort by messages per hour"
-#~ msgstr "Сортировать по сообщениям в час"
 
-#~ msgid "Msg/Hour"
-#~ msgstr "Сообщ/час"
 
-#~ msgid "Sort by activity status"
-#~ msgstr "Сортировать по статусу активности"
 
-#~ msgid "Activity"
-#~ msgstr "Активность"
 
-#~ msgid "Copy"
-#~ msgstr "Копировать"
 
-#~ msgid "Select %(title)s"
-#~ msgstr "Выбрать %(title)s"
 
-#~ msgid "Username"
-#~ msgstr "Имя пользователя"
 
-#~ msgid "Chat type: %(type)s"
-#~ msgstr "Тип чата: %(type)s"
 
-#~ msgid "%(count)s messages"
-#~ msgstr "%(count)s сообщений"
 
-#~ msgid "%(count)s authors"
-#~ msgstr "%(count)s авторов"
 
-#~ msgid "%(hours)s hours"
-#~ msgstr "%(hours)s часов"
 
-#~ msgid "%(rate)s messages per hour"
-#~ msgstr "%(rate)s сообщений в час"
 
-#~ msgid "Active in last 7 days"
-#~ msgstr "Активен за последние 7 дней"
 
-#~ msgid "Active"
-#~ msgstr "Активный"
 
-#~ msgid "Copy row data"
-#~ msgstr "Копировать данные строки"
 
-#~ msgid "Compare Chat Metrics"
-#~ msgstr "Сравнить метрики чатов"
 
-#~ msgid "Copy comparison data"
-#~ msgstr "Копировать данные сравнения"
 
-#~ msgid "Copy Data"
-#~ msgstr "Копировать данные"
 
-#~ msgid "Close comparison modal"
-#~ msgstr "Закрыть окно сравнения"
 
-#~ msgid "No analysis results yet."
-#~ msgstr "Пока нет результатов анализа."
 
 msgid "Telegram Sessions"
 msgstr "Telegram сессии"
@@ -1225,8 +464,6 @@ msgstr "Управление сессиями для анализа чатов"
 msgid "Accounts"
 msgstr "Аккаунты"
 
-#~ msgid "Add new account"
-#~ msgstr "Добавить аккаунт"
 
 msgid "Add Account"
 msgstr "Добавить аккаунт"
@@ -1243,8 +480,6 @@ msgstr "Загрузка аккаунтов..."
 msgid "Add Telegram Account"
 msgstr "Добавить Telegram аккаунт"
 
-#~ msgid "Close modal"
-#~ msgstr "Закрыть окно"
 
 msgid "Phone Authorization"
 msgstr "Авторизация по телефону"
@@ -1288,388 +523,121 @@ msgstr "Не удалось удалить аккаунт:"
 msgid "Retry"
 msgstr "Повторить"
 
-#~ msgid "What to do:"
-#~ msgstr "Что делать:"
 
-#~ msgid "Go to Sessions Page"
-#~ msgstr "Перейти на страницу Сессий"
 
-#~ msgid ""
-#~ "Analysis for these chats is already "
-#~ "in progress. Showing current status..."
-#~ msgstr "Анализ этих чатов уже выполняется. Показан текущий статус..."
 
-#~ msgid "Analyzing %(num)s chat..."
-#~ msgid_plural "Analyzing %(num)s chats..."
-#~ msgstr[0] "Анализ %(num)s чата..."
-#~ msgstr[1] "Анализ %(num)s чатов..."
-#~ msgstr[2] "Анализ %(num)s чатов..."
 
-#~ msgid "Starting..."
-#~ msgstr "Запуск..."
 
-#~ msgid "Cancel analysis"
-#~ msgstr "Отменить анализ"
 
-#~ msgid "chats"
-#~ msgstr "чатов"
 
-#~ msgid "Two-Factor Authentication Required"
-#~ msgstr "Требуется двухфакторная аутентификация"
 
-#~ msgid "Your account has 2FA enabled. Please enter your password to continue."
-#~ msgstr ""
-#~ "В вашем аккаунте включена 2FA. "
-#~ "Пожалуйста, введите пароль для продолжения."
 
-#~ msgid "Session:"
-#~ msgstr "Сессия:"
 
-#~ msgid "Enter your Telegram 2FA password"
-#~ msgstr "Введите ваш 2FA пароль Telegram"
 
-#~ msgid "2FA Password"
-#~ msgstr "2FA пароль"
 
-#~ msgid "Your 2FA password"
-#~ msgstr "Ваш 2FA пароль"
 
-#~ msgid ""
-#~ "Enter the password you set in "
-#~ "Telegram Settings > Privacy and Security"
-#~ " > Two-Step Verification"
-#~ msgstr ""
-#~ "Введите пароль, установленный в Telegram "
-#~ "Настройки > Конфиденциальность > Двухэтапная"
-#~ " аутентификация"
 
-#~ msgid "Complete Authentication"
-#~ msgstr "Завершить аутентификацию"
 
-#~ msgid "Note: Your password is sent securely and is never stored."
-#~ msgstr "Примечание: Ваш пароль передаётся безопасно и никогда не сохраняется."
 
-#~ msgid "Verification code sent!"
-#~ msgstr "Код подтверждения отправлен!"
 
-#~ msgid "Please enter the code you received via Telegram."
-#~ msgstr "Пожалуйста, введите код, полученный в Telegram."
 
-#~ msgid "Code sent to:"
-#~ msgstr "Код отправлен на:"
 
-#~ msgid "Enter the verification code sent to your phone"
-#~ msgstr "Введите код подтверждения, отправленный на ваш телефон"
 
-#~ msgid "Verification Code"
-#~ msgstr "Код подтверждения"
 
-#~ msgid "e.g., 12345"
-#~ msgstr "например, 12345"
 
-#~ msgid "Enter the 5-digit code from Telegram"
-#~ msgstr "Введите 5-значный код из Telegram"
 
-#~ msgid "Verify Code"
-#~ msgstr "Проверить код"
 
-#~ msgid ""
-#~ "Note: The code expires in a few"
-#~ " minutes. If you didn't receive it,"
-#~ " start the process again."
-#~ msgstr ""
-#~ "Примечание: Код действителен несколько минут."
-#~ " Если вы не получили его, начните "
-#~ "процесс заново."
 
-#~ msgid "Account Information"
-#~ msgstr "Информация об аккаунте"
 
-#~ msgid "Name:"
-#~ msgstr "Имя:"
 
-#~ msgid "Phone:"
-#~ msgstr "Телефон:"
 
-#~ msgid "User ID:"
-#~ msgstr "ID пользователя:"
 
-#~ msgid "Warning: Duplicate Account Detected"
-#~ msgstr "Предупреждение: обнаружен дубликат аккаунта"
 
-#~ msgid "This account is already registered in these sessions:"
-#~ msgstr "Этот аккаунт уже зарегистрирован в следующих сессиях:"
 
-#~ msgid ""
-#~ "Using multiple sessions for the same "
-#~ "account may cause conflicts. Consider "
-#~ "removing duplicate sessions."
-#~ msgstr ""
-#~ "Использование нескольких сессий для одного "
-#~ "аккаунта может вызвать конфликты. "
-#~ "Рекомендуется удалить дублирующиеся сессии."
 
-#~ msgid "Create Another Session"
-#~ msgstr "Создать другую сессию"
 
-#~ msgid "Go to Sessions"
-#~ msgstr "Перейти к сессиям"
 
-#~ msgid "Authentication Failed"
-#~ msgstr "Ошибка аутентификации"
 
-#~ msgid "Try Again"
-#~ msgstr "Попробовать снова"
 
-#~ msgid "A unique identifier for this Telegram session"
-#~ msgstr "Уникальный идентификатор сессии Telegram"
 
-#~ msgid "Session Name"
-#~ msgstr "Имя сессии"
 
-#~ msgid "e.g., my_account"
-#~ msgstr "например, my_account"
 
-#~ msgid ""
-#~ "A unique name to identify this "
-#~ "session. Only letters, numbers, underscores,"
-#~ " and hyphens allowed."
-#~ msgstr ""
-#~ "Уникальное имя сессии. Можно использовать "
-#~ "буквы, цифры, подчёркивания и дефисы."
 
-#~ msgid "Your Telegram phone number with country code"
-#~ msgstr "Ваш номер телефона Telegram с кодом страны"
 
-#~ msgid "Phone Number"
-#~ msgstr "Номер телефона"
 
-#~ msgid "+1234567890"
-#~ msgstr "+1234567890"
 
-#~ msgid "Your Telegram phone number with country code (e.g., +1234567890)"
-#~ msgstr "Ваш номер телефона Telegram с кодом страны (например, +1234567890)"
 
-#~ msgid "Your Telegram API ID from my.telegram.org"
-#~ msgstr "Ваш Telegram API ID с my.telegram.org"
 
-#~ msgid "API ID"
-#~ msgstr "API ID"
 
-#~ msgid "e.g., 12345678"
-#~ msgstr "например, 12345678"
 
-#~ msgid "Numeric ID from my.telegram.org/apps"
-#~ msgstr "Числовой ID с my.telegram.org/apps"
 
-#~ msgid "Your Telegram API Hash from my.telegram.org"
-#~ msgstr "Ваш Telegram API Hash с my.telegram.org"
 
-#~ msgid "API Hash"
-#~ msgstr "API Hash"
 
-#~ msgid "e.g., 0123456789abcdef..."
-#~ msgstr "например, 0123456789abcdef..."
 
-#~ msgid "32-character hex string from my.telegram.org/apps"
-#~ msgstr "32-символьная hex строка с my.telegram.org/apps"
 
-#~ msgid "Select a proxy for this session"
-#~ msgstr "Выберите прокси для этой сессии"
 
-#~ msgid "Proxy"
-#~ msgstr "Прокси"
 
-#~ msgid "-- Select a proxy --"
-#~ msgstr "-- Выберите прокси --"
 
-#~ msgid "unavailable"
-#~ msgstr "недоступен"
 
-#~ msgid "A proxy is required for Telegram connection."
-#~ msgstr "Прокси обязателен для подключения к Telegram."
 
-#~ msgid "Add a proxy first"
-#~ msgstr "Сначала добавьте прокси"
 
-#~ msgid ""
-#~ "I understand that session files provide"
-#~ " complete access to my Telegram "
-#~ "account and accept the security risks."
-#~ msgstr ""
-#~ "Я понимаю, что файлы сессий дают "
-#~ "полный доступ к моему аккаунту Telegram,"
-#~ " и принимаю риски безопасности."
 
-#~ msgid "Send Verification Code"
-#~ msgstr "Отправить код подтверждения"
 
-#~ msgid "Try loading chats again"
-#~ msgstr "Попробовать загрузить чаты снова"
 
-#~ msgid "Search chats by name or username"
-#~ msgstr "Поиск чатов по имени или имени пользователя"
 
-#~ msgid "Filter chats by type (private, group, channel, etc.)"
-#~ msgstr "Фильтровать чаты по типу (личные, группы, каналы и т.д.)"
 
-#~ msgid "Select all visible chats"
-#~ msgstr "Выбрать все видимые чаты"
 
-#~ msgid "Select All"
-#~ msgstr "Выбрать все"
 
-#~ msgid "Deselect all chats"
-#~ msgstr "Снять выбор со всех чатов"
 
-#~ msgid "Select None"
-#~ msgstr "Не выбрать ничего"
 
-#~ msgid "Remove all active filters"
-#~ msgstr "Удалить все активные фильтры"
 
-#~ msgid "0 of %(total)s chats"
-#~ msgstr "0 из %(total)s чатов"
 
-#~ msgid "%(count)s members"
-#~ msgstr "%(count)s участников"
 
-#~ msgid "Load more chats from this session"
-#~ msgstr "Загрузить ещё чаты из этой сессии"
 
-#~ msgid "Load More Chats (%(remaining)s remaining)"
-#~ msgstr "Загрузить ещё чаты (осталось %(remaining)s)"
 
-#~ msgid "Configure how many messages to analyze from each chat"
-#~ msgstr "Настройте количество сообщений для анализа из каждого чата"
 
-#~ msgid "Analysis Settings"
-#~ msgstr "Настройки анализа"
 
-#~ msgid "Set the number of recent messages to fetch and analyze"
-#~ msgstr "Установите количество последних сообщений для получения и анализа"
 
-#~ msgid "Messages per chat"
-#~ msgstr "Сообщений на чат"
 
-#~ msgid "Higher values take longer but provide more comprehensive analysis"
-#~ msgstr ""
-#~ "Большие значения занимают больше времени, "
-#~ "но обеспечивают более полный анализ"
 
-#~ msgid "Number of recent messages to analyze (10-10000)"
-#~ msgstr "Количество последних сообщений для анализа (10-10000)"
 
-#~ msgid "Begin analyzing the selected chats"
-#~ msgstr "Начать анализ выбранных чатов"
 
-#~ msgid "No Chats Found"
-#~ msgstr "Чаты не найдены"
 
-#~ msgid ""
-#~ "This Telegram session doesn't have any"
-#~ " chats available for analysis. Try "
-#~ "selecting a different session or verify"
-#~ " that your session has active chats."
-#~ msgstr ""
-#~ "В этой сессии нет доступных для "
-#~ "анализа чатов. Попробуйте выбрать другую "
-#~ "сессию или проверьте наличие активных "
-#~ "чатов."
 
-#~ msgid "Session file is valid!"
-#~ msgstr "Файл сессии корректен!"
 
-#~ msgid "Proceed to configure the session settings."
-#~ msgstr "Перейдите к настройке параметров сессии."
 
-#~ msgid "Validation failed:"
-#~ msgstr "Ошибка валидации:"
 
-#~ msgid "Proxy servers list"
-#~ msgstr "Список прокси-серверов"
 
 msgid "Status"
 msgstr "Статус"
 
-#~ msgid "Address"
-#~ msgstr "Адрес"
 
-#~ msgid "Auth"
-#~ msgstr "Авторизация"
 
 msgid "Actions"
 msgstr "Действия"
 
-#~ msgid "Working - last checked"
-#~ msgstr "Работает — последняя проверка"
 
-#~ msgid "Never"
-#~ msgstr "Никогда"
 
-#~ msgid "Working"
-#~ msgstr "Работает"
 
-#~ msgid "consecutive failures"
-#~ msgstr "последовательных ошибок"
 
-#~ msgid "No ping"
-#~ msgstr "Нет пинга"
 
-#~ msgid "Not yet tested"
-#~ msgstr "Ещё не протестирован"
 
-#~ msgid "Untested"
-#~ msgstr "Не протестирован"
 
-#~ msgid "Authentication required"
-#~ msgstr "Требуется аутентификация"
 
-#~ msgid "No authentication"
-#~ msgstr "Без аутентификации"
 
-#~ msgid "None"
-#~ msgstr "Нет"
 
-#~ msgid "Test proxy connection"
-#~ msgstr "Проверить подключение прокси"
 
-#~ msgid "Retest proxy"
-#~ msgstr "Перепроверить прокси"
 
-#~ msgid "Test"
-#~ msgstr "Тест"
 
-#~ msgid "Edit this proxy"
-#~ msgstr "Редактировать этот прокси"
 
-#~ msgid "Edit proxy"
-#~ msgstr "Редактировать прокси"
 
 msgid "Edit"
 msgstr "Редактировать"
 
-#~ msgid "Delete this proxy"
-#~ msgstr "Удалить этот прокси"
 
-#~ msgid "Delete proxy"
-#~ msgstr "Удалить прокси"
 
-#~ msgid "No Proxies Configured"
-#~ msgstr "Прокси не настроены"
 
-#~ msgid "Add a proxy server to route Telegram connections through it."
-#~ msgstr ""
-#~ "Добавьте прокси-сервер для маршрутизации "
-#~ "подключений Telegram через него."
 
-#~ msgid ""
-#~ "The selected proxy is currently "
-#~ "unavailable. Consider selecting a working "
-#~ "proxy."
-#~ msgstr ""
-#~ "Выбранный прокси сейчас недоступен. "
-#~ "Рассмотрите выбор работающего прокси."
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Disconnect session"
@@ -1685,11 +653,7 @@ msgstr "Подключить сессию"
 msgid "Connect"
 msgstr "Подключить"
 
-#~ msgid "Connecting..."
-#~ msgstr "Подключение..."
 
-#~ msgid "Disconnecting..."
-#~ msgstr "Отключение..."
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Retry connection"
@@ -1719,65 +683,21 @@ msgstr "Не настроено"
 msgid "Configure session first"
 msgstr "Сначала настройте сессию"
 
-#~ msgid "Unknown state"
-#~ msgstr "Неизвестное состояние"
 
-#~ msgid "Drop session file here or click to browse"
-#~ msgstr "Перетащите файл сессии сюда или нажмите для выбора"
 
-#~ msgid "Drop your .session file here"
-#~ msgstr "Перетащите файл .session сюда"
 
-#~ msgid "or click to browse"
-#~ msgstr "или нажмите для выбора"
 
-#~ msgid "or"
-#~ msgstr "или"
 
-#~ msgid "Choose File"
-#~ msgstr "Выбрать файл"
 
-#~ msgid "Clear selected file"
-#~ msgstr "Очистить выбранный файл"
 
-#~ msgid "Session file validated successfully!"
-#~ msgstr "Файл сессии успешно проверен!"
 
-#~ msgid "Now configure the session settings below."
-#~ msgstr "Теперь настройте параметры сессии ниже."
 
-#~ msgid ""
-#~ "I understand that session files provide"
-#~ " complete access to my Telegram "
-#~ "account and accept the security risks."
-#~ " I confirm this session was created"
-#~ " on a trusted device and will "
-#~ "be stored securely."
-#~ msgstr ""
-#~ "Я понимаю, что файлы сессий дают "
-#~ "полный доступ к моему аккаунту Telegram,"
-#~ " и принимаю риски безопасности. "
-#~ "Подтверждаю, что сессия создана на "
-#~ "доверенном устройстве и будет храниться "
-#~ "безопасно."
 
-#~ msgid "Back"
-#~ msgstr "Назад"
 
-#~ msgid "Save Session"
-#~ msgstr "Сохранить сессию"
 
-#~ msgid "Invalid file type. Please select a .session file."
-#~ msgstr "Неверный тип файла. Пожалуйста, выберите файл .session."
 
-#~ msgid "File is too large. Maximum size is 10 MB."
-#~ msgstr "Файл слишком большой. Максимальный размер — 10 МБ."
 
-#~ msgid "Validating session file..."
-#~ msgstr "Проверка файла сессии..."
 
-#~ msgid "Failed to validate session file. Please try again."
-#~ msgstr "Не удалось проверить файл сессии. Пожалуйста, попробуйте снова."
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Ready"
@@ -1816,310 +736,82 @@ msgstr "Аккаунт"
 msgid "No Telegram Accounts"
 msgstr "Нет Telegram аккаунтов"
 
-#~ msgid ""
-#~ "You haven't added any Telegram accounts"
-#~ " yet. Click \\\"Add Account\\\" above "
-#~ "to get started."
-#~ msgstr ""
-#~ "Вы ещё не добавили ни одного "
-#~ "Telegram аккаунта. Нажмите «Добавить аккаунт»"
-#~ " выше, чтобы начать."
 
-#~ msgid "No session selected"
-#~ msgstr "Сессия не выбрана"
 
-#~ msgid "Select a Telegram session from the dropdown above"
-#~ msgstr "Выберите сессию из выпадающего списка выше"
 
-#~ msgid "No chats selected for analysis"
-#~ msgstr "Не выбраны чаты для анализа"
 
-#~ msgid "Select at least one chat from the list above by checking the boxes"
-#~ msgstr "Выберите хотя бы один чат из списка выше, отметив флажки"
 
-#~ msgid "Message limit must be between 10 and 10000"
-#~ msgstr "Лимит сообщений должен быть от 10 до 10000"
 
-#~ msgid "Adjust the 'Messages per chat' setting to a value between 10 and 10000"
-#~ msgstr "Установите значение «Сообщений на чат» от 10 до 10000"
 
-#~ msgid "Upload a valid session file from the Sessions page"
-#~ msgstr "Загрузите файл сессии на странице Сессий"
 
-#~ msgid "All selected chats are no longer accessible"
-#~ msgstr "Все выбранные чаты больше недоступны"
 
-#~ msgid ""
-#~ "The selected chats (IDs: {invalid_list}) "
-#~ "may have been deleted or removed "
-#~ "from Telegram. Please refresh the chat"
-#~ " list and select valid chats."
-#~ msgstr ""
-#~ "Выбранные чаты (ID: {invalid_list}) могли "
-#~ "быть удалены из Telegram. Пожалуйста, "
-#~ "обновите список чатов и выберите "
-#~ "корректные чаты."
-
-#~ msgid "Analysis queue is at capacity ({limit} concurrent tasks)."
-#~ msgstr "Очередь анализа заполнена ({limit} одновременных задач)."
-
-#~ msgid ""
-#~ "Wait for currently running analyses to"
-#~ " complete, or cancel an existing "
-#~ "analysis"
-#~ msgstr "Дождитесь завершения текущих анализов или отмените существующий анализ"
-
-#~ msgid "Analysis cancelled"
-#~ msgstr "Анализ отменён"
-
-#~ msgid "Task timed out"
-#~ msgstr "Время выполнения задачи истекло"
-
-#~ msgid "Unknown error"
-#~ msgstr "Неизвестная ошибка"
-
-#~ msgid "Invalid task ID format"
-#~ msgstr "Неверный формат ID задачи"
-
-#~ msgid "Task not found"
-#~ msgstr "Задача не найдена"
-
-#~ msgid "Analysis still in progress"
-#~ msgstr "Анализ ещё выполняется"
-
-#~ msgid "Analysis not started"
-#~ msgstr "Анализ не запущен"
-
-#~ msgid "Analysis failed"
-#~ msgstr "Анализ не удался"
-
-#~ msgid "Analysis timed out"
-#~ msgstr "Время анализа истекло"
-
-#~ msgid "Analysis cancelled successfully"
-#~ msgstr "Анализ успешно отменён"
-
-#~ msgid "Task force-cancelled successfully"
-#~ msgstr "Задача принудительно отменена"
-
-#~ msgid "File too large (max {size} MB)"
-#~ msgstr "Файл слишком большой (максимум {size} МБ)"
-
-#~ msgid "File is empty"
-#~ msgstr "Файл пуст"
-
-#~ msgid "Parse error: {error}"
-#~ msgstr "Ошибка обработки: {error}"
-
-#~ msgid "No valid chat entries found in file"
-#~ msgstr "В файле не найдено корректных записей чатов"
-
-#~ msgid ""
-#~ "An unexpected error occurred while "
-#~ "processing the file. Please try again."
-#~ msgstr ""
-#~ "При обработке файла произошла непредвиденная"
-#~ " ошибка. Пожалуйста, попробуйте снова."
-
-#~ msgid "Please enter a Google Sheets URL"
-#~ msgstr "Пожалуйста, введите URL Google Sheets"
-
-#~ msgid "Invalid Google Sheets URL"
-#~ msgstr "Неверный URL Google Sheets"
-
-#~ msgid "No valid chat entries found in spreadsheet"
-#~ msgstr "В таблице не найдено корректных записей чатов"
-
-#~ msgid ""
-#~ "An unexpected error occurred while "
-#~ "fetching the Google Sheet. Please try"
-#~ " again."
-#~ msgstr ""
-#~ "При получении Google Sheet произошла "
-#~ "непредвиденная ошибка. Пожалуйста, попробуйте "
-#~ "снова."
-
-#~ msgid "List not found or expired"
-#~ msgstr "Список не найден или истёк"
-
-#~ msgid ""
-#~ "Session is invalid and has been "
-#~ "removed. The session may have been "
-#~ "revoked, logged out from another device,"
-#~ " or the account may be banned "
-#~ "or deactivated."
-#~ msgstr ""
-#~ "Сессия недействительна и была удалена. "
-#~ "Возможные причины: сессия отозвана, завершена"
-#~ " на другом устройстве, аккаунт заблокирован"
-#~ " или деактивирован."
-
-#~ msgid "Upload a new session file from an active Telegram account"
-#~ msgstr "Загрузите новый файл сессии от активного аккаунта"
-
-#~ msgid ""
-#~ "Two-factor authentication (2FA) is "
-#~ "required. This session needs re-"
-#~ "authorization with your 2FA password."
-#~ msgstr ""
-#~ "Требуется двухфакторная аутентификация (2FA). "
-#~ "Сессия требует повторной авторизации с "
-#~ "паролем 2FA."
-
-#~ msgid ""
-#~ "Create a new session file using "
-#~ "Telethon or Pyrogram and enter your "
-#~ "2FA password during authentication. See "
-#~ "the Upload page for instructions."
-#~ msgstr ""
-#~ "Создайте новый файл сессии через "
-#~ "Telethon или Pyrogram, указав пароль 2FA"
-#~ " при авторизации. См. инструкции на "
-#~ "странице загрузки."
-
-#~ msgid "Session has expired and requires re-authorization."
-#~ msgstr "Срок действия сессии истёк. Требуется повторная авторизация."
-
-#~ msgid ""
-#~ "Create and upload a new session "
-#~ "file from your Telegram account. See "
-#~ "the Upload page for step-by-step"
-#~ " instructions."
-#~ msgstr ""
-#~ "Создайте и загрузите новый файл сессии."
-#~ " Инструкции см. на странице загрузки."
-
-#~ msgid "Failed to connect to Telegram. Please check your session."
-#~ msgstr "Не удалось подключиться к Telegram. Проверьте сессию."
-
-#~ msgid "Verify your session file is valid or try uploading a new one"
-#~ msgstr "Проверьте файл сессии или загрузите новый"
-
-#~ msgid "Session not found"
-#~ msgstr "Сессия не найдена"
-
-#~ msgid "Failed to fetch account info"
-#~ msgstr "Не удалось получить информацию об аккаунте"
-
-#~ msgid "Session '{name}' already exists"
-#~ msgstr "Сессия '{name}' уже существует"
-
-#~ msgid "Invalid session: {error}"
-#~ msgstr "Неверная сессия: {error}"
-
-#~ msgid "Invalid config: {error}"
-#~ msgstr "Неверная конфигурация: {error}"
-
-#~ msgid "Config validation failed: {error}"
-#~ msgstr "Ошибка валидации конфигурации: {error}"
-
-#~ msgid "Failed to save session files. Please try again."
-#~ msgstr "Не удалось сохранить файлы сессии. Пожалуйста, попробуйте снова."
-
-#~ msgid "Session '{name}' uploaded successfully"
-#~ msgstr "Сессия '{name}' успешно загружена"
-
-#~ msgid "An unexpected error occurred during upload. Please try again."
-#~ msgstr ""
-#~ "При загрузке произошла непредвиденная ошибка."
-#~ " Пожалуйста, попробуйте снова."
-
-#~ msgid "An unexpected error occurred during validation."
-#~ msgstr "При валидации произошла непредвиденная ошибка."
-
-#~ msgid "Invalid API hash format. Must be a 32-character hexadecimal string."
-#~ msgstr ""
-#~ "Неверный формат API hash. Должен быть"
-#~ " 32-символьной шестнадцатеричной строкой."
-
-#~ msgid ""
-#~ "Invalid phone number format. Must start"
-#~ " with + and country code (e.g., "
-#~ "+1234567890)."
-#~ msgstr ""
-#~ "Неверный формат номера телефона. Должен "
-#~ "начинаться с + и кода страны "
-#~ "(например, +1234567890)."
-
-#~ msgid "Selected proxy not found."
-#~ msgstr "Выбранный прокси не найден."
-
-#~ msgid "Invalid phone number."
-#~ msgstr "Неверный номер телефона."
-
-#~ msgid "This phone number is banned by Telegram."
-#~ msgstr "Этот номер телефона заблокирован Telegram."
-
-#~ msgid "Invalid API ID or API Hash."
-#~ msgstr "Неверный API ID или API Hash."
-
-#~ msgid "Too many requests. Please wait {seconds} seconds before trying again."
-#~ msgstr ""
-#~ "Слишком много запросов. Пожалуйста, подождите"
-#~ " {seconds} секунд перед повторной попыткой."
-
-#~ msgid "Connection timeout. Please check your proxy settings and try again."
-#~ msgstr ""
-#~ "Таймаут подключения. Пожалуйста, проверьте "
-#~ "настройки прокси и попробуйте снова."
-
-#~ msgid "Failed to send code: {error}"
-#~ msgstr "Не удалось отправить код: {error}"
-
-#~ msgid "Auth session expired or not found. Please start over."
-#~ msgstr ""
-#~ "Срок действия сессии авторизации истёк "
-#~ "или сессия не найдена. Начните заново."
-
-#~ msgid "Invalid code format. Please enter the numeric code you received."
-#~ msgstr "Неверный формат кода. Пожалуйста, введите полученный числовой код."
-
-#~ msgid "Connection lost. Please start over."
-#~ msgstr "Соединение потеряно. Пожалуйста, начните заново."
-
-#~ msgid "Invalid code. Please check and try again."
-#~ msgstr "Неверный код. Пожалуйста, проверьте и попробуйте снова."
-
-#~ msgid "Code has expired. Please start over."
-#~ msgstr "Код истёк. Пожалуйста, начните заново."
-
-#~ msgid "Please enter the verification code."
-#~ msgstr "Пожалуйста, введите код подтверждения."
-
-#~ msgid "Request timeout. Please try again."
-#~ msgstr "Таймаут запроса. Пожалуйста, попробуйте снова."
-
-#~ msgid "Failed to verify code: {error}"
-#~ msgstr "Не удалось проверить код: {error}"
-
-#~ msgid "Invalid auth state. Please start over."
-#~ msgstr "Неверное состояние авторизации. Пожалуйста, начните заново."
-
-#~ msgid "Failed to verify password: {error}"
-#~ msgstr "Не удалось проверить пароль: {error}"
-
-#~ msgid "Client connection lost. Please start over."
-#~ msgstr "Соединение с клиентом потеряно. Пожалуйста, начните заново."
-
-#~ msgid "Session '{name}' created successfully!"
-#~ msgstr "Сессия '{name}' успешно создана!"
-
-#~ msgid "Failed to save session: {error}"
-#~ msgstr "Не удалось сохранить сессию: {error}"
-
-#~ msgid "Selected proxy not found. Please select a valid proxy."
-#~ msgstr "Выбранный прокси не найден. Пожалуйста, выберите корректный прокси."
-
-#~ msgid "Session '{name}' imported successfully"
-#~ msgstr "Сессия '{name}' успешно импортирована"
-
-#~ msgid "An unexpected error occurred during import. Please try again."
-#~ msgstr ""
-#~ "При импорте произошла непредвиденная ошибка."
-#~ " Пожалуйста, попробуйте снова."
-
-#~ msgid "Needs API Credentials"
-#~ msgstr "Требуются учётные данные API"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Needs Verification Code"
@@ -2129,41 +821,23 @@ msgstr "Требуется код подтверждения"
 msgid "Needs 2FA Password"
 msgstr "Требуется пароль 2FA"
 
-#~ msgid "Enter API Credentials"
-#~ msgstr "Введите учётные данные API"
 
-#~ msgid "Get credentials at my.telegram.org"
-#~ msgstr "Получите учётные данные на my.telegram.org"
 
 msgid "Enter Verification Code"
 msgstr "Введите код подтверждения"
 
-#~ msgid "Code"
-#~ msgstr "Код"
 
-#~ msgid "Enter the 5-6 digit code sent to your phone"
-#~ msgstr "Введите 5-6 значный код, отправленный на ваш телефон"
 
 msgid "Enter 2FA Password"
 msgstr "Введите пароль 2FA"
 
-#~ msgid "Password"
-#~ msgstr "Пароль"
 
-#~ msgid "Enter your 2FA password"
-#~ msgstr "Введите ваш пароль 2FA"
 
-#~ msgid "Submit"
-#~ msgstr "Отправить"
 
 msgid "Verify"
 msgstr "Проверить"
 
-#~ msgid "Session '{name}' reconnected successfully"
-#~ msgstr "Сессия '{name}' успешно переподключена"
 
-#~ msgid "Session expired"
-#~ msgstr "Сессия истекла"
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Corrupted"
@@ -2188,8 +862,6 @@ msgstr "Переподключить"
 msgid "Reconnect session"
 msgstr "Переподключить сессию"
 
-#~ msgid "Session has expired - reconnect required"
-#~ msgstr "Сессия истекла - требуется переподключение"
 
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Session file is corrupted. Please delete and recreate."
