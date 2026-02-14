@@ -273,6 +273,18 @@ class GroupDatabase(SQLiteDatabase):
             group_id: Group identifier
             chat_ref: Chat reference
             metrics_data: Analysis metrics as dict (will be serialized to JSON)
+                Expected structure:
+                {
+                    "chat_type": str,  # group/forum/channel_comments/channel_no_comments/dead
+                    "subscribers": int | None,  # participant count
+                    "messages_per_hour": float | None,  # activity metric
+                    "unique_authors_per_hour": float | None,  # unique authors metric
+                    "moderation": bool | None,  # has join request
+                    "captcha": bool | None,  # has captcha bot
+                    "status": str,  # done/failed/n/a
+                    "title": str | None,  # chat title
+                    "chat_ref": str,  # chat reference
+                }
             analyzed_at: Analysis timestamp (default: now)
         """
         analyzed = analyzed_at or datetime.now(UTC)
@@ -291,6 +303,43 @@ class GroupDatabase(SQLiteDatabase):
                     self._datetime_to_str(analyzed),
                 ),
             )
+
+    def load_result(
+        self,
+        group_id: str,
+        chat_ref: str,
+    ) -> dict[str, Any] | None:
+        """Load analysis result for a specific chat in a group.
+
+        Args:
+            group_id: Group identifier
+            chat_ref: Chat reference
+
+        Returns:
+            Result data dict or None if not found
+        """
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT * FROM group_results
+                WHERE group_id = ? AND chat_ref = ?
+                ORDER BY analyzed_at DESC
+                LIMIT 1
+                """,
+                (group_id, chat_ref),
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            return {
+                "id": row["id"],
+                "group_id": row["group_id"],
+                "chat_ref": row["chat_ref"],
+                "metrics_data": json.loads(row["metrics_data"]),
+                "analyzed_at": self._str_to_datetime(row["analyzed_at"]),
+            }
 
     def load_results(
         self,
@@ -329,6 +378,20 @@ class GroupDatabase(SQLiteDatabase):
             }
             for row in rows
         ]
+
+    def clear_results(self, group_id: str) -> None:
+        """Clear all analysis results for a group.
+
+        This allows re-running analysis on the same group.
+
+        Args:
+            group_id: Group identifier
+        """
+        with self._connection() as conn:
+            conn.execute(
+                "DELETE FROM group_results WHERE group_id = ?",
+                (group_id,),
+            )
 
     def get_group_stats(self, group_id: str) -> dict[str, int]:
         """Get statistics for a group's chats.
