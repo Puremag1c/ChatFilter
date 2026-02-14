@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-02-14
+
+### Fixed
+- Fix SSE duplicate cards: HX-Trigger single-source-of-truth pattern
+- SMOKE: [Backend] Export bug test fails with CSRF error (403)
+- SMOKE: [Backend] Export returns 404 JSON instead of CSV when no results
+- SMOKE: [Visual] SSE polling causes duplicate group cards on /chats page
+
+### Changed
+- Analyze: root cause of SSE duplicate cards regression (regressed 2x)
+- [Reliability] Add FloodWait retry for Phase 1 get_entity calls
+- [Security] Add CSRF protection to settings update endpoint
+- Plan reviewed
+- [OPS] E2E test: settings modal UI and analysis flow
+- [Reliability] Handle GetFullChannel failure for invite links gracefully
+- [UX] Add failed chats details view or tooltip
+- [Reliability] Ensure re-run analysis clears old data atomically before start
+- [UX] Show moderation-skipped chats count in group card
+- [OPS] Validate CSV export: columns match selected metrics
+
 ## [0.9.8] - 2026-02-13
 
 ### Fixed
@@ -753,7 +773,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.8...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.9...HEAD
+[0.9.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.8...v0.9.9
 [0.9.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.5...v0.9.6
