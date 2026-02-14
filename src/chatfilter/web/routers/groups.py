@@ -836,16 +836,26 @@ async def export_group_results(group_id: str) -> Response:
 async def update_group_settings(
     request: Request,
     group_id: str,
-    message_limit: Annotated[int, Form()],
-    leave_after: Annotated[bool, Form()] = False,
+    detect_chat_type: Annotated[bool, Form()] = False,
+    detect_subscribers: Annotated[bool, Form()] = False,
+    detect_activity: Annotated[bool, Form()] = False,
+    detect_unique_authors: Annotated[bool, Form()] = False,
+    detect_moderation: Annotated[bool, Form()] = False,
+    detect_captcha: Annotated[bool, Form()] = False,
+    time_window: Annotated[int, Form()] = 24,
 ) -> HTMLResponse:
     """Update group analysis settings.
 
     Args:
         request: FastAPI request object
         group_id: Group identifier
-        message_limit: Maximum messages to analyze per chat (10-10000)
-        leave_after: Whether to leave chat after analysis
+        detect_chat_type: Whether to detect chat type (default: False)
+        detect_subscribers: Whether to detect subscribers (default: False)
+        detect_activity: Whether to detect activity (default: False)
+        detect_unique_authors: Whether to detect unique authors (default: False)
+        detect_moderation: Whether to detect moderation (default: False)
+        detect_captcha: Whether to detect captcha (default: False)
+        time_window: Time window in hours for activity analysis (default: 24)
 
     Returns:
         HTML partial with updated group card or error message
@@ -860,8 +870,13 @@ async def update_group_settings(
     try:
         # Create and validate settings
         settings = GroupSettings(
-            message_limit=message_limit,
-            leave_after_analysis=leave_after,
+            detect_chat_type=detect_chat_type,
+            detect_subscribers=detect_subscribers,
+            detect_activity=detect_activity,
+            detect_unique_authors=detect_unique_authors,
+            detect_moderation=detect_moderation,
+            detect_captcha=detect_captcha,
+            time_window=time_window,
         )
 
         # Update via service
