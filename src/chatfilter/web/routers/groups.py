@@ -743,15 +743,10 @@ async def export_group_results(group_id: str) -> Response:
     # Load results from database
     results_data = service._db.load_results(group_id)
 
-    if not results_data:
-        raise HTTPException(
-            status_code=404,
-            detail="No analysis results available for this group",
-        )
-
-    # Generate CSV using dynamic exporter with group settings
+    # Always return CSV with headers, even if no results yet
+    # This prevents browser from saving JSON error as a file
     csv_content = export_group_results_to_csv(
-        results_data,
+        results_data or [],  # Empty list if no results
         settings=group.settings,
         include_bom=True,
     )
