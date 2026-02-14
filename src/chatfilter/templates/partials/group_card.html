@@ -60,7 +60,7 @@
                 hx-get="/api/groups/modal/settings/{{ group.id }}"
                 hx-target="#modal-container"
                 hx-swap="innerHTML">
-            {{ _("Настроить анализ") }}
+            {{ _("Configure analysis") }}
         </button>
 
         {% if group.status.value == 'in_progress' %}
@@ -68,14 +68,14 @@
                 hx-post="/api/groups/{{ group.id }}/stop"
                 hx-target="#group-{{ group.id }}"
                 hx-swap="outerHTML">
-            {{ _("Остановить анализ") }}
+            {{ _("Stop analysis") }}
         </button>
         {% else %}
         <button class="btn btn-primary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/start"
                 hx-target="#group-{{ group.id }}"
                 hx-swap="outerHTML">
-            {{ _("Начать анализ") }}
+            {{ _("Start analysis") }}
         </button>
         {% endif %}
 
@@ -84,7 +84,7 @@
                 data-group-id="{{ group.id }}"
                 data-group-name="{{ group.name }}"
                 onclick="handleExportDownload(this)">
-            {{ _("Скачать результат") }}
+            {{ _("Download results") }}
         </button>
         {% endif %}
 
@@ -93,7 +93,7 @@
                 hx-target="#group-{{ group.id }}"
                 hx-swap="outerHTML"
                 hx-confirm="{{ _('Delete group? This cannot be undone.') }}">
-            {{ _("Удалить") }}
+            {{ _("Delete") }}
         </button>
     </div>
 
