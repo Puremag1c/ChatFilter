@@ -341,6 +341,7 @@ class GroupStats(BaseModel):
         channels_no_comments: Channels without comments.
         analyzed: Successfully analyzed chats.
         failed: Failed chat processing.
+        skipped_moderation: Chats skipped due to join approval required.
 
     Example:
         >>> stats = GroupStats(
@@ -373,10 +374,11 @@ class GroupStats(BaseModel):
     channels_no_comments: int
     analyzed: int
     failed: int
+    skipped_moderation: int = 0
 
     @field_validator("total", "pending", "dead", "groups", "forums",
                      "channels_with_comments", "channels_no_comments",
-                     "analyzed", "failed")
+                     "analyzed", "failed", "skipped_moderation")
     @classmethod
     def counts_must_be_non_negative(cls, v: int) -> int:
         """Validate that all counts are non-negative."""
@@ -397,6 +399,7 @@ class GroupStats(BaseModel):
             channels_no_comments=0,
             analyzed=0,
             failed=0,
+            skipped_moderation=0,
         )
 
     @classmethod
@@ -411,6 +414,7 @@ class GroupStats(BaseModel):
         channels_no_comments: int | None = None,
         analyzed: int | None = None,
         failed: int | None = None,
+        skipped_moderation: int | None = None,
     ) -> GroupStats:
         """Create fake GroupStats for testing.
 
@@ -424,6 +428,7 @@ class GroupStats(BaseModel):
             channels_no_comments: Channels without comments (default: 2).
             analyzed: Analyzed count (default: 4).
             failed: Failed count (default: 1).
+            skipped_moderation: Skipped moderation count (default: 0).
 
         Returns:
             GroupStats instance with test data.
@@ -438,4 +443,5 @@ class GroupStats(BaseModel):
             channels_no_comments=channels_no_comments if channels_no_comments is not None else 2,
             analyzed=analyzed if analyzed is not None else 4,
             failed=failed if failed is not None else 1,
+            skipped_moderation=skipped_moderation if skipped_moderation is not None else 0,
         )

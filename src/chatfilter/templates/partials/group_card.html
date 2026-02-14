@@ -44,6 +44,9 @@
         {% if stats.dead > 0 %}
         <span class="type-badge dead">{{ _("Dead") }}: {{ stats.dead }}</span>
         {% endif %}
+        {% if stats.skipped_moderation > 0 %}
+        <span class="type-badge dead" title="{{ _('These chats require approval to join. Metrics requiring join are N/A') }}">{{ _("Skipped (moderation)") }}: {{ stats.skipped_moderation }}</span>
+        {% endif %}
     </div>
 
     <!-- Action buttons -->

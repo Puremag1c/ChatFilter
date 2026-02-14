@@ -439,10 +439,23 @@ class GroupDatabase(SQLiteDatabase):
             )
             by_status = {row["status"]: row["count"] for row in cursor.fetchall()}
 
+            # Count chats with moderation (join approval required)
+            cursor = conn.execute(
+                """
+                SELECT COUNT(*) as count
+                FROM group_results
+                WHERE group_id = ?
+                AND json_extract(metrics_data, '$.moderation') = 1
+                """,
+                (group_id,),
+            )
+            skipped_moderation = cursor.fetchone()["count"]
+
         return {
             "total": total,
             "by_type": by_type,
             "by_status": by_status,
+            "skipped_moderation": skipped_moderation,
         }
 
     def load_all_groups_with_stats(self) -> list[dict[str, Any]]:

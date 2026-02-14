@@ -245,6 +245,7 @@ class GroupService:
             channels_no_comments=by_type.get(ChatTypeEnum.CHANNEL_NO_COMMENTS.value, 0),
             analyzed=by_status.get(GroupChatStatus.DONE.value, 0),
             failed=by_status.get(GroupChatStatus.FAILED.value, 0),
+            skipped_moderation=stats_data.get("skipped_moderation", 0),
         )
 
     def update_group_name(self, group_id: str, new_name: str) -> ChatGroup | None:
