@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.10] - 2026-02-16
+
+### Fixed
+- SMOKE: [Must Have] Preview count broken - 422 on empty subscriber fields
+- SMOKE: [Must Have] Export crashes with 500 for Cyrillic group names
+- SMOKE: [Backend] Export filter modal not implemented
+- SMOKE: [Must Have] Subscriber filter min=0 excludes all chats with NULL subscribers
+- SMOKE: [Must Have] Export filename loses Cyrillic group name
+- SMOKE: [Must Have] Chat type filter has no effect on preview count
+- Bug: dead chats marked as pending — fix ChatTypeEnum in error handler
+- Bug: fix export filename — use group name instead of timestamp
+
+### Changed
+- [Architecture] Add Pydantic model for export filter params
+- [Architecture] Extract shared export filter function
+- [Security] Sanitize group name in export filename to prevent path traversal
+- [OPS] Add rate limit handling for GetFullChannelRequest
+- [Reliability] Sanitize filename in export to prevent path traversal
+- [Reliability] Add FloodWait retry logic for GetFullChannelRequest
+- [UX] Add loading state for export modal
+- Backend: add export filter modal endpoint
+- Backend: add export preview count endpoint
+- Backend: add filter params to export endpoint
+
 ## [0.9.9] - 2026-02-14
 
 ### Fixed
@@ -773,7 +797,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.9...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.10...HEAD
+[0.9.10]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.9...v0.9.10
 [0.9.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.8...v0.9.9
 [0.9.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.6...v0.9.7
