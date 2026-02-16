@@ -12,9 +12,9 @@ window.handleExportDownload = async function(button) {
             // Success - trigger download
             const blob = await response.blob();
             const contentDisposition = response.headers.get('Content-Disposition');
-            let filename = groupName.replace(/\s/g, '_') + '.csv';
+            let filename = 'export.csv'; // default fallback
 
-            // Extract filename from Content-Disposition if present
+            // Extract filename from Content-Disposition (server provides sanitized name)
             if (contentDisposition) {
                 const matches = /filename="([^"]+)"/.exec(contentDisposition);
                 if (matches && matches[1]) {

@@ -774,11 +774,20 @@ async def export_group_results(group_id: str) -> Response:
         include_bom=True,
     )
 
-    # Generate filename
-    from datetime import UTC, datetime
+    # Generate filename from group name
+    import re
+    import unicodedata
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    filename = f"export_{timestamp}.csv"
+    # Sanitize group name for filename
+    sanitized_name = group.name if group.name else ""
+    # Normalize unicode characters
+    sanitized_name = unicodedata.normalize("NFKD", sanitized_name)
+    # Remove non-alphanumeric chars except spaces and hyphens
+    sanitized_name = re.sub(r"[^\w\s-]", "", sanitized_name)
+    # Replace spaces with underscores
+    sanitized_name = sanitized_name.replace(" ", "_")
+    # Fallback if empty after sanitization
+    filename = f"{sanitized_name}.csv" if sanitized_name else "export.csv"
 
     return Response(
         content=csv_content,

@@ -521,12 +521,12 @@ def test_export_group_results_returns_csv(
     assert "filename=" in content_disposition
     assert ".csv" in content_disposition
     
-    # Verify filename format: export_{timestamp}.csv
+    # Verify filename format: {group_name}.csv (sanitized)
     filename_match = re.search(r'filename="([^"]+)"', content_disposition)
     assert filename_match, "Filename not found in Content-Disposition"
     filename = filename_match.group(1)
-    assert filename.startswith("export_")
-    assert filename.endswith(".csv")
+    # Group name "Export Test Group" → "Export_Test_Group.csv"
+    assert filename == "Export_Test_Group.csv"
     
     # Check CSV content is valid (has headers)
     csv_text = export_response.text
