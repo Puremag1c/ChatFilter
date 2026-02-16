@@ -892,17 +892,28 @@ async def export_group_results(
     # Generate filename from group name
     import re
     import unicodedata
+    from datetime import datetime
 
-    # Sanitize group name for filename
+    # Sanitize group name for filename (security: prevent path traversal + header injection)
     sanitized_name = group.name if group.name else ""
     # Normalize unicode characters
     sanitized_name = unicodedata.normalize("NFKD", sanitized_name)
+    # Strip path separators and parent dir sequences
+    sanitized_name = sanitized_name.replace("/", "").replace("\\", "").replace("..", "")
+    # Remove control characters (prevent HTTP Response Splitting)
+    sanitized_name = re.sub(r"[\x00-\x1f\x7f]", "", sanitized_name)
     # Remove non-alphanumeric chars except spaces and hyphens
     sanitized_name = re.sub(r"[^\w\s-]", "", sanitized_name)
     # Replace spaces with underscores
     sanitized_name = sanitized_name.replace(" ", "_")
+    # Limit length (filesystem limits)
+    sanitized_name = sanitized_name[:255]
     # Fallback if empty after sanitization
-    filename = f"{sanitized_name}.csv" if sanitized_name else "export.csv"
+    if not sanitized_name:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"sanitized_export_{timestamp}.csv"
+    else:
+        filename = f"{sanitized_name}.csv"
 
     return Response(
         content=csv_content,

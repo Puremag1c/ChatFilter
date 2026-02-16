@@ -624,3 +624,154 @@ def test_export_fallback_to_group_chats_when_results_empty(
     assert len(lines) >= 2, (
         f"CSV should have header + at least 1 data row, got {len(lines)} lines: {lines}"
     )
+
+
+def test_export_sanitizes_path_traversal_attack(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+) -> None:
+    """Test that path traversal attempts in group name are sanitized."""
+    import re
+
+    # Create group with path traversal in name
+    csrf_token = get_csrf_token(fastapi_test_client)
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "../../../etc/passwd",
+        "source_type": "file_upload",
+    }
+
+    response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert response.status_code == 200
+
+    # Extract group_id
+    match = re.search(r'id="group-([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'/api/groups/([^/"]+)/export', response.text)
+    assert match, "Could not find group_id in response"
+    group_id = match.group(1)
+
+    # Export and check filename is sanitized
+    export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
+    assert export_response.status_code == 200
+
+    content_disposition = export_response.headers.get("content-disposition", "")
+    filename_match = re.search(r'filename="([^"]+)"', content_disposition)
+    assert filename_match, "Filename not found in Content-Disposition"
+    filename = filename_match.group(1)
+
+    # Path traversal should be sanitized to just "etcpasswd.csv"
+    # (../ and / removed, leaving "etcpasswd")
+    assert filename == "etcpasswd.csv"
+    assert ".." not in filename
+    assert "/" not in filename
+    assert "\\" not in filename
+
+
+def test_export_sanitizes_http_response_splitting(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+) -> None:
+    """Test that newline injection in group name is sanitized."""
+    import re
+
+    # Create group with newline injection attempt
+    csrf_token = get_csrf_token(fastapi_test_client)
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "test\\nLocation: evil.com",
+        "source_type": "file_upload",
+    }
+
+    response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert response.status_code == 200
+
+    # Extract group_id
+    match = re.search(r'id="group-([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'/api/groups/([^/"]+)/export', response.text)
+    assert match, "Could not find group_id in response"
+    group_id = match.group(1)
+
+    # Export and check filename has no control chars
+    export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
+    assert export_response.status_code == 200
+
+    content_disposition = export_response.headers.get("content-disposition", "")
+    filename_match = re.search(r'filename="([^"]+)"', content_disposition)
+    assert filename_match, "Filename not found in Content-Disposition"
+    filename = filename_match.group(1)
+
+    # Control chars (including literal \n) should be removed
+    assert "\\n" not in filename
+    assert "\n" not in filename
+    assert "\r" not in filename
+    # Should be sanitized to "testLocation_evilcom.csv"
+    assert filename == "testnLocation_evilcom.csv"
+
+
+def test_export_empty_name_fallback(
+    fastapi_test_client: TestClient,
+    sample_csv_content: bytes,
+) -> None:
+    """Test that export falls back to sanitized_export_{timestamp}.csv when name is empty after sanitization."""
+    import re
+
+    # Create group with only special chars that will all be stripped
+    csrf_token = get_csrf_token(fastapi_test_client)
+    files = {
+        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
+    }
+    data = {
+        "name": "../../../",
+        "source_type": "file_upload",
+    }
+
+    response = fastapi_test_client.post(
+        "/api/groups",
+        headers={"X-CSRF-Token": csrf_token},
+        files=files,
+        data=data,
+    )
+    assert response.status_code == 200
+
+    # Extract group_id
+    match = re.search(r'id="group-([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'data-group-id="([^"]+)"', response.text)
+    if not match:
+        match = re.search(r'/api/groups/([^/"]+)/export', response.text)
+    assert match, "Could not find group_id in response"
+    group_id = match.group(1)
+
+    # Export and check filename falls back to timestamped name
+    export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
+    assert export_response.status_code == 200
+
+    content_disposition = export_response.headers.get("content-disposition", "")
+    filename_match = re.search(r'filename="([^"]+)"', content_disposition)
+    assert filename_match, "Filename not found in Content-Disposition"
+    filename = filename_match.group(1)
+
+    # Should match pattern: sanitized_export_YYYYMMDD_HHMMSS.csv
+    assert filename.startswith("sanitized_export_")
+    assert filename.endswith(".csv")
+    assert len(filename) > len("sanitized_export_20260216_000000.csv") - 5  # Allow some variance
