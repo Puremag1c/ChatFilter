@@ -780,12 +780,16 @@ def _apply_export_filters(
 
         if subscribers_min is not None or subscribers_max is not None:
             subscribers = metrics.get("subscribers")
+            # When min=0, include chats with NULL subscribers (treat as "no lower bound")
+            # Only exclude NULL if min > 0 or max is set (requires actual value for comparison)
             if subscribers is None:
-                continue
-            if subscribers_min is not None and subscribers < subscribers_min:
-                continue
-            if subscribers_max is not None and subscribers > subscribers_max:
-                continue
+                if (subscribers_min is not None and subscribers_min > 0) or subscribers_max is not None:
+                    continue
+            else:
+                if subscribers_min is not None and subscribers < subscribers_min:
+                    continue
+                if subscribers_max is not None and subscribers > subscribers_max:
+                    continue
 
         if activity_min is not None or activity_max is not None:
             activity = metrics.get("messages_per_hour")
