@@ -1064,7 +1064,8 @@ class GroupAnalysisEngine:
     def stop_analysis(self, group_id: str) -> None:
         """Stop ongoing analysis for a group.
 
-        Cancels all active tasks and sets group status back to PENDING.
+        Cancels all active tasks, resets ANALYZING chats to PENDING,
+        and sets group status back to PENDING.
 
         Args:
             group_id: Group identifier to stop.
@@ -1076,6 +1077,24 @@ class GroupAnalysisEngine:
                 logger.info(f"Cancelled task for group '{group_id}'")
 
         self._active_tasks.pop(group_id, None)
+
+        # Reset ANALYZING chats to PENDING (they were interrupted mid-work)
+        analyzing_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.ANALYZING.value,
+        )
+        for chat in analyzing_chats:
+            self._db.update_chat_status(
+                chat_id=chat["id"],
+                status=GroupChatStatus.PENDING.value,
+                error=None,
+            )
+
+        if analyzing_chats:
+            logger.info(
+                f"Reset {len(analyzing_chats)} ANALYZING chats to PENDING "
+                f"for group '{group_id}'"
+            )
 
         group_data = self._db.load_group(group_id)
         if group_data:
