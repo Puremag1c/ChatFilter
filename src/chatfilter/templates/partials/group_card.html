@@ -74,9 +74,9 @@
 
         {% if stats.analyzed > 0 %}
         <button class="btn btn-success btn-sm"
-                data-group-id="{{ group.id }}"
-                data-group-name="{{ group.name }}"
-                onclick="handleExportDownload(this)">
+                hx-get="/api/groups/{{ group.id }}/export/modal"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
             {{ _("Download results") }}
         </button>
         {% endif %}
