@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.11] - 2026-02-16
+
+### Fixed
+- SMOKE: [Server] Dev server failed to start
+- Bug #2: Publish SSE progress events during analysis
+- Bug #3: Fix stop_analysis chat status reset and restart logic
+- Bug #1B: Add Subscribers column to analysis_results.html UI table
+- Bug #1A: Ensure subscribers saved in group_results and included in CSV fallback
+- Bug #4: Detect CHANNEL_COMMENTS via linked_chat_id in _channel_to_chat_type
+- Bug #5: Fix chat type checkboxes in export modal
+
+### Changed
+- [UX] Add empty state for analysis results (0 results after completion)
+- Optimize SSE progress event DB queries in group_engine
+- [Reliability] Log GetFullChannelRequest failures at WARNING level
+- [Reliability] Add crash recovery: reset ANALYZING chats on start
+- [Architecture] Make _ResolvedChat.linked_chat_id optional with default
+- [Security] Sanitize error messages in HTTP responses and logs
+- [OPS] Add runtime validation: detect silent failures in analysis loop
+- [Security] Add rate limiting for GetFullChannelRequest API calls
+- [OPS] Integration tests: verify 10 test scenarios from SPEC.md
+- Plan reviewed
+- Planning v0.9.11 complete
+
 ## [0.9.10] - 2026-02-16
 
 ### Fixed
@@ -797,7 +821,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.10...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.11...HEAD
+[0.9.11]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.10...v0.9.11
 [0.9.10]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.9...v0.9.10
 [0.9.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.8...v0.9.9
 [0.9.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.7...v0.9.8
