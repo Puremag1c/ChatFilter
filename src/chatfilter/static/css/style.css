@@ -1790,6 +1790,14 @@ button[disabled].htmx-request {
         transition: transform 0.3s ease;
     }
 
+    .modal-dialog form {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
     .modal-header {
         padding: 16px 20px;
         flex-shrink: 0;
@@ -2509,6 +2517,14 @@ button[disabled].htmx-request {
         width: 100%;
         margin: 0.5rem;
         max-height: 90vh;
+    }
+
+    .modal-dialog form {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .modal-header {
