@@ -98,8 +98,8 @@ class _ResolvedChat:
     subscribers: int | None
     moderation: bool | None  # join_request flag
     numeric_id: int | None  # Telegram numeric chat ID (if resolved)
-    linked_chat_id: int | None = None  # For broadcast channels with discussion group
     status: str  # "done" | "dead" | "failed"
+    linked_chat_id: int | None = None  # For broadcast channels with discussion group
     error: str | None = None
 
 
