@@ -17,7 +17,7 @@ from uuid import UUID
 from telethon import errors
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import CheckChatInviteRequest
-from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready
+from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready, ChatInvitePeek
 from telethon.tl.types import Chat as TelegramChat
 
 from chatfilter.models.group import (
@@ -398,6 +398,19 @@ class GroupAnalysisEngine:
                 chat_type = self._channel_to_chat_type(entity)
                 title = entity.title
                 subscribers = getattr(entity, "participants_count", None)
+
+                # If subscribers not available, try GetFullChannelRequest
+                if subscribers is None:
+                    try:
+                        full_channel = await client(GetFullChannelRequest(entity))
+                        subscribers = getattr(full_channel.full_chat, "participants_count", None)
+                    except errors.FloodWaitError:
+                        raise  # Let caller handle
+                    except Exception as e:
+                        logger.debug(
+                            f"Account '{account_id}': failed to get full channel info for '{chat_ref}': {e}"
+                        )
+
                 moderation = getattr(entity, "join_request", None) or False
                 numeric_id = abs(entity.id)
             elif isinstance(entity, TelegramChat):
@@ -501,6 +514,19 @@ class GroupAnalysisEngine:
                     chat_type = self._channel_to_chat_type(entity)
                     title = entity.title
                     subscribers = getattr(entity, "participants_count", None)
+
+                    # If subscribers not available, try GetFullChannelRequest
+                    if subscribers is None:
+                        try:
+                            full_channel = await client(GetFullChannelRequest(entity))
+                            subscribers = getattr(full_channel.full_chat, "participants_count", None)
+                        except errors.FloodWaitError:
+                            raise  # Let caller handle
+                        except Exception as e:
+                            logger.debug(
+                                f"Account '{account_id}': failed to get full channel info for '{chat_ref}': {e}"
+                            )
+
                     moderation = getattr(entity, "join_request", None) or False
                     numeric_id = abs(entity.id)
                 else:
@@ -527,15 +553,38 @@ class GroupAnalysisEngine:
                 # No numeric_id available from invite preview
                 numeric_id = None
 
-                # Graceful degradation: if subscribers unavailable, try GetFullChannel
-                if subscribers is None or subscribers == 0:
-                    subscribers = await self._try_get_subscribers_via_full_channel(
-                        client, result, account_id, chat_ref,
-                    )
+                # Note: subscribers unavailable for ChatInvite (no entity access)
+            elif isinstance(result, ChatInvitePeek):
+                # Temporary peek access — extract from chat entity
+                entity = result.chat
+                if isinstance(entity, Channel):
+                    chat_type = self._channel_to_chat_type(entity)
+                    title = entity.title
+                    subscribers = getattr(entity, "participants_count", None)
+
+                    # If subscribers not available, try GetFullChannelRequest
+                    if subscribers is None:
+                        try:
+                            full_channel = await client(GetFullChannelRequest(entity))
+                            subscribers = getattr(full_channel.full_chat, "participants_count", None)
+                        except errors.FloodWaitError:
+                            raise  # Let caller handle
+                        except Exception as e:
+                            logger.debug(
+                                f"Account '{account_id}': failed to get full channel info for '{chat_ref}': {e}"
+                            )
+
+                    moderation = getattr(entity, "join_request", None) or False
+                    numeric_id = abs(entity.id)
+                else:
+                    chat_type = ChatTypeEnum.GROUP.value
+                    title = getattr(entity, "title", None)
+                    subscribers = getattr(entity, "participants_count", None)
+                    moderation = False
+                    numeric_id = abs(entity.id)
             else:
-                # ChatInvitePeek or unknown
-                title = getattr(result, "chat", None)
-                title = getattr(title, "title", None) if title else None
+                # Unknown type
+                title = None
                 chat_type = ChatTypeEnum.PENDING.value
                 subscribers = None
                 moderation = None
@@ -592,36 +641,6 @@ class GroupAnalysisEngine:
                 status="failed",
                 error=str(e),
             )
-
-    async def _try_get_subscribers_via_full_channel(
-        self,
-        client: TelegramClient,
-        invite: ChatInvite,
-        account_id: str,
-        chat_ref: str,
-    ) -> int | str | None:
-        """Attempt to retrieve subscribers count via GetFullChannelRequest.
-
-        Args:
-            client: Connected TelegramClient.
-            invite: ChatInvite result from CheckChatInviteRequest.
-            account_id: Account identifier (for logging).
-            chat_ref: Chat reference string.
-
-        Returns:
-            Subscribers count (int), "N/A (private)" for inaccessible chats,
-            or None if channel info is unavailable.
-        """
-        # ChatInvite doesn't provide channel entity for GetFullChannel
-        # We need to extract channel from invite, but this is not available
-        # in invite preview without joining. Return None gracefully.
-        # Note: GetFullChannel requires InputChannel which we don't have
-        # from invite-only preview (would need to join first).
-        logger.debug(
-            f"Account '{account_id}': '{chat_ref}' subscribers unavailable "
-            f"from invite preview (invite-only chat)"
-        )
-        return "N/A (private)"
 
     def _save_phase1_result(
         self,
