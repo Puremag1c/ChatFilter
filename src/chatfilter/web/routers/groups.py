@@ -12,7 +12,7 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import httpx
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from chatfilter.analyzer.group_engine import (
@@ -28,6 +28,34 @@ from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
 
 router = APIRouter()
+
+
+def parse_optional_int(value: str | None) -> int | None:
+    """Convert query param to int, treating empty string as None.
+
+    Args:
+        value: Query parameter value (can be empty string from HTMX forms)
+
+    Returns:
+        Parsed integer or None if empty/None
+    """
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
+def parse_optional_float(value: str | None) -> float | None:
+    """Convert query param to float, treating empty string as None.
+
+    Args:
+        value: Query parameter value (can be empty string from HTMX forms)
+
+    Returns:
+        Parsed float or None if empty/None
+    """
+    if value is None or value == "":
+        return None
+    return float(value)
 
 # Maximum file size for group uploads (10MB as per security requirements)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -800,12 +828,12 @@ async def preview_export_count(
     group_id: str,
     chat_types: list[str] | None = None,
     exclude_dead: bool = False,
-    subscribers_min: int | None = None,
-    subscribers_max: int | None = None,
-    activity_min: float | None = None,
-    activity_max: float | None = None,
-    authors_min: float | None = None,
-    authors_max: float | None = None,
+    subscribers_min: str | None = None,
+    subscribers_max: str | None = None,
+    activity_min: str | None = None,
+    activity_max: str | None = None,
+    authors_min: str | None = None,
+    authors_max: str | None = None,
     moderation: str = "all",
     captcha: str = "all",
 ) -> HTMLResponse:
@@ -818,12 +846,12 @@ async def preview_export_count(
         group_id: Group identifier
         chat_types: Comma-separated list of chat types to include
         exclude_dead: Whether to exclude dead chats (status != 'done')
-        subscribers_min: Minimum subscribers count
-        subscribers_max: Maximum subscribers count
-        activity_min: Minimum messages per hour
-        activity_max: Maximum messages per hour
-        authors_min: Minimum unique authors per hour
-        authors_max: Maximum unique authors per hour
+        subscribers_min: Minimum subscribers count (string from query param, empty = None)
+        subscribers_max: Maximum subscribers count (string from query param, empty = None)
+        activity_min: Minimum messages per hour (string from query param, empty = None)
+        activity_max: Maximum messages per hour (string from query param, empty = None)
+        authors_min: Minimum unique authors per hour (string from query param, empty = None)
+        authors_max: Maximum unique authors per hour (string from query param, empty = None)
         moderation: Filter by moderation (all/yes/no)
         captcha: Filter by captcha (all/yes/no)
 
@@ -833,6 +861,14 @@ async def preview_export_count(
     Raises:
         HTTPException: If group not found
     """
+    # Parse query params: empty string → None
+    parsed_subscribers_min = parse_optional_int(subscribers_min)
+    parsed_subscribers_max = parse_optional_int(subscribers_max)
+    parsed_activity_min = parse_optional_float(activity_min)
+    parsed_activity_max = parse_optional_float(activity_max)
+    parsed_authors_min = parse_optional_float(authors_min)
+    parsed_authors_max = parse_optional_float(authors_max)
+
     # Verify group exists
     service = _get_group_service()
     group = service.get_group(group_id)
@@ -874,12 +910,12 @@ async def preview_export_count(
         results_data,
         chat_types=chat_types_str,
         exclude_dead=exclude_dead,
-        subscribers_min=subscribers_min,
-        subscribers_max=subscribers_max,
-        activity_min=activity_min,
-        activity_max=activity_max,
-        authors_min=authors_min,
-        authors_max=authors_max,
+        subscribers_min=parsed_subscribers_min,
+        subscribers_max=parsed_subscribers_max,
+        activity_min=parsed_activity_min,
+        activity_max=parsed_activity_max,
+        authors_min=parsed_authors_min,
+        authors_max=parsed_authors_max,
         moderation=moderation,
         captcha=captcha,
     )
@@ -898,12 +934,12 @@ async def export_group_results(
     group_id: str,
     chat_types: list[str] | None = None,
     exclude_dead: bool = False,
-    subscribers_min: int | None = None,
-    subscribers_max: int | None = None,
-    activity_min: float | None = None,
-    activity_max: float | None = None,
-    authors_min: float | None = None,
-    authors_max: float | None = None,
+    subscribers_min: str | None = None,
+    subscribers_max: str | None = None,
+    activity_min: str | None = None,
+    activity_max: str | None = None,
+    authors_min: str | None = None,
+    authors_max: str | None = None,
     moderation: str = "all",
     captcha: str = "all",
 ) -> Response:
@@ -916,12 +952,12 @@ async def export_group_results(
         group_id: Group identifier
         chat_types: Comma-separated list of chat types to include
         exclude_dead: Whether to exclude dead chats (status != 'done')
-        subscribers_min: Minimum subscribers count
-        subscribers_max: Maximum subscribers count
-        activity_min: Minimum messages per hour
-        activity_max: Maximum messages per hour
-        authors_min: Minimum unique authors per hour
-        authors_max: Maximum unique authors per hour
+        subscribers_min: Minimum subscribers count (string from query param, empty = None)
+        subscribers_max: Maximum subscribers count (string from query param, empty = None)
+        activity_min: Minimum messages per hour (string from query param, empty = None)
+        activity_max: Maximum messages per hour (string from query param, empty = None)
+        authors_min: Minimum unique authors per hour (string from query param, empty = None)
+        authors_max: Maximum unique authors per hour (string from query param, empty = None)
         moderation: Filter by moderation (all/yes/no)
         captcha: Filter by captcha (all/yes/no)
 
@@ -931,6 +967,14 @@ async def export_group_results(
     Raises:
         HTTPException: If group not found or no results available
     """
+    # Parse query params: empty string → None
+    parsed_subscribers_min = parse_optional_int(subscribers_min)
+    parsed_subscribers_max = parse_optional_int(subscribers_max)
+    parsed_activity_min = parse_optional_float(activity_min)
+    parsed_activity_max = parse_optional_float(activity_max)
+    parsed_authors_min = parse_optional_float(authors_min)
+    parsed_authors_max = parse_optional_float(authors_max)
+
     # Verify group exists and load settings
     service = _get_group_service()
     group = service.get_group(group_id)
@@ -972,12 +1016,12 @@ async def export_group_results(
         results_data,
         chat_types=chat_types_str,
         exclude_dead=exclude_dead,
-        subscribers_min=subscribers_min,
-        subscribers_max=subscribers_max,
-        activity_min=activity_min,
-        activity_max=activity_max,
-        authors_min=authors_min,
-        authors_max=authors_max,
+        subscribers_min=parsed_subscribers_min,
+        subscribers_max=parsed_subscribers_max,
+        activity_min=parsed_activity_min,
+        activity_max=parsed_activity_max,
+        authors_min=parsed_authors_min,
+        authors_max=parsed_authors_max,
         moderation=moderation,
         captcha=captcha,
     )
