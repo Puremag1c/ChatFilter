@@ -15,7 +15,7 @@
                         {% for chat_type in available_chat_types %}
                         <label style="display: flex; align-items: center; gap: 0.5rem;">
                             <input type="checkbox"
-                                   name="chat_type"
+                                   name="chat_types"
                                    value="{{ chat_type }}"
                                    checked>
                             <span>
@@ -248,10 +248,10 @@ async function downloadFilteredExport() {
     // Build query params
     const params = new URLSearchParams();
 
-    // Chat types (comma-separated)
-    const chatTypes = formData.getAll('chat_type');
-    if (chatTypes.length > 0) {
-        params.append('chat_types', chatTypes.join(','));
+    // Chat types (multiple params)
+    const chatTypes = formData.getAll('chat_types');
+    for (const chatType of chatTypes) {
+        params.append('chat_types', chatType);
     }
 
     // Exclude dead

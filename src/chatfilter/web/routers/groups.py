@@ -798,7 +798,7 @@ def _apply_export_filters(
 @router.get("/api/groups/{group_id}/export/preview", response_class=HTMLResponse)
 async def preview_export_count(
     group_id: str,
-    chat_types: str | None = None,
+    chat_types: list[str] | None = None,
     exclude_dead: bool = False,
     subscribers_min: int | None = None,
     subscribers_max: int | None = None,
@@ -866,10 +866,13 @@ async def preview_export_count(
 
     total_count = len(results_data)
 
+    # Convert chat_types list to comma-separated string
+    chat_types_str = ",".join(chat_types) if chat_types else None
+
     # Apply filters
     filtered_results = _apply_export_filters(
         results_data,
-        chat_types=chat_types,
+        chat_types=chat_types_str,
         exclude_dead=exclude_dead,
         subscribers_min=subscribers_min,
         subscribers_max=subscribers_max,
@@ -893,7 +896,7 @@ async def preview_export_count(
 @router.get("/api/groups/{group_id}/export")
 async def export_group_results(
     group_id: str,
-    chat_types: str | None = None,
+    chat_types: list[str] | None = None,
     exclude_dead: bool = False,
     subscribers_min: int | None = None,
     subscribers_max: int | None = None,
@@ -961,10 +964,13 @@ async def export_group_results(
                 for chat in processed_chats
             ]
 
+    # Convert chat_types list to comma-separated string
+    chat_types_str = ",".join(chat_types) if chat_types else None
+
     # Apply filters
     filtered_results = _apply_export_filters(
         results_data,
-        chat_types=chat_types,
+        chat_types=chat_types_str,
         exclude_dead=exclude_dead,
         subscribers_min=subscribers_min,
         subscribers_max=subscribers_max,
