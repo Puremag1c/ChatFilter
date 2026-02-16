@@ -827,7 +827,7 @@ def _apply_export_filters(
 @router.get("/api/groups/{group_id}/export/preview", response_class=HTMLResponse)
 async def preview_export_count(
     group_id: str,
-    chat_types: list[str] | None = None,
+    chat_types: list[str] | None = Query(None),
     exclude_dead: bool = False,
     subscribers_min: str | None = None,
     subscribers_max: str | None = None,
@@ -933,7 +933,7 @@ async def preview_export_count(
 @router.get("/api/groups/{group_id}/export")
 async def export_group_results(
     group_id: str,
-    chat_types: list[str] | None = None,
+    chat_types: list[str] | None = Query(None),
     exclude_dead: bool = False,
     subscribers_min: str | None = None,
     subscribers_max: str | None = None,
