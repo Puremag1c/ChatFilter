@@ -133,10 +133,14 @@ class GroupAnalysisEngine:
         """Start two-phase analysis for a group.
 
         1. Load group and validate
-        2. Clear old results atomically before starting
-        3. Distribute PENDING chats across connected accounts
-        4. Phase 1: Resolve metadata without joining
-        5. Phase 2: Join for activity metrics (only if needed)
+        2. Check PENDING chats:
+           - If 0 PENDING but FAILED exist → reset FAILED to PENDING (auto-retry)
+           - If 0 PENDING and all DONE → mark COMPLETED and return
+           - If 0 PENDING and neither FAILED nor all DONE → return
+        3. Clear old results before starting work
+        4. Distribute PENDING chats across connected accounts
+        5. Phase 1: Resolve metadata without joining
+        6. Phase 2: Join for activity metrics (only if needed)
 
         Args:
             group_id: Group identifier to analyze.
@@ -148,13 +152,6 @@ class GroupAnalysisEngine:
         group_data = self._db.load_group(group_id)
         if not group_data:
             raise GroupNotFoundError(f"Group not found: {group_id}")
-
-        # Clear old analysis results atomically before starting new analysis.
-        # This ensures re-runs refresh all data. If analysis crashes mid-run,
-        # old data is already cleared, but partial new data from Phase 1/2
-        # will be saved via save_result() calls.
-        self._db.clear_results(group_id)
-        logger.info(f"Cleared old results for group '{group_id}'")
 
         settings = GroupSettings.from_dict(group_data["settings"])
 
@@ -174,9 +171,73 @@ class GroupAnalysisEngine:
             status=GroupChatStatus.PENDING.value,
         )
 
+        # Handle case when no PENDING chats found
         if not pending_chats:
-            logger.warning(f"No pending chats found for group '{group_id}'")
-            return
+            all_chats = self._db.load_chats(group_id=group_id)
+            failed_chats = [
+                c for c in all_chats
+                if c["status"] == GroupChatStatus.FAILED.value
+            ]
+            done_chats = [
+                c for c in all_chats
+                if c["status"] == GroupChatStatus.DONE.value
+            ]
+
+            # If FAILED chats exist → reset them to PENDING and continue (auto-retry)
+            if failed_chats:
+                logger.info(
+                    f"No PENDING chats, but {len(failed_chats)} FAILED found. "
+                    f"Resetting to PENDING for auto-retry..."
+                )
+                for chat in failed_chats:
+                    self._db.update_chat_status(
+                        chat_id=chat["id"],
+                        status=GroupChatStatus.PENDING.value,
+                        error=None,
+                    )
+                # Reload pending_chats after reset
+                pending_chats = self._db.load_chats(
+                    group_id=group_id,
+                    status=GroupChatStatus.PENDING.value,
+                )
+            # If ALL chats are DONE → publish 'complete' event, set COMPLETED, return
+            elif done_chats and len(done_chats) == len(all_chats):
+                logger.info(
+                    f"All {len(all_chats)} chats already DONE for group '{group_id}'. "
+                    f"Marking as COMPLETED."
+                )
+                self._db.save_group(
+                    group_id=group_id,
+                    name=group_data["name"],
+                    settings=group_data["settings"],
+                    status=GroupStatus.COMPLETED.value,
+                    created_at=group_data["created_at"],
+                    updated_at=datetime.now(UTC),
+                )
+                # Publish completion event
+                event = GroupProgressEvent(
+                    group_id=group_id,
+                    status=GroupStatus.COMPLETED.value,
+                    current=len(done_chats),
+                    total=len(all_chats),
+                    message="Analysis already completed",
+                )
+                self._publish_event(event)
+                return
+            else:
+                # No PENDING, no FAILED, not all DONE → something is wrong
+                logger.warning(
+                    f"No pending chats found for group '{group_id}', "
+                    f"and no FAILED chats to retry. Current state unclear."
+                )
+                return
+
+        # Clear old analysis results now that we know we have work to do.
+        # This ensures re-runs refresh all data. If analysis crashes mid-run,
+        # old data is already cleared, but partial new data from Phase 1/2
+        # will be saved via save_result() calls.
+        self._db.clear_results(group_id)
+        logger.info(f"Cleared old results for group '{group_id}'")
 
         # Distribute chats round-robin across accounts
         for idx, chat in enumerate(pending_chats):
@@ -292,6 +353,10 @@ class GroupAnalysisEngine:
             f"Phase 1: Account '{account_id}' resolving {len(account_chats)} chats"
         )
 
+        # Get total chat count for progress calculation
+        all_chats = self._db.load_chats(group_id=group_id)
+        total_chats = len(all_chats)
+
         try:
             async with self._session_mgr.session(
                 account_id,
@@ -305,6 +370,29 @@ class GroupAnalysisEngine:
                         self._save_phase1_result(
                             group_id, chat, resolved, account_id, settings,
                         )
+
+                        # Publish progress event after each chat resolved
+                        done_chats = self._db.load_chats(
+                            group_id=group_id,
+                            status=GroupChatStatus.DONE.value,
+                        )
+                        failed_chats = self._db.load_chats(
+                            group_id=group_id,
+                            status=GroupChatStatus.FAILED.value,
+                        )
+                        current_count = len(done_chats) + len(failed_chats)
+
+                        event = GroupProgressEvent(
+                            group_id=group_id,
+                            status=GroupStatus.IN_PROGRESS.value,
+                            current=current_count,
+                            total=total_chats,
+                            chat_title=resolved.title or resolved.chat_ref,
+                            message=f"Phase 1: Resolved {current_count}/{total_chats}",
+                            error=resolved.error,
+                        )
+                        self._publish_event(event)
+
                     except errors.FloodWaitError as e:
                         wait_seconds = getattr(e, "seconds", 0)
                         logger.warning(
@@ -316,6 +404,17 @@ class GroupAnalysisEngine:
                             status=GroupChatStatus.FAILED.value,
                             error=f"FloodWait: {wait_seconds}s",
                         )
+
+                        # Publish error event for FloodWait
+                        event = GroupProgressEvent(
+                            group_id=group_id,
+                            status=GroupStatus.IN_PROGRESS.value,
+                            current=0,
+                            total=total_chats,
+                            chat_title=chat["chat_ref"],
+                            error=f"FloodWait: {wait_seconds}s",
+                        )
+                        self._publish_event(event)
                         break
 
                     # Rate limiting: 1-2s delay between get_entity calls
@@ -757,15 +856,59 @@ class GroupAnalysisEngine:
             f"{len(analyzable)} chats for activity"
         )
 
+        # Get total chat count for progress calculation
+        all_chats = self._db.load_chats(group_id=group_id)
+        total_chats = len(all_chats)
+
         try:
             async with self._session_mgr.session(
                 account_id,
                 auto_disconnect=False,
             ) as client:
                 for i, chat in enumerate(analyzable):
-                    await self._analyze_chat_activity(
-                        client, group_id, chat, account_id, settings,
+                    error_msg = None
+                    try:
+                        await self._analyze_chat_activity(
+                            client, group_id, chat, account_id, settings,
+                        )
+                    except Exception as e:
+                        # Capture error for progress event
+                        error_msg = str(e)
+                        logger.error(
+                            f"Account '{account_id}': Phase 2 failed for '{chat['chat_ref']}': {e}",
+                            exc_info=True,
+                        )
+
+                    # Publish progress event after each chat analyzed
+                    done_chats = self._db.load_chats(
+                        group_id=group_id,
+                        status=GroupChatStatus.DONE.value,
                     )
+                    failed_chats = self._db.load_chats(
+                        group_id=group_id,
+                        status=GroupChatStatus.FAILED.value,
+                    )
+                    current_count = len(done_chats) + len(failed_chats)
+
+                    # Load result to get title
+                    result = self._db.load_result(group_id, chat["chat_ref"])
+                    chat_title = None
+                    if result:
+                        metrics = result.get("metrics_data", {})
+                        chat_title = metrics.get("title") or chat["chat_ref"]
+                    else:
+                        chat_title = chat["chat_ref"]
+
+                    event = GroupProgressEvent(
+                        group_id=group_id,
+                        status=GroupStatus.IN_PROGRESS.value,
+                        current=current_count,
+                        total=total_chats,
+                        chat_title=chat_title,
+                        message=f"Phase 2: Analyzed {current_count}/{total_chats}",
+                        error=error_msg,
+                    )
+                    self._publish_event(event)
 
                     # Rate limiting between chats
                     if i < len(analyzable) - 1:
@@ -992,10 +1135,11 @@ class GroupAnalysisEngine:
         )
 
     def _check_and_complete_if_done(self, group_id: str) -> None:
-        """Check if all chats processed and mark group COMPLETED if done.
+        """Check if all chats processed and mark group COMPLETED or FAILED.
 
-        Counts DONE + FAILED chats vs total. If all processed, sets group
-        status to COMPLETED and publishes completion event to subscribers.
+        Counts DONE + FAILED chats vs total. If all processed:
+        - If ALL chats are FAILED → sets group status to FAILED
+        - Otherwise → sets group status to COMPLETED
 
         Args:
             group_id: Group identifier to check.
@@ -1005,16 +1149,32 @@ class GroupAnalysisEngine:
             return
 
         total = len(all_chats)
-        done = sum(
+        done_count = sum(
             1 for c in all_chats
-            if c["status"] in (GroupChatStatus.DONE.value, GroupChatStatus.FAILED.value)
+            if c["status"] == GroupChatStatus.DONE.value
         )
+        failed_count = sum(
+            1 for c in all_chats
+            if c["status"] == GroupChatStatus.FAILED.value
+        )
+        processed = done_count + failed_count
 
-        if done >= total:
-            logger.info(
-                f"Group '{group_id}': all {total} chats processed "
-                f"— marking COMPLETED"
-            )
+        if processed >= total:
+            # Determine final status: FAILED if ALL chats failed, COMPLETED otherwise
+            if failed_count == total:
+                final_status = GroupStatus.FAILED.value
+                message = "Analysis failed: all chats failed"
+                logger.warning(
+                    f"Group '{group_id}': all {total} chats FAILED "
+                    f"— marking group as FAILED"
+                )
+            else:
+                final_status = GroupStatus.COMPLETED.value
+                message = "Analysis completed"
+                logger.info(
+                    f"Group '{group_id}': all {total} chats processed "
+                    f"({done_count} DONE, {failed_count} FAILED) — marking COMPLETED"
+                )
 
             group_data = self._db.load_group(group_id)
             if group_data:
@@ -1022,7 +1182,7 @@ class GroupAnalysisEngine:
                     group_id=group_id,
                     name=group_data["name"],
                     settings=group_data["settings"],
-                    status=GroupStatus.COMPLETED.value,
+                    status=final_status,
                     created_at=group_data["created_at"],
                     updated_at=datetime.now(UTC),
                 )
@@ -1030,10 +1190,10 @@ class GroupAnalysisEngine:
                 # Publish completion event to SSE subscribers
                 event = GroupProgressEvent(
                     group_id=group_id,
-                    status=GroupStatus.COMPLETED.value,
-                    current=done,
+                    status=final_status,
+                    current=processed,
                     total=total,
-                    message="Analysis completed",
+                    message=message,
                 )
                 self._publish_event(event)
 
@@ -1082,7 +1242,8 @@ class GroupAnalysisEngine:
     def stop_analysis(self, group_id: str) -> None:
         """Stop ongoing analysis for a group.
 
-        Cancels all active tasks and sets group status back to PENDING.
+        Cancels all active tasks, resets ANALYZING chats to PENDING,
+        and sets group status back to PENDING.
 
         Args:
             group_id: Group identifier to stop.
@@ -1094,6 +1255,24 @@ class GroupAnalysisEngine:
                 logger.info(f"Cancelled task for group '{group_id}'")
 
         self._active_tasks.pop(group_id, None)
+
+        # Reset ANALYZING chats to PENDING (they were interrupted mid-work)
+        analyzing_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.ANALYZING.value,
+        )
+        for chat in analyzing_chats:
+            self._db.update_chat_status(
+                chat_id=chat["id"],
+                status=GroupChatStatus.PENDING.value,
+                error=None,
+            )
+
+        if analyzing_chats:
+            logger.info(
+                f"Reset {len(analyzing_chats)} ANALYZING chats to PENDING "
+                f"for group '{group_id}'"
+            )
 
         group_data = self._db.load_group(group_id)
         if group_data:

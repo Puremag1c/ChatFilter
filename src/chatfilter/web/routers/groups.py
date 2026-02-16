@@ -1220,8 +1220,16 @@ async def start_group_analysis(
                 },
             )
 
-        # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
+        # Get updated group and stats after starting analysis
+        updated_group = service.get_group(group_id)
+        stats = service.get_group_stats(group_id)
+
+        # Return updated group card to immediately show in_progress state
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context={"group": updated_group, "stats": stats},
+        )
 
     except HTTPException:
         raise
