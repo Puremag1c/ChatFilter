@@ -10,6 +10,7 @@ import asyncio
 import json
 from collections.abc import AsyncGenerator
 from typing import Annotated
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
@@ -1047,24 +1048,34 @@ async def export_group_results(
     sanitized_name = sanitized_name.replace("/", "").replace("\\", "").replace("..", "")
     # Remove control characters (prevent HTTP Response Splitting)
     sanitized_name = re.sub(r"[\x00-\x1f\x7f]", "", sanitized_name)
-    # Remove non-alphanumeric chars except spaces and hyphens (ASCII only)
-    sanitized_name = re.sub(r"[^\w\s-]", "", sanitized_name, flags=re.ASCII)
+    # Remove dangerous chars but PRESERVE non-ASCII (Cyrillic, etc.)
+    sanitized_name = re.sub(r'[^\w\s-]', '', sanitized_name)
     # Replace spaces with underscores
     sanitized_name = sanitized_name.replace(" ", "_")
     # Limit length (filesystem limits)
     sanitized_name = sanitized_name[:255]
+
     # Fallback if empty after sanitization
     if not sanitized_name:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"sanitized_export_{timestamp}.csv"
-    else:
-        filename = f"{sanitized_name}.csv"
+        sanitized_name = f"sanitized_export_{timestamp}"
+
+    # Create ASCII fallback for old browsers (transliterate or timestamp)
+    ascii_fallback = sanitized_name.encode('ascii', 'ignore').decode('ascii')
+    if not ascii_fallback:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ascii_fallback = f"export_{timestamp}"
+
+    # RFC 5987 encoding: filename for old browsers, filename* for modern ones
+    filename_ascii = f"{ascii_fallback}.csv"
+    filename_utf8 = f"{sanitized_name}.csv"
+    filename_encoded = quote(filename_utf8.encode('utf-8'))
 
     return Response(
         content=csv_content,
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": f'attachment; filename="{filename_ascii}"; filename*=UTF-8\'\'{filename_encoded}',
         },
     )
 
