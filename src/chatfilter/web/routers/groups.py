@@ -883,9 +883,9 @@ async def preview_export_count(
 
     matching_count = len(filtered_results)
 
-    # Return HTML fragment for HTMX swap
+    # Return HTML fragment for HTMX swap with data attribute
     return HTMLResponse(
-        content=f"<span>Подходит: {matching_count} из {total_count} чатов</span>",
+        content=f'<span data-count="{matching_count}">Подходит: {matching_count} из {total_count} чатов</span>',
         status_code=200,
     )
 

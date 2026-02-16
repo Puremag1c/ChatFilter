@@ -180,15 +180,22 @@
                      hx-get="/api/groups/{{ group.id }}/export/preview"
                      hx-trigger="load, change from:closest form delay:300ms"
                      hx-include="closest form"
-                     style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
-                    <p style="text-align: center; color: var(--text-secondary);">{{ _("Loading preview...") }}</p>
+                     hx-swap="innerHTML"
+                     style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                    <p style="color: var(--text-secondary);">{{ _("Loading preview...") }}</p>
+                </div>
+
+                {# Warning message for zero results (hidden by default) #}
+                <div id="export-warning"
+                     style="display: none; margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; color: #856404; text-align: center;">
+                    {{ _("Ни один чат не подходит под выбранные фильтры. Измените условия.") }}
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="modal-button secondary" onclick="closeModal('export-modal')">
                     {{ _("Cancel") }}
                 </button>
-                <button type="button" class="modal-button primary" onclick="downloadFilteredExport()">
+                <button type="button" id="download-csv-btn" class="modal-button primary" onclick="downloadFilteredExport()">
                     {{ _("Download CSV") }}
                 </button>
             </div>
@@ -199,6 +206,32 @@
 <script>
 // Show modal
 document.getElementById('export-modal').classList.add('show');
+
+// HTMX afterSwap handler for preview updates
+document.getElementById('export-preview').addEventListener('htmx:afterSwap', function(event) {
+    const previewElement = event.detail.target;
+    const countSpan = previewElement.querySelector('span[data-count]');
+
+    if (countSpan) {
+        const count = parseInt(countSpan.getAttribute('data-count'), 10);
+        const downloadBtn = document.getElementById('download-csv-btn');
+        const warningDiv = document.getElementById('export-warning');
+
+        if (count === 0) {
+            // Zero results: disable button, show warning
+            downloadBtn.disabled = true;
+            downloadBtn.style.opacity = '0.5';
+            downloadBtn.style.cursor = 'not-allowed';
+            warningDiv.style.display = 'block';
+        } else {
+            // Has results: enable button, hide warning
+            downloadBtn.disabled = false;
+            downloadBtn.style.opacity = '1';
+            downloadBtn.style.cursor = 'pointer';
+            warningDiv.style.display = 'none';
+        }
+    }
+});
 
 // Preset button handlers
 function setSubscribersMin(value) {
