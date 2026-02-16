@@ -1182,3 +1182,62 @@ async def get_settings_modal(request: Request, group_id: str) -> HTMLResponse:
             name="partials/error_message.html",
             context={"error": f"Failed to load settings: {str(e)}"},
         )
+
+
+@router.get("/api/groups/{group_id}/export/modal", response_class=HTMLResponse)
+async def get_export_modal(request: Request, group_id: str) -> HTMLResponse:
+    """Get export filter modal HTML.
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+
+    Returns:
+        HTML modal for filtering export results
+
+    Raises:
+        HTTPException: If group not found
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        service = _get_group_service()
+        group = service.get_group(group_id)
+
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        # Load results to determine available chat types
+        results_data = service._db.load_results(group_id)
+
+        # Extract unique chat types from results
+        available_chat_types = set()
+        if results_data:
+            for result in results_data:
+                metrics = result.get("metrics_data", {})
+                chat_type = metrics.get("chat_type")
+                if chat_type:
+                    available_chat_types.add(chat_type)
+
+        # Convert to sorted list for consistent ordering
+        available_chat_types = sorted(available_chat_types)
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/export_modal.html",
+            context={
+                "group": group,
+                "available_chat_types": available_chat_types,
+            },
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Failed to load export modal: {str(e)}"},
+        )
