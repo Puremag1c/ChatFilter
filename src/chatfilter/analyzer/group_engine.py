@@ -370,9 +370,20 @@ class GroupAnalysisEngine:
             f"Phase 1: Account '{account_id}' resolving {len(account_chats)} chats"
         )
 
-        # Get total chat count for progress calculation
+        # Get total chat count for progress calculation (load ONCE)
         all_chats = self._db.load_chats(group_id=group_id)
         total_chats = len(all_chats)
+
+        # Initialize progress counter (start from current processed count)
+        done_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.DONE.value,
+        )
+        failed_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.FAILED.value,
+        )
+        current_count = len(done_chats) + len(failed_chats)
 
         try:
             async with self._session_mgr.session(
@@ -388,16 +399,8 @@ class GroupAnalysisEngine:
                             group_id, chat, resolved, account_id, settings,
                         )
 
-                        # Publish progress event after each chat resolved
-                        done_chats = self._db.load_chats(
-                            group_id=group_id,
-                            status=GroupChatStatus.DONE.value,
-                        )
-                        failed_chats = self._db.load_chats(
-                            group_id=group_id,
-                            status=GroupChatStatus.FAILED.value,
-                        )
-                        current_count = len(done_chats) + len(failed_chats)
+                        # Increment counter after processing
+                        current_count += 1
 
                         event = GroupProgressEvent(
                             group_id=group_id,
@@ -422,11 +425,14 @@ class GroupAnalysisEngine:
                             error=f"FloodWait: {wait_seconds}s",
                         )
 
+                        # Increment counter even on failure
+                        current_count += 1
+
                         # Publish error event for FloodWait
                         event = GroupProgressEvent(
                             group_id=group_id,
                             status=GroupStatus.IN_PROGRESS.value,
-                            current=0,
+                            current=current_count,
                             total=total_chats,
                             chat_title=chat["chat_ref"],
                             error=f"FloodWait: {wait_seconds}s",
@@ -874,9 +880,20 @@ class GroupAnalysisEngine:
             f"{len(analyzable)} chats for activity"
         )
 
-        # Get total chat count for progress calculation
+        # Get total chat count for progress calculation (load ONCE)
         all_chats = self._db.load_chats(group_id=group_id)
         total_chats = len(all_chats)
+
+        # Initialize progress counter (start from current processed count)
+        done_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.DONE.value,
+        )
+        failed_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.FAILED.value,
+        )
+        current_count = len(done_chats) + len(failed_chats)
 
         try:
             async with self._session_mgr.session(
@@ -897,16 +914,8 @@ class GroupAnalysisEngine:
                             exc_info=True,
                         )
 
-                    # Publish progress event after each chat analyzed
-                    done_chats = self._db.load_chats(
-                        group_id=group_id,
-                        status=GroupChatStatus.DONE.value,
-                    )
-                    failed_chats = self._db.load_chats(
-                        group_id=group_id,
-                        status=GroupChatStatus.FAILED.value,
-                    )
-                    current_count = len(done_chats) + len(failed_chats)
+                    # Increment counter after processing
+                    current_count += 1
 
                     # Load result to get title
                     result = self._db.load_result(group_id, chat["chat_ref"])
