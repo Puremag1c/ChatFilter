@@ -1392,6 +1392,17 @@ async def get_export_modal(request: Request, group_id: str) -> HTMLResponse:
                 chat_type = metrics.get("chat_type")
                 if chat_type:
                     available_chat_types.add(chat_type)
+        else:
+            # Fallback: if group_results is empty, extract chat types from group_chats
+            # This handles cases where results were cleared but chats have processed status
+            processed_chats = [
+                chat for chat in service._db.load_chats(group_id)
+                if chat["status"] in ("done", "failed")
+            ]
+            for chat in processed_chats:
+                chat_type = chat.get("chat_type")
+                if chat_type:
+                    available_chat_types.add(chat_type)
 
         # Convert to sorted list for consistent ordering
         available_chat_types = sorted(available_chat_types)
