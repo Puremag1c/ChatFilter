@@ -45,6 +45,7 @@ class GroupDatabase(SQLiteDatabase):
                     status TEXT NOT NULL,
                     assigned_account TEXT,
                     error TEXT,
+                    subscribers INTEGER,
                     FOREIGN KEY (group_id) REFERENCES chat_groups (id)
                         ON DELETE CASCADE
                 )
@@ -179,6 +180,7 @@ class GroupDatabase(SQLiteDatabase):
         assigned_account: str | None = None,
         error: str | None = None,
         chat_id: int | None = None,
+        subscribers: int | None = None,
     ) -> int:
         """Save a chat within a group.
 
@@ -190,6 +192,7 @@ class GroupDatabase(SQLiteDatabase):
             assigned_account: Account assigned to analyze this chat
             error: Error message if status is failed
             chat_id: Optional explicit chat ID (for updates)
+            subscribers: Optional subscriber count for channels
 
         Returns:
             Chat ID (auto-generated or provided)
@@ -200,10 +203,10 @@ class GroupDatabase(SQLiteDatabase):
                 cursor = conn.execute(
                     """
                     INSERT INTO group_chats
-                    (group_id, chat_ref, chat_type, status, assigned_account, error)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (group_id, chat_ref, chat_type, status, assigned_account, error),
+                    (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers),
                 )
                 return cursor.lastrowid
             else:
@@ -211,17 +214,18 @@ class GroupDatabase(SQLiteDatabase):
                 conn.execute(
                     """
                     INSERT INTO group_chats
-                    (id, group_id, chat_ref, chat_type, status, assigned_account, error)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (id, group_id, chat_ref, chat_type, status, assigned_account, error, subscribers)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         group_id = excluded.group_id,
                         chat_ref = excluded.chat_ref,
                         chat_type = excluded.chat_type,
                         status = excluded.status,
                         assigned_account = excluded.assigned_account,
-                        error = excluded.error
+                        error = excluded.error,
+                        subscribers = excluded.subscribers
                     """,
-                    (chat_id, group_id, chat_ref, chat_type, status, assigned_account, error),
+                    (chat_id, group_id, chat_ref, chat_type, status, assigned_account, error, subscribers),
                 )
                 return chat_id
 
@@ -544,6 +548,7 @@ class GroupDatabase(SQLiteDatabase):
                 "status": row["status"],
                 "assigned_account": row["assigned_account"],
                 "error": row["error"],
+                "subscribers": row["subscribers"],
             }
             for row in rows
         ]

@@ -282,6 +282,23 @@ class GroupAnalysisEngine:
                     exc_info=result,
                 )
 
+        # Log subscriber detection stats if enabled
+        if settings.detect_subscribers:
+            completed_chats = self._db.load_chats(
+                group_id=group_id,
+                status=GroupChatStatus.DONE.value,
+            )
+            if completed_chats:
+                with_subscribers = sum(
+                    1 for chat in completed_chats
+                    if chat.get("subscribers") is not None
+                )
+                without_subscribers = len(completed_chats) - with_subscribers
+                logger.info(
+                    f"Phase 1 subscriber stats: {with_subscribers} chats with subscribers, "
+                    f"{without_subscribers} without (may be groups/forums or API failures)"
+                )
+
         # Check completion after Phase 1 if Phase 2 not needed
         if not settings.needs_join():
             self._check_and_complete_if_done(group_id)
@@ -780,6 +797,7 @@ class GroupAnalysisEngine:
             assigned_account=account_id,
             error=resolved.error,
             chat_id=resolved.db_chat_id,
+            subscribers=resolved.subscribers,
         )
 
         # Build metrics_data for non-join metrics

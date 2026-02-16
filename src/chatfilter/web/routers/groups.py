@@ -1000,18 +1000,22 @@ async def export_group_results(
             if chat["status"] in ("done", "failed")
         ]
         if processed_chats:
-            results_data = [
-                {
+            results_data = []
+            for chat in processed_chats:
+                metrics_data = {
+                    "chat_type": chat["chat_type"],
+                    "title": "",
                     "chat_ref": chat["chat_ref"],
-                    "metrics_data": {
-                        "chat_type": chat["chat_type"],
-                        "title": "",
-                        "chat_ref": chat["chat_ref"],
-                        "status": chat["status"],
-                    },
+                    "status": chat["status"],
                 }
-                for chat in processed_chats
-            ]
+                # Include subscribers if enabled in settings
+                if group.settings.detect_subscribers:
+                    metrics_data["subscribers"] = chat.get("subscribers")
+
+                results_data.append({
+                    "chat_ref": chat["chat_ref"],
+                    "metrics_data": metrics_data,
+                })
 
     # Convert chat_types list to comma-separated string
     chat_types_str = ",".join(chat_types) if chat_types else None
