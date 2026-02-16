@@ -717,18 +717,118 @@ async def get_group_progress(
     )
 
 
+def _apply_export_filters(
+    results_data: list[dict],
+    *,
+    chat_types: str | None = None,
+    exclude_dead: bool = False,
+    subscribers_min: int | None = None,
+    subscribers_max: int | None = None,
+    activity_min: float | None = None,
+    activity_max: float | None = None,
+    authors_min: float | None = None,
+    authors_max: float | None = None,
+    moderation: str = "all",
+    captcha: str = "all",
+) -> list[dict]:
+    """Apply export filters to results data."""
+    allowed_chat_types = None
+    if chat_types:
+        allowed_chat_types = set(t.strip() for t in chat_types.split(",") if t.strip())
+
+    filtered = []
+
+    for result in results_data:
+        metrics = result["metrics_data"]
+
+        if allowed_chat_types:
+            if metrics.get("chat_type") not in allowed_chat_types:
+                continue
+
+        if exclude_dead:
+            if metrics.get("status") != "done":
+                continue
+
+        if subscribers_min is not None or subscribers_max is not None:
+            subscribers = metrics.get("subscribers")
+            if subscribers is None:
+                continue
+            if subscribers_min is not None and subscribers < subscribers_min:
+                continue
+            if subscribers_max is not None and subscribers > subscribers_max:
+                continue
+
+        if activity_min is not None or activity_max is not None:
+            activity = metrics.get("messages_per_hour")
+            if activity is None:
+                continue
+            if activity_min is not None and activity < activity_min:
+                continue
+            if activity_max is not None and activity > activity_max:
+                continue
+
+        if authors_min is not None or authors_max is not None:
+            authors = metrics.get("unique_authors_per_hour")
+            if authors is None:
+                continue
+            if authors_min is not None and authors < authors_min:
+                continue
+            if authors_max is not None and authors > authors_max:
+                continue
+
+        if moderation != "all":
+            mod_value = metrics.get("moderation")
+            if moderation == "yes" and mod_value is not True:
+                continue
+            if moderation == "no" and mod_value is not False:
+                continue
+
+        if captcha != "all":
+            captcha_value = metrics.get("captcha")
+            if captcha == "yes" and captcha_value is not True:
+                continue
+            if captcha == "no" and captcha_value is not False:
+                continue
+
+        filtered.append(result)
+
+    return filtered
+
+
 @router.get("/api/groups/{group_id}/export")
-async def export_group_results(group_id: str) -> Response:
-    """Export group analysis results as CSV with dynamic columns.
+async def export_group_results(
+    group_id: str,
+    chat_types: str | None = None,
+    exclude_dead: bool = False,
+    subscribers_min: int | None = None,
+    subscribers_max: int | None = None,
+    activity_min: float | None = None,
+    activity_max: float | None = None,
+    authors_min: float | None = None,
+    authors_max: float | None = None,
+    moderation: str = "all",
+    captcha: str = "all",
+) -> Response:
+    """Export group analysis results as CSV with dynamic columns and filtering.
 
     Columns are determined by the group's settings - only selected
     metrics are included in the CSV output.
 
     Args:
         group_id: Group identifier
+        chat_types: Comma-separated list of chat types to include
+        exclude_dead: Whether to exclude dead chats (status != 'done')
+        subscribers_min: Minimum subscribers count
+        subscribers_max: Maximum subscribers count
+        activity_min: Minimum messages per hour
+        activity_max: Maximum messages per hour
+        authors_min: Minimum unique authors per hour
+        authors_max: Maximum unique authors per hour
+        moderation: Filter by moderation (all/yes/no)
+        captcha: Filter by captcha (all/yes/no)
 
     Returns:
-        CSV file with analysis results
+        CSV file with filtered analysis results
 
     Raises:
         HTTPException: If group not found or no results available
@@ -766,10 +866,25 @@ async def export_group_results(group_id: str) -> Response:
                 for chat in processed_chats
             ]
 
+    # Apply filters
+    filtered_results = _apply_export_filters(
+        results_data,
+        chat_types=chat_types,
+        exclude_dead=exclude_dead,
+        subscribers_min=subscribers_min,
+        subscribers_max=subscribers_max,
+        activity_min=activity_min,
+        activity_max=activity_max,
+        authors_min=authors_min,
+        authors_max=authors_max,
+        moderation=moderation,
+        captcha=captcha,
+    )
+
     # Always return CSV with headers, even if no results yet
     # This prevents browser from saving JSON error as a file
     csv_content = export_group_results_to_csv(
-        results_data or [],  # Empty list if no results
+        filtered_results or [],  # Empty list if no results
         settings=group.settings,
         include_bom=True,
     )
