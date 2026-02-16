@@ -795,6 +795,101 @@ def _apply_export_filters(
     return filtered
 
 
+@router.get("/api/groups/{group_id}/export/preview", response_class=HTMLResponse)
+async def preview_export_count(
+    group_id: str,
+    chat_types: str | None = None,
+    exclude_dead: bool = False,
+    subscribers_min: int | None = None,
+    subscribers_max: int | None = None,
+    activity_min: float | None = None,
+    activity_max: float | None = None,
+    authors_min: float | None = None,
+    authors_max: float | None = None,
+    moderation: str = "all",
+    captcha: str = "all",
+) -> HTMLResponse:
+    """Preview export count with filters applied.
+
+    Returns HTML fragment showing how many chats match the current filters.
+    Used by HTMX to update preview count in export modal.
+
+    Args:
+        group_id: Group identifier
+        chat_types: Comma-separated list of chat types to include
+        exclude_dead: Whether to exclude dead chats (status != 'done')
+        subscribers_min: Minimum subscribers count
+        subscribers_max: Maximum subscribers count
+        activity_min: Minimum messages per hour
+        activity_max: Maximum messages per hour
+        authors_min: Minimum unique authors per hour
+        authors_max: Maximum unique authors per hour
+        moderation: Filter by moderation (all/yes/no)
+        captcha: Filter by captcha (all/yes/no)
+
+    Returns:
+        HTML fragment with count: '<span>Подходит: X из Y чатов</span>'
+
+    Raises:
+        HTTPException: If group not found
+    """
+    # Verify group exists
+    service = _get_group_service()
+    group = service.get_group(group_id)
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Load results from database
+    results_data = service._db.load_results(group_id)
+
+    # Fallback: if group_results is empty but group_chats has processed chats,
+    # build minimal result rows from group_chats data.
+    if not results_data:
+        processed_chats = [
+            chat for chat in service._db.load_chats(group_id)
+            if chat["status"] in ("done", "failed")
+        ]
+        if processed_chats:
+            results_data = [
+                {
+                    "chat_ref": chat["chat_ref"],
+                    "metrics_data": {
+                        "chat_type": chat["chat_type"],
+                        "title": "",
+                        "chat_ref": chat["chat_ref"],
+                        "status": chat["status"],
+                    },
+                }
+                for chat in processed_chats
+            ]
+
+    total_count = len(results_data)
+
+    # Apply filters
+    filtered_results = _apply_export_filters(
+        results_data,
+        chat_types=chat_types,
+        exclude_dead=exclude_dead,
+        subscribers_min=subscribers_min,
+        subscribers_max=subscribers_max,
+        activity_min=activity_min,
+        activity_max=activity_max,
+        authors_min=authors_min,
+        authors_max=authors_max,
+        moderation=moderation,
+        captcha=captcha,
+    )
+
+    matching_count = len(filtered_results)
+
+    # Return HTML fragment for HTMX swap
+    return HTMLResponse(
+        content=f"<span>Подходит: {matching_count} из {total_count} чатов</span>",
+        status_code=200,
+    )
+
+
 @router.get("/api/groups/{group_id}/export")
 async def export_group_results(
     group_id: str,
