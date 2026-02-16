@@ -408,8 +408,8 @@ class GroupAnalysisEngine:
                     except errors.FloodWaitError:
                         raise  # Let caller handle
                     except Exception as e:
-                        logger.debug(
-                            f"Account '{account_id}': failed to get full channel info for '{chat_ref}': {e}"
+                        logger.warning(
+                            f"Failed to fetch subscriber count for '{chat_ref}': {type(e).__name__} - this chat will have null subscribers"
                         )
 
                 moderation = getattr(entity, "join_request", None) or False
@@ -524,8 +524,8 @@ class GroupAnalysisEngine:
                         except errors.FloodWaitError:
                             raise  # Let caller handle
                         except Exception as e:
-                            logger.debug(
-                                f"Account '{account_id}': failed to get full channel info for '{chat_ref}': {e}"
+                            logger.warning(
+                                f"Failed to fetch subscriber count for '{chat_ref}': {type(e).__name__} - this chat will have null subscribers"
                             )
 
                     moderation = getattr(entity, "join_request", None) or False
@@ -571,8 +571,8 @@ class GroupAnalysisEngine:
                         except errors.FloodWaitError:
                             raise  # Let caller handle
                         except Exception as e:
-                            logger.debug(
-                                f"Account '{account_id}': failed to get full channel info for '{chat_ref}': {e}"
+                            logger.warning(
+                                f"Failed to fetch subscriber count for '{chat_ref}': {type(e).__name__} - this chat will have null subscribers"
                             )
 
                     moderation = getattr(entity, "join_request", None) or False
