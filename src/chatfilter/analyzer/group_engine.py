@@ -132,10 +132,14 @@ class GroupAnalysisEngine:
         """Start two-phase analysis for a group.
 
         1. Load group and validate
-        2. Clear old results atomically before starting
-        3. Distribute PENDING chats across connected accounts
-        4. Phase 1: Resolve metadata without joining
-        5. Phase 2: Join for activity metrics (only if needed)
+        2. Check PENDING chats:
+           - If 0 PENDING but FAILED exist → reset FAILED to PENDING (auto-retry)
+           - If 0 PENDING and all DONE → mark COMPLETED and return
+           - If 0 PENDING and neither FAILED nor all DONE → return
+        3. Clear old results before starting work
+        4. Distribute PENDING chats across connected accounts
+        5. Phase 1: Resolve metadata without joining
+        6. Phase 2: Join for activity metrics (only if needed)
 
         Args:
             group_id: Group identifier to analyze.
@@ -147,13 +151,6 @@ class GroupAnalysisEngine:
         group_data = self._db.load_group(group_id)
         if not group_data:
             raise GroupNotFoundError(f"Group not found: {group_id}")
-
-        # Clear old analysis results atomically before starting new analysis.
-        # This ensures re-runs refresh all data. If analysis crashes mid-run,
-        # old data is already cleared, but partial new data from Phase 1/2
-        # will be saved via save_result() calls.
-        self._db.clear_results(group_id)
-        logger.info(f"Cleared old results for group '{group_id}'")
 
         settings = GroupSettings.from_dict(group_data["settings"])
 
@@ -173,9 +170,73 @@ class GroupAnalysisEngine:
             status=GroupChatStatus.PENDING.value,
         )
 
+        # Handle case when no PENDING chats found
         if not pending_chats:
-            logger.warning(f"No pending chats found for group '{group_id}'")
-            return
+            all_chats = self._db.load_chats(group_id=group_id)
+            failed_chats = [
+                c for c in all_chats
+                if c["status"] == GroupChatStatus.FAILED.value
+            ]
+            done_chats = [
+                c for c in all_chats
+                if c["status"] == GroupChatStatus.DONE.value
+            ]
+
+            # If FAILED chats exist → reset them to PENDING and continue (auto-retry)
+            if failed_chats:
+                logger.info(
+                    f"No PENDING chats, but {len(failed_chats)} FAILED found. "
+                    f"Resetting to PENDING for auto-retry..."
+                )
+                for chat in failed_chats:
+                    self._db.update_chat_status(
+                        chat_id=chat["id"],
+                        status=GroupChatStatus.PENDING.value,
+                        error=None,
+                    )
+                # Reload pending_chats after reset
+                pending_chats = self._db.load_chats(
+                    group_id=group_id,
+                    status=GroupChatStatus.PENDING.value,
+                )
+            # If ALL chats are DONE → publish 'complete' event, set COMPLETED, return
+            elif done_chats and len(done_chats) == len(all_chats):
+                logger.info(
+                    f"All {len(all_chats)} chats already DONE for group '{group_id}'. "
+                    f"Marking as COMPLETED."
+                )
+                self._db.save_group(
+                    group_id=group_id,
+                    name=group_data["name"],
+                    settings=group_data["settings"],
+                    status=GroupStatus.COMPLETED.value,
+                    created_at=group_data["created_at"],
+                    updated_at=datetime.now(UTC),
+                )
+                # Publish completion event
+                event = GroupProgressEvent(
+                    group_id=group_id,
+                    status=GroupStatus.COMPLETED.value,
+                    current=len(done_chats),
+                    total=len(all_chats),
+                    message="Analysis already completed",
+                )
+                self._publish_event(event)
+                return
+            else:
+                # No PENDING, no FAILED, not all DONE → something is wrong
+                logger.warning(
+                    f"No pending chats found for group '{group_id}', "
+                    f"and no FAILED chats to retry. Current state unclear."
+                )
+                return
+
+        # Clear old analysis results now that we know we have work to do.
+        # This ensures re-runs refresh all data. If analysis crashes mid-run,
+        # old data is already cleared, but partial new data from Phase 1/2
+        # will be saved via save_result() calls.
+        self._db.clear_results(group_id)
+        logger.info(f"Cleared old results for group '{group_id}'")
 
         # Distribute chats round-robin across accounts
         for idx, chat in enumerate(pending_chats):
