@@ -28,6 +28,8 @@ class ChatMetrics(BaseModel):
                            negative = local clock behind). None if no significant
                            skew detected (< 5 minutes).
         duration_seconds: Time taken to analyze the chat in seconds. None if not tracked.
+        subscribers: Number of subscribers for public channels. None if not applicable
+                    or not detected.
 
     Example:
         >>> from datetime import datetime, timezone
@@ -57,6 +59,7 @@ class ChatMetrics(BaseModel):
     has_message_gaps: bool = False
     clock_skew_seconds: float | None = None
     duration_seconds: float | None = None
+    subscribers: int | None = None
 
     @field_validator("message_count", "unique_authors")
     @classmethod

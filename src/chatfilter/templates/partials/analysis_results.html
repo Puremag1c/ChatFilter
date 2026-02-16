@@ -48,6 +48,9 @@
                     <th class="sortable" data-sort="type">Type <span class="sort-icon"></span></th>
                     <th class="sortable numeric" data-sort="messages">Messages <span class="sort-icon"></span></th>
                     <th class="sortable numeric" data-sort="authors">Authors <span class="sort-icon"></span></th>
+                    {% if results and results[0].metrics.subscribers is not none %}
+                    <th class="sortable numeric" data-sort="subscribers">Subscribers <span class="sort-icon"></span></th>
+                    {% endif %}
                     <th class="sortable numeric" data-sort="hours">History (h) <span class="sort-icon"></span></th>
                     <th class="sortable numeric" data-sort="rate">Msg/Hour <span class="sort-icon"></span></th>
                     <th class="sortable numeric" data-sort="duration">Duration (s) <span class="sort-icon"></span></th>
@@ -60,6 +63,9 @@
                     data-type="{{ result.chat.chat_type.value }}"
                     data-messages="{{ result.metrics.message_count }}"
                     data-authors="{{ result.metrics.unique_authors }}"
+                    {% if result.metrics.subscribers is not none %}
+                    data-subscribers="{{ result.metrics.subscribers }}"
+                    {% endif %}
                     data-hours="{{ result.metrics.history_hours }}"
                     data-rate="{{ result.metrics.messages_per_hour }}"
                     data-duration="{{ result.metrics.duration_seconds or 0 }}">
@@ -76,6 +82,9 @@
                     </td>
                     <td class="numeric">{{ result.metrics.message_count }}</td>
                     <td class="numeric">{{ result.metrics.unique_authors }}</td>
+                    {% if result.metrics.subscribers is not none %}
+                    <td class="numeric">{{ result.metrics.subscribers }}</td>
+                    {% endif %}
                     <td class="numeric">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
                     <td class="numeric">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
                     <td class="numeric">{{ "%.3f"|format(result.metrics.duration_seconds or 0) }}</td>
@@ -252,18 +261,24 @@
     // CSV Export
     document.getElementById('export-csv-btn').addEventListener('click', function() {
         const rows = Array.from(tbody.querySelectorAll('tr'));
-        const results = rows.map(row => ({
-            chat_id: parseInt(row.dataset.chatId),
-            chat_title: row.dataset.title,
-            chat_type: row.dataset.type,
-            chat_username: row.querySelector('.chat-username')?.textContent?.replace('@', '') || null,
-            message_count: parseInt(row.dataset.messages),
-            unique_authors: parseInt(row.dataset.authors),
-            history_hours: parseFloat(row.dataset.hours),
-            first_message_at: null,
-            last_message_at: null,
-            analyzed_at: new Date().toISOString()
-        }));
+        const results = rows.map(row => {
+            const result = {
+                chat_id: parseInt(row.dataset.chatId),
+                chat_title: row.dataset.title,
+                chat_type: row.dataset.type,
+                chat_username: row.querySelector('.chat-username')?.textContent?.replace('@', '') || null,
+                message_count: parseInt(row.dataset.messages),
+                unique_authors: parseInt(row.dataset.authors),
+                history_hours: parseFloat(row.dataset.hours),
+                first_message_at: null,
+                last_message_at: null,
+                analyzed_at: new Date().toISOString()
+            };
+            if (row.dataset.subscribers !== undefined) {
+                result.subscribers = parseInt(row.dataset.subscribers);
+            }
+            return result;
+        });
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         fetch('/api/export/csv', {
