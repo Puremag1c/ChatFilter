@@ -633,12 +633,12 @@ class GroupAnalysisEngine:
             return _ResolvedChat(
                 db_chat_id=chat["id"],
                 chat_ref=chat_ref,
-                chat_type=ChatTypeEnum.PENDING.value,
+                chat_type=ChatTypeEnum.DEAD.value,
                 title=None,
                 subscribers=None,
                 moderation=None,
                 numeric_id=None,
-                status="failed",
+                status="dead",
                 error=str(e),
             )
 
