@@ -396,15 +396,21 @@ class GroupAnalysisEngine:
             entity = await client.get_entity(username)
 
             if isinstance(entity, Channel):
-                chat_type = self._channel_to_chat_type(entity)
                 title = entity.title
                 subscribers = getattr(entity, "participants_count", None)
+                linked_chat_id = None
+                is_megagroup = getattr(entity, "megagroup", False)
 
-                # If subscribers not available, try GetFullChannelRequest
-                if subscribers is None:
+                # For broadcast channels, ALWAYS call GetFullChannelRequest to get linked_chat_id
+                # For other channels, call only if subscribers not available
+                if (not is_megagroup) or (subscribers is None):
                     try:
                         full_channel = await client(GetFullChannelRequest(entity))
-                        subscribers = getattr(full_channel.full_chat, "participants_count", None)
+                        if subscribers is None:
+                            subscribers = getattr(full_channel.full_chat, "participants_count", None)
+                        # Extract linked_chat_id for broadcast channels
+                        if not is_megagroup:
+                            linked_chat_id = getattr(full_channel.full_chat, "linked_chat_id", None)
                     except errors.FloodWaitError:
                         raise  # Let caller handle
                     except Exception as e:
@@ -412,6 +418,7 @@ class GroupAnalysisEngine:
                             f"Failed to fetch subscriber count for '{chat_ref}': {type(e).__name__} - this chat will have null subscribers"
                         )
 
+                chat_type = self._channel_to_chat_type(entity, linked_chat_id)
                 moderation = getattr(entity, "join_request", None) or False
                 numeric_id = abs(entity.id)
             elif isinstance(entity, TelegramChat):
@@ -420,6 +427,7 @@ class GroupAnalysisEngine:
                 subscribers = getattr(entity, "participants_count", None)
                 moderation = False
                 numeric_id = abs(entity.id)
+                linked_chat_id = None  # Groups don't have linked discussion chats
             else:
                 # User or unknown — not analyzable
                 return _ResolvedChat(
@@ -446,6 +454,7 @@ class GroupAnalysisEngine:
                 subscribers=subscribers,
                 moderation=moderation,
                 numeric_id=numeric_id,
+                linked_chat_id=linked_chat_id,
                 status="done",
             )
 
@@ -1032,12 +1041,20 @@ class GroupAnalysisEngine:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _channel_to_chat_type(self, entity: Channel) -> str:
-        """Map a Telethon Channel entity to ChatTypeEnum value."""
+    def _channel_to_chat_type(self, entity: Channel, linked_chat_id: int | None = None) -> str:
+        """Map a Telethon Channel entity to ChatTypeEnum value.
+
+        Args:
+            entity: Telethon Channel entity
+            linked_chat_id: ID of linked discussion group (if any)
+        """
         if getattr(entity, "megagroup", False):
             if getattr(entity, "forum", False):
                 return ChatTypeEnum.FORUM.value
             return ChatTypeEnum.GROUP.value
+        # Broadcast channel: check if has discussion group
+        if linked_chat_id is not None:
+            return ChatTypeEnum.CHANNEL_COMMENTS.value
         return ChatTypeEnum.CHANNEL_NO_COMMENTS.value
 
     def _map_chat_type_to_enum(self, chat_type_str: str) -> str:
