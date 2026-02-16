@@ -1047,8 +1047,8 @@ async def export_group_results(
     sanitized_name = sanitized_name.replace("/", "").replace("\\", "").replace("..", "")
     # Remove control characters (prevent HTTP Response Splitting)
     sanitized_name = re.sub(r"[\x00-\x1f\x7f]", "", sanitized_name)
-    # Remove non-alphanumeric chars except spaces and hyphens
-    sanitized_name = re.sub(r"[^\w\s-]", "", sanitized_name)
+    # Remove non-alphanumeric chars except spaces and hyphens (ASCII only)
+    sanitized_name = re.sub(r"[^\w\s-]", "", sanitized_name, flags=re.ASCII)
     # Replace spaces with underscores
     sanitized_name = sanitized_name.replace(" ", "_")
     # Limit length (filesystem limits)
