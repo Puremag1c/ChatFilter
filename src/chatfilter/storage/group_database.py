@@ -75,6 +75,59 @@ class GroupDatabase(SQLiteDatabase):
                 ON group_results (group_id)
             """)
 
+            # Run migrations
+            self._run_migrations(conn)
+
+    def _run_migrations(self, conn: Any) -> None:
+        """Run database migrations to bring schema up to date.
+
+        Args:
+            conn: Active database connection
+        """
+        # Get current schema version
+        cursor = conn.execute("PRAGMA user_version")
+        current_version = cursor.fetchone()[0]
+
+        # Migration 1: Add unique constraint on (group_id, chat_ref) for group_results
+        if current_version < 1:
+            self._migrate_to_v1_unique_constraint(conn)
+            conn.execute("PRAGMA user_version = 1")
+
+    def _migrate_to_v1_unique_constraint(self, conn: Any) -> None:
+        """Migration v1: Add UNIQUE constraint on (group_id, chat_ref) for group_results.
+
+        This migration:
+        1. Identifies duplicate rows for same (group_id, chat_ref)
+        2. Keeps the newest row (by analyzed_at), deletes older ones
+        3. Creates unique index on (group_id, chat_ref)
+
+        Args:
+            conn: Active database connection
+        """
+        # Check if index already exists (for idempotency)
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='index' AND name='idx_group_results_unique_group_chat'
+        """)
+        if cursor.fetchone():
+            return  # Already migrated
+
+        # Delete duplicate rows, keeping the newest (by analyzed_at)
+        conn.execute("""
+            DELETE FROM group_results
+            WHERE id NOT IN (
+                SELECT MAX(id)
+                FROM group_results
+                GROUP BY group_id, chat_ref
+            )
+        """)
+
+        # Create unique index
+        conn.execute("""
+            CREATE UNIQUE INDEX idx_group_results_unique_group_chat
+            ON group_results (group_id, chat_ref)
+        """)
+
     def save_group(
         self,
         group_id: str,

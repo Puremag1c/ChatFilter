@@ -416,6 +416,125 @@ def test_foreign_key_constraint(temp_db):
         )
 
 
+def test_unique_constraint_on_group_results(temp_db, sample_group_data):
+    """Test that UNIQUE constraint on (group_id, chat_ref) prevents duplicates."""
+    # Setup group
+    temp_db.save_group(
+        group_id=sample_group_data["id"],
+        name=sample_group_data["name"],
+        settings=sample_group_data["settings"],
+        status=sample_group_data["status"],
+    )
+
+    # Save first result
+    temp_db.save_result(
+        group_id=sample_group_data["id"],
+        chat_ref="@test_channel",
+        metrics_data={"message_count": 100},
+    )
+
+    # Try to save duplicate (same group_id + chat_ref) - should fail
+    with pytest.raises(Exception):  # sqlite3.IntegrityError
+        temp_db.save_result(
+            group_id=sample_group_data["id"],
+            chat_ref="@test_channel",
+            metrics_data={"message_count": 200},
+        )
+
+
+def test_migration_removes_duplicates():
+    """Test that migration to v1 removes duplicate rows and keeps newest."""
+    import sqlite3
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test_migration.db"
+
+        # Create old schema (without unique constraint) directly
+        conn = sqlite3.connect(db_path)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("""
+            CREATE TABLE chat_groups (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                settings TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                updated_at TIMESTAMP NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE group_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id TEXT NOT NULL,
+                chat_ref TEXT NOT NULL,
+                metrics_data TEXT NOT NULL,
+                analyzed_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (group_id) REFERENCES chat_groups (id)
+                    ON DELETE CASCADE
+            )
+        """)
+
+        # Insert test group
+        now = datetime.now(UTC).isoformat()
+        conn.execute(
+            "INSERT INTO chat_groups (id, name, settings, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            ("group_123", "Test", '{}', "pending", now, now),
+        )
+
+        # Insert duplicates (older first, then newer)
+        old_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC).isoformat()
+        new_time = datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC).isoformat()
+
+        conn.execute(
+            "INSERT INTO group_results (group_id, chat_ref, metrics_data, analyzed_at) VALUES (?, ?, ?, ?)",
+            ("group_123", "@chat1", '{"count": 100}', old_time),
+        )
+        conn.execute(
+            "INSERT INTO group_results (group_id, chat_ref, metrics_data, analyzed_at) VALUES (?, ?, ?, ?)",
+            ("group_123", "@chat1", '{"count": 200}', new_time),
+        )
+        conn.execute(
+            "INSERT INTO group_results (group_id, chat_ref, metrics_data, analyzed_at) VALUES (?, ?, ?, ?)",
+            ("group_123", "@chat2", '{"count": 300}', new_time),
+        )
+        conn.commit()
+
+        # Verify we have duplicates
+        cursor = conn.execute("SELECT COUNT(*) as count FROM group_results WHERE group_id = 'group_123' AND chat_ref = '@chat1'")
+        assert cursor.fetchone()[0] == 2
+        conn.close()
+
+        # Now initialize GroupDatabase - this should run migration
+        db = GroupDatabase(db_path)
+
+        # Verify migration ran
+        with db._connection() as conn:
+            # Check schema version updated
+            cursor = conn.execute("PRAGMA user_version")
+            assert cursor.fetchone()[0] == 1
+
+            # Check unique index exists
+            cursor = conn.execute("""
+                SELECT name FROM sqlite_master
+                WHERE type='index' AND name='idx_group_results_unique_group_chat'
+            """)
+            assert cursor.fetchone() is not None
+
+            # Check duplicates removed (only 1 row for @chat1 remains)
+            cursor = conn.execute("SELECT COUNT(*) as count FROM group_results WHERE group_id = 'group_123' AND chat_ref = '@chat1'")
+            assert cursor.fetchone()[0] == 1
+
+            # Check we kept the NEWEST row (analyzed_at = new_time, count = 200)
+            cursor = conn.execute("SELECT metrics_data FROM group_results WHERE group_id = 'group_123' AND chat_ref = '@chat1'")
+            row = cursor.fetchone()
+            import json
+            assert json.loads(row[0])["count"] == 200
+
+            # Check other rows untouched
+            cursor = conn.execute("SELECT COUNT(*) as count FROM group_results")
+            assert cursor.fetchone()[0] == 2
+
+
 def test_timestamps(temp_db, sample_group_data):
     """Test that timestamps are properly stored and retrieved."""
     now = datetime.now(UTC)
