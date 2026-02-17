@@ -340,6 +340,48 @@ class GroupAnalysisEngine:
                             group_id, chat, dead_resolved, account_id, settings, mode,
                         )
 
+        # Final safety net: verify all chats have group_results after Phase 1
+        all_chats = self._db.load_chats(group_id=group_id)
+        all_results = self._db.load_results(group_id=group_id)
+
+        # Build set of chat_refs that have results
+        result_chat_refs = {result["chat_ref"] for result in all_results}
+
+        # Find orphans: chats without results
+        orphans = [chat for chat in all_chats if chat["chat_ref"] not in result_chat_refs]
+
+        if orphans:
+            logger.warning(
+                f"Phase 1 orphan safety net triggered: {len(orphans)} chats missing results in group '{group_id}'"
+            )
+
+            # Save dead record for each orphan
+            for chat in orphans:
+                # Use assigned_account if available, otherwise use first connected account
+                fallback_account = chat.get("assigned_account") or (
+                    connected_accounts[0] if connected_accounts else "unknown"
+                )
+
+                dead_resolved = _ResolvedChat(
+                    db_chat_id=chat["id"],
+                    chat_ref=chat["chat_ref"],
+                    chat_type=ChatTypeEnum.DEAD.value,
+                    title=None,
+                    subscribers=None,
+                    moderation=None,
+                    numeric_id=None,
+                    status="dead",
+                    linked_chat_id=None,
+                    error="Orphan safety net: no result after Phase 1",
+                )
+                self._save_phase1_result(
+                    group_id, chat, dead_resolved, fallback_account, settings, mode,
+                )
+
+            logger.info(
+                f"Orphan safety net: saved {len(orphans)} dead records for missing results"
+            )
+
         # Log subscriber detection stats if enabled
         if settings.detect_subscribers:
             completed_chats = self._db.load_chats(
