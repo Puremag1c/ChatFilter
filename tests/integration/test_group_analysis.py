@@ -618,11 +618,10 @@ class TestAllChatsGetResultsGuarantee:
         mock_session_context.__aexit__.return_value = None
         mock_session_manager.session.return_value = mock_session_context
 
-        # Patch _resolve_chat
-        with patch.object(
-            engine,
-            "_resolve_chat",
-            side_effect=mock_resolve_chat,
+        # Patch _resolve_chat AND asyncio.sleep to make test fast
+        with (
+            patch.object(engine, "_resolve_chat", side_effect=mock_resolve_chat),
+            patch("asyncio.sleep", new_callable=AsyncMock),
         ):
             # Run Phase 1 analysis
             await engine._phase1_resolve_account(
