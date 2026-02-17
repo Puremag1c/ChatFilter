@@ -64,6 +64,17 @@
                 hx-swap="none">
             {{ _("Stop analysis") }}
         </button>
+        {% elif group.status.value == 'completed' %}
+        <button class="btn btn-outline-secondary btn-sm"
+                hx-post="/api/groups/{{ group.id }}/reanalyze?mode=increment"
+                hx-swap="none">
+            {{ _("Дополнить анализ") }}
+        </button>
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/{{ group.id }}/reanalyze?mode=overwrite"
+                hx-swap="none">
+            {{ _("Перезапустить анализ") }}
+        </button>
         {% else %}
         <button class="btn btn-primary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/start"
