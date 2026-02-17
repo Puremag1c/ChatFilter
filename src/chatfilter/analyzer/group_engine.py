@@ -681,6 +681,23 @@ class GroupAnalysisEngine:
                 status=GroupChatStatus.PENDING.value,
             )
             for chat in remaining:
+                # Save dead result to group_results (same pattern as max retries handler)
+                dead_resolved = _ResolvedChat(
+                    db_chat_id=chat["id"],
+                    chat_ref=chat["chat_ref"],
+                    chat_type=ChatTypeEnum.DEAD.value,
+                    title=None,
+                    subscribers=None,
+                    moderation=None,
+                    numeric_id=None,
+                    status="dead",
+                    linked_chat_id=None,
+                    error=f"Account error: {e}",
+                )
+                self._save_phase1_result(
+                    group_id, chat, dead_resolved, account_id, settings, mode,
+                )
+
                 self._db.update_chat_status(
                     chat_id=chat["id"],
                     status=GroupChatStatus.FAILED.value,

@@ -124,6 +124,12 @@ class TestStage1ResolveWithoutJoin:
         )
         mock_client.get_entity = AsyncMock(return_value=mock_channel)
 
+        # Mock GetFullChannelRequest to return channel without comments
+        full_channel_result = MagicMock()
+        full_channel_result.full_chat = MagicMock()
+        full_channel_result.full_chat.linked_chat_id = None
+        mock_client.return_value = full_channel_result
+
         # Mock session context
         mock_session_manager.session = MagicMock()
         mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
@@ -415,15 +421,15 @@ class TestStage2JoinOnlyWhenNeeded:
         mock_client.get_entity = AsyncMock(return_value=mock_channel)
 
         # Stage 2: join and fetch messages
-        mock_client.iter_messages = AsyncMock()
+        # Create async iterator for messages (pattern from test_e2e_integration.py:145)
+        def mock_iter_messages(*args, **kwargs):
+            async def _iter():
+                # Return empty list (no messages in time window)
+                for _ in []:
+                    yield _
+            return _iter()
 
-        # Create async iterator for messages
-        async def mock_iter_messages(*args, **kwargs):
-            # Return empty list (no messages in time window)
-            for _ in []:
-                yield _
-
-        mock_client.iter_messages.return_value = mock_iter_messages()
+        mock_client.iter_messages = mock_iter_messages
 
         # Mock join/leave
         with patch("chatfilter.analyzer.group_engine.join_chat") as mock_join, \

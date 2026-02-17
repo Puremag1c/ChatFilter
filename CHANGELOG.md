@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-02-17
+
+### Added
+- Add re-analysis mode parameter to start_analysis()
+
+### Fixed
+- SMOKE: [Backend] Missing tests: re-analysis feature (100% untested)
+- SMOKE: [Backend] Missing tests: all chats get results guarantee
+- SMOKE: [Backend] API signature mismatch in _save_phase1_result()
+- SMOKE: [Backend] Database schema missing subscribers column
+- SMOKE: [Backend] Missing test: FloodWait continuation
+- SMOKE: [Backend] Missing tests: exclude_dead checkbox removal
+- SMOKE: [Backend] Database migration fails to remove duplicates
+- SMOKE: [Backend] CSV export includes error_reason when not selected
+- Ensure save_result() called for every chat (dead included)
+- Add retry mechanism to Phase 2 activity analysis
+- Replace break with retry queue in Phase 1 FloodWait handler
+
+### Changed
+- Resolve rebase conflict: Add retry mechanism to Phase 2 activity analysis
+- [Security] Add MAX_RETRY_COUNT constant to prevent DoS
+- [Reliability] Re-check account health before retry attempts
+- [Reliability] Add per-chat timeout to prevent retry queue stalls
+- [Architecture] Add unique constraint on (group_id, chat_ref) for group_results
+- [Reliability] Add UNIQUE constraint on group_results (group_id, chat_ref)
+- [OPS] Add FloodWait monitoring and statistics
+- [Security] Add UNIQUE index on group_results to prevent race condition
+- [OPS] Add integration tests for retry mechanism and incremental analysis
+- [Security] Prevent concurrent re-analysis on same group (409/429)
+- [UX] Add confirmation modal for 'Перезапустить анализ' button
+- [UX] Add detailed retry progress messages in SSE stream
+- Add re-analysis API endpoints
+- Implement skip logic for already-collected metrics in analysis loop
+- Add upsert_result() to group_database for incremental analysis
+
 ## [0.9.12] - 2026-02-17
 
 ### Fixed
