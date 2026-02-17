@@ -32,15 +32,6 @@
                 </div>
                 {% endif %}
 
-                {# Exclude Dead Chats #}
-                <div class="form-group" style="margin-top: 1rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem;">
-                        <input type="checkbox"
-                               name="exclude_dead"
-                               value="true">
-                        <span>{{ _("Exclude dead/inaccessible chats") }}</span>
-                    </label>
-                </div>
 
                 {# Subscribers Range #}
                 {% if group.settings.detect_subscribers %}
@@ -253,12 +244,6 @@ async function downloadFilteredExport() {
     for (const chatType of chatTypes) {
         params.append('chat_types', chatType);
     }
-
-    // Exclude dead
-    if (formData.get('exclude_dead') === 'true') {
-        params.append('exclude_dead', 'true');
-    }
-
     // Numeric filters
     const numericFields = [
         'subscribers_min', 'subscribers_max',

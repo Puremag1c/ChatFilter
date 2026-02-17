@@ -750,7 +750,6 @@ def _apply_export_filters(
     results_data: list[dict],
     *,
     chat_types: str | None = None,
-    exclude_dead: bool = False,
     subscribers_min: int | None = None,
     subscribers_max: int | None = None,
     activity_min: float | None = None,
@@ -772,10 +771,6 @@ def _apply_export_filters(
 
         if allowed_chat_types:
             if metrics.get("chat_type") not in allowed_chat_types:
-                continue
-
-        if exclude_dead:
-            if metrics.get("status") != "done":
                 continue
 
         if subscribers_min is not None or subscribers_max is not None:
@@ -832,7 +827,6 @@ def _apply_export_filters(
 async def preview_export_count(
     group_id: str,
     chat_types: list[str] | None = Query(None),
-    exclude_dead: bool = False,
     subscribers_min: str | None = None,
     subscribers_max: str | None = None,
     activity_min: str | None = None,
@@ -850,7 +844,6 @@ async def preview_export_count(
     Args:
         group_id: Group identifier
         chat_types: Comma-separated list of chat types to include
-        exclude_dead: Whether to exclude dead chats (status != 'done')
         subscribers_min: Minimum subscribers count (string from query param, empty = None)
         subscribers_max: Maximum subscribers count (string from query param, empty = None)
         activity_min: Minimum messages per hour (string from query param, empty = None)
@@ -914,7 +907,6 @@ async def preview_export_count(
     filtered_results = _apply_export_filters(
         results_data,
         chat_types=chat_types_str,
-        exclude_dead=exclude_dead,
         subscribers_min=parsed_subscribers_min,
         subscribers_max=parsed_subscribers_max,
         activity_min=parsed_activity_min,
@@ -938,7 +930,6 @@ async def preview_export_count(
 async def export_group_results(
     group_id: str,
     chat_types: list[str] | None = Query(None),
-    exclude_dead: bool = False,
     subscribers_min: str | None = None,
     subscribers_max: str | None = None,
     activity_min: str | None = None,
@@ -956,7 +947,6 @@ async def export_group_results(
     Args:
         group_id: Group identifier
         chat_types: Comma-separated list of chat types to include
-        exclude_dead: Whether to exclude dead chats (status != 'done')
         subscribers_min: Minimum subscribers count (string from query param, empty = None)
         subscribers_max: Maximum subscribers count (string from query param, empty = None)
         activity_min: Minimum messages per hour (string from query param, empty = None)
@@ -1024,7 +1014,6 @@ async def export_group_results(
     filtered_results = _apply_export_filters(
         results_data,
         chat_types=chat_types_str,
-        exclude_dead=exclude_dead,
         subscribers_min=parsed_subscribers_min,
         subscribers_max=parsed_subscribers_max,
         activity_min=parsed_activity_min,
