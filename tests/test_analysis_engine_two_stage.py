@@ -124,6 +124,12 @@ class TestStage1ResolveWithoutJoin:
         )
         mock_client.get_entity = AsyncMock(return_value=mock_channel)
 
+        # Mock GetFullChannelRequest to return channel without comments
+        full_channel_result = MagicMock()
+        full_channel_result.full_chat = MagicMock()
+        full_channel_result.full_chat.linked_chat_id = None
+        mock_client.return_value = full_channel_result
+
         # Mock session context
         mock_session_manager.session = MagicMock()
         mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
