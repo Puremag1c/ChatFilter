@@ -446,8 +446,8 @@ class TestStage2JoinOnlyWhenNeeded:
             # Execute
             await engine.start_analysis(group_id)
 
-            # Verify: join_chat was called (Stage 2)
-            mock_join.assert_called_once()
+            # Verify: join_chat was called once (mock works correctly, no retry)
+            assert mock_join.call_count == 1
 
             # Verify: leave_chat was called (cleanup)
             mock_leave.assert_called_once_with(mock_client, 456)
