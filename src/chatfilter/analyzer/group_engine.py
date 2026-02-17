@@ -310,6 +310,35 @@ class GroupAnalysisEngine:
                     f"Account '{account_id}' Phase 1 failed: {result}",
                     exc_info=result,
                 )
+                # Safety net: save dead results for orphan chats
+                # (in case outer exception handler in _phase1_resolve_account also failed)
+                orphan_chats = self._db.load_chats(
+                    group_id=group_id,
+                    assigned_account=account_id,
+                )
+                for chat in orphan_chats:
+                    # Check if result already exists (outer handler may have saved it)
+                    existing = self._db.load_result(
+                        group_id=group_id,
+                        chat_ref=chat["chat_ref"],
+                    )
+                    if existing is None:
+                        # No result saved — save dead record
+                        dead_resolved = _ResolvedChat(
+                            db_chat_id=chat["id"],
+                            chat_ref=chat["chat_ref"],
+                            chat_type=ChatTypeEnum.DEAD.value,
+                            title=None,
+                            subscribers=None,
+                            moderation=None,
+                            numeric_id=None,
+                            status="dead",
+                            linked_chat_id=None,
+                            error=f"Account task exception: {result}",
+                        )
+                        self._save_phase1_result(
+                            group_id, chat, dead_resolved, account_id, settings, mode,
+                        )
 
         # Log subscriber detection stats if enabled
         if settings.detect_subscribers:
