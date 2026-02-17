@@ -124,6 +124,16 @@ class TestStage1ResolveWithoutJoin:
         )
         mock_client.get_entity = AsyncMock(return_value=mock_channel)
 
+        # Mock client(GetFullChannelRequest(...)) — broadcast channels trigger this call
+        # to detect linked_chat_id. Without this mock, the default MagicMock return value
+        # makes linked_chat_id truthy, incorrectly yielding 'channel_comments'.
+        mock_full_chat = MagicMock()
+        mock_full_chat.linked_chat_id = None
+        mock_full_chat.participants_count = 5000
+        mock_full_response = MagicMock()
+        mock_full_response.full_chat = mock_full_chat
+        mock_client.return_value = mock_full_response
+
         # Mock session context
         mock_session_manager.session = MagicMock()
         mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
