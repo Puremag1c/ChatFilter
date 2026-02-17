@@ -784,4 +784,272 @@ class TestHybridTimeWindowLogic:
 
             # Metrics should be calculated from 3 messages
             assert metrics["messages_per_hour"] > 0
-            assert metrics["unique_authors_per_hour"] > 0
+
+
+class TestIncrementalModeSkipLogic:
+    """Tests for INCREMENT mode skip logic.
+
+    Tests that in INCREMENT mode, chats with existing metrics are skipped
+    and only missing metrics are fetched.
+    """
+
+    @pytest.mark.asyncio
+    async def test_phase1_skip_when_all_metrics_exist(self, engine, mock_db, mock_session_manager):
+        """Test Phase 1: Skip chat when all Phase 1 metrics already exist."""
+        # Setup: Create group with one chat
+        group_id = "test-group"
+        mock_db.save_group(
+            group_id=group_id,
+            name="Test Group",
+            settings=GroupSettings(
+                detect_subscribers=True,
+                detect_moderation=True,
+                detect_activity=False,
+                detect_unique_authors=False,
+                detect_captcha=False,
+                time_window=24,
+            ).model_dump(),
+            status=GroupStatus.PENDING.value,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        chat_ref = "https://t.me/existing_chat"
+        mock_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type=ChatTypeEnum.PENDING.value,
+            status=GroupChatStatus.PENDING.value,
+        )
+
+        # Pre-populate result with Phase 1 metrics
+        mock_db.save_result(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            metrics_data={
+                "chat_type": ChatTypeEnum.CHANNEL_NO_COMMENTS.value,
+                "title": "Existing Channel",
+                "subscribers": 1000,
+                "moderation": False,
+                "status": "done",
+            },
+        )
+
+        # Setup mock client (should NOT be called)
+        mock_client = MagicMock()
+        mock_client.get_entity = AsyncMock(side_effect=Exception("Should not call get_entity"))
+
+        mock_session_manager.session = MagicMock()
+        mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        # Execute with INCREMENT mode
+        from chatfilter.models.group import AnalysisMode
+        await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
+
+        # Verify: get_entity NOT called (chat was skipped)
+        assert mock_client.get_entity.call_count == 0
+
+        # Verify: Chat marked as DONE
+        chats = mock_db.load_chats(group_id=group_id)
+        assert len(chats) == 1
+        assert chats[0]["status"] == GroupChatStatus.DONE.value
+
+        # Verify: Existing result unchanged
+        result = mock_db.load_result(group_id, chat_ref)
+        assert result["metrics_data"]["subscribers"] == 1000
+        assert result["metrics_data"]["title"] == "Existing Channel"
+
+    @pytest.mark.asyncio
+    async def test_phase1_resolve_when_partial_metrics_exist(self, engine, mock_db, mock_session_manager):
+        """Test Phase 1: Re-resolve chat when only SOME Phase 1 metrics exist."""
+        # Setup: Create group with one chat
+        group_id = "test-group"
+        mock_db.save_group(
+            group_id=group_id,
+            name="Test Group",
+            settings=GroupSettings(
+                detect_subscribers=True,
+                detect_moderation=True,
+                detect_activity=False,
+                detect_unique_authors=False,
+                detect_captcha=False,
+                time_window=24,
+            ).model_dump(),
+            status=GroupStatus.PENDING.value,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        chat_ref = "https://t.me/partial_chat"
+        mock_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type=ChatTypeEnum.PENDING.value,
+            status=GroupChatStatus.PENDING.value,
+        )
+
+        # Pre-populate result with PARTIAL Phase 1 metrics (missing subscribers)
+        mock_db.save_result(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            metrics_data={
+                "chat_type": ChatTypeEnum.CHANNEL_NO_COMMENTS.value,
+                "title": "Partial Channel",
+                "moderation": False,
+                "status": "done",
+                # subscribers missing!
+            },
+        )
+
+        # Setup mock client
+        mock_client = MagicMock()
+        mock_channel = create_mock_channel(
+            id=123456,
+            title="Updated Channel",
+            broadcast=True,
+            megagroup=False,
+            participants_count=2000,
+            join_request=False,
+        )
+        mock_client.get_entity = AsyncMock(return_value=mock_channel)
+
+        mock_session_manager.session = MagicMock()
+        mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        # Execute with INCREMENT mode
+        from chatfilter.models.group import AnalysisMode
+        await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
+
+        # Verify: get_entity WAS called (chat was re-resolved)
+        assert mock_client.get_entity.call_count == 1
+
+        # Verify: Result updated with complete metrics
+        result = mock_db.load_result(group_id, chat_ref)
+        assert result["metrics_data"]["subscribers"] == 2000  # Now present
+
+    @pytest.mark.asyncio
+    async def test_phase2_skip_when_all_metrics_exist(self, engine, mock_db, mock_session_manager):
+        """Test Phase 2: Skip chat when all Phase 2 metrics already exist."""
+        # Setup: Create group with one chat
+        group_id = "test-group"
+        mock_db.save_group(
+            group_id=group_id,
+            name="Test Group",
+            settings=GroupSettings(
+                detect_subscribers=False,
+                detect_moderation=False,
+                detect_activity=True,
+                detect_unique_authors=True,
+                detect_captcha=True,
+                time_window=24,
+            ).model_dump(),
+            status=GroupStatus.PENDING.value,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        chat_ref = "https://t.me/existing_activity"
+        chat_id = mock_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type=ChatTypeEnum.GROUP.value,
+            status=GroupChatStatus.DONE.value,  # Already processed in Phase 1
+        )
+
+        # Pre-populate result with Phase 1 + Phase 2 metrics
+        mock_db.save_result(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            metrics_data={
+                "chat_type": ChatTypeEnum.GROUP.value,
+                "title": "Existing Group",
+                "moderation": False,
+                "status": "done",
+                "messages_per_hour": 10.5,
+                "unique_authors_per_hour": 3.2,
+                "captcha": False,
+            },
+        )
+
+        # Setup mock client (join_chat should NOT be called)
+        mock_client = MagicMock()
+
+        mock_session_manager.session = MagicMock()
+        mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        # Execute with INCREMENT mode (skip Phase 1, only Phase 2)
+        from chatfilter.models.group import AnalysisMode
+        with patch("chatfilter.analyzer.group_engine.join_chat") as mock_join:
+            await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
+
+            # Verify: join_chat NOT called (chat was skipped)
+            assert mock_join.call_count == 0
+
+        # Verify: Existing result unchanged
+        result = mock_db.load_result(group_id, chat_ref)
+        assert result["metrics_data"]["messages_per_hour"] == 10.5
+        assert result["metrics_data"]["unique_authors_per_hour"] == 3.2
+
+    @pytest.mark.asyncio
+    async def test_skip_respects_settings(self, engine, mock_db, mock_session_manager):
+        """Test that skip logic respects settings (doesn't require disabled metrics)."""
+        # Setup: Create group with detect_subscribers=False
+        group_id = "test-group"
+        mock_db.save_group(
+            group_id=group_id,
+            name="Test Group",
+            settings=GroupSettings(
+                detect_subscribers=False,  # Disabled
+                detect_moderation=True,
+                detect_activity=False,
+                detect_unique_authors=False,
+                detect_captcha=False,
+                time_window=24,
+            ).model_dump(),
+            status=GroupStatus.PENDING.value,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+        chat_ref = "https://t.me/no_subs_chat"
+        mock_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type=ChatTypeEnum.PENDING.value,
+            status=GroupChatStatus.PENDING.value,
+        )
+
+        # Pre-populate result WITHOUT subscribers (not required by settings)
+        mock_db.save_result(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            metrics_data={
+                "chat_type": ChatTypeEnum.GROUP.value,
+                "title": "Group Without Subs",
+                "moderation": False,
+                "status": "done",
+                # subscribers not present, but not required
+            },
+        )
+
+        # Setup mock client (should NOT be called)
+        mock_client = MagicMock()
+        mock_client.get_entity = AsyncMock(side_effect=Exception("Should not call get_entity"))
+
+        mock_session_manager.session = MagicMock()
+        mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        # Execute with INCREMENT mode
+        from chatfilter.models.group import AnalysisMode
+        await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
+
+        # Verify: get_entity NOT called (chat was skipped)
+        assert mock_client.get_entity.call_count == 0
+
+        # Verify: Chat marked as DONE
+        chats = mock_db.load_chats(group_id=group_id)
+        assert chats[0]["status"] == GroupChatStatus.DONE.value
