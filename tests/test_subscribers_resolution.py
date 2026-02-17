@@ -21,7 +21,7 @@ from telethon.tl.types import Channel, ChatInviteAlready, ChatInvitePeek
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
 from chatfilter.exporter.csv import to_csv_rows_dynamic
-from chatfilter.models.group import ChatTypeEnum, GroupSettings
+from chatfilter.models.group import AnalysisMode, ChatTypeEnum, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
 
 if TYPE_CHECKING:
@@ -276,7 +276,7 @@ class TestSubscribersEndToEnd:
 
         # Save Phase 1 result
         engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings,
+            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
         )
 
         # Load results from DB
@@ -326,7 +326,7 @@ class TestSubscribersEndToEnd:
         }
 
         engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings,
+            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
         )
 
         results = group_db.load_results(group_id)
@@ -371,7 +371,7 @@ class TestSubscribersEndToEnd:
         }
 
         engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings,
+            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
         )
 
         results = group_db.load_results(group_id)
