@@ -1035,6 +1035,97 @@ class TestExceptionRecoveryPaths:
     """
 
     @pytest.mark.asyncio
+    async def test_outer_exception_handler_saves_remaining_chats(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test outer exception handler: session context manager raises exception.
+
+        Scenario:
+        - Group with 5 chats assigned to account
+        - Mock session context manager to raise exception  
+        - Verify: Outer exception handler saves dead records for ALL remaining PENDING chats
+
+        This tests lines 744-776 in group_engine.py (Feature 1).
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        # Setup: Create group with 5 chats
+        group_id = "test-group-outer-exception"
+        settings = GroupSettings(detect_subscribers=True, detect_activity=False)
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Outer Exception Handler",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        # Add 5 chats
+        for i in range(5):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Mock session context manager to raise exception in __aenter__
+        # This will be caught by the outer exception handler (lines 744-776)
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.side_effect = RuntimeError("Session context error")
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Run _phase1_resolve_account (should catch exception in outer handler)
+        await engine._phase1_resolve_account(
+            group_id=group_id,
+            account_id="test-account",
+            settings=settings,
+            mode=AnalysisMode.FRESH,
+        )
+
+        # CRITICAL ASSERTION: ALL 5 chats must have results
+        results = test_db.load_results(group_id)
+        assert len(results) == 5, (
+            f"Outer exception handler failed! Expected 5 results for 5 chats, got {len(results)}. "
+            f"Remaining chats were not saved."
+        )
+
+        # Verify: All chats are dead with "Account error" message
+        dead_results = [r for r in results if r["metrics_data"]["status"] == "dead"]
+        assert len(dead_results) == 5, f"Expected 5 dead chats from outer handler, got {len(dead_results)}"
+
+        # Verify dead chats have proper error message
+        for result in dead_results:
+            metrics = result["metrics_data"]
+            assert metrics["chat_type"] == "dead", "Dead chat should have type=dead"
+            assert "error_reason" in metrics, "Dead chat missing error_reason"
+            assert "Account error" in metrics["error_reason"], (
+                f"Error reason should mention 'Account error', got: {metrics['error_reason']}"
+            )
+            assert "Session context error" in metrics["error_reason"], (
+                f"Error reason should include original error message, got: {metrics['error_reason']}"
+            )
+
+        # Verify chats marked as FAILED
+        failed_chats = test_db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.FAILED.value,
+        )
+        assert len(failed_chats) == 5, f"Expected 5 failed chats, got {len(failed_chats)}"
+
+
+    @pytest.mark.asyncio
     async def test_account_task_exception_saves_dead_results(
         self,
         test_db: GroupDatabase,
