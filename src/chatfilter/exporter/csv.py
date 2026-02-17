@@ -122,9 +122,8 @@ def to_csv_rows_dynamic(
     if settings is None or settings.detect_captcha:
         headers.append("captcha")
 
-    # Always include status and error_reason last
+    # Always include status last
     headers.append("status")
-    headers.append("error_reason")
 
     # Yield header row
     yield headers
@@ -157,9 +156,8 @@ def to_csv_rows_dynamic(
             captcha = metrics.get("captcha")
             row.append("yes" if captcha is True else "no" if captcha is False else "")
 
-        # Always include status and error_reason
+        # Always include status
         row.append(metrics.get("status", ""))
-        row.append(metrics.get("error_reason", ""))
 
         yield row
 
