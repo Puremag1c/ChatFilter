@@ -777,3 +777,179 @@ class TestGroupSettings:
         assert settings.detect_moderation is True
         assert settings.detect_captcha is True
         assert settings.time_window == 24
+
+
+def test_upsert_result_insert_new(temp_db, sample_group_data):
+    """Test upsert_result inserts new result when none exists."""
+    # Setup
+    temp_db.save_group(
+        group_id=sample_group_data["id"],
+        name=sample_group_data["name"],
+        settings=sample_group_data["settings"],
+        status=sample_group_data["status"],
+    )
+
+    # Upsert new result
+    metrics = {
+        "subscribers": 100,
+        "messages_per_hour": 5.5,
+        "status": "done",
+    }
+    temp_db.upsert_result(
+        group_id="group_123",
+        chat_ref="@new_chat",
+        metrics_data=metrics,
+    )
+
+    # Verify result was inserted
+    result = temp_db.load_result("group_123", "@new_chat")
+    assert result is not None
+    assert result["metrics_data"]["subscribers"] == 100
+    assert result["metrics_data"]["messages_per_hour"] == 5.5
+    assert result["metrics_data"]["status"] == "done"
+
+
+def test_upsert_result_merge_existing(temp_db, sample_group_data):
+    """Test upsert_result merges with existing result."""
+    # Setup
+    temp_db.save_group(
+        group_id=sample_group_data["id"],
+        name=sample_group_data["name"],
+        settings=sample_group_data["settings"],
+        status=sample_group_data["status"],
+    )
+
+    # Insert initial result
+    initial_metrics = {
+        "subscribers": 100,
+        "messages_per_hour": None,
+        "status": "done",
+        "title": "Old Title",
+    }
+    temp_db.save_result(
+        group_id="group_123",
+        chat_ref="@test_chat",
+        metrics_data=initial_metrics,
+    )
+
+    # Upsert with new data (some fields null, some new)
+    update_metrics = {
+        "subscribers": None,  # null - should preserve old value (100)
+        "messages_per_hour": 7.2,  # new non-null - should overwrite
+        "status": "updated",  # new non-null - should overwrite
+        "unique_authors_per_hour": 2.5,  # new field - should add
+    }
+    temp_db.upsert_result(
+        group_id="group_123",
+        chat_ref="@test_chat",
+        metrics_data=update_metrics,
+    )
+
+    # Verify merged result
+    result = temp_db.load_result("group_123", "@test_chat")
+    assert result is not None
+    assert result["metrics_data"]["subscribers"] == 100  # preserved
+    assert result["metrics_data"]["messages_per_hour"] == 7.2  # overwritten
+    assert result["metrics_data"]["status"] == "updated"  # overwritten
+    assert result["metrics_data"]["title"] == "Old Title"  # preserved (not in update)
+    assert result["metrics_data"]["unique_authors_per_hour"] == 2.5  # added
+
+
+def test_upsert_result_preserves_old_when_new_is_null(temp_db, sample_group_data):
+    """Test upsert_result preserves old values when new values are null."""
+    # Setup
+    temp_db.save_group(
+        group_id=sample_group_data["id"],
+        name=sample_group_data["name"],
+        settings=sample_group_data["settings"],
+        status=sample_group_data["status"],
+    )
+
+    # Insert initial result with all fields
+    initial_metrics = {
+        "subscribers": 200,
+        "messages_per_hour": 10.0,
+        "unique_authors_per_hour": 5.0,
+        "status": "done",
+    }
+    temp_db.save_result(
+        group_id="group_123",
+        chat_ref="@test_chat",
+        metrics_data=initial_metrics,
+    )
+
+    # Upsert with all null values
+    update_metrics = {
+        "subscribers": None,
+        "messages_per_hour": None,
+        "unique_authors_per_hour": None,
+        "status": None,
+    }
+    temp_db.upsert_result(
+        group_id="group_123",
+        chat_ref="@test_chat",
+        metrics_data=update_metrics,
+    )
+
+    # Verify all old values preserved
+    result = temp_db.load_result("group_123", "@test_chat")
+    assert result is not None
+    assert result["metrics_data"]["subscribers"] == 200
+    assert result["metrics_data"]["messages_per_hour"] == 10.0
+    assert result["metrics_data"]["unique_authors_per_hour"] == 5.0
+    assert result["metrics_data"]["status"] == "done"
+
+
+def test_upsert_result_incremental_workflow(temp_db, sample_group_data):
+    """Test realistic incremental analysis workflow."""
+    # Setup
+    temp_db.save_group(
+        group_id=sample_group_data["id"],
+        name=sample_group_data["name"],
+        settings=sample_group_data["settings"],
+        status=sample_group_data["status"],
+    )
+
+    # Step 1: Initial detection - only chat type and subscribers
+    temp_db.upsert_result(
+        group_id="group_123",
+        chat_ref="@incremental_chat",
+        metrics_data={
+            "chat_type": "group",
+            "subscribers": 500,
+            "messages_per_hour": None,
+            "unique_authors_per_hour": None,
+            "status": "partial",
+        },
+    )
+
+    # Step 2: Add activity metrics
+    temp_db.upsert_result(
+        group_id="group_123",
+        chat_ref="@incremental_chat",
+        metrics_data={
+            "chat_type": None,  # already set, don't change
+            "subscribers": None,  # already set, don't change
+            "messages_per_hour": 15.5,
+            "unique_authors_per_hour": 8.2,
+            "status": None,
+        },
+    )
+
+    # Step 3: Mark as done
+    temp_db.upsert_result(
+        group_id="group_123",
+        chat_ref="@incremental_chat",
+        metrics_data={
+            "status": "done",
+        },
+    )
+
+    # Verify final state has all data
+    result = temp_db.load_result("group_123", "@incremental_chat")
+    assert result is not None
+    assert result["metrics_data"]["chat_type"] == "group"
+    assert result["metrics_data"]["subscribers"] == 500
+    assert result["metrics_data"]["messages_per_hour"] == 15.5
+    assert result["metrics_data"]["unique_authors_per_hour"] == 8.2
+    assert result["metrics_data"]["status"] == "done"

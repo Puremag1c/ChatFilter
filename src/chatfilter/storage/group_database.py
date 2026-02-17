@@ -361,6 +361,74 @@ class GroupDatabase(SQLiteDatabase):
                 ),
             )
 
+    def upsert_result(
+        self,
+        group_id: str,
+        chat_ref: str,
+        metrics_data: dict[str, Any],
+        analyzed_at: datetime | None = None,
+    ) -> None:
+        """Upsert analysis result for a group chat (merge with existing data).
+
+        If a result already exists for (group_id, chat_ref), merges new metrics
+        with existing ones: new non-null values overwrite old, null values preserve old.
+
+        Args:
+            group_id: Group identifier
+            chat_ref: Chat reference
+            metrics_data: Analysis metrics as dict (will be serialized to JSON)
+                Expected structure:
+                {
+                    "chat_type": str,  # group/forum/channel_comments/channel_no_comments/dead
+                    "subscribers": int | None,  # participant count
+                    "messages_per_hour": float | None,  # activity metric
+                    "unique_authors_per_hour": float | None,  # unique authors metric
+                    "moderation": bool | None,  # has join request
+                    "captcha": bool | None,  # has captcha bot
+                    "status": str,  # done/failed/n/a
+                    "title": str | None,  # chat title
+                    "chat_ref": str,  # chat reference
+                }
+            analyzed_at: Analysis timestamp (default: now)
+        """
+        analyzed = analyzed_at or datetime.now(UTC)
+
+        # Load existing result to merge metrics
+        existing = self.load_result(group_id, chat_ref)
+        if existing:
+            # Merge: new non-null values overwrite, null values preserve old
+            existing_metrics = existing.get("metrics_data", {})
+            merged_metrics = existing_metrics.copy()
+
+            for key, new_value in metrics_data.items():
+                if new_value is not None:
+                    merged_metrics[key] = new_value
+                # If new_value is None, keep existing value (or None if not in existing)
+
+            final_metrics = merged_metrics
+        else:
+            # No existing result, use new metrics as-is
+            final_metrics = metrics_data
+
+        # INSERT OR REPLACE with merged data
+        # Due to unique constraint on (group_id, chat_ref), this will:
+        # - INSERT if no existing row
+        # - REPLACE (delete + insert) if row exists
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO group_results
+                (group_id, chat_ref, metrics_data, analyzed_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    group_id,
+                    chat_ref,
+                    json.dumps(final_metrics),
+                    self._datetime_to_str(analyzed),
+                ),
+            )
+
     def load_result(
         self,
         group_id: str,
