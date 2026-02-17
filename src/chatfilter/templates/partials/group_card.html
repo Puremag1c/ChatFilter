@@ -71,8 +71,9 @@
             {{ _("Дополнить анализ") }}
         </button>
         <button class="btn btn-warning btn-sm"
-                hx-post="/api/groups/{{ group.id }}/reanalyze?mode=overwrite"
-                hx-swap="none">
+                hx-get="/api/groups/modal/reanalyze-confirm/{{ group.id }}"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
             {{ _("Перезапустить анализ") }}
         </button>
         {% else %}

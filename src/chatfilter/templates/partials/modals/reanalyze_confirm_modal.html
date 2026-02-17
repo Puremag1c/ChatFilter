@@ -1,0 +1,99 @@
+{# Re-analysis Confirmation Modal #}
+<div id="reanalyze-confirm-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="reanalyze-modal-title">
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <span class="modal-icon warning" aria-hidden="true">⚠️</span>
+            <h2 class="modal-title" id="reanalyze-modal-title">{{ _("Вы уверены?") }}</h2>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 1rem; line-height: 1.5;">
+                {{ _("Это удалит все существующие результаты анализа и начнёт с нуля. Продолжить?") }}
+            </p>
+            <p style="color: var(--text-secondary); font-size: 0.875rem;">
+                {{ _("Это действие нельзя отменить. Если вы хотите дополнить существующий анализ без потери данных, используйте кнопку 'Дополнить анализ'.") }}
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal-button secondary" onclick="closeReanalyzeModal()">
+                {{ _("Отмена") }}
+            </button>
+            <button type="button" class="modal-button danger" onclick="confirmReanalyze('{{ group.id }}')">
+                {{ _("Да, перезапустить") }}
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const modalId = 'reanalyze-confirm-modal';
+    const modal = document.getElementById(modalId);
+
+    // Show modal
+    modal.classList.add('show');
+
+    // Confirm handler
+    window.confirmReanalyze = function(groupId) {
+        // Trigger HTMX POST to overwrite endpoint
+        htmx.ajax('POST', `/api/groups/${groupId}/reanalyze?mode=overwrite`, {
+            swap: 'none'
+        });
+
+        // Close modal
+        closeModal();
+    };
+
+    // Modal close function with cleanup
+    function closeModal() {
+        modal.classList.remove('show');
+
+        // Cleanup: remove event listeners
+        document.removeEventListener('keydown', handleEscape);
+
+        // Remove DOM after transition
+        setTimeout(() => modal.remove(), 300);
+    }
+
+    // Named handler for escape key (allows removal)
+    function handleEscape(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    }
+
+    // Close on overlay click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', handleEscape);
+
+    // Expose closeModal for cancel button
+    window.closeReanalyzeModal = closeModal;
+})();
+</script>
+
+<style>
+.modal-icon.warning {
+    color: #ff9800;
+    font-size: 1.5rem;
+}
+
+.modal-button.danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.modal-button.danger:hover {
+    background: #c82333;
+}
+</style>

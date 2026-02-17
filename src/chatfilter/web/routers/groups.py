@@ -1447,6 +1447,47 @@ async def get_settings_modal(request: Request, group_id: str) -> HTMLResponse:
         )
 
 
+@router.get("/api/groups/modal/reanalyze-confirm/{group_id}", response_class=HTMLResponse)
+async def get_reanalyze_confirm_modal(request: Request, group_id: str) -> HTMLResponse:
+    """Get re-analysis confirmation modal HTML.
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+
+    Returns:
+        HTML modal for confirming destructive re-analysis (overwrite mode)
+
+    Raises:
+        HTTPException: If group not found
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        service = _get_group_service()
+        group = service.get_group(group_id)
+
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/modals/reanalyze_confirm_modal.html",
+            context={"group": group},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Failed to load confirmation modal: {str(e)}"},
+        )
+
+
 @router.get("/api/groups/{group_id}/export/modal", response_class=HTMLResponse)
 async def get_export_modal(request: Request, group_id: str) -> HTMLResponse:
     """Get export filter modal HTML.
