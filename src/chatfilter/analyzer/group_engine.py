@@ -22,6 +22,7 @@ from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready, ChatInvite
 from telethon.tl.types import Chat as TelegramChat
 
 from chatfilter.models.group import (
+    AnalysisMode,
     ChatTypeEnum,
     GroupChatStatus,
     GroupSettings,
@@ -130,7 +131,11 @@ class GroupAnalysisEngine:
         self._active_tasks: dict[str, list[asyncio.Task]] = {}
         self._subscribers: dict[str, list[asyncio.Queue[GroupProgressEvent]]] = {}
 
-    async def start_analysis(self, group_id: str) -> None:
+    async def start_analysis(
+        self,
+        group_id: str,
+        mode: AnalysisMode = AnalysisMode.FRESH,
+    ) -> None:
         """Start two-phase analysis for a group.
 
         1. Load group and validate
@@ -138,13 +143,14 @@ class GroupAnalysisEngine:
            - If 0 PENDING but FAILED exist → reset FAILED to PENDING (auto-retry)
            - If 0 PENDING and all DONE → mark COMPLETED and return
            - If 0 PENDING and neither FAILED nor all DONE → return
-        3. Clear old results before starting work
+        3. Clear old results before starting work (mode-dependent)
         4. Distribute PENDING chats across connected accounts
         5. Phase 1: Resolve metadata without joining
         6. Phase 2: Join for activity metrics (only if needed)
 
         Args:
             group_id: Group identifier to analyze.
+            mode: Analysis mode ('fresh', 'increment', 'overwrite').
 
         Raises:
             GroupNotFoundError: If group doesn't exist.
@@ -233,12 +239,34 @@ class GroupAnalysisEngine:
                 )
                 return
 
-        # Clear old analysis results now that we know we have work to do.
-        # This ensures re-runs refresh all data. If analysis crashes mid-run,
-        # old data is already cleared, but partial new data from Phase 1/2
-        # will be saved via save_result() calls.
-        self._db.clear_results(group_id)
-        logger.info(f"Cleared old results for group '{group_id}'")
+        # Handle mode-specific logic for results clearing
+        if mode == AnalysisMode.OVERWRITE:
+            # OVERWRITE: clear results + reset ALL chats to PENDING
+            self._db.clear_results(group_id)
+            logger.info(f"[OVERWRITE mode] Cleared old results for group '{group_id}'")
+
+            # Reset ALL chats to PENDING (not just FAILED)
+            all_chats = self._db.load_chats(group_id=group_id)
+            for chat in all_chats:
+                self._db.update_chat_status(
+                    chat_id=chat["id"],
+                    status=GroupChatStatus.PENDING.value,
+                    error=None,
+                )
+            logger.info(f"[OVERWRITE mode] Reset {len(all_chats)} chats to PENDING")
+
+            # Reload pending_chats after reset
+            pending_chats = self._db.load_chats(
+                group_id=group_id,
+                status=GroupChatStatus.PENDING.value,
+            )
+        elif mode == AnalysisMode.FRESH:
+            # FRESH (default): clear old results before starting
+            self._db.clear_results(group_id)
+            logger.info(f"[FRESH mode] Cleared old results for group '{group_id}'")
+        elif mode == AnalysisMode.INCREMENT:
+            # INCREMENT: do NOT clear results, skip logic will handle it
+            logger.info(f"[INCREMENT mode] Keeping existing results for group '{group_id}'")
 
         # Distribute chats round-robin across accounts
         for idx, chat in enumerate(pending_chats):
@@ -268,7 +296,7 @@ class GroupAnalysisEngine:
         phase1_tasks = []
         for account_id in connected_accounts:
             task = asyncio.create_task(
-                self._phase1_resolve_account(group_id, account_id, settings)
+                self._phase1_resolve_account(group_id, account_id, settings, mode)
             )
             phase1_tasks.append(task)
 
@@ -311,7 +339,7 @@ class GroupAnalysisEngine:
             phase2_tasks = []
             for account_id in connected_accounts:
                 task = asyncio.create_task(
-                    self._phase2_activity_account(group_id, account_id, settings)
+                    self._phase2_activity_account(group_id, account_id, settings, mode)
                 )
                 phase2_tasks.append(task)
 
@@ -343,6 +371,7 @@ class GroupAnalysisEngine:
         group_id: str,
         account_id: str,
         settings: GroupSettings,
+        mode: AnalysisMode,
     ) -> None:
         """Phase 1: Resolve chat metadata for chats assigned to this account.
 
@@ -402,11 +431,37 @@ class GroupAnalysisEngine:
                     chat, retry_count = chat_queue.popleft()
 
                     try:
+                        # INCREMENT mode: skip if Phase 1 metrics already exist
+                        if mode == AnalysisMode.INCREMENT:
+                            existing = self._db.load_result(group_id, chat["chat_ref"])
+                            if existing:
+                                em = existing.get("metrics_data", {})
+                                has_type = em.get("chat_type") is not None
+                                has_subs = not settings.detect_subscribers or em.get("subscribers") is not None
+                                has_mod = not settings.detect_moderation or em.get("moderation") is not None
+                                if has_type and has_subs and has_mod:
+                                    # Mark chat as DONE and skip
+                                    self._db.update_chat_status(
+                                        chat_id=chat["id"],
+                                        status=GroupChatStatus.DONE.value,
+                                    )
+                                    current_count += 1
+                                    event = GroupProgressEvent(
+                                        group_id=group_id,
+                                        status=GroupStatus.IN_PROGRESS.value,
+                                        current=current_count,
+                                        total=total_chats,
+                                        chat_title=em.get("title") or chat["chat_ref"],
+                                        message=f"Skipped @{chat['chat_ref']} (already analyzed)",
+                                    )
+                                    self._publish_event(event)
+                                    continue
+
                         resolved = await self._resolve_chat(
                             client, chat, account_id,
                         )
                         self._save_phase1_result(
-                            group_id, chat, resolved, account_id, settings,
+                            group_id, chat, resolved, account_id, settings, mode,
                         )
 
                         # Increment counter after processing
@@ -458,7 +513,7 @@ class GroupAnalysisEngine:
                                 error=f"FloodWait too long: {wait_seconds}s",
                             )
                             self._save_phase1_result(
-                                group_id, chat, dead_resolved, account_id, settings,
+                                group_id, chat, dead_resolved, account_id, settings, mode,
                             )
 
                             current_count += 1
@@ -511,7 +566,7 @@ class GroupAnalysisEngine:
                                 error=f"Timeout exceeded: {int(cumulative_wait)}s cumulative FloodWait",
                             )
                             self._save_phase1_result(
-                                group_id, chat, dead_resolved, account_id, settings,
+                                group_id, chat, dead_resolved, account_id, settings, mode,
                             )
 
                             current_count += 1
@@ -600,7 +655,7 @@ class GroupAnalysisEngine:
                                 error=f"Failed after {MAX_RETRIES} retries: {error_msg}",
                             )
                             self._save_phase1_result(
-                                group_id, chat, dead_resolved, account_id, settings,
+                                group_id, chat, dead_resolved, account_id, settings, mode,
                             )
 
                             current_count += 1
@@ -951,10 +1006,12 @@ class GroupAnalysisEngine:
         resolved: _ResolvedChat,
         account_id: str,
         settings: GroupSettings,
+        mode: AnalysisMode,
     ) -> None:
         """Save Phase 1 resolution results to database.
 
         Updates chat status and saves metrics_data to group_results.
+        Uses upsert for INCREMENT mode to merge with existing data.
         """
         # Map resolved status to GroupChatStatus
         if resolved.status == "dead":
@@ -1003,12 +1060,19 @@ class GroupAnalysisEngine:
             if settings.detect_captcha:
                 metrics["captcha"] = None
 
-        # Save result
-        self._db.save_result(
-            group_id=group_id,
-            chat_ref=resolved.chat_ref,
-            metrics_data=metrics,
-        )
+        # Save result (use upsert for INCREMENT mode to merge with existing)
+        if mode == AnalysisMode.INCREMENT:
+            self._db.upsert_result(
+                group_id=group_id,
+                chat_ref=resolved.chat_ref,
+                metrics_data=metrics,
+            )
+        else:
+            self._db.save_result(
+                group_id=group_id,
+                chat_ref=resolved.chat_ref,
+                metrics_data=metrics,
+            )
 
     # ------------------------------------------------------------------
     # Phase 2: Join for activity metrics
@@ -1019,6 +1083,7 @@ class GroupAnalysisEngine:
         group_id: str,
         account_id: str,
         settings: GroupSettings,
+        mode: AnalysisMode,
     ) -> None:
         """Phase 2: Join chats for activity metrics.
 
@@ -1083,6 +1148,27 @@ class GroupAnalysisEngine:
                     chat, retry_count = chat_queue.popleft()
 
                     try:
+                        # INCREMENT mode: skip if Phase 2 metrics already exist
+                        if mode == AnalysisMode.INCREMENT:
+                            existing = self._db.load_result(group_id, chat["chat_ref"])
+                            if existing:
+                                em = existing.get("metrics_data", {})
+                                has_activity = not settings.detect_activity or em.get("messages_per_hour") is not None
+                                has_authors = not settings.detect_unique_authors or em.get("unique_authors_per_hour") is not None
+                                has_captcha = not settings.detect_captcha or em.get("captcha") is not None
+                                if has_activity and has_authors and has_captcha:
+                                    current_count += 1
+                                    event = GroupProgressEvent(
+                                        group_id=group_id,
+                                        status=GroupStatus.IN_PROGRESS.value,
+                                        current=current_count,
+                                        total=total_chats,
+                                        chat_title=em.get("title") or chat["chat_ref"],
+                                        message=f"Skipped @{chat['chat_ref']} (already analyzed)",
+                                    )
+                                    self._publish_event(event)
+                                    continue
+
                         await self._analyze_chat_activity(
                             client, group_id, chat, account_id, settings,
                         )
@@ -1414,21 +1500,23 @@ class GroupAnalysisEngine:
         """Update group_results with Phase 2 activity metrics.
 
         Merges activity data into the existing metrics_data from Phase 1.
+        Uses upsert to safely merge with existing data.
         """
-        metrics = dict(existing_metrics)
+        # Build partial metrics with only Phase 2 data
+        partial_metrics = {}
 
         if settings.detect_activity:
-            metrics["messages_per_hour"] = messages_per_hour
+            partial_metrics["messages_per_hour"] = messages_per_hour
         if settings.detect_unique_authors:
-            metrics["unique_authors_per_hour"] = unique_authors_per_hour
+            partial_metrics["unique_authors_per_hour"] = unique_authors_per_hour
         if settings.detect_captcha:
-            metrics["captcha"] = captcha
+            partial_metrics["captcha"] = captcha
 
-        # Save updated result (replaces existing)
-        self._db.save_result(
+        # Use upsert to merge with existing Phase 1 data
+        self._db.upsert_result(
             group_id=group_id,
             chat_ref=chat_ref,
-            metrics_data=metrics,
+            metrics_data=partial_metrics,
         )
 
     def _check_and_complete_if_done(self, group_id: str) -> None:

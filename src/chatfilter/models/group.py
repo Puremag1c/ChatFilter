@@ -40,6 +40,14 @@ class GroupChatStatus(str, Enum):
     FAILED = "failed"
 
 
+class AnalysisMode(str, Enum):
+    """Re-analysis mode for group analysis."""
+
+    FRESH = "fresh"  # Default: clear results + full analysis
+    INCREMENT = "increment"  # Skip clear, only fetch missing metrics
+    OVERWRITE = "overwrite"  # Clear results + reset all chats + full analysis
+
+
 class GroupSettings(BaseModel):
     """Settings for group analysis.
 
