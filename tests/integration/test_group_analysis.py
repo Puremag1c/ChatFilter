@@ -509,3 +509,1027 @@ class TestExportFiltersWithoutExcludeDead:
         refs = [r["chat_ref"] for r in filtered]
         assert "https://t.me/chat1" in refs
         assert "https://t.me/chat3" in refs
+
+
+class TestAllChatsGetResultsGuarantee:
+    """Integration tests for SPEC requirement: all chats get results (done or dead).
+
+    SPEC v0.9.12 Must Have #1: Group with 143 chats → 143 results in group_results.
+    No silent skips allowed.
+    """
+
+    @pytest.mark.asyncio
+    async def test_all_chats_get_results_pass_or_dead(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that 143 chats produce 143 results (done or dead).
+
+        Simulates mixed success/failure scenario:
+        - 100 chats succeed
+        - 43 chats fail (various errors: FloodWait timeout, network errors, etc.)
+        - Verify: ALL 143 appear in group_results (status=done OR dead)
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Setup: Create group with 143 chats
+        group_id = "test-group-143"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_moderation=True,
+            detect_activity=False,  # Phase 1 only
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Group 143",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        # Add 143 chats to database
+        for i in range(143):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Track call count
+        call_count = 0
+
+        # Mock _resolve_chat to simulate mixed results:
+        # - First 100 chats succeed
+        # - Next 43 chats fail with various errors
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal call_count
+            call_count += 1
+            chat_index = int(chat["chat_ref"].split("chat")[1])
+
+            if chat_index < 100:
+                # Success
+                return _ResolvedChat(
+                    db_chat_id=chat["id"],
+                    chat_ref=chat["chat_ref"],
+                    chat_type=ChatTypeEnum.GROUP.value,
+                    title=f"Chat {chat_index}",
+                    subscribers=100 + chat_index,
+                    moderation=False,
+                    numeric_id=1000000 + chat_index,
+                    status="done",
+                )
+            else:
+                # Fail with error
+                error_types = [
+                    "ChannelPrivateError: Channel is private",
+                    "InviteHashExpiredError: Invite link expired",
+                    "ConnectionError: Network error",
+                ]
+                error = error_types[chat_index % 3]
+                return _ResolvedChat(
+                    db_chat_id=chat["id"],
+                    chat_ref=chat["chat_ref"],
+                    chat_type=ChatTypeEnum.DEAD.value,
+                    title=None,
+                    subscribers=None,
+                    moderation=None,
+                    numeric_id=None,
+                    status="dead",
+                    error=error,
+                )
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat
+        with patch.object(
+            engine,
+            "_resolve_chat",
+            side_effect=mock_resolve_chat,
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # CRITICAL ASSERTION: ALL 143 chats must have results
+        results = test_db.load_results(group_id)
+        assert len(results) == 143, (
+            f"SPEC VIOLATION: Expected 143 results for 143 chats, got {len(results)}. "
+            f"Silent skips detected!"
+        )
+
+        # Verify status distribution
+        done_results = [r for r in results if r["metrics_data"]["status"] == "done"]
+        dead_results = [r for r in results if r["metrics_data"]["status"] == "dead"]
+
+        assert len(done_results) == 100, f"Expected 100 successful chats, got {len(done_results)}"
+        assert len(dead_results) == 43, f"Expected 43 dead chats, got {len(dead_results)}"
+
+        # Verify all results have required fields
+        for result in results:
+            metrics = result["metrics_data"]
+            assert "chat_type" in metrics, "Missing chat_type"
+            assert "status" in metrics, "Missing status"
+            assert metrics["status"] in ("done", "dead"), f"Invalid status: {metrics['status']}"
+
+        # Verify dead chats have error_reason
+        for result in dead_results:
+            metrics = result["metrics_data"]
+            assert "error_reason" in metrics, "Dead chat missing error_reason"
+            assert metrics["chat_type"] == "dead", "Dead chat should have type=dead"
+
+        # Verify _resolve_chat was called 143 times (no skips)
+        assert call_count == 143, f"Expected 143 _resolve_chat calls, got {call_count}"
+
+    @pytest.mark.asyncio
+    async def test_floodwait_continues_processing_remaining_chats(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that FloodWait on chat #50 doesn't break the loop.
+
+        Scenario:
+        - 100 chats in group
+        - Chat #50 triggers FloodWait (10s wait)
+        - Verify: Remaining 50 chats processed after wait
+        - Verify: No break from loop — all 100 get results
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Setup: Create group with 100 chats
+        group_id = "test-group-floodwait"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_moderation=False,
+            detect_activity=False,
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test FloodWait Recovery",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        for i in range(100):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Track calls
+        call_count = 0
+        floodwait_hit = False
+
+        # Mock _resolve_chat to raise FloodWait on chat #50
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal call_count, floodwait_hit
+            call_count += 1
+            chat_index = int(chat["chat_ref"].split("chat")[1])
+
+            # Chat #50: Trigger FloodWait on FIRST attempt only
+            if chat_index == 50 and not floodwait_hit:
+                floodwait_hit = True
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 2  # 2 seconds wait (use low value for fast test)
+                raise error
+
+            # All others succeed
+            return _ResolvedChat(
+                db_chat_id=chat["id"],
+                chat_ref=chat["chat_ref"],
+                chat_type=ChatTypeEnum.GROUP.value,
+                title=f"Chat {chat_index}",
+                subscribers=100 + chat_index,
+                moderation=False,
+                numeric_id=1000000 + chat_index,
+                status="done",
+            )
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat AND asyncio.sleep to make test fast
+        with (
+            patch.object(engine, "_resolve_chat", side_effect=mock_resolve_chat),
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+            # Verify sleep was called with FloodWait duration
+            assert mock_sleep.called, "FloodWait should trigger sleep"
+            # sleep called with 2s + 10% buffer = 2.2s
+            sleep_calls = [call.args[0] for call in mock_sleep.call_args_list]
+            assert any(2.0 <= s <= 2.5 for s in sleep_calls), (
+                f"Expected sleep(~2.2s) for FloodWait, got: {sleep_calls}"
+            )
+
+        # CRITICAL ASSERTION: ALL 100 chats processed despite FloodWait
+        results = test_db.load_results(group_id)
+        assert len(results) == 100, (
+            f"FloodWait broke the loop! Expected 100 results, got {len(results)}. "
+            f"Remaining chats were silently skipped."
+        )
+
+        # Verify all succeeded (including chat #50 after retry)
+        done_results = [r for r in results if r["metrics_data"]["status"] == "done"]
+        assert len(done_results) == 100, (
+            f"Expected all 100 chats to succeed after FloodWait, got {len(done_results)}"
+        )
+
+        # Verify chat #50 is in results
+        chat50_result = test_db.load_result(group_id, "https://t.me/chat50")
+        assert chat50_result is not None, "Chat #50 missing from results after FloodWait"
+        assert chat50_result["metrics_data"]["status"] == "done", (
+            "Chat #50 should succeed after FloodWait retry"
+        )
+
+        # Verify FloodWait was hit
+        assert floodwait_hit, "FloodWait scenario should have been triggered"
+
+        # Verify _resolve_chat called 101 times (100 chats + 1 retry for chat #50)
+        assert call_count == 101, (
+            f"Expected 101 _resolve_chat calls (100 chats + 1 FloodWait retry), got {call_count}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_chat_saved_as_dead_after_max_retries(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that chat failing 3x is saved as status=dead with error_reason.
+
+        Scenario:
+        - Chat fails with network error
+        - Retry 3x (MAX_RETRIES)
+        - Verify: Saved as status=dead
+        - Verify: error_reason populated
+        - Verify: Result exists in group_results
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        # Setup: Create group with 1 chat
+        group_id = "test-group-dead-after-retry"
+        settings = GroupSettings(detect_subscribers=True, detect_activity=False)
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Dead After Retry",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        chat_ref = "https://t.me/failing_chat"
+        test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type="pending",
+            assigned_account="test-account",
+            status=GroupChatStatus.PENDING.value,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Track retry attempts
+        retry_count = 0
+
+        # Mock _resolve_chat to ALWAYS fail with network error
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal retry_count
+            retry_count += 1
+            raise ConnectionError("Network unreachable")
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat
+        with patch.object(
+            engine,
+            "_resolve_chat",
+            side_effect=mock_resolve_chat,
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # Verify: Chat marked as FAILED in database
+        failed_chats = test_db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.FAILED.value,
+        )
+        assert len(failed_chats) == 1, f"Expected 1 failed chat, got {len(failed_chats)}"
+
+        # CRITICAL ASSERTION: Result exists in group_results (dead chat NOT skipped)
+        result = test_db.load_result(group_id, chat_ref)
+        assert result is not None, (
+            "SPEC VIOLATION: Dead chat missing from group_results! "
+            "All chats MUST have results."
+        )
+
+        # Verify result fields
+        metrics = result["metrics_data"]
+        assert metrics["status"] == "dead", f"Expected status=dead, got {metrics['status']}"
+        assert metrics["chat_type"] == "dead", f"Expected chat_type=dead, got {metrics['chat_type']}"
+
+        # Verify error_reason populated
+        assert "error_reason" in metrics, "Dead chat missing error_reason field"
+        error_reason = metrics["error_reason"]
+        assert "Failed after 3 retries" in error_reason, (
+            f"Error reason should mention retry limit: {error_reason}"
+        )
+        assert "ConnectionError" in error_reason, (
+            f"Error reason should mention error type: {error_reason}"
+        )
+
+        # Verify retry count
+        assert retry_count == 3, f"Expected 3 retry attempts, got {retry_count}"
+
+    @pytest.mark.asyncio
+    async def test_sse_progress_shows_retry_attempt(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that SSE progress events show retry attempt number.
+
+        Scenario:
+        - Chat fails, triggers retry
+        - Verify: SSE message contains 'Retry 2/3 for @channel_name'
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        # Setup: Create group with 1 chat
+        group_id = "test-group-sse-retry"
+        settings = GroupSettings(detect_subscribers=True, detect_activity=False)
+        test_db.save_group(
+            group_id=group_id,
+            name="Test SSE Retry",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        chat_ref = "https://t.me/retry_chat"
+        test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type="pending",
+            assigned_account="test-account",
+            status=GroupChatStatus.PENDING.value,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Subscribe to SSE events
+        event_queue = engine.subscribe(group_id)
+
+        # Track retry attempts
+        retry_count = 0
+
+        # Mock _resolve_chat to fail 2x then succeed
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal retry_count
+            retry_count += 1
+            if retry_count < 3:
+                raise ConnectionError("Temporary network error")
+
+            # Success on 3rd attempt
+            from chatfilter.analyzer.group_engine import _ResolvedChat
+            from chatfilter.models.group import ChatTypeEnum
+            return _ResolvedChat(
+                db_chat_id=chat["id"],
+                chat_ref=chat["chat_ref"],
+                chat_type=ChatTypeEnum.GROUP.value,
+                title="Retry Chat",
+                subscribers=500,
+                moderation=False,
+                numeric_id=1000001,
+                status="done",
+            )
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat
+        with patch.object(
+            engine,
+            "_resolve_chat",
+            side_effect=mock_resolve_chat,
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # Collect all SSE events
+        events = []
+        while not event_queue.empty():
+            events.append(await event_queue.get())
+
+        # Verify: At least one retry event exists
+        retry_events = [
+            e for e in events
+            if e.message and "Retry" in e.message
+        ]
+        assert len(retry_events) >= 1, (
+            f"Expected at least 1 retry event in SSE, got {len(retry_events)}. "
+            f"Events: {[e.message for e in events]}"
+        )
+
+        # Verify retry message format: "Retry X/3 for @channel_name"
+        retry_messages = [e.message for e in retry_events]
+        assert any("Retry 2/3" in msg for msg in retry_messages), (
+            f"Expected 'Retry 2/3' in SSE messages, got: {retry_messages}"
+        )
+        assert any("retry_chat" in msg for msg in retry_messages), (
+            f"Expected chat_ref in retry message, got: {retry_messages}"
+        )
+
+        # Verify final success
+        assert retry_count == 3, f"Expected 3 attempts, got {retry_count}"
+        result = test_db.load_result(group_id, chat_ref)
+        assert result is not None, "Chat should have result after retry success"
+        assert result["metrics_data"]["status"] == "done", "Chat should succeed after retries"
+
+
+class TestAllChatsGetResultsGuarantee:
+    """Integration tests for SPEC requirement: all chats get results (done or dead).
+
+    SPEC v0.9.12 Must Have #1: Group with 143 chats → 143 results in group_results.
+    No silent skips allowed.
+    """
+
+    @pytest.mark.asyncio
+    async def test_all_chats_get_results_pass_or_dead(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that 143 chats produce 143 results (done or dead).
+
+        Simulates mixed success/failure scenario:
+        - 100 chats succeed
+        - 43 chats fail (various errors: FloodWait timeout, network errors, etc.)
+        - Verify: ALL 143 appear in group_results (status=done OR dead)
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Setup: Create group with 143 chats
+        group_id = "test-group-143"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_moderation=True,
+            detect_activity=False,  # Phase 1 only
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Group 143",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        # Add 143 chats to database
+        for i in range(143):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Track call count
+        call_count = 0
+
+        # Mock _resolve_chat to simulate mixed results:
+        # - First 100 chats succeed
+        # - Next 43 chats fail with various errors
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal call_count
+            call_count += 1
+            chat_index = int(chat["chat_ref"].split("chat")[1])
+
+            if chat_index < 100:
+                # Success
+                return _ResolvedChat(
+                    db_chat_id=chat["id"],
+                    chat_ref=chat["chat_ref"],
+                    chat_type=ChatTypeEnum.GROUP.value,
+                    title=f"Chat {chat_index}",
+                    subscribers=100 + chat_index,
+                    moderation=False,
+                    numeric_id=1000000 + chat_index,
+                    status="done",
+                )
+            else:
+                # Fail with error
+                error_types = [
+                    "ChannelPrivateError: Channel is private",
+                    "InviteHashExpiredError: Invite link expired",
+                    "ConnectionError: Network error",
+                ]
+                error = error_types[chat_index % 3]
+                return _ResolvedChat(
+                    db_chat_id=chat["id"],
+                    chat_ref=chat["chat_ref"],
+                    chat_type=ChatTypeEnum.DEAD.value,
+                    title=None,
+                    subscribers=None,
+                    moderation=None,
+                    numeric_id=None,
+                    status="dead",
+                    error=error,
+                )
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat AND asyncio.sleep
+        with (
+            patch.object(engine, "_resolve_chat", side_effect=mock_resolve_chat),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # CRITICAL ASSERTION: ALL 143 chats must have results
+        results = test_db.load_results(group_id)
+        assert len(results) == 143, (
+            f"SPEC VIOLATION: Expected 143 results for 143 chats, got {len(results)}. "
+            f"Silent skips detected!"
+        )
+
+        # Verify status distribution
+        done_results = [r for r in results if r["metrics_data"]["status"] == "done"]
+        dead_results = [r for r in results if r["metrics_data"]["status"] == "dead"]
+
+        assert len(done_results) == 100, f"Expected 100 successful chats, got {len(done_results)}"
+        assert len(dead_results) == 43, f"Expected 43 dead chats, got {len(dead_results)}"
+
+        # Verify all results have required fields
+        for result in results:
+            metrics = result["metrics_data"]
+            assert "chat_type" in metrics, "Missing chat_type"
+            assert "status" in metrics, "Missing status"
+            assert metrics["status"] in ("done", "dead"), f"Invalid status: {metrics['status']}"
+
+        # Verify dead chats have error_reason
+        for result in dead_results:
+            metrics = result["metrics_data"]
+            assert "error_reason" in metrics, "Dead chat missing error_reason"
+            assert metrics["chat_type"] == "dead", "Dead chat should have type=dead"
+
+        # Verify _resolve_chat was called 143 times (no skips)
+        assert call_count == 143, f"Expected 143 _resolve_chat calls, got {call_count}"
+
+    @pytest.mark.asyncio
+    async def test_floodwait_continues_processing_remaining_chats(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that FloodWait on chat #50 doesn't break the loop.
+
+        Scenario:
+        - 100 chats in group
+        - Chat #50 triggers FloodWait (10s wait)
+        - Verify: Remaining 50 chats processed after wait
+        - Verify: No break from loop — all 100 get results
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Setup: Create group with 100 chats
+        group_id = "test-group-floodwait"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_moderation=False,
+            detect_activity=False,
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test FloodWait Recovery",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        for i in range(100):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Track calls
+        call_count = 0
+        floodwait_hit = False
+
+        # Mock _resolve_chat to raise FloodWait on chat #50
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal call_count, floodwait_hit
+            call_count += 1
+            chat_index = int(chat["chat_ref"].split("chat")[1])
+
+            # Chat #50: Trigger FloodWait on FIRST attempt only
+            if chat_index == 50 and not floodwait_hit:
+                floodwait_hit = True
+                error = FloodWaitError("FLOOD_WAIT_X")
+                error.seconds = 2  # 2 seconds wait (use low value for fast test)
+                raise error
+
+            # All others succeed
+            return _ResolvedChat(
+                db_chat_id=chat["id"],
+                chat_ref=chat["chat_ref"],
+                chat_type=ChatTypeEnum.GROUP.value,
+                title=f"Chat {chat_index}",
+                subscribers=100 + chat_index,
+                moderation=False,
+                numeric_id=1000000 + chat_index,
+                status="done",
+            )
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat AND asyncio.sleep to make test fast
+        with (
+            patch.object(engine, "_resolve_chat", side_effect=mock_resolve_chat),
+            patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+            # Verify sleep was called with FloodWait duration
+            assert mock_sleep.called, "FloodWait should trigger sleep"
+            # sleep called with 2s + 10% buffer = 2.2s
+            sleep_calls = [call.args[0] for call in mock_sleep.call_args_list]
+            assert any(2.0 <= s <= 2.5 for s in sleep_calls), (
+                f"Expected sleep(~2.2s) for FloodWait, got: {sleep_calls}"
+            )
+
+        # CRITICAL ASSERTION: ALL 100 chats processed despite FloodWait
+        results = test_db.load_results(group_id)
+        assert len(results) == 100, (
+            f"FloodWait broke the loop! Expected 100 results, got {len(results)}. "
+            f"Remaining chats were silently skipped."
+        )
+
+        # Verify all succeeded (including chat #50 after retry)
+        done_results = [r for r in results if r["metrics_data"]["status"] == "done"]
+        assert len(done_results) == 100, (
+            f"Expected all 100 chats to succeed after FloodWait, got {len(done_results)}"
+        )
+
+        # Verify chat #50 is in results
+        chat50_result = test_db.load_result(group_id, "https://t.me/chat50")
+        assert chat50_result is not None, "Chat #50 missing from results after FloodWait"
+        assert chat50_result["metrics_data"]["status"] == "done", (
+            "Chat #50 should succeed after FloodWait retry"
+        )
+
+        # Verify FloodWait was hit
+        assert floodwait_hit, "FloodWait scenario should have been triggered"
+
+        # Verify _resolve_chat called 101 times (100 chats + 1 retry for chat #50)
+        assert call_count == 101, (
+            f"Expected 101 _resolve_chat calls (100 chats + 1 FloodWait retry), got {call_count}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_chat_saved_as_dead_after_max_retries(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that chat failing 3x is saved as status=dead with error_reason.
+
+        Scenario:
+        - Chat fails with network error
+        - Retry 3x (MAX_RETRIES)
+        - Verify: Saved as status=dead
+        - Verify: error_reason populated
+        - Verify: Result exists in group_results
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        # Setup: Create group with 1 chat
+        group_id = "test-group-dead-after-retry"
+        settings = GroupSettings(detect_subscribers=True, detect_activity=False)
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Dead After Retry",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        chat_ref = "https://t.me/failing_chat"
+        test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type="pending",
+            assigned_account="test-account",
+            status=GroupChatStatus.PENDING.value,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Track retry attempts
+        retry_count = 0
+
+        # Mock _resolve_chat to ALWAYS fail with network error
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal retry_count
+            retry_count += 1
+            raise ConnectionError("Network unreachable")
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat AND asyncio.sleep
+        with (
+            patch.object(engine, "_resolve_chat", side_effect=mock_resolve_chat),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # Verify: Chat marked as FAILED in database
+        failed_chats = test_db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.FAILED.value,
+        )
+        assert len(failed_chats) == 1, f"Expected 1 failed chat, got {len(failed_chats)}"
+
+        # CRITICAL ASSERTION: Result exists in group_results (dead chat NOT skipped)
+        result = test_db.load_result(group_id, chat_ref)
+        assert result is not None, (
+            "SPEC VIOLATION: Dead chat missing from group_results! "
+            "All chats MUST have results."
+        )
+
+        # Verify result fields
+        metrics = result["metrics_data"]
+        assert metrics["status"] == "dead", f"Expected status=dead, got {metrics['status']}"
+        assert metrics["chat_type"] == "dead", f"Expected chat_type=dead, got {metrics['chat_type']}"
+
+        # Verify error_reason populated
+        assert "error_reason" in metrics, "Dead chat missing error_reason field"
+        error_reason = metrics["error_reason"]
+        assert "Failed after 3 retries" in error_reason, (
+            f"Error reason should mention retry limit: {error_reason}"
+        )
+        assert "ConnectionError" in error_reason, (
+            f"Error reason should mention error type: {error_reason}"
+        )
+
+        # Verify retry count
+        assert retry_count == 3, f"Expected 3 retry attempts, got {retry_count}"
+
+    @pytest.mark.asyncio
+    async def test_sse_progress_shows_retry_attempt(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that SSE progress events show retry attempt number.
+
+        Scenario:
+        - Chat fails, triggers retry
+        - Verify: SSE message contains 'Retry 2/3 for @channel_name'
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Setup: Create group with 1 chat
+        group_id = "test-group-sse-retry"
+        settings = GroupSettings(detect_subscribers=True, detect_activity=False)
+        test_db.save_group(
+            group_id=group_id,
+            name="Test SSE Retry",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        chat_ref = "https://t.me/retry_chat"
+        test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type="pending",
+            assigned_account="test-account",
+            status=GroupChatStatus.PENDING.value,
+        )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Subscribe to SSE events
+        event_queue = engine.subscribe(group_id)
+
+        # Track retry attempts
+        retry_count = 0
+
+        # Mock _resolve_chat to fail 2x then succeed
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal retry_count
+            retry_count += 1
+            if retry_count < 3:
+                raise ConnectionError("Temporary network error")
+
+            # Success on 3rd attempt
+            return _ResolvedChat(
+                db_chat_id=chat["id"],
+                chat_ref=chat["chat_ref"],
+                chat_type=ChatTypeEnum.GROUP.value,
+                title="Retry Chat",
+                subscribers=500,
+                moderation=False,
+                numeric_id=1000001,
+                status="done",
+            )
+
+        # Mock session context
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat AND asyncio.sleep
+        with (
+            patch.object(engine, "_resolve_chat", side_effect=mock_resolve_chat),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            # Run Phase 1 analysis
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # Collect all SSE events
+        events = []
+        while not event_queue.empty():
+            events.append(await event_queue.get())
+
+        # Verify: At least one retry event exists
+        retry_events = [
+            e for e in events
+            if e.message and "Retry" in e.message
+        ]
+        assert len(retry_events) >= 1, (
+            f"Expected at least 1 retry event in SSE, got {len(retry_events)}. "
+            f"Events: {[e.message for e in events]}"
+        )
+
+        # Verify retry message format: "Retry X/3 for @channel_name"
+        retry_messages = [e.message for e in retry_events]
+        assert any("Retry 2/3" in msg for msg in retry_messages), (
+            f"Expected 'Retry 2/3' in SSE messages, got: {retry_messages}"
+        )
+        assert any("retry_chat" in msg for msg in retry_messages), (
+            f"Expected chat_ref in retry message, got: {retry_messages}"
+        )
+
+        # Verify final success
+        assert retry_count == 3, f"Expected 3 attempts, got {retry_count}"
+        result = test_db.load_result(group_id, chat_ref)
+        assert result is not None, "Chat should have result after retry success"
+        assert result["metrics_data"]["status"] == "done", "Chat should succeed after retries"
