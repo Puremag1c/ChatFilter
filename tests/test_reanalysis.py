@@ -597,7 +597,22 @@ async def test_overwrite_resets_chat_statuses(
     assert len(failed_chat) == 1
 
     # Run overwrite analysis (will reset all to PENDING)
-    with patch.object(engine, "_phase1_resolve_account", new_callable=AsyncMock):
+    with patch.object(engine, "_phase1_resolve_account", new_callable=AsyncMock) as mock_phase1:
+        # Mock Phase 1 to create results (prevents orphan safety net from triggering)
+        async def mock_resolve(*args, **kwargs):
+            chats = test_db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
+            for chat in chats:
+                # Save minimal result to satisfy orphan safety net
+                test_db.save_result(
+                    group_id=group_id,
+                    chat_ref=chat["chat_ref"],
+                    metrics_data={
+                        "chat_ref": chat["chat_ref"],
+                        "status": "pending",
+                    },
+                )
+
+        mock_phase1.side_effect = mock_resolve
         await engine.start_analysis(group_id, mode=AnalysisMode.OVERWRITE)
 
     # Verify: ALL chats reset to PENDING
