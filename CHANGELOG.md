@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.12] - 2026-02-17
+
+### Fixed
+- FloodWait retry mechanism no longer silently skips chats after exhausting retries
+- All chats now saved in group_results table, including dead/failed chats
+
+### Removed
+- Removed 'Exclude dead' checkbox from export modal (dead chats filterable via Chat Types)
+
+### Added
+- Incremental re-analysis mode (supplement existing metrics without clearing data)
+- Full re-analysis mode (overwrite all metrics, clear existing data)
+- Re-analysis buttons on group card UI ('Дополнить анализ' and 'Перезапустить анализ')
+
 ## [0.9.11] - 2026-02-16
 
 ### Fixed
@@ -821,7 +835,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.11...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.12...HEAD
+[0.9.12]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.11...v0.9.12
 [0.9.11]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.10...v0.9.11
 [0.9.10]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.9...v0.9.10
 [0.9.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.8...v0.9.9
