@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -385,12 +386,19 @@ class GroupAnalysisEngine:
         )
         current_count = len(done_chats) + len(failed_chats)
 
+        # Initialize retry queue with (chat, retry_count) tuples
+        MAX_RETRIES = 3
+        MAX_FLOODWAIT_SECONDS = 300
+        chat_queue = deque([(chat, 0) for chat in account_chats])
+
         try:
             async with self._session_mgr.session(
                 account_id,
                 auto_disconnect=False,
             ) as client:
-                for i, chat in enumerate(account_chats):
+                while chat_queue:
+                    chat, retry_count = chat_queue.popleft()
+
                     try:
                         resolved = await self._resolve_chat(
                             client, chat, account_id,
@@ -413,37 +421,140 @@ class GroupAnalysisEngine:
                         )
                         self._publish_event(event)
 
+                        # Rate limiting: 1-2s delay between successful calls
+                        if chat_queue:
+                            delay = 1.0 + random.random()
+                            await asyncio.sleep(delay)
+
                     except errors.FloodWaitError as e:
                         wait_seconds = getattr(e, "seconds", 0)
+
+                        # FloodWait > 300s: skip this chat for now (don't block queue)
+                        if wait_seconds > MAX_FLOODWAIT_SECONDS:
+                            logger.warning(
+                                f"Account '{account_id}': FloodWait {wait_seconds}s "
+                                f"on '{chat['chat_ref']}' exceeds limit. Skipping chat."
+                            )
+                            # Mark as failed but count it
+                            self._db.update_chat_status(
+                                chat_id=chat["id"],
+                                status=GroupChatStatus.FAILED.value,
+                                error=f"FloodWait too long: {wait_seconds}s",
+                            )
+
+                            # Save dead result
+                            dead_resolved = _ResolvedChat(
+                                db_chat_id=chat["id"],
+                                chat_ref=chat["chat_ref"],
+                                chat_type=ChatTypeEnum.DEAD.value,
+                                title=None,
+                                subscribers=None,
+                                moderation=None,
+                                numeric_id=None,
+                                status="dead",
+                                linked_chat_id=None,
+                                error=f"FloodWait too long: {wait_seconds}s",
+                            )
+                            self._save_phase1_result(
+                                group_id, chat, dead_resolved, account_id, settings,
+                            )
+
+                            current_count += 1
+                            event = GroupProgressEvent(
+                                group_id=group_id,
+                                status=GroupStatus.IN_PROGRESS.value,
+                                current=current_count,
+                                total=total_chats,
+                                chat_title=chat["chat_ref"],
+                                error=f"FloodWait too long: {wait_seconds}s",
+                            )
+                            self._publish_event(event)
+                            continue
+
+                        # FloodWait <= 300s: wait with 10% buffer and continue
+                        buffer = int(wait_seconds * 0.1)
+                        total_wait = wait_seconds + buffer
                         logger.warning(
                             f"Account '{account_id}': FloodWait {wait_seconds}s "
-                            f"on '{chat['chat_ref']}'. Stopping account."
-                        )
-                        self._db.update_chat_status(
-                            chat_id=chat["id"],
-                            status=GroupChatStatus.FAILED.value,
-                            error=f"FloodWait: {wait_seconds}s",
+                            f"on '{chat['chat_ref']}'. Waiting {total_wait}s..."
                         )
 
-                        # Increment counter even on failure
-                        current_count += 1
-
-                        # Publish error event for FloodWait
                         event = GroupProgressEvent(
                             group_id=group_id,
                             status=GroupStatus.IN_PROGRESS.value,
                             current=current_count,
                             total=total_chats,
                             chat_title=chat["chat_ref"],
-                            error=f"FloodWait: {wait_seconds}s",
+                            message=f"Waiting for FloodWait cooldown ({total_wait}s remaining)...",
                         )
                         self._publish_event(event)
-                        break
 
-                    # Rate limiting: 1-2s delay between get_entity calls
-                    if i < len(account_chats) - 1:
-                        delay = 1.0 + random.random()
-                        await asyncio.sleep(delay)
+                        await asyncio.sleep(total_wait)
+
+                        # Re-enqueue chat at front (process immediately after wait)
+                        chat_queue.appendleft((chat, retry_count))
+
+                    except Exception as e:
+                        # Any other error: retry up to MAX_RETRIES
+                        error_msg = f"{type(e).__name__}: {e}"
+                        logger.warning(
+                            f"Account '{account_id}': Error on '{chat['chat_ref']}' "
+                            f"(attempt {retry_count + 1}/{MAX_RETRIES}): {error_msg}"
+                        )
+
+                        if retry_count + 1 < MAX_RETRIES:
+                            # Retry: re-enqueue at end
+                            chat_queue.append((chat, retry_count + 1))
+
+                            event = GroupProgressEvent(
+                                group_id=group_id,
+                                status=GroupStatus.IN_PROGRESS.value,
+                                current=current_count,
+                                total=total_chats,
+                                chat_title=chat["chat_ref"],
+                                message=f"Retry {retry_count + 2}/{MAX_RETRIES} for @{chat['chat_ref']}",
+                            )
+                            self._publish_event(event)
+                        else:
+                            # Max retries exhausted: mark as dead and save result
+                            logger.error(
+                                f"Account '{account_id}': Chat '{chat['chat_ref']}' "
+                                f"failed after {MAX_RETRIES} retries: {error_msg}"
+                            )
+
+                            self._db.update_chat_status(
+                                chat_id=chat["id"],
+                                status=GroupChatStatus.FAILED.value,
+                                error=f"Failed after {MAX_RETRIES} retries: {error_msg}",
+                            )
+
+                            # Save dead result
+                            dead_resolved = _ResolvedChat(
+                                db_chat_id=chat["id"],
+                                chat_ref=chat["chat_ref"],
+                                chat_type=ChatTypeEnum.DEAD.value,
+                                title=None,
+                                subscribers=None,
+                                moderation=None,
+                                numeric_id=None,
+                                status="dead",
+                                linked_chat_id=None,
+                                error=f"Failed after {MAX_RETRIES} retries: {error_msg}",
+                            )
+                            self._save_phase1_result(
+                                group_id, chat, dead_resolved, account_id, settings,
+                            )
+
+                            current_count += 1
+                            event = GroupProgressEvent(
+                                group_id=group_id,
+                                status=GroupStatus.IN_PROGRESS.value,
+                                current=current_count,
+                                total=total_chats,
+                                chat_title=chat["chat_ref"],
+                                error=f"Failed after {MAX_RETRIES} retries",
+                            )
+                            self._publish_event(event)
 
         except Exception as e:
             logger.error(
