@@ -118,12 +118,18 @@ class GroupDatabase(SQLiteDatabase):
             return  # Already migrated
 
         # Delete duplicate rows, keeping the newest (by analyzed_at)
+        # For each (group_id, chat_ref) pair, keep only the row with MAX(analyzed_at)
         conn.execute("""
             DELETE FROM group_results
-            WHERE id NOT IN (
-                SELECT MAX(id)
-                FROM group_results
-                GROUP BY group_id, chat_ref
+            WHERE rowid NOT IN (
+                SELECT gr1.rowid
+                FROM group_results gr1
+                WHERE gr1.analyzed_at = (
+                    SELECT MAX(analyzed_at)
+                    FROM group_results gr2
+                    WHERE gr2.group_id = gr1.group_id
+                    AND gr2.chat_ref = gr1.chat_ref
+                )
             )
         """)
 
