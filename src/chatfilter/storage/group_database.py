@@ -93,6 +93,11 @@ class GroupDatabase(SQLiteDatabase):
             self._migrate_to_v1_unique_constraint(conn)
             conn.execute("PRAGMA user_version = 1")
 
+        # Migration 2: Add subscribers column to group_chats
+        if current_version < 2:
+            self._migrate_to_v2_add_subscribers(conn)
+            conn.execute("PRAGMA user_version = 2")
+
     def _migrate_to_v1_unique_constraint(self, conn: Any) -> None:
         """Migration v1: Add UNIQUE constraint on (group_id, chat_ref) for group_results.
 
@@ -127,6 +132,24 @@ class GroupDatabase(SQLiteDatabase):
             CREATE UNIQUE INDEX idx_group_results_unique_group_chat
             ON group_results (group_id, chat_ref)
         """)
+
+    def _migrate_to_v2_add_subscribers(self, conn: Any) -> None:
+        """Migration v2: Add subscribers column to group_chats.
+
+        This migration:
+        1. Checks if subscribers column exists
+        2. Adds the column if missing (sets NULL for existing rows)
+
+        Args:
+            conn: Active database connection
+        """
+        # Check if column already exists (for idempotency)
+        cursor = conn.execute("PRAGMA table_info(group_chats)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if "subscribers" not in columns:
+            # Add subscribers column with default NULL
+            conn.execute("ALTER TABLE group_chats ADD COLUMN subscribers INTEGER")
 
     def save_group(
         self,
