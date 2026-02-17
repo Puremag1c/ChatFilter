@@ -984,6 +984,10 @@ class GroupAnalysisEngine:
             "status": resolved.status,
         }
 
+        # Include error_reason for dead/failed chats
+        if resolved.status in ("dead", "failed") and resolved.error:
+            metrics["error_reason"] = resolved.error
+
         if settings.detect_subscribers:
             metrics["subscribers"] = resolved.subscribers
         if settings.detect_moderation:

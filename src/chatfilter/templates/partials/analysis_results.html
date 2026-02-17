@@ -76,9 +76,15 @@
                         {% endif %}
                     </td>
                     <td>
+                        {% if result.chat.chat_type.value == 'dead' and result.metrics.error_reason %}
+                        <span class="chat-type {{ result.chat.chat_type.value }}" title="{{ result.metrics.error_reason }}">
+                            {{ result.chat.chat_type.value }}
+                        </span>
+                        {% else %}
                         <span class="chat-type {{ result.chat.chat_type.value }}">
                             {{ result.chat.chat_type.value }}
                         </span>
+                        {% endif %}
                     </td>
                     <td class="numeric">{{ result.metrics.message_count }}</td>
                     <td class="numeric">{{ result.metrics.unique_authors }}</td>
@@ -208,6 +214,11 @@
 .chat-type.supergroup { background-color: #fff3e0; color: #ef6c00; }
 .chat-type.channel { background-color: #f3e5f5; color: #7b1fa2; }
 .chat-type.forum { background-color: #fce4ec; color: #c2185b; }
+.chat-type.dead {
+    background-color: #f8d7da;
+    color: #721c24;
+    cursor: help;
+}
 </style>
 
 <script>
