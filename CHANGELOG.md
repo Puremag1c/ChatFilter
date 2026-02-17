@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-02-17
+
+### Fixed
+- Fix account task exception: save dead results after asyncio.gather failure
+- Fix outer exception handler: save dead results for remaining chats
+- SMOKE: [Regression] test_overwrite_resets_chat_statuses broken by orphan safety net
+- SMOKE: [Must Have 4] test_all_chats_get_results_pass_or_dead times out (>30s)
+- Add orphan safety net: verify all chats have group_results after Phase 1
+
+### Changed
+- [Reliability] Atomic database updates in exception handlers
+- [OPS] Add assertion: verify result count matches chat count before completion
+- [OPS] Add regression test: 100+ chats must all get results
+- [UX] Show account recovery notification in analysis progress
+- [Reliability] Handle FloodWaitError in outer exception handler
+- Add tests for account-level exception recovery
+- Add test for outer exception handler in _phase1_resolve_account
+- Plan reviewed
+- Planning complete: v0.10.1 analysis completion fix
+
 ## [0.10.0] - 2026-02-17
 
 ### Added
@@ -870,7 +890,9 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.12...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.12...v0.10.0
 [0.9.12]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.11...v0.9.12
 [0.9.11]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.10...v0.9.11
 [0.9.10]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.9...v0.9.10
