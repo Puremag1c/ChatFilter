@@ -1533,3 +1533,334 @@ class TestAllChatsGetResultsGuarantee:
         result = test_db.load_result(group_id, chat_ref)
         assert result is not None, "Chat should have result after retry success"
         assert result["metrics_data"]["status"] == "done", "Chat should succeed after retries"
+
+
+class TestAccountLevelExceptionRecovery:
+    """Test account-level exception handlers save dead results for orphan chats.
+
+    These tests cover the 3 new code paths added for account-level exception recovery:
+    1. Outer exception handler in start_analysis() (lines 307-341)
+    2. Account task exception handler (direct exception from _phase1_resolve_account)
+    3. Orphan safety net (lines 343-383)
+    """
+
+    @pytest.mark.asyncio
+    async def test_outer_exception_saves_dead_results(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that outer exception handler saves dead results for remaining chats.
+
+        Scenario:
+        - 5 chats assigned to account
+        - Session context raises exception after processing 3 chats
+        - Verify: Remaining 2 chats get dead records via outer handler
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Setup: Create group with 5 chats
+        group_id = "test-group-outer-exception"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_moderation=False,
+            detect_activity=False,
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Outer Exception",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        for i in range(5):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Track how many chats were processed
+        call_count = 0
+
+        # Mock _resolve_chat to succeed for first 3, then session context will raise
+        async def mock_resolve_chat(client, chat, account_id):
+            nonlocal call_count
+            call_count += 1
+
+            # After processing 3 chats, raise exception from session context
+            if call_count > 3:
+                raise RuntimeError("Session context failure")
+
+            # Success for first 3 chats
+            chat_index = int(chat["chat_ref"].split("chat")[1])
+            return _ResolvedChat(
+                db_chat_id=chat["id"],
+                chat_ref=chat["chat_ref"],
+                chat_type=ChatTypeEnum.GROUP.value,
+                title=f"Chat {chat_index}",
+                subscribers=100 + chat_index,
+                moderation=False,
+                numeric_id=1000000 + chat_index,
+                status="done",
+            )
+
+        # Mock session context that will raise after 3 successful calls
+        mock_client = AsyncMock()
+
+        # Create a context manager that raises exception after processing some chats
+        class SessionContextWithException:
+            def __init__(self):
+                self.entered = False
+
+            async def __aenter__(self):
+                self.entered = True
+                return mock_client
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                # After processing, raise exception during cleanup
+                if call_count >= 3:
+                    raise RuntimeError("Session cleanup failure")
+                return None
+
+        mock_session_context = SessionContextWithException()
+        mock_session_manager.session.return_value = mock_session_context
+
+        # Patch _resolve_chat
+        with patch.object(
+            engine,
+            "_resolve_chat",
+            side_effect=mock_resolve_chat,
+        ):
+            # Run Phase 1 analysis — should catch exception and save dead results
+            await engine._phase1_resolve_account(
+                group_id=group_id,
+                account_id="test-account",
+                settings=settings,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # CRITICAL ASSERTION: ALL 5 chats must have results
+        results = test_db.load_results(group_id)
+        assert len(results) == 5, (
+            f"Expected 5 results (3 done + 2 dead from outer handler), got {len(results)}"
+        )
+
+        # Verify status distribution
+        done_results = [r for r in results if r["metrics_data"]["status"] == "done"]
+        dead_results = [r for r in results if r["metrics_data"]["status"] == "dead"]
+
+        assert len(done_results) == 3, f"Expected 3 successful chats, got {len(done_results)}"
+        assert len(dead_results) == 2, f"Expected 2 dead chats (from outer handler), got {len(dead_results)}"
+
+        # Verify dead results have correct error message
+        for result in dead_results:
+            metrics = result["metrics_data"]
+            assert "error_reason" in metrics, "Dead chat missing error_reason"
+            # Should not mention retry (outer handler doesn't retry)
+            error_reason = metrics["error_reason"]
+            # Outer handler saves results for chats that weren't processed
+            assert metrics["chat_type"] == "dead"
+
+    @pytest.mark.asyncio
+    async def test_account_task_exception_saves_dead_results(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that account task exception handler saves dead results for all account chats.
+
+        Scenario:
+        - _phase1_resolve_account raises exception immediately (before any processing)
+        - Verify: All chats assigned to that account get dead records
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        # Setup: Create group with 3 chats
+        group_id = "test-group-account-exception"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_moderation=False,
+            detect_activity=False,
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Account Exception",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        for i in range(3):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Patch _phase1_resolve_account to raise exception directly
+        async def mock_phase1_with_exception(*args, **kwargs):
+            raise RuntimeError("Account task crashed before processing")
+
+        with patch.object(
+            engine,
+            "_phase1_resolve_account",
+            side_effect=mock_phase1_with_exception,
+        ):
+            # Run start_analysis — should catch exception in account task handler
+            # This calls start_analysis which runs _phase1_resolve_account via asyncio.gather
+            await engine.start_analysis(
+                group_id=group_id,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # CRITICAL ASSERTION: ALL 3 chats must have results (saved by account task handler)
+        results = test_db.load_results(group_id)
+        assert len(results) == 3, (
+            f"Expected 3 dead results (from account task exception handler), got {len(results)}"
+        )
+
+        # All should be dead
+        for result in results:
+            metrics = result["metrics_data"]
+            assert metrics["status"] == "dead", f"Expected status=dead, got {metrics['status']}"
+            assert metrics["chat_type"] == "dead", f"Expected chat_type=dead, got {metrics['chat_type']}"
+            assert "error_reason" in metrics, "Dead chat missing error_reason"
+            # Should mention account task exception
+            error_reason = metrics["error_reason"]
+            assert "Account task exception" in error_reason, (
+                f"Error should mention account task exception, got: {error_reason}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_orphan_safety_net_fills_missing_results(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that orphan safety net detects and fills missing group_results.
+
+        Scenario:
+        - Mock _phase1_resolve_account to silently skip 2 chats (simulating a bug)
+        - After Phase 1 completes, 3 chats have results, 2 are orphans
+        - Verify: Safety net detects orphans and fills them with dead records
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        # Setup: Create group with 5 chats
+        group_id = "test-group-orphan-safety"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_moderation=False,
+            detect_activity=False,
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Orphan Safety Net",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        for i in range(5):
+            chat_ref = f"https://t.me/chat{i}"
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=chat_ref,
+                chat_type="pending",
+                assigned_account="test-account",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["test-account"]
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Patch _phase1_resolve_account to only save results for 3 out of 5 chats
+        # This simulates a bug where some chats are silently skipped
+        async def mock_phase1_with_orphans(group_id, account_id, settings, mode):
+            # Only save results for chats 0, 1, 2 (skip 3, 4)
+            for i in range(3):
+                chat_ref = f"https://t.me/chat{i}"
+                test_db.save_result(
+                    group_id,
+                    chat_ref,
+                    {
+                        "chat_type": "group",
+                        "subscribers": 100 + i,
+                        "messages_per_hour": None,
+                        "unique_authors_per_hour": None,
+                        "moderation": False,
+                        "captcha": False,
+                        "status": "done",
+                        "title": f"Chat {i}",
+                        "chat_ref": chat_ref,
+                    },
+                )
+            # Chats 3 and 4 are silently skipped (orphans created)
+
+        with patch.object(
+            engine,
+            "_phase1_resolve_account",
+            side_effect=mock_phase1_with_orphans,
+        ):
+            # Run start_analysis — safety net should detect 2 orphans and fill them
+            await engine.start_analysis(
+                group_id=group_id,
+                mode=AnalysisMode.FRESH,
+            )
+
+        # CRITICAL ASSERTION: ALL 5 chats must have results (3 from mock + 2 from safety net)
+        results = test_db.load_results(group_id)
+        assert len(results) == 5, (
+            f"Expected 5 results (3 from phase1 + 2 from safety net), got {len(results)}"
+        )
+
+        # Check that the 2 orphans (chat3, chat4) were filled by safety net
+        chat3_result = test_db.load_result(group_id, "https://t.me/chat3")
+        chat4_result = test_db.load_result(group_id, "https://t.me/chat4")
+
+        assert chat3_result is not None, "chat3 should have result from safety net"
+        assert chat4_result is not None, "chat4 should have result from safety net"
+
+        # Verify orphans are marked as dead by safety net
+        for result in [chat3_result, chat4_result]:
+            metrics = result["metrics_data"]
+            assert metrics["status"] == "dead", (
+                f"Orphan should have status=dead from safety net, got: {metrics['status']}"
+            )
+            assert metrics["chat_type"] == "dead", (
+                f"Orphan should have chat_type=dead, got: {metrics['chat_type']}"
+            )
+            assert "error_reason" in metrics, "Orphan should have error_reason"
+            assert "Orphan safety net" in metrics["error_reason"], (
+                f"Error should mention orphan safety net, got: {metrics['error_reason']}"
+            )
