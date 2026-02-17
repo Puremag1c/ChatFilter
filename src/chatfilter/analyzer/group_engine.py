@@ -389,7 +389,9 @@ class GroupAnalysisEngine:
         # Initialize retry queue with (chat, retry_count) tuples
         MAX_RETRIES = 3
         MAX_FLOODWAIT_SECONDS = 300
+        MAX_CHAT_TIMEOUT = 600  # 10 minutes cumulative wait per chat
         chat_queue = deque([(chat, 0) for chat in account_chats])
+        chat_cumulative_wait: dict[int, float] = {}  # Track total wait time per chat_id
 
         try:
             async with self._session_mgr.session(
@@ -471,12 +473,67 @@ class GroupAnalysisEngine:
                             self._publish_event(event)
                             continue
 
-                        # FloodWait <= 300s: wait with 10% buffer and continue
+                        # FloodWait <= 300s: check cumulative timeout before waiting
                         buffer = int(wait_seconds * 0.1)
                         total_wait = wait_seconds + buffer
+
+                        # Track cumulative wait time for this chat
+                        chat_id = chat["id"]
+                        cumulative_wait = chat_cumulative_wait.get(chat_id, 0.0)
+                        new_cumulative = cumulative_wait + total_wait
+
+                        # Check if cumulative wait exceeds MAX_CHAT_TIMEOUT
+                        if new_cumulative > MAX_CHAT_TIMEOUT:
+                            timeout_msg = f"Chat @{chat['chat_ref']} timed out after {int(cumulative_wait)}s, marked as dead"
+                            logger.warning(
+                                f"Account '{account_id}': {timeout_msg} "
+                                f"(would exceed {MAX_CHAT_TIMEOUT}s with next FloodWait {total_wait}s)"
+                            )
+
+                            # Mark as failed
+                            self._db.update_chat_status(
+                                chat_id=chat_id,
+                                status=GroupChatStatus.FAILED.value,
+                                error=f"Timeout exceeded: {int(cumulative_wait)}s cumulative FloodWait",
+                            )
+
+                            # Save dead result
+                            dead_resolved = _ResolvedChat(
+                                db_chat_id=chat_id,
+                                chat_ref=chat["chat_ref"],
+                                chat_type=ChatTypeEnum.DEAD.value,
+                                title=None,
+                                subscribers=None,
+                                moderation=None,
+                                numeric_id=None,
+                                status="dead",
+                                linked_chat_id=None,
+                                error=f"Timeout exceeded: {int(cumulative_wait)}s cumulative FloodWait",
+                            )
+                            self._save_phase1_result(
+                                group_id, chat, dead_resolved, account_id, settings,
+                            )
+
+                            current_count += 1
+                            event = GroupProgressEvent(
+                                group_id=group_id,
+                                status=GroupStatus.IN_PROGRESS.value,
+                                current=current_count,
+                                total=total_chats,
+                                chat_title=chat["chat_ref"],
+                                message=timeout_msg,
+                                error=f"Timeout exceeded after {int(cumulative_wait)}s",
+                            )
+                            self._publish_event(event)
+                            continue
+
+                        # Update cumulative wait and proceed
+                        chat_cumulative_wait[chat_id] = new_cumulative
+
                         logger.warning(
                             f"Account '{account_id}': FloodWait {wait_seconds}s "
-                            f"on '{chat['chat_ref']}'. Waiting {total_wait}s..."
+                            f"on '{chat['chat_ref']}'. Waiting {total_wait}s... "
+                            f"(cumulative: {int(new_cumulative)}s/{MAX_CHAT_TIMEOUT}s)"
                         )
 
                         event = GroupProgressEvent(
