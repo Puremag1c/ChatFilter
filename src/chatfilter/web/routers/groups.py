@@ -23,7 +23,7 @@ from chatfilter.analyzer.group_engine import (
 from chatfilter.exporter.csv import export_group_results_to_csv
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
-from chatfilter.models.group import GroupSettings, GroupStatus
+from chatfilter.models.group import AnalysisMode, GroupSettings, GroupStatus
 from chatfilter.security.url_validator import URLValidationError, validate_url
 from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
@@ -1232,6 +1232,104 @@ async def start_group_analysis(
             name="partials/error_message.html",
             context={"error": f"Failed to start analysis: {str(e)}"},
         )
+
+
+
+
+@router.post("/api/groups/{group_id}/reanalyze", response_class=HTMLResponse)
+async def reanalyze_group(
+    request: Request,
+    group_id: str,
+    mode: str = Query(..., regex="^(increment|overwrite)$"),
+) -> HTMLResponse:
+    """Re-analyze a completed group with specified mode.
+
+    Only available for completed groups.
+
+    Modes:
+    - increment: Fill missing metrics only (skips chats with existing data)
+    - overwrite: Clear all results and re-analyze from scratch
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+        mode: Re-analysis mode ('increment' or 'overwrite')
+
+    Returns:
+        HTML partial with updated group card or error message
+
+    Raises:
+        HTTPException: If group not found or status != COMPLETED (409 Conflict)
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        service = _get_group_service()
+        engine = _get_group_engine(request)
+
+        # Verify group exists and check status
+        group = service.get_group(group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        # Validate status == COMPLETED
+        if group.status != GroupStatus.COMPLETED:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/error_message.html",
+                context={"error": "Re-analysis is only available for completed groups"},
+                status_code=409,
+            )
+
+        # Convert mode string to AnalysisMode enum
+        analysis_mode = AnalysisMode.INCREMENT if mode == "increment" else AnalysisMode.OVERWRITE
+
+        # Update status to IN_PROGRESS
+        updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
+
+        # Start analysis with specified mode
+        try:
+            await engine.start_analysis(group_id, mode=analysis_mode)
+        except NoConnectedAccountsError as e:
+            # Rollback status update
+            updated_group = service.update_status(group_id, GroupStatus.COMPLETED)
+            stats = service.get_group_stats(group_id)
+
+            # Return updated group card with error message for toast
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/group_card.html",
+                context={
+                    "group": updated_group,
+                    "stats": stats,
+                    "error_message": str(e),
+                },
+            )
+
+        # Get updated group and stats after starting analysis
+        updated_group = service.get_group(group_id)
+        stats = service.get_group_stats(group_id)
+
+        # Return updated group card to immediately show in_progress state
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context={"group": updated_group, "stats": stats},
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        mode_description = "incremental" if mode == "increment" else "overwrite"
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Failed to start {mode_description} analysis: {str(e)}"},
+        )
+
+
 
 
 @router.post("/api/groups/{group_id}/stop", response_class=HTMLResponse)
