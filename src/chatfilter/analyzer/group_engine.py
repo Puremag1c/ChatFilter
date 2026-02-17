@@ -536,13 +536,19 @@ class GroupAnalysisEngine:
                             f"(cumulative: {int(new_cumulative)}s/{MAX_CHAT_TIMEOUT}s)"
                         )
 
+                        # Show retry attempt number when retrying after previous error
+                        if retry_count > 0:
+                            retry_msg = f"Retry {retry_count + 1}/{MAX_RETRIES} for @{chat['chat_ref']} (FloodWait {wait_seconds}s)"
+                        else:
+                            retry_msg = f"Waiting for FloodWait cooldown ({total_wait}s remaining)..."
+
                         event = GroupProgressEvent(
                             group_id=group_id,
                             status=GroupStatus.IN_PROGRESS.value,
                             current=current_count,
                             total=total_chats,
                             chat_title=chat["chat_ref"],
-                            message=f"Waiting for FloodWait cooldown ({total_wait}s remaining)...",
+                            message=retry_msg,
                         )
                         self._publish_event(event)
 
@@ -1081,8 +1087,9 @@ class GroupAnalysisEngine:
                             client, group_id, chat, account_id, settings,
                         )
                     except Exception as e:
-                        # Capture error for progress event
-                        error_msg = str(e)
+                        # Capture error for progress event with type for better UX
+                        error_type = type(e).__name__
+                        error_msg = f"{error_type}: {e}"
                         logger.error(
                             f"Account '{account_id}': Phase 2 failed for '{chat['chat_ref']}': {e}",
                             exc_info=True,
