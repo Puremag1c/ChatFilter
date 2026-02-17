@@ -1130,6 +1130,13 @@ class GroupAnalysisEngine:
                                 error=f"Phase 2 FloodWait too long: {wait_seconds}s",
                             )
 
+                            # Update existing result with error_reason (preserve Phase 1 data)
+                            self._db.upsert_result(
+                                group_id=group_id,
+                                chat_ref=chat["chat_ref"],
+                                metrics_data={"error_reason": f"Phase 2 FloodWait too long: {wait_seconds}s"},
+                            )
+
                             current_count += 1
                             event = GroupProgressEvent(
                                 group_id=group_id,
@@ -1198,6 +1205,13 @@ class GroupAnalysisEngine:
                                 chat_id=chat["id"],
                                 status=GroupChatStatus.DONE.value,
                                 error=f"Phase 2 failed after {MAX_RETRIES} retries: {error_msg}",
+                            )
+
+                            # Update existing result with error_reason (preserve Phase 1 data)
+                            self._db.upsert_result(
+                                group_id=group_id,
+                                chat_ref=chat["chat_ref"],
+                                metrics_data={"error_reason": f"Phase 2 failed after {MAX_RETRIES} retries: {error_msg}"},
                             )
 
                             current_count += 1
