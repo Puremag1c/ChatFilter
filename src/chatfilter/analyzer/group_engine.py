@@ -553,6 +553,7 @@ class GroupAnalysisEngine:
 
                     except Exception as e:
                         # Any other error: retry up to MAX_RETRIES
+                        error_type = type(e).__name__
                         error_msg = f"{type(e).__name__}: {e}"
                         logger.warning(
                             f"Account '{account_id}': Error on '{chat['chat_ref']}' "
@@ -569,7 +570,7 @@ class GroupAnalysisEngine:
                                 current=current_count,
                                 total=total_chats,
                                 chat_title=chat["chat_ref"],
-                                message=f"Retry {retry_count + 2}/{MAX_RETRIES} for @{chat['chat_ref']}",
+                                message=f"Retry {retry_count + 2}/{MAX_RETRIES} for @{chat['chat_ref']} ({error_type})",
                             )
                             self._publish_event(event)
                         else:
@@ -609,7 +610,8 @@ class GroupAnalysisEngine:
                                 current=current_count,
                                 total=total_chats,
                                 chat_title=chat["chat_ref"],
-                                error=f"Failed after {MAX_RETRIES} retries",
+                                message=f"Chat @{chat['chat_ref']} failed after {MAX_RETRIES} retries: {error_type}",
+                                error=error_msg,
                             )
                             self._publish_event(event)
 
@@ -1234,6 +1236,9 @@ class GroupAnalysisEngine:
             )
 
         except Exception as e:
+
+            error_type = type(e).__name__
+            # NOTE: Phase 2 error includes error type for SSE visibility
             logger.error(
                 f"Account '{account_id}': Phase 2 failed for '{chat_ref}': {e}",
                 exc_info=True,
@@ -1242,7 +1247,7 @@ class GroupAnalysisEngine:
             self._db.update_chat_status(
                 chat_id=chat_id,
                 status=GroupChatStatus.DONE.value,
-                error=f"Phase 2 error: {e}",
+                error=f"Phase 2 error ({error_type}): {e}",
             )
 
         finally:
