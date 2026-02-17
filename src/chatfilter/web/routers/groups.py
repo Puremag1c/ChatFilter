@@ -1274,12 +1274,16 @@ async def reanalyze_group(
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # Validate status == COMPLETED
+        # Validate status == COMPLETED (prevents concurrent analysis and incomplete groups)
         if group.status != GroupStatus.COMPLETED:
+            error_msg = (
+                "Analysis already running" if group.status == GroupStatus.IN_PROGRESS
+                else "Re-analysis is only available for completed groups"
+            )
             return templates.TemplateResponse(
                 request=request,
                 name="partials/error_message.html",
-                context={"error": "Re-analysis is only available for completed groups"},
+                context={"error": error_msg},
                 status_code=409,
             )
 
