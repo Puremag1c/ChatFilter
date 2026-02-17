@@ -112,7 +112,6 @@ class TestStage1ResolveWithoutJoin:
         )
 
         # Mock TelegramClient.get_entity() to return a public channel
-        mock_client = AsyncMock()
         mock_channel = create_mock_channel(
             id=123456,
             title="Test Channel",
@@ -122,13 +121,19 @@ class TestStage1ResolveWithoutJoin:
             participants_count=5000,
             join_request=False,  # No moderation
         )
-        mock_client.get_entity = AsyncMock(return_value=mock_channel)
 
-        # Mock GetFullChannelRequest to return channel without comments
+        # Mock client() call (GetFullChannelRequest) to return channel without comments
         full_channel_result = MagicMock()
         full_channel_result.full_chat = MagicMock()
         full_channel_result.full_chat.linked_chat_id = None
-        mock_client.return_value = full_channel_result
+        full_channel_result.full_chat.participants_count = 5000
+
+        mock_client = MagicMock()
+        mock_client.get_entity = AsyncMock(return_value=mock_channel)
+        # Make client() callable and async
+        async def mock_call(request):
+            return full_channel_result
+        mock_client.__call__ = mock_call
 
         # Mock session context
         mock_session_manager.session = MagicMock()
