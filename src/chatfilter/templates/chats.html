@@ -185,11 +185,34 @@
     function refreshGroups() {
         if (isRefreshing) return;
         isRefreshing = true;
+
+        // BEFORE swap: collect group IDs that are currently in_progress
+        var currentInProgress = new Set();
+        container.querySelectorAll('.group-card').forEach(function(card) {
+            var statusBadge = card.querySelector('.status-badge.in_progress');
+            if (statusBadge && card.id) {
+                // card.id format: "group-{group_id}"
+                currentInProgress.add(card.id);
+            }
+        });
+
         fetch('/api/groups')
             .then(function(resp) { return resp.text(); })
             .then(function(html) {
                 container.innerHTML = html;
                 htmx.process(container);
+
+                // AFTER swap: check which groups transitioned from in_progress to completed/paused
+                container.querySelectorAll('.group-card').forEach(function(card) {
+                    var completedBadge = card.querySelector('.status-badge.completed');
+                    var pausedBadge = card.querySelector('.status-badge.paused');
+
+                    // If this group was in_progress and is now completed/paused → show toast
+                    if ((completedBadge || pausedBadge) && card.id && currentInProgress.has(card.id)) {
+                        ToastManager.success('Анализ завершён');
+                    }
+                });
+
                 schedulePoll();
             })
             .catch(function() { schedulePoll(); })
