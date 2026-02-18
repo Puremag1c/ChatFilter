@@ -1040,6 +1040,14 @@ async def export_group_results(
                     "metrics_data": metrics_data,
                 })
 
+    # Dedup by chat_ref (defense in depth: handle duplicates even after UNIQUE fix)
+    # Keep newest analyzed_at for each chat_ref, with stable sort fallback on id
+    if results_data:
+        results_data = list({
+            r["chat_ref"]: r
+            for r in sorted(results_data, key=lambda x: (x.get("analyzed_at") or "", x.get("id", 0)))
+        }.values())
+
     # Convert chat_types list to comma-separated string
     chat_types_str = ",".join(chat_types) if chat_types else None
 
