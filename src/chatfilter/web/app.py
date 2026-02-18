@@ -49,6 +49,8 @@ class AppState:
         from typing import TYPE_CHECKING
 
         if TYPE_CHECKING:
+            import asyncio
+
             from chatfilter.service.proxy_health import ProxyHealthMonitor
             from chatfilter.telegram.session_manager import SessionManager
 
@@ -56,6 +58,7 @@ class AppState:
         self.active_connections = 0
         self.session_manager: SessionManager | None = None  # Will be set during startup
         self.proxy_health_monitor: ProxyHealthMonitor | None = None  # Will be set during startup
+        self.analysis_tasks: dict[str, asyncio.Task] = {}  # Background analysis tasks by group_id
 
 
 @asynccontextmanager
@@ -187,6 +190,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info(f"Cleared {cleared} tasks and {orphaned} orphaned subscriber lists")
     except Exception as e:
         logger.error(f"Error clearing tasks during shutdown: {e}")
+
+    # 3.5. Cancel background analysis tasks
+    if app.state.app_state.analysis_tasks:
+        logger.info(f"Cancelling {len(app.state.app_state.analysis_tasks)} background analysis tasks")
+        for group_id, task in app.state.app_state.analysis_tasks.items():
+            if not task.done():
+                task.cancel()
+                logger.info(f"Cancelled analysis task for group {group_id}")
+
+        # Wait for cancellation with timeout
+        cancel_timeout = 5.0
+        pending_tasks = [t for t in app.state.app_state.analysis_tasks.values() if not t.done()]
+        if pending_tasks:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*pending_tasks, return_exceptions=True),
+                    timeout=cancel_timeout
+                )
+                logger.info("All analysis tasks cancelled successfully")
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout cancelling analysis tasks after {cancel_timeout}s")
+            except Exception as e:
+                logger.error(f"Error cancelling analysis tasks: {e}")
+
+        app.state.app_state.analysis_tasks.clear()
 
     # 4. Stop proxy health monitor
     if app.state.app_state.proxy_health_monitor:
