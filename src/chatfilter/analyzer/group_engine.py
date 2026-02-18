@@ -574,11 +574,11 @@ class GroupAnalysisEngine:
         # Initialize progress counter (start from zero for THIS run)
         current_count = 0
 
-        # Initialize retry queue with (chat, retry_count) tuples
+        # Initialize retry queue with (chat, retry_count, floodwait_retry_count) tuples
         MAX_RETRIES = 3
         MAX_FLOODWAIT_SECONDS = 300
         MAX_CHAT_TIMEOUT = 600  # 10 minutes cumulative wait per chat
-        chat_queue = deque([(chat, 0) for chat in account_chats])
+        chat_queue = deque([(chat, 0, 0) for chat in account_chats])
         chat_cumulative_wait: dict[int, float] = {}  # Track total wait time per chat_id
 
         try:
@@ -587,7 +587,7 @@ class GroupAnalysisEngine:
                 auto_disconnect=False,
             ) as client:
                 while chat_queue:
-                    chat, retry_count = chat_queue.popleft()
+                    chat, retry_count, floodwait_retry_count = chat_queue.popleft()
 
                     try:
                         # INCREMENT mode: skip if Phase 1 metrics already exist
