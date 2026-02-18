@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-02-18
+
+### Fixed
+- SMOKE: [Backend] AttributeError: 'State' object has no attribute 'session_manager'
+- SMOKE: [Backend] Test failure: test_start_returns_hx_trigger_header
+- SMOKE: [Export] CSV export crashes with ValueError on string messages_per_hour
+- SMOKE: [Must Have] Card does not update to in_progress on Start analysis click
+- SMOKE: [Must Have] Error toast swallowed by hx-swap=none on start/reanalyze buttons
+- SMOKE: [Must Have] Reanalyze endpoint crashes: cannot access local variable json
+- [Backend] Fix INCREMENT progress counter: count only chats-to-process, not all done+failed
+- [Backend] Make start/reanalyze endpoints non-blocking (asyncio.create_task)
+- [Frontend] Add toast on analysis start + trigger polling after button click
+
 ## [0.10.1] - 2026-02-17
 
 ### Fixed
@@ -890,7 +903,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.12...v0.10.0
 [0.9.12]: https://github.com/Puremag1c/ChatFilter/compare/v0.9.11...v0.9.12
