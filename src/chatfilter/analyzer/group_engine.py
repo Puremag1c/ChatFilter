@@ -131,6 +131,72 @@ class GroupAnalysisEngine:
         self._active_tasks: dict[str, list[asyncio.Task]] = {}
         self._subscribers: dict[str, list[asyncio.Queue[GroupProgressEvent]]] = {}
 
+    def check_increment_needed(
+        self,
+        group_id: str,
+        settings: GroupSettings,
+    ) -> bool:
+        """Check if INCREMENT analysis would have work to do.
+
+        Examines all chats in the group and determines if any are missing
+        enabled metrics or have failed status.
+
+        Args:
+            group_id: Group identifier to check.
+            settings: Group settings defining which metrics are enabled.
+
+        Returns:
+            True if INCREMENT would do work (missing metrics or failed chats).
+            False if all chats have all enabled metrics and none are failed.
+        """
+        # Load all chats for this group
+        all_chats = self._db.load_chats(group_id=group_id)
+        if not all_chats:
+            # No chats = nothing to analyze
+            return False
+
+        # Check for any FAILED chats (retry is always useful)
+        has_failed = any(
+            chat["status"] == GroupChatStatus.FAILED.value
+            for chat in all_chats
+        )
+        if has_failed:
+            # FAILED chats exist → retry is useful
+            return True
+
+        # Define which metrics are needed based on settings
+        required_metrics = ["chat_type"]  # Always required
+        if settings.detect_subscribers:
+            required_metrics.append("subscribers")
+        if settings.detect_activity:
+            required_metrics.append("messages_per_hour")
+        if settings.detect_unique_authors:
+            required_metrics.append("unique_authors_per_hour")
+        if settings.detect_moderation:
+            required_metrics.append("moderation")
+        if settings.detect_captcha:
+            required_metrics.append("captcha")
+
+        # Check each chat for missing metrics
+        for chat in all_chats:
+            result = self._db.load_result(group_id, chat["chat_ref"])
+
+            # No result at all → needs analysis
+            if not result:
+                return True
+
+            metrics_data = result.get("metrics_data", {})
+
+            # Check if any required metric is missing or None
+            for metric in required_metrics:
+                value = metrics_data.get(metric)
+                if value is None:
+                    # Missing metric → needs analysis
+                    return True
+
+        # All chats have all required metrics, no failed chats
+        return False
+
     async def start_analysis(
         self,
         group_id: str,

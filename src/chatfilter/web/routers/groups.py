@@ -1337,6 +1337,30 @@ async def reanalyze_group(
         # Convert mode string to AnalysisMode enum
         analysis_mode = AnalysisMode.INCREMENT if mode == "increment" else AnalysisMode.OVERWRITE
 
+        # For INCREMENT mode: check if there's anything to do
+        if analysis_mode == AnalysisMode.INCREMENT:
+            # Load group settings to check which metrics are enabled
+            group_data = service._db.load_group(group_id)
+            settings = GroupSettings.from_dict(group_data["settings"])
+
+            # Check if INCREMENT would have work to do
+            if not engine.check_increment_needed(group_id, settings):
+                # All metrics already collected, nothing to do
+                # Return warning toast via HX-Trigger
+                import json
+                trigger_data = json.dumps({
+                    "refreshGroups": None,
+                    "showToast": {
+                        "message": "Все метрики уже собраны. Используйте 'Переанализировать' для повторного анализа.",
+                        "type": "warning"
+                    }
+                })
+                return HTMLResponse(
+                    content='',
+                    status_code=204,
+                    headers={'HX-Trigger': trigger_data}
+                )
+
         # Update status to IN_PROGRESS
         updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
 
