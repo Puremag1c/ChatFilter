@@ -763,7 +763,7 @@ class GroupAnalysisEngine:
                         await asyncio.sleep(total_wait)
 
                         # Re-enqueue chat at front (process immediately after wait)
-                        chat_queue.appendleft((chat, retry_count))
+                        chat_queue.appendleft((chat, retry_count, floodwait_retry_count))
 
                     except Exception as e:
                         # Any other error: retry up to MAX_RETRIES
