@@ -34,6 +34,12 @@
 
     // Confirm handler
     window.confirmReanalyze = function(groupId) {
+        // Disable button to prevent double-click
+        const confirmBtn = modal.querySelector('.modal-button.danger');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+        }
+
         // Trigger HTMX POST to overwrite endpoint
         htmx.ajax('POST', `/api/groups/${groupId}/reanalyze?mode=overwrite`, {
             swap: 'none'

@@ -67,7 +67,8 @@
         {% elif group.status.value == 'completed' %}
         <button class="btn btn-outline-secondary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/reanalyze?mode=increment"
-                hx-swap="none">
+                hx-swap="none"
+                hx-disabled-elt="this">
             {{ _("Дополнить анализ") }}
         </button>
         <button class="btn btn-warning btn-sm"
@@ -79,7 +80,8 @@
         {% else %}
         <button class="btn btn-primary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/start"
-                hx-swap="none">
+                hx-swap="none"
+                hx-disabled-elt="this">
             {{ _("Start analysis") }}
         </button>
         {% endif %}
