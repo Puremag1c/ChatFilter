@@ -58,6 +58,39 @@ def parse_optional_float(value: str | None) -> float | None:
         return None
     return float(value)
 
+
+def _handle_analysis_task_done(task: asyncio.Task, group_id: str, request: Request) -> None:
+    """Callback for completed/failed background analysis tasks.
+
+    Logs exceptions and removes task from app state tracking.
+
+    Args:
+        task: The completed asyncio.Task
+        group_id: Group identifier
+        request: FastAPI request for accessing app state
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    # Log exception if task failed
+    try:
+        exc = task.exception()
+        if exc is not None:
+            logger.error(f"Background analysis task for group {group_id} failed with exception: {exc}", exc_info=exc)
+    except asyncio.CancelledError:
+        logger.info(f"Background analysis task for group {group_id} was cancelled")
+    except Exception as e:
+        logger.error(f"Error retrieving exception from task {group_id}: {e}")
+
+    # Clean up from app state
+    try:
+        if hasattr(request.app.state, 'app_state') and hasattr(request.app.state.app_state, 'analysis_tasks'):
+            request.app.state.app_state.analysis_tasks.pop(group_id, None)
+    except Exception as e:
+        logger.error(f"Error removing task {group_id} from app state: {e}")
+
+
 # Maximum file size for group uploads (10MB as per security requirements)
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 # Chunk size for reading uploaded files
@@ -1218,7 +1251,9 @@ async def start_group_analysis(
 
         # Start analysis via GroupAnalysisEngine (non-blocking)
         # This runs Phase 1 (join/resolve) in background
-        asyncio.create_task(engine.start_analysis(group_id))
+        task = asyncio.create_task(engine.start_analysis(group_id))
+        task.add_done_callback(lambda t: _handle_analysis_task_done(t, group_id, request))
+        request.app.state.app_state.analysis_tasks[group_id] = task
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
@@ -1316,7 +1351,9 @@ async def reanalyze_group(
             )
 
         # Start analysis with specified mode (non-blocking)
-        asyncio.create_task(engine.start_analysis(group_id, mode=analysis_mode))
+        task = asyncio.create_task(engine.start_analysis(group_id, mode=analysis_mode))
+        task.add_done_callback(lambda t: _handle_analysis_task_done(t, group_id, request))
+        request.app.state.app_state.analysis_tasks[group_id] = task
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})

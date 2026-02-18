@@ -49,6 +49,8 @@ class AppState:
         from typing import TYPE_CHECKING
 
         if TYPE_CHECKING:
+            import asyncio
+
             from chatfilter.service.proxy_health import ProxyHealthMonitor
             from chatfilter.telegram.session_manager import SessionManager
 
@@ -56,6 +58,7 @@ class AppState:
         self.active_connections = 0
         self.session_manager: SessionManager | None = None  # Will be set during startup
         self.proxy_health_monitor: ProxyHealthMonitor | None = None  # Will be set during startup
+        self.analysis_tasks: dict[str, asyncio.Task] = {}  # Background analysis tasks by group_id
 
 
 @asynccontextmanager
@@ -188,7 +191,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.error(f"Error clearing tasks during shutdown: {e}")
 
-    # 4. Stop proxy health monitor
+    # 4. Cancel background analysis tasks
+    if app.state.app_state.analysis_tasks:
+        logger.info(f"Cancelling {len(app.state.app_state.analysis_tasks)} background analysis tasks")
+        for group_id, task in app.state.app_state.analysis_tasks.items():
+            if not task.done():
+                task.cancel()
+                logger.info(f"Cancelled analysis task for group {group_id}")
+
+        # Wait for cancellation with timeout
+        cancel_timeout = 5.0
+        pending_tasks = [t for t in app.state.app_state.analysis_tasks.values() if not t.done()]
+        if pending_tasks:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*pending_tasks, return_exceptions=True),
+                    timeout=cancel_timeout
+                )
+                logger.info("All analysis tasks cancelled successfully")
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout cancelling analysis tasks after {cancel_timeout}s")
+            except Exception as e:
+                logger.error(f"Error cancelling analysis tasks: {e}")
+
+        app.state.app_state.analysis_tasks.clear()
+
+    # 5. Stop proxy health monitor
     if app.state.app_state.proxy_health_monitor:
         logger.info("Stopping proxy health monitor")
         try:
@@ -197,7 +225,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"Error stopping proxy health monitor: {e}")
 
-    # 5. Stop connection monitor and disconnect all Telegram sessions
+    # 6. Stop connection monitor and disconnect all Telegram sessions
     if app.state.app_state.session_manager:
         logger.info("Stopping connection monitor")
         try:
@@ -213,7 +241,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"Error disconnecting sessions during shutdown: {e}")
 
-    # 6. Stop auth state cleanup task and clean up all states
+    # 7. Stop auth state cleanup task and clean up all states
     try:
         from chatfilter.web.auth_state import get_auth_state_manager
 
@@ -224,7 +252,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.error(f"Error stopping auth state manager during shutdown: {e}")
 
-    # 7. Clear service caches to free memory
+    # 8. Clear service caches to free memory
     try:
         from chatfilter.web.dependencies import get_chat_analysis_service
 
