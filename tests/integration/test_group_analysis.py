@@ -615,7 +615,9 @@ class TestAllChatsGetResultsGuarantee:
         mock_client = AsyncMock()
         mock_session_context = AsyncMock()
         mock_session_context.__aenter__.return_value = mock_client
-        mock_session_context.__aexit__.return_value = None
+        # CRITICAL: __aexit__ must be async (returns awaitable), not None
+        mock_session_context.__aexit__.return_value = asyncio.Future()
+        mock_session_context.__aexit__.return_value.set_result(None)
         mock_session_manager.session.return_value = mock_session_context
 
         # Patch _resolve_chat AND asyncio.sleep to make test fast
@@ -744,7 +746,9 @@ class TestAllChatsGetResultsGuarantee:
         mock_client = AsyncMock()
         mock_session_context = AsyncMock()
         mock_session_context.__aenter__.return_value = mock_client
-        mock_session_context.__aexit__.return_value = None
+        # CRITICAL: __aexit__ must be async (returns awaitable), not None
+        mock_session_context.__aexit__.return_value = asyncio.Future()
+        mock_session_context.__aexit__.return_value.set_result(None)
         mock_session_manager.session.return_value = mock_session_context
 
         # Patch _resolve_chat AND asyncio.sleep to make test fast
@@ -854,7 +858,9 @@ class TestAllChatsGetResultsGuarantee:
         mock_client = AsyncMock()
         mock_session_context = AsyncMock()
         mock_session_context.__aenter__.return_value = mock_client
-        mock_session_context.__aexit__.return_value = None
+        # CRITICAL: __aexit__ must be async (returns awaitable), not None
+        mock_session_context.__aexit__.return_value = asyncio.Future()
+        mock_session_context.__aexit__.return_value.set_result(None)
         mock_session_manager.session.return_value = mock_session_context
 
         # Patch _resolve_chat
@@ -976,7 +982,9 @@ class TestAllChatsGetResultsGuarantee:
         mock_client = AsyncMock()
         mock_session_context = AsyncMock()
         mock_session_context.__aenter__.return_value = mock_client
-        mock_session_context.__aexit__.return_value = None
+        # CRITICAL: __aexit__ must be async (returns awaitable), not None
+        mock_session_context.__aexit__.return_value = asyncio.Future()
+        mock_session_context.__aexit__.return_value.set_result(None)
         mock_session_manager.session.return_value = mock_session_context
 
         # Patch _resolve_chat
@@ -1274,15 +1282,21 @@ class TestExceptionRecoveryPaths:
         mock_client = AsyncMock()
         mock_session_context = AsyncMock()
         mock_session_context.__aenter__.return_value = mock_client
-        mock_session_context.__aexit__.return_value = None
+        # CRITICAL: __aexit__ must be async (returns awaitable), not None
+        mock_session_context.__aexit__.return_value = asyncio.Future()
+        mock_session_context.__aexit__.return_value.set_result(None)
         mock_session_manager.session.return_value = mock_session_context
 
         # First: Run Phase 1 normally (all chats get results)
+        # CRITICAL: Mock asyncio.sleep to avoid rate-limiting delays (tests would timeout)
         with patch.object(
             engine,
             "_resolve_chat",
             side_effect=mock_resolve_chat,
-        ):
+        ), patch("asyncio.sleep", return_value=asyncio.Future()):
+            # Set mock sleep to complete immediately
+            asyncio.sleep.return_value.set_result(None)
+
             await engine._phase1_resolve_account(
                 group_id=group_id,
                 account_id="test-account",
@@ -1323,7 +1337,25 @@ class TestExceptionRecoveryPaths:
 
         # Now run start_analysis again to trigger orphan safety net
         # There's 1 FAILED chat, so start_analysis will continue and safety net will run
-        await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
+        # IMPORTANT: Mock _phase1_resolve_account to avoid hanging on real telethon calls
+        async def mock_phase1_no_op(group_id, account_id, settings, mode):
+            """No-op Phase 1 — we already have 1 FAILED chat (chat0) that will be reset.
+
+            start_analysis will:
+            1. Reset FAILED→PENDING (chat0)
+            2. Call _phase1_resolve_account (this mock — does nothing)
+            3. Run safety net which fills missing results for orphans
+            """
+            pass
+
+        with patch.object(
+            engine,
+            "_phase1_resolve_account",
+            side_effect=mock_phase1_no_op,
+        ), patch("asyncio.sleep", return_value=asyncio.Future()):
+            # Mock sleep for second invocation too
+            asyncio.sleep.return_value.set_result(None)
+            await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
 
         # CRITICAL ASSERTION: ALL 8 chats must have results again
         results_after_safety_net = test_db.load_results(group_id)
