@@ -76,8 +76,12 @@ class TestHXTriggerPattern:
             assert resp.headers.get("HX-Trigger") == "refreshGroups"
             assert resp.text == "" or resp.content == b""
         elif resp.status_code == 200:
-            # Error path (no Telegram accounts): returns error card, which is OK
-            assert "error" in resp.text.lower() or "account" in resp.text.lower()
+            # Error path (no Telegram accounts): 200 + empty body + HX-Trigger with showToast
+            hx_trigger = resp.headers.get("HX-Trigger", "")
+            assert "showToast" in hx_trigger, (
+                f"Expected HX-Trigger with showToast, got: {hx_trigger}"
+            )
+            assert resp.text == "" or resp.content == b""
         else:
             pytest.fail(f"Unexpected status {resp.status_code}")
 
