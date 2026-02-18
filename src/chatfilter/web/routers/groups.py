@@ -1227,7 +1227,7 @@ async def start_group_analysis(
     try:
         service = _get_group_service()
         engine = _get_group_engine(request)
-        session_mgr = request.app.state.session_manager
+        session_mgr = request.app.state.app_state.session_manager
 
         # Update status to IN_PROGRESS
         updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
@@ -1314,7 +1314,7 @@ async def reanalyze_group(
     try:
         service = _get_group_service()
         engine = _get_group_engine(request)
-        session_mgr = request.app.state.session_manager
+        session_mgr = request.app.state.app_state.session_manager
 
         # Verify group exists and check status
         group = service.get_group(group_id)
