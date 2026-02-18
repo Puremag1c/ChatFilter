@@ -1245,18 +1245,20 @@ async def start_group_analysis(
 
         if not connected_accounts:
             # Rollback status update
-            updated_group = service.update_status(group_id, GroupStatus.PENDING)
-            stats = service.get_group_stats(group_id)
+            service.update_status(group_id, GroupStatus.PENDING)
 
-            # Return updated group card with error message for toast
-            return templates.TemplateResponse(
-                request=request,
-                name="partials/group_card.html",
-                context={
-                    "group": updated_group,
-                    "stats": stats,
-                    "error_message": "No connected Telegram accounts available. Please connect at least one account to start analysis.",
-                },
+            # Return error toast via HX-Trigger
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "No connected Telegram accounts. Please connect at least one account.",
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=200,
+                headers={'HX-Trigger': trigger_data}
             )
 
         # Start analysis via GroupAnalysisEngine (non-blocking)
@@ -1376,18 +1378,20 @@ async def reanalyze_group(
 
         if not connected_accounts:
             # Rollback status update
-            updated_group = service.update_status(group_id, GroupStatus.COMPLETED)
-            stats = service.get_group_stats(group_id)
+            service.update_status(group_id, GroupStatus.COMPLETED)
 
-            # Return updated group card with error message for toast
-            return templates.TemplateResponse(
-                request=request,
-                name="partials/group_card.html",
-                context={
-                    "group": updated_group,
-                    "stats": stats,
-                    "error_message": "No connected Telegram accounts available. Please connect at least one account to start analysis.",
-                },
+            # Return error toast via HX-Trigger
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "No connected Telegram accounts. Please connect at least one account.",
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=200,
+                headers={'HX-Trigger': trigger_data}
             )
 
         # Start analysis with specified mode (non-blocking)

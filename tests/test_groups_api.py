@@ -220,11 +220,16 @@ def test_start_analysis_endpoint(
     )
 
     # Should succeed (204 No Content with HX-Trigger header), return 404 if group not found,
-    # or 200 with error card if no connected Telegram accounts (expected in test environment)
+    # or 200 with HX-Trigger showToast if no connected Telegram accounts (expected in test environment)
     assert response.status_code in (204, 200, 404)
-    # If 200, it should be error card (NoConnectedAccountsError)
+    # If 200, it should have HX-Trigger header with showToast (NoConnectedAccountsError)
     if response.status_code == 200:
-        assert "error" in response.text.lower() or "account" in response.text.lower()
+        assert "HX-Trigger" in response.headers
+        import json
+        trigger = json.loads(response.headers["HX-Trigger"])
+        assert "showToast" in trigger
+        assert trigger["showToast"]["type"] == "error"
+        assert "account" in trigger["showToast"]["message"].lower()
 
 
 def test_stop_analysis_endpoint(
