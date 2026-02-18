@@ -60,7 +60,8 @@ class GroupDatabase(SQLiteDatabase):
                     metrics_data TEXT NOT NULL,
                     analyzed_at TIMESTAMP NOT NULL,
                     FOREIGN KEY (group_id) REFERENCES chat_groups (id)
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
+                    UNIQUE(group_id, chat_ref)
                 )
             """)
 
@@ -381,6 +382,7 @@ class GroupDatabase(SQLiteDatabase):
                 INSERT INTO group_results
                 (group_id, chat_ref, metrics_data, analyzed_at)
                 VALUES (?, ?, ?, ?)
+                ON CONFLICT(group_id, chat_ref) DO NOTHING
                 """,
                 (
                     group_id,
@@ -439,16 +441,19 @@ class GroupDatabase(SQLiteDatabase):
             # No existing result, use new metrics as-is
             final_metrics = metrics_data
 
-        # INSERT OR REPLACE with merged data
+        # INSERT ON CONFLICT DO UPDATE with merged data
         # Due to unique constraint on (group_id, chat_ref), this will:
         # - INSERT if no existing row
-        # - REPLACE (delete + insert) if row exists
+        # - UPDATE in-place if row exists (preserves rowid)
         with self._connection() as conn:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO group_results
+                INSERT INTO group_results
                 (group_id, chat_ref, metrics_data, analyzed_at)
                 VALUES (?, ?, ?, ?)
+                ON CONFLICT(group_id, chat_ref) DO UPDATE SET
+                    metrics_data = excluded.metrics_data,
+                    analyzed_at = excluded.analyzed_at
                 """,
                 (
                     group_id,
