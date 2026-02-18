@@ -558,3 +558,117 @@ class TestDynamicCsvExport:
         assert isinstance(content, str)
         assert "chat_ref" in content
         assert "Test Channel" in content
+
+
+class TestStringValueHandling:
+    """Tests for handling string values in numeric fields."""
+
+    def test_messages_per_hour_as_string(self) -> None:
+        """Test that messages_per_hour as string is handled gracefully."""
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
+        from chatfilter.models.group import GroupSettings
+
+        results_data = [
+            {
+                "chat_ref": "test_chat_1",
+                "metrics_data": {
+                    "title": "Test Chat",
+                    "messages_per_hour": "42.5",  # String instead of float
+                },
+                "analyzed_at": "2024-01-01T12:00:00Z",
+            }
+        ]
+
+        settings = GroupSettings(
+            detect_activity=True,
+            detect_chat_type=False,
+            detect_subscribers=False,
+            detect_unique_authors=False,
+            detect_moderation=False,
+            detect_captcha=False,
+        )
+        rows = list(to_csv_rows_dynamic(results_data, settings))
+
+        assert len(rows) == 2  # Header + data row
+        # Find the messages_per_hour column index
+        assert "messages_per_hour" in rows[0]
+        mph_idx = rows[0].index("messages_per_hour")
+        assert rows[1][mph_idx] == "42.50"
+
+    def test_unique_authors_per_hour_as_string(self) -> None:
+        """Test that unique_authors_per_hour as string is handled gracefully."""
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
+        from chatfilter.models.group import GroupSettings
+
+        results_data = [
+            {
+                "chat_ref": "test_chat_1",
+                "metrics_data": {
+                    "title": "Test Chat",
+                    "unique_authors_per_hour": "3.14",  # String instead of float
+                },
+                "analyzed_at": "2024-01-01T12:00:00Z",
+            }
+        ]
+
+        settings = GroupSettings(
+            detect_unique_authors=True,
+            detect_chat_type=False,
+            detect_subscribers=False,
+            detect_activity=False,
+            detect_moderation=False,
+            detect_captcha=False,
+        )
+        rows = list(to_csv_rows_dynamic(results_data, settings))
+
+        assert len(rows) == 2  # Header + data row
+        # Find the unique_authors_per_hour column index
+        assert "unique_authors_per_hour" in rows[0]
+        uaph_idx = rows[0].index("unique_authors_per_hour")
+        assert rows[1][uaph_idx] == "3.14"
+
+    def test_mixed_types_in_single_export(self) -> None:
+        """Test export with both string and float values."""
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
+        from chatfilter.models.group import GroupSettings
+
+        results_data = [
+            {
+                "chat_ref": "chat_1",
+                "metrics_data": {
+                    "title": "Chat with Float",
+                    "messages_per_hour": 42.5,  # Float
+                    "unique_authors_per_hour": 3.14,  # Float
+                },
+                "analyzed_at": "2024-01-01T12:00:00Z",
+            },
+            {
+                "chat_ref": "chat_2",
+                "metrics_data": {
+                    "title": "Chat with String",
+                    "messages_per_hour": "55.2",  # String
+                    "unique_authors_per_hour": "4.20",  # String
+                },
+                "analyzed_at": "2024-01-01T12:00:00Z",
+            },
+        ]
+
+        settings = GroupSettings(
+            detect_activity=True,
+            detect_unique_authors=True,
+            detect_chat_type=False,
+            detect_subscribers=False,
+            detect_moderation=False,
+            detect_captcha=False,
+        )
+        rows = list(to_csv_rows_dynamic(results_data, settings))
+
+        assert len(rows) == 3  # Header + 2 data rows
+        # Find column indices
+        mph_idx = rows[0].index("messages_per_hour")
+        uaph_idx = rows[0].index("unique_authors_per_hour")
+        # Both should be formatted correctly
+        assert rows[1][mph_idx] == "42.50"
+        assert rows[1][uaph_idx] == "3.14"
+        assert rows[2][mph_idx] == "55.20"
+        assert rows[2][uaph_idx] == "4.20"

@@ -145,10 +145,18 @@ def to_csv_rows_dynamic(
             row.append(str(subscribers) if subscribers is not None else "")
         if settings is None or settings.detect_activity:
             messages_per_hour = metrics.get("messages_per_hour")
-            row.append(f"{messages_per_hour:.2f}" if messages_per_hour is not None else "")
+            if messages_per_hour is not None:
+                # Safe type coercion: handle both float and string values
+                row.append(f"{float(messages_per_hour):.2f}")
+            else:
+                row.append("")
         if settings is None or settings.detect_unique_authors:
             unique_authors_per_hour = metrics.get("unique_authors_per_hour")
-            row.append(f"{unique_authors_per_hour:.2f}" if unique_authors_per_hour is not None else "")
+            if unique_authors_per_hour is not None:
+                # Safe type coercion: handle both float and string values
+                row.append(f"{float(unique_authors_per_hour):.2f}")
+            else:
+                row.append("")
         if settings is None or settings.detect_moderation:
             moderation = metrics.get("moderation")
             row.append("yes" if moderation is True else "no" if moderation is False else "")
@@ -194,7 +202,7 @@ def to_csv_rows(results: list[AnalysisResult]) -> Iterator[list[str]]:
             str(result.metrics.message_count),
             str(result.metrics.unique_authors),
             f"{result.metrics.history_hours:.2f}",
-            f"{result.metrics.messages_per_hour:.2f}",
+            f"{float(result.metrics.messages_per_hour):.2f}",
             _format_datetime(result.metrics.first_message_at),
             _format_datetime(result.metrics.last_message_at),
             _format_datetime(result.analyzed_at),
