@@ -153,15 +153,21 @@ class GroupAnalysisEngine:
         all_chats = self._db.load_chats(group_id=group_id)
         if not all_chats:
             # No chats = nothing to analyze
+            logger.debug(f"[check_increment_needed] Group '{group_id}': no chats found")
             return False
 
+        logger.info(f"[check_increment_needed] Group '{group_id}': checking {len(all_chats)} chats")
+
         # Check for any FAILED chats (retry is always useful)
-        has_failed = any(
-            chat["status"] == GroupChatStatus.FAILED.value
-            for chat in all_chats
-        )
-        if has_failed:
-            # FAILED chats exist → retry is useful
+        failed_chats = [
+            chat for chat in all_chats
+            if chat["status"] == GroupChatStatus.FAILED.value
+        ]
+        if failed_chats:
+            logger.info(
+                f"[check_increment_needed] Group '{group_id}': "
+                f"{len(failed_chats)} FAILED chats found → INCREMENT needed"
+            )
             return True
 
         # Define which metrics are needed based on settings
@@ -177,12 +183,21 @@ class GroupAnalysisEngine:
         if settings.detect_captcha:
             required_metrics.append("captcha")
 
+        logger.debug(
+            f"[check_increment_needed] Group '{group_id}': "
+            f"required metrics = {required_metrics}"
+        )
+
         # Check each chat for missing metrics
         for chat in all_chats:
             result = self._db.load_result(group_id, chat["chat_ref"])
 
             # No result at all → needs analysis
             if not result:
+                logger.info(
+                    f"[check_increment_needed] Group '{group_id}': "
+                    f"chat @{chat['chat_ref']} has NO result → INCREMENT needed"
+                )
                 return True
 
             metrics_data = result.get("metrics_data", {})
@@ -191,10 +206,17 @@ class GroupAnalysisEngine:
             for metric in required_metrics:
                 value = metrics_data.get(metric)
                 if value is None:
-                    # Missing metric → needs analysis
+                    logger.info(
+                        f"[check_increment_needed] Group '{group_id}': "
+                        f"chat @{chat['chat_ref']} missing metric '{metric}' → INCREMENT needed"
+                    )
                     return True
 
         # All chats have all required metrics, no failed chats
+        logger.info(
+            f"[check_increment_needed] Group '{group_id}': "
+            f"all {len(all_chats)} chats have all metrics → no INCREMENT needed"
+        )
         return False
 
     async def start_analysis(

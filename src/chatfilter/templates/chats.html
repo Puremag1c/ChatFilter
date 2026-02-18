@@ -238,7 +238,7 @@
         var requestConfig = event.detail.requestConfig;
 
         // Check if this was a successful start or reanalyze request
-        // Match exact paths: /api/groups/{group_id}/start or /api/groups/{group_id}/reanalyze
+        // Match paths: /api/groups/{group_id}/start or /api/groups/{group_id}/reanalyze (with optional query params)
         if (xhr.status === 204 && requestConfig && requestConfig.path &&
             requestConfig.path.match(/\/api\/groups\/[^\/]+\/(start|reanalyze)(\?|$)/)) {
             ToastManager.info('Анализ запущен');

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncGenerator
 from typing import Annotated
 from urllib.parse import quote
@@ -29,6 +30,7 @@ from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def parse_optional_int(value: str | None) -> int | None:
@@ -1344,7 +1346,9 @@ async def reanalyze_group(
             settings = GroupSettings.from_dict(group_data["settings"])
 
             # Check if INCREMENT would have work to do
-            if not engine.check_increment_needed(group_id, settings):
+            increment_needed = engine.check_increment_needed(group_id, settings)
+            logger.info(f"[reanalyze_group] Group '{group_id}': increment_needed={increment_needed}")
+            if not increment_needed:
                 # All metrics already collected, nothing to do
                 # Return warning toast via HX-Trigger
                 import json

@@ -635,6 +635,20 @@
         // document.body.addEventListener('htmx:afterSwap', function(event) {
         //     console.log('HTMX swap successful:', event.detail);
         // });
+
+        // Handle custom HX-Trigger events (showToast)
+        document.body.addEventListener('showToast', function(event) {
+            const detail = event.detail;
+            if (detail && detail.value) {
+                const toast = detail.value;
+                ToastManager.show({
+                    type: toast.type || 'info',
+                    title: toast.title,
+                    message: toast.message,
+                    duration: toast.duration || 5000
+                });
+            }
+        });
     </script>
 
     <!-- Network Connectivity Status Monitor -->
