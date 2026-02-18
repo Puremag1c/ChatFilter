@@ -1186,6 +1186,7 @@ async def start_group_analysis(
     try:
         service = _get_group_service()
         engine = _get_group_engine(request)
+        session_mgr = request.app.state.session_manager
 
         # Update status to IN_PROGRESS
         updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
@@ -1193,11 +1194,13 @@ async def start_group_analysis(
         if not updated_group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # Start analysis via GroupAnalysisEngine
-        # This runs Phase 1 (join/resolve) in background
-        try:
-            await engine.start_analysis(group_id)
-        except NoConnectedAccountsError as e:
+        # Validate connected accounts BEFORE creating background task
+        connected_accounts = [
+            sid for sid in session_mgr.list_sessions()
+            if await session_mgr.is_healthy(sid)
+        ]
+
+        if not connected_accounts:
             # Rollback status update
             updated_group = service.update_status(group_id, GroupStatus.PENDING)
             stats = service.get_group_stats(group_id)
@@ -1209,20 +1212,16 @@ async def start_group_analysis(
                 context={
                     "group": updated_group,
                     "stats": stats,
-                    "error_message": str(e),
+                    "error_message": "No connected Telegram accounts available. Please connect at least one account to start analysis.",
                 },
             )
 
-        # Get updated group and stats after starting analysis
-        updated_group = service.get_group(group_id)
-        stats = service.get_group_stats(group_id)
+        # Start analysis via GroupAnalysisEngine (non-blocking)
+        # This runs Phase 1 (join/resolve) in background
+        asyncio.create_task(engine.start_analysis(group_id))
 
-        # Return updated group card to immediately show in_progress state
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/group_card.html",
-            context={"group": updated_group, "stats": stats},
-        )
+        # Return 204 No Content with HX-Trigger header to refresh the container
+        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
 
     except HTTPException:
         raise
@@ -1268,6 +1267,7 @@ async def reanalyze_group(
     try:
         service = _get_group_service()
         engine = _get_group_engine(request)
+        session_mgr = request.app.state.session_manager
 
         # Verify group exists and check status
         group = service.get_group(group_id)
@@ -1293,10 +1293,13 @@ async def reanalyze_group(
         # Update status to IN_PROGRESS
         updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
 
-        # Start analysis with specified mode
-        try:
-            await engine.start_analysis(group_id, mode=analysis_mode)
-        except NoConnectedAccountsError as e:
+        # Validate connected accounts BEFORE creating background task
+        connected_accounts = [
+            sid for sid in session_mgr.list_sessions()
+            if await session_mgr.is_healthy(sid)
+        ]
+
+        if not connected_accounts:
             # Rollback status update
             updated_group = service.update_status(group_id, GroupStatus.COMPLETED)
             stats = service.get_group_stats(group_id)
@@ -1308,20 +1311,15 @@ async def reanalyze_group(
                 context={
                     "group": updated_group,
                     "stats": stats,
-                    "error_message": str(e),
+                    "error_message": "No connected Telegram accounts available. Please connect at least one account to start analysis.",
                 },
             )
 
-        # Get updated group and stats after starting analysis
-        updated_group = service.get_group(group_id)
-        stats = service.get_group_stats(group_id)
+        # Start analysis with specified mode (non-blocking)
+        asyncio.create_task(engine.start_analysis(group_id, mode=analysis_mode))
 
-        # Return updated group card to immediately show in_progress state
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/group_card.html",
-            context={"group": updated_group, "stats": stats},
-        )
+        # Return 204 No Content with HX-Trigger header to refresh the container
+        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
 
     except HTTPException:
         raise
