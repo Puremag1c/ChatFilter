@@ -639,8 +639,8 @@
         // Handle custom HX-Trigger events (showToast)
         document.body.addEventListener('showToast', function(event) {
             const detail = event.detail;
-            if (detail && detail.value) {
-                const toast = detail.value;
+            if (detail) {
+                const toast = detail;
                 ToastManager.show({
                     type: toast.type || 'info',
                     title: toast.title,
