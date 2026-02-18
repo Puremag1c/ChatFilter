@@ -1353,7 +1353,6 @@ async def reanalyze_group(
             if not increment_needed:
                 # All metrics already collected, nothing to do
                 # Return warning toast via HX-Trigger
-                import json
                 trigger_data = json.dumps({
                     "refreshGroups": None,
                     "showToast": {
