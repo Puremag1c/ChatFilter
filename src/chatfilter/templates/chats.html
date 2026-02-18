@@ -209,6 +209,19 @@
         refreshGroups();
     });
 
+    // Show toast when analysis starts (start/reanalyze endpoints)
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        var xhr = event.detail.xhr;
+        var requestConfig = event.detail.requestConfig;
+
+        // Check if this was a successful start or reanalyze request
+        // Match exact paths: /api/groups/{group_id}/start or /api/groups/{group_id}/reanalyze
+        if (xhr.status === 204 && requestConfig && requestConfig.path &&
+            requestConfig.path.match(/\/api\/groups\/[^\/]+\/(start|reanalyze)$/)) {
+            ToastManager.info('Анализ запущен');
+        }
+    });
+
     // Initial load
     refreshGroups();
 })();
