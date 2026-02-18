@@ -1373,6 +1373,15 @@ class GroupAnalysisEngine:
                         # RateLimitedJoinError: join_chat() wrapped FloodWaitError
                         wait_seconds = e.wait_seconds
 
+                        # Activate adaptive backoff: increase base delay for remaining chats
+                        if base_delay < 10.0:
+                            base_delay = 10.0
+                            logger.info(
+                                f"Account '{account_id}': Rate limit detected, "
+                                f"increasing base delay to 10s for remaining chats"
+                            )
+
+
                         # FloodWait > MAX_FLOODWAIT_SECONDS: skip this chat (don't retry)
                         if wait_seconds > MAX_FLOODWAIT_SECONDS:
                             logger.warning(
@@ -1453,9 +1462,6 @@ class GroupAnalysisEngine:
                         self._publish_event(event)
 
                         await asyncio.sleep(total_wait)
-
-                        # Adaptive backoff: increase delay for remaining chats
-                        base_delay = 10.0
 
                         # Re-enqueue chat at front (process immediately after wait)
                         # Increment FloodWait retry count, keep generic retry_count unchanged
@@ -1546,9 +1552,6 @@ class GroupAnalysisEngine:
                         self._publish_event(event)
 
                         await asyncio.sleep(total_wait)
-
-                        # Adaptive backoff: increase delay for remaining chats
-                        base_delay = 10.0
 
                         # Re-enqueue chat at front (process immediately after wait)
                         # Increment FloodWait retry count, keep generic retry_count unchanged
