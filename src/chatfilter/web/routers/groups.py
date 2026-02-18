@@ -1269,10 +1269,14 @@ async def start_group_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/error_message.html",
-            context={"error": f"Failed to start analysis: {str(e)}"},
+        # Rollback status to PENDING so user can retry
+        try:
+            service.update_status(group_id, GroupStatus.PENDING)
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start analysis: {e}",
         )
 
 
@@ -1369,11 +1373,15 @@ async def reanalyze_group(
     except HTTPException:
         raise
     except Exception as e:
+        # Rollback status to COMPLETED so user can retry
+        try:
+            service.update_status(group_id, GroupStatus.COMPLETED)
+        except Exception:
+            pass
         mode_description = "incremental" if mode == "increment" else "overwrite"
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/error_message.html",
-            context={"error": f"Failed to start {mode_description} analysis: {str(e)}"},
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start {mode_description} analysis: {e}",
         )
 
 
