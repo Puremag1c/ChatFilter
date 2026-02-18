@@ -576,7 +576,7 @@ class GroupAnalysisEngine:
 
         # Initialize retry queue with (chat, retry_count, floodwait_retry_count) tuples
         MAX_RETRIES = 3
-        MAX_FLOODWAIT_SECONDS = 300
+        MAX_FLOODWAIT_SECONDS = 1800  # 30 minutes (Telegram asks 23-24 min normally)
         MAX_CHAT_TIMEOUT = 600  # 10 minutes cumulative wait per chat
         chat_queue = deque([(chat, 0, 0) for chat in account_chats])
         chat_cumulative_wait: dict[int, float] = {}  # Track total wait time per chat_id
@@ -637,9 +637,9 @@ class GroupAnalysisEngine:
                         )
                         self._publish_event(event)
 
-                        # Rate limiting: 1-2s delay between successful calls
+                        # Rate limiting: 5-7s delay between successful calls
                         if chat_queue:
-                            delay = 1.0 + random.random()
+                            delay = 5.0 + random.random() * 2
                             await asyncio.sleep(delay)
 
                     except errors.FloodWaitError as e:
@@ -1306,6 +1306,7 @@ class GroupAnalysisEngine:
         MAX_FLOODWAIT_RETRIES = 5
         MAX_FLOODWAIT_SECONDS = 1800  # 30 minutes (Telegram asks 23-24 min normally)
         chat_queue = deque([(chat, 0, 0) for chat in analyzable])
+        base_delay = 5.0  # Base delay between joins (adaptive: increases to 10.0 after rate limit)
 
         try:
             async with self._session_mgr.session(
@@ -1363,9 +1364,9 @@ class GroupAnalysisEngine:
                         )
                         self._publish_event(event)
 
-                        # Rate limiting between successful calls
+                        # Rate limiting between successful calls (5-7s normally, 10-12s after rate limit)
                         if chat_queue:
-                            delay = 1.0 + random.random()
+                            delay = base_delay + random.random() * 2
                             await asyncio.sleep(delay)
 
                     except RateLimitedJoinError as e:
@@ -1452,6 +1453,9 @@ class GroupAnalysisEngine:
                         self._publish_event(event)
 
                         await asyncio.sleep(total_wait)
+
+                        # Adaptive backoff: increase delay for remaining chats
+                        base_delay = 10.0
 
                         # Re-enqueue chat at front (process immediately after wait)
                         # Increment FloodWait retry count, keep generic retry_count unchanged
@@ -1542,6 +1546,9 @@ class GroupAnalysisEngine:
                         self._publish_event(event)
 
                         await asyncio.sleep(total_wait)
+
+                        # Adaptive backoff: increase delay for remaining chats
+                        base_delay = 10.0
 
                         # Re-enqueue chat at front (process immediately after wait)
                         # Increment FloodWait retry count, keep generic retry_count unchanged
