@@ -99,12 +99,17 @@ class GroupDatabase(SQLiteDatabase):
             self._migrate_to_v2_add_subscribers(conn)
             conn.execute("PRAGMA user_version = 2")
 
+        # Always ensure no duplicates and unique index exists.
+        # Previous migration v1 had a SQL bug that failed to dedup rows with
+        # identical analyzed_at timestamps — this catches any surviving duplicates.
+        self._ensure_group_results_unique(conn)
+
     def _migrate_to_v1_unique_constraint(self, conn: Any) -> None:
         """Migration v1: Add UNIQUE constraint on (group_id, chat_ref) for group_results.
 
         This migration:
         1. Identifies duplicate rows for same (group_id, chat_ref)
-        2. Keeps the newest row (by analyzed_at), deletes older ones
+        2. Keeps one row per (group_id, chat_ref) with the highest rowid
         3. Creates unique index on (group_id, chat_ref)
 
         Args:
@@ -118,19 +123,14 @@ class GroupDatabase(SQLiteDatabase):
         if cursor.fetchone():
             return  # Already migrated
 
-        # Delete duplicate rows, keeping the newest (by analyzed_at)
-        # For each (group_id, chat_ref) pair, keep only the row with MAX(analyzed_at)
+        # Delete duplicate rows — keep exactly one per (group_id, chat_ref).
+        # Uses MAX(rowid) to deterministically pick one survivor per group.
         conn.execute("""
             DELETE FROM group_results
             WHERE rowid NOT IN (
-                SELECT gr1.rowid
-                FROM group_results gr1
-                WHERE gr1.analyzed_at = (
-                    SELECT MAX(analyzed_at)
-                    FROM group_results gr2
-                    WHERE gr2.group_id = gr1.group_id
-                    AND gr2.chat_ref = gr1.chat_ref
-                )
+                SELECT MAX(rowid)
+                FROM group_results
+                GROUP BY group_id, chat_ref
             )
         """)
 
@@ -139,6 +139,48 @@ class GroupDatabase(SQLiteDatabase):
             CREATE UNIQUE INDEX idx_group_results_unique_group_chat
             ON group_results (group_id, chat_ref)
         """)
+
+    def _ensure_group_results_unique(self, conn: Any) -> None:
+        """Unconditionally remove duplicates and ensure unique index exists.
+
+        Runs on every startup to catch duplicates that survived a buggy v1
+        migration (which failed when rows had identical analyzed_at timestamps).
+
+        Args:
+            conn: Active database connection
+        """
+        # Check if duplicates exist
+        cursor = conn.execute("""
+            SELECT COUNT(*) as dup_count FROM (
+                SELECT group_id, chat_ref
+                FROM group_results
+                GROUP BY group_id, chat_ref
+                HAVING COUNT(*) > 1
+            )
+        """)
+        dup_count = cursor.fetchone()["dup_count"]
+
+        if dup_count > 0:
+            # Remove duplicates — keep the row with highest rowid per (group_id, chat_ref)
+            conn.execute("""
+                DELETE FROM group_results
+                WHERE rowid NOT IN (
+                    SELECT MAX(rowid)
+                    FROM group_results
+                    GROUP BY group_id, chat_ref
+                )
+            """)
+
+        # Ensure unique index exists
+        cursor = conn.execute("""
+            SELECT name FROM sqlite_master
+            WHERE type='index' AND name='idx_group_results_unique_group_chat'
+        """)
+        if not cursor.fetchone():
+            conn.execute("""
+                CREATE UNIQUE INDEX idx_group_results_unique_group_chat
+                ON group_results (group_id, chat_ref)
+            """)
 
     def _migrate_to_v2_add_subscribers(self, conn: Any) -> None:
         """Migration v2: Add subscribers column to group_chats.
