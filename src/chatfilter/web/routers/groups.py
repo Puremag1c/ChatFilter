@@ -1261,10 +1261,13 @@ async def start_group_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/error_message.html",
-            context={"error": f"Failed to start analysis: {str(e)}"},
+        # Rollback status update if task creation failed
+        service.update_status(group_id, GroupStatus.PENDING)
+
+        # Raise HTTPException to trigger htmx:responseError handler (toast)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start analysis: {str(e)}"
         )
 
 
@@ -1361,11 +1364,14 @@ async def reanalyze_group(
     except HTTPException:
         raise
     except Exception as e:
+        # Rollback status update if task creation failed
+        service.update_status(group_id, GroupStatus.COMPLETED)
+
         mode_description = "incremental" if mode == "increment" else "overwrite"
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/error_message.html",
-            context={"error": f"Failed to start {mode_description} analysis: {str(e)}"},
+        # Raise HTTPException to trigger htmx:responseError handler (toast)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start {mode_description} analysis: {str(e)}"
         )
 
 
