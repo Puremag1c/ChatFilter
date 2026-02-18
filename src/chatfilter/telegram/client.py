@@ -872,6 +872,32 @@ class JoinChatError(Exception):
     """Raised when joining a chat fails."""
 
 
+class RateLimitedJoinError(JoinChatError):
+    """Raised when joining a chat fails due to rate limiting (FloodWait).
+
+    Preserves the wait time in seconds specified by Telegram.
+
+    Attributes:
+        wait_seconds: Number of seconds to wait before retrying (int or float > 0)
+    """
+
+    def __init__(self, message: str = "", wait_seconds: int | float = 60) -> None:
+        """Initialize RateLimitedJoinError with validated wait_seconds.
+
+        Args:
+            message: Error message
+            wait_seconds: Seconds to wait (must be int/float > 0, defaults to 60 if invalid)
+        """
+        super().__init__(message)
+
+        # Validate wait_seconds: must be int or float > 0
+        if isinstance(wait_seconds, (int, float)) and wait_seconds > 0:
+            self.wait_seconds = wait_seconds
+        else:
+            # Invalid input - default to 60 seconds
+            self.wait_seconds = 60
+
+
 class LeaveChatError(Exception):
     """Raised when leaving a chat fails."""
 
@@ -1810,12 +1836,13 @@ async def join_chat(
         # Re-raise our own errors
         raise
     except FloodWaitError as e:
-        # FloodWait when joining chat - inform user with exact wait time
+        # FloodWait when joining chat - preserve wait time in specialized exception
         from chatfilter.telegram.error_mapping import get_user_friendly_message
 
         friendly_msg = get_user_friendly_message(e)
-        raise JoinChatError(
-            f"Rate limited by Telegram when joining {chat_ref}. {friendly_msg}"
+        raise RateLimitedJoinError(
+            f"Rate limited by Telegram when joining {chat_ref}. {friendly_msg}",
+            wait_seconds=e.seconds,
         ) from e
     except Exception as e:
         error_msg = str(e).lower()
