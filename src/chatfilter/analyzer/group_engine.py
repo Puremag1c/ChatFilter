@@ -30,6 +30,7 @@ from chatfilter.models.group import (
 )
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.client import (
+    RateLimitedJoinError,
     _parse_chat_reference,
     _telethon_message_to_model,
     join_chat,
@@ -766,8 +767,8 @@ class GroupAnalysisEngine:
                         )
 
                         if retry_count + 1 < MAX_RETRIES:
-                            # Retry: re-enqueue at end
-                            chat_queue.append((chat, retry_count + 1))
+                            # Retry: re-enqueue at end, increment retry_count, preserve floodwait_retry_count
+                            chat_queue.append((chat, retry_count + 1, floodwait_retry_count))
 
                             event = GroupProgressEvent(
                                 group_id=group_id,
@@ -1292,10 +1293,11 @@ class GroupAnalysisEngine:
         # Initialize progress counter (start from zero for THIS run)
         current_count = 0
 
-        # Initialize retry queue with (chat, retry_count) tuples
+        # Initialize retry queue with (chat, retry_count, floodwait_retry_count) tuples
         MAX_RETRIES = 3
-        MAX_FLOODWAIT_SECONDS = 300
-        chat_queue = deque([(chat, 0) for chat in analyzable])
+        MAX_FLOODWAIT_RETRIES = 5
+        MAX_FLOODWAIT_SECONDS = 1800  # 30 minutes (Telegram asks 23-24 min normally)
+        chat_queue = deque([(chat, 0, 0) for chat in analyzable])
 
         try:
             async with self._session_mgr.session(
@@ -1303,7 +1305,7 @@ class GroupAnalysisEngine:
                 auto_disconnect=False,
             ) as client:
                 while chat_queue:
-                    chat, retry_count = chat_queue.popleft()
+                    chat, retry_count, floodwait_retry_count = chat_queue.popleft()
 
                     try:
                         # INCREMENT mode: skip if Phase 2 metrics already exist
@@ -1358,27 +1360,28 @@ class GroupAnalysisEngine:
                             delay = 1.0 + random.random()
                             await asyncio.sleep(delay)
 
-                    except errors.FloodWaitError as e:
-                        wait_seconds = getattr(e, "seconds", 0)
+                    except RateLimitedJoinError as e:
+                        # RateLimitedJoinError: join_chat() wrapped FloodWaitError
+                        wait_seconds = e.wait_seconds
 
-                        # FloodWait > 300s: skip this chat (don't retry)
+                        # FloodWait > MAX_FLOODWAIT_SECONDS: skip this chat (don't retry)
                         if wait_seconds > MAX_FLOODWAIT_SECONDS:
                             logger.warning(
                                 f"Account '{account_id}': Phase 2 FloodWait {wait_seconds}s "
-                                f"on '{chat['chat_ref']}' exceeds limit. Skipping chat."
+                                f"on '{chat['chat_ref']}' exceeds limit ({MAX_FLOODWAIT_SECONDS}s). Skipping chat."
                             )
                             # Keep DONE status from Phase 1, just note the error
                             self._db.update_chat_status(
                                 chat_id=chat["id"],
                                 status=GroupChatStatus.DONE.value,
-                                error=f"Phase 2 FloodWait too long: {wait_seconds}s",
+                                error=f"Phase 2 FloodWait too long: {wait_seconds}s (limit: {MAX_FLOODWAIT_SECONDS}s)",
                             )
 
                             # Update existing result with error_reason (preserve Phase 1 data)
                             self._db.upsert_result(
                                 group_id=group_id,
                                 chat_ref=chat["chat_ref"],
-                                metrics_data={"error_reason": f"Phase 2 FloodWait too long: {wait_seconds}s"},
+                                metrics_data={"error_reason": f"Phase 2 FloodWait too long: {wait_seconds}s (limit: {MAX_FLOODWAIT_SECONDS}s)"},
                             )
 
                             current_count += 1
@@ -1393,12 +1396,41 @@ class GroupAnalysisEngine:
                             self._publish_event(event)
                             continue
 
-                        # FloodWait <= 300s: wait with 10% buffer and retry
+                        # Check FloodWait retry limit (separate from generic retries)
+                        if floodwait_retry_count + 1 >= MAX_FLOODWAIT_RETRIES:
+                            logger.error(
+                                f"Account '{account_id}': Phase 2 FloodWait for '{chat['chat_ref']}' "
+                                f"failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries"
+                            )
+                            self._db.update_chat_status(
+                                chat_id=chat["id"],
+                                status=GroupChatStatus.DONE.value,
+                                error=f"Phase 2 failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries",
+                            )
+                            self._db.upsert_result(
+                                group_id=group_id,
+                                chat_ref=chat["chat_ref"],
+                                metrics_data={"error_reason": f"Phase 2 failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries"},
+                            )
+                            current_count += 1
+                            event = GroupProgressEvent(
+                                group_id=group_id,
+                                status=GroupStatus.IN_PROGRESS.value,
+                                current=current_count,
+                                total=total_chats,
+                                chat_title=chat["chat_ref"],
+                                error=f"FloodWait retry limit exceeded",
+                            )
+                            self._publish_event(event)
+                            continue
+
+                        # FloodWait <= MAX_FLOODWAIT_SECONDS: wait with 10% buffer and retry
                         buffer = int(wait_seconds * 0.1)
                         total_wait = wait_seconds + buffer
                         logger.warning(
                             f"Account '{account_id}': Phase 2 FloodWait {wait_seconds}s "
-                            f"on '{chat['chat_ref']}'. Waiting {total_wait}s..."
+                            f"on '{chat['chat_ref']}' (FloodWait attempt {floodwait_retry_count + 1}/{MAX_FLOODWAIT_RETRIES}). "
+                            f"Waiting {total_wait}s..."
                         )
 
                         event = GroupProgressEvent(
@@ -1414,7 +1446,98 @@ class GroupAnalysisEngine:
                         await asyncio.sleep(total_wait)
 
                         # Re-enqueue chat at front (process immediately after wait)
-                        chat_queue.appendleft((chat, retry_count))
+                        # Increment FloodWait retry count, keep generic retry_count unchanged
+                        chat_queue.appendleft((chat, retry_count, floodwait_retry_count + 1))
+
+                    except errors.FloodWaitError as e:
+                        # FloodWaitError from client.iter_messages() or other Telethon operations
+                        # (not wrapped by join_chat, so comes as raw errors.FloodWaitError)
+                        wait_seconds = int(e.seconds)
+
+                        # FloodWait > MAX_FLOODWAIT_SECONDS: skip this chat (don't retry)
+                        if wait_seconds > MAX_FLOODWAIT_SECONDS:
+                            logger.warning(
+                                f"Account '{account_id}': Phase 2 FloodWait {wait_seconds}s "
+                                f"on '{chat['chat_ref']}' exceeds limit ({MAX_FLOODWAIT_SECONDS}s). Skipping chat."
+                            )
+                            # Keep DONE status from Phase 1, just note the error
+                            self._db.update_chat_status(
+                                chat_id=chat["id"],
+                                status=GroupChatStatus.DONE.value,
+                                error=f"Phase 2 FloodWait too long: {wait_seconds}s (limit: {MAX_FLOODWAIT_SECONDS}s)",
+                            )
+
+                            # Update existing result with error_reason (preserve Phase 1 data)
+                            self._db.upsert_result(
+                                group_id=group_id,
+                                chat_ref=chat["chat_ref"],
+                                metrics_data={"error_reason": f"Phase 2 FloodWait too long: {wait_seconds}s (limit: {MAX_FLOODWAIT_SECONDS}s)"},
+                            )
+
+                            current_count += 1
+                            event = GroupProgressEvent(
+                                group_id=group_id,
+                                status=GroupStatus.IN_PROGRESS.value,
+                                current=current_count,
+                                total=total_chats,
+                                chat_title=chat["chat_ref"],
+                                error=f"Phase 2 FloodWait too long: {wait_seconds}s",
+                            )
+                            self._publish_event(event)
+                            continue
+
+                        # Check FloodWait retry limit (separate from generic retries)
+                        if floodwait_retry_count + 1 >= MAX_FLOODWAIT_RETRIES:
+                            logger.error(
+                                f"Account '{account_id}': Phase 2 FloodWait for '{chat['chat_ref']}' "
+                                f"failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries"
+                            )
+                            self._db.update_chat_status(
+                                chat_id=chat["id"],
+                                status=GroupChatStatus.DONE.value,
+                                error=f"Phase 2 failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries",
+                            )
+                            self._db.upsert_result(
+                                group_id=group_id,
+                                chat_ref=chat["chat_ref"],
+                                metrics_data={"error_reason": f"Phase 2 failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries"},
+                            )
+                            current_count += 1
+                            event = GroupProgressEvent(
+                                group_id=group_id,
+                                status=GroupStatus.IN_PROGRESS.value,
+                                current=current_count,
+                                total=total_chats,
+                                chat_title=chat["chat_ref"],
+                                error=f"FloodWait retry limit exceeded",
+                            )
+                            self._publish_event(event)
+                            continue
+
+                        # FloodWait <= MAX_FLOODWAIT_SECONDS: wait with 10% buffer and retry
+                        buffer = int(wait_seconds * 0.1)
+                        total_wait = wait_seconds + buffer
+                        logger.warning(
+                            f"Account '{account_id}': Phase 2 FloodWait {wait_seconds}s "
+                            f"on '{chat['chat_ref']}' (FloodWait attempt {floodwait_retry_count + 1}/{MAX_FLOODWAIT_RETRIES}). "
+                            f"Waiting {total_wait}s..."
+                        )
+
+                        event = GroupProgressEvent(
+                            group_id=group_id,
+                            status=GroupStatus.IN_PROGRESS.value,
+                            current=current_count,
+                            total=total_chats,
+                            chat_title=chat["chat_ref"],
+                            message=f"Waiting for FloodWait cooldown ({total_wait}s remaining)...",
+                        )
+                        self._publish_event(event)
+
+                        await asyncio.sleep(total_wait)
+
+                        # Re-enqueue chat at front (process immediately after wait)
+                        # Increment FloodWait retry count, keep generic retry_count unchanged
+                        chat_queue.appendleft((chat, retry_count, floodwait_retry_count + 1))
 
                     except Exception as e:
                         # Any other error: retry up to MAX_RETRIES
@@ -1422,12 +1545,12 @@ class GroupAnalysisEngine:
                         error_msg = f"{error_type}: {e}"
                         logger.warning(
                             f"Account '{account_id}': Phase 2 error on '{chat['chat_ref']}' "
-                            f"(attempt {retry_count + 1}/{MAX_RETRIES}): {error_msg}"
+                            f"(generic attempt {retry_count + 1}/{MAX_RETRIES}): {error_msg}"
                         )
 
                         if retry_count + 1 < MAX_RETRIES:
-                            # Retry: re-enqueue at end
-                            chat_queue.append((chat, retry_count + 1))
+                            # Retry: re-enqueue at end, increment retry_count, preserve floodwait_retry_count
+                            chat_queue.append((chat, retry_count + 1, floodwait_retry_count))
 
                             event = GroupProgressEvent(
                                 group_id=group_id,
