@@ -296,30 +296,38 @@ class GroupAnalysisEngine:
                     group_id=group_id,
                     status=GroupChatStatus.PENDING.value,
                 )
-            # If ALL chats are DONE → publish 'complete' event, set COMPLETED, return
+            # If ALL chats are DONE → check if INCREMENT needs Phase 2
             elif done_chats and len(done_chats) == len(all_chats):
-                logger.info(
-                    f"All {len(all_chats)} chats already DONE for group '{group_id}'. "
-                    f"Marking as COMPLETED."
-                )
-                self._db.save_group(
-                    group_id=group_id,
-                    name=group_data["name"],
-                    settings=group_data["settings"],
-                    status=GroupStatus.COMPLETED.value,
-                    created_at=group_data["created_at"],
-                    updated_at=datetime.now(UTC),
-                )
-                # Publish completion event
-                event = GroupProgressEvent(
-                    group_id=group_id,
-                    status=GroupStatus.COMPLETED.value,
-                    current=len(done_chats),
-                    total=len(all_chats),
-                    message="Analysis already completed",
-                )
-                self._publish_event(event)
-                return
+                if mode == AnalysisMode.INCREMENT and settings.needs_join():
+                    # INCREMENT + needs_join: skip Phase 1, proceed to Phase 2
+                    logger.info(
+                        f"All {len(all_chats)} chats DONE for group {group_id!r}. "
+                        f"INCREMENT mode with activity metrics — proceeding to Phase 2."
+                    )
+                    pending_chats = []  # empty list so Phase 1 loop is skipped
+                else:
+                    logger.info(
+                        f"All {len(all_chats)} chats already DONE for group '{group_id}'. "
+                        f"Marking as COMPLETED."
+                    )
+                    self._db.save_group(
+                        group_id=group_id,
+                        name=group_data["name"],
+                        settings=group_data["settings"],
+                        status=GroupStatus.COMPLETED.value,
+                        created_at=group_data["created_at"],
+                        updated_at=datetime.now(UTC),
+                    )
+                    # Publish completion event
+                    event = GroupProgressEvent(
+                        group_id=group_id,
+                        status=GroupStatus.COMPLETED.value,
+                        current=len(done_chats),
+                        total=len(all_chats),
+                        message="Analysis already completed",
+                    )
+                    self._publish_event(event)
+                    return
             else:
                 # No PENDING, no FAILED, not all DONE → something is wrong
                 logger.warning(
