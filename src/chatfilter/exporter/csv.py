@@ -146,15 +146,29 @@ def to_csv_rows_dynamic(
         if settings is None or settings.detect_activity:
             messages_per_hour = metrics.get("messages_per_hour")
             if messages_per_hour is not None:
-                # Safe type coercion: handle both float and string values
-                row.append(f"{float(messages_per_hour):.2f}")
+                # Handle special "N/A" value for chats with moderation
+                if messages_per_hour == "N/A":
+                    row.append("N/A")
+                else:
+                    # Safe type coercion: handle both float and string numeric values
+                    try:
+                        row.append(f"{float(messages_per_hour):.2f}")
+                    except (ValueError, TypeError):
+                        row.append(str(messages_per_hour))
             else:
                 row.append("")
         if settings is None or settings.detect_unique_authors:
             unique_authors_per_hour = metrics.get("unique_authors_per_hour")
             if unique_authors_per_hour is not None:
-                # Safe type coercion: handle both float and string values
-                row.append(f"{float(unique_authors_per_hour):.2f}")
+                # Handle special "N/A" value for chats with moderation
+                if unique_authors_per_hour == "N/A":
+                    row.append("N/A")
+                else:
+                    # Safe type coercion: handle both float and string numeric values
+                    try:
+                        row.append(f"{float(unique_authors_per_hour):.2f}")
+                    except (ValueError, TypeError):
+                        row.append(str(unique_authors_per_hour))
             else:
                 row.append("")
         if settings is None or settings.detect_moderation:
