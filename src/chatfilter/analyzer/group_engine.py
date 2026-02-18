@@ -471,20 +471,11 @@ class GroupAnalysisEngine:
             f"Phase 1: Account '{account_id}' resolving {len(account_chats)} chats"
         )
 
-        # Get total chat count for progress calculation (load ONCE)
-        all_chats = self._db.load_chats(group_id=group_id)
-        total_chats = len(all_chats)
+        # Get total chat count for progress calculation (THIS account's work)
+        total_chats = len(account_chats)
 
-        # Initialize progress counter (start from current processed count)
-        done_chats = self._db.load_chats(
-            group_id=group_id,
-            status=GroupChatStatus.DONE.value,
-        )
-        failed_chats = self._db.load_chats(
-            group_id=group_id,
-            status=GroupChatStatus.FAILED.value,
-        )
-        current_count = len(done_chats) + len(failed_chats)
+        # Initialize progress counter (start from zero for THIS run)
+        current_count = 0
 
         # Initialize retry queue with (chat, retry_count) tuples
         MAX_RETRIES = 3
@@ -1207,20 +1198,11 @@ class GroupAnalysisEngine:
             f"{len(analyzable)} chats for activity"
         )
 
-        # Get total chat count for progress calculation (load ONCE)
-        all_chats = self._db.load_chats(group_id=group_id)
-        total_chats = len(all_chats)
+        # Get total chat count for progress calculation (THIS account's work)
+        total_chats = len(analyzable)
 
-        # Initialize progress counter (start from current processed count)
-        done_chats = self._db.load_chats(
-            group_id=group_id,
-            status=GroupChatStatus.DONE.value,
-        )
-        failed_chats = self._db.load_chats(
-            group_id=group_id,
-            status=GroupChatStatus.FAILED.value,
-        )
-        current_count = len(done_chats) + len(failed_chats)
+        # Initialize progress counter (start from zero for THIS run)
+        current_count = 0
 
         # Initialize retry queue with (chat, retry_count) tuples
         MAX_RETRIES = 3
