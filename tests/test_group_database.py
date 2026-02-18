@@ -417,7 +417,7 @@ def test_foreign_key_constraint(temp_db):
 
 
 def test_unique_constraint_on_group_results(temp_db, sample_group_data):
-    """Test that UNIQUE constraint on (group_id, chat_ref) prevents duplicates."""
+    """Test that UNIQUE constraint on (group_id, chat_ref) prevents duplicates via deduplication."""
     # Setup group
     temp_db.save_group(
         group_id=sample_group_data["id"],
@@ -433,13 +433,18 @@ def test_unique_constraint_on_group_results(temp_db, sample_group_data):
         metrics_data={"message_count": 100},
     )
 
-    # Try to save duplicate (same group_id + chat_ref) - should fail
-    with pytest.raises(Exception):  # sqlite3.IntegrityError
-        temp_db.save_result(
-            group_id=sample_group_data["id"],
-            chat_ref="@test_channel",
-            metrics_data={"message_count": 200},
-        )
+    # Save duplicate (same group_id + chat_ref) - should silently deduplicate
+    temp_db.save_result(
+        group_id=sample_group_data["id"],
+        chat_ref="@test_channel",
+        metrics_data={"message_count": 200},
+    )
+
+    # Verify only 1 row exists (deduplication worked, first insert preserved)
+    results = temp_db.load_results(sample_group_data["id"])
+    assert len(results) == 1
+    # ON CONFLICT DO NOTHING keeps the first row, ignores the second
+    assert results[0]["metrics_data"]["message_count"] == 100
 
 
 def test_migration_removes_duplicates():
