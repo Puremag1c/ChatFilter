@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-02-19
+
+### Fixed
+- SMOKE: [Must Have] Pre-connect proxy diagnostic doesn't update session_manager state — session stuck in Connecting
+
+### Changed
+- [Reliability] Add explicit timeout for SOCKS5 handshake in health check
+- [OPS] Integration test for real SOCKS5 proxy health check
+- [Security] Add SOCKS5 auth failure handling without credential exposure
+- [UX] Document error message UI delivery for pre-connect diagnostic
+- [Security] Sanitize proxy credentials in logs and error messages
+- [UX] Add loading states for SOCKS5 health check and pre-connect diagnostic
+- [Reliability] Pre-connect proxy test must timeout faster than full connect
+- Tests for SOCKS5 health check and pre-connect diagnostics
+- Pre-connect proxy diagnostic in _do_connect_in_background_v2
+- SOCKS5 health check: replace TCP-only with full SOCKS5 handshake + Telegram DC tunnel
+- Plan reviewed
+- Planning complete: v0.10.4 proxy diagnostics
+
 ## [0.10.3] - 2026-02-19
 
 ### Fixed
@@ -918,7 +937,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.0...v0.10.1
