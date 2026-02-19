@@ -353,24 +353,28 @@ async def delete_proxy(
         )
 
 
-@router.post("/api/proxies/{proxy_id}/retest", response_model=ProxyRetestResponse)
+@router.post("/api/proxies/{proxy_id}/retest", response_class=HTMLResponse)
 async def retest_proxy_endpoint(
+    request: Request,
     proxy_id: Annotated[
         str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
     ],
-) -> ProxyRetestResponse:
+) -> HTMLResponse:
     """Retest a proxy's health and update its status.
 
     Resets the failure counter, then performs a health check.
     Used to re-enable a disabled proxy after fixing connection issues.
 
     Args:
+        request: FastAPI request object for template rendering.
         proxy_id: UUID of the proxy to retest.
 
     Returns:
-        ProxyRetestResponse with updated proxy status or error.
+        HTMLResponse with single <tr> fragment for HTMX swap or error.
     """
     from chatfilter.service.proxy_health import retest_proxy
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.template_helpers import get_template_context
 
     try:
         updated_proxy = await retest_proxy(proxy_id)
@@ -383,19 +387,44 @@ async def retest_proxy_endpoint(
 
         logger.info(f"Retested proxy: {updated_proxy.name} - status: {updated_proxy.status.value}")
 
-        return ProxyRetestResponse(
-            success=True,
-            proxy=_proxy_to_response(updated_proxy),
+        # Get usage count for the proxy
+        usage_count = len(_get_sessions_using_proxy(proxy_id))
+
+        # Build proxy data for template
+        proxy_data = {
+            "id": updated_proxy.id,
+            "name": updated_proxy.name,
+            "type": updated_proxy.type.value,
+            "host": updated_proxy.host,
+            "port": updated_proxy.port,
+            "username": updated_proxy.username,
+            "has_auth": updated_proxy.has_auth,
+            "usage_count": usage_count,
+            "status": updated_proxy.status.value,
+            "last_ping_at": updated_proxy.last_ping_at,
+            "last_success_at": updated_proxy.last_success_at,
+            "consecutive_failures": updated_proxy.consecutive_failures,
+            "is_available": updated_proxy.is_available,
+        }
+
+        # Render single row using macro
+        templates = get_templates()
+        template = templates.env.from_string(
+            "{% from 'partials/proxy_pool_list.html' import proxy_row %}"
+            "{{ proxy_row(proxy) }}"
         )
+        html = template.render(**get_template_context(request, proxy=proxy_data))
+
+        return HTMLResponse(content=html, status_code=200)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Failed to retest proxy {proxy_id}")
-        return ProxyRetestResponse(
-            success=False,
-            error=f"Failed to retest proxy: {e}",
-        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retest proxy",
+        ) from e
 
 
 @router.get("/api/proxies/list", response_class=HTMLResponse)
