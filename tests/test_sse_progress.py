@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.analyzer.group_engine import GroupProgressEvent
-from chatfilter.models.group import GroupSettings, GroupStatus
+from chatfilter.models.group import GroupSettings, GroupStats, GroupStatus
 from chatfilter.web.app import create_app
 
 
@@ -48,12 +48,18 @@ class TestSSEProgressEndpoint:
             )
 
             service.get_group.return_value = mock_group
-            service.get_group_stats.return_value = {
-                "total": 10,
-                "analyzed": 3,
-                "failed": 1,
-                "pending": 6,
-            }
+            service.get_group_stats.return_value = GroupStats(
+                total=10,
+                analyzed=3,
+                failed=1,
+                pending=6,
+                dead=0,
+                groups=0,
+                forums=0,
+                channels_with_comments=0,
+                channels_no_comments=0,
+                skipped_moderation=0,
+            )
 
             mock.return_value = service
             yield service
@@ -64,13 +70,13 @@ class TestSSEProgressEndpoint:
         with patch("chatfilter.web.routers.groups._get_group_engine") as mock:
             engine = MagicMock()
 
-            # Create a mock progress queue
-            async def mock_subscribe(group_id: str):
+            def mock_subscribe(group_id: str):
                 """Mock subscribe that returns a queue with test events."""
                 queue = asyncio.Queue()
 
-                # Add some test events
-                await queue.put(
+                # Pre-populate the queue with test events (synchronously)
+                # The actual code will await queue.get() to retrieve them
+                queue.put_nowait(
                     GroupProgressEvent(
                         group_id=group_id,
                         status="analyzing",
@@ -81,7 +87,7 @@ class TestSSEProgressEndpoint:
                     )
                 )
 
-                await queue.put(
+                queue.put_nowait(
                     GroupProgressEvent(
                         group_id=group_id,
                         status="analyzing",
@@ -93,7 +99,7 @@ class TestSSEProgressEndpoint:
                 )
 
                 # Signal completion
-                await queue.put(None)
+                queue.put_nowait(None)
 
                 return queue
 
