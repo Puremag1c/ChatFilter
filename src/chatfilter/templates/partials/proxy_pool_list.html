@@ -1,5 +1,5 @@
 {# Macro for rendering a single proxy row #}
-{% macro proxy_row(proxy) %}
+{% macro proxy_row(proxy, _) %}
 <tr id="proxy-row-{{ proxy.id }}" class="{% if not proxy.is_available %}proxy-disabled{% endif %}">
     <td data-label="{{ _("Status") }}">
         <span class="spinner-small status-loading-spinner">{{ _("Testing...") }}</span>
@@ -103,7 +103,7 @@
         </thead>
         <tbody>
             {% for proxy in proxies %}
-            {{ proxy_row(proxy) }}
+            {{ proxy_row(proxy, _) }}
             {% endfor %}
         </tbody>
     </table>
