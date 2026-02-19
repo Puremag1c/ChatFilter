@@ -408,12 +408,22 @@ async def retest_proxy_endpoint(
             "is_available": updated_proxy.is_available,
         }
 
-        # Render single row using macro
+        # Render single row using macro (via helper template to preserve i18n)
         templates = get_templates()
-        template = templates.env.from_string(
-            "{% from 'partials/proxy_pool_list.html' import proxy_row %}"
-            "{{ proxy_row(proxy) }}"
-        )
+
+        # Install translations for current request locale
+        # We need to do this because env.get_template() uses env-level gettext,
+        # not the per-request translation function from get_template_context()
+        from chatfilter.i18n.middleware import LocaleMiddleware
+        from chatfilter.i18n.translations import get_translations
+
+        # Detect locale from request (same logic as middleware)
+        middleware = LocaleMiddleware(app=None)  # type: ignore
+        locale = middleware._detect_locale(request)
+        translations = get_translations(locale)
+        templates.env.install_gettext_translations(translations)  # type: ignore[attr-defined]
+
+        template = templates.env.get_template("partials/proxy_row_single.html")
         html = template.render(**get_template_context(request, proxy=proxy_data))
 
         return HTMLResponse(content=html, status_code=200)
