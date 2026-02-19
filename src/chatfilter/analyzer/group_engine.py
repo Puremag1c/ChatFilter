@@ -1446,8 +1446,12 @@ class GroupAnalysisEngine:
                                     self._publish_event(event)
                                     continue
 
-                        await self._analyze_chat_activity(
-                            client, group_id, chat, account_id, settings,
+                        # Wrap Phase 2 activity analysis with 5-minute timeout
+                        await asyncio.wait_for(
+                            self._analyze_chat_activity(
+                                client, group_id, chat, account_id, settings,
+                            ),
+                            timeout=300,
                         )
 
                         # Success — increment counter and publish event
@@ -1476,6 +1480,39 @@ class GroupAnalysisEngine:
                         if chat_queue:
                             delay = base_delay + random.random() * 2
                             await asyncio.sleep(delay)
+
+                    except asyncio.TimeoutError:
+                        # Phase 2 activity analysis timed out (5 minutes)
+                        logger.warning(
+                            f"Account '{account_id}': Phase 2 timeout (5 min) for '{chat['chat_ref']}'"
+                        )
+
+                        # Mark chat as FAILED with timeout error
+                        self._db.update_chat_status(
+                            chat_id=chat["id"],
+                            status=GroupChatStatus.FAILED.value,
+                            error="Phase 2 timeout (5 min)",
+                        )
+
+                        # Update result with error_reason (preserve Phase 1 data if exists)
+                        self._db.upsert_result(
+                            group_id=group_id,
+                            chat_ref=chat["chat_ref"],
+                            metrics_data={"error_reason": "Phase 2 timeout (5 min)"},
+                        )
+
+                        # Increment counter and publish event
+                        current_count += 1
+                        event = GroupProgressEvent(
+                            group_id=group_id,
+                            status=GroupStatus.IN_PROGRESS.value,
+                            current=current_count,
+                            total=total_chats,
+                            chat_title=chat["chat_ref"],
+                            error="Phase 2 timeout (5 min)",
+                        )
+                        self._publish_event(event)
+                        continue
 
                     except RateLimitedJoinError as e:
                         # RateLimitedJoinError: join_chat() wrapped FloodWaitError
