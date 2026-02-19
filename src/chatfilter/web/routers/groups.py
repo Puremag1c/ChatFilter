@@ -1513,7 +1513,18 @@ async def resume_group_analysis(
         # Verify group exists
         group = service.get_group(group_id)
         if not group:
-            raise HTTPException(status_code=404, detail="Group not found")
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "Group not found",
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=404,
+                headers={'HX-Trigger': trigger_data}
+            )
 
         # Validate status == PAUSED or handle concurrent resume
         if group.status == GroupStatus.IN_PROGRESS:
