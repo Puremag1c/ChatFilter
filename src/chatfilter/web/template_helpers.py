@@ -36,15 +36,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
     def _(message: str) -> str:
         return translations.gettext(message)
 
-    # Get CSS version from app state (computed at startup for cache-busting)
-    css_version = getattr(request.app.state, "app_state", None)
-    if css_version and hasattr(css_version, "css_version"):
-        css_version = css_version.css_version
-    else:
-        # Fallback to __version__ if app_state not initialized
-        from chatfilter import __version__
-        css_version = __version__
-
     return {
         "request": request,
         "csrf_token": csrf_token,
@@ -52,6 +43,5 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "_": _,  # Pass translation function directly to override Jinja2 i18n
         "gettext": translations.gettext,
         "ngettext": translations.ngettext,
-        "css_version": css_version,  # CSS file hash for cache-busting
         **kwargs,
     }

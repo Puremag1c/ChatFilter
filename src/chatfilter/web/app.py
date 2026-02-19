@@ -59,7 +59,6 @@ class AppState:
         self.session_manager: SessionManager | None = None  # Will be set during startup
         self.proxy_health_monitor: ProxyHealthMonitor | None = None  # Will be set during startup
         self.analysis_tasks: dict[str, asyncio.Task] = {}  # Background analysis tasks by group_id
-        self.css_version: str = ""  # CSS file hash for cache-busting
 
 
 @asynccontextmanager
@@ -152,18 +151,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     auth_state_manager = get_auth_state_manager()
     auth_state_manager.start_cleanup_task()
     logger.info("Auth state cleanup task started")
-
-    # Compute CSS file hash for cache-busting
-    import hashlib
-    css_path = STATIC_DIR / "css" / "style.css"
-    if css_path.exists():
-        with css_path.open("rb") as f:
-            css_hash = hashlib.sha256(f.read()).hexdigest()[:8]
-            app.state.app_state.css_version = css_hash
-            logger.info(f"CSS cache-buster: {css_hash}")
-    else:
-        app.state.app_state.css_version = __version__
-        logger.warning(f"CSS file not found, using version {__version__} as cache-buster")
 
     logger.info("Application startup complete")
 
