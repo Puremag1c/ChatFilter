@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.8] - 2026-02-19
+
+### Fixed
+- Fix: Add 5-minute timeout to Phase 2 activity analysis
+- Fix: pyproject.toml version out of sync (0.10.6 vs 0.10.7)
+- SMOKE: [Backend] GroupStats model lost status breakdown (test failure)
+- SMOKE: [Backend] Missing tests for 5-minute chat analysis timeout
+- SMOKE: [Backend] Missing tests for SSE heartbeat & stale detection
+- SMOKE: [Backend] Resume concurrent requests return 400 instead of 409
+- SMOKE: [Backend] Resume nonexistent group HTTPException not caught
+
+### Changed
+- [Architecture] Clarify: SSE vs polling for live progress — choose one approach
+- [Architecture] Use SSE instead of polling for live progress updates
+- [OPS] Add smoke test for SSE progress endpoint
+- [Reliability] Add idempotency check for concurrent resume requests
+- [Reliability] Add server-side empty state validation in resume endpoint
+- [Reliability] Add SSE fallback to polling on connection failure
+- [Reliability] Add SSE heartbeat and client-side reconnection logic
+- [Reliability] Graceful shutdown: cancel in-progress analysis tasks before startup recovery
+- [Security] Add DB lock for startup recovery to prevent race condition
+- [Security] Add group existence and status validation to resume endpoint
+- [Security] Add structured logging for chat timeout events
+- [UX] Add empty state check before resume analysis
+- [UX] Auto-refresh card state when user returns to /chats page
+- [UX] Design and implement 'stale analysis' warning UI element
+- [UX] Show 'Starting analysis...' state immediately after start button click
+- [UX] Show failed chat details with retry option
+
 ## [0.10.7] - 2026-02-19
 
 ### Added
@@ -992,7 +1021,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.7...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.8...HEAD
+[0.10.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.4...v0.10.5
