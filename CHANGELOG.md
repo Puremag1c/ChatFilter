@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-02-19
+
+### Fixed
+- HTMX loading state: spinner on status icon + disabled button during test
+- Retest endpoint now returns HTML <tr> instead of JSON for proper HTMX swap
+- retest_proxy: don't save UNTESTED status before health check completes
+- update_proxy_health: propagate storage write errors
+
+### Changed
+- [OPS] Add unit tests for retest_proxy and update_proxy_health
+- [Architecture] Consolidate spinner CSS: replace spinner-sm with spinner-small
+
 ## [0.10.4] - 2026-02-19
 
 ### Fixed
@@ -937,7 +949,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.5...HEAD
+[0.10.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.1...v0.10.2
