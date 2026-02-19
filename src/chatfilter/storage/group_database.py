@@ -760,3 +760,41 @@ class GroupDatabase(SQLiteDatabase):
         """
         with self._connection() as conn:
             conn.execute("DELETE FROM chat_groups WHERE id = ?", (group_id,))
+
+    def update_status_atomic(
+        self,
+        group_id: str,
+        new_status: str,
+        expected_status: str,
+    ) -> bool:
+        """Atomically update group status only if current status matches expected.
+
+        This provides compare-and-swap semantics for status updates.
+
+        Args:
+            group_id: Group identifier
+            new_status: Status to set (pending/in_progress/paused/completed)
+            expected_status: Expected current status (update only if matches)
+
+        Returns:
+            True if update succeeded, False if group not found or status mismatch
+
+        Example:
+            >>> db.update_status_atomic("group-123", "in_progress", "paused")
+            True  # Updated if status was paused
+            False  # No-op if status was not paused (another request won the race)
+        """
+        now = datetime.now(UTC)
+
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE chat_groups
+                SET status = ?, updated_at = ?
+                WHERE id = ? AND status = ?
+                """,
+                (new_status, self._datetime_to_str(now), group_id, expected_status),
+            )
+
+            # Check if any rows were affected
+            return cursor.rowcount > 0

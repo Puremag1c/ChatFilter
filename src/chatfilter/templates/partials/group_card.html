@@ -64,6 +64,13 @@
                 hx-swap="none">
             {{ _("Stop analysis") }}
         </button>
+        {% elif group.status.value == 'paused' %}
+        <button class="btn btn-primary btn-sm"
+                hx-post="/api/groups/{{ group.id }}/resume"
+                hx-swap="none"
+                hx-disabled-elt="this">
+            {{ _("Продолжить анализ") }}
+        </button>
         {% elif group.status.value == 'completed' %}
         <button class="btn btn-outline-secondary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/reanalyze?mode=increment"

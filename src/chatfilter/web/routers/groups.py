@@ -1467,6 +1467,159 @@ async def stop_group_analysis(
         )
 
 
+@router.post("/api/groups/{group_id}/resume", response_class=HTMLResponse)
+async def resume_group_analysis(
+    request: Request,
+    group_id: str,
+) -> HTMLResponse:
+    """Resume paused group analysis.
+
+    Continues analysis for pending and failed chats only (skips done chats).
+
+    Args:
+        request: FastAPI request object
+        group_id: Group identifier
+
+    Returns:
+        HTML partial with updated group card or error message
+
+    Raises:
+        HTTPException:
+            - 404 if group not found
+            - 400 if group not paused or no chats to analyze
+            - 409 if concurrent resume request (atomic update failed)
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        service = _get_group_service()
+        engine = _get_group_engine(request)
+        session_mgr = request.app.state.app_state.session_manager
+
+        # Verify group exists
+        group = service.get_group(group_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+        # Validate status == PAUSED
+        if group.status != GroupStatus.PAUSED:
+            error_msg = (
+                "Analysis already running" if group.status == GroupStatus.IN_PROGRESS
+                else "Can only resume paused groups"
+            )
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": error_msg,
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=400,
+                headers={'HX-Trigger': trigger_data}
+            )
+
+        # Check if there are chats to analyze (pending + failed)
+        stats = service.get_group_stats(group_id)
+        pending_count = stats.get('by_status', {}).get('pending', 0)
+        failed_count = stats.get('by_status', {}).get('failed', 0)
+
+        if pending_count + failed_count == 0:
+            # No chats to analyze — return error
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "No chats to analyze",
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=400,
+                headers={'HX-Trigger': trigger_data}
+            )
+
+        # Atomic update: status PAUSED → IN_PROGRESS (prevents concurrent resume)
+        # Uses SQL WHERE clause for true atomicity (compare-and-swap)
+        success = service._db.update_status_atomic(
+            group_id,
+            new_status=GroupStatus.IN_PROGRESS.value,
+            expected_status=GroupStatus.PAUSED.value,
+        )
+
+        if not success:
+            # Update failed — either group not found or status != PAUSED
+            # This handles concurrent requests: first wins, others get 409
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "Another operation in progress",
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=409,
+                headers={'HX-Trigger': trigger_data}
+            )
+
+        # Validate connected accounts BEFORE creating background task
+        connected_accounts = [
+            sid for sid in session_mgr.list_sessions()
+            if await session_mgr.is_healthy(sid)
+        ]
+
+        if not connected_accounts:
+            # Rollback status update (atomic: revert only if still IN_PROGRESS)
+            service._db.update_status_atomic(
+                group_id,
+                new_status=GroupStatus.PAUSED.value,
+                expected_status=GroupStatus.IN_PROGRESS.value,
+            )
+
+            # Return error toast via HX-Trigger
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "No connected Telegram accounts. Please connect at least one account.",
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=200,
+                headers={'HX-Trigger': trigger_data}
+            )
+
+        # Start analysis (engine will analyze only pending/failed chats)
+        task = asyncio.create_task(engine.start_analysis(group_id))
+        task.add_done_callback(lambda t: _handle_analysis_task_done(t, group_id, request))
+        request.app.state.app_state.analysis_tasks[group_id] = task
+
+        # Return 204 No Content with HX-Trigger header to refresh the container
+        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Rollback status to PAUSED so user can retry
+        try:
+            service._db.update_status_atomic(
+                group_id,
+                new_status=GroupStatus.PAUSED.value,
+                expected_status=GroupStatus.IN_PROGRESS.value,
+            )
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to resume analysis: {e}",
+        )
+
+
 @router.get("/api/groups/modal/create", response_class=HTMLResponse)
 async def get_create_group_modal(request: Request) -> HTMLResponse:
     """Get create group modal HTML.
