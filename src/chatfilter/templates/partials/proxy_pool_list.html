@@ -56,6 +56,7 @@
                     hx-target="#proxy-row-{{ proxy.id }}"
                     hx-swap="outerHTML"
                     hx-disabled-elt="this"
+                    hx-on::after-request="if (event.detail.failed) { ToastManager.show({type: 'error', title: '{{ _("Test Failed") }}', message: '{{ _("An error occurred while testing the proxy. Please try again.") }}'}); }"
                     title="{{ _("Test proxy connection") }}"
                     aria-label="{{ _('Retest proxy') }} {{ proxy.name }}">
                 <span class="btn-text">{{ _("Test") }}</span>
