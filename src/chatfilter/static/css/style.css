@@ -829,11 +829,25 @@ button[disabled].htmx-request {
     display: none;
 }
 
+.status-testing-text {
+    display: none;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+
 .htmx-request .status-loading-spinner {
     display: inline-block;
 }
 
+.htmx-request .status-testing-text {
+    display: inline;
+}
+
 .htmx-request .status-icon {
+    display: none;
+}
+
+.htmx-request .proxy-status-badge {
     display: none;
 }
 
