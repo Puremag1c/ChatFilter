@@ -421,10 +421,20 @@ async def retest_proxy_endpoint(
         raise
     except Exception as e:
         logger.exception(f"Failed to retest proxy {proxy_id}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retest proxy",
-        ) from e
+        # Return HTTP 500 with HX-Trigger for toast notification
+        # Frontend will show error toast via showToast event listener
+        trigger_data = json.dumps({
+            "showToast": {
+                "type": "error",
+                "title": "Test Failed",
+                "message": "An error occurred while testing the proxy. Please try again.",
+            }
+        })
+        return HTMLResponse(
+            content="",
+            status_code=500,
+            headers={"HX-Trigger": trigger_data},
+        )
 
 
 @router.get("/api/proxies/list", response_class=HTMLResponse)
