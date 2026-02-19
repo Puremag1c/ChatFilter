@@ -3130,13 +3130,6 @@ body:has(.update-notification.show) {
     text-decoration: line-through;
 }
 
-/* Small spinner for inline buttons */
-.spinner-sm {
-    width: 12px;
-    height: 12px;
-    border-width: 2px;
-}
-
 /* Loading state */
 .loading-state {
     display: flex;
