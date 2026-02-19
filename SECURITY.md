@@ -161,3 +161,80 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
 - `keyring>=25.0.0`: OS-native credential storage
 - `cryptography>=41.0.0`: Fernet encryption for fallback storage
+
+---
+
+## Web API Security
+
+ChatFilter runs as a **single-user web application** on localhost. All data belongs to the local user running the application.
+
+### Authentication Model
+
+**No user authentication system** - ChatFilter does not implement multi-user support or user accounts:
+- No User model or ownership fields in data models
+- All sessions, proxies, and data belong to the single application user
+- Access control relies on localhost binding and CSRF protection
+
+**Design rationale:**
+- Desktop/local-first application - only accessible from the same machine
+- User authenticates to the OS, not to ChatFilter
+- Adding user authentication would create UX friction without security benefit
+
+### Web Request Protection
+
+All API endpoints are protected by:
+
+1. **CSRF Protection** (`CSRFProtectionMiddleware`)
+   - Prevents cross-site request forgery attacks
+   - Requires valid CSRF token for all state-changing operations
+   - Sufficient protection for same-origin, localhost-bound application
+
+2. **Localhost Binding** (default: `127.0.0.1:5050`)
+   - Web server only binds to loopback interface
+   - Not accessible from network (unless explicitly configured)
+   - Physical access to machine = authorized user
+
+### API Endpoint Security
+
+**Proxy retest endpoint** (`POST /api/proxies/{id}/retest`):
+- ✅ CSRF-protected (requires valid token)
+- ✅ Localhost-bound (not network-accessible by default)
+- ❌ No rate limiting (resource exhaustion risk if abused)
+- ❌ No ownership validation (N/A - single user)
+
+**Security implications:**
+- Same-origin access only (any browser tab can retest any proxy)
+- Resource waste possible if endpoint is spammed
+- Acceptable risk for single-user localhost application
+
+**Mitigation:**
+- CSRF protection prevents external abuse
+- Localhost binding prevents network access
+- Future: Add rate limiting (10 retest/minute per proxy_id) if abuse becomes an issue
+
+### Security Headers
+
+Applied via `SecurityHeadersMiddleware`:
+- `X-Frame-Options: DENY` - Prevents clickjacking
+- `X-Content-Type-Options: nosniff` - Prevents MIME sniffing
+- `Referrer-Policy: same-origin` - Limits referrer leakage
+
+### Network Exposure Warning
+
+⚠️ **Do NOT expose ChatFilter to the public internet** without additional authentication:
+- No user login system exists
+- CSRF protection alone is insufficient for internet-facing deployments
+- If network access is required, use SSH tunneling or VPN instead
+
+**For containerized/network deployments**, implement one of:
+1. Reverse proxy with HTTP Basic Auth (nginx, Caddy)
+2. VPN/WireGuard tunnel for remote access
+3. SSH port forwarding (`ssh -L 5050:localhost:5050`)
+
+### Future Enhancements
+
+Potential security improvements (not currently planned):
+- [ ] Rate limiting on proxy retest endpoint (10 req/min per proxy_id)
+- [ ] Optional HTTP Basic Auth for network deployments
+- [ ] API token authentication for programmatic access
+- [ ] Session timeout and auto-logout after inactivity
