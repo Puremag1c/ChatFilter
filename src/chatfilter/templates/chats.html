@@ -125,6 +125,17 @@
         margin: 0.5rem 0;
     }
 
+    .current-chat-title {
+        font-style: italic;
+        color: var(--text-secondary);
+        max-width: 200px;
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        vertical-align: bottom;
+    }
+
     @media (max-width: 768px) {
         .groups-list {
             grid-template-columns: 1fr;
@@ -221,10 +232,15 @@
 
     function schedulePoll() {
         if (pollTimer) clearTimeout(pollTimer);
+        // SSE-aware polling: ONLY poll when NO in_progress groups exist
+        // SSE handles real-time updates for in_progress groups
+        // Polling is ONLY for non-SSE groups (completed/paused/pending)
         var hasInProgress = container.querySelector('.status-badge.in_progress');
-        if (hasInProgress) {
+        if (!hasInProgress) {
+            // Fast polling when no SSE connections - check for new groups
             pollTimer = setTimeout(refreshGroups, 3000);
         }
+        // else: SSE is active, no polling needed
     }
 
     // Listen for HX-Trigger refreshGroups events from button actions

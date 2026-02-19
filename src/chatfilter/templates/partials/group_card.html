@@ -1,4 +1,8 @@
-<div class="group-card" id="group-{{ group.id }}">
+<div class="group-card" id="group-{{ group.id }}"
+     {% if group.status.value == 'in_progress' %}
+     hx-ext="sse"
+     sse-connect="/api/groups/{{ group.id }}/progress"
+     {% endif %}>
     <h3>{{ group.name }}</h3>
 
     <span class="status-badge {{ group.status.value }}">{{ group.status.value }}</span>
@@ -6,22 +10,32 @@
     <div class="group-stats">
         <div class="stat-row">
             <span>{{ _("Total chats") }}:</span>
-            <strong>{{ stats.total }}</strong>
+            <strong id="total-{{ group.id }}">{{ stats.total }}</strong>
         </div>
         <div class="stat-row">
             <span>{{ _("Analyzed") }}:</span>
-            <strong>{{ stats.analyzed }} / {{ stats.total }}</strong>
+            <strong id="analyzed-{{ group.id }}">{{ stats.analyzed }} / {{ stats.total }}</strong>
         </div>
         <div class="stat-row">
             <span>{{ _("Failed") }}:</span>
-            <strong>{{ stats.failed }}</strong>
+            <strong id="failed-{{ group.id }}">{{ stats.failed }}</strong>
         </div>
+        {% if group.status.value == 'in_progress' %}
+        <div class="stat-row">
+            <span>{{ _("Current chat") }}:</span>
+            <strong id="current-chat-{{ group.id }}" class="current-chat-title">—</strong>
+        </div>
+        <div class="stat-row">
+            <span>{{ _("Elapsed time") }}:</span>
+            <strong id="elapsed-{{ group.id }}">0:00</strong>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Progress bar -->
     <div class="progress-bar">
         {% set progress_pct = (stats.analyzed / stats.total * 100) if stats.total > 0 else 0 %}
-        <div class="progress-fill" style="width: {{ progress_pct }}%"></div>
+        <div class="progress-fill" id="progress-fill-{{ group.id }}" style="width: {{ progress_pct }}%"></div>
     </div>
 
     <!-- Type breakdown -->
@@ -119,3 +133,125 @@
     </script>
     {% endif %}
 </div>
+
+{% if group.status.value == 'in_progress' %}
+<script>
+(function() {
+    const groupId = '{{ group.id }}';
+    const analyzedEl = document.getElementById('analyzed-' + groupId);
+    const failedEl = document.getElementById('failed-' + groupId);
+    const currentChatEl = document.getElementById('current-chat-' + groupId);
+    const elapsedEl = document.getElementById('elapsed-' + groupId);
+    const progressFillEl = document.getElementById('progress-fill-' + groupId);
+    const cardEl = document.getElementById('group-' + groupId);
+
+    let startTime = Date.now();
+    let elapsedTimer = null;
+
+    // Format elapsed time as M:SS
+    function formatElapsed(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return mins + ':' + (secs < 10 ? '0' : '') + secs;
+    }
+
+    // Update elapsed time every second
+    function startElapsedTimer() {
+        if (elapsedTimer) return; // Already running
+        elapsedTimer = setInterval(function() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            if (elapsedEl) {
+                elapsedEl.textContent = formatElapsed(elapsed);
+            }
+        }, 1000);
+    }
+
+    function stopElapsedTimer() {
+        if (elapsedTimer) {
+            clearInterval(elapsedTimer);
+            elapsedTimer = null;
+        }
+    }
+
+    // Listen for htmx:sseMessage events (fired by HTMX SSE extension)
+    cardEl.addEventListener('htmx:sseMessage', function(event) {
+        if (!event || !event.detail) return;
+
+        // The SSE extension passes the raw event in event.detail
+        const sseEvent = event.detail;
+
+        try {
+            // Parse the data from the SSE event
+            const data = JSON.parse(sseEvent.data);
+
+            // Guard: only process events for this group
+            if (data.group_id !== groupId) return;
+
+            // Handle progress event
+            if (sseEvent.type === 'progress' || !sseEvent.type) {
+                // Update progress
+                if (data.current !== undefined && data.total !== undefined) {
+                    const analyzed = data.current + 1; // 0-based to 1-based
+                    const percent = Math.round((analyzed / data.total) * 100);
+
+                    if (analyzedEl) {
+                        analyzedEl.textContent = analyzed + ' / ' + data.total;
+                    }
+                    if (progressFillEl) {
+                        progressFillEl.style.width = percent + '%';
+                    }
+                }
+
+                // Update current chat
+                if (data.chat_title && currentChatEl) {
+                    currentChatEl.textContent = data.chat_title;
+                    currentChatEl.title = data.chat_title;
+                }
+            }
+
+            // Handle complete event
+            if (sseEvent.type === 'complete') {
+                stopElapsedTimer();
+
+                // Trigger group refresh to show completed state
+                document.body.dispatchEvent(new CustomEvent('refreshGroups'));
+            }
+        } catch (e) {
+            console.error('Failed to parse SSE event:', e);
+        }
+    });
+
+    // Start elapsed timer when card initializes
+    startElapsedTimer();
+
+    // Cleanup on card removal (HTMX swap or DOM removal)
+    // Use htmx:beforeSwap as primary cleanup - fires reliably before HTMX swaps
+    document.body.addEventListener('htmx:beforeSwap', function cleanupOnSwap(event) {
+        // Check if the swap target is our container or parent
+        if (event.detail.target && (
+            event.detail.target.id === 'groups-container' ||
+            event.detail.target.id === 'groups-list'
+        )) {
+            stopElapsedTimer();
+            document.body.removeEventListener('htmx:beforeSwap', cleanupOnSwap);
+        }
+    });
+
+    // Fallback: MutationObserver for non-HTMX removal
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            mutation.removedNodes.forEach(function(node) {
+                if (node === cardEl || (node.contains && node.contains(cardEl))) {
+                    stopElapsedTimer();
+                    observer.disconnect();
+                }
+            });
+        });
+    });
+
+    if (cardEl && cardEl.parentNode) {
+        observer.observe(cardEl.parentNode, { childList: true });
+    }
+})();
+</script>
+{% endif %}
