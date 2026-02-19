@@ -8,6 +8,7 @@ Provides CRUD operations for managing multiple proxy configurations:
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 from typing import Annotated
@@ -482,8 +483,8 @@ async def list_proxies_html(request: Request) -> HTMLResponse:
     except Exception as e:
         logger.exception("Failed to load proxy pool for HTML")
         return HTMLResponse(
-            content='<div class="alert alert-error">'
-            "<strong>Error:</strong> Failed to load proxies. Please try again."
-            "</div>",
+            content=f'<div class="alert alert-error">'
+            f"<strong>Error:</strong> Failed to load proxies: {html.escape(str(e))}"
+            f"</div>",
             status_code=500,
         )
