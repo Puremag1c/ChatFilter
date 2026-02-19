@@ -10,9 +10,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import socket
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
-from chatfilter.config import ProxyStatus
+import socks
+
+from chatfilter.config import ProxyStatus, ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.proxy_pool import load_proxy_pool, update_proxy
 
@@ -22,29 +26,189 @@ logger = logging.getLogger(__name__)
 HEALTH_CHECK_TIMEOUT = 10.0  # seconds per proxy
 MAX_CONSECUTIVE_FAILURES = 3  # failures before auto-disable
 
+# Telegram DC2 for SOCKS5 tunnel verification
+TELEGRAM_DC2_HOST = "149.154.167.51"
+TELEGRAM_DC2_PORT = 443
+
+# Thread pool for blocking SOCKS5 operations
+_executor: ThreadPoolExecutor | None = None
+
+
+def _get_executor() -> ThreadPoolExecutor:
+    """Get or create thread pool executor for SOCKS5 operations."""
+    global _executor
+    if _executor is None:
+        _executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="socks5-health")
+    return _executor
+
+
+class ProxyCheckError(Exception):
+    """Sanitized proxy check error that doesn't leak credentials."""
+
+    pass
+
+
+def _socks5_connect_sync(
+    proxy_host: str,
+    proxy_port: int,
+    proxy_username: str | None,
+    proxy_password: str | None,
+    target_host: str,
+    target_port: int,
+    timeout: float,
+) -> bool:
+    """Synchronous SOCKS5 tunnel check (runs in thread pool).
+
+    Args:
+        proxy_host: Proxy server hostname/IP
+        proxy_port: Proxy server port
+        proxy_username: SOCKS5 auth username (optional)
+        proxy_password: SOCKS5 auth password (optional)
+        target_host: Target host to connect through proxy
+        target_port: Target port
+        timeout: Connection timeout in seconds
+
+    Returns:
+        True if tunnel established successfully
+
+    Raises:
+        ProxyCheckError: Sanitized error (no credentials leaked)
+    """
+    sock = None
+    try:
+        # Create SOCKS5 socket
+        sock = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+
+        # Configure proxy
+        sock.set_proxy(
+            proxy_type=socks.SOCKS5,
+            addr=proxy_host,
+            port=proxy_port,
+            username=proxy_username,
+            password=proxy_password,
+        )
+
+        # Connect through SOCKS5 to target
+        sock.connect((target_host, target_port))
+
+        # Success
+        return True
+
+    except socks.SOCKS5AuthError as e:
+        # Auth failure - sanitize to avoid leaking username/password
+        raise ProxyCheckError("Authentication failed") from e
+
+    except Exception as e:
+        # All other errors - sanitize to avoid leaking proxy details
+        raise ProxyCheckError("Proxy unreachable") from e
+
+    finally:
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass
+
+
+async def socks5_tunnel_check(
+    proxy: ProxyEntry,
+    target_host: str = TELEGRAM_DC2_HOST,
+    target_port: int = TELEGRAM_DC2_PORT,
+    timeout: float = HEALTH_CHECK_TIMEOUT,
+) -> bool:
+    """Test SOCKS5 proxy by establishing tunnel to target host.
+
+    Performs full SOCKS5 handshake and connection to verify the proxy
+    can actually tunnel traffic (not just accept TCP connections).
+
+    Args:
+        proxy: The proxy to test (must be SOCKS5 type)
+        target_host: Target host to connect through proxy
+        target_port: Target port
+        timeout: Connection timeout in seconds
+
+    Returns:
+        True if SOCKS5 tunnel established successfully, False otherwise.
+
+    Note:
+        Exceptions are sanitized to prevent credential leakage in logs.
+    """
+    try:
+        # Run blocking SOCKS5 connect in thread pool
+        result = await asyncio.get_event_loop().run_in_executor(
+            _get_executor(),
+            _socks5_connect_sync,
+            proxy.host,
+            proxy.port,
+            proxy.username,
+            proxy.password,
+            target_host,
+            target_port,
+            timeout,
+        )
+        return result
+
+    except ProxyCheckError as e:
+        # Sanitized error - safe to log
+        logger.debug(f"SOCKS5 tunnel check failed for {proxy.name}: {e}")
+        return False
+
+    except Exception as e:
+        # Unexpected error - log generically without proxy details
+        logger.warning(f"Unexpected error during SOCKS5 tunnel check: {type(e).__name__}")
+        return False
+
 
 async def check_proxy_health(proxy: ProxyEntry, timeout: float = HEALTH_CHECK_TIMEOUT) -> bool:
-    """Test if a proxy is reachable via TCP connection.
+    """Test if a proxy is reachable and functional.
 
-    Performs a simple TCP connect to verify the proxy server is accepting
-    connections. Does not perform full SOCKS5/HTTP protocol handshake to
-    keep checks fast and avoid triggering rate limits.
+    For SOCKS5 proxies: Performs full SOCKS5 handshake + tunnel to Telegram DC.
+    For HTTP proxies: Performs TCP-only check (HTTP CONNECT handled by Telethon).
 
     Args:
         proxy: The proxy to test.
         timeout: Connection timeout in seconds.
 
     Returns:
-        True if proxy is reachable, False otherwise.
+        True if proxy is reachable and functional, False otherwise.
     """
+    # SOCKS5 proxies: full tunnel check
+    if proxy.type == ProxyType.SOCKS5:
+        tunnel_success = await socks5_tunnel_check(proxy, timeout=timeout)
+
+        if tunnel_success:
+            logger.debug(f"SOCKS5 tunnel check passed: {proxy.name} ({proxy.host}:{proxy.port})")
+            return True
+
+        # SOCKS5 tunnel failed - try TCP-only for diagnostics
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(proxy.host, proxy.port),
+                timeout=timeout,
+            )
+            writer.close()
+            await writer.wait_closed()
+
+            # TCP works but SOCKS5 tunnel failed - log for diagnostics
+            logger.warning(
+                f"SOCKS5 tunnel failed but TCP works: {proxy.name} ({proxy.host}:{proxy.port}) "
+                f"- possible auth/protocol issue"
+            )
+
+        except Exception:
+            # Both tunnel and TCP failed - normal failure
+            pass
+
+        return False
+
+    # HTTP proxies: TCP-only check (HTTP CONNECT is protocol-specific)
     try:
-        # Create TCP connection to proxy
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(proxy.host, proxy.port),
             timeout=timeout,
         )
 
-        # Close connection
         writer.close()
         await writer.wait_closed()
 

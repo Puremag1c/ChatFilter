@@ -47,17 +47,11 @@ class TestCheckProxyHealth:
     @pytest.mark.asyncio
     async def test_success(self, sample_proxy: ProxyEntry) -> None:
         """Should return True for successful connection."""
-        with patch("asyncio.open_connection") as mock_open:
-            mock_reader = MagicMock()
-            mock_writer = MagicMock()
-            mock_writer.close = MagicMock()
-            mock_writer.wait_closed = AsyncMock()
-            mock_open.return_value = (mock_reader, mock_writer)
-
+        # Mock socks5_tunnel_check for SOCKS5 proxy
+        with patch("chatfilter.service.proxy_health.socks5_tunnel_check", return_value=True):
             result = await check_proxy_health(sample_proxy)
 
             assert result is True
-            mock_writer.close.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_timeout(self, sample_proxy: ProxyEntry) -> None:
@@ -74,6 +68,90 @@ class TestCheckProxyHealth:
             result = await check_proxy_health(sample_proxy)
 
             assert result is False
+
+    @pytest.mark.asyncio
+    async def test_tcp_works_but_socks5_fails(self, sample_proxy: ProxyEntry) -> None:
+        """Should return False when TCP works but SOCKS5 tunnel fails (done_when test)."""
+        # SOCKS5 tunnel check fails
+        with patch("chatfilter.service.proxy_health.socks5_tunnel_check", return_value=False):
+            # TCP connection succeeds (for diagnostic logging)
+            with patch("asyncio.open_connection") as mock_open:
+                mock_reader = MagicMock()
+                mock_writer = MagicMock()
+                mock_writer.close = MagicMock()
+                mock_writer.wait_closed = AsyncMock()
+                mock_open.return_value = (mock_reader, mock_writer)
+
+                result = await check_proxy_health(sample_proxy)
+
+                # Should return False despite TCP success
+                assert result is False
+                # Should have tried TCP for diagnostics
+                mock_open.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_http_proxy_uses_tcp_check(self) -> None:
+        """HTTP proxies should use TCP-only check, not SOCKS5 tunnel."""
+        http_proxy = ProxyEntry(
+            name="HTTP Proxy",
+            type=ProxyType.HTTP,
+            host="127.0.0.1",
+            port=8080,
+        )
+
+        # Should NOT call socks5_tunnel_check for HTTP proxy
+        with patch("chatfilter.service.proxy_health.socks5_tunnel_check") as mock_tunnel:
+            # TCP connection succeeds
+            with patch("asyncio.open_connection") as mock_open:
+                mock_reader = MagicMock()
+                mock_writer = MagicMock()
+                mock_writer.close = MagicMock()
+                mock_writer.wait_closed = AsyncMock()
+                mock_open.return_value = (mock_reader, mock_writer)
+
+                result = await check_proxy_health(http_proxy)
+
+                # Should return True via TCP check
+                assert result is True
+                # Should NOT have called SOCKS5 tunnel check
+                mock_tunnel.assert_not_called()
+                # Should have used TCP check
+                mock_open.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_socks5_auth_error_no_credential_leak(self) -> None:
+        """Should not leak username/password in SOCKS5 auth errors (security test)."""
+        import socks
+
+        from chatfilter.service.proxy_health import _socks5_connect_sync, ProxyCheckError
+
+        # Proxy with credentials
+        proxy_username = "secret_user"
+        proxy_password = "secret_pass"
+
+        # Mock socksocket to raise auth error
+        with patch("socks.socksocket") as mock_socket_class:
+            mock_sock = MagicMock()
+            mock_socket_class.return_value = mock_sock
+            mock_sock.connect.side_effect = socks.SOCKS5AuthError("Auth failed")
+
+            # Should raise ProxyCheckError without credentials
+            with pytest.raises(ProxyCheckError) as exc_info:
+                _socks5_connect_sync(
+                    proxy_host="127.0.0.1",
+                    proxy_port=1080,
+                    proxy_username=proxy_username,
+                    proxy_password=proxy_password,
+                    target_host="149.154.167.51",
+                    target_port=443,
+                    timeout=10.0,
+                )
+
+            # Error message should NOT contain credentials
+            error_message = str(exc_info.value)
+            assert proxy_username not in error_message
+            assert proxy_password not in error_message
+            assert "Authentication failed" in error_message
 
 
 class TestUpdateProxyHealth:
