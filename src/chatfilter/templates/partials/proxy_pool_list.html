@@ -56,6 +56,8 @@
                     hx-target="#proxy-row-{{ proxy.id }}"
                     hx-swap="outerHTML"
                     hx-disabled-elt="this"
+                    hx-timeout="30000"
+                    hx-on::timeout="event.preventDefault(); this.classList.remove('htmx-request'); ToastManager.show({type: 'error', title: '{{ _("Test Timeout") }}', message: '{{ _("Test timeout (30s)") }}'});"
                     title="{{ _("Test proxy connection") }}"
                     aria-label="{{ _('Retest proxy') }} {{ proxy.name }}">
                 <span class="btn-text">{{ _("Test") }}</span>
