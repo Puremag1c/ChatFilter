@@ -678,8 +678,10 @@ class GroupAnalysisEngine:
                                     self._publish_event(event)
                                     continue
 
-                        resolved = await self._resolve_chat(
-                            client, chat, account_id,
+                        # Wrap Phase 1 resolution with 5-minute timeout
+                        resolved = await asyncio.wait_for(
+                            self._resolve_chat(client, chat, account_id),
+                            timeout=300,
                         )
                         self._save_phase1_result(
                             group_id, chat, resolved, account_id, settings, mode,
@@ -827,6 +829,50 @@ class GroupAnalysisEngine:
                         # Re-enqueue chat at front (process immediately after wait)
                         chat_queue.appendleft((chat, retry_count, floodwait_retry_count))
 
+
+                    except asyncio.TimeoutError:
+                        # Phase 1 resolution timed out (5 minutes)
+                        logger.warning(
+                            f"Account '{account_id}': Phase 1 timeout (5 min) for '{chat['chat_ref']}'"
+                        )
+
+                        # Mark chat as FAILED with timeout error
+                        self._db.update_chat_status(
+                            chat_id=chat["id"],
+                            status=GroupChatStatus.FAILED.value,
+                            error="Phase 1 timeout (5 min)",
+                        )
+
+                        # Save dead result to group_results
+                        dead_resolved = _ResolvedChat(
+                            db_chat_id=chat["id"],
+                            chat_ref=chat["chat_ref"],
+                            chat_type=ChatTypeEnum.DEAD.value,
+                            title=None,
+                            subscribers=None,
+                            moderation=None,
+                            numeric_id=None,
+                            status="dead",
+                            linked_chat_id=None,
+                            error="Phase 1 timeout (5 min)",
+                        )
+                        self._save_phase1_result(
+                            group_id, chat, dead_resolved, account_id, settings, mode,
+                        )
+
+                        # Increment counter and publish event (continue to next chat)
+                        current_count += 1
+                        event = GroupProgressEvent(
+                            group_id=group_id,
+                            status=GroupStatus.IN_PROGRESS.value,
+                            current=current_count,
+                            total=total_chats,
+                            chat_title=chat["chat_ref"],
+                            message=f"Chat @{chat['chat_ref']} timed out in Phase 1",
+                            error="Phase 1 timeout (5 min)",
+                        )
+                        self._publish_event(event)
+                        continue
                     except Exception as e:
                         # Any other error: retry up to MAX_RETRIES
                         error_type = type(e).__name__
