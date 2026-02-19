@@ -5,7 +5,12 @@
      {% endif %}>
     <h3>{{ group.name }}</h3>
 
-    <span class="status-badge {{ group.status.value }}">{{ group.status.value }}</span>
+    <span class="status-badge {{ group.status.value }}">{{ _(group.status.value) }}</span>
+    {% if group.status.value == 'in_progress' %}
+    <div id="stale-warning-{{ group.id }}" class="stale-warning" style="display: none; background: #fff9c4; color: #f57f17; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
+        Нет обновлений более 60 секунд. Возможно, анализ завис.
+    </div>
+    {% endif %}
 
     <div class="group-stats">
         <div class="stat-row">
@@ -143,10 +148,14 @@
     const currentChatEl = document.getElementById('current-chat-' + groupId);
     const elapsedEl = document.getElementById('elapsed-' + groupId);
     const progressFillEl = document.getElementById('progress-fill-' + groupId);
+    const staleWarningEl = document.getElementById('stale-warning-' + groupId);
     const cardEl = document.getElementById('group-' + groupId);
 
     let startTime = Date.now();
     let elapsedTimer = null;
+    let staleCheckTimer = null;
+    let lastEventTime = Date.now();
+    const STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
 
     // Format elapsed time as M:SS
     function formatElapsed(seconds) {
@@ -173,12 +182,53 @@
         }
     }
 
+    // Check for stale SSE connection (no events for >60s)
+    function checkStaleConnection() {
+        const timeSinceLastEvent = Date.now() - lastEventTime;
+        if (timeSinceLastEvent > STALE_THRESHOLD_MS) {
+            // Show stale warning
+            if (staleWarningEl) {
+                staleWarningEl.style.display = 'block';
+            }
+        }
+    }
+
+    // Start stale check timer (runs every 5s)
+    function startStaleCheckTimer() {
+        if (staleCheckTimer) return; // Already running
+        staleCheckTimer = setInterval(checkStaleConnection, 5000);
+    }
+
+    function stopStaleCheckTimer() {
+        if (staleCheckTimer) {
+            clearInterval(staleCheckTimer);
+            staleCheckTimer = null;
+        }
+    }
+
+    // Record SSE event received (dismisses stale warning)
+    function recordSseEvent() {
+        lastEventTime = Date.now();
+        // Hide stale warning if visible
+        if (staleWarningEl) {
+            staleWarningEl.style.display = 'none';
+        }
+    }
+
     // Listen for htmx:sseMessage events (fired by HTMX SSE extension)
     cardEl.addEventListener('htmx:sseMessage', function(event) {
         if (!event || !event.detail) return;
 
         // The SSE extension passes the raw event in event.detail
         const sseEvent = event.detail;
+
+        // Record ANY SSE event (including ping) to track liveness
+        recordSseEvent();
+
+        // Handle ping (heartbeat) events - no data processing needed
+        if (sseEvent.type === 'ping') {
+            return; // Just update lastEventTime, no UI update
+        }
 
         try {
             // Parse the data from the SSE event
@@ -212,6 +262,7 @@
             // Handle complete event
             if (sseEvent.type === 'complete') {
                 stopElapsedTimer();
+                stopStaleCheckTimer();
 
                 // Trigger group refresh to show completed state
                 document.body.dispatchEvent(new CustomEvent('refreshGroups'));
@@ -223,6 +274,8 @@
 
     // Start elapsed timer when card initializes
     startElapsedTimer();
+    // Start stale check timer
+    startStaleCheckTimer();
 
     // Cleanup on card removal (HTMX swap or DOM removal)
     // Use htmx:beforeSwap as primary cleanup - fires reliably before HTMX swaps
@@ -233,6 +286,7 @@
             event.detail.target.id === 'groups-list'
         )) {
             stopElapsedTimer();
+            stopStaleCheckTimer();
             document.body.removeEventListener('htmx:beforeSwap', cleanupOnSwap);
         }
     });
@@ -243,6 +297,7 @@
             mutation.removedNodes.forEach(function(node) {
                 if (node === cardEl || (node.contains && node.contains(cardEl))) {
                     stopElapsedTimer();
+                    stopStaleCheckTimer();
                     observer.disconnect();
                 }
             });

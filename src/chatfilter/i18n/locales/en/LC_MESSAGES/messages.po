@@ -3252,3 +3252,19 @@ msgstr ""
 
 
 
+
+# Group status translations
+msgid "pending"
+msgstr "Pending"
+
+msgid "in_progress"
+msgstr "In Progress"
+
+msgid "paused"
+msgstr "Paused"
+
+msgid "completed"
+msgstr "Completed"
+
+msgid "failed"
+msgstr "Failed"

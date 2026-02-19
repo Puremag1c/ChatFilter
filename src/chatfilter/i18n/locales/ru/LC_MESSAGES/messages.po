@@ -955,3 +955,19 @@ msgstr "Введите код подтверждения"
 #: src/chatfilter/templates/partials/session_row.html
 msgid "Permanent error"
 msgstr "Постоянная ошибка"
+
+# Group status translations
+msgid "pending"
+msgstr "Ожидание"
+
+msgid "in_progress"
+msgstr "Анализируется"
+
+msgid "paused"
+msgstr "Приостановлен"
+
+msgid "completed"
+msgstr "Завершён"
+
+msgid "failed"
+msgstr "Ошибка"
