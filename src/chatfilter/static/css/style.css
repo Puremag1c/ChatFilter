@@ -825,7 +825,7 @@ button[disabled].htmx-request {
 }
 
 /* Proxy pool loading state: show spinner, hide status icon during retest */
-.status-loading-spinner {
+td .status-loading-spinner {
     display: none;
 }
 
