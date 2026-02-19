@@ -156,8 +156,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Compute CSS file hash for cache-busting
     import hashlib
 
-    from chatfilter.web.app_setup import STATIC_DIR
-
     css_path = STATIC_DIR / "css" / "style.css"
     if css_path.exists():
         with css_path.open("rb") as f:
