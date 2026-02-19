@@ -1536,8 +1536,8 @@ async def resume_group_analysis(
 
         # Check if there are chats to analyze (pending + failed)
         stats = service.get_group_stats(group_id)
-        pending_count = stats.get('by_status', {}).get('pending', 0)
-        failed_count = stats.get('by_status', {}).get('failed', 0)
+        pending_count = stats.status_pending
+        failed_count = stats.failed
 
         if pending_count + failed_count == 0:
             # No chats to analyze — return error

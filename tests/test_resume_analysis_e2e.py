@@ -70,9 +70,9 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
 
     # Verify initial state
     stats = service.get_group_stats(group_id)
-    assert stats["by_status"]["done"] == 10
-    assert stats["by_status"]["pending"] == 5
-    assert stats["by_status"]["failed"] == 2
+    assert stats.analyzed == 10  # status DONE
+    assert stats.status_pending == 5  # status PENDING
+    assert stats.failed == 2  # status FAILED
 
     # Mock request with necessary state
     mock_request = MagicMock()
@@ -122,6 +122,11 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
 
         # Verify start_analysis was called
         mock_engine.start_analysis.assert_called_once_with(group_id)
+
+        # Wait for background task to complete
+        task = mock_request.app.state.app_state.analysis_tasks.get(group_id)
+        if task:
+            await task
 
     # Verify only 7 chats (pending + failed) were selected for analysis
     assert len(analyzed_chats) == 7

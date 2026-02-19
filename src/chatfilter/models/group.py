@@ -341,15 +341,23 @@ class GroupStats(BaseModel):
 
     Attributes:
         total: Total number of chats.
-        pending: Chats not yet processed.
+        pending: Chats with type PENDING (not yet classified).
         dead: Dead/inaccessible chats.
         groups: Regular group chats.
         forums: Forum chats.
         channels_with_comments: Channels with comments enabled.
         channels_no_comments: Channels without comments.
-        analyzed: Successfully analyzed chats.
-        failed: Failed chat processing.
+        analyzed: Successfully analyzed chats (status DONE).
+        failed: Failed chat processing (status FAILED).
         skipped_moderation: Chats skipped due to join approval required.
+        status_pending: Chats with status PENDING (not started).
+        status_joining: Chats with status JOINING (join in progress).
+        status_analyzing: Chats with status ANALYZING (analysis in progress).
+
+    Note:
+        - `pending` refers to ChatTypeEnum.PENDING (type classification)
+        - `status_pending` refers to GroupChatStatus.PENDING (processing status)
+        These are different concepts.
 
     Example:
         >>> stats = GroupStats(
@@ -362,6 +370,9 @@ class GroupStats(BaseModel):
         ...     channels_no_comments=0,
         ...     analyzed=3,
         ...     failed=1,
+        ...     status_pending=5,
+        ...     status_joining=0,
+        ...     status_analyzing=1,
         ... )
         >>> stats.total
         10
@@ -383,10 +394,14 @@ class GroupStats(BaseModel):
     analyzed: int
     failed: int
     skipped_moderation: int = 0
+    status_pending: int = 0
+    status_joining: int = 0
+    status_analyzing: int = 0
 
     @field_validator("total", "pending", "dead", "groups", "forums",
                      "channels_with_comments", "channels_no_comments",
-                     "analyzed", "failed", "skipped_moderation")
+                     "analyzed", "failed", "skipped_moderation",
+                     "status_pending", "status_joining", "status_analyzing")
     @classmethod
     def counts_must_be_non_negative(cls, v: int) -> int:
         """Validate that all counts are non-negative."""
@@ -408,6 +423,9 @@ class GroupStats(BaseModel):
             analyzed=0,
             failed=0,
             skipped_moderation=0,
+            status_pending=0,
+            status_joining=0,
+            status_analyzing=0,
         )
 
     @classmethod
@@ -423,6 +441,9 @@ class GroupStats(BaseModel):
         analyzed: int | None = None,
         failed: int | None = None,
         skipped_moderation: int | None = None,
+        status_pending: int | None = None,
+        status_joining: int | None = None,
+        status_analyzing: int | None = None,
     ) -> GroupStats:
         """Create fake GroupStats for testing.
 
@@ -437,6 +458,9 @@ class GroupStats(BaseModel):
             analyzed: Analyzed count (default: 4).
             failed: Failed count (default: 1).
             skipped_moderation: Skipped moderation count (default: 0).
+            status_pending: Status pending count (default: 0).
+            status_joining: Status joining count (default: 0).
+            status_analyzing: Status analyzing count (default: 0).
 
         Returns:
             GroupStats instance with test data.
@@ -452,4 +476,7 @@ class GroupStats(BaseModel):
             analyzed=analyzed if analyzed is not None else 4,
             failed=failed if failed is not None else 1,
             skipped_moderation=skipped_moderation if skipped_moderation is not None else 0,
+            status_pending=status_pending if status_pending is not None else 0,
+            status_joining=status_joining if status_joining is not None else 0,
+            status_analyzing=status_analyzing if status_analyzing is not None else 0,
         )
