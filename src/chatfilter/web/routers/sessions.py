@@ -3302,6 +3302,9 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                                 "Please check proxy settings or switch to another proxy."
                             )
                             safe_error_message = sanitize_error_message_for_client(error_message, "proxy_error")
+                            if session_id in session_manager._sessions:
+                                session_manager._sessions[session_id].state = SessionState.ERROR
+                                session_manager._sessions[session_id].error_message = safe_error_message
                             if config_path:
                                 _save_error_to_config(config_path, safe_error_message, retry_available=True)
                             await get_event_bus().publish(session_id, "error")
