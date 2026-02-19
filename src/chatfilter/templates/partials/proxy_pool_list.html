@@ -2,7 +2,7 @@
 {% macro proxy_row(proxy) %}
 <tr id="proxy-row-{{ proxy.id }}" class="{% if not proxy.is_available %}proxy-disabled{% endif %}">
     <td data-label="{{ _("Status") }}">
-        <span class="spinner-small status-loading-spinner"></span>
+        <span class="spinner-small status-loading-spinner">{{ _("Testing...") }}</span>
         {% if proxy.status == 'working' %}
         <span class="proxy-status-badge proxy-status-working" title="{{ _("Working - last checked") }}: {{ proxy.last_ping_at.strftime('%H:%M') if proxy.last_ping_at else _('Never') }}">
             <span class="status-icon">&#x1F7E2;</span>
@@ -55,9 +55,10 @@
                     hx-post="/api/proxies/{{ proxy.id }}/retest"
                     hx-target="#proxy-row-{{ proxy.id }}"
                     hx-swap="outerHTML"
+                    hx-indicator="closest tr"
                     hx-disabled-elt="this"
                     hx-timeout="30000"
-                    hx-on::timeout="event.preventDefault(); this.classList.remove('htmx-request'); ToastManager.show({type: 'error', title: '{{ _("Test Timeout") }}', message: '{{ _("Test timeout (30s)") }}'});"
+                    hx-on::timeout="event.preventDefault(); this.closest('tr').classList.remove('htmx-request'); ToastManager.show({type: 'error', title: '{{ _("Test Timeout") }}', message: '{{ _("Test timeout (30s)") }}'});"
                     title="{{ _("Test proxy connection") }}"
                     aria-label="{{ _('Retest proxy') }} {{ proxy.name }}">
                 <span class="btn-text">{{ _("Test") }}</span>

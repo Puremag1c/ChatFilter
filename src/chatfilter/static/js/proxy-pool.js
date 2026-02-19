@@ -25,17 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Find and clear spinner in the row
-        const spinner = target.querySelector('.status-loading-spinner');
-        if (spinner) {
-            // Remove htmx-request class to hide spinner (via CSS)
-            spinner.classList.remove('htmx-request');
-        }
-
-        // Also clear from button if still present
-        const retestBtn = target.querySelector('.proxy-retest-btn');
-        if (retestBtn && retestBtn.classList.contains('htmx-request')) {
-            retestBtn.classList.remove('htmx-request');
-        }
+        // Remove htmx-request from the <tr> to hide spinner via CSS
+        target.classList.remove('htmx-request');
     });
 });
