@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-02-19
+
+### Fixed
+- SMOKE: [Server] Dev server failed to start
+- SMOKE: [Must Have] Retest endpoint returns JSON instead of HTML
+- SMOKE: [Must Have] Static CSS served stale — spinner fix not applied to browser
+- SMOKE: [Backend] Proxy retest saves UNTESTED status prematurely
+- SMOKE: [Visual] Retest endpoint returns English labels instead of user locale
+- SMOKE: [Must Have] Status text does not change to Testing... during proxy retest
+
+### Changed
+- [Security] Sanitize error messages in retest endpoint
+- [OPS] Add smoke test: verify app starts and responds
+- [UX] Add empty state to proxy pool page when no proxies configured
+- [OPS] Add unit tests for retest_proxy and update_proxy_health
+- [UX] Ensure spinner clears and new status appears after successful retest
+
 ## [0.10.5] - 2026-02-19
 
 ### Fixed
@@ -949,7 +966,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.2...v0.10.3
