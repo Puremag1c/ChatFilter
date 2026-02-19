@@ -301,6 +301,19 @@ class TestUpdateProxyHealth:
 
             assert result.status == ProxyStatus.NO_PING
 
+    @pytest.mark.asyncio
+    async def test_storage_write_error_propagated(self, sample_proxy: ProxyEntry) -> None:
+        """Critical: storage write error → exception propagated (not silent log)."""
+        from chatfilter.storage.errors import StorageError
+
+        with patch("chatfilter.service.proxy_health.update_proxy") as mock_update:
+            # Storage write fails
+            mock_update.side_effect = StorageError("Disk write failed")
+
+            # Exception should propagate (not caught silently)
+            with pytest.raises(StorageError):
+                await update_proxy_health(sample_proxy, success=True)
+
 
 class TestCheckSingleProxy:
     """Tests for check_single_proxy function."""
@@ -415,6 +428,86 @@ class TestRetestProxy:
                 mock_tunnel.assert_called_once()
                 assert result is not None
                 assert result.status == ProxyStatus.WORKING
+
+    @pytest.mark.asyncio
+    async def test_health_check_fails_becomes_no_ping_not_untested(self) -> None:
+        """Critical: health check fails → status becomes NO_PING (not UNTESTED)."""
+        proxy = ProxyEntry(
+            name="Test Proxy",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+            status=ProxyStatus.UNTESTED,
+            consecutive_failures=0,
+        )
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get:
+            mock_get.return_value = proxy
+
+            with (
+                patch("chatfilter.service.proxy_health.check_proxy_health") as mock_check,
+                patch("chatfilter.service.proxy_health.update_proxy") as mock_update,
+            ):
+                # Health check fails
+                mock_check.return_value = False
+
+                result = await retest_proxy(proxy.id)
+
+                assert result is not None
+                # After 1 failed retest, status should be NO_PING (not UNTESTED)
+                assert result.status == ProxyStatus.NO_PING
+                assert result.consecutive_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_health_check_succeeds_becomes_working(self) -> None:
+        """Critical: health check succeeds → status becomes WORKING."""
+        proxy = ProxyEntry(
+            name="Test Proxy",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+            status=ProxyStatus.NO_PING,
+            consecutive_failures=3,
+        )
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get:
+            mock_get.return_value = proxy
+
+            with (
+                patch("chatfilter.service.proxy_health.check_proxy_health") as mock_check,
+                patch("chatfilter.service.proxy_health.update_proxy") as mock_update,
+            ):
+                # Health check succeeds
+                mock_check.return_value = True
+
+                result = await retest_proxy(proxy.id)
+
+                assert result is not None
+                assert result.status == ProxyStatus.WORKING
+                assert result.consecutive_failures == 0
+
+    @pytest.mark.asyncio
+    async def test_exception_during_check_not_left_untested(self) -> None:
+        """Critical: exception during check → status not left UNTESTED."""
+        proxy = ProxyEntry(
+            name="Test Proxy",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+            status=ProxyStatus.UNTESTED,
+            consecutive_failures=0,
+        )
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get:
+            mock_get.return_value = proxy
+
+            with patch("chatfilter.service.proxy_health.check_proxy_health") as mock_check:
+                # Health check throws exception
+                mock_check.side_effect = TimeoutError("Connection timeout")
+
+                # Exception should propagate (not silently caught)
+                with pytest.raises(TimeoutError):
+                    await retest_proxy(proxy.id)
 
 
 class TestProxyHealthMonitor:
