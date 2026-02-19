@@ -312,7 +312,10 @@ async def check_all_proxies() -> dict[str, ProxyEntry]:
 async def retest_proxy(proxy_id: str) -> ProxyEntry | None:
     """Reset and retest a specific proxy.
 
-    Resets the failure counter and status, then performs a health check.
+    Resets the failure counter in-memory and performs a health check.
+    The health check result (WORKING or NO_PING) is saved directly by check_single_proxy.
+    No intermediate UNTESTED status is saved.
+
     Used when user clicks "Retest" button.
 
     Args:
@@ -330,15 +333,10 @@ async def retest_proxy(proxy_id: str) -> ProxyEntry | None:
         logger.warning(f"Proxy not found for retest: {proxy_id}")
         return None
 
-    # Reset status to untested
+    # Reset consecutive_failures in-memory only (don't save UNTESTED)
     reset_proxy = proxy.with_status_reset()
-    try:
-        update_proxy(proxy_id, reset_proxy)
-    except Exception as e:
-        logger.error(f"Failed to reset proxy status: {proxy.name} - {e}")
-        return None
 
-    # Perform health check
+    # Perform health check - this will save WORKING or NO_PING directly
     logger.info(f"Retesting proxy: {proxy.name} ({proxy.host}:{proxy.port})")
     return await check_single_proxy(reset_proxy)
 
