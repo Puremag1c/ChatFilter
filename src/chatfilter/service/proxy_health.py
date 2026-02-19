@@ -252,12 +252,8 @@ async def update_proxy_health(proxy: ProxyEntry, success: bool) -> ProxyEntry:
         elif updated_proxy.status == ProxyStatus.WORKING:
             logger.info(f"Proxy now working: {proxy.name} ({proxy.host}:{proxy.port})")
 
-    # Save to storage
-    try:
-        update_proxy(proxy.id, updated_proxy)
-    except Exception as e:
-        logger.error(f"Failed to save proxy health status: {proxy.name} - {e}")
-
+    # Save to storage (let errors propagate)
+    update_proxy(proxy.id, updated_proxy)
     return updated_proxy
 
 
