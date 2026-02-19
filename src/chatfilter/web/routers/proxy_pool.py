@@ -177,7 +177,7 @@ async def list_proxies() -> ProxyListResponse:
         logger.exception("Failed to load proxy pool")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to load proxies: {e}",
+            detail="Failed to load proxies. Please try again.",
         ) from e
 
 
@@ -230,7 +230,7 @@ async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
         logger.exception("Failed to create proxy")
         return ProxyCreateResponse(
             success=False,
-            error=f"Failed to create proxy: {e}",
+            error="Failed to create proxy. Please check your configuration and try again.",
         )
 
 
@@ -301,7 +301,7 @@ async def update_proxy_endpoint(
         logger.exception(f"Failed to update proxy {proxy_id}")
         return ProxyCreateResponse(
             success=False,
-            error=f"Failed to update proxy: {e}",
+            error="Failed to update proxy. Please check your configuration and try again.",
         )
 
 
@@ -349,7 +349,7 @@ async def delete_proxy(
         logger.exception(f"Failed to delete proxy {proxy_id}")
         return ProxyDeleteResponse(
             success=False,
-            error=f"Failed to delete proxy: {e}",
+            error="Failed to delete proxy. Please try again.",
         )
 
 
@@ -382,7 +382,7 @@ async def retest_proxy_endpoint(
         if updated_proxy is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Proxy not found: {proxy_id}",
+                detail="Proxy not found",
             )
 
         logger.info(f"Retested proxy: {updated_proxy.name} - status: {updated_proxy.status.value}")
@@ -482,8 +482,8 @@ async def list_proxies_html(request: Request) -> HTMLResponse:
     except Exception as e:
         logger.exception("Failed to load proxy pool for HTML")
         return HTMLResponse(
-            content=f'<div class="alert alert-error">'
-            f"<strong>Error:</strong> Failed to load proxies: {e}"
-            f"</div>",
+            content='<div class="alert alert-error">'
+            "<strong>Error:</strong> Failed to load proxies. Please try again."
+            "</div>",
             status_code=500,
         )
