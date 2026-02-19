@@ -829,19 +829,19 @@ td .status-loading-spinner {
     display: none;
 }
 
-.htmx-request .status-loading-spinner {
+tr.htmx-request .status-loading-spinner {
     display: inline-block;
 }
 
-.htmx-request .status-icon {
+tr.htmx-request .status-icon {
     display: none;
 }
 
-.htmx-request .status-text {
+tr.htmx-request .status-text {
     display: none;
 }
 
-.htmx-request .proxy-status-badge {
+tr.htmx-request .proxy-status-badge {
     display: none;
 }
 
