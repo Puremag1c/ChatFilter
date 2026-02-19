@@ -660,6 +660,7 @@ async def _generate_group_sse_events(
     """Generate SSE events for group analysis progress.
 
     Subscribes to GroupAnalysisEngine progress events and streams them as SSE.
+    Sends heartbeat pings every 15s to detect stale connections.
 
     Args:
         group_id: Group identifier
@@ -693,6 +694,11 @@ async def _generate_group_sse_events(
     # Subscribe to engine progress events
     progress_queue = engine.subscribe(group_id)
 
+    # Heartbeat tracking (using non-blocking event loop time)
+    loop = asyncio.get_event_loop()
+    last_heartbeat = loop.time()
+    HEARTBEAT_INTERVAL = 15.0  # seconds
+
     try:
         # Stream progress events until completion
         while True:
@@ -700,8 +706,14 @@ async def _generate_group_sse_events(
             if await request.is_disconnected():
                 break
 
+            # Send heartbeat ping every 15s
+            now = loop.time()
+            if now - last_heartbeat >= HEARTBEAT_INTERVAL:
+                yield f"event: ping\ndata: {json.dumps({'timestamp': now})}\n\n"
+                last_heartbeat = now
+
             try:
-                # Wait for next event with timeout to allow disconnect checks
+                # Wait for next event with timeout to allow heartbeat checks
                 event = await asyncio.wait_for(progress_queue.get(), timeout=1.0)
 
                 if event is None:
@@ -735,7 +747,7 @@ async def _generate_group_sse_events(
                     yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
 
             except asyncio.TimeoutError:
-                # Timeout waiting for event - continue to check disconnect
+                # Timeout waiting for event - continue to check disconnect and heartbeat
                 continue
 
     finally:
