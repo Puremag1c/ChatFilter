@@ -31,6 +31,22 @@
         box-shadow: 0 4px 12px var(--shadow-md);
     }
 
+    /* Pulse animation for in_progress cards (lightweight: opacity + border-color) */
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+            border-color: rgba(21, 101, 192, 0.6);
+        }
+        50% {
+            opacity: 0.85;
+            border-color: rgba(21, 101, 192, 0.9);
+        }
+    }
+
+    .group-card.in_progress {
+        animation: pulse 2s ease-in-out infinite;
+    }
+
     .group-card h3 {
         margin: 0 0 1rem 0;
         font-size: 1.25rem;

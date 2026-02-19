@@ -1,4 +1,4 @@
-<div class="group-card" id="group-{{ group.id }}"
+<div class="group-card {{ group.status.value }}" id="group-{{ group.id }}"
      {% if group.status.value == 'in_progress' %}
      hx-ext="sse"
      sse-connect="/api/groups/{{ group.id }}/progress"
