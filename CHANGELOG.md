@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-02-19
+
+### Added
+- **Resume paused groups**: POST /api/groups/{group_id}/resume endpoint for resuming paused analyses
+  - 'Продолжить анализ' button for paused groups
+  - Atomic status transitions with conflict detection (409 for concurrent requests)
+  - Validation: 404 for non-existent groups, 400 for non-paused or empty groups
+  - Only pending and failed chats reanalyzed (done chats skipped)
+- **SSE real-time progress**: Group cards now update via Server-Sent Events instead of polling
+  - Current chat name and elapsed time visible during analysis
+  - Progress bar updates in real-time
+  - Card auto-updates to completed/paused/failed status without page reload
+- **Startup crash recovery**: Server restart detection with automatic state recovery
+  - Orphaned in_progress groups automatically reset to paused
+  - Stale analyzing chats reset to pending
+  - Recovery logged at startup
+
+### Changed
+- **Status localization**: Group status badges now show translated text (in_progress → Анализируется)
+  - Russian translations: pending→Ожидание, in_progress→Анализируется, paused→Приостановлен, completed→Завершён, failed→Ошибка
+
+### Fixed
+- **Phase 1 timeout**: Added 5-minute per-chat timeout in Phase 1 analysis
+  - Chats stuck in analyzing state now marked as failed with timeout error
+  - Analysis continues for remaining chats instead of hanging entire group
+
 ## [0.10.6] - 2026-02-19
 
 ### Fixed
@@ -966,7 +992,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.6...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.7...HEAD
+[0.10.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.3...v0.10.4
