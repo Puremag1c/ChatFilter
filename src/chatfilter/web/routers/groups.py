@@ -1515,16 +1515,27 @@ async def resume_group_analysis(
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # Validate status == PAUSED
-        if group.status != GroupStatus.PAUSED:
-            error_msg = (
-                "Analysis already running" if group.status == GroupStatus.IN_PROGRESS
-                else "Can only resume paused groups"
-            )
+        # Validate status == PAUSED or handle concurrent resume
+        if group.status == GroupStatus.IN_PROGRESS:
+            # Concurrent resume attempt — return 409 (idempotent retry)
             trigger_data = json.dumps({
                 "refreshGroups": None,
                 "showToast": {
-                    "message": error_msg,
+                    "message": "Another operation in progress",
+                    "type": "error"
+                }
+            })
+            return HTMLResponse(
+                content='',
+                status_code=409,
+                headers={'HX-Trigger': trigger_data}
+            )
+        elif group.status != GroupStatus.PAUSED:
+            # Invalid state (completed, failed, pending) — return 400
+            trigger_data = json.dumps({
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "Can only resume paused groups",
                     "type": "error"
                 }
             })
