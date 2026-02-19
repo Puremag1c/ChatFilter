@@ -130,6 +130,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     logger.info(f"Task database initialized at {db_path}")
 
+    # Recover stale in_progress groups after server restart
+    from chatfilter.web.dependencies import get_group_engine
+
+    group_engine = get_group_engine()
+    group_engine.recover_stale_analysis()
+
     # Initialize session manager and start connection monitor
     from chatfilter.web.dependencies import get_session_manager
 

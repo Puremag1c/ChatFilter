@@ -132,6 +132,68 @@ class GroupAnalysisEngine:
         self._active_tasks: dict[str, list[asyncio.Task]] = {}
         self._subscribers: dict[str, list[asyncio.Queue[GroupProgressEvent]]] = {}
 
+    def recover_stale_analysis(self) -> None:
+        """Detect and recover from interrupted group analysis.
+
+        When server restarts, asyncio tasks are lost. Groups stuck in
+        in_progress status and chats stuck in analyzing status need to be
+        reset to allow resuming analysis.
+
+        For each group with status=in_progress:
+        - Find all chats with status=analyzing
+        - Reset them to status=pending (with error cleared)
+        - Change group status to paused
+        - Log recovery action
+
+        This should be called during application startup after database
+        initialization.
+        """
+        # Find all groups stuck in in_progress state
+        all_groups = self._db.load_all_groups()
+        stale_groups = [
+            g for g in all_groups
+            if g["status"] == GroupStatus.IN_PROGRESS.value
+        ]
+
+        if not stale_groups:
+            logger.info("No stale in_progress groups found — startup recovery skipped")
+            return
+
+        logger.info(f"Found {len(stale_groups)} stale in_progress groups — starting recovery")
+
+        for group in stale_groups:
+            group_id = group["id"]
+            group_name = group["name"]
+
+            # Find chats stuck in analyzing state
+            analyzing_chats = self._db.load_chats(
+                group_id=group_id,
+                status=GroupChatStatus.ANALYZING.value,
+            )
+
+            # Reset analyzing chats to pending
+            for chat in analyzing_chats:
+                self._db.update_chat_status(
+                    chat_id=chat["id"],
+                    status=GroupChatStatus.PENDING.value,
+                    error=None,
+                )
+
+            # Change group status to paused
+            self._db.save_group(
+                group_id=group_id,
+                name=group_name,
+                settings=group["settings"],
+                status=GroupStatus.PAUSED.value,
+                created_at=group["created_at"],
+                updated_at=datetime.now(UTC),
+            )
+
+            logger.info(
+                f"Обнаружен прерванный анализ группы '{group_name}' ({group_id}), "
+                f"статус изменён на paused. Сброшено {len(analyzing_chats)} чатов в pending."
+            )
+
     def check_increment_needed(
         self,
         group_id: str,
