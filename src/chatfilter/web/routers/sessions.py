@@ -3277,6 +3277,39 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 await get_event_bus().publish(session_id, "needs_config")
                 return
 
+            # PRE-CONNECT DIAGNOSTIC: Check SOCKS5 proxy health before wasting 30s on timeout
+            # SECURITY: Don't include proxy.name in SSE messages (may contain credentials)
+            proxy_id = getattr(factory, '_proxy_id', None)
+            proxy_entry = None
+            if proxy_id:
+                from chatfilter.config import ProxyType
+                from chatfilter.service.proxy_health import socks5_tunnel_check
+                from chatfilter.storage.errors import StorageNotFoundError
+                from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+                try:
+                    proxy_entry = get_proxy_by_id(proxy_id)
+                    # Only check SOCKS5 proxies (HTTP proxies use different protocol)
+                    if proxy_entry.type == ProxyType.SOCKS5:
+                        logger.debug(f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}")
+                        proxy_ok = await socks5_tunnel_check(proxy_entry)
+                        if not proxy_ok:
+                            # Proxy is broken → early return with generic error
+                            # SECURITY: Don't include proxy.name in logs (may contain credentials)
+                            logger.warning(f"Pre-connect diagnostic failed: proxy ID {proxy_id} not responding")
+                            error_message = (
+                                "The proxy is not responding. "
+                                "Please check proxy settings or switch to another proxy."
+                            )
+                            safe_error_message = sanitize_error_message_for_client(error_message, "proxy_error")
+                            if config_path:
+                                _save_error_to_config(config_path, safe_error_message, retry_available=True)
+                            await get_event_bus().publish(session_id, "error")
+                            return
+                except StorageNotFoundError:
+                    # Proxy ID in config but not in storage → will be caught by get_session_config_status
+                    logger.warning(f"Proxy {proxy_id} not found in storage")
+
             # CASE 4: Check if session.session file exists (first time auth)
             # If missing → trigger send_code flow
             if not session_path.exists():
@@ -3355,7 +3388,16 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
         except TimeoutError:
             logger.warning(f"Connection timeout for session '{session_id}'")
-            error_message = "Connection timeout"
+            # Proxy-aware timeout: check if proxy was tested
+            # SECURITY: Don't include proxy.name in logs (may contain credentials)
+            if proxy_entry:
+                logger.info(f"Timeout occurred with proxy ID: {proxy_entry.id}")
+                error_message = (
+                    "Telegram servers are not reachable through the proxy. "
+                    "Try a different proxy or check your network."
+                )
+            else:
+                error_message = "Connection timeout"
             safe_error_message = sanitize_error_message_for_client(error_message, "timeout")
             if session_id in session_manager._sessions:
                 session_manager._sessions[session_id].state = SessionState.ERROR
