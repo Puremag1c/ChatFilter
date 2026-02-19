@@ -26,6 +26,7 @@ from chatfilter.service.proxy_health import (
     check_single_proxy,
     get_proxy_health_monitor,
     retest_proxy,
+    socks5_tunnel_check,
     update_proxy_health,
 )
 
@@ -123,7 +124,7 @@ class TestCheckProxyHealth:
         """Should not leak username/password in SOCKS5 auth errors (security test)."""
         import socks
 
-        from chatfilter.service.proxy_health import _socks5_connect_sync, ProxyCheckError
+        from chatfilter.service.proxy_health import ProxyCheckError, _socks5_connect_sync
 
         # Proxy with credentials
         proxy_username = "secret_user"
@@ -152,6 +153,114 @@ class TestCheckProxyHealth:
             assert proxy_username not in error_message
             assert proxy_password not in error_message
             assert "Authentication failed" in error_message
+
+
+class TestSocks5TunnelCheck:
+    """Tests for socks5_tunnel_check function."""
+
+    @pytest.mark.asyncio
+    async def test_success(self) -> None:
+        """Should return True for successful SOCKS5 tunnel."""
+        proxy = ProxyEntry(
+            name="Test SOCKS5",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+            username="user",
+            password="pass",
+        )
+
+        # Mock _socks5_connect_sync to succeed
+        with patch("chatfilter.service.proxy_health._socks5_connect_sync", return_value=True):
+            result = await socks5_tunnel_check(proxy)
+
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_timeout(self) -> None:
+        """Should return False on timeout."""
+        proxy = ProxyEntry(
+            name="Test SOCKS5",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        # Mock _socks5_connect_sync to raise timeout
+        with patch("chatfilter.service.proxy_health._socks5_connect_sync") as mock_connect:
+            mock_connect.side_effect = asyncio.TimeoutError("Timeout")
+
+            result = await socks5_tunnel_check(proxy, timeout=1.0)
+
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_auth_failure(self) -> None:
+        """Should return False on authentication failure."""
+        from chatfilter.service.proxy_health import ProxyCheckError
+
+        proxy = ProxyEntry(
+            name="Test SOCKS5",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+            username="wrong_user",
+            password="wrong_pass",
+        )
+
+        # Mock _socks5_connect_sync to raise auth error
+        with patch("chatfilter.service.proxy_health._socks5_connect_sync") as mock_connect:
+            mock_connect.side_effect = ProxyCheckError("Authentication failed")
+
+            result = await socks5_tunnel_check(proxy)
+
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_connection_refused(self) -> None:
+        """Should return False on connection refused."""
+        from chatfilter.service.proxy_health import ProxyCheckError
+
+        proxy = ProxyEntry(
+            name="Test SOCKS5",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=9999,  # Non-existent port
+        )
+
+        # Mock _socks5_connect_sync to raise connection error
+        with patch("chatfilter.service.proxy_health._socks5_connect_sync") as mock_connect:
+            mock_connect.side_effect = ProxyCheckError("Proxy unreachable")
+
+            result = await socks5_tunnel_check(proxy)
+
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_no_leak(self) -> None:
+        """Should not leak proxy details in unexpected errors (security test)."""
+        proxy = ProxyEntry(
+            name="Sensitive Proxy Name",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+            username="secret_user",
+        )
+
+        # Mock _socks5_connect_sync to raise unexpected error
+        with patch("chatfilter.service.proxy_health._socks5_connect_sync") as mock_connect:
+            mock_connect.side_effect = RuntimeError("Some unexpected error")
+
+            # Should log warning but not leak proxy details
+            with patch("chatfilter.service.proxy_health.logger") as mock_logger:
+                result = await socks5_tunnel_check(proxy)
+
+                assert result is False
+                # Logger should NOT contain sensitive data
+                for call in mock_logger.warning.call_args_list:
+                    log_message = str(call)
+                    assert "secret_user" not in log_message
+                    assert proxy.name not in log_message
 
 
 class TestUpdateProxyHealth:
@@ -280,6 +389,32 @@ class TestRetestProxy:
             result = await retest_proxy("nonexistent-id")
 
             assert result is None
+
+    @pytest.mark.asyncio
+    async def test_socks5_proxy_uses_tunnel_check(self) -> None:
+        """Retest button should use socks5_tunnel_check for SOCKS5 proxies."""
+        socks5_proxy = ProxyEntry(
+            name="SOCKS5 Proxy",
+            type=ProxyType.SOCKS5,
+            host="127.0.0.1",
+            port=1080,
+        )
+
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get:
+            mock_get.return_value = socks5_proxy
+
+            with (
+                patch("chatfilter.service.proxy_health.update_proxy"),
+                patch("chatfilter.service.proxy_health.socks5_tunnel_check") as mock_tunnel,
+            ):
+                mock_tunnel.return_value = True
+
+                result = await retest_proxy(socks5_proxy.id)
+
+                # Should have called socks5_tunnel_check
+                mock_tunnel.assert_called_once()
+                assert result is not None
+                assert result.status == ProxyStatus.WORKING
 
 
 class TestProxyHealthMonitor:
