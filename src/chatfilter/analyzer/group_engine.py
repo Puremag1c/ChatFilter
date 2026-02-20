@@ -282,6 +282,108 @@ class GroupAnalysisEngine:
         )
         return False
 
+    def _prepare_increment(
+        self,
+        group_id: str,
+        settings: GroupSettings,
+    ) -> int:
+        """Prepare INCREMENT mode by marking incomplete DONE chats as PENDING.
+
+        Examines all DONE chats in the group and checks if they have all metrics
+        required by current settings. Chats missing metrics are marked as PENDING
+        for re-analysis.
+
+        Args:
+            group_id: Group identifier to check.
+            settings: Group settings defining which metrics are enabled.
+
+        Returns:
+            Number of DONE chats that were marked PENDING due to incomplete data.
+        """
+        # Load all chats for this group
+        all_chats = self._db.load_chats(group_id=group_id)
+        if not all_chats:
+            logger.debug(f"[prepare_increment] Group '{group_id}': no chats found")
+            return 0
+
+        # Only check DONE chats
+        done_chats = [
+            chat for chat in all_chats
+            if chat["status"] == GroupChatStatus.DONE.value
+        ]
+
+        if not done_chats:
+            logger.debug(f"[prepare_increment] Group '{group_id}': no DONE chats to check")
+            return 0
+
+        logger.info(f"[prepare_increment] Group '{group_id}': checking {len(done_chats)} DONE chats for completeness")
+
+        # Define which metrics are needed based on settings
+        required_metrics = ["chat_type"]  # Always required
+        if settings.detect_subscribers:
+            required_metrics.append("subscribers")
+        if settings.detect_activity:
+            required_metrics.append("messages_per_hour")
+        if settings.detect_unique_authors:
+            required_metrics.append("unique_authors_per_hour")
+        if settings.detect_moderation:
+            required_metrics.append("moderation")
+        if settings.detect_captcha:
+            required_metrics.append("captcha")
+
+        logger.debug(
+            f"[prepare_increment] Group '{group_id}': "
+            f"required metrics = {required_metrics}"
+        )
+
+        # Track incomplete chats
+        incomplete_count = 0
+
+        # Check each DONE chat for missing metrics
+        for chat in done_chats:
+            result = self._db.load_result(group_id, chat["chat_ref"])
+
+            # No result at all → mark PENDING
+            if not result:
+                logger.info(
+                    f"[prepare_increment] Group '{group_id}': "
+                    f"chat @{chat['chat_ref']} has NO result → marking PENDING"
+                )
+                self._db.update_chat_status(
+                    chat_id=chat["id"],
+                    status=GroupChatStatus.PENDING.value,
+                    error=None,
+                )
+                incomplete_count += 1
+                continue
+
+            metrics_data = result.get("metrics_data", {})
+
+            # Check if any required metric is missing or None
+            missing_metrics = []
+            for metric in required_metrics:
+                value = metrics_data.get(metric)
+                if value is None:
+                    missing_metrics.append(metric)
+
+            if missing_metrics:
+                logger.info(
+                    f"[prepare_increment] Group '{group_id}': "
+                    f"chat @{chat['chat_ref']} missing metrics {missing_metrics} → marking PENDING"
+                )
+                self._db.update_chat_status(
+                    chat_id=chat["id"],
+                    status=GroupChatStatus.PENDING.value,
+                    error=None,
+                )
+                incomplete_count += 1
+
+        logger.info(
+            f"[prepare_increment] Group '{group_id}': "
+            f"marked {incomplete_count}/{len(done_chats)} DONE chats as PENDING due to incomplete data"
+        )
+        return incomplete_count
+
     async def start_analysis(
         self,
         group_id: str,
@@ -323,6 +425,15 @@ class GroupAnalysisEngine:
                 "No connected Telegram accounts available. "
                 "Please connect at least one account to start analysis."
             )
+
+        # INCREMENT mode: check data completeness and mark incomplete chats as PENDING
+        if mode == AnalysisMode.INCREMENT:
+            incomplete_count = self._prepare_increment(group_id, settings)
+            if incomplete_count > 0:
+                logger.info(
+                    f"[INCREMENT mode] Identified {incomplete_count} incomplete chats, "
+                    f"marked as PENDING for re-analysis"
+                )
 
         pending_chats = self._db.load_chats(
             group_id=group_id,
@@ -474,6 +585,23 @@ class GroupAnalysisEngine:
             f"Starting analysis for group '{group_id}' with "
             f"{len(connected_accounts)} accounts, {len(pending_chats)} chats"
         )
+
+        # Publish initial progress event for INCREMENT mode
+        # (shows already-DONE count before Phase 1 starts)
+        if mode == AnalysisMode.INCREMENT and pending_chats:
+            processed, total = self._db.count_processed_chats(group_id)
+            if processed > 0:
+                logger.info(
+                    f"[INCREMENT mode] Initial progress: {processed}/{total} chats already processed"
+                )
+                initial_event = GroupProgressEvent(
+                    group_id=group_id,
+                    status=GroupStatus.IN_PROGRESS.value,
+                    current=processed,
+                    total=total,
+                    message=f"Resuming analysis: {processed} chats already done, {len(pending_chats)} pending",
+                )
+                self._publish_event(initial_event)
 
         # Phase 1: Resolve metadata per-account in parallel
         phase1_tasks = []
