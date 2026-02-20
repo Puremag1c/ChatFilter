@@ -1380,3 +1380,252 @@ class TestExceptionRecoveryPaths:
             assert "Orphan safety net" in metrics["error_reason"], (
                 f"Error reason should mention 'Orphan safety net', got: {metrics['error_reason']}"
             )
+
+
+class TestPrepareIncrement:
+    """Test _prepare_increment() marks incomplete DONE chats as PENDING."""
+
+    def test_incomplete_done_chats_marked_pending(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """DONE chats missing required metrics should be marked PENDING."""
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        group_id = "test-prepare-increment"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_activity=True,  # This metric will be missing
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Group",
+            settings=settings.model_dump(),
+            status="completed",
+        )
+
+        # Chat 1: DONE with all metrics (complete)
+        chat_ref_complete = "https://t.me/complete_chat"
+        chat_id_complete = test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref_complete,
+            chat_type="group",
+            status=GroupChatStatus.DONE.value,
+        )
+        test_db.save_result(group_id, chat_ref_complete, {
+            "chat_type": "group",
+            "subscribers": 500,
+            "messages_per_hour": 10.0,
+            "unique_authors_per_hour": 5.0,
+            "moderation": False,
+            "captcha": False,
+            "status": "done",
+            "title": "Complete Chat",
+            "chat_ref": chat_ref_complete,
+        })
+
+        # Chat 2: DONE but missing activity metrics (incomplete)
+        chat_ref_incomplete = "https://t.me/incomplete_chat"
+        chat_id_incomplete = test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref_incomplete,
+            chat_type="group",
+            status=GroupChatStatus.DONE.value,
+        )
+        test_db.save_result(group_id, chat_ref_incomplete, {
+            "chat_type": "group",
+            "subscribers": 300,
+            "messages_per_hour": None,  # Missing!
+            "unique_authors_per_hour": None,  # Missing!
+            "moderation": False,
+            "captcha": False,
+            "status": "done",
+            "title": "Incomplete Chat",
+            "chat_ref": chat_ref_incomplete,
+        })
+
+        # Chat 3: DONE but no result at all
+        chat_ref_no_result = "https://t.me/no_result_chat"
+        chat_id_no_result = test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref_no_result,
+            chat_type="group",
+            status=GroupChatStatus.DONE.value,
+        )
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=MagicMock(),
+        )
+
+        # Run _prepare_increment
+        incomplete_count = engine._prepare_increment(group_id, settings)
+
+        # Should mark 2 chats as PENDING (incomplete + no_result)
+        assert incomplete_count == 2, f"Expected 2 incomplete chats, got {incomplete_count}"
+
+        # Complete chat should remain DONE
+        done_chats = test_db.load_chats(group_id=group_id, status=GroupChatStatus.DONE.value)
+        assert len(done_chats) == 1
+        assert done_chats[0]["chat_ref"] == chat_ref_complete
+
+        # Incomplete chats should be PENDING
+        pending_chats = test_db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
+        assert len(pending_chats) == 2
+        pending_refs = {c["chat_ref"] for c in pending_chats}
+        assert chat_ref_incomplete in pending_refs
+        assert chat_ref_no_result in pending_refs
+
+    def test_all_complete_returns_zero(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """When all DONE chats have all metrics, _prepare_increment returns 0."""
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        group_id = "test-prepare-all-complete"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_activity=False,
+            detect_unique_authors=False,
+            detect_moderation=False,
+            detect_captcha=False,
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Group",
+            settings=settings.model_dump(),
+            status="completed",
+        )
+
+        chat_ref = "https://t.me/all_done"
+        test_db.save_chat(
+            group_id=group_id,
+            chat_ref=chat_ref,
+            chat_type="group",
+            status=GroupChatStatus.DONE.value,
+        )
+        test_db.save_result(group_id, chat_ref, {
+            "chat_type": "group",
+            "subscribers": 500,
+            "messages_per_hour": None,  # Not required since detect_activity=False
+            "unique_authors_per_hour": None,
+            "moderation": False,
+            "captcha": False,
+            "status": "done",
+            "title": "Done Chat",
+            "chat_ref": chat_ref,
+        })
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=MagicMock(),
+        )
+
+        incomplete_count = engine._prepare_increment(group_id, settings)
+        assert incomplete_count == 0, "All chats complete, should return 0"
+
+        # Chat should remain DONE
+        done_chats = test_db.load_chats(group_id=group_id, status=GroupChatStatus.DONE.value)
+        assert len(done_chats) == 1
+
+    @pytest.mark.asyncio
+    async def test_initial_progress_before_prepare_increment(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Initial progress event should show count BEFORE _prepare_increment runs.
+
+        Verifies that start_analysis captures count_processed_chats BEFORE calling
+        _prepare_increment, so the user sees the original processed count (e.g. 5/5)
+        not the reduced count after incomplete chats are marked PENDING (e.g. 3/5).
+        """
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
+        group_id = "test-progress-timing"
+        settings = GroupSettings(
+            detect_subscribers=True,
+            detect_activity=True,
+        )
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Group",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        # Create 5 chats: 3 complete DONE, 2 incomplete DONE (missing activity)
+        for i in range(3):
+            ref = f"https://t.me/complete{i}"
+            test_db.save_chat(
+                group_id=group_id, chat_ref=ref,
+                chat_type="group", status=GroupChatStatus.DONE.value,
+            )
+            test_db.save_result(group_id, ref, {
+                "chat_type": "group", "subscribers": 100,
+                "messages_per_hour": 5.0, "unique_authors_per_hour": 2.0,
+                "moderation": False, "captcha": False,
+                "status": "done", "title": f"Complete {i}", "chat_ref": ref,
+            })
+
+        for i in range(2):
+            ref = f"https://t.me/incomplete{i}"
+            test_db.save_chat(
+                group_id=group_id, chat_ref=ref,
+                chat_type="group", status=GroupChatStatus.DONE.value,
+            )
+            test_db.save_result(group_id, ref, {
+                "chat_type": "group", "subscribers": 100,
+                "messages_per_hour": None, "unique_authors_per_hour": None,
+                "moderation": False, "captcha": False,
+                "status": "done", "title": f"Incomplete {i}", "chat_ref": ref,
+            })
+
+        # Before _prepare_increment: all 5 are DONE → processed=5
+        processed_before, total_before = test_db.count_processed_chats(group_id)
+        assert processed_before == 5, "All 5 should be processed before prepare"
+        assert total_before == 5
+
+        # Mock dependencies
+        mock_session_mgr = MagicMock()
+        mock_session_mgr.list_sessions.return_value = ["account-1"]
+
+        async def mock_is_healthy(sid):
+            return True
+        mock_session_mgr.is_healthy = mock_is_healthy
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_mgr,
+        )
+
+        # Capture published events
+        published_events = []
+        original_publish = engine._publish_event
+        def capture_event(event):
+            published_events.append(event)
+            original_publish(event)
+        engine._publish_event = capture_event
+
+        # Patch Phase 1, Phase 2, and completion to avoid Telegram calls
+        async def mock_noop(*args, **kwargs):
+            pass
+
+        with patch.object(engine, "_phase1_resolve_account", side_effect=mock_noop), \
+             patch.object(engine, "_phase2_activity_account", side_effect=mock_noop), \
+             patch.object(engine, "_check_and_complete_if_done", return_value=None):
+            await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
+
+        # Verify: initial progress event should show 5/5 (pre-prepare count)
+        # NOT 3/5 (post-prepare count after 2 incomplete chats marked PENDING)
+        initial_events = [
+            e for e in published_events
+            if e.message and "Resuming analysis" in e.message
+        ]
+        assert len(initial_events) == 1, f"Expected 1 initial progress event, got {len(initial_events)}"
+
+        initial_event = initial_events[0]
+        assert initial_event.current == 5, (
+            f"Initial progress should show 5 (pre-prepare count), got {initial_event.current}"
+        )
+        assert initial_event.total == 5

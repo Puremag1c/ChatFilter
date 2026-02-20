@@ -426,8 +426,11 @@ class GroupAnalysisEngine:
                 "Please connect at least one account to start analysis."
             )
 
-        # INCREMENT mode: check data completeness and mark incomplete chats as PENDING
+        # INCREMENT mode: capture initial progress BEFORE marking incomplete chats
+        initial_processed = 0
+        initial_total = 0
         if mode == AnalysisMode.INCREMENT:
+            initial_processed, initial_total = self._db.count_processed_chats(group_id)
             incomplete_count = self._prepare_increment(group_id, settings)
             if incomplete_count > 0:
                 logger.info(
@@ -587,21 +590,19 @@ class GroupAnalysisEngine:
         )
 
         # Publish initial progress event for INCREMENT mode
-        # (shows already-DONE count before Phase 1 starts)
-        if mode == AnalysisMode.INCREMENT and pending_chats:
-            processed, total = self._db.count_processed_chats(group_id)
-            if processed > 0:
-                logger.info(
-                    f"[INCREMENT mode] Initial progress: {processed}/{total} chats already processed"
-                )
-                initial_event = GroupProgressEvent(
-                    group_id=group_id,
-                    status=GroupStatus.IN_PROGRESS.value,
-                    current=processed,
-                    total=total,
-                    message=f"Resuming analysis: {processed} chats already done, {len(pending_chats)} pending",
-                )
-                self._publish_event(initial_event)
+        # Uses pre-captured count (before _prepare_increment marked incomplete chats PENDING)
+        if mode == AnalysisMode.INCREMENT and pending_chats and initial_processed > 0:
+            logger.info(
+                f"[INCREMENT mode] Initial progress: {initial_processed}/{initial_total} chats already processed"
+            )
+            initial_event = GroupProgressEvent(
+                group_id=group_id,
+                status=GroupStatus.IN_PROGRESS.value,
+                current=initial_processed,
+                total=initial_total,
+                message=f"Resuming analysis: {initial_processed} chats already done, {len(pending_chats)} pending",
+            )
+            self._publish_event(initial_event)
 
         # Phase 1: Resolve metadata per-account in parallel
         phase1_tasks = []
