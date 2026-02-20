@@ -64,6 +64,8 @@ class SQLiteDatabase(ABC):
         conn.row_factory = sqlite3.Row
         # Enable foreign key constraints (required for CASCADE DELETE)
         conn.execute("PRAGMA foreign_keys = ON")
+        # Set busy timeout to prevent SQLITE_BUSY errors during concurrent operations
+        conn.execute("PRAGMA busy_timeout = 30000")  # 30 seconds
         try:
             yield conn
             conn.commit()
