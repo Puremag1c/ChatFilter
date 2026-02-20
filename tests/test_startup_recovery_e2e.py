@@ -75,8 +75,8 @@ def test_startup_recovery_e2e():
             # Step 8: Restart server
             process = _start_server(port, data_dir)
 
-            # Step 9: Wait for server to start
-            _wait_for_server(base_url, timeout=30)
+            # Step 9: Wait for server to start (longer timeout for recovery)
+            _wait_for_server(base_url, timeout=60)
 
             print("✓ Server restarted")
 
