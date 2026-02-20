@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.9] - 2026-02-21
+
+### Fixed
+- Fix: test_startup_smoke uses system chatfilter instead of venv
+- SMOKE: [Backend] INCREMENT mode counts DONE chats as analyzed instead of skipping
+- SMOKE: [Backend] Progress counter not monotonic - decreases during multi-account analysis
+- SMOKE: [Must Have] group_card.html scripts not executed - innerHTML bypass
+- SMOKE: [Must Have] SSE events not dispatched - missing sse-swap attributes in group_card.html
+
 ## [0.10.8] - 2026-02-19
 
 ### Fixed
@@ -1021,7 +1030,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.8...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.9...HEAD
+[0.10.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.5...v0.10.6
