@@ -652,15 +652,7 @@ class GroupAnalysisEngine:
 
         logger.info(
             f"Phase 1: Account '{account_id}' resolving {len(account_chats)} chats"
-        )
-
-        # Get total chat count for progress calculation (THIS account's work)
-        total_chats = len(account_chats)
-
-        # Initialize progress counter (start from zero for THIS run)
-        current_count = 0
-
-        # Initialize retry queue with (chat, retry_count, floodwait_retry_count) tuples
+        )        # Initialize retry queue with (chat, retry_count, floodwait_retry_count) tuples
         MAX_RETRIES = 3
         MAX_FLOODWAIT_SECONDS = 1800  # 30 minutes (Telegram asks 23-24 min normally)
         MAX_CHAT_TIMEOUT = 600  # 10 minutes cumulative wait per chat
@@ -690,16 +682,11 @@ class GroupAnalysisEngine:
                                         chat_id=chat["id"],
                                         status=GroupChatStatus.DONE.value,
                                     )
-                                    current_count += 1
-                                    event = GroupProgressEvent(
+                                    self._publish_progress_from_db(
                                         group_id=group_id,
-                                        status=GroupStatus.IN_PROGRESS.value,
-                                        current=current_count,
-                                        total=total_chats,
                                         chat_title=em.get("title") or chat["chat_ref"],
                                         message=f"Skipped @{chat['chat_ref']} (already analyzed)",
                                     )
-                                    self._publish_event(event)
                                     continue
 
                         # Wrap Phase 1 resolution with 5-minute timeout
@@ -712,18 +699,13 @@ class GroupAnalysisEngine:
                         )
 
                         # Increment counter after processing
-                        current_count += 1
 
-                        event = GroupProgressEvent(
+                        self._publish_progress_from_db(
                             group_id=group_id,
-                            status=GroupStatus.IN_PROGRESS.value,
-                            current=current_count,
-                            total=total_chats,
                             chat_title=resolved.title or resolved.chat_ref,
-                            message=f"Phase 1: Resolved {current_count}/{total_chats}",
+                            message="Phase 1: Resolving chats",
                             error=resolved.error,
                         )
-                        self._publish_event(event)
 
                         # Rate limiting: 5-7s delay between successful calls
                         if chat_queue:
@@ -762,17 +744,11 @@ class GroupAnalysisEngine:
                             self._save_phase1_result(
                                 group_id, chat, dead_resolved, account_id, settings, mode,
                             )
-
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 error=f"FloodWait too long: {wait_seconds}s",
                             )
-                            self._publish_event(event)
                             continue
 
                         # FloodWait <= 300s: check cumulative timeout before waiting
@@ -815,18 +791,12 @@ class GroupAnalysisEngine:
                             self._save_phase1_result(
                                 group_id, chat, dead_resolved, account_id, settings, mode,
                             )
-
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 message=timeout_msg,
                                 error=f"Timeout exceeded after {int(cumulative_wait)}s",
                             )
-                            self._publish_event(event)
                             continue
 
                         # Update cumulative wait and proceed
@@ -838,15 +808,11 @@ class GroupAnalysisEngine:
                             f"(cumulative: {int(new_cumulative)}s/{MAX_CHAT_TIMEOUT}s)"
                         )
 
-                        event = GroupProgressEvent(
+                        self._publish_progress_from_db(
                             group_id=group_id,
-                            status=GroupStatus.IN_PROGRESS.value,
-                            current=current_count,
-                            total=total_chats,
                             chat_title=chat["chat_ref"],
                             message=f"Waiting for FloodWait cooldown ({total_wait}s remaining)...",
                         )
-                        self._publish_event(event)
 
                         await asyncio.sleep(total_wait)
 
@@ -885,17 +851,12 @@ class GroupAnalysisEngine:
                         )
 
                         # Increment counter and publish event (continue to next chat)
-                        current_count += 1
-                        event = GroupProgressEvent(
+                        self._publish_progress_from_db(
                             group_id=group_id,
-                            status=GroupStatus.IN_PROGRESS.value,
-                            current=current_count,
-                            total=total_chats,
                             chat_title=chat["chat_ref"],
                             message=f"Chat @{chat['chat_ref']} timed out in Phase 1",
                             error="Phase 1 timeout (5 min)",
                         )
-                        self._publish_event(event)
                         continue
                     except Exception as e:
                         # Any other error: retry up to MAX_RETRIES
@@ -910,15 +871,11 @@ class GroupAnalysisEngine:
                             # Retry: re-enqueue at end, increment retry_count, preserve floodwait_retry_count
                             chat_queue.append((chat, retry_count + 1, floodwait_retry_count))
 
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 message=f"Retry {retry_count + 2}/{MAX_RETRIES} for @{chat['chat_ref']} ({error_type})",
                             )
-                            self._publish_event(event)
                         else:
                             # Max retries exhausted: mark as dead and save result
                             logger.error(
@@ -948,18 +905,12 @@ class GroupAnalysisEngine:
                             self._save_phase1_result(
                                 group_id, chat, dead_resolved, account_id, settings, mode,
                             )
-
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 message=f"Chat @{chat['chat_ref']} failed after {MAX_RETRIES} retries: {error_type}",
                                 error=error_msg,
                             )
-                            self._publish_event(event)
 
         except Exception as e:
             logger.error(
@@ -1425,15 +1376,7 @@ class GroupAnalysisEngine:
         logger.info(
             f"Phase 2: Account '{account_id}' analyzing "
             f"{len(analyzable)} chats for activity"
-        )
-
-        # Get total chat count for progress calculation (THIS account's work)
-        total_chats = len(analyzable)
-
-        # Initialize progress counter (start from zero for THIS run)
-        current_count = 0
-
-        # Initialize retry queue with (chat, retry_count, floodwait_retry_count) tuples
+        )        # Initialize retry queue with (chat, retry_count, floodwait_retry_count) tuples
         MAX_RETRIES = 3
         MAX_FLOODWAIT_RETRIES = 5
         MAX_FLOODWAIT_SECONDS = 1800  # 30 minutes (Telegram asks 23-24 min normally)
@@ -1458,16 +1401,11 @@ class GroupAnalysisEngine:
                                 has_authors = not settings.detect_unique_authors or em.get("unique_authors_per_hour") is not None
                                 has_captcha = not settings.detect_captcha or em.get("captcha") is not None
                                 if has_activity and has_authors and has_captcha:
-                                    current_count += 1
-                                    event = GroupProgressEvent(
+                                    self._publish_progress_from_db(
                                         group_id=group_id,
-                                        status=GroupStatus.IN_PROGRESS.value,
-                                        current=current_count,
-                                        total=total_chats,
                                         chat_title=em.get("title") or chat["chat_ref"],
                                         message=f"Skipped @{chat['chat_ref']} (already analyzed)",
                                     )
-                                    self._publish_event(event)
                                     continue
 
                         # Wrap Phase 2 activity analysis with 5-minute timeout
@@ -1479,7 +1417,6 @@ class GroupAnalysisEngine:
                         )
 
                         # Success — increment counter and publish event
-                        current_count += 1
 
                         # Load result to get title
                         result = self._db.load_result(group_id, chat["chat_ref"])
@@ -1490,15 +1427,11 @@ class GroupAnalysisEngine:
                         else:
                             chat_title = chat["chat_ref"]
 
-                        event = GroupProgressEvent(
+                        self._publish_progress_from_db(
                             group_id=group_id,
-                            status=GroupStatus.IN_PROGRESS.value,
-                            current=current_count,
-                            total=total_chats,
                             chat_title=chat_title,
-                            message=f"Phase 2: Analyzed {current_count}/{total_chats}",
+                            message="Phase 2: Analyzing activity",
                         )
-                        self._publish_event(event)
 
                         # Rate limiting between successful calls (5-7s normally, 10-12s after rate limit)
                         if chat_queue:
@@ -1526,16 +1459,11 @@ class GroupAnalysisEngine:
                         )
 
                         # Increment counter and publish event
-                        current_count += 1
-                        event = GroupProgressEvent(
+                        self._publish_progress_from_db(
                             group_id=group_id,
-                            status=GroupStatus.IN_PROGRESS.value,
-                            current=current_count,
-                            total=total_chats,
                             chat_title=chat["chat_ref"],
                             error="Phase 2 timeout (5 min)",
                         )
-                        self._publish_event(event)
                         continue
 
                     except RateLimitedJoinError as e:
@@ -1561,17 +1489,11 @@ class GroupAnalysisEngine:
                                 chat_ref=chat["chat_ref"],
                                 metrics_data={"error_reason": f"Phase 2 FloodWait too long: {wait_seconds}s (limit: {MAX_FLOODWAIT_SECONDS}s)"},
                             )
-
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 error=f"Phase 2 FloodWait too long: {wait_seconds}s",
                             )
-                            self._publish_event(event)
                             continue
 
                         # Check FloodWait retry limit (separate from generic retries)
@@ -1590,16 +1512,11 @@ class GroupAnalysisEngine:
                                 chat_ref=chat["chat_ref"],
                                 metrics_data={"error_reason": f"Phase 2 failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries"},
                             )
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 error=f"FloodWait retry limit exceeded",
                             )
-                            self._publish_event(event)
                             continue
 
                         # FloodWait <= MAX_FLOODWAIT_SECONDS: wait with 10% buffer and retry
@@ -1611,15 +1528,11 @@ class GroupAnalysisEngine:
                             f"Waiting {total_wait}s..."
                         )
 
-                        event = GroupProgressEvent(
+                        self._publish_progress_from_db(
                             group_id=group_id,
-                            status=GroupStatus.IN_PROGRESS.value,
-                            current=current_count,
-                            total=total_chats,
                             chat_title=chat["chat_ref"],
                             message=f"Waiting for FloodWait cooldown ({total_wait}s remaining)...",
                         )
-                        self._publish_event(event)
 
                         await asyncio.sleep(total_wait)
 
@@ -1654,17 +1567,11 @@ class GroupAnalysisEngine:
                                 chat_ref=chat["chat_ref"],
                                 metrics_data={"error_reason": f"Phase 2 FloodWait too long: {wait_seconds}s (limit: {MAX_FLOODWAIT_SECONDS}s)"},
                             )
-
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 error=f"Phase 2 FloodWait too long: {wait_seconds}s",
                             )
-                            self._publish_event(event)
                             continue
 
                         # Check FloodWait retry limit (separate from generic retries)
@@ -1683,16 +1590,11 @@ class GroupAnalysisEngine:
                                 chat_ref=chat["chat_ref"],
                                 metrics_data={"error_reason": f"Phase 2 failed after {MAX_FLOODWAIT_RETRIES} FloodWait retries"},
                             )
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 error=f"FloodWait retry limit exceeded",
                             )
-                            self._publish_event(event)
                             continue
 
                         # FloodWait <= MAX_FLOODWAIT_SECONDS: wait with 10% buffer and retry
@@ -1704,15 +1606,11 @@ class GroupAnalysisEngine:
                             f"Waiting {total_wait}s..."
                         )
 
-                        event = GroupProgressEvent(
+                        self._publish_progress_from_db(
                             group_id=group_id,
-                            status=GroupStatus.IN_PROGRESS.value,
-                            current=current_count,
-                            total=total_chats,
                             chat_title=chat["chat_ref"],
                             message=f"Waiting for FloodWait cooldown ({total_wait}s remaining)...",
                         )
-                        self._publish_event(event)
 
                         await asyncio.sleep(total_wait)
 
@@ -1736,15 +1634,11 @@ class GroupAnalysisEngine:
                             # Retry: re-enqueue at end, increment retry_count, preserve floodwait_retry_count
                             chat_queue.append((chat, retry_count + 1, floodwait_retry_count))
 
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 message=f"Retry {retry_count + 2}/{MAX_RETRIES} for @{chat['chat_ref']} ({error_type})",
                             )
-                            self._publish_event(event)
                         else:
                             # Max retries exhausted: keep DONE status from Phase 1, log error
                             logger.error(
@@ -1764,18 +1658,12 @@ class GroupAnalysisEngine:
                                 chat_ref=chat["chat_ref"],
                                 metrics_data={"error_reason": f"Phase 2 failed after {MAX_RETRIES} retries: {error_msg}"},
                             )
-
-                            current_count += 1
-                            event = GroupProgressEvent(
+                            self._publish_progress_from_db(
                                 group_id=group_id,
-                                status=GroupStatus.IN_PROGRESS.value,
-                                current=current_count,
-                                total=total_chats,
                                 chat_title=chat["chat_ref"],
                                 message=f"Chat @{chat['chat_ref']} Phase 2 failed after {MAX_RETRIES} retries: {error_type}",
                                 error=error_msg,
                             )
-                            self._publish_event(event)
 
         except Exception as e:
             logger.error(
@@ -2198,3 +2086,26 @@ class GroupAnalysisEngine:
                     f"Subscriber queue full for group '{event.group_id}', "
                     f"dropping event"
                 )
+
+    def _publish_progress_from_db(
+        self, group_id: str, chat_title: str, message: str | None = None
+    ) -> None:
+        """Publish progress event with global counts from DB.
+
+        Counts processed (done + failed + dead) and total chats from DB,
+        then publishes GroupProgressEvent.
+
+        Args:
+            group_id: Group identifier
+            chat_title: Title of the chat that triggered this progress update
+            message: Optional status message
+        """
+        processed, total = self._db.count_processed_chats(group_id)
+        event = GroupProgressEvent(
+            group_id=group_id,
+            chat_title=chat_title,
+            current=processed,
+            total=total,
+            message=message,
+        )
+        self._publish_event(event)
