@@ -2091,7 +2091,7 @@ class GroupAnalysisEngine:
                 )
 
     def _publish_progress_from_db(
-        self, group_id: str, chat_title: str, message: str | None = None
+        self, group_id: str, chat_title: str, message: str | None = None, error: str | None = None
     ) -> None:
         """Publish progress event with global counts from DB.
 
@@ -2102,6 +2102,7 @@ class GroupAnalysisEngine:
             group_id: Group identifier
             chat_title: Title of the chat that triggered this progress update
             message: Optional status message
+            error: Optional error message
         """
         processed, total = self._db.count_processed_chats(group_id)
         event = GroupProgressEvent(
@@ -2111,5 +2112,6 @@ class GroupAnalysisEngine:
             current=processed,
             total=total,
             message=message,
+            error=error,
         )
         self._publish_event(event)
