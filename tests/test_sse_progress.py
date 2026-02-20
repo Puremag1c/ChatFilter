@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -60,6 +61,12 @@ class TestSSEProgressEndpoint:
                 channels_no_comments=0,
                 skipped_moderation=0,
             )
+
+            # Mock database layer (_db)
+            mock_db = MagicMock()
+            mock_db.count_processed_chats.return_value = (3, 10)
+            mock_db.get_analysis_started_at.return_value = datetime.now(UTC)
+            service._db = mock_db
 
             mock.return_value = service
             yield service
@@ -164,7 +171,7 @@ class TestSSEProgressEndpoint:
         assert init_event["type"] == "init"
         assert "group_id" in init_event["data"]
         assert "total" in init_event["data"]
-        assert "analyzed" in init_event["data"]
+        assert "processed" in init_event["data"]
 
         # Should have progress events with current_chat
         progress_events = [e for e in events if e["type"] == "progress"]
@@ -173,7 +180,7 @@ class TestSSEProgressEndpoint:
         # Verify progress event structure
         progress = progress_events[0]["data"]
         assert "group_id" in progress
-        assert "current" in progress
+        assert "processed" in progress
         assert "total" in progress
         assert "chat_title" in progress  # current_chat equivalent
         assert progress["chat_title"] is not None
@@ -182,7 +189,7 @@ class TestSSEProgressEndpoint:
     async def test_sse_progress_includes_analyzed_count(
         self, client: TestClient, mock_group_service, mock_group_engine
     ) -> None:
-        """SSE events should include analyzed_count (current field)."""
+        """SSE events should include analyzed_count (processed field)."""
         # Make request to endpoint
         response = client.get(
             "/api/groups/test-group-123/progress",
@@ -201,16 +208,16 @@ class TestSSEProgressEndpoint:
                 if event_data:
                     events.append(json.loads(event_data))
 
-        # Find progress events and verify they have 'current' (analyzed_count)
-        has_current_field = False
+        # Find progress events and verify they have 'processed' (analyzed_count)
+        has_processed_field = False
         for event in events:
-            if "current" in event:
-                has_current_field = True
+            if "processed" in event:
+                has_processed_field = True
                 # Verify it's a valid number
-                assert isinstance(event["current"], int)
-                assert event["current"] >= 0
+                assert isinstance(event["processed"], int)
+                assert event["processed"] >= 0
 
-        assert has_current_field, "No events with 'current' field (analyzed_count) found"
+        assert has_processed_field, "No events with 'processed' field (analyzed_count) found"
 
     @pytest.mark.asyncio
     async def test_sse_progress_group_not_found(

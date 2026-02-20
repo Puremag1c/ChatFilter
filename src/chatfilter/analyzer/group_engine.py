@@ -2106,6 +2106,7 @@ class GroupAnalysisEngine:
         processed, total = self._db.count_processed_chats(group_id)
         event = GroupProgressEvent(
             group_id=group_id,
+            status=GroupStatus.IN_PROGRESS.value,
             chat_title=chat_title,
             current=processed,
             total=total,
