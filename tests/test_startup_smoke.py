@@ -5,6 +5,7 @@ Run with: pytest tests/test_startup_smoke.py
 """
 
 import asyncio
+import sys
 import time
 from subprocess import PIPE, Popen
 
@@ -28,7 +29,7 @@ def test_app_startup_and_sessions_endpoint():
 
     # Start the chatfilter process
     process = Popen(
-        ["chatfilter", "--port", str(port)],
+        [sys.executable, "-m", "chatfilter.main", "--port", str(port)],
         stdout=PIPE,
         stderr=PIPE,
         text=True,
