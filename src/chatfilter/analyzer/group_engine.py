@@ -678,14 +678,13 @@ class GroupAnalysisEngine:
                                 has_mod = not settings.detect_moderation or em.get("moderation") is not None
                                 if has_type and has_subs and has_mod:
                                     # Mark chat as DONE and skip
+                                    # DON'T publish progress - DB count already includes this chat
                                     self._db.update_chat_status(
                                         chat_id=chat["id"],
                                         status=GroupChatStatus.DONE.value,
                                     )
-                                    self._publish_progress_from_db(
-                                        group_id=group_id,
-                                        chat_title=em.get("title") or chat["chat_ref"],
-                                        message=f"Skipped @{chat['chat_ref']} (already analyzed)",
+                                    logger.debug(
+                                        f"Skipped @{chat['chat_ref']} (Phase 1 already complete)"
                                     )
                                     continue
 
@@ -1401,10 +1400,14 @@ class GroupAnalysisEngine:
                                 has_authors = not settings.detect_unique_authors or em.get("unique_authors_per_hour") is not None
                                 has_captcha = not settings.detect_captcha or em.get("captcha") is not None
                                 if has_activity and has_authors and has_captcha:
-                                    self._publish_progress_from_db(
-                                        group_id=group_id,
-                                        chat_title=em.get("title") or chat["chat_ref"],
-                                        message=f"Skipped @{chat['chat_ref']} (already analyzed)",
+                                    # Ensure chat is marked DONE (should already be from Phase 1)
+                                    # DON'T publish progress - DB count already includes this chat
+                                    self._db.update_chat_status(
+                                        chat_id=chat["id"],
+                                        status=GroupChatStatus.DONE.value,
+                                    )
+                                    logger.debug(
+                                        f"Skipped @{chat['chat_ref']} (Phase 2 already complete)"
                                     )
                                     continue
 
