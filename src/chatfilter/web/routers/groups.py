@@ -694,6 +694,9 @@ async def _generate_group_sse_events(
     }
     yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
+    # Track max processed count for monotonic guarantee
+    max_processed = processed
+
     # Subscribe to engine progress events
     progress_queue = engine.subscribe(group_id)
 
@@ -722,9 +725,11 @@ async def _generate_group_sse_events(
                 if event is None:
                     # Analysis completed - get final counts from DB
                     final_processed, final_total = service._db.count_processed_chats(group_id)
+                    # Enforce monotonic guarantee: max with last sent value
+                    max_processed = max(max_processed, final_processed)
                     complete_data = {
                         "group_id": group_id,
-                        "processed": final_processed,
+                        "processed": max_processed,
                         "total": final_total,
                         "message": "Analysis complete",
                     }
@@ -734,10 +739,12 @@ async def _generate_group_sse_events(
                 # Send progress event
                 # Note: event.current and event.total are now global DB-based counts
                 # from _publish_progress_from_db() in GroupAnalysisEngine
+                # Enforce monotonic guarantee: never decrease
+                max_processed = max(max_processed, event.current)
                 progress_data = {
                     "group_id": event.group_id,
                     "status": event.status,
-                    "processed": event.current,
+                    "processed": max_processed,
                     "total": event.total,
                     "chat_title": event.chat_title,
                     "message": event.message,
