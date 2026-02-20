@@ -248,6 +248,11 @@ class GroupService:
         by_type = stats_data["by_type"]
         by_status = stats_data["by_status"]
 
+        # Get analyzed count using count_processed_chats to match SSE logic
+        # This correctly counts: (status='done' OR status='failed') OR chat_type='dead'
+        # without double-counting dead chats that also have done/failed status
+        analyzed_count, _ = self._db.count_processed_chats(group_id)
+
         return GroupStats(
             total=stats_data["total"],
             pending=by_type.get(ChatTypeEnum.PENDING.value, 0),
@@ -256,7 +261,7 @@ class GroupService:
             forums=by_type.get(ChatTypeEnum.FORUM.value, 0),
             channels_with_comments=by_type.get(ChatTypeEnum.CHANNEL_COMMENTS.value, 0),
             channels_no_comments=by_type.get(ChatTypeEnum.CHANNEL_NO_COMMENTS.value, 0),
-            analyzed=by_status.get(GroupChatStatus.DONE.value, 0),
+            analyzed=analyzed_count,
             failed=by_status.get(GroupChatStatus.FAILED.value, 0),
             skipped_moderation=stats_data.get("skipped_moderation", 0),
             status_pending=by_status.get(GroupChatStatus.PENDING.value, 0),
