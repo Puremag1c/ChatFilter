@@ -31,7 +31,8 @@ class GroupDatabase(SQLiteDatabase):
                     settings TEXT NOT NULL,
                     status TEXT NOT NULL,
                     created_at TIMESTAMP NOT NULL,
-                    updated_at TIMESTAMP NOT NULL
+                    updated_at TIMESTAMP NOT NULL,
+                    analysis_started_at TIMESTAMP
                 )
             """)
 
@@ -98,6 +99,11 @@ class GroupDatabase(SQLiteDatabase):
         if current_version < 2:
             self._migrate_to_v2_add_subscribers(conn)
             conn.execute("PRAGMA user_version = 2")
+
+        # Migration 3: Add analysis_started_at column to chat_groups
+        if current_version < 3:
+            self._migrate_to_v3_add_analysis_started_at(conn)
+            conn.execute("PRAGMA user_version = 3")
 
         # Always ensure no duplicates and unique index exists.
         # Previous migration v1 had a SQL bug that failed to dedup rows with
@@ -200,6 +206,24 @@ class GroupDatabase(SQLiteDatabase):
             # Add subscribers column with default NULL
             conn.execute("ALTER TABLE group_chats ADD COLUMN subscribers INTEGER")
 
+    def _migrate_to_v3_add_analysis_started_at(self, conn: Any) -> None:
+        """Migration v3: Add analysis_started_at column to chat_groups.
+
+        This migration:
+        1. Checks if analysis_started_at column exists
+        2. Adds the column if missing (sets NULL for existing rows)
+
+        Args:
+            conn: Active database connection
+        """
+        # Check if column already exists (for idempotency)
+        cursor = conn.execute("PRAGMA table_info(chat_groups)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if "analysis_started_at" not in columns:
+            # Add analysis_started_at column with default NULL
+            conn.execute("ALTER TABLE chat_groups ADD COLUMN analysis_started_at TIMESTAMP")
+
     def save_group(
         self,
         group_id: str,
@@ -270,7 +294,52 @@ class GroupDatabase(SQLiteDatabase):
                 "status": row["status"],
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
+                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
             }
+
+    def set_analysis_started_at(
+        self,
+        group_id: str,
+        started_at: datetime | None = None,
+    ) -> None:
+        """Set the analysis start timestamp for a group.
+
+        Args:
+            group_id: Group identifier
+            started_at: Analysis start timestamp (default: now)
+        """
+        timestamp = started_at or datetime.now(UTC)
+
+        with self._connection() as conn:
+            conn.execute(
+                """
+                UPDATE chat_groups
+                SET analysis_started_at = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (self._datetime_to_str(timestamp), self._datetime_to_str(datetime.now(UTC)), group_id),
+            )
+
+    def get_analysis_started_at(self, group_id: str) -> datetime | None:
+        """Get the analysis start timestamp for a group.
+
+        Args:
+            group_id: Group identifier
+
+        Returns:
+            Analysis start timestamp or None if not set or group not found
+        """
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "SELECT analysis_started_at FROM chat_groups WHERE id = ?",
+                (group_id,),
+            )
+            row = cursor.fetchone()
+
+            if not row or not row["analysis_started_at"]:
+                return None
+
+            return self._str_to_datetime(row["analysis_started_at"])
 
     def load_all_groups(self) -> list[dict[str, Any]]:
         """Load all chat groups.
@@ -292,6 +361,7 @@ class GroupDatabase(SQLiteDatabase):
                 "status": row["status"],
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
+                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
             }
             for row in rows
         ]
@@ -677,6 +747,7 @@ class GroupDatabase(SQLiteDatabase):
                     g.status,
                     g.created_at,
                     g.updated_at,
+                    g.analysis_started_at,
                     COUNT(gc.id) as chat_count
                 FROM chat_groups g
                 LEFT JOIN group_chats gc ON g.id = gc.group_id
@@ -694,6 +765,7 @@ class GroupDatabase(SQLiteDatabase):
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
                 "chat_count": row["chat_count"],
+                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
             }
             for row in rows
         ]
