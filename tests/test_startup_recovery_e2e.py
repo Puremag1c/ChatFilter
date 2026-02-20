@@ -6,32 +6,31 @@ stale in_progress groups are properly recovered on restart:
 - Chats in 'analyzing' status → 'pending'
 
 Pattern:
-1. Start chatfilter server
-2. Create group and trigger analysis
-3. Kill server mid-analysis (simulate crash)
-4. Restart server
+1. Initialize app with lifespan context (first startup)
+2. Create group and simulate crash state directly in DB
+3. Exit lifespan context (simulate crash)
+4. Re-enter lifespan context (simulates server restart - recovery runs here)
 5. Verify DB state shows recovery happened
+
+This design avoids subprocess overhead and uses the same pattern as
+test_graceful_shutdown.py (lifespan context manager).
 
 Run with: pytest tests/test_startup_recovery_e2e.py
 """
 
-import asyncio
-import json
 import os
-import signal
 import sqlite3
 import tempfile
-import time
 from pathlib import Path
-from subprocess import PIPE, Popen
 
-import httpx
 import pytest
 
 
-@pytest.mark.timeout(120)
-def test_startup_recovery_e2e():
+@pytest.mark.asyncio
+async def test_startup_recovery_e2e():
     """Test that crashed in_progress groups are recovered on server restart.
+
+    Uses lifespan context manager to test recovery without subprocess overhead.
 
     Verifies:
     - Server recovers stale in_progress groups
@@ -39,128 +38,65 @@ def test_startup_recovery_e2e():
     - Chat status changes from analyzing → pending
     - Recovery is logged
     """
+    from chatfilter.config import Settings
+    from chatfilter.web.app import create_app, lifespan
+
     # Use temporary directory for isolated test
     with tempfile.TemporaryDirectory() as tmpdir:
         data_dir = Path(tmpdir) / "chatfilter-recovery-test"
         data_dir.mkdir()
 
-        port = 8001
-        base_url = f"http://localhost:{port}"
+        # Set environment variable so get_settings() uses our test data_dir
+        os.environ["CHATFILTER_DATA_DIR"] = str(data_dir)
 
-        # Step 1: Start server (first time)
-        process = _start_server(port, data_dir)
+        settings = Settings(data_dir=data_dir, port=8999)
+        app = create_app(settings=settings)
 
-        try:
-            # Step 2: Wait for server to be ready
-            _wait_for_server(base_url, timeout=30)
-
-            # Step 3: Create a group with chats (directly in DB to bypass CSRF)
+        # Step 1: First startup - initialize database
+        async with lifespan(app):
+            # Create test group with chats directly in DB
             group_id = "test-recovery-group"
             _create_test_group_in_db(data_dir, group_id)
 
-            # Step 4: Manually set group status to in_progress and some chats to analyzing
-            # (simulating mid-analysis state)
+            # Simulate crash by setting group to in_progress and chats to analyzing
             _simulate_crash_state(data_dir, group_id)
 
-            # Step 7: Kill the server process (simulate crash)
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except:
-                process.kill()
-                process.wait()
+        # Lifespan context exited - simulates crash (no cleanup ran)
 
-            print("✓ Server crashed (simulated)")
+        # Step 2: Reset global singletons (simulates process restart)
+        # In real server restart, the Python process is killed and restarted,
+        # which resets all module-level globals. We need to simulate this.
+        import chatfilter.web.dependencies as deps
+        from chatfilter.config import reset_settings
 
-            # Step 8: Restart server
-            process = _start_server(port, data_dir)
+        deps._group_engine = None
+        deps._session_manager = None
+        deps._chat_service = None
+        deps._database = None
+        reset_settings()  # Clear settings cache
 
-            # Step 9: Wait for server to start (longer timeout for recovery)
-            _wait_for_server(base_url, timeout=60)
+        # Create NEW app instance (simulates server restart)
+        app2 = create_app(settings=settings)
 
-            print("✓ Server restarted")
+        # Second startup - recovery should run
+        async with lifespan(app2):
+            # Recovery runs during lifespan startup (group_engine.recover_stale_analysis)
+            pass
 
-            # Step 10: Verify recovery happened by checking DB directly
-            db_path = data_dir / "groups.db"
-            group_status, analyzing_count = _check_recovery_state(db_path, group_id)
+        # Step 3: Verify recovery happened
+        db_path = data_dir / "groups.db"
+        group_status, analyzing_count = _check_recovery_state(db_path, group_id)
 
-            # Assertions
-            assert group_status == "paused", (
-                f"Expected group status to be 'paused' after recovery, got '{group_status}'"
-            )
-            assert analyzing_count == 0, (
-                f"Expected 0 chats in 'analyzing' status after recovery, got {analyzing_count}"
-            )
-
-            print("✓ Recovery verified: group is paused, no analyzing chats")
-
-        finally:
-            # Cleanup
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except:
-                process.kill()
-                process.wait()
+        # Assertions
+        assert group_status == "paused", (
+            f"Expected group status to be 'paused' after recovery, got '{group_status}'"
+        )
+        assert analyzing_count == 0, (
+            f"Expected 0 chats in 'analyzing' status after recovery, got {analyzing_count}"
+        )
 
 
-def _start_server(port: int, data_dir: Path) -> Popen:
-    """Start chatfilter server process.
-
-    Args:
-        port: Port to bind server
-        data_dir: Data directory path
-
-    Returns:
-        Popen process handle
-    """
-    env = os.environ.copy()
-    env["CHATFILTER_DATA_DIR"] = str(data_dir)
-
-    process = Popen(
-        ["chatfilter", "--port", str(port)],
-        stdout=PIPE,
-        stderr=PIPE,
-        text=True,
-        env=env,
-    )
-
-    return process
-
-
-def _wait_for_server(base_url: str, timeout: int = 30):
-    """Wait for server to be ready.
-
-    Args:
-        base_url: Base URL of server
-        timeout: Timeout in seconds
-
-    Raises:
-        TimeoutError: If server doesn't start within timeout
-    """
-    start_time = time.time()
-
-    async def check():
-        while time.time() - start_time < timeout:
-            try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        f"{base_url}/api/sessions",
-                        timeout=2.0,
-                        follow_redirects=True,
-                    )
-                    if response.status_code == 200:
-                        return True
-            except (httpx.ConnectError, httpx.TimeoutException):
-                await asyncio.sleep(0.5)
-                continue
-
-        raise TimeoutError(f"Server failed to start within {timeout}s")
-
-    asyncio.run(check())
-
-
-def _create_test_group_in_db(data_dir: Path, group_id: str):
+def _create_test_group_in_db(data_dir: Path, group_id: str) -> None:
     """Create a test group directly in database.
 
     Args:
@@ -199,17 +135,15 @@ def _create_test_group_in_db(data_dir: Path, group_id: str):
             status="pending",
         )
 
-    print(f"✓ Created test group in DB: {group_id} (3 chats)")
 
-
-def _simulate_crash_state(data_dir: Path, group_id: str):
+def _simulate_crash_state(data_dir: Path, group_id: str) -> None:
     """Simulate crash by setting group to in_progress and chats to analyzing.
 
     Args:
         data_dir: Data directory
         group_id: Group ID to modify
     """
-    db_path = data_dir / "groups.db"  # Use groups.db, not chatfilter.db
+    db_path = data_dir / "groups.db"
 
     conn = sqlite3.connect(db_path)
     try:
@@ -234,7 +168,6 @@ def _simulate_crash_state(data_dir: Path, group_id: str):
         )
 
         conn.commit()
-        print(f"✓ Simulated crash: group={group_id} status=in_progress, 2 chats=analyzing")
 
     finally:
         conn.close()
