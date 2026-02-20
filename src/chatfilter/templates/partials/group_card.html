@@ -18,8 +18,8 @@
             <strong id="total-{{ group.id }}">{{ stats.total }}</strong>
         </div>
         <div class="stat-row">
-            <span>{{ _("Analyzed") }}:</span>
-            <strong id="analyzed-{{ group.id }}">{{ stats.analyzed }} / {{ stats.total }}</strong>
+            <span>{{ _("Processed") }}:</span>
+            <strong id="processed-{{ group.id }}">{{ stats.analyzed }} / {{ stats.total }}</strong>
         </div>
         <div class="stat-row">
             <span>{{ _("Failed") }}:</span>
@@ -143,7 +143,7 @@
 <script>
 (function() {
     const groupId = '{{ group.id }}';
-    const analyzedEl = document.getElementById('analyzed-' + groupId);
+    const processedEl = document.getElementById('processed-' + groupId);
     const failedEl = document.getElementById('failed-' + groupId);
     const currentChatEl = document.getElementById('current-chat-' + groupId);
     const elapsedEl = document.getElementById('elapsed-' + groupId);
@@ -151,7 +151,7 @@
     const staleWarningEl = document.getElementById('stale-warning-' + groupId);
     const cardEl = document.getElementById('group-' + groupId);
 
-    let startTime = Date.now();
+    let startTime = Date.now(); // Will be updated from init event
     let elapsedTimer = null;
     let staleCheckTimer = null;
     let lastEventTime = Date.now();
@@ -237,15 +237,38 @@
             // Guard: only process events for this group
             if (data.group_id !== groupId) return;
 
+            // Handle init event (sent on SSE connection open)
+            if (sseEvent.type === 'init') {
+                // Update startTime from server's started_at
+                if (data.started_at) {
+                    startTime = new Date(data.started_at).getTime();
+                } else {
+                    // Fallback to current time if no started_at
+                    startTime = Date.now();
+                }
+
+                // Update initial progress from DB
+                if (data.processed !== undefined && data.total !== undefined) {
+                    const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
+
+                    if (processedEl) {
+                        processedEl.textContent = data.processed + ' / ' + data.total;
+                    }
+                    if (progressFillEl) {
+                        progressFillEl.style.width = percent + '%';
+                    }
+                }
+                return;
+            }
+
             // Handle progress event
             if (sseEvent.type === 'progress' || !sseEvent.type) {
-                // Update progress
-                if (data.current !== undefined && data.total !== undefined) {
-                    const analyzed = data.current + 1; // 0-based to 1-based
-                    const percent = Math.round((analyzed / data.total) * 100);
+                // Update progress from global DB-based counts
+                if (data.processed !== undefined && data.total !== undefined) {
+                    const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
 
-                    if (analyzedEl) {
-                        analyzedEl.textContent = analyzed + ' / ' + data.total;
+                    if (processedEl) {
+                        processedEl.textContent = data.processed + ' / ' + data.total;
                     }
                     if (progressFillEl) {
                         progressFillEl.style.width = percent + '%';
@@ -263,6 +286,12 @@
             if (sseEvent.type === 'complete') {
                 stopElapsedTimer();
                 stopStaleCheckTimer();
+
+                // Hide current chat on completion
+                if (currentChatEl) {
+                    currentChatEl.textContent = '—';
+                    currentChatEl.title = '';
+                }
 
                 // Trigger group refresh to show completed state
                 document.body.dispatchEvent(new CustomEvent('refreshGroups'));
