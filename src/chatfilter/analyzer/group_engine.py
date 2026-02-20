@@ -436,6 +436,30 @@ class GroupAnalysisEngine:
                 assigned_account=account_id,
             )
 
+        # Set analysis_started_at timestamp when analysis begins
+        # FRESH/OVERWRITE: always set new timestamp (new analysis, results cleared)
+        # INCREMENT: set new timestamp UNLESS resuming interrupted IN_PROGRESS analysis
+        # Resume detection: group IN_PROGRESS + timestamp exists + INCREMENT mode
+        current_started_at = self._db.get_analysis_started_at(group_id)
+        is_resuming = (
+            group_data["status"] == GroupStatus.IN_PROGRESS.value
+            and current_started_at is not None
+        )
+
+        if mode in (AnalysisMode.FRESH, AnalysisMode.OVERWRITE):
+            # Always set new timestamp (starting fresh, results cleared)
+            self._db.set_analysis_started_at(group_id, datetime.now(UTC))
+        elif mode == AnalysisMode.INCREMENT:
+            if is_resuming:
+                # Resuming interrupted INCREMENT analysis - preserve timestamp
+                pass
+            else:
+                # New INCREMENT run - set new timestamp
+                self._db.set_analysis_started_at(group_id, datetime.now(UTC))
+        elif current_started_at is None:
+            # Safety: if no timestamp yet, set it
+            self._db.set_analysis_started_at(group_id, datetime.now(UTC))
+
         # Set group status to IN_PROGRESS
         self._db.save_group(
             group_id=group_id,
