@@ -514,9 +514,9 @@ def test_migration_removes_duplicates():
 
         # Verify migration ran
         with db._connection() as conn:
-            # Check schema version updated (should be 2 after both v1 and v2 migrations)
+            # Check schema version updated (should be 3 after v1, v2, and v3 migrations)
             cursor = conn.execute("PRAGMA user_version")
-            assert cursor.fetchone()[0] == 2
+            assert cursor.fetchone()[0] == 3
 
             # Check unique index exists
             cursor = conn.execute("""
