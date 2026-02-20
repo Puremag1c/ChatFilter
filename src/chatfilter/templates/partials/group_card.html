@@ -3,6 +3,12 @@
      hx-ext="sse"
      sse-connect="/api/groups/{{ group.id }}/progress"
      {% endif %}>
+    <!-- SSE event handlers: hidden elements for HTMX SSE extension to register EventSource listeners -->
+    <div sse-swap="init" style="display:none"></div>
+    <div sse-swap="progress" style="display:none"></div>
+    <div sse-swap="complete" style="display:none"></div>
+    <div sse-swap="ping" style="display:none"></div>
+
     <h3>{{ group.name }}</h3>
 
     <span class="status-badge {{ group.status.value }}">{{ _(group.status.value) }}</span>
