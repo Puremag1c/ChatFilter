@@ -750,6 +750,40 @@ class GroupDatabase(SQLiteDatabase):
             for row in rows
         ]
 
+    def count_processed_chats(self, group_id: str) -> tuple[int, int]:
+        """Count processed and total chats in a group.
+
+        Args:
+            group_id: Group identifier
+
+        Returns:
+            Tuple of (processed, total) where:
+            - processed: count of chats with status in ('done', 'failed') OR chat_type = 'dead'
+            - total: count of all chats in group
+        """
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT
+                    SUM(CASE
+                        WHEN status IN ('done', 'failed') OR chat_type = 'dead'
+                        THEN 1
+                        ELSE 0
+                    END) as processed,
+                    COUNT(*) as total
+                FROM group_chats
+                WHERE group_id = ?
+                """,
+                (group_id,),
+            )
+            row = cursor.fetchone()
+
+            # Handle empty result (no chats in group)
+            processed = row["processed"] or 0
+            total = row["total"] or 0
+
+            return (processed, total)
+
     def delete_group(self, group_id: str) -> None:
         """Delete a chat group and all associated data.
 
