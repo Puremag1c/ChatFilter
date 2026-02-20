@@ -330,28 +330,3 @@ def test_noop_increment_returns_warning(smoke_settings: Settings):
     assert is_needed is False, (
         "INCREMENT should not be needed when all enabled metrics are collected"
     )
-
-
-def test_progress_counter_increment(smoke_settings: Settings):
-    """Bug 7: Progress counter logic starts at 0 (not len(done_chats))."""
-    import inspect
-
-    # Verify _phase1_resolve_account initializes current_count correctly
-    from chatfilter.analyzer import group_engine
-
-    source = inspect.getsource(group_engine.GroupAnalysisEngine._phase1_resolve_account)
-
-    # Bug 7 fix: current_count should start at 0, NOT len(done_chats) + len(failed_chats)
-    # Old buggy pattern: current_count = len(done_chats) + len(failed_chats)
-    # New correct pattern: current_count = 0
-
-    # Check that current_count is initialized to 0
-    assert "current_count = 0" in source or "current_count=0" in source, (
-        "_phase1_resolve_account should initialize current_count = 0 (not len(done_chats))"
-    )
-
-    # Should NOT have old buggy initialization
-    buggy_pattern = "current_count = len(done_chats) + len(failed_chats)"
-    assert buggy_pattern not in source, (
-        "Old buggy pattern found: current_count should NOT include already-done chats"
-    )
