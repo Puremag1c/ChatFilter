@@ -209,6 +209,21 @@
     var pollTimer = null;
     var isRefreshing = false;
 
+    // Execute <script> tags inserted via innerHTML (browser spec: innerHTML does NOT run scripts).
+    // Creates new script elements and appends them so the browser evaluates the code.
+    function executeScripts(el) {
+        var scripts = el.querySelectorAll('script');
+        scripts.forEach(function(oldScript) {
+            var newScript = document.createElement('script');
+            // Copy attributes (e.g. type, src)
+            Array.from(oldScript.attributes).forEach(function(attr) {
+                newScript.setAttribute(attr.name, attr.value);
+            });
+            newScript.textContent = oldScript.textContent;
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+    }
+
     function refreshGroups() {
         if (isRefreshing) return;
         isRefreshing = true;
@@ -228,6 +243,7 @@
             .then(function(html) {
                 container.innerHTML = html;
                 htmx.process(container);
+                executeScripts(container);
 
                 // AFTER swap: check which groups transitioned from in_progress to completed/paused
                 container.querySelectorAll('.group-card').forEach(function(card) {
