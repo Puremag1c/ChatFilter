@@ -678,16 +678,19 @@ async def _generate_group_sse_events(
         yield f"event: error\ndata: {json.dumps({'error': 'Group not found'})}\n\n"
         return
 
-    # Get current stats
-    stats = service.get_group_stats(group_id)
+    # Get analysis start time
+    started_at = service._db.get_analysis_started_at(group_id)
+
+    # Get global processed/total counts from DB
+    processed, total = service._db.count_processed_chats(group_id)
 
     # Send initial event with current state
     init_data = {
         "group_id": group_id,
-        "total": stats.total,
-        "analyzed": stats.analyzed,
-        "failed": stats.failed,
-        "pending": stats.pending,
+        "started_at": started_at.isoformat() if started_at else None,
+        "processed": processed,
+        "total": total,
+        "status": group.status.value,
     }
     yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
@@ -717,21 +720,24 @@ async def _generate_group_sse_events(
                 event = await asyncio.wait_for(progress_queue.get(), timeout=1.0)
 
                 if event is None:
-                    # Analysis completed
+                    # Analysis completed - get final counts from DB
+                    final_processed, final_total = service._db.count_processed_chats(group_id)
                     complete_data = {
                         "group_id": group_id,
-                        "total": stats.total,
-                        "analyzed": stats.analyzed,
+                        "processed": final_processed,
+                        "total": final_total,
                         "message": "Analysis complete",
                     }
                     yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
                     break
 
                 # Send progress event
+                # Note: event.current and event.total are now global DB-based counts
+                # from _publish_progress_from_db() in GroupAnalysisEngine
                 progress_data = {
                     "group_id": event.group_id,
                     "status": event.status,
-                    "current": event.current,
+                    "processed": event.current,
                     "total": event.total,
                     "chat_title": event.chat_title,
                     "message": event.message,
