@@ -266,11 +266,9 @@ class GroupService:
             channels_with_comments=by_type.get(ChatTypeEnum.CHANNEL_COMMENTS.value, 0),
             channels_no_comments=by_type.get(ChatTypeEnum.CHANNEL_NO_COMMENTS.value, 0),
             analyzed=analyzed_count,
-            failed=by_status.get(GroupChatStatus.FAILED.value, 0),
+            failed=by_status.get(GroupChatStatus.ERROR.value, 0),
             skipped_moderation=stats_data.get("skipped_moderation", 0),
             status_pending=by_status.get(GroupChatStatus.PENDING.value, 0),
-            status_joining=by_status.get(GroupChatStatus.JOINING.value, 0),
-            status_analyzing=by_status.get(GroupChatStatus.ANALYZING.value, 0),
         )
 
     def update_group_name(self, group_id: str, new_name: str) -> ChatGroup | None:

@@ -4,7 +4,7 @@ Test Scenarios:
 1. test_retry_on_floodwait — simulate FloodWait → verify retry → 3 failures → chat marked dead
 2. test_incremental_analysis_skips_existing — analyze with subscribers → add activity → verify subscribers unchanged, activity added
 3. test_full_reanalysis_clears_old_data — analyze → overwrite → verify all data fresh
-4. test_all_chats_get_results — 10 chats, 2 fail → verify 10 rows in group_results (8 done + 2 dead)
+4. test_all_chats_get_results — 10 chats, 2 fail → verify 10 rows with results (8 done + 2 dead)
 5. test_export_filters_work_without_exclude_dead — verify dead type checkbox removes dead chats from CSV
 """
 
@@ -104,12 +104,12 @@ class TestRetryMechanism:
                 mode=AnalysisMode.FRESH,
             )
 
-        # Verify: Chat should be marked as FAILED after 3 retries
-        failed_chats = test_db.load_chats(
+        # Verify: Chat should be marked as ERROR after 3 retries
+        error_chats = test_db.load_chats(
             group_id=group_id,
-            status=GroupChatStatus.FAILED.value,
+            status=GroupChatStatus.ERROR.value,
         )
-        assert len(failed_chats) == 1, f"Expected 1 failed chat after 3 retries, got {len(failed_chats)}"
+        assert len(error_chats) == 1, f"Expected 1 error chat after 3 retries, got {len(error_chats)}"
 
         # Verify: Result should be saved as 'dead'
         result = test_db.load_result(group_id, chat_ref)
@@ -287,7 +287,7 @@ class TestAllChatsGetResults:
         self,
         test_db: GroupDatabase,
     ) -> None:
-        """Test that both successful and dead chats are saved to group_results."""
+        """Test that both successful and dead chats are saved with results."""
         # Setup: Create group
         group_id = "test-group-all-results"
         test_db.save_group(
@@ -514,7 +514,7 @@ class TestExportFiltersWithoutExcludeDead:
 class TestAllChatsGetResultsGuarantee:
     """Integration tests for SPEC requirement: all chats get results (done or dead).
 
-    SPEC v0.9.12 Must Have #1: Group with 143 chats → 143 results in group_results.
+    SPEC v0.9.12 Must Have #1: Group with 143 chats → 143 chats with results.
     No silent skips allowed.
     """
 
@@ -528,7 +528,7 @@ class TestAllChatsGetResultsGuarantee:
         Simulates mixed success/failure scenario:
         - 100 chats succeed
         - 43 chats fail (various errors: FloodWait timeout, network errors, etc.)
-        - Verify: ALL 143 appear in group_results (status=done OR dead)
+        - Verify: ALL 143 have results (status=done OR dead)
         """
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
         from chatfilter.models.group import ChatTypeEnum
@@ -812,7 +812,7 @@ class TestAllChatsGetResultsGuarantee:
         - Retry 3x (MAX_RETRIES)
         - Verify: Saved as status=dead
         - Verify: error_reason populated
-        - Verify: Result exists in group_results
+        - Verify: Result exists with metrics
         """
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 
@@ -877,17 +877,17 @@ class TestAllChatsGetResultsGuarantee:
                 mode=AnalysisMode.FRESH,
             )
 
-        # Verify: Chat marked as FAILED in database
-        failed_chats = test_db.load_chats(
+        # Verify: Chat marked as ERROR in database
+        error_chats = test_db.load_chats(
             group_id=group_id,
-            status=GroupChatStatus.FAILED.value,
+            status=GroupChatStatus.ERROR.value,
         )
-        assert len(failed_chats) == 1, f"Expected 1 failed chat, got {len(failed_chats)}"
+        assert len(error_chats) == 1, f"Expected 1 error chat, got {len(error_chats)}"
 
-        # CRITICAL ASSERTION: Result exists in group_results (dead chat NOT skipped)
+        # CRITICAL ASSERTION: Result exists (dead chat NOT skipped)
         result = test_db.load_result(group_id, chat_ref)
         assert result is not None, (
-            "SPEC VIOLATION: Dead chat missing from group_results! "
+            "SPEC VIOLATION: Dead chat missing from results! "
             "All chats MUST have results."
         )
 
@@ -1125,12 +1125,12 @@ class TestExceptionRecoveryPaths:
                 f"Error reason should include original error message, got: {metrics['error_reason']}"
             )
 
-        # Verify chats marked as FAILED
-        failed_chats = test_db.load_chats(
+        # Verify chats marked as ERROR
+        error_chats = test_db.load_chats(
             group_id=group_id,
-            status=GroupChatStatus.FAILED.value,
+            status=GroupChatStatus.ERROR.value,
         )
-        assert len(failed_chats) == 5, f"Expected 5 failed chats, got {len(failed_chats)}"
+        assert len(error_chats) == 5, f"Expected 5 error chats, got {len(error_chats)}"
 
 
     @pytest.mark.asyncio
@@ -1225,7 +1225,7 @@ class TestExceptionRecoveryPaths:
 
         Scenario:
         - Group with 8 chats
-        - After Phase 1, manually delete 3 group_results records
+        - After Phase 1, manually delete 3 result records
         - Verify: Safety net detects and fills missing results with dead records
 
         This tests lines 343-383 in group_engine.py.
@@ -1308,14 +1308,18 @@ class TestExceptionRecoveryPaths:
         results_before = test_db.load_results(group_id)
         assert len(results_before) == 8, f"Expected 8 results after Phase 1, got {len(results_before)}"
 
-        # SIMULATE ORPHAN SCENARIO: Delete 3 group_results records manually
+        # SIMULATE ORPHAN SCENARIO: Clear metrics from 3 group_chats records manually
         # This simulates a bug where some results didn't get saved
         orphan_chat_refs = ["https://t.me/chat2", "https://t.me/chat5", "https://t.me/chat7"]
         with test_db._connection() as conn:
             for chat_ref in orphan_chat_refs:
-                # Delete result from group_results table (simulating missing result)
+                # Clear metrics columns in group_chats (simulating missing result)
                 conn.execute(
-                    "DELETE FROM group_results WHERE group_id = ? AND chat_ref = ?",
+                    """UPDATE group_chats
+                       SET title = NULL, subscribers = NULL, moderation = NULL,
+                           messages_per_hour = NULL, unique_authors_per_hour = NULL,
+                           captcha = NULL, partial_data = NULL, metrics_version = NULL
+                       WHERE group_id = ? AND chat_ref = ?""",
                     (group_id, chat_ref),
                 )
             conn.commit()
@@ -1326,23 +1330,23 @@ class TestExceptionRecoveryPaths:
             f"Expected 5 results after deleting 3, got {len(results_after_delete)}"
         )
 
-        # Mark one chat as FAILED so start_analysis continues past early return
+        # Mark one chat as ERROR so start_analysis continues past early return
         all_chats = test_db.load_chats(group_id=group_id)
         chat0 = [c for c in all_chats if c["chat_ref"] == "https://t.me/chat0"][0]
         test_db.update_chat_status(
             chat_id=chat0["id"],
-            status=GroupChatStatus.FAILED.value,
+            status=GroupChatStatus.ERROR.value,
             error="Simulated failure for test",
         )
 
         # Now run start_analysis again to trigger orphan safety net
-        # There's 1 FAILED chat, so start_analysis will continue and safety net will run
+        # There's 1 ERROR chat, so start_analysis will continue and safety net will run
         # IMPORTANT: Mock _phase1_resolve_account to avoid hanging on real telethon calls
         async def mock_phase1_no_op(group_id, account_id, settings, mode):
-            """No-op Phase 1 — we already have 1 FAILED chat (chat0) that will be reset.
+            """No-op Phase 1 — we already have 1 ERROR chat (chat0) that will be reset.
 
             start_analysis will:
-            1. Reset FAILED→PENDING (chat0)
+            1. Reset ERROR→PENDING (chat0)
             2. Call _phase1_resolve_account (this mock — does nothing)
             3. Run safety net which fills missing results for orphans
             """

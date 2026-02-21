@@ -586,15 +586,15 @@ async def test_overwrite_resets_chat_statuses(
         group_id=group_id,
         chat_ref="failed_chat",
         chat_type=ChatTypeEnum.DEAD.value,
-        status=GroupChatStatus.FAILED.value,
+        status=GroupChatStatus.ERROR.value,
         assigned_account="test_account_1",
     )
 
     # Verify initial statuses
     done_chat = test_db.load_chats(group_id=group_id, status=GroupChatStatus.DONE.value)
-    failed_chat = test_db.load_chats(group_id=group_id, status=GroupChatStatus.FAILED.value)
+    error_chat = test_db.load_chats(group_id=group_id, status=GroupChatStatus.ERROR.value)
     assert len(done_chat) == 1
-    assert len(failed_chat) == 1
+    assert len(error_chat) == 1
 
     # Run overwrite analysis (will reset all to PENDING)
     with patch.object(engine, "_phase1_resolve_account", new_callable=AsyncMock) as mock_phase1:
@@ -619,11 +619,11 @@ async def test_overwrite_resets_chat_statuses(
     pending_chats = test_db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
     assert len(pending_chats) == 2  # Both chats should be PENDING
 
-    # Verify: no more DONE or FAILED chats
+    # Verify: no more DONE or ERROR chats
     done_after = test_db.load_chats(group_id=group_id, status=GroupChatStatus.DONE.value)
-    failed_after = test_db.load_chats(group_id=group_id, status=GroupChatStatus.FAILED.value)
+    error_after = test_db.load_chats(group_id=group_id, status=GroupChatStatus.ERROR.value)
     assert len(done_after) == 0
-    assert len(failed_after) == 0
+    assert len(error_after) == 0
 
 
 def test_reanalysis_buttons_visible_when_completed(test_db: GroupDatabase):

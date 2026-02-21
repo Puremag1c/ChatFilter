@@ -2,7 +2,7 @@
 
 This test verifies that:
 1. Resume endpoint exists and handles POST requests correctly
-2. Only pending and failed chats are selected for reanalysis (done chats skipped)
+2. Only pending and error chats are selected for reanalysis (done chats skipped)
 3. Status transitions PAUSED → IN_PROGRESS
 4. Idempotency: concurrent requests return 409
 5. Validation: non-paused/empty groups return appropriate errors
@@ -23,14 +23,14 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Path) -> None:
-    """Test that resume only analyzes pending + failed chats, skips done chats.
+    """Test that resume only analyzes pending + error chats, skips done chats.
 
     Creates group with:
     - 10 done chats
     - 5 pending chats
-    - 2 failed chats
+    - 2 error chats
 
-    Verifies that only 7 chats (5 pending + 2 failed) are passed to start_analysis.
+    Verifies that only 7 chats (5 pending + 2 error) are passed to start_analysis.
     """
     from chatfilter.models.group import GroupChatStatus, GroupStatus
     from chatfilter.service.group_service import GroupService
@@ -58,11 +58,11 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
         )
 
     # Next 5 are pending (default status)
-    # Mark last 2 as failed
+    # Mark last 2 as error
     for i in range(15, 17):
         db.update_chat_status(
             chat_id=chat_id_map[chat_refs[i]],
-            status=GroupChatStatus.FAILED.value,
+            status=GroupChatStatus.ERROR.value,
         )
 
     # Set group status to PAUSED
@@ -72,7 +72,7 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
     stats = service.get_group_stats(group_id)
     assert stats.analyzed == 10  # status DONE
     assert stats.status_pending == 5  # status PENDING
-    assert stats.failed == 2  # status FAILED
+    assert stats.failed == 2  # status ERROR
 
     # Mock request with necessary state
     mock_request = MagicMock()
@@ -95,7 +95,7 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
         """Record which chats would be analyzed."""
         chats = db.load_chats(group_id_arg)
         for chat in chats:
-            if chat["status"] in (GroupChatStatus.PENDING.value, GroupChatStatus.FAILED.value):
+            if chat["status"] in (GroupChatStatus.PENDING.value, GroupChatStatus.ERROR.value):
                 analyzed_chats.append(chat["chat_ref"])
         await asyncio.sleep(0.001)  # Simulate async work
 
@@ -128,7 +128,7 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
         if task:
             await task
 
-    # Verify only 7 chats (pending + failed) were selected for analysis
+    # Verify only 7 chats (pending + error) were selected for analysis
     assert len(analyzed_chats) == 7
     # Verify done chats are NOT in analyzed list
     for i in range(10):
