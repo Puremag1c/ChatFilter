@@ -123,15 +123,14 @@ class GroupDatabase(SQLiteDatabase):
             self._migrate_to_v5_refactor(conn)
             conn.execute("PRAGMA user_version = 5")
 
-        # Always ensure no duplicates and unique index exists.
-        # Previous migration v1 had a SQL bug that failed to dedup rows with
-        # identical analyzed_at timestamps — this catches any surviving duplicates.
-        # NOTE: Only run if group_results table still exists (before v5 migration)
+        # CLEANUP: Drop group_results table if it still exists (for databases that were
+        # migrated to v5 before the DROP TABLE logic was added to _migrate_to_v5_refactor)
         cursor = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='group_results'"
         )
         if cursor.fetchone():
-            self._ensure_group_results_unique(conn)
+            conn.execute("DROP TABLE group_results")
+            logger.info("Dropped legacy group_results table during cleanup")
 
     def _migrate_to_v1_unique_constraint(self, conn: Any) -> None:
         """Migration v1: Add UNIQUE constraint on (group_id, chat_ref) for group_results.
