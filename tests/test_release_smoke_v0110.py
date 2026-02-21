@@ -125,7 +125,7 @@ def test_reanalyze_returns_204_immediately(smoke_settings: Settings):
 
 
 def test_increment_no_duplicates(smoke_settings: Settings):
-    """Bug 3: UNIQUE constraint prevents duplicates in group_results."""
+    """Bug 3: UNIQUE constraint prevents duplicates in group_chats (chat_ref uniqueness)."""
     from chatfilter.storage.group_database import GroupDatabase
 
     db = GroupDatabase(smoke_settings.data_dir / "groups.db")
@@ -141,32 +141,30 @@ def test_increment_no_duplicates(smoke_settings: Settings):
         status=GroupStatus.PENDING.value,
     )
 
-    # Add chats
-    db.save_chat(group_id=group_id, chat_ref="https://t.me/chat1", chat_type="group")
-    db.save_chat(group_id=group_id, chat_ref="https://t.me/chat2", chat_type="channel")
+    # Add chats (save_chat now returns chat_id)
+    chat1_id = db.save_chat(group_id=group_id, chat_ref="https://t.me/chat1", chat_type="group")
+    chat2_id = db.save_chat(group_id=group_id, chat_ref="https://t.me/chat2", chat_type="channel")
 
-    # Save results using upsert (should use ON CONFLICT)
-    db.upsert_result(
-        group_id=group_id,
-        chat_ref="https://t.me/chat1",
-        metrics_data={"chat_type": "group"},
+    # Save metrics using save_chat_metrics (v5 schema)
+    db.save_chat_metrics(
+        chat_id=chat1_id,
+        metrics={"chat_type": "group"},
     )
-    db.upsert_result(
-        group_id=group_id,
-        chat_ref="https://t.me/chat2",
-        metrics_data={"chat_type": "channel"},
+    db.save_chat_metrics(
+        chat_id=chat2_id,
+        metrics={"chat_type": "channel"},
     )
 
-    # Try to manually insert duplicate (should FAIL with UNIQUE constraint)
+    # Try to manually insert duplicate chat_ref (should FAIL with UNIQUE constraint on group_id, chat_ref)
     import sqlite3
 
     duplicate_blocked = False
     with db._connection() as conn:
         try:
             conn.execute(
-                """INSERT INTO group_results (group_id, chat_ref, metrics_data, analyzed_at)
+                """INSERT INTO group_chats (group_id, chat_ref, chat_type, status)
                    VALUES (?, ?, ?, ?)""",
-                (group_id, "https://t.me/chat1", "{}", datetime.now(UTC).isoformat()),
+                (group_id, "https://t.me/chat1", "group", "pending"),
             )
         except sqlite3.IntegrityError as e:
             # Expected: UNIQUE constraint blocks duplicate
@@ -177,21 +175,14 @@ def test_increment_no_duplicates(smoke_settings: Settings):
     assert duplicate_blocked, "UNIQUE constraint should block duplicate (group_id, chat_ref)"
 
     # Verify final count matches number of chats
-    with db._connection() as conn:
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM group_results WHERE group_id = ?",
-            (group_id,),
-        )
-        count = cursor.fetchone()[0]
-
     chats = db.load_chats(group_id=group_id)
-    assert count == len(chats), (
-        f"Expected {len(chats)} results (no duplicates), got {count}"
+    assert len(chats) == 2, (
+        f"Expected 2 chats (no duplicates), got {len(chats)}"
     )
 
 
 def test_upsert_uses_on_conflict(smoke_settings: Settings):
-    """Bug 4: upsert_result() uses ON CONFLICT (preserves rowid)."""
+    """Bug 4: save_chat() uses ON CONFLICT (preserves rowid when updating)."""
     from chatfilter.storage.group_database import GroupDatabase
 
     db = GroupDatabase(smoke_settings.data_dir / "groups.db")
@@ -207,35 +198,36 @@ def test_upsert_uses_on_conflict(smoke_settings: Settings):
         status=GroupStatus.PENDING.value,
     )
 
-    db.save_chat(group_id=group_id, chat_ref="https://t.me/test", chat_type="group")
-
-    # First insert
-    db.upsert_result(
+    # First insert (save_chat returns chat_id)
+    chat_id = db.save_chat(
         group_id=group_id,
         chat_ref="https://t.me/test",
-        metrics_data={"chat_type": "group", "subscribers": 100},
+        chat_type="group",
+        subscribers=100,
     )
 
     # Get initial rowid
     with db._connection() as conn:
         cursor = conn.execute(
-            "SELECT rowid FROM group_results WHERE group_id = ? AND chat_ref = ?",
-            (group_id, "https://t.me/test"),
+            "SELECT rowid FROM group_chats WHERE id = ?",
+            (chat_id,),
         )
         rowid_before = cursor.fetchone()[0]
 
-    # Second upsert (should UPDATE, not DELETE+INSERT)
-    db.upsert_result(
+    # Second save with same chat_id (should UPDATE, not DELETE+INSERT)
+    db.save_chat(
         group_id=group_id,
         chat_ref="https://t.me/test",
-        metrics_data={"chat_type": "group", "subscribers": 200},
+        chat_type="group",
+        chat_id=chat_id,
+        subscribers=200,
     )
 
     # Get rowid after update
     with db._connection() as conn:
         cursor = conn.execute(
-            "SELECT rowid FROM group_results WHERE group_id = ? AND chat_ref = ?",
-            (group_id, "https://t.me/test"),
+            "SELECT rowid FROM group_chats WHERE id = ?",
+            (chat_id,),
         )
         rowid_after = cursor.fetchone()[0]
 
@@ -247,29 +239,38 @@ def test_upsert_uses_on_conflict(smoke_settings: Settings):
 
 
 def test_export_after_increment(smoke_settings: Settings):
-    """Bug 5: Export dedup logic uses sorted() with analyzed_at key."""
-    import inspect
+    """Bug 5: Export uniqueness guaranteed by v5 schema (no duplicates possible)."""
+    from chatfilter.storage.group_database import GroupDatabase
+    from chatfilter.service.group_service import GroupService
 
-    # Verify export_group_results endpoint has dedup logic
-    from chatfilter.web.routers import groups
+    db = GroupDatabase(smoke_settings.data_dir / "groups.db")
 
-    source = inspect.getsource(groups.export_group_results)
+    # In v5 schema, deduplication is ENFORCED by UNIQUE constraint on (group_id, chat_ref)
+    # in group_chats table. Export reads from group_chats directly via get_results().
+    # This test verifies that get_results() returns unique results by design.
 
-    # Bug 5 fix: Should deduplicate by chat_ref using sorted + dict comprehension
-    # Pattern: {r["chat_ref"]: r for r in sorted(results_data, key=lambda x: x.get("analyzed_at"))}
+    group_id = "test_export"
+    from chatfilter.models.group import GroupStatus
 
-    assert "Dedup" in source or "dedup" in source, (
-        "export_group_results should have deduplication logic"
+    db.save_group(
+        group_id=group_id,
+        name="Test Export",
+        settings=GroupSettings().model_dump(),
+        status=GroupStatus.PENDING.value,
     )
 
-    assert "sorted(" in source and "analyzed_at" in source, (
-        "export_group_results should sort by analyzed_at for deduplication"
-    )
+    # Add 2 chats
+    chat1_id = db.save_chat(group_id=group_id, chat_ref="https://t.me/chat1", chat_type="group")
+    chat2_id = db.save_chat(group_id=group_id, chat_ref="https://t.me/chat2", chat_type="channel")
 
-    # Should have dict comprehension by chat_ref
-    assert "chat_ref" in source and "for r in sorted" in source, (
-        "export_group_results should use dict comprehension keyed by chat_ref"
-    )
+    # Get results via service (same method used by export endpoint)
+    service = GroupService(db)
+    results = service.get_results(group_id)
+
+    # Bug 5 fix: Results should be unique by chat_ref (enforced by DB schema)
+    chat_refs = [r["chat_ref"] for r in results]
+    assert len(chat_refs) == len(set(chat_refs)), "Results should have unique chat_refs"
+    assert len(results) == 2, f"Expected 2 unique results, got {len(results)}"
 
 
 def test_noop_increment_returns_warning(smoke_settings: Settings):
@@ -300,21 +301,20 @@ def test_noop_increment_returns_warning(smoke_settings: Settings):
         status=GroupStatus.PENDING.value,
     )
 
-    # Add chats with complete results
-    db.save_chat(
+    # Add chat with complete results (save_chat returns chat_id)
+    chat_id = db.save_chat(
         group_id=group_id,
         chat_ref="https://t.me/chat1",
         chat_type="group",
         status=GroupChatStatus.DONE.value,
+        subscribers=100,  # Saved directly in save_chat (v5 schema)
     )
 
-    # Add complete result with all ENABLED metrics (chat_type + subscribers)
-    db.upsert_result(
-        group_id=group_id,
-        chat_ref="https://t.me/chat1",
-        metrics_data={
-            "chat_type": "group",
-            "subscribers": 100,
+    # Save metrics (chat_type already set, add other metrics)
+    db.save_chat_metrics(
+        chat_id=chat_id,
+        metrics={
+            # chat_type and subscribers already set in save_chat
             # No messages_per_hour because detect_activity=False
         },
     )
