@@ -1981,6 +1981,7 @@ class GroupAnalysisEngine:
                 messages_per_hour="N/A",
                 unique_authors_per_hour="N/A",
                 captcha="N/A",
+                partial_data=False,
                 settings=settings,
             )
             return
