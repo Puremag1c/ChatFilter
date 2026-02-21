@@ -151,11 +151,14 @@ class GroupService:
         if settings_dict is None or not isinstance(settings_dict, dict):
             settings_dict = {}
 
+        # Compute status from chat statuses (not from stored value)
+        computed_status = compute_group_status(self._db, group_id)
+
         return ChatGroup(
             id=group_data["id"],
             name=group_data["name"],
             settings=GroupSettings.from_dict(settings_dict),
-            status=GroupStatus(group_data["status"]),
+            status=GroupStatus(computed_status),
             chat_count=chat_count,
             created_at=group_data["created_at"],
             updated_at=group_data["updated_at"],
@@ -182,12 +185,15 @@ class GroupService:
             if settings_dict is None or not isinstance(settings_dict, dict):
                 settings_dict = {}
 
+            # Compute status from chat statuses (not from stored value)
+            computed_status = compute_group_status(self._db, group_data["id"])
+
             groups.append(
                 ChatGroup(
                     id=group_data["id"],
                     name=group_data["name"],
                     settings=GroupSettings.from_dict(settings_dict),
-                    status=GroupStatus(group_data["status"]),
+                    status=GroupStatus(computed_status),
                     chat_count=group_data["chat_count"],
                     created_at=group_data["created_at"],
                     updated_at=group_data["updated_at"],

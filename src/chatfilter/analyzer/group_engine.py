@@ -74,7 +74,7 @@ class GroupAnalysisEngine:
             task = self._db.get_active_task(gid)
             if task:
                 self._db.cancel_task(task["id"])
-            self._set_group_status(gid, GroupStatus.PAUSED.value)
+            # Status is computed from chat statuses, no manual update needed
             logger.info(f"Recovered stale group '{group['name']}' ({gid}) → paused")
 
     # -- INCREMENT check ---------------------------------------------------
@@ -144,7 +144,7 @@ class GroupAnalysisEngine:
         if not is_resume:
             self._db.set_analysis_started_at(group_id, datetime.now(UTC))
 
-        self._set_group_status(group_id, GroupStatus.IN_PROGRESS.value)
+        # Status is computed from chat statuses (PENDING chats exist → IN_PROGRESS)
         logger.info(
             f"Starting analysis '{group_id}': {len(accounts)} accounts, "
             f"{len(pending)} chats, task={task_id}"
@@ -342,7 +342,7 @@ class GroupAnalysisEngine:
         if done + errors >= total:
             status = GroupStatus.FAILED.value if errors == total else GroupStatus.COMPLETED.value
             msg = "Analysis failed: all chats failed" if errors == total else "Analysis completed"
-            self._set_group_status(group_id, status)
+            # Status is computed from chat statuses, no manual update needed
             self._signal_completion(group_id, status, msg, done + errors, total)
             logger.info(f"Group '{group_id}': {done + errors}/{total} ({done} done, {errors} error) → {status}")
 
@@ -358,15 +358,6 @@ class GroupAnalysisEngine:
         ))
         self._progress.signal_completion(group_id)
 
-    def _set_group_status(self, group_id: str, status: str) -> None:
-        """Update group status in DB."""
-        g = self._db.load_group(group_id)
-        if g:
-            self._db.save_group(
-                group_id=group_id, name=g["name"], settings=g["settings"],
-                status=status, created_at=g["created_at"], updated_at=datetime.now(UTC),
-            )
-
     # -- Lifecycle ---------------------------------------------------------
 
     def stop_analysis(self, group_id: str) -> None:
@@ -378,7 +369,7 @@ class GroupAnalysisEngine:
         active_task = self._db.get_active_task(group_id)
         if active_task:
             self._db.cancel_task(active_task["id"])
-        self._set_group_status(group_id, GroupStatus.PAUSED.value)
+        # Status is computed from chat statuses, no manual update needed
         logger.info(f"Analysis stopped for group '{group_id}'")
 
     async def resume_analysis(self, group_id: str) -> None:

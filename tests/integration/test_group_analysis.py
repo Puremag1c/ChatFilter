@@ -1337,9 +1337,11 @@ class TestExceptionRecoveryPaths:
         engine._finalize_group(group_id)
 
         # Group should be COMPLETED (not FAILED since some chats succeeded)
-        group = test_db.load_group(group_id)
-        assert group["status"] == "completed", (
-            f"Expected group status 'completed', got {group['status']}"
+        # Use compute_group_status (status is now computed from chat statuses)
+        from chatfilter.analyzer.progress import compute_group_status
+        computed_status = compute_group_status(test_db, group_id)
+        assert computed_status == "completed", (
+            f"Expected group status 'completed', got {computed_status}"
         )
 
         # Verify process_chat called for all 8
