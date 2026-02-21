@@ -713,6 +713,11 @@ class GroupAnalysisEngine:
                     self._save_phase1_result(
                         group_id, chat, dead_resolved, fallback_account, settings, mode,
                     )
+                    self._publish_progress_from_db(
+                        group_id=group_id,
+                        chat_title=chat["chat_ref"],
+                        error=f"All accounts banned: {sorted(tried)}",
+                    )
 
             # Run Phase 1 again for reassigned accounts
             if reassign_map:
@@ -763,6 +768,11 @@ class GroupAnalysisEngine:
                     fallback_account = chat.get("assigned_account") or connected_accounts[0]
                     self._save_phase1_result(
                         group_id, chat, dead_resolved, fallback_account, settings, mode,
+                    )
+                    self._publish_progress_from_db(
+                        group_id=group_id,
+                        chat_title=chat["chat_ref"],
+                        error=f"All retry accounts also banned: {chat['tried_accounts']}",
                     )
 
         # Final safety net: verify all chats have group_results after Phase 1
@@ -945,6 +955,7 @@ class GroupAnalysisEngine:
                             self._db.update_chat_status(
                                 chat_id=chat["id"],
                                 status=GroupChatStatus.PENDING.value,
+                                error=resolved.error,
                                 tried_accounts=tried,
                             )
                             logger.info(
@@ -960,9 +971,6 @@ class GroupAnalysisEngine:
                         self._save_phase1_result(
                             group_id, chat, resolved, account_id, settings, mode,
                         )
-
-                        # Increment counter after processing
-
                         self._publish_progress_from_db(
                             group_id=group_id,
                             chat_title=resolved.title or resolved.chat_ref,
@@ -1331,12 +1339,32 @@ class GroupAnalysisEngine:
             raise  # Let caller handle
 
         except (
+            errors.UserBannedInChannelError,
             errors.ChatForbiddenError,
+            errors.ChannelBannedError,
+        ) as e:
+            # Account-specific ban — another account may succeed
+            logger.info(
+                f"Account '{account_id}': banned from '{chat_ref}' "
+                f"({type(e).__name__})"
+            )
+            return _ResolvedChat(
+                db_chat_id=chat["id"],
+                chat_ref=chat_ref,
+                chat_type=ChatTypeEnum.DEAD.value,
+                title=None,
+                subscribers=None,
+                moderation=None,
+                numeric_id=None,
+                status="banned",
+                error=str(e),
+            )
+
+        except (
             errors.ChannelPrivateError,
             errors.ChatRestrictedError,
-            errors.ChannelBannedError,
-            errors.UserBannedInChannelError,
         ) as e:
+            # Chat-level issue — all accounts would fail
             logger.info(
                 f"Account '{account_id}': '{chat_ref}' inaccessible "
                 f"({type(e).__name__})"
