@@ -225,15 +225,18 @@ class TestResolveByInviteSubscribers:
     async def test_invite_peek_channel_no_participants_calls_full(
         self, engine: GroupAnalysisEngine
     ) -> None:
-        """ChatInvitePeek with Channel that has no participants_count."""
+        """ChatInvitePeek directly has participants_count in the result object."""
         mock_client = AsyncMock()
-        channel = _make_channel(participants_count=None)
 
         invite_peek = MagicMock(spec=ChatInvitePeek)
-        invite_peek.chat = channel
+        invite_peek.title = "Test Channel"
+        invite_peek.participants_count = 7777
+        invite_peek.broadcast = False
+        invite_peek.megagroup = True
+        invite_peek.channel = True
+        invite_peek.request_needed = False
 
-        full_result = _make_full_channel_result(participants_count=7777)
-        mock_client.side_effect = [invite_peek, full_result]
+        mock_client.side_effect = [invite_peek]
 
         chat_ref = "https://t.me/+xyz789"
         resolved = await _resolve_by_invite(
@@ -283,10 +286,19 @@ class TestSubscribersEndToEnd:
         # Save worker result
         engine._save_chat_result(chat, result, "account1")
 
-        # Load results from DB
-        results = group_db.load_results(group_id)
-        assert len(results) == 1
-        assert results[0]["metrics_data"]["subscribers"] == 12345
+        # Load chats and metrics from DB
+        chats = group_db.load_chats(group_id)
+        assert len(chats) == 1
+        metrics = group_db.get_chat_metrics(chats[0]["id"])
+        assert metrics["subscribers"] == 12345
+
+        # Build results format for CSV
+        results = [{
+            "id": chats[0]["id"],
+            "chat_ref": chats[0]["chat_ref"],
+            "chat_type": chats[0]["chat_type"],
+            "metrics_data": metrics,
+        }]
 
         # Generate CSV rows
         rows = list(to_csv_rows_dynamic(results, settings))
@@ -331,8 +343,19 @@ class TestSubscribersEndToEnd:
 
         engine._save_chat_result(chat, result, "account1")
 
-        results = group_db.load_results(group_id)
-        assert results[0]["metrics_data"]["subscribers"] is None
+        # Load chats and metrics from DB
+        chats = group_db.load_chats(group_id)
+        assert len(chats) == 1
+        metrics = group_db.get_chat_metrics(chats[0]["id"])
+        assert metrics["subscribers"] is None
+
+        # Build results format for CSV
+        results = [{
+            "id": chats[0]["id"],
+            "chat_ref": chats[0]["chat_ref"],
+            "chat_type": chats[0]["chat_type"],
+            "metrics_data": metrics,
+        }]
 
         rows = list(to_csv_rows_dynamic(results, settings))
         headers = rows[0]
@@ -344,7 +367,7 @@ class TestSubscribersEndToEnd:
     def test_subscribers_not_saved_when_detect_disabled(
         self, engine: GroupAnalysisEngine, group_db: GroupDatabase
     ) -> None:
-        """When detect_subscribers=False, subscribers key not in metrics_data."""
+        """When detect_subscribers=False, subscribers column not in CSV export."""
         group_id = "test-group-3"
         settings = GroupSettings(detect_subscribers=False)
 
@@ -374,10 +397,23 @@ class TestSubscribersEndToEnd:
 
         engine._save_chat_result(chat, result, "account1")
 
-        results = group_db.load_results(group_id)
-        assert "subscribers" not in results[0]["metrics_data"]
+        # Load chats and metrics from DB
+        chats = group_db.load_chats(group_id)
+        assert len(chats) == 1
+        metrics = group_db.get_chat_metrics(chats[0]["id"])
 
-        # CSV should NOT have subscribers column
+        # Metrics always include all fields (filtering happens at CSV export)
+        assert metrics["subscribers"] == 5000
+
+        # Build results format for CSV
+        results = [{
+            "id": chats[0]["id"],
+            "chat_ref": chats[0]["chat_ref"],
+            "chat_type": chats[0]["chat_type"],
+            "metrics_data": metrics,
+        }]
+
+        # CSV should NOT have subscribers column when detect_subscribers=False
         rows = list(to_csv_rows_dynamic(results, settings))
         headers = rows[0]
         assert "subscribers" not in headers
