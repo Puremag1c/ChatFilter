@@ -52,7 +52,7 @@
     <!-- Type breakdown -->
     <div class="type-breakdown" id="type-breakdown-{{ group.id }}">
         <span class="type-badge pending" data-badge-type="pending" id="badge-pending-{{ group.id }}" style="display: {% if stats.pending > 0 %}inline{% else %}none{% endif %}">{{ _("Pending") }}: <span data-badge-count>{{ stats.pending }}</span></span>
-        <span class="type-badge done" data-badge-type="done" id="badge-done-{{ group.id }}" style="display: {% if stats.analyzed > 0 %}inline{% else %}none{% endif %}">{{ _("Done") }}: <span data-badge-count>{{ stats.analyzed }}</span></span>
+        <span class="type-badge done" data-badge-type="done" id="badge-done-{{ group.id }}" style="display: {% if stats.analyzed - stats.failed > 0 %}inline{% else %}none{% endif %}">{{ _("Done") }}: <span data-badge-count>{{ stats.analyzed - stats.failed }}</span></span>
         <span class="type-badge error" data-badge-type="error" id="badge-error-{{ group.id }}" style="display: {% if stats.failed > 0 %}inline{% else %}none{% endif %}">{{ _("Error") }}: <span data-badge-count>{{ stats.failed }}</span></span>
         <span class="type-badge dead" data-badge-type="dead" id="badge-dead-{{ group.id }}" style="display: {% if stats.dead > 0 %}inline{% else %}none{% endif %}">{{ _("Dead") }}: <span data-badge-count>{{ stats.dead }}</span></span>
         {% if stats.groups > 0 %}

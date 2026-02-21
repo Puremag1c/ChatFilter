@@ -34,7 +34,7 @@ class GroupProgressEvent:
         message: Status message
         error: Error message if failed
         task_id: Optional underlying task_id
-        breakdown: Status breakdown {done, failed, dead, pending} counts
+        breakdown: Status breakdown {done, error, dead, pending} counts
     """
 
     group_id: str
@@ -117,7 +117,7 @@ class ProgressTracker:
         # Build breakdown for SSE (matches GroupStats structure used in templates)
         breakdown = {
             "done": by_status.get("done", 0),
-            "failed": by_status.get("failed", 0),
+            "error": by_status.get("error", 0),
             "dead": by_type.get("dead", 0),
             "pending": by_status.get("pending", 0),
         }
