@@ -70,7 +70,7 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
 
     # Verify initial state
     stats = service.get_group_stats(group_id)
-    assert stats.analyzed == 10  # status DONE
+    assert stats.analyzed == 12  # status DONE + ERROR (10 + 2)
     assert stats.status_pending == 5  # status PENDING
     assert stats.failed == 2  # status ERROR
 

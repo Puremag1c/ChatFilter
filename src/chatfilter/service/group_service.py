@@ -253,9 +253,9 @@ class GroupService:
         by_type = stats_data["by_type"]
         by_status = stats_data["by_status"]
 
-        # GroupStats.analyzed = chats with status DONE only
+        # GroupStats.analyzed = chats with status DONE + ERROR (processed count)
         # (count_processed_chats includes DONE+FAILED+DEAD, which is used for SSE progress)
-        analyzed_count = by_status.get(GroupChatStatus.DONE.value, 0)
+        analyzed_count = by_status.get(GroupChatStatus.DONE.value, 0) + by_status.get(GroupChatStatus.ERROR.value, 0)
 
         return GroupStats(
             total=stats_data["total"],
