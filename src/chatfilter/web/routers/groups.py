@@ -762,6 +762,9 @@ async def _generate_group_sse_events(
                     "chat_title": event.chat_title,
                     "message": event.message,
                 }
+                # Include status breakdown for live badge updates
+                if event.breakdown:
+                    progress_data["breakdown"] = event.breakdown
                 yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
 
                 # Send error event if present

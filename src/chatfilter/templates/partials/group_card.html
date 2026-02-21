@@ -50,10 +50,11 @@
     </div>
 
     <!-- Type breakdown -->
-    <div class="type-breakdown">
-        {% if stats.pending > 0 %}
-        <span class="type-badge pending">{{ _("Pending") }}: {{ stats.pending }}</span>
-        {% endif %}
+    <div class="type-breakdown" id="type-breakdown-{{ group.id }}">
+        <span class="type-badge pending" data-badge-type="pending" id="badge-pending-{{ group.id }}" style="display: {% if stats.pending > 0 %}inline{% else %}none{% endif %}">{{ _("Pending") }}: <span data-badge-count>{{ stats.pending }}</span></span>
+        <span class="type-badge done" data-badge-type="done" id="badge-done-{{ group.id }}" style="display: {% if stats.analyzed > 0 %}inline{% else %}none{% endif %}">{{ _("Done") }}: <span data-badge-count>{{ stats.analyzed }}</span></span>
+        <span class="type-badge failed" data-badge-type="failed" id="badge-failed-{{ group.id }}" style="display: {% if stats.failed > 0 %}inline{% else %}none{% endif %}">{{ _("Failed") }}: <span data-badge-count>{{ stats.failed }}</span></span>
+        <span class="type-badge dead" data-badge-type="dead" id="badge-dead-{{ group.id }}" style="display: {% if stats.dead > 0 %}inline{% else %}none{% endif %}">{{ _("Dead") }}: <span data-badge-count>{{ stats.dead }}</span></span>
         {% if stats.groups > 0 %}
         <span class="type-badge group">{{ _("Groups") }}: {{ stats.groups }}</span>
         {% endif %}
@@ -65,9 +66,6 @@
         {% endif %}
         {% if stats.channels_no_comments > 0 %}
         <span class="type-badge channel-no-comments">{{ _("Channels") }}: {{ stats.channels_no_comments }}</span>
-        {% endif %}
-        {% if stats.dead > 0 %}
-        <span class="type-badge dead">{{ _("Dead") }}: {{ stats.dead }}</span>
         {% endif %}
         {% if stats.skipped_moderation > 0 %}
         <span class="type-badge dead" title="{{ _('These chats require approval to join. Metrics requiring join are N/A') }}">{{ _("Skipped (moderation)") }}: {{ stats.skipped_moderation }}</span>
@@ -278,6 +276,29 @@
                     }
                     if (progressFillEl) {
                         progressFillEl.style.width = percent + '%';
+                    }
+                }
+
+                // Update status badges from breakdown
+                if (data.breakdown) {
+                    const badgeTypes = ['pending', 'done', 'failed', 'dead'];
+                    badgeTypes.forEach(badgeType => {
+                        const badgeEl = document.getElementById('badge-' + badgeType + '-{{ group.id }}');
+                        if (badgeEl) {
+                            const count = data.breakdown[badgeType] || 0;
+                            const countEl = badgeEl.querySelector('[data-badge-count]');
+                            if (countEl) {
+                                countEl.textContent = count;
+                            }
+                            // Show/hide badge based on count
+                            badgeEl.style.display = count > 0 ? 'inline' : 'none';
+                        }
+                    });
+
+                    // Update failed count in stats section
+                    const failedEl = document.getElementById('failed-{{ group.id }}');
+                    if (failedEl && data.breakdown.failed !== undefined) {
+                        failedEl.textContent = data.breakdown.failed;
                     }
                 }
 

@@ -69,6 +69,7 @@ class GroupProgressEvent:
         message: Status message
         error: Error message if failed
         task_id: Optional underlying task_id
+        breakdown: Status breakdown {done, failed, dead, pending} counts
     """
 
     group_id: str
@@ -79,6 +80,7 @@ class GroupProgressEvent:
     message: str | None = None
     error: str | None = None
     task_id: UUID | None = None
+    breakdown: dict[str, int] | None = None
 
 
 class GroupEngineError(Exception):
@@ -2394,10 +2396,10 @@ class GroupAnalysisEngine:
     def _publish_progress_from_db(
         self, group_id: str, chat_title: str, message: str | None = None, error: str | None = None
     ) -> None:
-        """Publish progress event with global counts from DB.
+        """Publish progress event with global counts and status breakdown from DB.
 
         Counts processed (done + failed + dead) and total chats from DB,
-        then publishes GroupProgressEvent.
+        then publishes GroupProgressEvent with status breakdown for live badge updates.
 
         Args:
             group_id: Group identifier
@@ -2406,6 +2408,20 @@ class GroupAnalysisEngine:
             error: Optional error message
         """
         processed, total = self._db.count_processed_chats(group_id)
+
+        # Get detailed stats for badge breakdown
+        stats_dict = self._db.get_group_stats(group_id)
+        by_status = stats_dict.get("by_status", {})
+        by_type = stats_dict.get("by_type", {})
+
+        # Build breakdown for SSE (matches GroupStats structure used in templates)
+        breakdown = {
+            "done": by_status.get("done", 0),
+            "failed": by_status.get("failed", 0),
+            "dead": by_type.get("dead", 0),
+            "pending": by_status.get("pending", 0),
+        }
+
         event = GroupProgressEvent(
             group_id=group_id,
             status=GroupStatus.IN_PROGRESS.value,
@@ -2414,5 +2430,6 @@ class GroupAnalysisEngine:
             total=total,
             message=message,
             error=error,
+            breakdown=breakdown,
         )
         self._publish_event(event)
