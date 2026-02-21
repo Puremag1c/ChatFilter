@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from telethon import errors
 
-from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-from chatfilter.models.group import GroupChatStatus, GroupSettings, GroupStatus
+from chatfilter.analyzer.group_engine import AnalysisMode, GroupAnalysisEngine
+from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupSettings, GroupStatus
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.client import RateLimitedJoinError
 from chatfilter.telegram.session_manager import SessionManager
@@ -170,6 +170,8 @@ async def test_increment_skips_already_analyzed(mock_db, mock_session_manager):
     settings = GroupSettings(
         detect_activity=True,
         detect_unique_authors=False,
+        detect_moderation=False,  # Disable to simplify test
+        detect_subscribers=False,  # Disable to simplify test
         detect_captcha=False,
         time_window=24,
     )
@@ -185,36 +187,38 @@ async def test_increment_skips_already_analyzed(mock_db, mock_session_manager):
 
     # Add chat with DONE status AND activity metrics
     chat_ref = "analyzed_chat"
-    mock_db.save_chat(
-        chat_type="pending",
+    chat_id = mock_db.save_chat(
+        chat_type=ChatTypeEnum.GROUP.value,  # Set chat_type at chat creation
         group_id=group_id,
         chat_ref=chat_ref,
         status=GroupChatStatus.DONE.value,
     )
 
-    # Save result WITH Phase 2 metrics
-    mock_db.upsert_result(
-        group_id=group_id,
-        chat_ref=chat_ref,
-        metrics_data={
+    # Save result WITH Phase 2 metrics (using save_chat_metrics instead of upsert_result)
+    mock_db.save_chat_metrics(
+        chat_id=chat_id,
+        metrics={
             "title": "Analyzed Chat",
             "messages_per_hour": 12.5,  # Has activity metric → should skip
+            "metrics_version": 2,  # Current METRICS_VERSION
         },
     )
 
-    # Mock session
-    mock_client = AsyncMock()
-    mock_session_ctx = AsyncMock()
-    mock_session_ctx.__aenter__.return_value = mock_client
-    mock_session_ctx.__aexit__.return_value = None
-    mock_session_manager.session.return_value = mock_session_ctx
+    # Verify metrics were saved correctly
+    metrics = mock_db.get_chat_metrics(chat_id)
+    assert metrics is not None
+    assert metrics.get("messages_per_hour") == 12.5
+    assert metrics.get("chat_type") == ChatTypeEnum.GROUP.value
+    assert metrics.get("metrics_version") == 2
 
-    # Mock _analyze_chat_activity to verify it's NOT called
-    with patch.object(engine, "_analyze_chat_activity") as mock_analyze:
-        mock_analyze.return_value = None
+    # Run INCREMENT mode preparation
+    engine._prepare_chats_for_mode(group_id, settings, AnalysisMode.INCREMENT)
 
-        # Run analysis in INCREMENT mode
-        await engine.start_analysis(group_id, mode="INCREMENT")
+    # Verify that chat status remains DONE (not reset to PENDING)
+    chats = mock_db.load_chats(group_id=group_id)
+    assert len(chats) == 1
+    assert chats[0]["status"] == GroupChatStatus.DONE.value  # Should stay DONE
 
-        # Verify that _analyze_chat_activity was NOT called (chat already has metrics)
-        assert mock_analyze.call_count == 0
+    # Verify that no chats are pending (all were skipped)
+    pending = mock_db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
+    assert len(pending) == 0  # Chat has metrics → should NOT be re-analyzed

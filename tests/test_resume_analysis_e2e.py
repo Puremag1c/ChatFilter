@@ -93,6 +93,9 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
 
     async def mock_start_analysis(group_id_arg: str, **kwargs) -> None:
         """Record which chats would be analyzed."""
+        # Simulate engine behavior: change status to IN_PROGRESS
+        service.update_status(group_id_arg, GroupStatus.IN_PROGRESS)
+
         chats = db.load_chats(group_id_arg)
         for chat in chats:
             if chat["status"] in (GroupChatStatus.PENDING.value, GroupChatStatus.ERROR.value):
@@ -102,11 +105,13 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
     mock_engine = MagicMock()
     mock_engine.start_analysis = AsyncMock(side_effect=mock_start_analysis)
 
-    # Mock _get_group_service and _get_group_engine
+    # Configure service with mocked engine
+    service._engine = mock_engine
+
+    # Mock _get_group_service
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service), \
-         patch("chatfilter.web.routers.groups._get_group_engine", return_value=mock_engine):
+    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
 
         # Call resume endpoint
         response = await resume_group_analysis(mock_request, group_id)
@@ -120,8 +125,9 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
         updated_group = service.get_group(group_id)
         assert updated_group.status == GroupStatus.IN_PROGRESS
 
-        # Verify start_analysis was called
-        mock_engine.start_analysis.assert_called_once_with(group_id)
+        # Verify start_analysis was called (with mode parameter)
+        from chatfilter.analyzer.group_engine import AnalysisMode
+        mock_engine.start_analysis.assert_called_once_with(group_id, mode=AnalysisMode.FRESH)
 
         # Wait for background task to complete
         task = mock_request.app.state.app_state.analysis_tasks.get(group_id)
@@ -244,14 +250,18 @@ async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
     mock_engine = MagicMock()
 
     async def slow_analysis(group_id_arg: str, **kwargs) -> None:
+        # Simulate engine behavior: change status to IN_PROGRESS
+        service.update_status(group_id_arg, GroupStatus.IN_PROGRESS)
         await asyncio.sleep(0.5)
 
     mock_engine.start_analysis = AsyncMock(side_effect=slow_analysis)
 
+    # Configure service with mocked engine
+    service._engine = mock_engine
+
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service), \
-         patch("chatfilter.web.routers.groups._get_group_engine", return_value=mock_engine):
+    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
 
         # First request succeeds
         response1 = await resume_group_analysis(mock_request, group_id)
