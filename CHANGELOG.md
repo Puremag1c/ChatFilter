@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-21
+
+### Added
+- Chat reassignment on ban — try other accounts before marking DEAD
+- Live badges via SSE — progress events include status breakdown
+
+### Fixed
+- Fix stale test: test_time_window_limits_message_fetch expects old broken behavior
+- SMOKE: [Tests] time_window validation incomplete - enum vs range
+- SMOKE: [Backend] Missing partial_data parameter in moderation check
+- SSE completion — engine sends None sentinel, JS stops timer
+- Fix offset_date in iter_messages — activity will stop being 0
+
+### Changed
+- [UX] Add error states and retry UI for failed chats
+- [Security] Validate time_window parameter to prevent resource exhaustion
+- [Reliability] Add timeout to iter_messages for massive chats
+- [UX] Show INCREMENT scope preview before analysis
+- [Reliability] Handle late SSE subscriber after completion
+- Add metrics_version to activity results for INCREMENT recount
+
 ## [0.10.9] - 2026-02-21
 
 ### Fixed
