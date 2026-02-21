@@ -175,8 +175,8 @@ class TestStage1ResolveWithoutJoin:
         assert metrics["chat_type"] == ChatTypeEnum.CHANNEL_NO_COMMENTS.value
         assert metrics["title"] == "Test Channel"
         assert metrics["subscribers"] == 5000
-        assert metrics["moderation"] is False
-        assert "messages_per_hour" not in metrics  # Activity not requested
+        assert bool(metrics["moderation"]) is False
+        assert metrics["messages_per_hour"] is None  # Activity not requested
 
         # Verify: Chat status is DONE (Phase 1 complete)
         chats = mock_db.load_chats(group_id=group_id)
@@ -262,7 +262,7 @@ class TestStage1ResolveWithoutJoin:
         assert metrics["chat_type"] == ChatTypeEnum.GROUP.value
         assert metrics["title"] == "Private Group"
         assert metrics["subscribers"] == 250
-        assert metrics["moderation"] == True  # request_needed=True
+        assert bool(metrics["moderation"]) is True  # request_needed=True
 
     @pytest.mark.asyncio
     async def test_stage1_extracts_all_required_fields(self, engine, mock_db, mock_session_manager):
@@ -327,7 +327,7 @@ class TestStage1ResolveWithoutJoin:
         assert metrics["subscribers"] == 1500
 
         # moderation: join_request flag
-        assert metrics["moderation"] == True
+        assert bool(metrics["moderation"]) is True
 
 
 class TestStage2JoinOnlyWhenNeeded:
@@ -397,7 +397,7 @@ class TestStage2JoinOnlyWhenNeeded:
         result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/test_channel")
         metrics = result["metrics_data"]
         assert "subscribers" in metrics
-        assert "messages_per_hour" not in metrics  # Activity not requested
+        assert metrics["messages_per_hour"] is None  # Activity not requested
 
     @pytest.mark.asyncio
     async def test_stage2_joins_when_needs_join_true(self, engine, mock_db, mock_session_manager):
@@ -533,7 +533,7 @@ class TestStage2JoinOnlyWhenNeeded:
         # Verify: Activity metrics marked as "N/A"
         result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/moderated_group")
         metrics = result["metrics_data"]
-        assert metrics["moderation"] is True
+        assert bool(metrics["moderation"]) is True
         assert metrics["messages_per_hour"] == "N/A"
         assert metrics["unique_authors_per_hour"] == "N/A"
 
