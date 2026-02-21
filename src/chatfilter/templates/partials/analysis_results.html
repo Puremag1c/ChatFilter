@@ -91,8 +91,20 @@
                     {% if result.metrics.subscribers is not none %}
                     <td class="numeric">{{ result.metrics.subscribers }}</td>
                     {% endif %}
-                    <td class="numeric">{{ "%.1f"|format(result.metrics.history_hours) }}</td>
-                    <td class="numeric">{{ "%.2f"|format(result.metrics.messages_per_hour) }}</td>
+                    <td class="numeric">
+                        {% if result.metrics.history_hours is not none %}
+                            {{ "%.1f"|format(result.metrics.history_hours) }}
+                        {% else %}
+                            <span style="color: #999;" title="{% if result.chat.chat_type.value == 'dead' %}Чат недоступен{% else %}Требуется одобрение{% endif %}">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="numeric">
+                        {% if result.metrics.messages_per_hour is not none %}
+                            {{ "%.2f"|format(result.metrics.messages_per_hour) }}
+                        {% else %}
+                            <span style="color: #999;" title="{% if result.chat.chat_type.value == 'dead' %}Чат недоступен{% else %}Требуется одобрение{% endif %}">—</span>
+                        {% endif %}
+                    </td>
                     <td class="numeric">{{ "%.3f"|format(result.metrics.duration_seconds or 0) }}</td>
                 </tr>
                 {% endfor %}
