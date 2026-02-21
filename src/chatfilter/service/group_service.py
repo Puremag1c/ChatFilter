@@ -435,10 +435,14 @@ class GroupService:
             List of chat result dictionaries with metrics.
         """
         chats = self._db.load_chats(group_id=group_id)
-        results = []
 
+        # Batch load metrics for all chats at once (avoid N+1 queries)
+        chat_ids = [chat["id"] for chat in chats]
+        metrics_by_id = self._db.get_chat_metrics_batch(chat_ids)
+
+        results = []
         for chat in chats:
-            metrics = self._db.get_chat_metrics(chat["id"])
+            metrics = metrics_by_id.get(chat["id"], {})
             result = {
                 "chat_ref": chat["chat_ref"],
                 "chat_type": chat["chat_type"],
