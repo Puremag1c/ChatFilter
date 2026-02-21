@@ -1869,24 +1869,37 @@ class GroupAnalysisEngine:
             msg_count = 0
             authors: set[int] = set()
             has_captcha = False
+            has_timeout = False
 
-            async for msg in client.iter_messages(
-                numeric_id,
-                limit=5000,
-            ):
-                converted = _telethon_message_to_model(msg, numeric_id)
-                if converted is None:
-                    continue
+            async def _fetch_messages():
+                """Fetch messages with timeout protection."""
+                nonlocal msg_count, authors, messages
+                async for msg in client.iter_messages(
+                    numeric_id,
+                    limit=5000,
+                ):
+                    converted = _telethon_message_to_model(msg, numeric_id)
+                    if converted is None:
+                        continue
 
-                # Only count messages within time window
-                if converted.timestamp < cutoff_time:
-                    break
+                    # Only count messages within time window
+                    if converted.timestamp < cutoff_time:
+                        break
 
-                msg_count += 1
-                authors.add(converted.author_id)
-                messages.append(converted)
+                    msg_count += 1
+                    authors.add(converted.author_id)
+                    messages.append(converted)
 
-            # Calculate metrics
+            try:
+                await asyncio.wait_for(_fetch_messages(), timeout=60)
+            except asyncio.TimeoutError:
+                has_timeout = True
+                logger.warning(
+                    f"Account '{account_id}': '{chat_ref}' message fetch timed out "
+                    f"after 60s (fetched {msg_count} messages, using partial data)"
+                )
+
+            # Calculate metrics (using partial data if timeout occurred)
             hours = settings.time_window
             messages_per_hour = round(msg_count / hours, 2) if hours > 0 else 0
             unique_authors_per_hour = round(len(authors) / hours, 2) if hours > 0 else 0
@@ -1909,6 +1922,7 @@ class GroupAnalysisEngine:
                 messages_per_hour=messages_per_hour,
                 unique_authors_per_hour=unique_authors_per_hour,
                 captcha=has_captcha,
+                partial_data=has_timeout,
                 settings=settings,
             )
 
@@ -1990,6 +2004,7 @@ class GroupAnalysisEngine:
         messages_per_hour: float | str,
         unique_authors_per_hour: float | str,
         captcha: bool | str,
+        partial_data: bool,
         settings: GroupSettings,
     ) -> None:
         """Update group_results with Phase 2 activity metrics.
@@ -2006,6 +2021,8 @@ class GroupAnalysisEngine:
             partial_metrics["unique_authors_per_hour"] = unique_authors_per_hour
         if settings.detect_captcha:
             partial_metrics["captcha"] = captcha
+        if partial_data:
+            partial_metrics["partial_data"] = True
 
         # Use upsert to merge with existing Phase 1 data
         self._db.upsert_result(
