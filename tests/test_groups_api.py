@@ -467,17 +467,17 @@ def test_update_settings_invalid_time_window(
     # Get fresh CSRF token
     csrf_token = get_csrf_token(fastapi_test_client)
 
-    # Try invalid time_window (not in 1, 6, 24, 48)
+    # Try invalid time_window (exceeds MAX_TIME_WINDOW=168)
     response = fastapi_test_client.put(
         f"/api/groups/{group_id}/settings",
         headers={"X-CSRF-Token": csrf_token},
-        data={"time_window": 12},  # Invalid!
+        data={"time_window": 8760},  # 1 year - way over limit!
     )
 
     # Should return error (200 with error partial or 400)
     assert response.status_code in (200, 400)
     if response.status_code == 200:
-        assert "error" in response.text.lower() or "must be one of" in response.text.lower()
+        assert "error" in response.text.lower() or "exceeds maximum" in response.text.lower()
 
 
 def test_export_group_results_returns_csv(

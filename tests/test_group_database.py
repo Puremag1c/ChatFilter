@@ -655,19 +655,24 @@ class TestGroupSettings:
 
     def test_time_window_valid_values(self):
         """Test that valid time_window values are accepted."""
-        for value in [1, 6, 24, 48]:
+        for value in [1, 6, 12, 24, 48, 168]:  # Now accepts any value 1-168
             settings = GroupSettings(time_window=value)
             assert settings.time_window == value
 
     def test_time_window_invalid_value(self):
-        """Test that invalid time_window values are rejected."""
-        with pytest.raises(ValidationError, match="time_window must be one of"):
-            GroupSettings(time_window=12)
+        """Test that time_window exceeding MAX_TIME_WINDOW is rejected."""
+        with pytest.raises(ValidationError, match="exceeds maximum allowed"):
+            GroupSettings(time_window=8760)  # 1 year - way over limit
 
     def test_time_window_negative(self):
         """Test that negative time_window values are rejected."""
-        with pytest.raises(ValidationError, match="time_window must be one of"):
+        with pytest.raises(ValidationError, match="must be at least 1 hour"):
             GroupSettings(time_window=-1)
+
+    def test_time_window_zero(self):
+        """Test that zero time_window is rejected."""
+        with pytest.raises(ValidationError, match="must be at least 1 hour"):
+            GroupSettings(time_window=0)
 
     def test_fake_method_defaults(self):
         """Test that fake() method creates settings with default values."""

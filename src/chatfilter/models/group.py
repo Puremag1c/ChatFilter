@@ -8,6 +8,11 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+# Security: Maximum time window to prevent resource exhaustion
+# 168 hours = 7 days. At 5000 message limit, this allows ~30 msg/hour average.
+# Higher values could cause memory/bandwidth DoS.
+MAX_TIME_WINDOW = 168
+
 
 class GroupStatus(str, Enum):
     """Status of a chat group."""
@@ -58,7 +63,7 @@ class GroupSettings(BaseModel):
         detect_unique_authors: Whether to detect unique author count.
         detect_moderation: Whether to detect moderation settings.
         detect_captcha: Whether to detect captcha presence.
-        time_window: Time window in hours for activity analysis (1/6/24/48).
+        time_window: Time window in hours for activity analysis (1-168, default 24).
 
     Example:
         >>> settings = GroupSettings()
@@ -85,9 +90,18 @@ class GroupSettings(BaseModel):
     @field_validator("time_window")
     @classmethod
     def time_window_must_be_valid(cls, v: int) -> int:
-        """Validate that time_window is one of allowed values."""
-        if v not in (1, 6, 24, 48):
-            raise ValueError("time_window must be one of: 1, 6, 24, 48")
+        """Validate that time_window is within safe bounds.
+
+        Must be at least 1 hour and not exceed MAX_TIME_WINDOW to prevent
+        resource exhaustion from fetching millions of messages.
+        """
+        if v < 1:
+            raise ValueError("time_window must be at least 1 hour")
+        if v > MAX_TIME_WINDOW:
+            raise ValueError(
+                f"time_window ({v}h) exceeds maximum allowed ({MAX_TIME_WINDOW}h). "
+                "This prevents resource exhaustion from fetching millions of messages."
+            )
         return v
 
     def needs_join(self) -> bool:
