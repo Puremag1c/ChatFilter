@@ -34,10 +34,16 @@ class GroupChatStatus(str, Enum):
     """Processing status for individual chat in group."""
 
     PENDING = "pending"
-    JOINING = "joining"
-    ANALYZING = "analyzing"
     DONE = "done"
-    FAILED = "failed"
+    ERROR = "error"
+
+
+class TaskStatus(str, Enum):
+    """Status of a group task."""
+
+    RUNNING = "running"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
 
 
 class AnalysisMode(str, Enum):
@@ -262,6 +268,88 @@ class ChatGroup(BaseModel):
         )
 
 
+class GroupTask(BaseModel):
+    """Task for group analysis.
+
+    Attributes:
+        id: Unique task identifier.
+        group_id: Parent group ID.
+        requested_metrics: Settings for requested metrics.
+        time_window: Time window in hours for activity analysis.
+        created_at: When the task was created.
+        status: Current task status.
+
+    Example:
+        >>> from datetime import datetime, timezone
+        >>> task = GroupTask(
+        ...     id="task-123",
+        ...     group_id="grp-123",
+        ...     requested_metrics=GroupSettings(),
+        ...     time_window=24,
+        ...     created_at=datetime.now(timezone.utc),
+        ...     status=TaskStatus.RUNNING,
+        ... )
+        >>> task.status
+        <TaskStatus.RUNNING: 'running'>
+    """
+
+    model_config = ConfigDict(
+        strict=True,
+        frozen=True,
+        extra="forbid",
+    )
+
+    id: str
+    group_id: str
+    requested_metrics: GroupSettings
+    time_window: int
+    created_at: datetime
+    status: TaskStatus
+
+    @field_validator("time_window")
+    @classmethod
+    def time_window_must_be_valid(cls, v: int) -> int:
+        """Validate that time_window is within allowed range (1-168 hours)."""
+        if v < 1:
+            raise ValueError("time_window must be at least 1 hour")
+        if v > 168:
+            raise ValueError("time_window exceeds maximum allowed (168 hours)")
+        return v
+
+    @classmethod
+    def fake(
+        cls,
+        id: str | None = None,
+        group_id: str | None = None,
+        requested_metrics: GroupSettings | None = None,
+        time_window: int | None = None,
+        created_at: datetime | None = None,
+        status: TaskStatus | None = None,
+    ) -> GroupTask:
+        """Create fake GroupTask for testing.
+
+        Args:
+            id: Task ID (default: random ID).
+            group_id: Parent group ID (default: random ID).
+            requested_metrics: Requested metrics settings (default: fake settings).
+            time_window: Time window in hours (default: 24).
+            created_at: Creation timestamp (default: now).
+            status: Task status (default: RUNNING).
+
+        Returns:
+            GroupTask instance with test data.
+        """
+        now = datetime.now(UTC)
+        return cls(
+            id=id if id is not None else f"task-{random.randint(100000, 999999)}",
+            group_id=group_id if group_id is not None else f"grp-{random.randint(100000, 999999)}",
+            requested_metrics=requested_metrics if requested_metrics is not None else GroupSettings.fake(),
+            time_window=time_window if time_window is not None else 24,
+            created_at=created_at if created_at is not None else now,
+            status=status if status is not None else TaskStatus.RUNNING,
+        )
+
+
 class GroupChat(BaseModel):
     """Individual chat in a group.
 
@@ -350,11 +438,9 @@ class GroupStats(BaseModel):
         channels_with_comments: Channels with comments enabled.
         channels_no_comments: Channels without comments.
         analyzed: Successfully analyzed chats (status DONE).
-        failed: Failed chat processing (status FAILED).
+        failed: Failed chat processing (status ERROR).
         skipped_moderation: Chats skipped due to join approval required.
         status_pending: Chats with status PENDING (not started).
-        status_joining: Chats with status JOINING (join in progress).
-        status_analyzing: Chats with status ANALYZING (analysis in progress).
 
     Note:
         - `pending` refers to ChatTypeEnum.PENDING (type classification)
@@ -373,8 +459,6 @@ class GroupStats(BaseModel):
         ...     analyzed=3,
         ...     failed=1,
         ...     status_pending=5,
-        ...     status_joining=0,
-        ...     status_analyzing=1,
         ... )
         >>> stats.total
         10
@@ -397,13 +481,11 @@ class GroupStats(BaseModel):
     failed: int
     skipped_moderation: int = 0
     status_pending: int = 0
-    status_joining: int = 0
-    status_analyzing: int = 0
 
     @field_validator("total", "pending", "dead", "groups", "forums",
                      "channels_with_comments", "channels_no_comments",
                      "analyzed", "failed", "skipped_moderation",
-                     "status_pending", "status_joining", "status_analyzing")
+                     "status_pending")
     @classmethod
     def counts_must_be_non_negative(cls, v: int) -> int:
         """Validate that all counts are non-negative."""
@@ -426,8 +508,6 @@ class GroupStats(BaseModel):
             failed=0,
             skipped_moderation=0,
             status_pending=0,
-            status_joining=0,
-            status_analyzing=0,
         )
 
     @classmethod
@@ -444,8 +524,6 @@ class GroupStats(BaseModel):
         failed: int | None = None,
         skipped_moderation: int | None = None,
         status_pending: int | None = None,
-        status_joining: int | None = None,
-        status_analyzing: int | None = None,
     ) -> GroupStats:
         """Create fake GroupStats for testing.
 
@@ -461,8 +539,6 @@ class GroupStats(BaseModel):
             failed: Failed count (default: 1).
             skipped_moderation: Skipped moderation count (default: 0).
             status_pending: Status pending count (default: 0).
-            status_joining: Status joining count (default: 0).
-            status_analyzing: Status analyzing count (default: 0).
 
         Returns:
             GroupStats instance with test data.
@@ -479,6 +555,4 @@ class GroupStats(BaseModel):
             failed=failed if failed is not None else 1,
             skipped_moderation=skipped_moderation if skipped_moderation is not None else 0,
             status_pending=status_pending if status_pending is not None else 0,
-            status_joining=status_joining if status_joining is not None else 0,
-            status_analyzing=status_analyzing if status_analyzing is not None else 0,
         )
