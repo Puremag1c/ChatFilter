@@ -21,6 +21,7 @@ from telethon.tl.functions.messages import CheckChatInviteRequest
 from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready, ChatInvitePeek
 from telethon.tl.types import Chat as TelegramChat
 
+from chatfilter.analyzer.progress import GroupProgressEvent, ProgressTracker
 from chatfilter.models.group import (
     AnalysisMode,
     ChatTypeEnum,
@@ -54,33 +55,6 @@ CAPTCHA_BOTS = frozenset({
 
 # Bump when activity metric calculation changes to trigger INCREMENT recount
 METRICS_VERSION = 2
-
-
-@dataclass
-class GroupProgressEvent:
-    """Progress event for group analysis workflow.
-
-    Attributes:
-        group_id: Group identifier
-        status: Current status
-        current: Current chat index
-        total: Total number of chats
-        chat_title: Currently processing chat title
-        message: Status message
-        error: Error message if failed
-        task_id: Optional underlying task_id
-        breakdown: Status breakdown {done, failed, dead, pending} counts
-    """
-
-    group_id: str
-    status: str
-    current: int
-    total: int
-    chat_title: str | None = None
-    message: str | None = None
-    error: str | None = None
-    task_id: UUID | None = None
-    breakdown: dict[str, int] | None = None
 
 
 class GroupEngineError(Exception):
@@ -135,7 +109,7 @@ class GroupAnalysisEngine:
         self._db = db
         self._session_mgr = session_manager
         self._active_tasks: dict[str, list[asyncio.Task]] = {}
-        self._subscribers: dict[str, list[asyncio.Queue[GroupProgressEvent]]] = {}
+        self._progress = ProgressTracker(db)
 
     def recover_stale_analysis(self) -> None:
         """Detect and recover from interrupted group analysis.
@@ -510,15 +484,7 @@ class GroupAnalysisEngine:
                     self._publish_event(event)
 
                     # Send None sentinel to signal completion to SSE generators
-                    subscribers = self._subscribers.get(group_id, [])
-                    for queue in subscribers:
-                        try:
-                            queue.put_nowait(None)
-                        except asyncio.QueueFull:
-                            logger.warning(
-                                f"Subscriber queue full for group '{group_id}', "
-                                f"cannot send completion sentinel"
-                            )
+                    self._progress.signal_completion(group_id)
                     return
             else:
                 # No PENDING, no FAILED, not all DONE → something is wrong
@@ -2232,15 +2198,7 @@ class GroupAnalysisEngine:
                 self._publish_event(event)
 
                 # Send None sentinel to signal completion to SSE generators
-                subscribers = self._subscribers.get(group_id, [])
-                for queue in subscribers:
-                    try:
-                        queue.put_nowait(None)
-                    except asyncio.QueueFull:
-                        logger.warning(
-                            f"Subscriber queue full for group '{group_id}', "
-                            f"cannot send completion sentinel"
-                        )
+                self._progress.signal_completion(group_id)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -2374,9 +2332,7 @@ class GroupAnalysisEngine:
         Returns:
             Queue that will receive progress events.
         """
-        queue: asyncio.Queue[GroupProgressEvent] = asyncio.Queue()
-        self._subscribers.setdefault(group_id, []).append(queue)
-        return queue
+        return self._progress.subscribe(group_id)
 
     def _publish_event(self, event: GroupProgressEvent) -> None:
         """Publish progress event to all subscribers of the group.
@@ -2384,15 +2340,7 @@ class GroupAnalysisEngine:
         Args:
             event: Progress event to publish.
         """
-        subscribers = self._subscribers.get(event.group_id, [])
-        for queue in subscribers:
-            try:
-                queue.put_nowait(event)
-            except asyncio.QueueFull:
-                logger.warning(
-                    f"Subscriber queue full for group '{event.group_id}', "
-                    f"dropping event"
-                )
+        self._progress.publish(event)
 
     def _publish_progress_from_db(
         self, group_id: str, chat_title: str, message: str | None = None, error: str | None = None
@@ -2408,29 +2356,4 @@ class GroupAnalysisEngine:
             message: Optional status message
             error: Optional error message
         """
-        processed, total = self._db.count_processed_chats(group_id)
-
-        # Get detailed stats for badge breakdown
-        stats_dict = self._db.get_group_stats(group_id)
-        by_status = stats_dict.get("by_status", {})
-        by_type = stats_dict.get("by_type", {})
-
-        # Build breakdown for SSE (matches GroupStats structure used in templates)
-        breakdown = {
-            "done": by_status.get("done", 0),
-            "failed": by_status.get("failed", 0),
-            "dead": by_type.get("dead", 0),
-            "pending": by_status.get("pending", 0),
-        }
-
-        event = GroupProgressEvent(
-            group_id=group_id,
-            status=GroupStatus.IN_PROGRESS.value,
-            chat_title=chat_title,
-            current=processed,
-            total=total,
-            message=message,
-            error=error,
-            breakdown=breakdown,
-        )
-        self._publish_event(event)
+        self._progress.publish_from_db(group_id, chat_title, message, error)
