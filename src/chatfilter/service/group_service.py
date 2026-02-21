@@ -5,8 +5,11 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+from chatfilter.analyzer.progress import compute_group_status
 from chatfilter.importer.parser import _classify_entry
 from chatfilter.models.group import (
+    AnalysisMode,
     ChatGroup,
     ChatTypeEnum,
     GroupChatStatus,
@@ -35,13 +38,15 @@ class GroupService:
         2
     """
 
-    def __init__(self, db: GroupDatabase) -> None:
+    def __init__(self, db: GroupDatabase, engine: GroupAnalysisEngine | None = None) -> None:
         """Initialize GroupService.
 
         Args:
             db: GroupDatabase instance for persistence.
+            engine: Optional GroupAnalysisEngine for analysis operations.
         """
         self._db = db
+        self._engine = engine
 
     def create_group(
         self,
@@ -346,3 +351,110 @@ class GroupService:
             >>> service.delete_group("group-123")
         """
         self._db.delete_group(group_id)
+
+    async def start_analysis(self, group_id: str) -> None:
+        """Start group analysis.
+
+        Creates group_task and delegates to engine.
+
+        Args:
+            group_id: Group identifier.
+
+        Raises:
+            ValueError: If engine not configured or group not found.
+        """
+        if not self._engine:
+            raise ValueError("GroupAnalysisEngine not configured")
+
+        group_data = self._db.load_group(group_id)
+        if not group_data:
+            raise ValueError(f"Group not found: {group_id}")
+
+        await self._engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
+
+    def stop_analysis(self, group_id: str) -> None:
+        """Stop ongoing analysis.
+
+        Cancels active task and delegates to engine.
+
+        Args:
+            group_id: Group identifier.
+
+        Raises:
+            ValueError: If engine not configured.
+        """
+        if not self._engine:
+            raise ValueError("GroupAnalysisEngine not configured")
+
+        self._engine.stop_analysis(group_id)
+
+    async def reanalyze(self, group_id: str, mode: AnalysisMode) -> None:
+        """Reanalyze group with specified mode.
+
+        OVERWRITE: clears all metrics and starts fresh.
+        INCREMENT: analyzes only missing/failed chats.
+
+        Args:
+            group_id: Group identifier.
+            mode: Analysis mode (OVERWRITE or INCREMENT).
+
+        Raises:
+            ValueError: If engine not configured or group not found.
+        """
+        if not self._engine:
+            raise ValueError("GroupAnalysisEngine not configured")
+
+        group_data = self._db.load_group(group_id)
+        if not group_data:
+            raise ValueError(f"Group not found: {group_id}")
+
+        await self._engine.start_analysis(group_id, mode=mode)
+
+    def get_group_status(self, group_id: str) -> str:
+        """Get computed group status.
+
+        Delegates to compute_group_status() which aggregates chat statuses.
+
+        Args:
+            group_id: Group identifier.
+
+        Returns:
+            GroupStatus value (pending/in_progress/completed/failed/paused).
+        """
+        return compute_group_status(self._db, group_id)
+
+    def get_results(self, group_id: str) -> list[dict]:
+        """Get analysis results for group.
+
+        Reads metrics from group_chats columns (no separate group_results table).
+
+        Args:
+            group_id: Group identifier.
+
+        Returns:
+            List of chat result dictionaries with metrics.
+        """
+        chats = self._db.load_chats(group_id=group_id)
+        results = []
+
+        for chat in chats:
+            metrics = self._db.get_chat_metrics(chat["id"])
+            result = {
+                "chat_ref": chat["chat_ref"],
+                "chat_type": chat["chat_type"],
+                "status": chat["status"],
+                "subscribers": chat.get("subscribers"),
+                "assigned_account": chat.get("assigned_account"),
+                "error": chat.get("error"),
+            }
+            if metrics:
+                result.update({
+                    "title": metrics.get("title"),
+                    "moderation": metrics.get("moderation"),
+                    "messages_per_hour": metrics.get("messages_per_hour"),
+                    "unique_authors_per_hour": metrics.get("unique_authors_per_hour"),
+                    "captcha": metrics.get("captcha"),
+                })
+            results.append(result)
+
+        return results
