@@ -22,6 +22,18 @@ from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.session_manager import SessionManager
 
+def _get_metrics_for_chat(db, group_id: str, chat_ref: str):
+    """Helper to get metrics for a specific chat."""
+    chats = db.load_chats(group_id=group_id)
+    chat = next((c for c in chats if c["chat_ref"] == chat_ref), None)
+    if not chat:
+        return None
+    metrics = db.get_chat_metrics(chat["id"])
+    # Wrap in dict to match old load_result format
+    return {"metrics_data": metrics} if metrics else None
+
+
+
 
 @pytest.fixture
 def mock_db(isolated_tmp_dir):
@@ -157,6 +169,16 @@ class TestStage1ResolveWithoutJoin:
         mock_client.get_entity.assert_called_once_with("test_channel")
 
         # Verify: Chat metadata was saved without joining
+        result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/test_channel")
+        assert result is not None
+        metrics = result["metrics_data"]
+        assert metrics["chat_type"] == ChatTypeEnum.CHANNEL_NO_COMMENTS.value
+        assert metrics["title"] == "Test Channel"
+        assert metrics["subscribers"] == 5000
+        assert metrics["moderation"] is False
+        assert "messages_per_hour" not in metrics  # Activity not requested
+
+        # Verify: Chat status is DONE (Phase 1 complete)
         chats = mock_db.load_chats(group_id=group_id)
         assert len(chats) == 1
         assert chats[0]["status"] == GroupChatStatus.DONE.value
@@ -234,10 +256,9 @@ class TestStage1ResolveWithoutJoin:
         assert call_args.hash == "AbCdEf123456"
 
         # Verify: Invite metadata was saved without joining
-        chats = mock_db.load_chats(group_id=group_id)
-        assert len(chats) == 1
-        chat_id = chats[0]["id"]
-        metrics = mock_db.get_chat_metrics(chat_id)
+        result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/+AbCdEf123456")
+        assert result is not None
+        metrics = result["metrics_data"]
         assert metrics["chat_type"] == ChatTypeEnum.GROUP.value
         assert metrics["title"] == "Private Group"
         assert metrics["subscribers"] == 250
@@ -296,10 +317,8 @@ class TestStage1ResolveWithoutJoin:
         await engine.start_analysis(group_id)
 
         # Verify: All Stage 1 fields extracted
-        chats = mock_db.load_chats(group_id=group_id)
-        assert len(chats) == 1
-        chat_id = chats[0]["id"]
-        metrics = mock_db.get_chat_metrics(chat_id)
+        result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/test_group")
+        metrics = result["metrics_data"]
 
         # chat_type: GROUP (megagroup=True, not forum)
         assert metrics["chat_type"] == ChatTypeEnum.GROUP.value
@@ -375,12 +394,10 @@ class TestStage2JoinOnlyWhenNeeded:
         assert not mock_client.iter_messages.called
 
         # Verify: Result contains Stage 1 data only
-        chats = mock_db.load_chats(group_id=group_id)
-        assert len(chats) == 1
-        chat_id = chats[0]["id"]
-        metrics = mock_db.get_chat_metrics(chat_id)
-        assert metrics["subscribers"] is not None
-        assert metrics["messages_per_hour"] is None  # Activity not requested
+        result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/test_channel")
+        metrics = result["metrics_data"]
+        assert "subscribers" in metrics
+        assert "messages_per_hour" not in metrics  # Activity not requested
 
     @pytest.mark.asyncio
     async def test_stage2_joins_when_needs_join_true(self, engine, mock_db, mock_session_manager):
@@ -458,12 +475,10 @@ class TestStage2JoinOnlyWhenNeeded:
             mock_leave.assert_called_once_with(mock_client, 456)
 
         # Verify: Activity metrics were calculated
-        chats = mock_db.load_chats(group_id=group_id)
-        assert len(chats) == 1
-        chat_id = chats[0]["id"]
-        metrics = mock_db.get_chat_metrics(chat_id)
-        assert metrics["messages_per_hour"] is not None
-        assert metrics["unique_authors_per_hour"] is not None
+        result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/test_group")
+        metrics = result["metrics_data"]
+        assert "messages_per_hour" in metrics
+        assert "unique_authors_per_hour" in metrics
 
     @pytest.mark.asyncio
     async def test_skip_join_when_approval_required(self, engine, mock_db, mock_session_manager):
@@ -516,11 +531,9 @@ class TestStage2JoinOnlyWhenNeeded:
             mock_join.assert_not_called()
 
         # Verify: Activity metrics marked as "N/A"
-        chats = mock_db.load_chats(group_id=group_id)
-        assert len(chats) == 1
-        chat_id = chats[0]["id"]
-        metrics = mock_db.get_chat_metrics(chat_id)
-        assert metrics["moderation"] == True
+        result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/moderated_group")
+        metrics = result["metrics_data"]
+        assert metrics["moderation"] is True
         assert metrics["messages_per_hour"] == "N/A"
         assert metrics["unique_authors_per_hour"] == "N/A"
 
@@ -698,10 +711,8 @@ class TestHybridTimeWindowLogic:
             await engine.start_analysis(group_id)
 
             # Verify: Metrics based on time_window (24 hours), not actual span
-            chats = mock_db.load_chats(group_id=group_id)
-            assert len(chats) == 1
-            chat_id = chats[0]["id"]
-            metrics = mock_db.get_chat_metrics(chat_id)
+            result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/sparse_group")
+            metrics = result["metrics_data"]
 
             # 2 messages over 24 hour window = 0.08 messages/hour
             # Note: Implementation divides by settings.time_window, not actual message span
@@ -792,10 +803,8 @@ class TestHybridTimeWindowLogic:
             await engine.start_analysis(group_id)
 
             # Verify: All 3 messages processed correctly
-            chats = mock_db.load_chats(group_id=group_id)
-            assert len(chats) == 1
-            chat_id = chats[0]["id"]
-            metrics = mock_db.get_chat_metrics(chat_id)
+            result = _get_metrics_for_chat(mock_db, group_id, "https://t.me/small_group")
+            metrics = result["metrics_data"]
 
             # Metrics should be calculated from 3 messages
             assert metrics["messages_per_hour"] > 0
