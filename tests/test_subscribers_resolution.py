@@ -19,7 +19,8 @@ from telethon import errors
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.types import Channel, ChatInviteAlready, ChatInvitePeek
 
-from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+from chatfilter.analyzer.worker import _ResolvedChat
 from chatfilter.exporter.csv import to_csv_rows_dynamic
 from chatfilter.models.group import AnalysisMode, ChatTypeEnum, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase

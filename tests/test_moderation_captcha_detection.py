@@ -25,11 +25,8 @@ from telethon.tl.types import (
     User,
 )
 
-from chatfilter.analyzer.group_engine import (
-    CAPTCHA_BOTS,
-    GroupAnalysisEngine,
-    _ResolvedChat,
-)
+from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+from chatfilter.analyzer.worker import CAPTCHA_BOTS, _ResolvedChat
 from chatfilter.models.group import (
     ChatTypeEnum,
     GroupChatStatus,

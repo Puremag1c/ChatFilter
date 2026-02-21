@@ -16,7 +16,8 @@ import pytest
 from telethon import errors
 from telethon.tl.functions.messages import CheckChatInviteRequest
 
-from chatfilter.analyzer.group_engine import GroupAnalysisEngine, _ResolvedChat
+from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+from chatfilter.analyzer.worker import _ResolvedChat
 from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupSettings, GroupStatus
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.session_manager import SessionManager
