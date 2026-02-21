@@ -85,9 +85,11 @@ class GroupSettings(BaseModel):
     @field_validator("time_window")
     @classmethod
     def time_window_must_be_valid(cls, v: int) -> int:
-        """Validate that time_window is one of allowed values."""
-        if v not in (1, 6, 24, 48):
-            raise ValueError("time_window must be one of: 1, 6, 24, 48")
+        """Validate that time_window is within allowed range (1-168 hours)."""
+        if v < 1:
+            raise ValueError("time_window must be at least 1 hour")
+        if v > 168:
+            raise ValueError("time_window exceeds maximum allowed (168 hours)")
         return v
 
     def needs_join(self) -> bool:
