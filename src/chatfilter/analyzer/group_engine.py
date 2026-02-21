@@ -52,6 +52,9 @@ CAPTCHA_BOTS = frozenset({
     "combot",
 })
 
+# Bump when activity metric calculation changes to trigger INCREMENT recount
+METRICS_VERSION = 2
+
 
 @dataclass
 class GroupProgressEvent:
@@ -1660,20 +1663,27 @@ class GroupAnalysisEngine:
                             existing = self._db.load_result(group_id, chat["chat_ref"])
                             if existing:
                                 em = existing.get("metrics_data", {})
-                                has_activity = not settings.detect_activity or em.get("messages_per_hour") is not None
-                                has_authors = not settings.detect_unique_authors or em.get("unique_authors_per_hour") is not None
-                                has_captcha = not settings.detect_captcha or em.get("captcha") is not None
-                                if has_activity and has_authors and has_captcha:
-                                    # Ensure chat is marked DONE (should already be from Phase 1)
-                                    # DON'T publish progress - DB count already includes this chat
-                                    self._db.update_chat_status(
-                                        chat_id=chat["id"],
-                                        status=GroupChatStatus.DONE.value,
-                                    )
+                                # Recount if metrics were saved by older version (e.g. bug zeros)
+                                if em.get("metrics_version", 0) < METRICS_VERSION:
                                     logger.debug(
-                                        f"Skipped @{chat['chat_ref']} (Phase 2 already complete)"
+                                        f"Recounting @{chat['chat_ref']} (metrics_version "
+                                        f"{em.get('metrics_version', 'missing')} < {METRICS_VERSION})"
                                     )
-                                    continue
+                                else:
+                                    has_activity = not settings.detect_activity or em.get("messages_per_hour") is not None
+                                    has_authors = not settings.detect_unique_authors or em.get("unique_authors_per_hour") is not None
+                                    has_captcha = not settings.detect_captcha or em.get("captcha") is not None
+                                    if has_activity and has_authors and has_captcha:
+                                        # Ensure chat is marked DONE (should already be from Phase 1)
+                                        # DON'T publish progress - DB count already includes this chat
+                                        self._db.update_chat_status(
+                                            chat_id=chat["id"],
+                                            status=GroupChatStatus.DONE.value,
+                                        )
+                                        logger.debug(
+                                            f"Skipped @{chat['chat_ref']} (Phase 2 already complete)"
+                                        )
+                                        continue
 
                         # Wrap Phase 2 activity analysis with 5-minute timeout
                         await asyncio.wait_for(
@@ -2137,7 +2147,7 @@ class GroupAnalysisEngine:
         Uses upsert to safely merge with existing data.
         """
         # Build partial metrics with only Phase 2 data
-        partial_metrics = {}
+        partial_metrics = {"metrics_version": METRICS_VERSION}
 
         if settings.detect_activity:
             partial_metrics["messages_per_hour"] = messages_per_hour
