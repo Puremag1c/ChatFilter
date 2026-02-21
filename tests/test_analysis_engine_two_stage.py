@@ -157,19 +157,18 @@ class TestStage1ResolveWithoutJoin:
         mock_client.get_entity.assert_called_once_with("test_channel")
 
         # Verify: Chat metadata was saved without joining
-        result = mock_db.load_result(group_id, "https://t.me/test_channel")
-        assert result is not None
-        metrics = result["metrics_data"]
-        assert metrics["chat_type"] == ChatTypeEnum.CHANNEL_NO_COMMENTS.value
-        assert metrics["title"] == "Test Channel"
-        assert metrics["subscribers"] == 5000
-        assert metrics["moderation"] is False
-        assert "messages_per_hour" not in metrics  # Activity not requested
-
-        # Verify: Chat status is DONE (Phase 1 complete)
         chats = mock_db.load_chats(group_id=group_id)
         assert len(chats) == 1
         assert chats[0]["status"] == GroupChatStatus.DONE.value
+
+        # Get metrics for the chat
+        chat_id = chats[0]["id"]
+        metrics = mock_db.get_chat_metrics(chat_id)
+        assert metrics["chat_type"] == ChatTypeEnum.CHANNEL_NO_COMMENTS.value
+        assert metrics["title"] == "Test Channel"
+        assert metrics["subscribers"] == 5000
+        assert metrics["moderation"] == False
+        assert metrics["messages_per_hour"] is None  # Activity not requested
 
     @pytest.mark.asyncio
     async def test_resolve_invite_link_via_check_chat_invite(self, engine, mock_db, mock_session_manager):
@@ -235,13 +234,14 @@ class TestStage1ResolveWithoutJoin:
         assert call_args.hash == "AbCdEf123456"
 
         # Verify: Invite metadata was saved without joining
-        result = mock_db.load_result(group_id, "https://t.me/+AbCdEf123456")
-        assert result is not None
-        metrics = result["metrics_data"]
+        chats = mock_db.load_chats(group_id=group_id)
+        assert len(chats) == 1
+        chat_id = chats[0]["id"]
+        metrics = mock_db.get_chat_metrics(chat_id)
         assert metrics["chat_type"] == ChatTypeEnum.GROUP.value
         assert metrics["title"] == "Private Group"
         assert metrics["subscribers"] == 250
-        assert metrics["moderation"] is True  # request_needed=True
+        assert metrics["moderation"] == True  # request_needed=True
 
     @pytest.mark.asyncio
     async def test_stage1_extracts_all_required_fields(self, engine, mock_db, mock_session_manager):
@@ -296,8 +296,10 @@ class TestStage1ResolveWithoutJoin:
         await engine.start_analysis(group_id)
 
         # Verify: All Stage 1 fields extracted
-        result = mock_db.load_result(group_id, "https://t.me/test_group")
-        metrics = result["metrics_data"]
+        chats = mock_db.load_chats(group_id=group_id)
+        assert len(chats) == 1
+        chat_id = chats[0]["id"]
+        metrics = mock_db.get_chat_metrics(chat_id)
 
         # chat_type: GROUP (megagroup=True, not forum)
         assert metrics["chat_type"] == ChatTypeEnum.GROUP.value
@@ -306,7 +308,7 @@ class TestStage1ResolveWithoutJoin:
         assert metrics["subscribers"] == 1500
 
         # moderation: join_request flag
-        assert metrics["moderation"] is True
+        assert metrics["moderation"] == True
 
 
 class TestStage2JoinOnlyWhenNeeded:
@@ -373,10 +375,12 @@ class TestStage2JoinOnlyWhenNeeded:
         assert not mock_client.iter_messages.called
 
         # Verify: Result contains Stage 1 data only
-        result = mock_db.load_result(group_id, "https://t.me/test_channel")
-        metrics = result["metrics_data"]
-        assert "subscribers" in metrics
-        assert "messages_per_hour" not in metrics  # Activity not requested
+        chats = mock_db.load_chats(group_id=group_id)
+        assert len(chats) == 1
+        chat_id = chats[0]["id"]
+        metrics = mock_db.get_chat_metrics(chat_id)
+        assert metrics["subscribers"] is not None
+        assert metrics["messages_per_hour"] is None  # Activity not requested
 
     @pytest.mark.asyncio
     async def test_stage2_joins_when_needs_join_true(self, engine, mock_db, mock_session_manager):
@@ -433,8 +437,8 @@ class TestStage2JoinOnlyWhenNeeded:
         mock_client.iter_messages = mock_iter_messages
 
         # Mock join/leave
-        with patch("chatfilter.analyzer.group_engine.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.group_engine.leave_chat") as mock_leave:
+        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
+             patch("chatfilter.analyzer.worker.leave_chat") as mock_leave:
 
             mock_joined = MagicMock()
             mock_joined.id = 456
@@ -454,10 +458,12 @@ class TestStage2JoinOnlyWhenNeeded:
             mock_leave.assert_called_once_with(mock_client, 456)
 
         # Verify: Activity metrics were calculated
-        result = mock_db.load_result(group_id, "https://t.me/test_group")
-        metrics = result["metrics_data"]
-        assert "messages_per_hour" in metrics
-        assert "unique_authors_per_hour" in metrics
+        chats = mock_db.load_chats(group_id=group_id)
+        assert len(chats) == 1
+        chat_id = chats[0]["id"]
+        metrics = mock_db.get_chat_metrics(chat_id)
+        assert metrics["messages_per_hour"] is not None
+        assert metrics["unique_authors_per_hour"] is not None
 
     @pytest.mark.asyncio
     async def test_skip_join_when_approval_required(self, engine, mock_db, mock_session_manager):
@@ -503,16 +509,18 @@ class TestStage2JoinOnlyWhenNeeded:
         mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # Execute
-        with patch("chatfilter.analyzer.group_engine.join_chat") as mock_join:
+        with patch("chatfilter.analyzer.worker.join_chat") as mock_join:
             await engine.start_analysis(group_id)
 
             # Verify: join_chat was NOT called (moderation=True)
             mock_join.assert_not_called()
 
         # Verify: Activity metrics marked as "N/A"
-        result = mock_db.load_result(group_id, "https://t.me/moderated_group")
-        metrics = result["metrics_data"]
-        assert metrics["moderation"] is True
+        chats = mock_db.load_chats(group_id=group_id)
+        assert len(chats) == 1
+        chat_id = chats[0]["id"]
+        metrics = mock_db.get_chat_metrics(chat_id)
+        assert metrics["moderation"] == True
         assert metrics["messages_per_hour"] == "N/A"
         assert metrics["unique_authors_per_hour"] == "N/A"
 
@@ -573,8 +581,8 @@ class TestHybridTimeWindowLogic:
 
         mock_client.iter_messages = mock_iter_messages
 
-        with patch("chatfilter.analyzer.group_engine.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.group_engine.leave_chat"):
+        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
+             patch("chatfilter.analyzer.worker.leave_chat"):
 
             mock_joined = MagicMock()
             mock_joined.id = 111
@@ -652,9 +660,9 @@ class TestHybridTimeWindowLogic:
 
         mock_client.iter_messages = mock_iter_messages
 
-        with patch("chatfilter.analyzer.group_engine.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.group_engine.leave_chat"), \
-             patch("chatfilter.analyzer.group_engine._telethon_message_to_model") as mock_convert:
+        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
+             patch("chatfilter.analyzer.worker.leave_chat"), \
+             patch("chatfilter.analyzer.worker._telethon_message_to_model") as mock_convert:
 
             mock_joined = MagicMock()
             mock_joined.id = 222
@@ -690,8 +698,10 @@ class TestHybridTimeWindowLogic:
             await engine.start_analysis(group_id)
 
             # Verify: Metrics based on time_window (24 hours), not actual span
-            result = mock_db.load_result(group_id, "https://t.me/sparse_group")
-            metrics = result["metrics_data"]
+            chats = mock_db.load_chats(group_id=group_id)
+            assert len(chats) == 1
+            chat_id = chats[0]["id"]
+            metrics = mock_db.get_chat_metrics(chat_id)
 
             # 2 messages over 24 hour window = 0.08 messages/hour
             # Note: Implementation divides by settings.time_window, not actual message span
@@ -755,9 +765,9 @@ class TestHybridTimeWindowLogic:
 
         mock_client.iter_messages = mock_iter_messages
 
-        with patch("chatfilter.analyzer.group_engine.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.group_engine.leave_chat"), \
-             patch("chatfilter.analyzer.group_engine._telethon_message_to_model") as mock_convert:
+        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
+             patch("chatfilter.analyzer.worker.leave_chat"), \
+             patch("chatfilter.analyzer.worker._telethon_message_to_model") as mock_convert:
 
             mock_joined = MagicMock()
             mock_joined.id = 333
@@ -782,8 +792,10 @@ class TestHybridTimeWindowLogic:
             await engine.start_analysis(group_id)
 
             # Verify: All 3 messages processed correctly
-            result = mock_db.load_result(group_id, "https://t.me/small_group")
-            metrics = result["metrics_data"]
+            chats = mock_db.load_chats(group_id=group_id)
+            assert len(chats) == 1
+            chat_id = chats[0]["id"]
+            metrics = mock_db.get_chat_metrics(chat_id)
 
             # Metrics should be calculated from 3 messages
             assert metrics["messages_per_hour"] > 0
