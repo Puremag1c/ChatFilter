@@ -21,6 +21,7 @@ from chatfilter.analyzer.group_engine import (
     GroupAnalysisEngine,
     NoConnectedAccountsError,
 )
+from chatfilter.analyzer.progress import ProgressTracker
 from chatfilter.exporter.csv import export_group_results_to_csv
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
@@ -31,6 +32,38 @@ from chatfilter.storage.group_database import GroupDatabase
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _convert_results_for_exporter(results: list[dict]) -> list[dict]:
+    """Convert flat results structure to exporter-compatible format.
+
+    Converts service.get_results() flat structure to old nested structure
+    expected by to_csv_rows_dynamic.
+
+    Args:
+        results: List of flat result dicts from service.get_results()
+
+    Returns:
+        List of dicts with metrics_data nested structure
+    """
+    converted = []
+    for result in results:
+        # Extract all fields into metrics_data dict
+        metrics_data = {
+            "title": result.get("title", ""),
+            "chat_type": result.get("chat_type"),
+            "subscribers": result.get("subscribers"),
+            "messages_per_hour": result.get("messages_per_hour"),
+            "unique_authors_per_hour": result.get("unique_authors_per_hour"),
+            "moderation": result.get("moderation"),
+            "captcha": result.get("captcha"),
+            "status": result.get("status"),
+        }
+        converted.append({
+            "chat_ref": result["chat_ref"],
+            "metrics_data": metrics_data,
+        })
+    return converted
 
 
 def parse_optional_int(value: str | None) -> int | None:
@@ -59,38 +92,6 @@ def parse_optional_float(value: str | None) -> float | None:
     if value is None or value == "":
         return None
     return float(value)
-
-
-def _handle_analysis_task_done(task: asyncio.Task, group_id: str, request: Request) -> None:
-    """Callback for completed/failed background analysis tasks.
-
-    Logs exceptions and removes task from app state tracking.
-
-    Args:
-        task: The completed asyncio.Task
-        group_id: Group identifier
-        request: FastAPI request for accessing app state
-    """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    # Log exception if task failed
-    try:
-        exc = task.exception()
-        if exc is not None:
-            logger.error(f"Background analysis task for group {group_id} failed with exception: {exc}", exc_info=exc)
-    except asyncio.CancelledError:
-        logger.info(f"Background analysis task for group {group_id} was cancelled")
-    except Exception as e:
-        logger.error(f"Error retrieving exception from task {group_id}: {e}")
-
-    # Clean up from app state
-    try:
-        if hasattr(request.app.state, 'app_state') and hasattr(request.app.state.app_state, 'analysis_tasks'):
-            request.app.state.app_state.analysis_tasks.pop(group_id, None)
-    except Exception as e:
-        logger.error(f"Error removing task {group_id} from app state: {e}")
 
 
 # Maximum file size for group uploads (10MB as per security requirements)
@@ -252,8 +253,11 @@ async def fetch_file_from_url(url: str, max_size: int, timeout: float = 30.0) ->
         return b"".join(chunks)
 
 
-def _get_group_service() -> GroupService:
+def _get_group_service(request: Request | None = None) -> GroupService:
     """Get or create GroupService instance.
+
+    Args:
+        request: Optional FastAPI request for engine initialization
 
     Returns:
         GroupService instance
@@ -265,11 +269,18 @@ def _get_group_service() -> GroupService:
     settings.data_dir.mkdir(parents=True, exist_ok=True)
 
     db = GroupDatabase(db_path)
-    return GroupService(db)
+
+    # If request provided, wire up engine
+    engine = None
+    if request is not None:
+        engine = _get_group_engine(request)
+
+    return GroupService(db, engine=engine)
 
 
-# Singleton for GroupAnalysisEngine
+# Singletons
 _group_engine: GroupAnalysisEngine | None = None
+_progress_tracker: ProgressTracker | None = None
 
 
 def _get_group_engine(request: Request) -> GroupAnalysisEngine:
@@ -305,6 +316,27 @@ def _get_group_engine(request: Request) -> GroupAnalysisEngine:
     )
 
     return _group_engine
+
+
+def _get_progress_tracker() -> ProgressTracker:
+    """Get or create ProgressTracker instance (singleton).
+
+    Returns:
+        ProgressTracker instance
+    """
+    global _progress_tracker
+
+    if _progress_tracker is not None:
+        return _progress_tracker
+
+    # Get GroupDatabase from service
+    service = _get_group_service()
+    db = service._db
+
+    # Create and cache tracker
+    _progress_tracker = ProgressTracker(db)
+
+    return _progress_tracker
 
 
 @router.post("/api/groups", response_class=HTMLResponse)
@@ -659,7 +691,7 @@ async def _generate_group_sse_events(
 ) -> AsyncGenerator[str, None]:
     """Generate SSE events for group analysis progress.
 
-    Subscribes to GroupAnalysisEngine progress events and streams them as SSE.
+    Subscribes to ProgressTracker events and streams them as SSE.
     Sends heartbeat pings every 15s to detect stale connections.
 
     Args:
@@ -670,7 +702,7 @@ async def _generate_group_sse_events(
         SSE formatted event strings
     """
     service = _get_group_service()
-    engine = _get_group_engine(request)
+    tracker = _get_progress_tracker()
 
     # Verify group exists
     group = service.get_group(group_id)
@@ -710,8 +742,8 @@ async def _generate_group_sse_events(
     # Track max processed count for monotonic guarantee
     max_processed = processed
 
-    # Subscribe to engine progress events
-    progress_queue = engine.subscribe(group_id)
+    # Subscribe to progress tracker events
+    progress_queue = tracker.subscribe(group_id)
 
     # Heartbeat tracking (using non-blocking event loop time)
     loop = asyncio.get_event_loop()
@@ -751,7 +783,7 @@ async def _generate_group_sse_events(
 
                 # Send progress event
                 # Note: event.current and event.total are now global DB-based counts
-                # from _publish_progress_from_db() in GroupAnalysisEngine
+                # from publish_from_db() in ProgressTracker
                 # Enforce monotonic guarantee: never decrease
                 max_processed = max(max_processed, event.current)
                 progress_data = {
@@ -780,7 +812,7 @@ async def _generate_group_sse_events(
                 continue
 
     finally:
-        # Cleanup: queue will be cleaned up by engine
+        # Cleanup: queue will be cleaned up by tracker
         pass
 
 
@@ -835,7 +867,10 @@ def _apply_export_filters(
     moderation: str = "all",
     captcha: str = "all",
 ) -> list[dict]:
-    """Apply export filters to results data."""
+    """Apply export filters to results data.
+
+    Accepts results from service.get_results() which has flat structure.
+    """
     allowed_chat_types = None
     if chat_types:
         allowed_chat_types = set(t.strip() for t in chat_types.split(",") if t.strip())
@@ -843,14 +878,13 @@ def _apply_export_filters(
     filtered = []
 
     for result in results_data:
-        metrics = result["metrics_data"]
-
+        # New model: flat structure from service.get_results()
         if allowed_chat_types:
-            if metrics.get("chat_type") not in allowed_chat_types:
+            if result.get("chat_type") not in allowed_chat_types:
                 continue
 
         if subscribers_min is not None or subscribers_max is not None:
-            subscribers = metrics.get("subscribers")
+            subscribers = result.get("subscribers")
             # When min=0, include chats with NULL subscribers (treat as "no lower bound")
             # Only exclude NULL if min > 0 or max is set (requires actual value for comparison)
             if subscribers is None:
@@ -863,7 +897,7 @@ def _apply_export_filters(
                     continue
 
         if activity_min is not None or activity_max is not None:
-            activity = metrics.get("messages_per_hour")
+            activity = result.get("messages_per_hour")
             if activity is None:
                 continue
             if activity_min is not None and activity < activity_min:
@@ -872,7 +906,7 @@ def _apply_export_filters(
                 continue
 
         if authors_min is not None or authors_max is not None:
-            authors = metrics.get("unique_authors_per_hour")
+            authors = result.get("unique_authors_per_hour")
             if authors is None:
                 continue
             if authors_min is not None and authors < authors_min:
@@ -881,14 +915,14 @@ def _apply_export_filters(
                 continue
 
         if moderation != "all":
-            mod_value = metrics.get("moderation")
+            mod_value = result.get("moderation")
             if moderation == "yes" and mod_value is not True:
                 continue
             if moderation == "no" and mod_value is not False:
                 continue
 
         if captcha != "all":
-            captcha_value = metrics.get("captcha")
+            captcha_value = result.get("captcha")
             if captcha == "yes" and captcha_value is not True:
                 continue
             if captcha == "no" and captcha_value is not False:
@@ -950,30 +984,8 @@ async def preview_export_count(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    # Load results from database
-    results_data = service._db.load_results(group_id)
-
-    # Fallback: if group_results is empty but group_chats has processed chats,
-    # build minimal result rows from group_chats data.
-    if not results_data:
-        processed_chats = [
-            chat for chat in service._db.load_chats(group_id)
-            if chat["status"] in ("done", "failed")
-        ]
-        if processed_chats:
-            results_data = [
-                {
-                    "chat_ref": chat["chat_ref"],
-                    "metrics_data": {
-                        "chat_type": chat["chat_type"],
-                        "title": "",
-                        "chat_ref": chat["chat_ref"],
-                        "status": chat["status"],
-                    },
-                }
-                for chat in processed_chats
-            ]
-
+    # Load results from service (reads from group_chats columns)
+    results_data = service.get_results(group_id)
     total_count = len(results_data)
 
     # Convert chat_types list to comma-separated string
@@ -1053,43 +1065,8 @@ async def export_group_results(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    # Load results from database
-    results_data = service._db.load_results(group_id)
-
-    # Fallback: if group_results is empty but group_chats has processed chats,
-    # build minimal result rows from group_chats data. This handles the case
-    # where results were cleared (e.g. analysis restart) but chats still have
-    # done/failed status from a previous or interrupted run.
-    if not results_data:
-        processed_chats = [
-            chat for chat in service._db.load_chats(group_id)
-            if chat["status"] in ("done", "failed")
-        ]
-        if processed_chats:
-            results_data = []
-            for chat in processed_chats:
-                metrics_data = {
-                    "chat_type": chat["chat_type"],
-                    "title": "",
-                    "chat_ref": chat["chat_ref"],
-                    "status": chat["status"],
-                }
-                # Include subscribers if enabled in settings
-                if group.settings.detect_subscribers:
-                    metrics_data["subscribers"] = chat.get("subscribers")
-
-                results_data.append({
-                    "chat_ref": chat["chat_ref"],
-                    "metrics_data": metrics_data,
-                })
-
-    # Dedup by chat_ref (defense in depth: handle duplicates even after UNIQUE fix)
-    # Keep newest analyzed_at for each chat_ref, with stable sort fallback on id
-    if results_data:
-        results_data = list({
-            r["chat_ref"]: r
-            for r in sorted(results_data, key=lambda x: (x.get("analyzed_at") or "", x.get("id", 0)))
-        }.values())
+    # Load results from service (reads from group_chats columns)
+    results_data = service.get_results(group_id)
 
     # Convert chat_types list to comma-separated string
     chat_types_str = ",".join(chat_types) if chat_types else None
@@ -1110,8 +1087,10 @@ async def export_group_results(
 
     # Always return CSV with headers, even if no results yet
     # This prevents browser from saving JSON error as a file
+    # Convert flat results to exporter-compatible format (nested metrics_data)
+    exporter_format = _convert_results_for_exporter(filtered_results or [])
     csv_content = export_group_results_to_csv(
-        filtered_results or [],  # Empty list if no results
+        exporter_format,
         settings=group.settings,
         include_bom=True,
     )
@@ -1268,26 +1247,21 @@ async def start_group_analysis(
     templates = get_templates()
 
     try:
-        service = _get_group_service()
-        engine = _get_group_engine(request)
+        service = _get_group_service(request)
         session_mgr = request.app.state.app_state.session_manager
 
-        # Update status to IN_PROGRESS
-        updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
-
-        if not updated_group:
+        # Verify group exists
+        group = service.get_group(group_id)
+        if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # Validate connected accounts BEFORE creating background task
+        # Validate connected accounts BEFORE starting
         connected_accounts = [
             sid for sid in session_mgr.list_sessions()
             if await session_mgr.is_healthy(sid)
         ]
 
         if not connected_accounts:
-            # Rollback status update
-            service.update_status(group_id, GroupStatus.PENDING)
-
             # Return error toast via HX-Trigger
             trigger_data = json.dumps({
                 "refreshGroups": None,
@@ -1302,11 +1276,8 @@ async def start_group_analysis(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Start analysis via GroupAnalysisEngine (non-blocking)
-        # This runs Phase 1 (join/resolve) in background
-        task = asyncio.create_task(engine.start_analysis(group_id))
-        task.add_done_callback(lambda t: _handle_analysis_task_done(t, group_id, request))
-        request.app.state.app_state.analysis_tasks[group_id] = task
+        # Start analysis via service (creates task internally, handles status)
+        await service.start_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
@@ -1314,11 +1285,6 @@ async def start_group_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        # Rollback status to PENDING so user can retry
-        try:
-            service.update_status(group_id, GroupStatus.PENDING)
-        except Exception:
-            pass
         raise HTTPException(
             status_code=500,
             detail=f"Failed to start analysis: {e}",
@@ -1357,8 +1323,7 @@ async def reanalyze_group(
     templates = get_templates()
 
     try:
-        service = _get_group_service()
-        engine = _get_group_engine(request)
+        service = _get_group_service(request)
         session_mgr = request.app.state.app_state.session_manager
 
         # Verify group exists and check status
@@ -1382,44 +1347,13 @@ async def reanalyze_group(
         # Convert mode string to AnalysisMode enum
         analysis_mode = AnalysisMode.INCREMENT if mode == "increment" else AnalysisMode.OVERWRITE
 
-        # For INCREMENT mode: check if there's anything to do
-        if analysis_mode == AnalysisMode.INCREMENT:
-            # Load group settings to check which metrics are enabled
-            group_data = service._db.load_group(group_id)
-            settings = GroupSettings.from_dict(group_data["settings"])
-
-            # Check if INCREMENT would have work to do
-            increment_needed = engine.check_increment_needed(group_id, settings)
-            logger.info(f"[reanalyze_group] Group '{group_id}': increment_needed={increment_needed}")
-            if not increment_needed:
-                # All metrics already collected, nothing to do
-                # Return warning toast via HX-Trigger
-                trigger_data = json.dumps({
-                    "refreshGroups": None,
-                    "showToast": {
-                        "message": "Все метрики уже собраны. Используйте 'Переанализировать' для повторного анализа.",
-                        "type": "warning"
-                    }
-                })
-                return HTMLResponse(
-                    content='',
-                    status_code=204,
-                    headers={'HX-Trigger': trigger_data}
-                )
-
-        # Update status to IN_PROGRESS
-        updated_group = service.update_status(group_id, GroupStatus.IN_PROGRESS)
-
-        # Validate connected accounts BEFORE creating background task
+        # Validate connected accounts BEFORE starting
         connected_accounts = [
             sid for sid in session_mgr.list_sessions()
             if await session_mgr.is_healthy(sid)
         ]
 
         if not connected_accounts:
-            # Rollback status update
-            service.update_status(group_id, GroupStatus.COMPLETED)
-
             # Return error toast via HX-Trigger
             trigger_data = json.dumps({
                 "refreshGroups": None,
@@ -1434,10 +1368,8 @@ async def reanalyze_group(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Start analysis with specified mode (non-blocking)
-        task = asyncio.create_task(engine.start_analysis(group_id, mode=analysis_mode))
-        task.add_done_callback(lambda t: _handle_analysis_task_done(t, group_id, request))
-        request.app.state.app_state.analysis_tasks[group_id] = task
+        # Reanalyze via service (handles mode, task creation, status)
+        await service.reanalyze(group_id, mode=analysis_mode)
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
@@ -1445,11 +1377,6 @@ async def reanalyze_group(
     except HTTPException:
         raise
     except Exception as e:
-        # Rollback status to COMPLETED so user can retry
-        try:
-            service.update_status(group_id, GroupStatus.COMPLETED)
-        except Exception:
-            pass
         mode_description = "incremental" if mode == "increment" else "overwrite"
         raise HTTPException(
             status_code=500,
@@ -1483,17 +1410,10 @@ async def stop_group_analysis(
     templates = get_templates()
 
     try:
-        service = _get_group_service()
-        engine = _get_group_engine(request)
+        service = _get_group_service(request)
 
-        # Stop analysis via GroupAnalysisEngine (sync method)
-        engine.stop_analysis(group_id)
-
-        # Update status to PAUSED
-        updated_group = service.update_status(group_id, GroupStatus.PAUSED)
-
-        if not updated_group:
-            raise HTTPException(status_code=404, detail="Group not found")
+        # Stop analysis via service (cancels task, updates status)
+        service.stop_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
@@ -1535,8 +1455,7 @@ async def resume_group_analysis(
     templates = get_templates()
 
     try:
-        service = _get_group_service()
-        engine = _get_group_engine(request)
+        service = _get_group_service(request)
         session_mgr = request.app.state.app_state.session_manager
 
         # Verify group exists
@@ -1605,44 +1524,13 @@ async def resume_group_analysis(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Atomic update: status PAUSED → IN_PROGRESS (prevents concurrent resume)
-        # Uses SQL WHERE clause for true atomicity (compare-and-swap)
-        success = service._db.update_status_atomic(
-            group_id,
-            new_status=GroupStatus.IN_PROGRESS.value,
-            expected_status=GroupStatus.PAUSED.value,
-        )
-
-        if not success:
-            # Update failed — either group not found or status != PAUSED
-            # This handles concurrent requests: first wins, others get 409
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "Another operation in progress",
-                    "type": "error"
-                }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=409,
-                headers={'HX-Trigger': trigger_data}
-            )
-
-        # Validate connected accounts BEFORE creating background task
+        # Validate connected accounts BEFORE starting
         connected_accounts = [
             sid for sid in session_mgr.list_sessions()
             if await session_mgr.is_healthy(sid)
         ]
 
         if not connected_accounts:
-            # Rollback status update (atomic: revert only if still IN_PROGRESS)
-            service._db.update_status_atomic(
-                group_id,
-                new_status=GroupStatus.PAUSED.value,
-                expected_status=GroupStatus.IN_PROGRESS.value,
-            )
-
             # Return error toast via HX-Trigger
             trigger_data = json.dumps({
                 "refreshGroups": None,
@@ -1657,10 +1545,8 @@ async def resume_group_analysis(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Start analysis (engine will analyze only pending/failed chats)
-        task = asyncio.create_task(engine.start_analysis(group_id))
-        task.add_done_callback(lambda t: _handle_analysis_task_done(t, group_id, request))
-        request.app.state.app_state.analysis_tasks[group_id] = task
+        # Resume analysis via service (handles status, task)
+        await service.start_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
@@ -1668,15 +1554,6 @@ async def resume_group_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        # Rollback status to PAUSED so user can retry
-        try:
-            service._db.update_status_atomic(
-                group_id,
-                new_status=GroupStatus.PAUSED.value,
-                expected_status=GroupStatus.IN_PROGRESS.value,
-            )
-        except Exception:
-            pass
         raise HTTPException(
             status_code=500,
             detail=f"Failed to resume analysis: {e}",
@@ -1812,27 +1689,14 @@ async def get_export_modal(request: Request, group_id: str) -> HTMLResponse:
             raise HTTPException(status_code=404, detail="Group not found")
 
         # Load results to determine available chat types
-        results_data = service._db.load_results(group_id)
+        results_data = service.get_results(group_id)
 
         # Extract unique chat types from results
         available_chat_types = set()
-        if results_data:
-            for result in results_data:
-                metrics = result.get("metrics_data", {})
-                chat_type = metrics.get("chat_type")
-                if chat_type:
-                    available_chat_types.add(chat_type)
-        else:
-            # Fallback: if group_results is empty, extract chat types from group_chats
-            # This handles cases where results were cleared but chats have processed status
-            processed_chats = [
-                chat for chat in service._db.load_chats(group_id)
-                if chat["status"] in ("done", "failed")
-            ]
-            for chat in processed_chats:
-                chat_type = chat.get("chat_type")
-                if chat_type:
-                    available_chat_types.add(chat_type)
+        for result in results_data:
+            chat_type = result.get("chat_type")
+            if chat_type:
+                available_chat_types.add(chat_type)
 
         # Convert to sorted list for consistent ordering
         available_chat_types = sorted(available_chat_types)
