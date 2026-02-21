@@ -694,6 +694,19 @@ async def _generate_group_sse_events(
     }
     yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
+    # Check if group is already in terminal state (race condition fix)
+    # If analysis completed/failed/paused BEFORE we subscribed, send completion immediately
+    if group.status in (GroupStatus.COMPLETED, GroupStatus.FAILED, GroupStatus.PAUSED):
+        # Send final complete event with current counts
+        complete_data = {
+            "group_id": group_id,
+            "processed": processed,
+            "total": total,
+            "message": "Analysis complete",
+        }
+        yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+        return  # Don't subscribe or wait for events
+
     # Track max processed count for monotonic guarantee
     max_processed = processed
 
