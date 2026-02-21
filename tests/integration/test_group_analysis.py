@@ -114,11 +114,11 @@ class TestRetryMechanism:
         # Verify: Result should be saved as 'dead'
         result = test_db.load_result(group_id, chat_ref)
         assert result is not None, "Dead chat should have result row"
-        assert result["metrics_data"]["status"] == "dead", "Status should be 'dead'"
-        assert result["metrics_data"]["chat_type"] == "dead", "Chat type should be 'dead'"
+        assert result["status"] == "dead", "Status should be 'dead'"
+        assert result["chat_type"] == "dead", "Chat type should be 'dead'"
 
         # Error reason should mention retry limit and error type
-        error_reason = result["metrics_data"].get("error_reason", "")
+        error_reason = result.get("error_reason", "")
         assert "Failed after 3 retries" in error_reason, (
             f"Error reason should mention retry limit, got: {error_reason}"
         )
@@ -165,8 +165,8 @@ class TestIncrementalAnalysisDatabase:
         # Verify initial result
         initial_result = test_db.load_result(group_id, chat_ref)
         assert initial_result is not None
-        assert initial_result["metrics_data"]["subscribers"] == 500
-        assert initial_result["metrics_data"]["messages_per_hour"] is None
+        assert initial_result["subscribers"] == 500
+        assert initial_result["messages_per_hour"] is None
 
         # Wait a bit to ensure timestamp difference
         import time
@@ -190,7 +190,7 @@ class TestIncrementalAnalysisDatabase:
         # Verify: subscribers preserved, activity added
         final_result = test_db.load_result(group_id, chat_ref)
         assert final_result is not None
-        final_metrics = final_result["metrics_data"]
+        final_metrics = final_result
 
         # Key assertion: subscribers unchanged from initial
         assert final_metrics["subscribers"] == 500, "Upsert should preserve existing subscribers"
@@ -274,7 +274,7 @@ class TestFullReanalysisDatabase:
         assert len(new_results) == 3
 
         for result in new_results:
-            metrics = result["metrics_data"]
+            metrics = result
             assert metrics["chat_type"] == "forum", "Should have new chat type"
             assert metrics["title"].startswith("New"), "Should have new title"
             assert metrics["subscribers"] >= 500, "Should have new subscriber counts"
@@ -349,7 +349,7 @@ class TestAllChatsGetResults:
 
         # Verify dead chats have error reasons
         for result in dead_results:
-            metrics = result["metrics_data"]
+            metrics = result
             assert metrics["chat_type"] == "dead", "Dead chat should have type=dead"
             assert "error_reason" in metrics, "Dead chat should have error_reason"
             assert "ChannelPrivateError" in metrics["error_reason"], "Should include error type"
@@ -364,60 +364,50 @@ class TestExportFiltersWithoutExcludeDead:
         results_data = [
             {
                 "chat_ref": "https://t.me/chat1",
-                "metrics_data": {
-                    "chat_type": "group",
-                    "subscribers": 500,
-                    "messages_per_hour": 10.5,
-                    "unique_authors_per_hour": 5.2,
-                    "status": "done",
-                    "title": "Active Group",
-                },
+                "chat_type": "group",
+                "subscribers": 500,
+                "messages_per_hour": 10.5,
+                "unique_authors_per_hour": 5.2,
+                "status": "done",
+                "title": "Active Group",
             },
             {
                 "chat_ref": "https://t.me/chat2",
-                "metrics_data": {
-                    "chat_type": "channel_no_comments",
-                    "subscribers": 1000,
-                    "messages_per_hour": None,
-                    "unique_authors_per_hour": None,
-                    "status": "done",
-                    "title": "Channel",
-                },
+                "chat_type": "channel_no_comments",
+                "subscribers": 1000,
+                "messages_per_hour": None,
+                "unique_authors_per_hour": None,
+                "status": "done",
+                "title": "Channel",
             },
             {
                 "chat_ref": "https://t.me/chat3",
-                "metrics_data": {
-                    "chat_type": "dead",
-                    "subscribers": None,
-                    "messages_per_hour": None,
-                    "unique_authors_per_hour": None,
-                    "status": "dead",
-                    "title": "Dead Chat",
-                    "error_reason": "ChannelPrivateError: Channel is private",
-                },
+                "chat_type": "dead",
+                "subscribers": None,
+                "messages_per_hour": None,
+                "unique_authors_per_hour": None,
+                "status": "dead",
+                "title": "Dead Chat",
+                "error": "ChannelPrivateError: Channel is private",
             },
             {
                 "chat_ref": "https://t.me/chat4",
-                "metrics_data": {
-                    "chat_type": "dead",
-                    "subscribers": None,
-                    "messages_per_hour": None,
-                    "unique_authors_per_hour": None,
-                    "status": "dead",
-                    "title": "Another Dead",
-                    "error_reason": "FloodWaitError: Retry limit exceeded",
-                },
+                "chat_type": "dead",
+                "subscribers": None,
+                "messages_per_hour": None,
+                "unique_authors_per_hour": None,
+                "status": "dead",
+                "title": "Another Dead",
+                "error": "FloodWaitError: Retry limit exceeded",
             },
             {
                 "chat_ref": "https://t.me/chat5",
-                "metrics_data": {
-                    "chat_type": "forum",
-                    "subscribers": 300,
-                    "messages_per_hour": 20.0,
-                    "unique_authors_per_hour": 8.5,
-                    "status": "done",
-                    "title": "Forum",
-                },
+                "chat_type": "forum",
+                "subscribers": 300,
+                "messages_per_hour": 20.0,
+                "unique_authors_per_hour": 8.5,
+                "status": "done",
+                "title": "Forum",
             },
         ]
 
@@ -437,7 +427,7 @@ class TestExportFiltersWithoutExcludeDead:
 
         # Verify only non-dead chats remain
         for result in filtered_without_dead:
-            assert result["metrics_data"]["chat_type"] != "dead", "Dead chats should be filtered out"
+            assert result["chat_type"] != "dead", "Dead chats should be filtered out"
 
         # Test 3: Filter ONLY dead chats
         filtered_only_dead = _apply_export_filters(
@@ -447,50 +437,42 @@ class TestExportFiltersWithoutExcludeDead:
         assert len(filtered_only_dead) == 2, "Should include only dead chats"
 
         for result in filtered_only_dead:
-            assert result["metrics_data"]["chat_type"] == "dead", "Should only have dead chats"
+            assert result["chat_type"] == "dead", "Should only have dead chats"
 
     def test_export_filters_with_multiple_criteria(self) -> None:
         """Test combined filters: chat types + subscribers + activity."""
         results_data = [
             {
                 "chat_ref": "https://t.me/chat1",
-                "metrics_data": {
-                    "chat_type": "group",
-                    "subscribers": 500,
-                    "messages_per_hour": 15.0,
-                    "unique_authors_per_hour": 7.0,
-                    "status": "done",
-                },
+                "chat_type": "group",
+                "subscribers": 500,
+                "messages_per_hour": 15.0,
+                "unique_authors_per_hour": 7.0,
+                "status": "done",
             },
             {
                 "chat_ref": "https://t.me/chat2",
-                "metrics_data": {
-                    "chat_type": "group",
-                    "subscribers": 200,  # Below min
-                    "messages_per_hour": 5.0,
-                    "unique_authors_per_hour": 2.0,
-                    "status": "done",
-                },
+                "chat_type": "group",
+                "subscribers": 200,  # Below min
+                "messages_per_hour": 5.0,
+                "unique_authors_per_hour": 2.0,
+                "status": "done",
             },
             {
                 "chat_ref": "https://t.me/chat3",
-                "metrics_data": {
-                    "chat_type": "forum",
-                    "subscribers": 1000,
-                    "messages_per_hour": 25.0,
-                    "unique_authors_per_hour": 12.0,
-                    "status": "done",
-                },
+                "chat_type": "forum",
+                "subscribers": 1000,
+                "messages_per_hour": 25.0,
+                "unique_authors_per_hour": 12.0,
+                "status": "done",
             },
             {
                 "chat_ref": "https://t.me/chat4",
-                "metrics_data": {
-                    "chat_type": "dead",
-                    "subscribers": None,
-                    "messages_per_hour": None,
-                    "unique_authors_per_hour": None,
-                    "status": "dead",
-                },
+                "chat_type": "dead",
+                "subscribers": None,
+                "messages_per_hour": None,
+                "unique_authors_per_hour": None,
+                "status": "dead",
             },
         ]
 
@@ -649,14 +631,14 @@ class TestAllChatsGetResultsGuarantee:
 
         # Verify all results have required fields
         for result in results:
-            metrics = result["metrics_data"]
+            metrics = result
             assert "chat_type" in metrics, "Missing chat_type"
             assert "status" in metrics, "Missing status"
             assert metrics["status"] in ("done", "dead"), f"Invalid status: {metrics['status']}"
 
         # Verify dead chats have error_reason
         for result in dead_results:
-            metrics = result["metrics_data"]
+            metrics = result
             assert "error_reason" in metrics, "Dead chat missing error_reason"
             assert metrics["chat_type"] == "dead", "Dead chat should have type=dead"
 
@@ -788,7 +770,7 @@ class TestAllChatsGetResultsGuarantee:
         # Verify chat #50 is in results
         chat50_result = test_db.load_result(group_id, "https://t.me/chat50")
         assert chat50_result is not None, "Chat #50 missing from results after FloodWait"
-        assert chat50_result["metrics_data"]["status"] == "done", (
+        assert chat50_result["status"] == "done", (
             "Chat #50 should succeed after FloodWait retry"
         )
 
@@ -892,7 +874,7 @@ class TestAllChatsGetResultsGuarantee:
         )
 
         # Verify result fields
-        metrics = result["metrics_data"]
+        metrics = result
         assert metrics["status"] == "dead", f"Expected status=dead, got {metrics['status']}"
         assert metrics["chat_type"] == "dead", f"Expected chat_type=dead, got {metrics['chat_type']}"
 
@@ -1029,7 +1011,7 @@ class TestAllChatsGetResultsGuarantee:
         assert retry_count == 3, f"Expected 3 attempts, got {retry_count}"
         result = test_db.load_result(group_id, chat_ref)
         assert result is not None, "Chat should have result after retry success"
-        assert result["metrics_data"]["status"] == "done", "Chat should succeed after retries"
+        assert result["status"] == "done", "Chat should succeed after retries"
 
 
 
@@ -1115,7 +1097,7 @@ class TestExceptionRecoveryPaths:
 
         # Verify dead chats have proper error message
         for result in dead_results:
-            metrics = result["metrics_data"]
+            metrics = result
             assert metrics["chat_type"] == "dead", "Dead chat should have type=dead"
             assert "error_reason" in metrics, "Dead chat missing error_reason"
             assert "Account error" in metrics["error_reason"], (
@@ -1206,7 +1188,7 @@ class TestExceptionRecoveryPaths:
 
         # Verify dead chats have proper error message
         for result in dead_results:
-            metrics = result["metrics_data"]
+            metrics = result
             assert metrics["chat_type"] == "dead", "Dead chat should have type=dead"
             assert "error_reason" in metrics, "Dead chat missing error_reason"
             assert "Account task exception" in metrics["error_reason"], (
@@ -1373,7 +1355,7 @@ class TestExceptionRecoveryPaths:
             result = test_db.load_result(group_id, chat_ref)
             assert result is not None, f"Orphan chat {chat_ref} still missing result"
 
-            metrics = result["metrics_data"]
+            metrics = result
             assert metrics["status"] == "dead", (
                 f"Orphan chat {chat_ref} should be marked as dead, got {metrics['status']}"
             )
