@@ -837,6 +837,51 @@ class GroupDatabase(SQLiteDatabase):
                 "metrics_version": row["metrics_version"],
             }
 
+    def get_chat_metrics_batch(self, chat_ids: list[int]) -> dict[int, dict[str, Any]]:
+        """Get metrics for multiple chats in a single query.
+
+        Optimized version of get_chat_metrics that fetches metrics for multiple
+        chats at once, avoiding N+1 query problem.
+
+        Args:
+            chat_ids: List of chat IDs to fetch metrics for
+
+        Returns:
+            Dict mapping chat_id to metrics dict
+        """
+        if not chat_ids:
+            return {}
+
+        with self._connection() as conn:
+            # Create placeholders for IN clause
+            placeholders = ",".join("?" * len(chat_ids))
+            cursor = conn.execute(
+                f"""
+                SELECT id, title, chat_type, subscribers, moderation,
+                       messages_per_hour, unique_authors_per_hour,
+                       captcha, partial_data, metrics_version
+                FROM group_chats
+                WHERE id IN ({placeholders})
+                """,
+                chat_ids,
+            )
+            rows = cursor.fetchall()
+
+            return {
+                row["id"]: {
+                    "title": row["title"],
+                    "chat_type": row["chat_type"],
+                    "subscribers": row["subscribers"],
+                    "moderation": row["moderation"],
+                    "messages_per_hour": row["messages_per_hour"],
+                    "unique_authors_per_hour": row["unique_authors_per_hour"],
+                    "captcha": row["captcha"],
+                    "partial_data": row["partial_data"],
+                    "metrics_version": row["metrics_version"],
+                }
+                for row in rows
+            }
+
     def update_chat_complete(
         self,
         chat_id: int,
