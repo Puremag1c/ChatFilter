@@ -21,8 +21,8 @@ class GroupDatabase(SQLiteDatabase):
 
     Tables:
         - chat_groups: Group metadata and settings
-        - group_chats: Individual chats within groups
-        - group_results: Analysis results for group chats
+        - group_chats: Individual chats within groups (includes metrics columns)
+        - group_tasks: Analysis tasks for groups
     """
 
     def _initialize_schema(self) -> None:
@@ -77,29 +77,10 @@ class GroupDatabase(SQLiteDatabase):
                 )
             """)
 
-            # Group results table
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS group_results (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    group_id TEXT NOT NULL,
-                    chat_ref TEXT NOT NULL,
-                    metrics_data TEXT NOT NULL,
-                    analyzed_at TIMESTAMP NOT NULL,
-                    FOREIGN KEY (group_id) REFERENCES chat_groups (id)
-                        ON DELETE CASCADE,
-                    UNIQUE(group_id, chat_ref)
-                )
-            """)
-
             # Create indexes for faster lookups
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_group_chats_group_id
                 ON group_chats (group_id)
-            """)
-
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_group_results_group_id
-                ON group_results (group_id)
             """)
 
             # Run migrations
@@ -160,9 +141,18 @@ class GroupDatabase(SQLiteDatabase):
         2. Keeps one row per (group_id, chat_ref) with the highest rowid
         3. Creates unique index on (group_id, chat_ref)
 
+        NOTE: Skips if group_results table doesn't exist (already migrated to v5).
+
         Args:
             conn: Active database connection
         """
+        # Check if group_results table exists
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_results'"
+        )
+        if not cursor.fetchone():
+            return  # Table already dropped (v5 migration), skip
+
         # Check if index already exists (for idempotency)
         cursor = conn.execute("""
             SELECT name FROM sqlite_master
@@ -669,145 +659,66 @@ class GroupDatabase(SQLiteDatabase):
                 params,
             )
 
-    def save_result(
+    def create_task(
         self,
         group_id: str,
-        chat_ref: str,
-        metrics_data: dict[str, Any],
-        analyzed_at: datetime | None = None,
-    ) -> None:
-        """Save analysis result for a group chat.
+        requested_metrics: dict[str, Any],
+        time_window: int | None = None,
+    ) -> str:
+        """Create a new group analysis task.
 
         Args:
             group_id: Group identifier
-            chat_ref: Chat reference
-            metrics_data: Analysis metrics as dict (will be serialized to JSON)
-                Expected structure:
-                {
-                    "chat_type": str,  # group/forum/channel_comments/channel_no_comments/dead
-                    "subscribers": int | None,  # participant count
-                    "messages_per_hour": float | None,  # activity metric
-                    "unique_authors_per_hour": float | None,  # unique authors metric
-                    "moderation": bool | None,  # has join request
-                    "captcha": bool | None,  # has captcha bot
-                    "status": str,  # done/failed/n/a
-                    "title": str | None,  # chat title
-                    "chat_ref": str,  # chat reference
-                }
-            analyzed_at: Analysis timestamp (default: now)
-        """
-        analyzed = analyzed_at or datetime.now(UTC)
-
-        with self._connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO group_results
-                (group_id, chat_ref, metrics_data, analyzed_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(group_id, chat_ref) DO NOTHING
-                """,
-                (
-                    group_id,
-                    chat_ref,
-                    json.dumps(metrics_data),
-                    self._datetime_to_str(analyzed),
-                ),
-            )
-
-    def upsert_result(
-        self,
-        group_id: str,
-        chat_ref: str,
-        metrics_data: dict[str, Any],
-        analyzed_at: datetime | None = None,
-    ) -> None:
-        """Upsert analysis result for a group chat (merge with existing data).
-
-        If a result already exists for (group_id, chat_ref), merges new metrics
-        with existing ones: new non-null values overwrite old, null values preserve old.
-
-        Args:
-            group_id: Group identifier
-            chat_ref: Chat reference
-            metrics_data: Analysis metrics as dict (will be serialized to JSON)
-                Expected structure:
-                {
-                    "chat_type": str,  # group/forum/channel_comments/channel_no_comments/dead
-                    "subscribers": int | None,  # participant count
-                    "messages_per_hour": float | None,  # activity metric
-                    "unique_authors_per_hour": float | None,  # unique authors metric
-                    "moderation": bool | None,  # has join request
-                    "captcha": bool | None,  # has captcha bot
-                    "status": str,  # done/failed/n/a
-                    "title": str | None,  # chat title
-                    "chat_ref": str,  # chat reference
-                }
-            analyzed_at: Analysis timestamp (default: now)
-        """
-        analyzed = analyzed_at or datetime.now(UTC)
-
-        # Load existing result to merge metrics
-        existing = self.load_result(group_id, chat_ref)
-        if existing:
-            # Merge: new non-null values overwrite, null values preserve old
-            existing_metrics = existing.get("metrics_data", {})
-            merged_metrics = existing_metrics.copy()
-
-            for key, new_value in metrics_data.items():
-                if new_value is not None:
-                    merged_metrics[key] = new_value
-                # If new_value is None, keep existing value (or None if not in existing)
-
-            final_metrics = merged_metrics
-        else:
-            # No existing result, use new metrics as-is
-            final_metrics = metrics_data
-
-        # INSERT ON CONFLICT DO UPDATE with merged data
-        # Due to unique constraint on (group_id, chat_ref), this will:
-        # - INSERT if no existing row
-        # - UPDATE in-place if row exists (preserves rowid)
-        with self._connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO group_results
-                (group_id, chat_ref, metrics_data, analyzed_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(group_id, chat_ref) DO UPDATE SET
-                    metrics_data = excluded.metrics_data,
-                    analyzed_at = excluded.analyzed_at
-                """,
-                (
-                    group_id,
-                    chat_ref,
-                    json.dumps(final_metrics),
-                    self._datetime_to_str(analyzed),
-                ),
-            )
-
-    def load_result(
-        self,
-        group_id: str,
-        chat_ref: str,
-    ) -> dict[str, Any] | None:
-        """Load analysis result for a specific chat in a group.
-
-        Args:
-            group_id: Group identifier
-            chat_ref: Chat reference
+            requested_metrics: Settings for requested metrics (serialized to JSON)
+            time_window: Time window in hours for activity analysis (optional)
 
         Returns:
-            Result data dict or None if not found
+            Task ID
         """
+        from chatfilter.models.group import TaskStatus
+
+        task_id = f"task-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
+        now = datetime.now(UTC)
+
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO group_tasks
+                (id, group_id, requested_metrics, time_window, created_at, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    task_id,
+                    group_id,
+                    json.dumps(requested_metrics),
+                    str(time_window) if time_window is not None else None,
+                    self._datetime_to_str(now),
+                    TaskStatus.RUNNING.value,
+                ),
+            )
+
+        return task_id
+
+    def get_active_task(self, group_id: str) -> dict[str, Any] | None:
+        """Get the active (running) task for a group.
+
+        Args:
+            group_id: Group identifier
+
+        Returns:
+            Task data dict or None if no active task
+        """
+        from chatfilter.models.group import TaskStatus
+
         with self._connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT * FROM group_results
-                WHERE group_id = ? AND chat_ref = ?
-                ORDER BY analyzed_at DESC
+                SELECT * FROM group_tasks
+                WHERE group_id = ? AND status = ?
+                ORDER BY created_at DESC
                 LIMIT 1
                 """,
-                (group_id, chat_ref),
+                (group_id, TaskStatus.RUNNING.value),
             )
             row = cursor.fetchone()
 
@@ -817,62 +728,202 @@ class GroupDatabase(SQLiteDatabase):
             return {
                 "id": row["id"],
                 "group_id": row["group_id"],
-                "chat_ref": row["chat_ref"],
-                "metrics_data": json.loads(row["metrics_data"]),
-                "analyzed_at": self._str_to_datetime(row["analyzed_at"]),
+                "requested_metrics": json.loads(row["requested_metrics"]),
+                "time_window": int(row["time_window"]) if row["time_window"] else None,
+                "created_at": self._str_to_datetime(row["created_at"]),
+                "status": row["status"],
             }
 
-    def load_results(
-        self,
-        group_id: str,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        """Load analysis results for a group.
+    def complete_task(self, task_id: str) -> None:
+        """Mark a task as completed.
 
         Args:
-            group_id: Group identifier
-            limit: Maximum number of results to return
-
-        Returns:
-            List of result data dicts, sorted by analysis time (newest first)
+            task_id: Task identifier
         """
+        from chatfilter.models.group import TaskStatus
+
         with self._connection() as conn:
-            query = """
-                SELECT * FROM group_results
-                WHERE group_id = ?
-                ORDER BY analyzed_at DESC
-            """
+            conn.execute(
+                "UPDATE group_tasks SET status = ? WHERE id = ?",
+                (TaskStatus.COMPLETED.value, task_id),
+            )
 
-            if limit is not None:
-                query += f" LIMIT {limit}"
-
-            cursor = conn.execute(query, (group_id,))
-            rows = cursor.fetchall()
-
-        return [
-            {
-                "id": row["id"],
-                "group_id": row["group_id"],
-                "chat_ref": row["chat_ref"],
-                "metrics_data": json.loads(row["metrics_data"]),
-                "analyzed_at": self._str_to_datetime(row["analyzed_at"]),
-            }
-            for row in rows
-        ]
-
-    def clear_results(self, group_id: str) -> None:
-        """Clear all analysis results for a group.
-
-        This allows re-running analysis on the same group.
+    def cancel_task(self, task_id: str) -> None:
+        """Mark a task as cancelled.
 
         Args:
-            group_id: Group identifier
+            task_id: Task identifier
+        """
+        from chatfilter.models.group import TaskStatus
+
+        with self._connection() as conn:
+            conn.execute(
+                "UPDATE group_tasks SET status = ? WHERE id = ?",
+                (TaskStatus.CANCELLED.value, task_id),
+            )
+
+    def save_chat_metrics(
+        self,
+        chat_id: int,
+        metrics: dict[str, Any],
+    ) -> None:
+        """Save metrics for a chat in group_chats columns.
+
+        Args:
+            chat_id: Chat ID
+            metrics: Metrics dict with keys: title, chat_type, moderation,
+                    messages_per_hour, unique_authors_per_hour, captcha,
+                    partial_data, metrics_version
         """
         with self._connection() as conn:
             conn.execute(
-                "DELETE FROM group_results WHERE group_id = ?",
+                """
+                UPDATE group_chats
+                SET title = ?,
+                    moderation = ?,
+                    messages_per_hour = ?,
+                    unique_authors_per_hour = ?,
+                    captcha = ?,
+                    partial_data = ?,
+                    metrics_version = ?
+                WHERE id = ?
+                """,
+                (
+                    metrics.get("title"),
+                    metrics.get("moderation"),
+                    metrics.get("messages_per_hour"),
+                    metrics.get("unique_authors_per_hour"),
+                    metrics.get("captcha"),
+                    metrics.get("partial_data"),
+                    metrics.get("metrics_version"),
+                    chat_id,
+                ),
+            )
+
+    def get_chat_metrics(self, chat_id: int) -> dict[str, Any]:
+        """Get metrics for a chat from group_chats columns.
+
+        Args:
+            chat_id: Chat ID
+
+        Returns:
+            Dict with metric values
+        """
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT title, chat_type, subscribers, moderation,
+                       messages_per_hour, unique_authors_per_hour,
+                       captcha, partial_data, metrics_version
+                FROM group_chats
+                WHERE id = ?
+                """,
+                (chat_id,),
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                return {}
+
+            return {
+                "title": row["title"],
+                "chat_type": row["chat_type"],
+                "subscribers": row["subscribers"],
+                "moderation": row["moderation"],
+                "messages_per_hour": row["messages_per_hour"],
+                "unique_authors_per_hour": row["unique_authors_per_hour"],
+                "captcha": row["captcha"],
+                "partial_data": row["partial_data"],
+                "metrics_version": row["metrics_version"],
+            }
+
+    def update_chat_complete(
+        self,
+        chat_id: int,
+        metrics: dict[str, Any],
+    ) -> None:
+        """Update chat with metrics and mark as done.
+
+        Args:
+            chat_id: Chat ID
+            metrics: Metrics dict with all collected data
+        """
+        from chatfilter.models.group import GroupChatStatus
+
+        with self._connection() as conn:
+            conn.execute(
+                """
+                UPDATE group_chats
+                SET title = ?,
+                    moderation = ?,
+                    messages_per_hour = ?,
+                    unique_authors_per_hour = ?,
+                    captcha = ?,
+                    partial_data = ?,
+                    metrics_version = ?,
+                    status = ?
+                WHERE id = ?
+                """,
+                (
+                    metrics.get("title"),
+                    metrics.get("moderation"),
+                    metrics.get("messages_per_hour"),
+                    metrics.get("unique_authors_per_hour"),
+                    metrics.get("captcha"),
+                    metrics.get("partial_data"),
+                    metrics.get("metrics_version"),
+                    GroupChatStatus.DONE.value,
+                    chat_id,
+                ),
+            )
+
+    def compute_group_status(self, group_id: str) -> str:
+        """Compute group status from chat statuses.
+
+        Args:
+            group_id: Group identifier
+
+        Returns:
+            GroupStatus value (pending/in_progress/completed/failed)
+        """
+        from chatfilter.models.group import GroupChatStatus, GroupStatus
+
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT status, COUNT(*) as count
+                FROM group_chats
+                WHERE group_id = ?
+                GROUP BY status
+                """,
                 (group_id,),
             )
+            status_counts = {row["status"]: row["count"] for row in cursor.fetchall()}
+
+            # Get total count
+            total = sum(status_counts.values())
+            if total == 0:
+                return GroupStatus.PENDING.value
+
+            # Count by status
+            pending_count = status_counts.get(GroupChatStatus.PENDING.value, 0)
+            done_count = status_counts.get(GroupChatStatus.DONE.value, 0)
+            error_count = status_counts.get(GroupChatStatus.ERROR.value, 0)
+
+            # All pending → PENDING
+            if pending_count == total:
+                return GroupStatus.PENDING.value
+
+            # All error → FAILED
+            if error_count == total:
+                return GroupStatus.FAILED.value
+
+            # All done or error → COMPLETED
+            if (done_count + error_count) == total:
+                return GroupStatus.COMPLETED.value
+
+            # Mixed → IN_PROGRESS
+            return GroupStatus.IN_PROGRESS.value
 
     def get_group_stats(self, group_id: str) -> dict[str, int]:
         """Get statistics for a group's chats.
@@ -924,9 +975,9 @@ class GroupDatabase(SQLiteDatabase):
             cursor = conn.execute(
                 """
                 SELECT COUNT(*) as count
-                FROM group_results
+                FROM group_chats
                 WHERE group_id = ?
-                AND json_extract(metrics_data, '$.moderation') = 1
+                AND moderation = 1
                 """,
                 (group_id,),
             )
