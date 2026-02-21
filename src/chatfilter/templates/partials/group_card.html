@@ -28,8 +28,8 @@
             <strong id="processed-{{ group.id }}">{{ stats.analyzed }} / {{ stats.total }}</strong>
         </div>
         <div class="stat-row">
-            <span>{{ _("Failed") }}:</span>
-            <strong id="failed-{{ group.id }}">{{ stats.failed }}</strong>
+            <span>{{ _("Error") }}:</span>
+            <strong id="error-{{ group.id }}">{{ stats.failed }}</strong>
         </div>
         {% if group.status.value == 'in_progress' %}
         <div class="stat-row">
@@ -53,7 +53,7 @@
     <div class="type-breakdown" id="type-breakdown-{{ group.id }}">
         <span class="type-badge pending" data-badge-type="pending" id="badge-pending-{{ group.id }}" style="display: {% if stats.pending > 0 %}inline{% else %}none{% endif %}">{{ _("Pending") }}: <span data-badge-count>{{ stats.pending }}</span></span>
         <span class="type-badge done" data-badge-type="done" id="badge-done-{{ group.id }}" style="display: {% if stats.analyzed > 0 %}inline{% else %}none{% endif %}">{{ _("Done") }}: <span data-badge-count>{{ stats.analyzed }}</span></span>
-        <span class="type-badge failed" data-badge-type="failed" id="badge-failed-{{ group.id }}" style="display: {% if stats.failed > 0 %}inline{% else %}none{% endif %}">{{ _("Failed") }}: <span data-badge-count>{{ stats.failed }}</span></span>
+        <span class="type-badge error" data-badge-type="error" id="badge-error-{{ group.id }}" style="display: {% if stats.failed > 0 %}inline{% else %}none{% endif %}">{{ _("Error") }}: <span data-badge-count>{{ stats.failed }}</span></span>
         <span class="type-badge dead" data-badge-type="dead" id="badge-dead-{{ group.id }}" style="display: {% if stats.dead > 0 %}inline{% else %}none{% endif %}">{{ _("Dead") }}: <span data-badge-count>{{ stats.dead }}</span></span>
         {% if stats.groups > 0 %}
         <span class="type-badge group">{{ _("Groups") }}: {{ stats.groups }}</span>
@@ -148,7 +148,7 @@
 (function() {
     const groupId = '{{ group.id }}';
     const processedEl = document.getElementById('processed-' + groupId);
-    const failedEl = document.getElementById('failed-' + groupId);
+    const errorEl = document.getElementById('error-' + groupId);
     const currentChatEl = document.getElementById('current-chat-' + groupId);
     const elapsedEl = document.getElementById('elapsed-' + groupId);
     const progressFillEl = document.getElementById('progress-fill-' + groupId);
@@ -281,7 +281,7 @@
 
                 // Update status badges from breakdown
                 if (data.breakdown) {
-                    const badgeTypes = ['pending', 'done', 'failed', 'dead'];
+                    const badgeTypes = ['pending', 'done', 'error', 'dead'];
                     badgeTypes.forEach(badgeType => {
                         const badgeEl = document.getElementById('badge-' + badgeType + '-{{ group.id }}');
                         if (badgeEl) {
@@ -295,10 +295,10 @@
                         }
                     });
 
-                    // Update failed count in stats section
-                    const failedEl = document.getElementById('failed-{{ group.id }}');
-                    if (failedEl && data.breakdown.failed !== undefined) {
-                        failedEl.textContent = data.breakdown.failed;
+                    // Update error count in stats section
+                    const errorEl = document.getElementById('error-{{ group.id }}');
+                    if (errorEl && data.breakdown.error !== undefined) {
+                        errorEl.textContent = data.breakdown.error;
                     }
                 }
 
