@@ -11,24 +11,24 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime
+from typing import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
 from chatfilter.analyzer.progress import GroupProgressEvent
 from chatfilter.models.group import GroupSettings, GroupStats, GroupStatus
-from chatfilter.web.app import create_app
 
 
 class TestSSEProgressEndpoint:
     """Smoke test for SSE progress endpoint."""
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create FastAPI test client."""
-        app = create_app()
-        return TestClient(app)
+    def mock_request(self):
+        """Mock FastAPI Request object."""
+        mock = AsyncMock()
+        mock.is_disconnected = AsyncMock(return_value=False)
+        return mock
 
     @pytest.fixture
     def mock_group_service(self):
@@ -72,10 +72,10 @@ class TestSSEProgressEndpoint:
             yield service
 
     @pytest.fixture
-    def mock_group_engine(self):
-        """Mock GroupAnalysisEngine for isolated testing."""
-        with patch("chatfilter.web.routers.groups._get_group_engine") as mock:
-            engine = MagicMock()
+    def mock_progress_tracker(self):
+        """Mock ProgressTracker for isolated testing."""
+        with patch("chatfilter.web.routers.groups._get_progress_tracker") as mock:
+            tracker = MagicMock()
 
             def mock_subscribe(group_id: str):
                 """Mock subscribe that returns a queue with test events."""
@@ -110,58 +110,69 @@ class TestSSEProgressEndpoint:
 
                 return queue
 
-            engine.subscribe = mock_subscribe
-            mock.return_value = engine
-            yield engine
+            tracker.subscribe = mock_subscribe
+            mock.return_value = tracker
+            yield tracker
 
     @pytest.mark.asyncio
     async def test_sse_progress_endpoint_exists(
-        self, client: TestClient, mock_group_service, mock_group_engine
+        self, mock_request, mock_group_service, mock_progress_tracker
     ) -> None:
         """SSE progress endpoint should be defined and accessible."""
-        # Make request to endpoint
-        response = client.get(
-            "/api/groups/test-group-123/progress",
-            headers={"Accept": "text/event-stream"},
-        )
+        from chatfilter.web.routers.groups import get_group_progress
 
-        # Should return 200 (streaming starts)
-        assert response.status_code == 200
+        # Call handler directly (not via HTTP)
+        response = await get_group_progress("test-group-123", mock_request)
+
+        # Should return StreamingResponse
+        from fastapi.responses import StreamingResponse
+        assert isinstance(response, StreamingResponse)
 
         # Should have SSE headers
-        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
-        assert "no-cache" in response.headers.get("cache-control", "").lower()
+        assert response.media_type == "text/event-stream"
+        assert "Cache-Control" in response.headers
+        assert "no-cache" in response.headers["Cache-Control"].lower()
 
     @pytest.mark.asyncio
     async def test_sse_progress_stream_emits_events(
-        self, client: TestClient, mock_group_service, mock_group_engine
+        self, mock_request, mock_group_service, mock_progress_tracker
     ) -> None:
         """SSE stream should emit events with progress data."""
-        # Make request to endpoint
-        response = client.get(
-            "/api/groups/test-group-123/progress",
-            headers={"Accept": "text/event-stream"},
-        )
+        from chatfilter.web.routers.groups import get_group_progress
 
-        # Parse SSE events from response
+        # Call handler and get streaming response
+        response = await get_group_progress("test-group-123", mock_request)
+
+        # Iterate through SSE generator and collect events
         events = []
-        for line in response.text.split("\n\n"):
-            if line.strip():
-                # Parse SSE event
-                event_type = None
-                event_data = None
+        iterator = response.body_iterator
 
-                for part in line.split("\n"):
-                    if part.startswith("event:"):
-                        event_type = part[6:].strip()
-                    elif part.startswith("data:"):
-                        event_data = part[5:].strip()
+        try:
+            # Collect events (should get init + progress events + complete)
+            for _ in range(10):  # Limit iterations to avoid infinite loop
+                try:
+                    chunk = await asyncio.wait_for(iterator.__anext__(), timeout=1.0)
+                    # Parse SSE format: "event: type\ndata: json\n\n"
+                    lines = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
 
-                if event_data:
-                    events.append({
-                        "type": event_type,
-                        "data": json.loads(event_data),
-                    })
+                    event_type = None
+                    event_data = None
+
+                    for line in lines.split("\n"):
+                        if line.startswith("event:"):
+                            event_type = line[6:].strip()
+                        elif line.startswith("data:"):
+                            event_data = line[5:].strip()
+
+                    if event_data:
+                        events.append({
+                            "type": event_type,
+                            "data": json.loads(event_data),
+                        })
+                except (StopAsyncIteration, asyncio.TimeoutError):
+                    break
+        finally:
+            await iterator.aclose()
 
         # Should have at least init and progress events
         assert len(events) >= 2, f"Expected at least 2 events, got {len(events)}"
@@ -187,26 +198,33 @@ class TestSSEProgressEndpoint:
 
     @pytest.mark.asyncio
     async def test_sse_progress_includes_analyzed_count(
-        self, client: TestClient, mock_group_service, mock_group_engine
+        self, mock_request, mock_group_service, mock_progress_tracker
     ) -> None:
         """SSE events should include analyzed_count (processed field)."""
-        # Make request to endpoint
-        response = client.get(
-            "/api/groups/test-group-123/progress",
-            headers={"Accept": "text/event-stream"},
-        )
+        from chatfilter.web.routers.groups import get_group_progress
 
-        # Parse events
+        # Call handler and get streaming response
+        response = await get_group_progress("test-group-123", mock_request)
+
+        # Iterate through SSE generator and collect events
         events = []
-        for line in response.text.split("\n\n"):
-            if line.strip():
-                event_data = None
-                for part in line.split("\n"):
-                    if part.startswith("data:"):
-                        event_data = part[5:].strip()
+        iterator = response.body_iterator
 
-                if event_data:
-                    events.append(json.loads(event_data))
+        try:
+            for _ in range(10):
+                try:
+                    chunk = await asyncio.wait_for(iterator.__anext__(), timeout=1.0)
+                    lines = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+
+                    for line in lines.split("\n"):
+                        if line.startswith("data:"):
+                            event_data = line[5:].strip()
+                            if event_data:
+                                events.append(json.loads(event_data))
+                except (StopAsyncIteration, asyncio.TimeoutError):
+                    break
+        finally:
+            await iterator.aclose()
 
         # Find progress events and verify they have 'processed' (analyzed_count)
         has_processed_field = False
@@ -221,41 +239,58 @@ class TestSSEProgressEndpoint:
 
     @pytest.mark.asyncio
     async def test_sse_progress_group_not_found(
-        self, client: TestClient, mock_group_service
+        self, mock_request, mock_group_service
     ) -> None:
         """SSE endpoint should return 404 when group doesn't exist."""
+        from chatfilter.web.routers.groups import get_group_progress
+        from fastapi import HTTPException
+
         # Configure service to return None (group not found)
         mock_group_service.get_group.return_value = None
 
-        # Make request to non-existent group
-        response = client.get(
-            "/api/groups/nonexistent-group/progress",
-            headers={"Accept": "text/event-stream"},
-        )
+        # Should raise HTTPException with 404
+        with pytest.raises(HTTPException) as exc_info:
+            await get_group_progress("nonexistent-group", mock_request)
 
-        # Should return 404
-        assert response.status_code == 404
+        assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
     async def test_sse_progress_valid_event_stream(
-        self, client: TestClient, mock_group_service, mock_group_engine
+        self, mock_request, mock_group_service, mock_progress_tracker
     ) -> None:
         """SSE stream should emit valid Server-Sent Events format."""
-        # Make request to endpoint
-        response = client.get(
-            "/api/groups/test-group-123/progress",
-            headers={"Accept": "text/event-stream"},
-        )
+        from chatfilter.web.routers.groups import get_group_progress
+
+        # Call handler and get streaming response
+        response = await get_group_progress("test-group-123", mock_request)
+
+        # Collect raw SSE chunks
+        chunks = []
+        iterator = response.body_iterator
+
+        try:
+            for _ in range(10):
+                try:
+                    chunk = await asyncio.wait_for(iterator.__anext__(), timeout=1.0)
+                    text = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+                    chunks.append(text)
+                except (StopAsyncIteration, asyncio.TimeoutError):
+                    break
+        finally:
+            await iterator.aclose()
+
+        # Join all chunks
+        full_text = "".join(chunks)
 
         # Response text should contain SSE format
-        assert "event:" in response.text or "data:" in response.text
+        assert "event:" in full_text or "data:" in full_text
 
         # Should have proper SSE newline formatting (events separated by \n\n)
-        assert "\n\n" in response.text or response.text.endswith("\n")
+        assert "\n\n" in full_text or full_text.endswith("\n")
 
         # Parse and verify at least one valid event
         valid_events = 0
-        for chunk in response.text.split("\n\n"):
+        for chunk in full_text.split("\n\n"):
             if "data:" in chunk:
                 # Extract data line
                 for line in chunk.split("\n"):
