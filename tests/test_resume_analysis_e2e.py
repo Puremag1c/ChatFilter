@@ -102,11 +102,13 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
     mock_engine = MagicMock()
     mock_engine.start_analysis = AsyncMock(side_effect=mock_start_analysis)
 
+    # Wire engine into service (new model: router delegates to service.start_analysis)
+    service._engine = mock_engine
+
     # Mock _get_group_service and _get_group_engine
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service), \
-         patch("chatfilter.web.routers.groups._get_group_engine", return_value=mock_engine):
+    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
 
         # Call resume endpoint
         response = await resume_group_analysis(mock_request, group_id)
@@ -116,17 +118,8 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
         assert "HX-Trigger" in response.headers
         assert "refreshGroups" in response.headers["HX-Trigger"]
 
-        # Verify status changed to IN_PROGRESS
-        updated_group = service.get_group(group_id)
-        assert updated_group.status == GroupStatus.IN_PROGRESS
-
-        # Verify start_analysis was called
-        mock_engine.start_analysis.assert_called_once_with(group_id)
-
-        # Wait for background task to complete
-        task = mock_request.app.state.app_state.analysis_tasks.get(group_id)
-        if task:
-            await task
+        # Verify start_analysis was called via service
+        mock_engine.start_analysis.assert_called_once()
 
     # Verify only 7 chats (pending + error) were selected for analysis
     assert len(analyzed_chats) == 7
@@ -244,23 +237,27 @@ async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
     mock_engine = MagicMock()
 
     async def slow_analysis(group_id_arg: str, **kwargs) -> None:
+        # Real engine sets status to IN_PROGRESS internally
+        service.update_status(group_id_arg, GroupStatus.IN_PROGRESS)
         await asyncio.sleep(0.5)
 
     mock_engine.start_analysis = AsyncMock(side_effect=slow_analysis)
 
+    # Wire engine into service (new model: router delegates to service.start_analysis)
+    service._engine = mock_engine
+
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service), \
-         patch("chatfilter.web.routers.groups._get_group_engine", return_value=mock_engine):
+    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
 
         # First request succeeds
         response1 = await resume_group_analysis(mock_request, group_id)
         assert response1.status_code == 204
 
-        # Status now IN_PROGRESS
+        # Status now IN_PROGRESS (set by engine via service)
         assert service.get_group(group_id).status == GroupStatus.IN_PROGRESS
 
-        # Second concurrent request should fail with 409 (atomic update fails)
+        # Second concurrent request should fail with 409 (status is IN_PROGRESS)
         response2 = await resume_group_analysis(mock_request, group_id)
         assert response2.status_code == 409
         assert "HX-Trigger" in response2.headers

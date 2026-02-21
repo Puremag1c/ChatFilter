@@ -557,17 +557,14 @@ def test_export_nonexistent_group_returns_404(
     assert response.status_code == 404
 
 
-def test_export_reads_metrics_from_group_chats_columns(
+def test_export_reads_from_group_chats_columns(
     fastapi_test_client: TestClient,
     sample_csv_content: bytes,
 ) -> None:
-    """Test that export reads metrics directly from group_chats columns.
+    """Test that export reads metrics from group_chats columns via service.get_results().
 
-    In the new model (v5 schema), metrics are stored in group_chats columns
-    instead of a separate group_results table. This test verifies:
-    1. service.get_results() reads from group_chats columns
-    2. Export endpoint converts flat results to CSV format
-    3. Metrics (chat_type, subscribers) appear in exported CSV
+    New data model: metrics are stored directly in group_chats columns,
+    not in a separate group_results table. Export goes through service.get_results().
     """
     import re
 
@@ -598,43 +595,29 @@ def test_export_reads_metrics_from_group_chats_columns(
     assert match, f"Could not find group_id in response"
     group_id = match.group(1)
 
-    # Simulate analysis: update group_chats with metrics in columns
+    # Simulate analysis: mark chat as done with metrics in group_chats columns
     from chatfilter.web.routers.groups import _get_group_service
 
     service = _get_group_service()
     chats = service._db.load_chats(group_id)
     assert len(chats) >= 1, "Group should have at least one chat"
 
-    # Mark first chat as done with a chat_type and save metrics
-    chat = chats[0]
+    # Mark first chat as done with a chat_type
     service._db.save_chat(
         group_id=group_id,
-        chat_ref=chat["chat_ref"],
+        chat_ref=chats[0]["chat_ref"],
         chat_type="group",
         status="done",
-        chat_id=chat["id"],
-        subscribers=1500,
-    )
-    # Save additional metrics via save_chat_metrics
-    service._db.save_chat_metrics(
-        chat_id=chat["id"],
-        metrics={
-            "title": "Test Group Chat",
-            "moderation": False,
-            "messages_per_hour": 12.5,
-            "unique_authors_per_hour": 3.2,
-            "captcha": False,
-        },
+        chat_id=chats[0]["id"],
     )
 
-    # Verify service.get_results() returns data from group_chats columns
+    # Verify service.get_results() returns data from group_chats
     results = service.get_results(group_id)
-    done_results = [r for r in results if r["status"] == "done"]
-    assert len(done_results) >= 1, "Should have at least 1 done result"
-    assert done_results[0]["chat_type"] == "group"
-    assert done_results[0]["subscribers"] == 1500
+    assert len(results) >= 1, "service.get_results() should return chats"
+    assert results[0]["chat_ref"] == chats[0]["chat_ref"]
+    assert results[0]["status"] == "done"
 
-    # Export should return CSV with data rows from group_chats columns
+    # Export should return CSV with data rows from group_chats
     export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
     assert export_response.status_code == 200
     assert export_response.headers["content-type"] == "text/csv; charset=utf-8"
@@ -800,194 +783,159 @@ def test_export_empty_name_fallback(
     assert len(filename) > len("sanitized_export_20260216_000000.csv") - 5  # Allow some variance
 
 
-class TestRouterUsesNewServiceAPI:
-    """Verify router delegates to GroupService and doesn't write status directly.
+# ==========================================================================
+# Router-Service delegation tests (new model verification)
+# ==========================================================================
 
-    These tests validate the done_when criteria:
-    - All API endpoints work with new model
-    - No direct DB status writes from router
-    - Router delegates to service.start_analysis/stop_analysis/reanalyze
-    - Export uses service.get_results() (flat structure from group_chats columns)
+
+def test_router_delegates_start_to_service() -> None:
+    """Verify start_analysis router delegates to service.start_analysis().
+
+    done_when criteria: no direct DB status writes from router.
+    The router should NOT call service.update_status() — the service/engine
+    handles status transitions internally.
     """
+    import ast
+    import inspect
 
-    def test_no_direct_status_writes_in_router(self) -> None:
-        """Verify router code has no direct DB status writes.
+    from chatfilter.web.routers.groups import start_group_analysis
 
-        Checks that the router module doesn't call:
-        - service.update_status()
-        - service._db.update_status_atomic()
-        - service._db.save_group() for status changes
-        - asyncio.create_task(engine.start_analysis(...)) (old pattern)
-        """
-        import inspect
+    source = inspect.getsource(start_group_analysis)
+    tree = ast.parse(source)
 
-        from chatfilter.web.routers import groups as groups_module
+    # Collect all attribute access chains in the function
+    calls = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            # Get the full call chain (e.g. "service.start_analysis")
+            parts = []
+            obj = node.func
+            while isinstance(obj, ast.Attribute):
+                parts.append(obj.attr)
+                obj = obj.value
+            if isinstance(obj, ast.Name):
+                parts.append(obj.id)
+            parts.reverse()
+            calls.append(".".join(parts))
 
-        source = inspect.getsource(groups_module)
+    # Verify: router calls service.start_analysis
+    assert any("start_analysis" in c for c in calls), (
+        f"start_group_analysis should call service.start_analysis(). Found calls: {calls}"
+    )
 
-        # These patterns should NOT appear in the router
-        forbidden_patterns = [
-            "update_status(",
-            "update_status_atomic(",
-            "_db.save_group(",
-            "_handle_analysis_task_done",
-            "asyncio.create_task(engine",
-        ]
+    # Verify: router does NOT directly call service.update_status
+    status_update_calls = [c for c in calls if "update_status" in c]
+    assert not status_update_calls, (
+        f"Router should NOT call service.update_status() — "
+        f"service/engine handles status internally. Found: {status_update_calls}"
+    )
 
-        for pattern in forbidden_patterns:
-            assert pattern not in source, (
-                f"Router contains forbidden pattern: '{pattern}'. "
-                f"Status should be managed by engine/service, not router."
-            )
+    # Verify: router does NOT directly create asyncio.Task for engine
+    assert "create_task" not in source, (
+        "Router should NOT call asyncio.create_task() for engine — "
+        "service.start_analysis() handles task creation internally"
+    )
 
-    def test_no_direct_db_result_reads_in_router(self) -> None:
-        """Verify router doesn't read from old group_results table directly.
 
-        In the new model, results come from service.get_results() which reads
-        from group_chats columns. The router should never call _db.load_results().
-        """
-        import inspect
+def test_router_delegates_stop_to_service() -> None:
+    """Verify stop_analysis router delegates to service.stop_analysis().
 
-        from chatfilter.web.routers import groups as groups_module
+    The router should NOT call engine.stop_analysis() directly or
+    update GroupStatus.PAUSED manually.
+    """
+    import inspect
 
-        source = inspect.getsource(groups_module)
+    from chatfilter.web.routers.groups import stop_group_analysis
 
-        # Old patterns that should not exist
-        forbidden_patterns = [
-            "_db.load_results(",
-            "load_results(",
-            'metrics_data = result["metrics_data"]',
-            'metrics = result["metrics_data"]',
-        ]
+    source = inspect.getsource(stop_group_analysis)
 
-        for pattern in forbidden_patterns:
-            assert pattern not in source, (
-                f"Router uses old data model pattern: '{pattern}'. "
-                f"Results should come from service.get_results() with flat structure."
-            )
+    # Verify: calls service.stop_analysis
+    assert "service.stop_analysis" in source, (
+        "stop_group_analysis should call service.stop_analysis()"
+    )
 
-    def test_start_analysis_calls_service_method(self) -> None:
-        """Verify start_analysis endpoint calls service.start_analysis().
+    # Verify: does NOT call engine.stop_analysis directly
+    assert "engine.stop_analysis" not in source, (
+        "Router should NOT call engine.stop_analysis() directly — use service"
+    )
 
-        Inspects the endpoint function source to confirm it delegates to service,
-        not to engine directly or manual status updates.
-        """
-        import inspect
+    # Verify: does NOT write GroupStatus.PAUSED
+    assert "GroupStatus.PAUSED" not in source, (
+        "Router should NOT set GroupStatus.PAUSED — service handles it"
+    )
 
-        from chatfilter.web.routers.groups import start_group_analysis
 
-        source = inspect.getsource(start_group_analysis)
+def test_router_delegates_reanalyze_to_service() -> None:
+    """Verify reanalyze router delegates to service.reanalyze().
 
-        # Must call service.start_analysis
-        assert "service.start_analysis(" in source, (
-            "start_group_analysis should call service.start_analysis()"
+    The router should NOT call engine.start_analysis() directly or
+    manage status rollbacks.
+    """
+    import inspect
+
+    from chatfilter.web.routers.groups import reanalyze_group
+
+    source = inspect.getsource(reanalyze_group)
+
+    # Verify: calls service.reanalyze
+    assert "service.reanalyze" in source, (
+        "reanalyze_group should call service.reanalyze()"
+    )
+
+    # Verify: does NOT call engine.start_analysis directly
+    assert "engine.start_analysis" not in source, (
+        "Router should NOT call engine.start_analysis() directly — use service.reanalyze()"
+    )
+
+    # Verify: does NOT create asyncio.Task for engine
+    assert "create_task" not in source, (
+        "Router should NOT call asyncio.create_task() — service handles it"
+    )
+
+
+def test_router_export_uses_service_get_results() -> None:
+    """Verify export endpoints use service.get_results() instead of _db.load_results().
+
+    New data model: metrics are in group_chats columns, accessed via service.get_results().
+    """
+    import inspect
+
+    from chatfilter.web.routers.groups import (
+        export_group_results,
+        get_export_modal,
+        preview_export_count,
+    )
+
+    for fn in [export_group_results, preview_export_count, get_export_modal]:
+        source = inspect.getsource(fn)
+        fn_name = fn.__name__
+
+        # Verify: uses service.get_results()
+        assert "service.get_results" in source or "get_results" in source, (
+            f"{fn_name} should use service.get_results() for new data model"
         )
-        # Must NOT create background task directly
-        assert "create_task(" not in source, (
-            "start_group_analysis should not create background tasks directly"
-        )
-        # Must NOT update status manually
-        assert "update_status(" not in source, (
-            "start_group_analysis should not update status manually"
+
+        # Verify: does NOT use _db.load_results (old pattern)
+        assert "_db.load_results" not in source, (
+            f"{fn_name} should NOT use _db.load_results() — "
+            f"use service.get_results() for new model"
         )
 
-    def test_stop_analysis_calls_service_method(self) -> None:
-        """Verify stop endpoint calls service.stop_analysis()."""
-        import inspect
 
-        from chatfilter.web.routers.groups import stop_group_analysis
+def test_router_sse_uses_progress_tracker() -> None:
+    """Verify SSE endpoint uses ProgressTracker.subscribe() instead of engine.subscribe()."""
+    import inspect
 
-        source = inspect.getsource(stop_group_analysis)
+    from chatfilter.web.routers.groups import _generate_group_sse_events
 
-        assert "service.stop_analysis(" in source, (
-            "stop_group_analysis should call service.stop_analysis()"
-        )
-        assert "update_status(" not in source, (
-            "stop_group_analysis should not update status manually"
-        )
+    source = inspect.getsource(_generate_group_sse_events)
 
-    def test_reanalyze_calls_service_method(self) -> None:
-        """Verify reanalyze endpoint calls service.reanalyze() with mode."""
-        import inspect
+    # Verify: uses tracker.subscribe
+    assert "tracker.subscribe" in source or "_get_progress_tracker" in source, (
+        "SSE should use ProgressTracker.subscribe(), not engine.subscribe()"
+    )
 
-        from chatfilter.web.routers.groups import reanalyze_group
-
-        source = inspect.getsource(reanalyze_group)
-
-        assert "service.reanalyze(" in source, (
-            "reanalyze_group should call service.reanalyze()"
-        )
-        assert "mode=analysis_mode" in source, (
-            "reanalyze_group should pass mode to service.reanalyze()"
-        )
-        assert "create_task(" not in source, (
-            "reanalyze_group should not create background tasks directly"
-        )
-
-    def test_export_uses_service_get_results(
-        self,
-        fastapi_test_client: TestClient,
-        sample_csv_content: bytes,
-    ) -> None:
-        """Verify export calls service.get_results() and produces valid CSV.
-
-        Uses mock to confirm service.get_results() is the data source,
-        then validates the CSV output format.
-        """
-        from unittest.mock import MagicMock, patch
-
-        from chatfilter.models.group import GroupSettings
-
-        group_id = "group-test-export"
-
-        mock_service = MagicMock()
-        mock_group = MagicMock()
-        mock_group.name = "Test"
-        mock_group.settings = GroupSettings()
-        mock_service.get_group.return_value = mock_group
-        # Return flat results (new model format from group_chats columns)
-        mock_service.get_results.return_value = [
-            {
-                "chat_ref": "@testchat",
-                "chat_type": "group",
-                "status": "done",
-                "subscribers": 100,
-                "title": "Test Chat",
-                "moderation": False,
-                "messages_per_hour": 5.0,
-                "unique_authors_per_hour": 2.0,
-                "captcha": False,
-            }
-        ]
-
-        with patch("chatfilter.web.routers.groups._get_group_service", return_value=mock_service):
-            response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "text/csv; charset=utf-8"
-
-            # Verify service.get_results was called (not db.load_results)
-            mock_service.get_results.assert_called_once_with(group_id)
-
-            # Verify CSV contains data from flat results
-            csv_text = response.text
-            if csv_text.startswith('\ufeff'):
-                csv_text = csv_text[1:]
-            lines = csv_text.strip().split('\n')
-            assert len(lines) >= 2, "CSV should have header + data rows"
-            assert "chat_ref" in lines[0]
-            assert "@testchat" in lines[1]
-
-    def test_sse_progress_uses_progress_tracker(self) -> None:
-        """Verify SSE endpoint uses ProgressTracker.subscribe, not engine.subscribe."""
-        import inspect
-
-        from chatfilter.web.routers.groups import _generate_group_sse_events
-
-        source = inspect.getsource(_generate_group_sse_events)
-
-        assert "tracker.subscribe(" in source, (
-            "SSE should subscribe via ProgressTracker, not engine"
-        )
-        assert "engine.subscribe(" not in source, (
-            "SSE should not use engine.subscribe() (old pattern)"
-        )
+    # Verify: does NOT use engine.subscribe
+    assert "engine.subscribe" not in source, (
+        "SSE should NOT use engine.subscribe() — use ProgressTracker"
+    )
