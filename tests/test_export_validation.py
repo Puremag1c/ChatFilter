@@ -18,6 +18,58 @@ from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
 
 
+def _convert_results_for_exporter(results: list[dict]) -> list[dict]:
+    """Convert flat results structure to exporter-compatible format.
+
+    Converts service.get_results() flat structure to nested structure
+    expected by to_csv_rows_dynamic.
+
+    Args:
+        results: List of flat result dicts from service.get_results()
+
+    Returns:
+        List of dicts with metrics_data nested structure
+    """
+    converted = []
+    for result in results:
+        # Convert SQLite integers (0/1) to Python booleans (False/True)
+        # for boolean fields that CSV exporter expects
+        moderation = result.get("moderation")
+        if moderation == 1:
+            moderation = True
+        elif moderation == 0:
+            moderation = False
+
+        captcha = result.get("captcha")
+        if captcha == 1:
+            captcha = True
+        elif captcha == 0:
+            captcha = False
+
+        # Map chat_type to CSV status field
+        # In old schema: status="ok"/"dead" in metrics_data
+        # In new schema: chat_type="dead" means dead, everything else is "ok"
+        chat_type = result.get("chat_type")
+        csv_status = "dead" if chat_type == "dead" else "ok"
+
+        # Extract all fields into metrics_data dict
+        metrics_data = {
+            "title": result.get("title", ""),
+            "chat_type": chat_type,
+            "subscribers": result.get("subscribers"),
+            "messages_per_hour": result.get("messages_per_hour"),
+            "unique_authors_per_hour": result.get("unique_authors_per_hour"),
+            "moderation": moderation,
+            "captcha": captcha,
+            "status": csv_status,
+        }
+        converted.append({
+            "chat_ref": result["chat_ref"],
+            "metrics_data": metrics_data,
+        })
+    return converted
+
+
 @pytest.fixture
 def group_service(isolated_tmp_dir) -> GroupService:
     """Create GroupService with isolated database."""
@@ -42,58 +94,62 @@ def test_group_with_results(group_service: GroupService) -> str:
         ],
     )
 
+    # Get existing chats created by create_group
+    chats = group_service._db.load_chats(group_id=group.id)
+
     # Store analysis results for each chat
-    results_data = [
-        {
-            "chat_ref": "https://t.me/testchat1",
-            "metrics_data": {
+    results_data = {
+        "https://t.me/testchat1": {
+            "chat_type": "group",
+            "subscribers": 1234,
+            "metrics": {
                 "title": "Test Chat 1",
-                "chat_type": "group",
-                "subscribers": 1234,
+                "moderation": True,
                 "messages_per_hour": 15.5,
                 "unique_authors_per_hour": 8.2,
-                "moderation": True,
                 "captcha": False,
-                "status": "ok",
             },
-            "analyzed_at": datetime.now(UTC),
         },
-        {
-            "chat_ref": "https://t.me/testchat2",
-            "metrics_data": {
+        "https://t.me/testchat2": {
+            "chat_type": "channel_comments",
+            "subscribers": 5678,
+            "metrics": {
                 "title": "Test Chat 2",
-                "chat_type": "channel_comments",
-                "subscribers": 5678,
+                "moderation": False,
                 "messages_per_hour": 3.1,
                 "unique_authors_per_hour": 2.0,
-                "moderation": False,
                 "captcha": True,
-                "status": "ok",
             },
-            "analyzed_at": datetime.now(UTC),
         },
-        {
-            "chat_ref": "@testchat3",
-            "metrics_data": {
+        "@testchat3": {
+            "chat_type": "forum",
+            "subscribers": 999,
+            "metrics": {
                 "title": "Test Chat 3",
-                "chat_type": "forum",
-                "subscribers": 999,
+                "moderation": False,
                 "messages_per_hour": 0.5,
                 "unique_authors_per_hour": 0.3,
-                "moderation": False,
                 "captcha": False,
-                "status": "ok",
             },
-            "analyzed_at": datetime.now(UTC),
         },
-    ]
+    }
 
-    for result in results_data:
-        group_service._db.save_result(
+    # Update each chat with results
+    for chat in chats:
+        result = results_data[chat["chat_ref"]]
+        # Update chat with correct type, status, and subscribers
+        group_service._db.save_chat(
             group_id=group.id,
-            chat_ref=result["chat_ref"],
-            metrics_data=result["metrics_data"],
-            analyzed_at=result["analyzed_at"],
+            chat_ref=chat["chat_ref"],
+            chat_type=result["chat_type"],
+            status="done",
+            subscribers=result["subscribers"],
+            chat_id=chat["id"],
+        )
+        # Save metrics
+        group_service._db.save_chat_metrics(
+            chat_id=chat["id"],
+            metrics=result["metrics"],
         )
 
     return group.id
@@ -146,7 +202,9 @@ class TestCSVExportColumnValidation:
         # Export CSV
         from chatfilter.exporter.csv import export_group_results_to_csv
 
-        results_data = group_service._db.load_results(test_group_with_results)
+        # Get results and convert to exporter format
+        results_flat = group_service.get_results(test_group_with_results)
+        results_data = _convert_results_for_exporter(results_flat)
         csv_content = export_group_results_to_csv(
             results_data,
             settings=settings,
@@ -214,7 +272,9 @@ class TestCSVExportColumnValidation:
         # Export CSV
         from chatfilter.exporter.csv import export_group_results_to_csv
 
-        results_data = group_service._db.load_results(test_group_with_results)
+        # Get results and convert to exporter format
+        results_flat = group_service.get_results(test_group_with_results)
+        results_data = _convert_results_for_exporter(results_flat)
         csv_content = export_group_results_to_csv(
             results_data,
             settings=settings,
@@ -283,7 +343,9 @@ class TestCSVExportColumnValidation:
         # Export CSV
         from chatfilter.exporter.csv import export_group_results_to_csv
 
-        results_data = group_service._db.load_results(test_group_with_results)
+        # Get results and convert to exporter format
+        results_flat = group_service.get_results(test_group_with_results)
+        results_data = _convert_results_for_exporter(results_flat)
         csv_content = export_group_results_to_csv(
             results_data,
             settings=settings,
@@ -351,7 +413,9 @@ class TestCSVExportColumnValidation:
         # Export CSV
         from chatfilter.exporter.csv import export_group_results_to_csv
 
-        results_data = group_service._db.load_results(test_group_with_results)
+        # Get results and convert to exporter format
+        results_flat = group_service.get_results(test_group_with_results)
+        results_data = _convert_results_for_exporter(results_flat)
         csv_content = export_group_results_to_csv(
             results_data,
             settings=settings,
