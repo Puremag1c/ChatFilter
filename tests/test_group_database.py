@@ -73,7 +73,7 @@ def test_database_initialization(temp_db):
 
     assert "chat_groups" in tables
     assert "group_chats" in tables
-    assert "group_results" in tables
+    assert "group_tasks" in tables
 
 
 def test_save_and_load_group(temp_db, sample_group_data):
@@ -251,8 +251,60 @@ def test_update_chat_status_with_error(temp_db, sample_group_data, sample_chat_d
     assert row["error"] == "Connection timeout"
 
 
-def test_save_and_load_result(temp_db, sample_group_data, sample_result_data):
-    """Test saving and loading analysis results."""
+def test_save_chat_metrics(temp_db, sample_group_data):
+    """Test saving chat metrics directly on group_chats table."""
+    # Setup group
+    temp_db.save_group(
+        group_id=sample_group_data["id"],
+        name=sample_group_data["name"],
+        settings=sample_group_data["settings"],
+        status=sample_group_data["status"],
+    )
+
+    # Save chat
+    chat_id = temp_db.save_chat(
+        group_id=sample_group_data["id"],
+        chat_ref="@test_channel",
+        chat_type="channel",
+        status="pending",
+    )
+
+    # Update subscribers separately (not part of save_chat_metrics)
+    with temp_db._connection() as conn:
+        conn.execute("UPDATE group_chats SET subscribers = ? WHERE id = ?", (1000, chat_id))
+
+    # Save metrics on the chat
+    temp_db.save_chat_metrics(
+        chat_id=chat_id,
+        metrics={
+            "title": "Test Channel",
+            "messages_per_hour": 5.5,
+            "unique_authors_per_hour": 2.3,
+            "moderation": True,
+            "captcha": False,
+            "partial_data": False,
+            "metrics_version": 1,
+        },
+    )
+
+    # Load chat and verify metrics
+    with temp_db._connection() as conn:
+        cursor = conn.execute("SELECT * FROM group_chats WHERE id = ?", (chat_id,))
+        row = cursor.fetchone()
+
+    assert row is not None
+    assert row["title"] == "Test Channel"
+    assert row["subscribers"] == 1000
+    assert row["messages_per_hour"] == 5.5
+    assert row["unique_authors_per_hour"] == 2.3
+    assert row["moderation"] == 1  # SQLite stores boolean as integer
+    assert row["captcha"] == 0
+    assert row["partial_data"] == 0
+    assert row["metrics_version"] == 1
+
+
+def test_load_chats(temp_db, sample_group_data):
+    """Test loading chats for a group."""
     # Setup
     temp_db.save_group(
         group_id=sample_group_data["id"],
@@ -261,45 +313,19 @@ def test_save_and_load_result(temp_db, sample_group_data, sample_result_data):
         status=sample_group_data["status"],
     )
 
-    # Save result
-    temp_db.save_result(
-        group_id=sample_result_data["group_id"],
-        chat_ref=sample_result_data["chat_ref"],
-        metrics_data=sample_result_data["metrics_data"],
-    )
-
-    # Load results
-    results = temp_db.load_results(sample_result_data["group_id"])
-
-    assert len(results) == 1
-    assert results[0]["group_id"] == sample_result_data["group_id"]
-    assert results[0]["chat_ref"] == sample_result_data["chat_ref"]
-    assert results[0]["metrics_data"] == sample_result_data["metrics_data"]
-    assert results[0]["analyzed_at"] is not None
-
-
-def test_load_results_with_limit(temp_db, sample_group_data):
-    """Test loading results with limit."""
-    # Setup
-    temp_db.save_group(
-        group_id=sample_group_data["id"],
-        name=sample_group_data["name"],
-        settings=sample_group_data["settings"],
-        status=sample_group_data["status"],
-    )
-
-    # Save multiple results
+    # Save multiple chats
     for i in range(5):
-        temp_db.save_result(
+        temp_db.save_chat(
             group_id=sample_group_data["id"],
             chat_ref=f"@chat_{i}",
-            metrics_data={"message_count": i * 100},
+            chat_type="channel",
+            status="done",
         )
 
-    # Load with limit
-    results = temp_db.load_results(sample_group_data["id"], limit=3)
+    # Load chats
+    chats = temp_db.load_chats(sample_group_data["id"])
 
-    assert len(results) == 3
+    assert len(chats) == 5
 
 
 def test_get_group_stats_empty(temp_db, sample_group_data):
@@ -360,8 +386,8 @@ def test_get_group_stats(temp_db, sample_group_data):
 
 
 def test_cascade_delete(temp_db, sample_group_data):
-    """Test that deleting a group cascades to chats and results."""
-    # Setup group, chat, and result
+    """Test that deleting a group cascades to chats."""
+    # Setup group and chat
     temp_db.save_group(
         group_id=sample_group_data["id"],
         name=sample_group_data["name"],
@@ -376,12 +402,6 @@ def test_cascade_delete(temp_db, sample_group_data):
         status="done",
     )
 
-    temp_db.save_result(
-        group_id=sample_group_data["id"],
-        chat_ref="@test",
-        metrics_data={"message_count": 100},
-    )
-
     # Delete group
     with temp_db._connection() as conn:
         conn.execute("DELETE FROM chat_groups WHERE id = ?", (sample_group_data["id"],))
@@ -391,13 +411,6 @@ def test_cascade_delete(temp_db, sample_group_data):
         # Check chats deleted
         cursor = conn.execute(
             "SELECT COUNT(*) as count FROM group_chats WHERE group_id = ?",
-            (sample_group_data["id"],),
-        )
-        assert cursor.fetchone()["count"] == 0
-
-        # Check results deleted
-        cursor = conn.execute(
-            "SELECT COUNT(*) as count FROM group_results WHERE group_id = ?",
             (sample_group_data["id"],),
         )
         assert cursor.fetchone()["count"] == 0
@@ -416,128 +429,25 @@ def test_foreign_key_constraint(temp_db):
         )
 
 
-def test_unique_constraint_on_group_results(temp_db, sample_group_data):
-    """Test that UNIQUE constraint on (group_id, chat_ref) prevents duplicates via deduplication."""
-    # Setup group
-    temp_db.save_group(
-        group_id=sample_group_data["id"],
-        name=sample_group_data["name"],
-        settings=sample_group_data["settings"],
-        status=sample_group_data["status"],
-    )
-
-    # Save first result
-    temp_db.save_result(
-        group_id=sample_group_data["id"],
-        chat_ref="@test_channel",
-        metrics_data={"message_count": 100},
-    )
-
-    # Save duplicate (same group_id + chat_ref) - should silently deduplicate
-    temp_db.save_result(
-        group_id=sample_group_data["id"],
-        chat_ref="@test_channel",
-        metrics_data={"message_count": 200},
-    )
-
-    # Verify only 1 row exists (deduplication worked, first insert preserved)
-    results = temp_db.load_results(sample_group_data["id"])
-    assert len(results) == 1
-    # ON CONFLICT DO NOTHING keeps the first row, ignores the second
-    assert results[0]["metrics_data"]["message_count"] == 100
-
-
-def test_migration_removes_duplicates():
-    """Test that migration to v1 removes duplicate rows and keeps newest."""
-    import sqlite3
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = Path(tmpdir) / "test_migration.db"
-
-        # Create old schema (without unique constraint) directly
-        conn = sqlite3.connect(db_path)
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("""
-            CREATE TABLE chat_groups (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                settings TEXT NOT NULL,
-                status TEXT NOT NULL,
-                created_at TIMESTAMP NOT NULL,
-                updated_at TIMESTAMP NOT NULL
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE group_results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                group_id TEXT NOT NULL,
-                chat_ref TEXT NOT NULL,
-                metrics_data TEXT NOT NULL,
-                analyzed_at TIMESTAMP NOT NULL,
-                FOREIGN KEY (group_id) REFERENCES chat_groups (id)
-                    ON DELETE CASCADE
-            )
-        """)
-
-        # Insert test group
-        now = datetime.now(UTC).isoformat()
-        conn.execute(
-            "INSERT INTO chat_groups (id, name, settings, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-            ("group_123", "Test", '{}', "pending", now, now),
+def test_schema_has_group_tasks_table(temp_db):
+    """Test that current schema has group_tasks table (verifies v5 migration completed)."""
+    with temp_db._connection() as conn:
+        # Check group_tasks table exists
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_tasks'"
         )
+        assert cursor.fetchone() is not None
 
-        # Insert duplicates (older first, then newer)
-        old_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC).isoformat()
-        new_time = datetime(2024, 1, 2, 12, 0, 0, tzinfo=UTC).isoformat()
-
-        conn.execute(
-            "INSERT INTO group_results (group_id, chat_ref, metrics_data, analyzed_at) VALUES (?, ?, ?, ?)",
-            ("group_123", "@chat1", '{"count": 100}', old_time),
+        # Check group_results table does NOT exist (removed in v5)
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_results'"
         )
-        conn.execute(
-            "INSERT INTO group_results (group_id, chat_ref, metrics_data, analyzed_at) VALUES (?, ?, ?, ?)",
-            ("group_123", "@chat1", '{"count": 200}', new_time),
-        )
-        conn.execute(
-            "INSERT INTO group_results (group_id, chat_ref, metrics_data, analyzed_at) VALUES (?, ?, ?, ?)",
-            ("group_123", "@chat2", '{"count": 300}', new_time),
-        )
-        conn.commit()
+        assert cursor.fetchone() is None
 
-        # Verify we have duplicates
-        cursor = conn.execute("SELECT COUNT(*) as count FROM group_results WHERE group_id = 'group_123' AND chat_ref = '@chat1'")
-        assert cursor.fetchone()[0] == 2
-        conn.close()
-
-        # Now initialize GroupDatabase - this should run migration
-        db = GroupDatabase(db_path)
-
-        # Verify migration ran
-        with db._connection() as conn:
-            # Check schema version updated (should be 4 after v1, v2, v3, and v4 migrations)
-            cursor = conn.execute("PRAGMA user_version")
-            assert cursor.fetchone()[0] == 4
-
-            # Check unique index exists
-            cursor = conn.execute("""
-                SELECT name FROM sqlite_master
-                WHERE type='index' AND name='idx_group_results_unique_group_chat'
-            """)
-            assert cursor.fetchone() is not None
-
-            # Check duplicates removed (only 1 row for @chat1 remains)
-            cursor = conn.execute("SELECT COUNT(*) as count FROM group_results WHERE group_id = 'group_123' AND chat_ref = '@chat1'")
-            assert cursor.fetchone()[0] == 1
-
-            # Check we kept the NEWEST row (analyzed_at = new_time, count = 200)
-            cursor = conn.execute("SELECT metrics_data FROM group_results WHERE group_id = 'group_123' AND chat_ref = '@chat1'")
-            row = cursor.fetchone()
-            import json
-            assert json.loads(row[0])["count"] == 200
-
-            # Check other rows untouched
-            cursor = conn.execute("SELECT COUNT(*) as count FROM group_results")
-            assert cursor.fetchone()[0] == 2
+        # Check schema version is at least 5
+        cursor = conn.execute("PRAGMA user_version")
+        version = cursor.fetchone()[0]
+        assert version >= 5
 
 
 def test_timestamps(temp_db, sample_group_data):
@@ -789,8 +699,8 @@ class TestGroupSettings:
         assert settings.time_window == 24
 
 
-def test_upsert_result_insert_new(temp_db, sample_group_data):
-    """Test upsert_result inserts new result when none exists."""
+def test_incremental_metrics_update(temp_db, sample_group_data):
+    """Test realistic incremental analysis workflow using save_chat_metrics."""
     # Setup
     temp_db.save_group(
         group_id=sample_group_data["id"],
@@ -799,167 +709,40 @@ def test_upsert_result_insert_new(temp_db, sample_group_data):
         status=sample_group_data["status"],
     )
 
-    # Upsert new result
-    metrics = {
-        "subscribers": 100,
-        "messages_per_hour": 5.5,
-        "status": "done",
-    }
-    temp_db.upsert_result(
-        group_id="group_123",
-        chat_ref="@new_chat",
-        metrics_data=metrics,
-    )
-
-    # Verify result was inserted
-    result = temp_db.load_result("group_123", "@new_chat")
-    assert result is not None
-    assert result["metrics_data"]["subscribers"] == 100
-    assert result["metrics_data"]["messages_per_hour"] == 5.5
-    assert result["metrics_data"]["status"] == "done"
-
-
-def test_upsert_result_merge_existing(temp_db, sample_group_data):
-    """Test upsert_result merges with existing result."""
-    # Setup
-    temp_db.save_group(
-        group_id=sample_group_data["id"],
-        name=sample_group_data["name"],
-        settings=sample_group_data["settings"],
-        status=sample_group_data["status"],
-    )
-
-    # Insert initial result
-    initial_metrics = {
-        "subscribers": 100,
-        "messages_per_hour": None,
-        "status": "done",
-        "title": "Old Title",
-    }
-    temp_db.save_result(
-        group_id="group_123",
-        chat_ref="@test_chat",
-        metrics_data=initial_metrics,
-    )
-
-    # Upsert with new data (some fields null, some new)
-    update_metrics = {
-        "subscribers": None,  # null - should preserve old value (100)
-        "messages_per_hour": 7.2,  # new non-null - should overwrite
-        "status": "updated",  # new non-null - should overwrite
-        "unique_authors_per_hour": 2.5,  # new field - should add
-    }
-    temp_db.upsert_result(
-        group_id="group_123",
-        chat_ref="@test_chat",
-        metrics_data=update_metrics,
-    )
-
-    # Verify merged result
-    result = temp_db.load_result("group_123", "@test_chat")
-    assert result is not None
-    assert result["metrics_data"]["subscribers"] == 100  # preserved
-    assert result["metrics_data"]["messages_per_hour"] == 7.2  # overwritten
-    assert result["metrics_data"]["status"] == "updated"  # overwritten
-    assert result["metrics_data"]["title"] == "Old Title"  # preserved (not in update)
-    assert result["metrics_data"]["unique_authors_per_hour"] == 2.5  # added
-
-
-def test_upsert_result_preserves_old_when_new_is_null(temp_db, sample_group_data):
-    """Test upsert_result preserves old values when new values are null."""
-    # Setup
-    temp_db.save_group(
-        group_id=sample_group_data["id"],
-        name=sample_group_data["name"],
-        settings=sample_group_data["settings"],
-        status=sample_group_data["status"],
-    )
-
-    # Insert initial result with all fields
-    initial_metrics = {
-        "subscribers": 200,
-        "messages_per_hour": 10.0,
-        "unique_authors_per_hour": 5.0,
-        "status": "done",
-    }
-    temp_db.save_result(
-        group_id="group_123",
-        chat_ref="@test_chat",
-        metrics_data=initial_metrics,
-    )
-
-    # Upsert with all null values
-    update_metrics = {
-        "subscribers": None,
-        "messages_per_hour": None,
-        "unique_authors_per_hour": None,
-        "status": None,
-    }
-    temp_db.upsert_result(
-        group_id="group_123",
-        chat_ref="@test_chat",
-        metrics_data=update_metrics,
-    )
-
-    # Verify all old values preserved
-    result = temp_db.load_result("group_123", "@test_chat")
-    assert result is not None
-    assert result["metrics_data"]["subscribers"] == 200
-    assert result["metrics_data"]["messages_per_hour"] == 10.0
-    assert result["metrics_data"]["unique_authors_per_hour"] == 5.0
-    assert result["metrics_data"]["status"] == "done"
-
-
-def test_upsert_result_incremental_workflow(temp_db, sample_group_data):
-    """Test realistic incremental analysis workflow."""
-    # Setup
-    temp_db.save_group(
-        group_id=sample_group_data["id"],
-        name=sample_group_data["name"],
-        settings=sample_group_data["settings"],
-        status=sample_group_data["status"],
-    )
-
-    # Step 1: Initial detection - only chat type and subscribers
-    temp_db.upsert_result(
+    # Create chat
+    chat_id = temp_db.save_chat(
         group_id="group_123",
         chat_ref="@incremental_chat",
-        metrics_data={
-            "chat_type": "group",
-            "subscribers": 500,
-            "messages_per_hour": None,
-            "unique_authors_per_hour": None,
-            "status": "partial",
-        },
+        chat_type="group",
+        status="pending",
     )
 
-    # Step 2: Add activity metrics
-    temp_db.upsert_result(
-        group_id="group_123",
-        chat_ref="@incremental_chat",
-        metrics_data={
-            "chat_type": None,  # already set, don't change
-            "subscribers": None,  # already set, don't change
+    # Update subscribers separately (not part of save_chat_metrics)
+    with temp_db._connection() as conn:
+        conn.execute("UPDATE group_chats SET subscribers = ? WHERE id = ?", (500, chat_id))
+
+    # Save all metrics in one call (save_chat_metrics overwrites, doesn't merge)
+    temp_db.save_chat_metrics(
+        chat_id=chat_id,
+        metrics={
+            "title": "Test Group",
             "messages_per_hour": 15.5,
             "unique_authors_per_hour": 8.2,
-            "status": None,
         },
     )
 
-    # Step 3: Mark as done
-    temp_db.upsert_result(
-        group_id="group_123",
-        chat_ref="@incremental_chat",
-        metrics_data={
-            "status": "done",
-        },
-    )
+    # Update status
+    temp_db.update_chat_status(chat_id=chat_id, status="done")
 
     # Verify final state has all data
-    result = temp_db.load_result("group_123", "@incremental_chat")
-    assert result is not None
-    assert result["metrics_data"]["chat_type"] == "group"
-    assert result["metrics_data"]["subscribers"] == 500
-    assert result["metrics_data"]["messages_per_hour"] == 15.5
-    assert result["metrics_data"]["unique_authors_per_hour"] == 8.2
-    assert result["metrics_data"]["status"] == "done"
+    with temp_db._connection() as conn:
+        cursor = conn.execute("SELECT * FROM group_chats WHERE id = ?", (chat_id,))
+        row = cursor.fetchone()
+
+    assert row is not None
+    assert row["title"] == "Test Group"
+    assert row["chat_type"] == "group"
+    assert row["subscribers"] == 500
+    assert row["messages_per_hour"] == 15.5
+    assert row["unique_authors_per_hour"] == 8.2
+    assert row["status"] == "done"
