@@ -503,6 +503,17 @@ class GroupAnalysisEngine:
                         message="Analysis already completed",
                     )
                     self._publish_event(event)
+
+                    # Send None sentinel to signal completion to SSE generators
+                    subscribers = self._subscribers.get(group_id, [])
+                    for queue in subscribers:
+                        try:
+                            queue.put_nowait(None)
+                        except asyncio.QueueFull:
+                            logger.warning(
+                                f"Subscriber queue full for group '{group_id}', "
+                                f"cannot send completion sentinel"
+                            )
                     return
             else:
                 # No PENDING, no FAILED, not all DONE → something is wrong
@@ -2065,6 +2076,17 @@ class GroupAnalysisEngine:
                     message=message,
                 )
                 self._publish_event(event)
+
+                # Send None sentinel to signal completion to SSE generators
+                subscribers = self._subscribers.get(group_id, [])
+                for queue in subscribers:
+                    try:
+                        queue.put_nowait(None)
+                    except asyncio.QueueFull:
+                        logger.warning(
+                            f"Subscriber queue full for group '{group_id}', "
+                            f"cannot send completion sentinel"
+                        )
 
     # ------------------------------------------------------------------
     # Helpers
