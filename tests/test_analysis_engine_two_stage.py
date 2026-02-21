@@ -520,14 +520,14 @@ class TestHybridTimeWindowLogic:
     """Tests for hybrid time window logic.
 
     Should:
-    - Load max 500 messages within time_window hours
+    - Load max 5000 messages within time_window hours
     - Calculate metrics based on actual time covered (not full window)
-    - Handle cases where <500 messages exist
+    - Handle cases where <5000 messages exist
     """
 
     @pytest.mark.asyncio
     async def test_time_window_limits_message_fetch(self, engine, mock_db, mock_session_manager):
-        """Test: Messages are fetched within time_window, max 500."""
+        """Test: Messages are fetched within time_window, max 5000."""
         # Setup
         group_id = "test-group"
         settings = GroupSettings(
@@ -586,16 +586,12 @@ class TestHybridTimeWindowLogic:
             # Execute
             await engine.start_analysis(group_id)
 
-            # Verify: iter_messages called with limit=500 and offset_date
+            # Verify: iter_messages called with limit=5000, NO offset_date
             assert "limit" in iter_messages_kwargs
-            assert iter_messages_kwargs["limit"] == 500
+            assert iter_messages_kwargs["limit"] == 5000
 
-            assert "offset_date" in iter_messages_kwargs
-            offset = iter_messages_kwargs["offset_date"]
-            now = datetime.now(UTC)
-            expected_offset = now - timedelta(hours=6)
-            # Allow 1 minute tolerance for execution time
-            assert abs((offset - expected_offset).total_seconds()) < 60
+            # offset_date should NOT be present (intentionally removed per SPEC.md Must Have #1)
+            assert "offset_date" not in iter_messages_kwargs
 
     @pytest.mark.asyncio
     async def test_metrics_based_on_actual_time_covered(self, engine, mock_db, mock_session_manager):
