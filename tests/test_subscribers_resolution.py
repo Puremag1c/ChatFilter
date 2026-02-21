@@ -19,8 +19,11 @@ from telethon import errors
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.types import Channel, ChatInviteAlready, ChatInvitePeek
 
-from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-from chatfilter.analyzer.worker import _ResolvedChat
+from chatfilter.analyzer.worker import (
+    _resolve_by_invite,
+    _resolve_by_username,
+    _ResolvedChat,
+)
 from chatfilter.exporter.csv import to_csv_rows_dynamic
 from chatfilter.models.group import AnalysisMode, ChatTypeEnum, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
@@ -36,26 +39,6 @@ def group_db(tmp_path: Path) -> GroupDatabase:
     return GroupDatabase(db_path=str(db_path))
 
 
-@pytest.fixture
-def mock_session_manager() -> MagicMock:
-    """Create a mock SessionManager."""
-    mgr = MagicMock()
-    mgr.list_sessions.return_value = ["account1"]
-    mgr.is_healthy = AsyncMock(return_value=True)
-    mock_client = AsyncMock()
-    mock_context = AsyncMock()
-    mock_context.__aenter__.return_value = mock_client
-    mock_context.__aexit__.return_value = None
-    mgr.session.return_value = mock_context
-    return mgr
-
-
-@pytest.fixture
-def engine(
-    group_db: GroupDatabase, mock_session_manager: MagicMock
-) -> GroupAnalysisEngine:
-    """Create a GroupAnalysisEngine instance for testing."""
-    return GroupAnalysisEngine(db=group_db, session_manager=mock_session_manager)
 
 
 def _make_channel(
@@ -90,17 +73,14 @@ class TestResolveByUsernameSubscribers:
     """Tests for _resolve_by_username returning numeric subscribers."""
 
     @pytest.mark.asyncio
-    async def test_get_entity_has_participants_count(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_get_entity_has_participants_count(self) -> None:
         """When get_entity returns participants_count, use it directly."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=5000)
         mock_client.get_entity = AsyncMock(return_value=channel)
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "testchannel", "account1"
+        resolved = await _resolve_by_username(
+            mock_client, "@testchannel", "testchannel", "account1"
         )
 
         assert resolved.subscribers == 5000
@@ -109,9 +89,7 @@ class TestResolveByUsernameSubscribers:
         mock_client.assert_not_awaited()  # no __call__ on client
 
     @pytest.mark.asyncio
-    async def test_get_entity_no_participants_calls_full_channel(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_get_entity_no_participants_calls_full_channel(self) -> None:
         """When get_entity returns participants_count=None, call GetFullChannelRequest."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=None)
@@ -122,9 +100,8 @@ class TestResolveByUsernameSubscribers:
         # Telethon uses client(request) syntax → calls __call__
         mock_client.return_value = full_result
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "testchannel", "account1"
+        resolved = await _resolve_by_username(
+            mock_client, "@testchannel", "testchannel", "account1"
         )
 
         assert resolved.subscribers == 12345
@@ -132,9 +109,7 @@ class TestResolveByUsernameSubscribers:
         assert resolved.chat_type == ChatTypeEnum.GROUP.value
 
     @pytest.mark.asyncio
-    async def test_full_channel_request_fails_gracefully(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_full_channel_request_fails_gracefully(self) -> None:
         """When GetFullChannelRequest fails, subscribers remains None."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=None)
@@ -142,9 +117,8 @@ class TestResolveByUsernameSubscribers:
         mock_client.return_value = None
         mock_client.side_effect = Exception("API error")
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "testchannel", "account1"
+        resolved = await _resolve_by_username(
+            mock_client, "@testchannel", "testchannel", "account1"
         )
 
         # Should still resolve but with None subscribers
@@ -152,9 +126,7 @@ class TestResolveByUsernameSubscribers:
         assert resolved.status == "done"
 
     @pytest.mark.asyncio
-    async def test_full_channel_flood_wait_propagates(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_full_channel_flood_wait_propagates(self) -> None:
         """FloodWaitError from GetFullChannelRequest is re-raised."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=None)
@@ -165,24 +137,20 @@ class TestResolveByUsernameSubscribers:
         mock_client.return_value = None
         mock_client.side_effect = flood_error
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
         with pytest.raises(errors.FloodWaitError):
-            await engine._resolve_by_username(
-                mock_client, chat, "testchannel", "account1"
+            await _resolve_by_username(
+                mock_client, "@testchannel", "testchannel", "account1"
             )
 
     @pytest.mark.asyncio
-    async def test_get_entity_zero_participants_no_full_channel_call(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_get_entity_zero_participants_no_full_channel_call(self) -> None:
         """When get_entity returns participants_count=0, keep it (don't call GetFullChannel)."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=0)
         mock_client.get_entity = AsyncMock(return_value=channel)
 
-        chat = {"id": 1, "chat_ref": "@emptychannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "emptychannel", "account1"
+        resolved = await _resolve_by_username(
+            mock_client, "@emptychannel", "emptychannel", "account1"
         )
 
         assert resolved.subscribers == 0
@@ -193,9 +161,7 @@ class TestResolveByInviteSubscribers:
     """Tests for _resolve_by_invite with ChatInviteAlready and ChatInvitePeek."""
 
     @pytest.mark.asyncio
-    async def test_invite_already_channel_no_participants_calls_full(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_invite_already_channel_no_participants_calls_full(self) -> None:
         """ChatInviteAlready with Channel that has no participants_count."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=None)
@@ -208,18 +174,15 @@ class TestResolveByInviteSubscribers:
         # second call returns full_result (GetFullChannelRequest)
         mock_client.side_effect = [invite_already, full_result]
 
-        chat = {"id": 2, "chat_ref": "https://t.me/+abc123"}
-        resolved = await engine._resolve_by_invite(
-            mock_client, chat, "abc123", "account1"
+        resolved = await _resolve_by_invite(
+            mock_client, "https://t.me/+abc123", "abc123", "account1"
         )
 
         assert resolved.subscribers == 9999
         assert resolved.status == "done"
 
     @pytest.mark.asyncio
-    async def test_invite_peek_channel_no_participants_calls_full(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_invite_peek_channel_no_participants_calls_full(self) -> None:
         """ChatInvitePeek with Channel that has no participants_count."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=None)
@@ -230,9 +193,8 @@ class TestResolveByInviteSubscribers:
         full_result = _make_full_channel_result(participants_count=7777)
         mock_client.side_effect = [invite_peek, full_result]
 
-        chat = {"id": 3, "chat_ref": "https://t.me/+xyz789"}
-        resolved = await engine._resolve_by_invite(
-            mock_client, chat, "xyz789", "account1"
+        resolved = await _resolve_by_invite(
+            mock_client, "https://t.me/+xyz789", "xyz789", "account1"
         )
 
         assert resolved.subscribers == 7777
@@ -242,9 +204,7 @@ class TestResolveByInviteSubscribers:
 class TestSubscribersEndToEnd:
     """End-to-end test: resolve → save → DB → CSV export with subscribers."""
 
-    def test_subscribers_flow_to_csv(
-        self, engine: GroupAnalysisEngine, group_db: GroupDatabase
-    ) -> None:
+    def test_subscribers_flow_to_csv(self, group_db: GroupDatabase) -> None:
         """Verify subscribers value flows from _ResolvedChat through to CSV output."""
         group_id = "test-group-1"
         settings = GroupSettings()  # all defaults = True
@@ -257,9 +217,8 @@ class TestSubscribersEndToEnd:
             status="in_progress",
         )
 
-        # Simulate Phase 1 resolved chat with subscribers
+        # Simulate resolved chat with subscribers
         resolved = _ResolvedChat(
-            db_chat_id=1,
             chat_ref="@testchannel",
             chat_type=ChatTypeEnum.GROUP.value,
             title="Test Channel",
@@ -269,16 +228,26 @@ class TestSubscribersEndToEnd:
             status="done",
         )
 
-        chat = {
-            "id": 1,
-            "chat_ref": "@testchannel",
-            "chat_type": ChatTypeEnum.PENDING.value,
-        }
-
-        # Save Phase 1 result
-        engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
+        # Save chat to DB with resolved data
+        chat_id = group_db.save_chat(
+            group_id=group_id,
+            chat_ref=resolved.chat_ref,
+            chat_type=resolved.chat_type,
+            status="done",
+            subscribers=resolved.subscribers,
         )
+
+        # Save metrics
+        metrics = {
+            "title": resolved.title,
+            "moderation": resolved.moderation,
+            "messages_per_hour": None,
+            "unique_authors_per_hour": None,
+            "captcha": None,
+            "partial_data": False,
+            "metrics_version": 2,
+        }
+        group_db.save_chat_metrics(chat_id, metrics)
 
         # Load results from DB
         results = group_db.load_results(group_id)
@@ -296,7 +265,7 @@ class TestSubscribersEndToEnd:
         assert data_row[subs_idx] == "12345"
 
     def test_none_subscribers_shows_empty_in_csv(
-        self, engine: GroupAnalysisEngine, group_db: GroupDatabase
+        self, group_db: GroupDatabase
     ) -> None:
         """Verify None subscribers renders as empty string in CSV."""
         group_id = "test-group-2"
@@ -310,7 +279,6 @@ class TestSubscribersEndToEnd:
         )
 
         resolved = _ResolvedChat(
-            db_chat_id=2,
             chat_ref="@private_channel",
             chat_type=ChatTypeEnum.GROUP.value,
             title="Private Channel",
@@ -320,15 +288,26 @@ class TestSubscribersEndToEnd:
             status="done",
         )
 
-        chat = {
-            "id": 2,
-            "chat_ref": "@private_channel",
-            "chat_type": ChatTypeEnum.PENDING.value,
-        }
-
-        engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
+        # Save chat to DB with resolved data
+        chat_id = group_db.save_chat(
+            group_id=group_id,
+            chat_ref=resolved.chat_ref,
+            chat_type=resolved.chat_type,
+            status="done",
+            subscribers=resolved.subscribers,
         )
+
+        # Save metrics
+        metrics = {
+            "title": resolved.title,
+            "moderation": resolved.moderation,
+            "messages_per_hour": None,
+            "unique_authors_per_hour": None,
+            "captcha": None,
+            "partial_data": False,
+            "metrics_version": 2,
+        }
+        group_db.save_chat_metrics(chat_id, metrics)
 
         results = group_db.load_results(group_id)
         assert results[0]["metrics_data"]["subscribers"] is None
@@ -341,7 +320,7 @@ class TestSubscribersEndToEnd:
         assert data_row[subs_idx] == ""  # None → empty string
 
     def test_subscribers_not_saved_when_detect_disabled(
-        self, engine: GroupAnalysisEngine, group_db: GroupDatabase
+        self, group_db: GroupDatabase
     ) -> None:
         """When detect_subscribers=False, subscribers key not in metrics_data."""
         group_id = "test-group-3"
@@ -355,7 +334,6 @@ class TestSubscribersEndToEnd:
         )
 
         resolved = _ResolvedChat(
-            db_chat_id=3,
             chat_ref="@nocountchat",
             chat_type=ChatTypeEnum.GROUP.value,
             title="No Count Chat",
@@ -365,15 +343,26 @@ class TestSubscribersEndToEnd:
             status="done",
         )
 
-        chat = {
-            "id": 3,
-            "chat_ref": "@nocountchat",
-            "chat_type": ChatTypeEnum.PENDING.value,
-        }
-
-        engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
+        # When detect_subscribers=False, don't save subscribers to DB
+        chat_id = group_db.save_chat(
+            group_id=group_id,
+            chat_ref=resolved.chat_ref,
+            chat_type=resolved.chat_type,
+            status="done",
+            subscribers=None,  # Don't save when detect_subscribers=False
         )
+
+        # Save metrics
+        metrics = {
+            "title": resolved.title,
+            "moderation": resolved.moderation,
+            "messages_per_hour": None,
+            "unique_authors_per_hour": None,
+            "captcha": None,
+            "partial_data": False,
+            "metrics_version": 2,
+        }
+        group_db.save_chat_metrics(chat_id, metrics)
 
         results = group_db.load_results(group_id)
         assert "subscribers" not in results[0]["metrics_data"]
