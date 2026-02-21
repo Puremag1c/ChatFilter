@@ -1852,7 +1852,7 @@ class GroupAnalysisEngine:
 
             # Fetch messages within time_window
             now = datetime.now(UTC)
-            offset_date = now - timedelta(hours=settings.time_window)
+            cutoff_time = now - timedelta(hours=settings.time_window)
 
             messages = []
             msg_count = 0
@@ -1861,15 +1861,14 @@ class GroupAnalysisEngine:
 
             async for msg in client.iter_messages(
                 numeric_id,
-                limit=500,
-                offset_date=offset_date,
+                limit=5000,
             ):
                 converted = _telethon_message_to_model(msg, numeric_id)
                 if converted is None:
                     continue
 
                 # Only count messages within time window
-                if converted.timestamp < offset_date:
+                if converted.timestamp < cutoff_time:
                     break
 
                 msg_count += 1
