@@ -20,7 +20,12 @@ from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.types import Channel, ChatInviteAlready, ChatInvitePeek
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-from chatfilter.analyzer.worker import _ResolvedChat
+from chatfilter.analyzer.worker import (
+    ChatResult,
+    _ResolvedChat,
+    _resolve_by_invite,
+    _resolve_by_username,
+)
 from chatfilter.exporter.csv import to_csv_rows_dynamic
 from chatfilter.models.group import AnalysisMode, ChatTypeEnum, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
@@ -98,9 +103,9 @@ class TestResolveByUsernameSubscribers:
         channel = _make_channel(participants_count=5000)
         mock_client.get_entity = AsyncMock(return_value=channel)
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "testchannel", "account1"
+        chat_ref = "@testchannel"
+        resolved = await _resolve_by_username(
+            mock_client, chat_ref, "testchannel", "account1"
         )
 
         assert resolved.subscribers == 5000
@@ -122,9 +127,9 @@ class TestResolveByUsernameSubscribers:
         # Telethon uses client(request) syntax → calls __call__
         mock_client.return_value = full_result
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "testchannel", "account1"
+        chat_ref = "@testchannel"
+        resolved = await _resolve_by_username(
+            mock_client, chat_ref, "testchannel", "account1"
         )
 
         assert resolved.subscribers == 12345
@@ -142,9 +147,9 @@ class TestResolveByUsernameSubscribers:
         mock_client.return_value = None
         mock_client.side_effect = Exception("API error")
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "testchannel", "account1"
+        chat_ref = "@testchannel"
+        resolved = await _resolve_by_username(
+            mock_client, chat_ref, "testchannel", "account1"
         )
 
         # Should still resolve but with None subscribers
@@ -165,10 +170,10 @@ class TestResolveByUsernameSubscribers:
         mock_client.return_value = None
         mock_client.side_effect = flood_error
 
-        chat = {"id": 1, "chat_ref": "@testchannel"}
+        chat_ref = "@testchannel"
         with pytest.raises(errors.FloodWaitError):
-            await engine._resolve_by_username(
-                mock_client, chat, "testchannel", "account1"
+            await _resolve_by_username(
+                mock_client, chat_ref, "testchannel", "account1"
             )
 
     @pytest.mark.asyncio
@@ -180,9 +185,9 @@ class TestResolveByUsernameSubscribers:
         channel = _make_channel(participants_count=0)
         mock_client.get_entity = AsyncMock(return_value=channel)
 
-        chat = {"id": 1, "chat_ref": "@emptychannel"}
-        resolved = await engine._resolve_by_username(
-            mock_client, chat, "emptychannel", "account1"
+        chat_ref = "@emptychannel"
+        resolved = await _resolve_by_username(
+            mock_client, chat_ref, "emptychannel", "account1"
         )
 
         assert resolved.subscribers == 0
@@ -208,9 +213,9 @@ class TestResolveByInviteSubscribers:
         # second call returns full_result (GetFullChannelRequest)
         mock_client.side_effect = [invite_already, full_result]
 
-        chat = {"id": 2, "chat_ref": "https://t.me/+abc123"}
-        resolved = await engine._resolve_by_invite(
-            mock_client, chat, "abc123", "account1"
+        chat_ref = "https://t.me/+abc123"
+        resolved = await _resolve_by_invite(
+            mock_client, chat_ref, "abc123", "account1"
         )
 
         assert resolved.subscribers == 9999
@@ -230,9 +235,9 @@ class TestResolveByInviteSubscribers:
         full_result = _make_full_channel_result(participants_count=7777)
         mock_client.side_effect = [invite_peek, full_result]
 
-        chat = {"id": 3, "chat_ref": "https://t.me/+xyz789"}
-        resolved = await engine._resolve_by_invite(
-            mock_client, chat, "xyz789", "account1"
+        chat_ref = "https://t.me/+xyz789"
+        resolved = await _resolve_by_invite(
+            mock_client, chat_ref, "xyz789", "account1"
         )
 
         assert resolved.subscribers == 7777
@@ -245,7 +250,7 @@ class TestSubscribersEndToEnd:
     def test_subscribers_flow_to_csv(
         self, engine: GroupAnalysisEngine, group_db: GroupDatabase
     ) -> None:
-        """Verify subscribers value flows from _ResolvedChat through to CSV output."""
+        """Verify subscribers value flows from ChatResult through to CSV output."""
         group_id = "test-group-1"
         settings = GroupSettings()  # all defaults = True
 
@@ -257,9 +262,8 @@ class TestSubscribersEndToEnd:
             status="in_progress",
         )
 
-        # Simulate Phase 1 resolved chat with subscribers
-        resolved = _ResolvedChat(
-            db_chat_id=1,
+        # Simulate worker result with subscribers
+        result = ChatResult(
             chat_ref="@testchannel",
             chat_type=ChatTypeEnum.GROUP.value,
             title="Test Channel",
@@ -271,14 +275,13 @@ class TestSubscribersEndToEnd:
 
         chat = {
             "id": 1,
+            "group_id": group_id,
             "chat_ref": "@testchannel",
             "chat_type": ChatTypeEnum.PENDING.value,
         }
 
-        # Save Phase 1 result
-        engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
-        )
+        # Save worker result
+        engine._save_chat_result(chat, result, "account1")
 
         # Load results from DB
         results = group_db.load_results(group_id)
@@ -309,8 +312,7 @@ class TestSubscribersEndToEnd:
             status="in_progress",
         )
 
-        resolved = _ResolvedChat(
-            db_chat_id=2,
+        result = ChatResult(
             chat_ref="@private_channel",
             chat_type=ChatTypeEnum.GROUP.value,
             title="Private Channel",
@@ -322,13 +324,12 @@ class TestSubscribersEndToEnd:
 
         chat = {
             "id": 2,
+            "group_id": group_id,
             "chat_ref": "@private_channel",
             "chat_type": ChatTypeEnum.PENDING.value,
         }
 
-        engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
-        )
+        engine._save_chat_result(chat, result, "account1")
 
         results = group_db.load_results(group_id)
         assert results[0]["metrics_data"]["subscribers"] is None
@@ -354,8 +355,7 @@ class TestSubscribersEndToEnd:
             status="in_progress",
         )
 
-        resolved = _ResolvedChat(
-            db_chat_id=3,
+        result = ChatResult(
             chat_ref="@nocountchat",
             chat_type=ChatTypeEnum.GROUP.value,
             title="No Count Chat",
@@ -367,13 +367,12 @@ class TestSubscribersEndToEnd:
 
         chat = {
             "id": 3,
+            "group_id": group_id,
             "chat_ref": "@nocountchat",
             "chat_type": ChatTypeEnum.PENDING.value,
         }
 
-        engine._save_phase1_result(
-            group_id, chat, resolved, "account1", settings, AnalysisMode.FRESH,
-        )
+        engine._save_chat_result(chat, result, "account1")
 
         results = group_db.load_results(group_id)
         assert "subscribers" not in results[0]["metrics_data"]
