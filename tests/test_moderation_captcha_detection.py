@@ -26,7 +26,7 @@ from telethon.tl.types import (
 )
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-from chatfilter.analyzer.worker import CAPTCHA_BOTS, _ResolvedChat
+from chatfilter.analyzer.worker import CAPTCHA_BOTS, _ResolvedChat, _detect_captcha
 from chatfilter.models.group import (
     ChatTypeEnum,
     GroupChatStatus,
@@ -205,7 +205,7 @@ class TestCaptchaDetectionFromBotScanning:
             timestamp=datetime.now(UTC),
         )
 
-        has_captcha = await engine._detect_captcha(mock_client, 999, [msg])
+        has_captcha = await _detect_captcha(mock_client, 999, [msg])
 
         assert has_captcha is True
 
@@ -237,7 +237,7 @@ class TestCaptchaDetectionFromBotScanning:
                 timestamp=datetime.now(UTC),
             )
 
-            has_captcha = await engine._detect_captcha(mock_client, 999, [msg])
+            has_captcha = await _detect_captcha(mock_client, 999, [msg])
 
             assert has_captcha is True, f"Failed to detect {bot_username}"
 
@@ -268,7 +268,7 @@ class TestCaptchaDetectionFromBotScanning:
             timestamp=datetime.now(UTC),
         )
 
-        has_captcha = await engine._detect_captcha(mock_client, 999, [msg])
+        has_captcha = await _detect_captcha(mock_client, 999, [msg])
 
         assert has_captcha is True
 
@@ -299,7 +299,7 @@ class TestCaptchaDetectionFromBotScanning:
             timestamp=datetime.now(UTC),
         )
 
-        has_captcha = await engine._detect_captcha(mock_client, 999, [msg])
+        has_captcha = await _detect_captcha(mock_client, 999, [msg])
 
         assert has_captcha is False
 
@@ -330,7 +330,7 @@ class TestCaptchaDetectionFromBotScanning:
             timestamp=datetime.now(UTC),
         )
 
-        has_captcha = await engine._detect_captcha(mock_client, 999, [msg])
+        has_captcha = await _detect_captcha(mock_client, 999, [msg])
 
         # Should detect even with different casing
         assert has_captcha is True
