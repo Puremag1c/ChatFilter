@@ -1,11 +1,16 @@
 """Database module for chat group storage and analysis tracking."""
 
 import json
+import logging
+import shutil
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from chatfilter.storage.database import SQLiteDatabase
+
+logger = logging.getLogger(__name__)
 
 # Sentinel value to distinguish "not provided" from None
 _UNSET = object()
@@ -22,6 +27,25 @@ class GroupDatabase(SQLiteDatabase):
 
     def _initialize_schema(self) -> None:
         """Create database tables if they don't exist."""
+        # BACKUP before v5 migration (if needed)
+        # We check schema version first to decide if backup is needed
+        if self.db_path.exists():
+            temp_conn = sqlite3.connect(self.db_path)
+            temp_conn.row_factory = sqlite3.Row
+            cursor = temp_conn.execute("PRAGMA user_version")
+            current_version = cursor.fetchone()[0]
+            temp_conn.close()
+
+            # Create backup before v5 migration (only once)
+            if current_version < 5:
+                backup_path = self.db_path.parent / f"{self.db_path.name}.backup_before_v5"
+                if not backup_path.exists():
+                    try:
+                        shutil.copy2(self.db_path, backup_path)
+                        logger.info(f"Database backup created: {backup_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to create backup: {e}")
+
         with self._connection() as conn:
             # Chat groups table
             conn.execute("""
@@ -111,10 +135,22 @@ class GroupDatabase(SQLiteDatabase):
             self._migrate_to_v4_add_tried_accounts(conn)
             conn.execute("PRAGMA user_version = 4")
 
+        # Migration 5: Refactor schema — merge group_results into group_chats, create group_tasks
+        # NOTE: Backup is created OUTSIDE of this transaction (before _initialize_schema)
+        # See _initialize_schema for backup logic
+        if current_version < 5:
+            self._migrate_to_v5_refactor(conn)
+            conn.execute("PRAGMA user_version = 5")
+
         # Always ensure no duplicates and unique index exists.
         # Previous migration v1 had a SQL bug that failed to dedup rows with
         # identical analyzed_at timestamps — this catches any surviving duplicates.
-        self._ensure_group_results_unique(conn)
+        # NOTE: Only run if group_results table still exists (before v5 migration)
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_results'"
+        )
+        if cursor.fetchone():
+            self._ensure_group_results_unique(conn)
 
     def _migrate_to_v1_unique_constraint(self, conn: Any) -> None:
         """Migration v1: Add UNIQUE constraint on (group_id, chat_ref) for group_results.
@@ -241,6 +277,151 @@ class GroupDatabase(SQLiteDatabase):
 
         if "tried_accounts" not in columns:
             conn.execute("ALTER TABLE group_chats ADD COLUMN tried_accounts TEXT")
+
+    def _migrate_to_v5_refactor(self, conn: Any) -> None:
+        """Migration v5: Refactor schema — merge group_results into group_chats, create group_tasks.
+
+        This migration:
+        1. Backup created in _initialize_schema (before opening connection)
+        2. Adds new columns to group_chats (title, moderation, messages_per_hour, etc.)
+        3. Migrates data from group_results.metrics_data JSON into group_chats columns
+        4. Maps old statuses: joining/analyzing->pending, failed->error
+        5. Creates new group_tasks table
+        6. Drops group_results table
+        7. All operations are atomic within a transaction
+
+        Args:
+            conn: Active database connection (already in transaction from _run_migrations)
+        """
+        # 1. Get existing columns in group_chats
+        cursor = conn.execute("PRAGMA table_info(group_chats)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+
+        # 2. ADD COLUMNS to group_chats (only if not exists)
+        new_columns = {
+            "title": "TEXT",
+            "chat_type": "TEXT",  # verify if exists from v0
+            "subscribers": "INTEGER",  # verify if exists from v2
+            "moderation": "BOOLEAN",
+            "messages_per_hour": "REAL",
+            "unique_authors_per_hour": "REAL",
+            "captcha": "BOOLEAN",
+            "partial_data": "BOOLEAN",
+            "metrics_version": "INTEGER",
+        }
+
+        for col_name, col_type in new_columns.items():
+            if col_name not in existing_columns:
+                conn.execute(f"ALTER TABLE group_chats ADD COLUMN {col_name} {col_type}")
+                logger.info(f"Added column: {col_name} {col_type}")
+
+        # 3. MIGRATE DATA from group_results.metrics_data JSON into group_chats columns
+        # Check if group_results table exists first
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_results'"
+        )
+        if cursor.fetchone():
+            # Count rows before migration
+            cursor = conn.execute("SELECT COUNT(*) as count FROM group_results")
+            results_count = cursor.fetchone()[0]
+            logger.info(f"Migrating {results_count} rows from group_results")
+
+            # Fetch all group_results data
+            cursor = conn.execute(
+                "SELECT group_id, chat_ref, metrics_data FROM group_results"
+            )
+            results = cursor.fetchall()
+
+            for row in results:
+                group_id, chat_ref, metrics_json = row[0], row[1], row[2]
+                metrics = json.loads(metrics_json)
+
+                # Extract fields from metrics_data, handle 'N/A' as NULL
+                def parse_value(val: Any) -> Any:
+                    """Convert 'N/A' string to None, otherwise return value."""
+                    return None if val == "N/A" else val
+
+                title = parse_value(metrics.get("title"))
+                chat_type = parse_value(metrics.get("chat_type"))
+                subscribers = parse_value(metrics.get("subscribers"))
+                moderation = parse_value(metrics.get("moderation"))
+                messages_per_hour = parse_value(metrics.get("messages_per_hour"))
+                unique_authors_per_hour = parse_value(metrics.get("unique_authors_per_hour"))
+                captcha = parse_value(metrics.get("captcha"))
+                partial_data = parse_value(metrics.get("partial_data"))
+                metrics_version = parse_value(metrics.get("metrics_version"))
+
+                # UPDATE group_chats with metrics data
+                conn.execute(
+                    """
+                    UPDATE group_chats
+                    SET title = ?,
+                        chat_type = ?,
+                        subscribers = ?,
+                        moderation = ?,
+                        messages_per_hour = ?,
+                        unique_authors_per_hour = ?,
+                        captcha = ?,
+                        partial_data = ?,
+                        metrics_version = ?
+                    WHERE group_id = ? AND chat_ref = ?
+                    """,
+                    (
+                        title,
+                        chat_type,
+                        subscribers,
+                        moderation,
+                        messages_per_hour,
+                        unique_authors_per_hour,
+                        captcha,
+                        partial_data,
+                        metrics_version,
+                        group_id,
+                        chat_ref,
+                    ),
+                )
+
+            logger.info(f"Migrated {results_count} metrics from group_results to group_chats")
+
+        # 4. MAP STATUSES: joining->pending, analyzing->pending, failed->error
+        conn.execute("""
+            UPDATE group_chats
+            SET status = CASE
+                WHEN status = 'joining' THEN 'pending'
+                WHEN status = 'analyzing' THEN 'pending'
+                WHEN status = 'failed' THEN 'error'
+                ELSE status
+            END
+        """)
+        logger.info("Mapped old statuses to new schema")
+
+        # 5. CREATE TABLE group_tasks
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS group_tasks (
+                id TEXT PRIMARY KEY,
+                group_id TEXT NOT NULL,
+                requested_metrics TEXT,
+                time_window TEXT,
+                created_at TIMESTAMP NOT NULL,
+                status TEXT NOT NULL,
+                FOREIGN KEY (group_id) REFERENCES chat_groups (id)
+                    ON DELETE CASCADE
+            )
+        """)
+        logger.info("Created group_tasks table")
+
+        # 6. DROP TABLE group_results
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_results'"
+        )
+        if cursor.fetchone():
+            conn.execute("DROP TABLE group_results")
+            logger.info("Dropped group_results table")
+
+        # 7. VERIFY migration
+        cursor = conn.execute("SELECT COUNT(*) as count FROM group_chats")
+        chats_count = cursor.fetchone()[0]
+        logger.info(f"Migration v5 complete: {chats_count} chats in group_chats table")
 
     def save_group(
         self,
