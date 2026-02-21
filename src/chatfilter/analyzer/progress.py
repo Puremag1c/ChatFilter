@@ -149,3 +149,22 @@ class ProgressTracker:
                     f"Subscriber queue full for group '{group_id}', "
                     f"dropping completion sentinel"
                 )
+
+
+def compute_group_status(db: GroupDatabase, group_id: str) -> str:
+    """Compute group status from chat statuses.
+
+    Aggregates individual chat statuses to determine overall group state:
+    - All pending → PENDING
+    - All error → FAILED
+    - All done → COMPLETED
+    - Mixed or some done → IN_PROGRESS
+
+    Args:
+        db: Database instance
+        group_id: Group identifier
+
+    Returns:
+        GroupStatus value (pending/in_progress/completed/failed)
+    """
+    return db.compute_group_status(group_id)
