@@ -101,7 +101,7 @@ class _ResolvedChat:
     subscribers: int | None
     moderation: bool | None  # join_request flag
     numeric_id: int | None  # Telegram numeric chat ID (if resolved)
-    status: str  # "done" | "dead" | "failed"
+    status: str  # "done" | "dead" | "failed" | "banned"
     linked_chat_id: int | None = None  # For broadcast channels with discussion group
     error: str | None = None
 
@@ -663,6 +663,108 @@ class GroupAnalysisEngine:
                             group_id, chat, dead_resolved, account_id, settings, mode,
                         )
 
+        # Ban reassignment: retry chats that were banned with other accounts
+        banned_chats = self._db.load_chats(
+            group_id=group_id,
+            status=GroupChatStatus.PENDING.value,
+        )
+        # Filter to only chats that have tried_accounts (i.e., were banned)
+        banned_chats = [c for c in banned_chats if c.get("tried_accounts")]
+
+        if banned_chats:
+            all_account_ids = set(connected_accounts)
+
+            # Separate into reassignable vs all-tried
+            reassign_map: dict[str, list[dict]] = {}  # account_id -> chats to retry
+            for chat in banned_chats:
+                tried = set(chat["tried_accounts"])
+                untried = all_account_ids - tried
+                if untried:
+                    # Pick first untried account (deterministic)
+                    new_account = sorted(untried)[0]
+                    self._db.update_chat_status(
+                        chat_id=chat["id"],
+                        status=GroupChatStatus.PENDING.value,
+                        assigned_account=new_account,
+                    )
+                    reassign_map.setdefault(new_account, []).append(chat)
+                    logger.info(
+                        f"Reassigned '{chat['chat_ref']}' from banned accounts "
+                        f"{chat['tried_accounts']} to '{new_account}'"
+                    )
+                else:
+                    # All accounts tried — mark as DEAD
+                    logger.info(
+                        f"All accounts banned for '{chat['chat_ref']}', marking DEAD"
+                    )
+                    dead_resolved = _ResolvedChat(
+                        db_chat_id=chat["id"],
+                        chat_ref=chat["chat_ref"],
+                        chat_type=ChatTypeEnum.DEAD.value,
+                        title=None,
+                        subscribers=None,
+                        moderation=None,
+                        numeric_id=None,
+                        status="dead",
+                        linked_chat_id=None,
+                        error=f"All accounts banned: {sorted(tried)}",
+                    )
+                    fallback_account = chat.get("assigned_account") or connected_accounts[0]
+                    self._save_phase1_result(
+                        group_id, chat, dead_resolved, fallback_account, settings, mode,
+                    )
+
+            # Run Phase 1 again for reassigned accounts
+            if reassign_map:
+                logger.info(
+                    f"Ban reassignment: retrying {sum(len(v) for v in reassign_map.values())} "
+                    f"chats across {len(reassign_map)} accounts"
+                )
+                retry_tasks = []
+                for acct_id in reassign_map:
+                    task = asyncio.create_task(
+                        self._phase1_resolve_account(group_id, acct_id, settings, mode)
+                    )
+                    retry_tasks.append((acct_id, task))
+
+                retry_results = await asyncio.gather(
+                    *[t for _, t in retry_tasks], return_exceptions=True,
+                )
+                for (acct_id, _), result in zip(retry_tasks, retry_results):
+                    if isinstance(result, Exception):
+                        logger.error(
+                            f"Account '{acct_id}' ban-retry Phase 1 failed: {result}",
+                            exc_info=result,
+                        )
+
+                # After retry: any still-PENDING chats with tried_accounts means
+                # the new account was also banned. Mark them DEAD.
+                still_pending = self._db.load_chats(
+                    group_id=group_id,
+                    status=GroupChatStatus.PENDING.value,
+                )
+                still_banned = [c for c in still_pending if c.get("tried_accounts")]
+                for chat in still_banned:
+                    logger.info(
+                        f"Chat '{chat['chat_ref']}' still pending after retry, marking DEAD"
+                    )
+                    dead_resolved = _ResolvedChat(
+                        db_chat_id=chat["id"],
+                        chat_ref=chat["chat_ref"],
+                        chat_type=ChatTypeEnum.DEAD.value,
+                        title=None,
+                        subscribers=None,
+                        moderation=None,
+                        numeric_id=None,
+                        status="dead",
+                        linked_chat_id=None,
+                        error=f"All retry accounts also banned: {chat['tried_accounts']}",
+                    )
+                    fallback_account = chat.get("assigned_account") or connected_accounts[0]
+                    self._save_phase1_result(
+                        group_id, chat, dead_resolved, fallback_account, settings, mode,
+                    )
+
         # Final safety net: verify all chats have group_results after Phase 1
         all_chats = self._db.load_chats(group_id=group_id)
         all_results = self._db.load_results(group_id=group_id)
@@ -833,6 +935,28 @@ class GroupAnalysisEngine:
                             self._resolve_chat(client, chat, account_id),
                             timeout=300,
                         )
+
+                        # Ban/forbidden: don't save result, record tried account
+                        # so the chat can be reassigned to another account later
+                        if resolved.status == "banned":
+                            tried = list(chat.get("tried_accounts") or [])
+                            if account_id not in tried:
+                                tried.append(account_id)
+                            self._db.update_chat_status(
+                                chat_id=chat["id"],
+                                status=GroupChatStatus.PENDING.value,
+                                tried_accounts=tried,
+                            )
+                            logger.info(
+                                f"Account '{account_id}' banned in '{chat['chat_ref']}', "
+                                f"marking for reassignment (tried: {tried})"
+                            )
+                            # Rate limiting before next chat
+                            if chat_queue:
+                                delay = 5.0 + random.random() * 2
+                                await asyncio.sleep(delay)
+                            continue
+
                         self._save_phase1_result(
                             group_id, chat, resolved, account_id, settings, mode,
                         )
@@ -1225,7 +1349,7 @@ class GroupAnalysisEngine:
                 subscribers=None,
                 moderation=None,
                 numeric_id=None,
-                status="dead",
+                status="banned",
                 error=str(e),
             )
 

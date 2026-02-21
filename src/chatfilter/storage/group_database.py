@@ -47,6 +47,7 @@ class GroupDatabase(SQLiteDatabase):
                     assigned_account TEXT,
                     error TEXT,
                     subscribers INTEGER,
+                    tried_accounts TEXT,
                     FOREIGN KEY (group_id) REFERENCES chat_groups (id)
                         ON DELETE CASCADE
                 )
@@ -104,6 +105,11 @@ class GroupDatabase(SQLiteDatabase):
         if current_version < 3:
             self._migrate_to_v3_add_analysis_started_at(conn)
             conn.execute("PRAGMA user_version = 3")
+
+        # Migration 4: Add tried_accounts column to group_chats
+        if current_version < 4:
+            self._migrate_to_v4_add_tried_accounts(conn)
+            conn.execute("PRAGMA user_version = 4")
 
         # Always ensure no duplicates and unique index exists.
         # Previous migration v1 had a SQL bug that failed to dedup rows with
@@ -223,6 +229,18 @@ class GroupDatabase(SQLiteDatabase):
         if "analysis_started_at" not in columns:
             # Add analysis_started_at column with default NULL
             conn.execute("ALTER TABLE chat_groups ADD COLUMN analysis_started_at TIMESTAMP")
+
+    def _migrate_to_v4_add_tried_accounts(self, conn: Any) -> None:
+        """Migration v4: Add tried_accounts column to group_chats.
+
+        Stores JSON list of account_ids that failed (ban/forbidden) for this chat,
+        enabling reassignment to other accounts.
+        """
+        cursor = conn.execute("PRAGMA table_info(group_chats)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if "tried_accounts" not in columns:
+            conn.execute("ALTER TABLE group_chats ADD COLUMN tried_accounts TEXT")
 
     def save_group(
         self,
@@ -376,6 +394,7 @@ class GroupDatabase(SQLiteDatabase):
         error: str | None = None,
         chat_id: int | None = None,
         subscribers: int | None = None,
+        tried_accounts: list[str] | None = None,
     ) -> int:
         """Save a chat within a group.
 
@@ -388,20 +407,23 @@ class GroupDatabase(SQLiteDatabase):
             error: Error message if status is failed
             chat_id: Optional explicit chat ID (for updates)
             subscribers: Optional subscriber count for channels
+            tried_accounts: Optional list of account_ids that failed (ban/forbidden)
 
         Returns:
             Chat ID (auto-generated or provided)
         """
+        tried_accounts_json = json.dumps(tried_accounts) if tried_accounts else None
+
         with self._connection() as conn:
             if chat_id is None:
                 # Insert new chat
                 cursor = conn.execute(
                     """
                     INSERT INTO group_chats
-                    (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers, tried_accounts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers),
+                    (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers, tried_accounts_json),
                 )
                 return cursor.lastrowid
             else:
@@ -409,8 +431,8 @@ class GroupDatabase(SQLiteDatabase):
                 conn.execute(
                     """
                     INSERT INTO group_chats
-                    (id, group_id, chat_ref, chat_type, status, assigned_account, error, subscribers)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, group_id, chat_ref, chat_type, status, assigned_account, error, subscribers, tried_accounts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         group_id = excluded.group_id,
                         chat_ref = excluded.chat_ref,
@@ -418,9 +440,10 @@ class GroupDatabase(SQLiteDatabase):
                         status = excluded.status,
                         assigned_account = excluded.assigned_account,
                         error = excluded.error,
-                        subscribers = excluded.subscribers
+                        subscribers = excluded.subscribers,
+                        tried_accounts = excluded.tried_accounts
                     """,
-                    (chat_id, group_id, chat_ref, chat_type, status, assigned_account, error, subscribers),
+                    (chat_id, group_id, chat_ref, chat_type, status, assigned_account, error, subscribers, tried_accounts_json),
                 )
                 return chat_id
 
@@ -430,6 +453,7 @@ class GroupDatabase(SQLiteDatabase):
         status: str,
         assigned_account: str | None = _UNSET,
         error: str | None = _UNSET,
+        tried_accounts: list[str] | None = _UNSET,
     ) -> None:
         """Update the status of a group chat.
 
@@ -438,6 +462,7 @@ class GroupDatabase(SQLiteDatabase):
             status: New status (pending/joining/analyzing/done/failed)
             assigned_account: Optional account assignment (pass None to clear)
             error: Optional error message (pass None to clear)
+            tried_accounts: Optional list of account_ids that failed (ban/forbidden)
         """
         with self._connection() as conn:
             # Build UPDATE statement dynamically based on provided fields
@@ -451,6 +476,10 @@ class GroupDatabase(SQLiteDatabase):
             if error is not _UNSET:
                 updates.append("error = ?")
                 params.append(error)
+
+            if tried_accounts is not _UNSET:
+                updates.append("tried_accounts = ?")
+                params.append(json.dumps(tried_accounts) if tried_accounts else None)
 
             params.append(chat_id)
 
@@ -818,6 +847,7 @@ class GroupDatabase(SQLiteDatabase):
                 "assigned_account": row["assigned_account"],
                 "error": row["error"],
                 "subscribers": row["subscribers"],
+                "tried_accounts": json.loads(row["tried_accounts"]) if row["tried_accounts"] else [],
             }
             for row in rows
         ]
