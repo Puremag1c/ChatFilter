@@ -24,7 +24,7 @@ from chatfilter.models.group import (
     GroupStatus,
 )
 from chatfilter.storage.group_database import GroupDatabase
-from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.telegram.session_manager import SessionInvalidError, SessionManager
 from chatfilter.utils.network import detect_network_error
 
 if TYPE_CHECKING:
@@ -128,6 +128,37 @@ class GroupAnalysisEngine:
                 "No connected Telegram accounts available. "
                 "Please connect at least one account to start analysis."
             )
+
+        # Pre-validation: verify accounts can actually connect
+        # is_healthy() tests existing connections, but new session() calls may fail
+        validated_accounts = []
+        for account_id in accounts:
+            # Skip validation if connect() is not async (mock in tests)
+            if not asyncio.iscoroutinefunction(self._session_mgr.connect):
+                # Mock session manager in tests - skip validation
+                validated_accounts.append(account_id)
+                continue
+
+            try:
+                # Test actual connect - will raise SessionInvalidError if account is invalid
+                await self._session_mgr.connect(account_id)
+                # Disconnect immediately - we'll reconnect in worker
+                await self._session_mgr.disconnect(account_id)
+                validated_accounts.append(account_id)
+            except SessionInvalidError as e:
+                logger.warning(f"Account '{account_id}' excluded: invalid session - {e}")
+            except Exception as e:
+                # Other errors (network, timeout) - still exclude for safety
+                logger.warning(f"Account '{account_id}' excluded: {type(e).__name__} - {e}")
+
+        if not validated_accounts:
+            raise NoConnectedAccountsError(
+                "No connected Telegram accounts available. "
+                "All accounts failed validation. Please connect at least one valid account."
+            )
+
+        accounts = validated_accounts
+        logger.info(f"Pre-validation: {len(accounts)} accounts validated for analysis")
 
         self._prepare_chats_for_mode(group_id, settings, mode)
         pending = self._db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)

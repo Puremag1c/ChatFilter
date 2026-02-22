@@ -1059,6 +1059,118 @@ class TestAllChatsGetResultsGuarantee:
         assert result["status"] == GroupChatStatus.DONE.value, "Chat should succeed after account rotation"
 
 
+class TestAccountPreValidation:
+    """Test pre-validation of accounts before assignment."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_account_excluded_before_assignment(
+        self,
+        test_db: GroupDatabase,
+        caplog,
+    ) -> None:
+        """Test that accounts failing connect() are excluded before chat assignment.
+
+        Scenario:
+        - 2 accounts: one healthy, one invalid (connect() raises SessionInvalidError)
+        - Verify: invalid account excluded during pre-validation
+        - Verify: chats only assigned to valid account
+        """
+        import logging
+        caplog.set_level(logging.DEBUG)
+
+        from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+        from chatfilter.telegram.session_manager import SessionInvalidError
+
+        # Setup: Create group with 3 chats
+        group_id = "test-prevalidation"
+        settings = GroupSettings(detect_subscribers=True)
+        test_db.save_group(
+            group_id=group_id,
+            name="Test Pre-validation",
+            settings=settings.model_dump(),
+            status="pending",
+        )
+
+        for i in range(3):
+            test_db.save_chat(
+                group_id=group_id,
+                chat_ref=f"https://t.me/chat{i}",
+                chat_type="pending",
+                status=GroupChatStatus.PENDING.value,
+            )
+
+        # Mock session manager
+        mock_session_manager = MagicMock()
+        mock_session_manager.list_sessions.return_value = ["valid-account", "invalid-account"]
+
+        # is_healthy returns True for both (they pass basic health check)
+        mock_session_manager.is_healthy = AsyncMock(return_value=True)
+
+        # Mock connect: invalid-account raises SessionInvalidError
+        async def mock_connect(account_id):
+            if account_id == "invalid-account":
+                raise SessionInvalidError("Session invalid")
+            # valid-account succeeds
+            return AsyncMock()
+
+        mock_session_manager.connect = AsyncMock(side_effect=mock_connect)
+        mock_session_manager.disconnect = AsyncMock(return_value=None)
+
+        # Mock session context for valid-account
+        mock_client = AsyncMock()
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__.return_value = mock_client
+        mock_session_context.__aexit__.return_value = None
+        mock_session_manager.session.return_value = mock_session_context
+
+        engine = GroupAnalysisEngine(
+            db=test_db,
+            session_manager=mock_session_manager,
+        )
+
+        # Mock process_chat to succeed
+        async def mock_process_chat(chat_dict, client, account_id, settings):
+            return ChatResult(
+                chat_ref=chat_dict["chat_ref"],
+                chat_type="group",
+                title=f"Chat {chat_dict['chat_ref'][-1]}",
+                subscribers=100,
+                moderation=False,
+                numeric_id=1000000,
+                status="done",
+            )
+
+        with (
+            patch("chatfilter.analyzer.group_engine.process_chat", side_effect=mock_process_chat),
+            patch("chatfilter.analyzer.group_engine.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
+
+        # Verify: invalid-account was excluded (should see warning in logs)
+        assert any(
+            "invalid-account" in record.message and "excluded" in record.message
+            for record in caplog.records
+        ), "Should log exclusion of invalid-account"
+
+        # Verify: Pre-validation completed with 1 account
+        assert any(
+            "Pre-validation: 1 accounts validated" in record.message
+            for record in caplog.records
+        ), "Should log successful pre-validation with 1 account"
+
+        # Verify: All chats assigned only to valid-account (not invalid-account)
+        all_chats = test_db.load_chats(group_id=group_id)
+        for chat in all_chats:
+            assert chat["assigned_account"] == "valid-account", (
+                f"Chat {chat['chat_ref']} assigned to {chat['assigned_account']}, "
+                "should only be assigned to valid-account"
+            )
+
+        # Verify: All 3 chats processed successfully
+        done_chats = [c for c in all_chats if c["status"] == GroupChatStatus.DONE.value]
+        assert len(done_chats) == 3, f"Expected 3 done chats, got {len(done_chats)}"
+
+
 class TestExceptionRecoveryPaths:
     """Tests for exception recovery paths in group_engine.py.
 
