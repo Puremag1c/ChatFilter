@@ -35,6 +35,41 @@ logger = logging.getLogger(__name__)
 METRICS_VERSION = 2
 
 
+class AccountHealthTracker:
+    """Tracks per-account consecutive failures during analysis.
+
+    After N consecutive failures, account is marked as dead and should stop processing.
+    """
+
+    def __init__(self, max_consecutive_errors: int = 5) -> None:
+        self.consecutive_errors: dict[str, int] = {}
+        self.total_done: dict[str, int] = {}
+        self.total_error: dict[str, int] = {}
+        self.max_consecutive_errors = max_consecutive_errors
+
+    def record_success(self, account_id: str) -> None:
+        """Record successful chat processing - resets consecutive error counter."""
+        self.consecutive_errors[account_id] = 0
+        self.total_done[account_id] = self.total_done.get(account_id, 0) + 1
+
+    def record_failure(self, account_id: str) -> None:
+        """Record chat processing failure - increments consecutive error counter."""
+        self.consecutive_errors[account_id] = self.consecutive_errors.get(account_id, 0) + 1
+        self.total_error[account_id] = self.total_error.get(account_id, 0) + 1
+
+    def should_stop(self, account_id: str) -> bool:
+        """Check if account should stop processing due to too many consecutive failures."""
+        return self.consecutive_errors.get(account_id, 0) >= self.max_consecutive_errors
+
+    def get_stats(self, account_id: str) -> dict:
+        """Get health statistics for an account."""
+        return {
+            "consecutive_errors": self.consecutive_errors.get(account_id, 0),
+            "total_done": self.total_done.get(account_id, 0),
+            "total_error": self.total_error.get(account_id, 0),
+        }
+
+
 class GroupEngineError(Exception):
     """Base exception for GroupEngine errors."""
 
@@ -195,10 +230,13 @@ class GroupAnalysisEngine:
             f"{len(pending)} chats, task={task_id}"
         )
 
+        # Track account health during analysis
+        health_tracker = AccountHealthTracker()
+
         # Run workers in parallel
         tasks = [
             asyncio.create_task(
-                self._run_account_worker(group_id, a, settings, accounts, mode)
+                self._run_account_worker(group_id, a, settings, accounts, mode, health_tracker)
             )
             for a in accounts
         ]
@@ -235,7 +273,7 @@ class GroupAnalysisEngine:
 
     async def _run_account_worker(
         self, group_id: str, account_id: str, settings: GroupSettings,
-        all_accounts: list[str], mode: AnalysisMode,
+        all_accounts: list[str], mode: AnalysisMode, health_tracker: AccountHealthTracker,
     ) -> None:
         """Process all chats assigned to this account."""
         chats = self._db.load_chats(
@@ -249,8 +287,17 @@ class GroupAnalysisEngine:
         try:
             async with self._session_mgr.session(account_id, auto_disconnect=False) as client:
                 for chat in chats:
+                    # Check if account should stop due to consecutive failures
+                    if health_tracker.should_stop(account_id):
+                        stats = health_tracker.get_stats(account_id)
+                        logger.warning(
+                            f"Account '{account_id}' stopped after {stats['consecutive_errors']} "
+                            f"consecutive failures. Remaining chats left PENDING."
+                        )
+                        break
+
                     await self._process_single_chat(
-                        group_id, chat, client, account_id, settings, all_accounts, mode,
+                        group_id, chat, client, account_id, settings, all_accounts, mode, health_tracker,
                     )
                     await asyncio.sleep(5.0 + random.random() * 2)
         except asyncio.CancelledError:
@@ -278,7 +325,7 @@ class GroupAnalysisEngine:
     async def _process_single_chat(
         self, group_id: str, chat: dict, client: TelegramClient,
         account_id: str, settings: GroupSettings,
-        all_accounts: list[str], mode: AnalysisMode,
+        all_accounts: list[str], mode: AnalysisMode, health_tracker: AccountHealthTracker,
     ) -> None:
         """Process a single chat using worker + retry."""
         chat_ref = chat["chat_ref"]
@@ -287,6 +334,7 @@ class GroupAnalysisEngine:
             metrics = self._db.get_chat_metrics(chat["id"])
             if metrics and not self._chat_needs_reanalysis(metrics, settings):
                 self._db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.DONE.value)
+                health_tracker.record_success(account_id)
                 return
 
         async def _do_process(acct_id: str, chat_dict: dict) -> ChatResult:
@@ -333,8 +381,10 @@ class GroupAnalysisEngine:
 
         if result.success:
             self._save_chat_result(chat, result.value, result.account_used or account_id)
+            health_tracker.record_success(account_id)
         else:
             self._save_chat_error(chat["id"], result.error or "All accounts exhausted")
+            health_tracker.record_failure(account_id)
 
         title = (result.value.title or chat_ref) if result.success and result.value else chat_ref
         self._progress.publish_from_db(

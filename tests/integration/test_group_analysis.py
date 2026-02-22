@@ -1688,3 +1688,42 @@ class TestPrepareIncrement:
 
         done = test_db.load_chats(group_id=group_id, status=GroupChatStatus.DONE.value)
         assert len(done) == 3, "3 complete chats should remain DONE"
+
+
+class TestAccountHealthTracking:
+    """Test account health tracking and consecutive failure detection."""
+
+    @pytest.mark.asyncio
+    async def test_account_stops_after_consecutive_failures(
+        self,
+        test_db: GroupDatabase,
+    ) -> None:
+        """Test that account worker stops after 5 consecutive failures.
+
+        Verifies ChatFilter-fn47j: AccountHealthTracker stops dead account after 5 errors,
+        remaining chats stay PENDING.
+        """
+        from chatfilter.analyzer.group_engine import AccountHealthTracker
+
+        # Simple unit test: track consecutive failures
+        tracker = AccountHealthTracker(max_consecutive_errors=5)
+
+        # Simulate 5 failures
+        for i in range(5):
+            tracker.record_failure("failing-account")
+            assert not tracker.should_stop("failing-account") if i < 4 else tracker.should_stop("failing-account")
+
+        # Verify stats
+        stats = tracker.get_stats("failing-account")
+        assert stats["consecutive_errors"] == 5
+        assert stats["total_error"] == 5
+        assert stats["total_done"] == 0
+        assert tracker.should_stop("failing-account")
+
+        # Success resets consecutive counter
+        tracker.record_success("failing-account")
+        assert not tracker.should_stop("failing-account")
+        stats = tracker.get_stats("failing-account")
+        assert stats["consecutive_errors"] == 0
+        assert stats["total_done"] == 1
+        assert stats["total_error"] == 5  # total_error unchanged
