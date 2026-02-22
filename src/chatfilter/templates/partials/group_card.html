@@ -283,7 +283,7 @@
                 if (data.breakdown) {
                     const badgeTypes = ['pending', 'done', 'error', 'dead'];
                     badgeTypes.forEach(badgeType => {
-                        const badgeEl = document.getElementById('badge-' + badgeType + '-{{ group.id }}');
+                        const badgeEl = document.getElementById('badge-' + badgeType + '-' + groupId);
                         if (badgeEl) {
                             const count = data.breakdown[badgeType] || 0;
                             const countEl = badgeEl.querySelector('[data-badge-count]');
@@ -296,7 +296,7 @@
                     });
 
                     // Update error count in stats section
-                    const errorEl = document.getElementById('error-{{ group.id }}');
+                    const errorEl = document.getElementById('error-' + groupId);
                     if (errorEl && data.breakdown.error !== undefined) {
                         errorEl.textContent = data.breakdown.error;
                     }
