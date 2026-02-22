@@ -1049,3 +1049,96 @@ https://t.me/news_channel
         assert entry1 is not None
         assert entry2 is not None
         assert entry1.normalized == entry2.normalized  # Both should be "testuser"
+
+
+class TestSecurityValidation:
+    """Tests for security validation of chat_ref values."""
+
+    def test_null_byte_rejected(self):
+        """Test that null bytes in chat_ref are rejected."""
+        malicious_input = "@user\x00malicious"
+        with pytest.raises(ParseError, match="null byte"):
+            parse_text(malicious_input)
+
+    def test_newline_in_csv_field_rejected(self):
+        """Test that newlines inside CSV quoted fields are rejected."""
+        # CSV with newline inside a quoted field - this gets parsed as a single value
+        csv_with_embedded_newline = 'username\n"@user\nmalicious"'
+        with pytest.raises(ParseError, match="newline"):
+            parse_csv(csv_with_embedded_newline)
+
+    def test_carriage_return_rejected(self):
+        """Test that carriage returns in chat_ref are rejected."""
+        with pytest.raises(ParseError, match="newline"):
+            _classify_entry("@user\rname")
+
+    def test_tab_character_rejected(self):
+        """Test that tab characters in chat_ref are rejected."""
+        with pytest.raises(ParseError, match="tab character"):
+            _classify_entry("@user\tname")
+
+    def test_control_characters_rejected(self):
+        """Test that other control characters are rejected."""
+        # \x01 is SOH (Start of Heading), a control character
+        with pytest.raises(ParseError, match="control characters"):
+            _classify_entry("@user\x01name")
+
+    def test_valid_telegram_url_with_slash_accepted(self):
+        """Test that valid Telegram URLs with slashes are accepted."""
+        valid_urls = [
+            "https://t.me/channel",
+            "http://t.me/channel",
+            "t.me/channel",
+            "https://telegram.me/channel",
+        ]
+        for url in valid_urls:
+            entry = _classify_entry(url)
+            assert entry is not None
+            assert entry.entry_type == ChatListEntryType.LINK
+
+    def test_valid_usernames_still_work(self):
+        """Test that valid usernames still work after security validation."""
+        valid_usernames = [
+            "@channel_name",
+            "@test123",
+            "channel",
+            "@a_b_c",
+        ]
+        for username in valid_usernames:
+            entry = _classify_entry(username)
+            assert entry is not None
+
+    def test_valid_numeric_ids_still_work(self):
+        """Test that valid numeric IDs still work after security validation."""
+        valid_ids = [
+            "-1001234567890",
+            "123456",
+            "-100",
+        ]
+        for chat_id in valid_ids:
+            entry = _classify_entry(chat_id)
+            assert entry is not None
+            assert entry.entry_type == ChatListEntryType.ID
+
+    def test_direct_classify_with_newline_rejected(self):
+        """Test that _classify_entry rejects values with embedded newlines."""
+        # Direct call to _classify_entry with embedded newline
+        with pytest.raises(ParseError, match="newline"):
+            _classify_entry("@user\nname")
+
+    def test_unicode_usernames_still_work(self):
+        """Test that valid unicode usernames work after security validation."""
+        result = parse_text("@пользователь\n@用户")
+        assert len(result) == 2
+
+    def test_clear_error_message_for_null_byte(self):
+        """Test that error messages are clear and helpful."""
+        malicious_input = "@test\x00"
+        try:
+            parse_text(malicious_input)
+            pytest.fail("Expected ParseError")
+        except ParseError as e:
+            error_msg = str(e)
+            assert "null byte" in error_msg.lower()
+            # Error should show the problematic value (truncated)
+            assert "@test" in error_msg or repr("@test\x00") in error_msg
