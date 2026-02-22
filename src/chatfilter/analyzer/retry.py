@@ -227,14 +227,14 @@ async def try_with_retry(
                 break  # Move to next account
 
             except Exception as e:
-                # Check if this is a network error (should propagate for graceful handling)
+                # Check if this is a network error
                 if detect_network_error(e):
-                    # Network error: propagate to allow graceful handling
+                    # Network error: try next account (don't propagate)
                     logger.warning(
                         f"Account '{account_id}' on '{chat_ref}': network error: {e}. "
-                        f"Propagating for graceful handling."
+                        f"Trying next account."
                     )
-                    raise  # Propagate network errors
+                    break  # Move to next account
                 else:
                     # Unknown error — do not retry with this account
                     logger.error(
