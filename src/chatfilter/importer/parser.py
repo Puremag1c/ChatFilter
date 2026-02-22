@@ -59,6 +59,40 @@ TELEGRAM_LINK_PATTERN = re.compile(
 USERNAME_PATTERN = re.compile(r"^@?([a-zA-Z][a-zA-Z0-9_]{3,31})$")
 NUMERIC_ID_PATTERN = re.compile(r"^-?\d+$")
 
+# Dangerous characters that could break CSV, SSE, or DB operations
+# Control chars: \x00 (null), \x01-\x1f (control), \x7f-\x9f (extended control)
+# Notably includes: \n (0x0a), \r (0x0d), \t (0x09)
+DANGEROUS_CHARS_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def _validate_chat_ref_safety(value: str) -> None:
+    """Validate that chat_ref doesn't contain dangerous characters.
+
+    Args:
+        value: Chat reference string to validate.
+
+    Raises:
+        ParseError: If the value contains dangerous characters.
+    """
+    # Check for control characters (null bytes, newlines, etc.)
+    if DANGEROUS_CHARS_PATTERN.search(value):
+        # Identify specific issue for better error message
+        if "\x00" in value:
+            raise ParseError(f"Invalid chat reference: contains null byte: {value[:50]!r}")
+        elif "\n" in value or "\r" in value:
+            raise ParseError(f"Invalid chat reference: contains newline: {value[:50]!r}")
+        elif "\t" in value:
+            raise ParseError(f"Invalid chat reference: contains tab character: {value[:50]!r}")
+        else:
+            # Other control characters
+            raise ParseError(f"Invalid chat reference: contains control characters: {value[:50]!r}")
+
+    # Must be valid UTF-8
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as e:
+        raise ParseError(f"Invalid chat reference: invalid UTF-8 encoding: {value[:50]!r}") from e
+
 
 def _classify_entry(raw: str) -> ChatListEntry | None:
     """Classify a single entry and create ChatListEntry.
@@ -68,12 +102,19 @@ def _classify_entry(raw: str) -> ChatListEntry | None:
 
     Returns:
         ChatListEntry if valid, None if the line should be skipped.
+
+    Raises:
+        ParseError: If the value contains dangerous characters.
     """
     value = raw.strip()
 
     # Skip empty lines and comments
     if not value or value.startswith("#"):
         return None
+
+    # Validate for dangerous characters BEFORE processing
+    # This will raise ParseError if invalid, stopping the entire import
+    _validate_chat_ref_safety(value)
 
     # Check for Telegram link
     link_match = TELEGRAM_LINK_PATTERN.match(value)
