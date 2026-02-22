@@ -107,7 +107,6 @@ async def collect_sse_init_event(
 @pytest.mark.asyncio
 async def test_sse_reconnect_init_event_contains_db_state(
     mock_service,
-    mock_engine,
     mock_request,
     mock_db,
 ) -> None:
@@ -130,13 +129,10 @@ async def test_sse_reconnect_init_event_contains_db_state(
     expected_processed = 7
     expected_total = 10
 
-    # Patch service and engine getters
+    # Patch service getter (engine not used by _generate_group_sse_events)
     with patch(
-        "chatfilter.web.routers.groups._get_group_service",
+        "chatfilter.web.routers.groups.progress._get_group_service",
         return_value=mock_service,
-    ), patch(
-        "chatfilter.web.routers.groups._get_group_engine",
-        return_value=mock_engine,
     ):
         # === FIRST CONNECTION ===
         generator_1 = _generate_group_sse_events(group_id, mock_request)
@@ -190,7 +186,6 @@ async def test_sse_reconnect_init_event_contains_db_state(
 @pytest.mark.asyncio
 async def test_sse_reconnect_after_disconnect_mid_stream(
     mock_service,
-    mock_engine,
     mock_db,
 ) -> None:
     """SSE reconnection after disconnect mid-stream should recover state.
@@ -218,13 +213,10 @@ async def test_sse_reconnect_after_disconnect_mid_stream(
 
     request_1.is_disconnected = is_disconnected_1
 
-    # Patch service and engine getters
+    # Patch service getter (engine not used by _generate_group_sse_events)
     with patch(
-        "chatfilter.web.routers.groups._get_group_service",
+        "chatfilter.web.routers.groups.progress._get_group_service",
         return_value=mock_service,
-    ), patch(
-        "chatfilter.web.routers.groups._get_group_engine",
-        return_value=mock_engine,
     ):
         generator_1 = _generate_group_sse_events(group_id, request_1)
 

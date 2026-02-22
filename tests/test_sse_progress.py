@@ -33,7 +33,7 @@ class TestSSEProgressEndpoint:
     @pytest.fixture
     def mock_group_service(self):
         """Mock GroupService for isolated testing."""
-        with patch("chatfilter.web.routers.groups._get_group_service") as mock:
+        with patch("chatfilter.web.routers.groups.progress._get_group_service") as mock:
             service = MagicMock()
 
             # Create a mock group with IN_PROGRESS status
@@ -74,7 +74,7 @@ class TestSSEProgressEndpoint:
     @pytest.fixture
     def mock_progress_tracker(self):
         """Mock ProgressTracker for isolated testing."""
-        with patch("chatfilter.web.routers.groups._get_progress_tracker") as mock:
+        with patch("chatfilter.web.routers.groups.progress._get_progress_tracker") as mock:
             tracker = MagicMock()
 
             def mock_subscribe(group_id: str):
@@ -311,11 +311,11 @@ class TestSharedProgressTracker:
 
     def test_engine_receives_shared_tracker(self):
         """Engine created by _get_group_engine must use same tracker as _get_progress_tracker."""
-        import chatfilter.web.routers.groups as groups_mod
+        import chatfilter.web.routers.groups.helpers as helpers_mod
 
         # Reset singletons
-        groups_mod._group_engine = None
-        groups_mod._progress_tracker = None
+        helpers_mod._group_engine = None
+        helpers_mod._progress_tracker = None
 
         try:
             # Mock dependencies
@@ -326,10 +326,10 @@ class TestSharedProgressTracker:
             mock_request = MagicMock()
             mock_request.app.state.app_state.session_manager = MagicMock()
 
-            with patch.object(groups_mod, "_get_group_service", return_value=mock_service):
+            with patch.object(helpers_mod, "_get_group_service", return_value=mock_service):
                 # Create engine via router (triggers _get_progress_tracker internally)
-                engine = groups_mod._get_group_engine(mock_request)
-                tracker = groups_mod._get_progress_tracker()
+                engine = helpers_mod._get_group_engine(mock_request)
+                tracker = helpers_mod._get_progress_tracker()
 
                 # The engine's _progress must be the SAME object as the router's tracker
                 assert engine._progress is tracker, (
@@ -338,5 +338,5 @@ class TestSharedProgressTracker:
                 )
         finally:
             # Cleanup singletons
-            groups_mod._group_engine = None
-            groups_mod._progress_tracker = None
+            helpers_mod._group_engine = None
+            helpers_mod._progress_tracker = None

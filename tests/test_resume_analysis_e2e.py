@@ -109,7 +109,7 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
     # Mock _get_group_service
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
+    with patch("chatfilter.web.routers.groups.analysis._get_group_service", return_value=service):
 
         # Call resume endpoint
         response = await resume_group_analysis(mock_request, group_id)
@@ -163,7 +163,7 @@ async def test_resume_non_paused_group_returns_400(tmp_path: Path) -> None:
 
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
+    with patch("chatfilter.web.routers.groups.analysis._get_group_service", return_value=service):
         response = await resume_group_analysis(mock_request, group_id)
 
         # Verify 400 error
@@ -207,7 +207,7 @@ async def test_resume_empty_group_returns_400(tmp_path: Path) -> None:
 
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
+    with patch("chatfilter.web.routers.groups.analysis._get_group_service", return_value=service):
         response = await resume_group_analysis(mock_request, group_id)
 
         # Verify 400 error (no chats to analyze)
@@ -265,7 +265,7 @@ async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
 
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
+    with patch("chatfilter.web.routers.groups.analysis._get_group_service", return_value=service):
 
         # First request succeeds
         response1 = await resume_group_analysis(mock_request, group_id)
@@ -297,7 +297,7 @@ async def test_resume_nonexistent_group_returns_404(tmp_path: Path) -> None:
 
     from unittest.mock import patch
 
-    with patch("chatfilter.web.routers.groups._get_group_service", return_value=service):
+    with patch("chatfilter.web.routers.groups.analysis._get_group_service", return_value=service):
         response = await resume_group_analysis(mock_request, "nonexistent-id")
 
         # Verify 404 error

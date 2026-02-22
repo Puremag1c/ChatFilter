@@ -960,7 +960,7 @@ class TestRouterUsesNewServiceAPI:
             }
         ]
 
-        with patch("chatfilter.web.routers.groups._get_group_service", return_value=mock_service):
+        with patch("chatfilter.web.routers.groups.export._get_group_service", return_value=mock_service):
             response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/csv; charset=utf-8"

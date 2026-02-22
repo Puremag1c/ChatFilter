@@ -23,7 +23,7 @@ class TestSSECrossTab:
     @pytest.fixture
     def mock_group_service(self):
         """Mock GroupService for isolated testing."""
-        with patch("chatfilter.web.routers.groups._get_group_service") as mock:
+        with patch("chatfilter.web.routers.groups.progress._get_group_service") as mock:
             service = MagicMock()
 
             # Create a mock group with IN_PROGRESS status
@@ -52,7 +52,7 @@ class TestSSECrossTab:
     @pytest.fixture
     def mock_progress_tracker(self):
         """Mock ProgressTracker that simulates real pub/sub."""
-        with patch("chatfilter.web.routers.groups._get_progress_tracker") as mock:
+        with patch("chatfilter.web.routers.groups.progress._get_progress_tracker") as mock:
             from chatfilter.analyzer.progress import ProgressTracker
 
             # Use REAL ProgressTracker to test pub/sub behavior
