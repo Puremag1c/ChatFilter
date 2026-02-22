@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-02-22
+
+### Fixed
+- Fix integration/test_group_analysis.py: adapt 16 tests to new schema
+- Fix pytest config: add pythonpath=[src] for src-layout
+- Fix test_group_database.py: remove group_results references, use new columns
+- Fix test_reanalysis.py: adapt to new schema (metrics as columns)
+- SMOKE: [Backend] 25 tests fail due to database schema mismatch (group_results removed)
+- SMOKE: [Backend] 3 test files cannot load due to missing imports (_ResolvedChat, CAPTCHA_BOTS)
+- SMOKE: [Backend] Group status computation not implemented — 8 test failures
+- SMOKE: [Backend] group_tasks table not tested
+- SMOKE: [Backend] Migration v5 not tested — risk of data loss
+- SMOKE: [Backend] New data model (metrics as columns) not validated
+- SMOKE: [Must Have] Progress bar counts only DONE, ignores ERROR chats
+
 ## [0.11.0] - 2026-02-21
 
 ### Added

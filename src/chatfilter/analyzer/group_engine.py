@@ -52,11 +52,16 @@ class GroupAnalysisEngine:
     Single-pass: each chat transitions Pending → Done/Error once.
     """
 
-    def __init__(self, db: GroupDatabase, session_manager: SessionManager) -> None:
+    def __init__(
+        self,
+        db: GroupDatabase,
+        session_manager: SessionManager,
+        progress: ProgressTracker | None = None,
+    ) -> None:
         self._db = db
         self._session_mgr = session_manager
         self._active_tasks: dict[str, list[asyncio.Task]] = {}
-        self._progress = ProgressTracker(db)
+        self._progress = progress if progress is not None else ProgressTracker(db)
 
     # -- Startup recovery --------------------------------------------------
 

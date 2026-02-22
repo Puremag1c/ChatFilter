@@ -304,3 +304,39 @@ class TestSSEProgressEndpoint:
                             pass
 
         assert valid_events > 0, "No valid SSE events found in stream"
+
+
+class TestSharedProgressTracker:
+    """Verify that router injects shared ProgressTracker into GroupAnalysisEngine."""
+
+    def test_engine_receives_shared_tracker(self):
+        """Engine created by _get_group_engine must use same tracker as _get_progress_tracker."""
+        import chatfilter.web.routers.groups as groups_mod
+
+        # Reset singletons
+        groups_mod._group_engine = None
+        groups_mod._progress_tracker = None
+
+        try:
+            # Mock dependencies
+            mock_service = MagicMock()
+            mock_db = MagicMock()
+            mock_service._db = mock_db
+
+            mock_request = MagicMock()
+            mock_request.app.state.app_state.session_manager = MagicMock()
+
+            with patch.object(groups_mod, "_get_group_service", return_value=mock_service):
+                # Create engine via router (triggers _get_progress_tracker internally)
+                engine = groups_mod._get_group_engine(mock_request)
+                tracker = groups_mod._get_progress_tracker()
+
+                # The engine's _progress must be the SAME object as the router's tracker
+                assert engine._progress is tracker, (
+                    "Engine and SSE endpoint use different ProgressTracker instances! "
+                    "SSE events from engine won't reach subscribers."
+                )
+        finally:
+            # Cleanup singletons
+            groups_mod._group_engine = None
+            groups_mod._progress_tracker = None

@@ -309,10 +309,11 @@ def _get_group_engine(request: Request) -> GroupAnalysisEngine:
     service = _get_group_service()
     db = service._db
 
-    # Create and cache engine
+    # Create and cache engine — inject shared ProgressTracker
     _group_engine = GroupAnalysisEngine(
         db=db,
         session_manager=session_manager,
+        progress=_get_progress_tracker(),
     )
 
     return _group_engine
