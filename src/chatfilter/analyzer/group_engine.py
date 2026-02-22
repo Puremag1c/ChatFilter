@@ -74,7 +74,15 @@ class GroupAnalysisEngine:
             task = self._db.get_active_task(gid)
             if task:
                 self._db.cancel_task(task["id"])
-            # Status is computed from chat statuses, no manual update needed
+            # Set PAUSED status for crashed groups (can be resumed)
+            self._db.save_group(
+                group_id=gid,
+                name=group["name"],
+                settings=group["settings"],
+                status=GroupStatus.PAUSED.value,
+                created_at=group["created_at"],
+                updated_at=datetime.now(UTC),
+            )
             logger.info(f"Recovered stale group '{group['name']}' ({gid}) → paused")
 
     # -- INCREMENT check ---------------------------------------------------

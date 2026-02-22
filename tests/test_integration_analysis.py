@@ -165,9 +165,9 @@ class TestFullAnalysisFlow:
         for chat in all_chats:
             assert chat["status"] == GroupChatStatus.DONE.value, f"Chat {chat['chat_ref']} not done"
 
-        # Group status should be COMPLETED
-        group = db.load_group(group_id)
-        assert group["status"] == GroupStatus.COMPLETED.value
+        # Group status should be COMPLETED (computed from all DONE)
+        computed_status = db.compute_group_status(group_id)
+        assert computed_status == GroupStatus.COMPLETED.value
 
         # Progress should be monotonically non-decreasing
         for i in range(1, len(progress_values)):
@@ -212,16 +212,13 @@ class TestStopResumeFlow:
         ):
             await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
 
-        # Manually set to PAUSED (simulating what stop_analysis does
-        # since the CancelledError propagated but finalize may have run)
-        engine._set_group_status(group_id, GroupStatus.PAUSED.value)
-
         # Mark remaining PENDING chats as having errors (simulating stop mid-flight)
         for chat in db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value):
             db.update_chat_status(chat["id"], GroupChatStatus.ERROR.value, error="Cancelled")
 
-        group = db.load_group(group_id)
-        assert group["status"] == GroupStatus.PAUSED.value
+        # Status is computed: with 2 DONE + 3 ERROR = all processed → COMPLETED
+        computed_status = db.compute_group_status(group_id)
+        assert computed_status == GroupStatus.COMPLETED.value
 
         # Some chats done, some error
         done_chats = db.load_chats(group_id=group_id, status=GroupChatStatus.DONE.value)
@@ -252,8 +249,8 @@ class TestStopResumeFlow:
         assert len(done_or_error) == 5, f"Expected 5 done/error, got {len(done_or_error)}"
 
         # Group should be COMPLETED or FAILED (all processed)
-        group_after = db.load_group(group_id)
-        assert group_after["status"] in (
+        computed_status = db.compute_group_status(group_id)
+        assert computed_status in (
             GroupStatus.COMPLETED.value, GroupStatus.FAILED.value
         )
 
@@ -432,9 +429,9 @@ class TestDeadChat:
         assert len(alive_chats) == 1
         assert alive_chats[0]["status"] == GroupChatStatus.DONE.value
 
-        # Group should be COMPLETED (done + error = total)
-        group = db.load_group(group_id)
-        assert group["status"] == GroupStatus.COMPLETED.value
+        # Group should be COMPLETED (done + error = total, computed)
+        computed_status = db.compute_group_status(group_id)
+        assert computed_status == GroupStatus.COMPLETED.value
 
 
 # ---------------------------------------------------------------------------
@@ -533,9 +530,9 @@ class TestAllAccountsBanned:
         for c in all_chats:
             assert c["status"] == GroupChatStatus.ERROR.value
 
-        # Group should be FAILED
-        group = db.load_group(group_id)
-        assert group["status"] == GroupStatus.FAILED.value
+        # Group should be FAILED (all error, computed)
+        computed_status = db.compute_group_status(group_id)
+        assert computed_status == GroupStatus.FAILED.value
 
 
 # ---------------------------------------------------------------------------
@@ -691,8 +688,9 @@ class TestServiceLayer:
         ):
             await svc.start_analysis(group_id)
 
-        group = db.load_group(group_id)
-        assert group["status"] == GroupStatus.COMPLETED.value
+        # Status is computed from chat statuses
+        computed_status = db.compute_group_status(group_id)
+        assert computed_status == GroupStatus.COMPLETED.value
 
     def test_service_get_results_returns_flat_dicts(self, db: GroupDatabase) -> None:
         """service.get_results() returns flat dicts with metrics from group_chats."""
@@ -750,6 +748,7 @@ class TestCrashRecovery:
         engine = GroupAnalysisEngine(db=db, session_manager=session_manager)
         engine.recover_stale_analysis()
 
+        # recover_stale_analysis now explicitly sets PAUSED (not computed)
         group = db.load_group(group_id)
         assert group["status"] == GroupStatus.PAUSED.value
 

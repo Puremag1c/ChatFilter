@@ -151,14 +151,20 @@ class GroupService:
         if settings_dict is None or not isinstance(settings_dict, dict):
             settings_dict = {}
 
-        # Compute status from chat statuses (not from stored value)
-        computed_status = compute_group_status(self._db, group_id)
+        # Status priority: PAUSED (manual) takes precedence over computed status
+        # PAUSED is an explicit user action (stop button) that persists until resume
+        db_status = group_data["status"]
+        if db_status == GroupStatus.PAUSED.value:
+            final_status = GroupStatus.PAUSED.value
+        else:
+            # Compute status from chat statuses (pending/done/error)
+            final_status = compute_group_status(self._db, group_id)
 
         return ChatGroup(
             id=group_data["id"],
             name=group_data["name"],
             settings=GroupSettings.from_dict(settings_dict),
-            status=GroupStatus(computed_status),
+            status=GroupStatus(final_status),
             chat_count=chat_count,
             created_at=group_data["created_at"],
             updated_at=group_data["updated_at"],
@@ -185,15 +191,20 @@ class GroupService:
             if settings_dict is None or not isinstance(settings_dict, dict):
                 settings_dict = {}
 
-            # Compute status from chat statuses (not from stored value)
-            computed_status = compute_group_status(self._db, group_data["id"])
+            # Status priority: PAUSED (manual) takes precedence over computed status
+            db_status = group_data["status"]
+            if db_status == GroupStatus.PAUSED.value:
+                final_status = GroupStatus.PAUSED.value
+            else:
+                # Compute status from chat statuses (pending/done/error)
+                final_status = compute_group_status(self._db, group_data["id"])
 
             groups.append(
                 ChatGroup(
                     id=group_data["id"],
                     name=group_data["name"],
                     settings=GroupSettings.from_dict(settings_dict),
-                    status=GroupStatus(computed_status),
+                    status=GroupStatus(final_status),
                     chat_count=group_data["chat_count"],
                     created_at=group_data["created_at"],
                     updated_at=group_data["updated_at"],
@@ -374,12 +385,24 @@ class GroupService:
         if not group_data:
             raise ValueError(f"Group not found: {group_id}")
 
+        # Clear PAUSED status if present (resume → in_progress)
+        # Status will be computed from chat statuses during analysis
+        if group_data["status"] == GroupStatus.PAUSED.value:
+            self._db.save_group(
+                group_id=group_id,
+                name=group_data["name"],
+                settings=group_data["settings"],
+                status=GroupStatus.PENDING.value,  # Will compute to IN_PROGRESS once analysis starts
+                created_at=group_data["created_at"],
+                updated_at=datetime.now(UTC),
+            )
+
         await self._engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
 
     def stop_analysis(self, group_id: str) -> None:
         """Stop ongoing analysis.
 
-        Cancels active task and delegates to engine.
+        Cancels active task, delegates to engine, and sets status to PAUSED.
 
         Args:
             group_id: Group identifier.
@@ -391,6 +414,10 @@ class GroupService:
             raise ValueError("GroupAnalysisEngine not configured")
 
         self._engine.stop_analysis(group_id)
+
+        # Set explicit PAUSED status (user action, not computed)
+        # This persists until resume clears it
+        self.update_status(group_id, GroupStatus.PAUSED)
 
     async def reanalyze(self, group_id: str, mode: AnalysisMode) -> None:
         """Reanalyze group with specified mode.

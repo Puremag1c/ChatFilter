@@ -93,9 +93,7 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
 
     async def mock_start_analysis(group_id_arg: str, **kwargs) -> None:
         """Record which chats would be analyzed."""
-        # Simulate engine behavior: change status to IN_PROGRESS
-        service.update_status(group_id_arg, GroupStatus.IN_PROGRESS)
-
+        # Status will be computed from chat statuses (no manual update after refactor)
         chats = db.load_chats(group_id_arg)
         for chat in chats:
             if chat["status"] in (GroupChatStatus.PENDING.value, GroupChatStatus.ERROR.value):
@@ -220,7 +218,7 @@ async def test_resume_empty_group_returns_400(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
     """Test that concurrent resume requests return 409 (idempotency via atomic update)."""
-    from chatfilter.models.group import GroupStatus
+    from chatfilter.models.group import GroupChatStatus, GroupStatus
     from chatfilter.service.group_service import GroupService
     from chatfilter.storage.group_database import GroupDatabase
     from chatfilter.web.routers.groups import resume_group_analysis
@@ -229,8 +227,14 @@ async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
     db = GroupDatabase(tmp_path / "groups.db")
     service = GroupService(db)
 
-    group = service.create_group("Test Group", ["@chat1"])
+    # Create group with mixed chats (so computed status = IN_PROGRESS after resume)
+    group = service.create_group("Test Group", ["@chat1", "@chat2"])
     group_id = group.id
+
+    # Mark one chat as DONE (creates mixed state → computed IN_PROGRESS)
+    chats = db.load_chats(group_id)
+    db.update_chat_status(chats[0]["id"], GroupChatStatus.DONE.value)
+
     service.update_status(group_id, GroupStatus.PAUSED)
 
     # Mock request with session manager
@@ -250,8 +254,8 @@ async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
     mock_engine = MagicMock()
 
     async def slow_analysis(group_id_arg: str, **kwargs) -> None:
-        # Simulate engine behavior: change status to IN_PROGRESS
-        service.update_status(group_id_arg, GroupStatus.IN_PROGRESS)
+        # Simulate engine behavior: status will be computed from chat statuses
+        # (no manual status update after refactor)
         await asyncio.sleep(0.5)
 
     mock_engine.start_analysis = AsyncMock(side_effect=slow_analysis)
