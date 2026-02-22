@@ -173,10 +173,24 @@ def to_csv_rows_dynamic(
                 row.append("")
         if settings is None or settings.detect_moderation:
             moderation = metrics.get("moderation")
-            row.append("yes" if moderation is True else "no" if moderation is False else "")
+            # Handle both bool (True/False) and int (1/0) from SQLite
+            # Use truthiness check: 1/True are truthy, 0/False are falsy, None is None
+            if moderation is None:
+                row.append("")
+            elif moderation:  # 1 or True
+                row.append("yes")
+            else:  # 0 or False
+                row.append("no")
         if settings is None or settings.detect_captcha:
             captcha = metrics.get("captcha")
-            row.append("yes" if captcha is True else "no" if captcha is False else "")
+            # Handle both bool (True/False) and int (1/0) from SQLite
+            # Use truthiness check: 1/True are truthy, 0/False are falsy, None is None
+            if captcha is None:
+                row.append("")
+            elif captcha:  # 1 or True
+                row.append("yes")
+            else:  # 0 or False
+                row.append("no")
 
         # Always include status
         row.append(metrics.get("status", ""))

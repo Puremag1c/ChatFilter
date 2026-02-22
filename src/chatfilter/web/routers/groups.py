@@ -917,16 +917,20 @@ def _apply_export_filters(
 
         if moderation != "all":
             mod_value = result.get("moderation")
-            if moderation == "yes" and mod_value is not True:
+            # Handle both bool (True/False) and int (1/0) from SQLite
+            # Use truthiness: 1/True are truthy, 0/False are falsy
+            if moderation == "yes" and not mod_value:
                 continue
-            if moderation == "no" and mod_value is not False:
+            if moderation == "no" and mod_value:
                 continue
 
         if captcha != "all":
             captcha_value = result.get("captcha")
-            if captcha == "yes" and captcha_value is not True:
+            # Handle both bool (True/False) and int (1/0) from SQLite
+            # Use truthiness: 1/True are truthy, 0/False are falsy
+            if captcha == "yes" and not captcha_value:
                 continue
-            if captcha == "no" and captcha_value is not False:
+            if captcha == "no" and captcha_value:
                 continue
 
         filtered.append(result)
