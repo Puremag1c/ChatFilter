@@ -92,7 +92,7 @@ async def start_group_analysis(
 async def reanalyze_group(
     request: Request,
     group_id: str,
-    mode: str = Query(..., regex="^(increment|overwrite)$"),
+    mode: str = Query(..., pattern="^(increment|overwrite)$"),
 ) -> HTMLResponse:
     """Re-analyze a completed group with specified mode.
 
