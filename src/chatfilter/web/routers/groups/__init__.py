@@ -49,6 +49,13 @@ from .export import (
 )
 from .progress import (
     _generate_group_sse_events,
+    get_group_progress,
+)
+from .analysis import (
+    start_group_analysis,
+    stop_group_analysis,
+    reanalyze_group,
+    resume_group_analysis,
 )
 
 __all__ = [
@@ -67,4 +74,9 @@ __all__ = [
     "_apply_export_filters",
     "_convert_results_for_exporter",
     "_generate_group_sse_events",
+    "get_group_progress",
+    "start_group_analysis",
+    "stop_group_analysis",
+    "reanalyze_group",
+    "resume_group_analysis",
 ]
