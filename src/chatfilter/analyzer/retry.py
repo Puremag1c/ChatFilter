@@ -15,6 +15,8 @@ from typing import Any, Awaitable, Callable, TypeVar
 
 from telethon import errors
 
+from chatfilter.utils.network import detect_network_error
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -225,13 +227,22 @@ async def try_with_retry(
                 break  # Move to next account
 
             except Exception as e:
-                # Unknown error — do not retry with this account
-                logger.error(
-                    f"Account '{account_id}' on '{chat_ref}': unexpected error: {e}. "
-                    f"Trying next account.",
-                    exc_info=True,
-                )
-                break  # Move to next account
+                # Check if this is a network error (should propagate for graceful handling)
+                if detect_network_error(e):
+                    # Network error: propagate to allow graceful handling
+                    logger.warning(
+                        f"Account '{account_id}' on '{chat_ref}': network error: {e}. "
+                        f"Propagating for graceful handling."
+                    )
+                    raise  # Propagate network errors
+                else:
+                    # Unknown error — do not retry with this account
+                    logger.error(
+                        f"Account '{account_id}' on '{chat_ref}': unexpected error: {e}. "
+                        f"Trying next account.",
+                        exc_info=True,
+                    )
+                    break  # Move to next account
 
     # All accounts exhausted
     error_msg = f"All {len(tried_accounts)} accounts exhausted for '{chat_ref}'"

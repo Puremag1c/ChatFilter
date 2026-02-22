@@ -25,6 +25,7 @@ from chatfilter.models.group import (
 )
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.utils.network import detect_network_error
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
@@ -225,13 +226,23 @@ class GroupAnalysisEngine:
             logger.info(f"Account '{account_id}' cancelled for '{group_id}'")
             raise
         except Exception as e:
-            logger.error(f"Account '{account_id}' worker error: {e}", exc_info=True)
-            for chat in self._db.load_chats(
-                group_id=group_id, assigned_account=account_id,
-                status=GroupChatStatus.PENDING.value,
-            ):
-                self._save_chat_error(chat["id"], f"Account error: {e}")
-                self._progress.publish_from_db(group_id, chat["chat_ref"], error=str(e))
+            # Distinguish network errors from actual failures
+            if detect_network_error(e):
+                # Network error: leave chats PENDING for retry on resume
+                logger.warning(
+                    f"Account '{account_id}' network error for '{group_id}': {e}. "
+                    f"Pending chats will remain pending for retry on resume."
+                )
+                # Don't mark chats as error — they stay PENDING
+            else:
+                # Actual error: mark remaining chats as failed
+                logger.error(f"Account '{account_id}' worker error: {e}", exc_info=True)
+                for chat in self._db.load_chats(
+                    group_id=group_id, assigned_account=account_id,
+                    status=GroupChatStatus.PENDING.value,
+                ):
+                    self._save_chat_error(chat["id"], f"Account error: {e}")
+                    self._progress.publish_from_db(group_id, chat["chat_ref"], error=str(e))
 
     async def _process_single_chat(
         self, group_id: str, chat: dict, client: TelegramClient,
