@@ -132,10 +132,10 @@ async def test_sse_reconnect_init_event_contains_db_state(
 
     # Patch service and engine getters
     with patch(
-        "chatfilter.web.routers.groups._get_group_service",
+        "chatfilter.web.routers.groups.progress._get_group_service",
         return_value=mock_service,
     ), patch(
-        "chatfilter.web.routers.groups._get_group_engine",
+        "chatfilter.web.routers.groups.helpers._get_group_engine",
         return_value=mock_engine,
     ):
         # === FIRST CONNECTION ===
@@ -220,10 +220,10 @@ async def test_sse_reconnect_after_disconnect_mid_stream(
 
     # Patch service and engine getters
     with patch(
-        "chatfilter.web.routers.groups._get_group_service",
+        "chatfilter.web.routers.groups.progress._get_group_service",
         return_value=mock_service,
     ), patch(
-        "chatfilter.web.routers.groups._get_group_engine",
+        "chatfilter.web.routers.groups.helpers._get_group_engine",
         return_value=mock_engine,
     ):
         generator_1 = _generate_group_sse_events(group_id, request_1)
