@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -35,6 +36,7 @@ class GroupProgressEvent:
         error: Error message if failed
         task_id: Optional underlying task_id
         breakdown: Status breakdown {done, error, dead, pending} counts
+        flood_wait_until: FloodWait expiry timestamp (when waiting globally)
     """
 
     group_id: str
@@ -46,6 +48,7 @@ class GroupProgressEvent:
     error: str | None = None
     task_id: UUID | None = None
     breakdown: dict[str, int] | None = None
+    flood_wait_until: datetime | None = None
 
 
 class ProgressTracker:

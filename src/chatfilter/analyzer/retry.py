@@ -119,6 +119,7 @@ async def try_with_retry(
     chat: dict,
     accounts: list[str],
     policy: RetryPolicy | None = None,
+    progress_callback: Callable[[float], Awaitable[None]] | None = None,
 ) -> RetryResult:
     """Execute function with retry logic for FloodWait and account reassignment.
 
@@ -135,6 +136,7 @@ async def try_with_retry(
         chat: Chat dictionary containing at least {"id": str, "chat_ref": str}.
         accounts: List of account IDs to try in order.
         policy: Retry policy (uses defaults if None).
+        progress_callback: Optional callback for FloodWait updates. Called with expiry timestamp.
 
     Returns:
         RetryResult with success status, value/error, and account info.
@@ -291,6 +293,10 @@ async def try_with_retry(
                 f"All accounts rate-limited for '{chat_ref}', waiting {int(wait_duration)}s before retry "
                 f"(global retry {global_retry_count}/{policy.max_global_retries})..."
             )
+
+            # Notify progress tracker about FloodWait
+            if progress_callback:
+                await progress_callback(expiry_time)
 
             await asyncio.sleep(wait_duration)
 

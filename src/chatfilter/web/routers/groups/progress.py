@@ -131,6 +131,9 @@ async def _generate_group_sse_events(
                 # Include status breakdown for live badge updates
                 if event.breakdown:
                     progress_data["breakdown"] = event.breakdown
+                # Include FloodWait expiry timestamp if present
+                if event.flood_wait_until:
+                    progress_data["flood_wait_until"] = event.flood_wait_until.isoformat()
                 yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
 
                 # Send error event if present

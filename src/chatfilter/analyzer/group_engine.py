@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from chatfilter.analyzer.progress import GroupProgressEvent, ProgressTracker
@@ -293,12 +293,42 @@ class GroupAnalysisEngine:
             c = client if acct_id == account_id else await self._session_mgr.connect(acct_id)
             return await process_chat(chat_dict, c, acct_id, settings)
 
+        async def _on_floodwait(expiry_timestamp: float) -> None:
+            """Publish progress event with FloodWait info."""
+            expiry_dt = datetime.fromtimestamp(expiry_timestamp, tz=UTC)
+            processed, total = self._db.count_processed_chats(group_id)
+
+            # Get detailed stats for breakdown
+            stats_dict = self._db.get_group_stats(group_id)
+            by_status = stats_dict.get("by_status", {})
+            by_type = stats_dict.get("by_type", {})
+
+            breakdown = {
+                "done": by_status.get("done", 0),
+                "error": by_status.get("error", 0),
+                "dead": by_type.get("dead", 0),
+                "pending": by_status.get("pending", 0),
+            }
+
+            event = GroupProgressEvent(
+                group_id=group_id,
+                status=GroupStatus.IN_PROGRESS.value,
+                current=processed,
+                total=total,
+                chat_title=chat_ref,
+                message=f"FloodWait: all accounts rate-limited, waiting...",
+                breakdown=breakdown,
+                flood_wait_until=expiry_dt,
+            )
+            self._progress.publish(event)
+
         ordered = [account_id] + [a for a in all_accounts if a != account_id]
         result = await try_with_retry(
             fn=_do_process,
             chat={"id": str(chat["id"]), "chat_ref": chat_ref},
             accounts=ordered,
             policy=RetryPolicy(),
+            progress_callback=_on_floodwait,
         )
 
         if result.success:
