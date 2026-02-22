@@ -66,6 +66,7 @@ def session_manager() -> MagicMock:
     ctx.__aexit__.return_value = None
     mgr.session.return_value = ctx
     mgr.connect = AsyncMock(return_value=mock_client)
+    mgr.disconnect = AsyncMock()
 
     return mgr
 
