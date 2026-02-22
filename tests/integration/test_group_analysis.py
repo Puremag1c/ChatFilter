@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from telethon.errors import FloodWaitError
 
+from chatfilter.analyzer.group_engine import AccountHealthTracker
 from chatfilter.analyzer.retry import RetryPolicy, RetryResult
 from chatfilter.analyzer.worker import ChatResult
 from chatfilter.models.group import AnalysisMode, GroupChatStatus, GroupSettings
@@ -216,6 +217,7 @@ class TestRetryMechanism:
                 settings=GroupSettings(),
                 all_accounts=["test-account"],
                 mode=AnalysisMode.FRESH,
+                health_tracker=AccountHealthTracker(),
             )
 
         # Verify: Chat should be marked as ERROR after retries exhausted
@@ -693,6 +695,7 @@ class TestAllChatsGetResultsGuarantee:
                 settings=settings,
                 all_accounts=["test-account"],
                 mode=AnalysisMode.FRESH,
+                health_tracker=AccountHealthTracker(),
             )
 
         # CRITICAL ASSERTION: ALL 143 chats must have results
@@ -820,6 +823,7 @@ class TestAllChatsGetResultsGuarantee:
                 settings=settings,
                 all_accounts=["test-account"],
                 mode=AnalysisMode.FRESH,
+                health_tracker=AccountHealthTracker(),
             )
 
             # Verify sleep was called for FloodWait
@@ -921,6 +925,7 @@ class TestAllChatsGetResultsGuarantee:
                 settings=settings,
                 all_accounts=["test-account"],
                 mode=AnalysisMode.FRESH,
+                health_tracker=AccountHealthTracker(),
             )
 
         # Verify: Chat marked as ERROR in database
@@ -1040,6 +1045,7 @@ class TestAllChatsGetResultsGuarantee:
                 settings=settings,
                 all_accounts=["account-1", "account-2", "account-3"],
                 mode=AnalysisMode.FRESH,
+                health_tracker=AccountHealthTracker(),
             )
 
         # Collect all SSE events
@@ -1236,6 +1242,7 @@ class TestExceptionRecoveryPaths:
             settings=settings,
             all_accounts=["test-account"],
             mode=AnalysisMode.FRESH,
+            health_tracker=AccountHealthTracker(),
         )
 
         # CRITICAL ASSERTION: ALL 5 chats must be marked as ERROR
@@ -1422,6 +1429,7 @@ class TestExceptionRecoveryPaths:
                 settings=settings,
                 all_accounts=["test-account"],
                 mode=AnalysisMode.FRESH,
+                health_tracker=AccountHealthTracker(),
             )
 
         # CRITICAL ASSERTION: ALL 8 chats must have results
