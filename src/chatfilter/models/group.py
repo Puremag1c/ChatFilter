@@ -15,6 +15,7 @@ class GroupStatus(str, Enum):
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     PAUSED = "paused"
+    WAITING_FOR_ACCOUNTS = "waiting_for_accounts"
     COMPLETED = "completed"
     FAILED = "failed"
 

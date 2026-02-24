@@ -109,13 +109,13 @@ class GroupAnalysisEngine:
     # -- Startup recovery --------------------------------------------------
 
     def recover_stale_analysis(self) -> None:
-        """Reset groups stuck in in_progress after server restart."""
+        """Reset groups stuck in in_progress or waiting_for_accounts after server restart."""
         stale = [
             g for g in self._db.load_all_groups()
-            if g["status"] == GroupStatus.IN_PROGRESS.value
+            if g["status"] in (GroupStatus.IN_PROGRESS.value, GroupStatus.WAITING_FOR_ACCOUNTS.value)
         ]
         if not stale:
-            logger.info("No stale in_progress groups — recovery skipped")
+            logger.info("No stale in_progress/waiting_for_accounts groups — recovery skipped")
             return
         for group in stale:
             gid = group["id"]
@@ -149,6 +149,95 @@ class GroupAnalysisEngine:
             if not metrics or self._chat_needs_reanalysis(metrics, settings):
                 return True
         return False
+
+    # -- FloodWait waiting loop --------------------------------------------
+
+    async def _wait_for_accounts_and_resume(self, group_id: str, settings: GroupSettings) -> None:
+        """Wait for FloodWait to expire and resume analysis automatically.
+
+        This is called when all accounts are blocked by FloodWait and there are
+        still PENDING chats. It will:
+        1. Set group status to WAITING_FOR_ACCOUNTS
+        2. Poll every 30s for available accounts
+        3. Resume analysis with INCREMENT mode when account available
+        4. Publish progress events on each check cycle
+        """
+        flood_tracker = get_flood_tracker()
+
+        while True:
+            # Get earliest available account
+            earliest_expiry = flood_tracker.get_earliest_available()
+            if earliest_expiry is None:
+                # No blocked accounts - check for new accounts
+                accounts = [
+                    s for s in self._session_mgr.list_sessions()
+                    if await self._session_mgr.is_healthy(s)
+                ]
+                if accounts:
+                    logger.info(f"New account available for '{group_id}', resuming analysis")
+                    await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
+                    return
+
+                # No accounts available at all - this shouldn't happen but handle gracefully
+                logger.warning(f"No accounts available for '{group_id}', waiting...")
+                earliest_expiry = datetime.now(UTC).timestamp() + 300  # Wait 5min default
+
+            # Convert timestamp to datetime for SSE event
+            earliest_dt = datetime.fromtimestamp(earliest_expiry, tz=UTC)
+
+            # Publish waiting status with flood_wait_until
+            processed, total = self._db.count_processed_chats(group_id)
+            stats_dict = self._db.get_group_stats(group_id)
+            by_status = stats_dict.get("by_status", {})
+            by_type = stats_dict.get("by_type", {})
+
+            breakdown = {
+                "done": by_status.get("done", 0),
+                "error": by_status.get("error", 0),
+                "dead": by_type.get("dead", 0),
+                "pending": by_status.get("pending", 0),
+            }
+
+            # Update group status to WAITING_FOR_ACCOUNTS
+            group_data = self._db.load_group(group_id)
+            if group_data:
+                self._db.save_group(
+                    group_id=group_id,
+                    name=group_data["name"],
+                    settings=group_data["settings"],
+                    status=GroupStatus.WAITING_FOR_ACCOUNTS.value,
+                    created_at=group_data["created_at"],
+                    updated_at=datetime.now(UTC),
+                )
+
+            event = GroupProgressEvent(
+                group_id=group_id,
+                status=GroupStatus.WAITING_FOR_ACCOUNTS.value,
+                current=processed,
+                total=total,
+                message="Waiting for FloodWait to expire on all accounts...",
+                breakdown=breakdown,
+                flood_wait_until=earliest_dt,
+            )
+            self._progress.publish(event)
+
+            # Wait 30s before checking again
+            await asyncio.sleep(30)
+
+            # Check if FloodWait expired or new accounts available
+            blocked = flood_tracker.get_blocked_accounts()
+            healthy_accounts = [
+                s for s in self._session_mgr.list_sessions()
+                if await self._session_mgr.is_healthy(s)
+                and s not in blocked
+            ]
+
+            if healthy_accounts:
+                logger.info(
+                    f"Account(s) now available for '{group_id}': {healthy_accounts}, resuming analysis"
+                )
+                await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
+                return
 
     # -- Main entry: start_analysis ----------------------------------------
 
@@ -263,6 +352,30 @@ class GroupAnalysisEngine:
             self._active_tasks.pop(group_id, None)
 
         self._db.complete_task(task_id)
+
+        # Check if there are still PENDING chats after all workers complete
+        remaining_pending = self._db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
+        if remaining_pending:
+            logger.info(f"Group '{group_id}': {len(remaining_pending)} chats still PENDING after workers completed")
+
+            # Check if all accounts are blocked by FloodWait
+            flood_tracker = get_flood_tracker()
+            blocked = flood_tracker.get_blocked_accounts()
+            healthy_accounts = [
+                s for s in self._session_mgr.list_sessions()
+                if await self._session_mgr.is_healthy(s)
+                and s not in blocked
+            ]
+
+            if not healthy_accounts:
+                # All accounts blocked - enter waiting loop
+                logger.info(
+                    f"Group '{group_id}': all accounts blocked by FloodWait, "
+                    f"entering waiting loop for {len(remaining_pending)} pending chats"
+                )
+                await self._wait_for_accounts_and_resume(group_id, settings)
+                return
+
         self._finalize_group(group_id)
 
     def _handle_no_pending(self, group_id: str, mode: AnalysisMode) -> list[dict] | None:
