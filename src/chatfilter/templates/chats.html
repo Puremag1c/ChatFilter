@@ -129,6 +129,7 @@
     .status-badge.pending { background-color: #fff3e0; color: #ef6c00; }
     .status-badge.in_progress { background-color: #e3f2fd; color: #1565c0; }
     .status-badge.paused { background-color: #fff9c4; color: #f57f17; }
+    .status-badge.waiting_for_accounts { background-color: #fff3e0; color: #e65100; }
     .status-badge.completed { background-color: #e8f5e9; color: #2e7d32; }
 
     .no-groups {
@@ -254,10 +255,10 @@ document.body.addEventListener('htmx:sseError', function(evt) {
         if (isRefreshing) return;
         isRefreshing = true;
 
-        // BEFORE swap: collect group IDs that are currently in_progress
+        // BEFORE swap: collect group IDs that are currently active (in_progress or waiting_for_accounts)
         var currentInProgress = new Set();
         container.querySelectorAll('.group-card').forEach(function(card) {
-            var statusBadge = card.querySelector('.status-badge.in_progress');
+            var statusBadge = card.querySelector('.status-badge.in_progress') || card.querySelector('.status-badge.waiting_for_accounts');
             if (statusBadge && card.id) {
                 // card.id format: "group-{group_id}"
                 currentInProgress.add(card.id);
@@ -293,8 +294,8 @@ document.body.addEventListener('htmx:sseError', function(evt) {
         // SSE-aware polling: ONLY poll when NO in_progress groups exist
         // SSE handles real-time updates for in_progress groups
         // Polling is ONLY for non-SSE groups (completed/paused/pending)
-        var hasInProgress = container.querySelector('.status-badge.in_progress');
-        if (!hasInProgress) {
+        var hasActive = container.querySelector('.status-badge.in_progress') || container.querySelector('.status-badge.waiting_for_accounts');
+        if (!hasActive) {
             // Fast polling when no SSE connections - check for new groups
             pollTimer = setTimeout(refreshGroups, 3000);
         }

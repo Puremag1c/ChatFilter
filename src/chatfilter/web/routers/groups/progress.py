@@ -92,7 +92,10 @@ async def _generate_unified_sse_events(
 
         # Find all groups with status=in_progress
         all_groups = service.list_groups()
-        active_groups = [g for g in all_groups if g.status == GroupStatus.IN_PROGRESS]
+        active_groups = [
+            g for g in all_groups
+            if g.status in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS)
+        ]
 
         # Track subscriptions for cleanup
         subscriptions: dict[str, asyncio.Queue] = {}

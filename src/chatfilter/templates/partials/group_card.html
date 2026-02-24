@@ -8,9 +8,13 @@
     <h3>{{ group.name }}</h3>
 
     <span class="status-badge {{ group.status.value }}">{{ _(group.status.value) }}</span>
-    {% if group.status.value == 'in_progress' %}
+    {% if group.status.value in ('in_progress', 'waiting_for_accounts') %}
     <div id="stale-warning-{{ group.id }}" class="stale-warning" style="display: none; background: #fff9c4; color: #f57f17; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
         Нет обновлений более 60 секунд. Возможно, анализ завис.
+    </div>
+    <div id="flood-wait-{{ group.id }}" class="flood-wait-info" style="display: none; background: #fff3e0; color: #e65100; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
+        FloodWait до <span id="flood-wait-time-{{ group.id }}">--:--</span>
+        (<span id="flood-wait-countdown-{{ group.id }}">—</span>)
     </div>
     {% endif %}
 
@@ -27,7 +31,7 @@
             <span>{{ _("Error") }}:</span>
             <strong id="error-{{ group.id }}">{{ stats.failed }}</strong>
         </div>
-        {% if group.status.value == 'in_progress' %}
+        {% if group.status.value in ('in_progress', 'waiting_for_accounts') %}
         <div class="stat-row">
             <span>{{ _("Current chat") }}:</span>
             <strong id="current-chat-{{ group.id }}" class="current-chat-title">—</strong>
@@ -147,7 +151,7 @@
     {% endif %}
 </div>
 
-{% if group.status.value == 'in_progress' %}
+{% if group.status.value in ('in_progress', 'waiting_for_accounts') %}
 <script>
 (function() {
     const groupId = '{{ group.id }}';
@@ -157,11 +161,17 @@
     const elapsedEl = document.getElementById('elapsed-' + groupId);
     const progressFillEl = document.getElementById('progress-fill-' + groupId);
     const staleWarningEl = document.getElementById('stale-warning-' + groupId);
+    const floodWaitEl = document.getElementById('flood-wait-' + groupId);
+    const floodWaitTimeEl = document.getElementById('flood-wait-time-' + groupId);
+    const floodWaitCountdownEl = document.getElementById('flood-wait-countdown-' + groupId);
+    const statusBadgeEl = document.querySelector('#group-' + groupId + ' .status-badge');
     const cardEl = document.getElementById('group-' + groupId);
 
     let startTime = Date.now(); // Will be updated from init event
     let elapsedTimer = null;
     let staleCheckTimer = null;
+    let floodWaitTimer = null;
+    let floodWaitTarget = null; // Date object for flood_wait_until
     let lastEventTime = Date.now();
     const STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
 
@@ -170,6 +180,13 @@
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return mins + ':' + (secs < 10 ? '0' : '') + secs;
+    }
+
+    // Format time as HH:MM
+    function formatTime(date) {
+        const h = date.getHours();
+        const m = date.getMinutes();
+        return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
     }
 
     // Update elapsed time every second
@@ -187,6 +204,58 @@
         if (elapsedTimer) {
             clearInterval(elapsedTimer);
             elapsedTimer = null;
+        }
+    }
+
+    // FloodWait countdown timer
+    function startFloodWaitCountdown(untilDate) {
+        floodWaitTarget = untilDate;
+        stopFloodWaitCountdown();
+
+        if (floodWaitTimeEl) {
+            floodWaitTimeEl.textContent = formatTime(untilDate);
+        }
+        if (floodWaitEl) {
+            floodWaitEl.style.display = 'block';
+        }
+
+        floodWaitTimer = setInterval(function() {
+            const remaining = Math.max(0, Math.floor((floodWaitTarget.getTime() - Date.now()) / 1000));
+            if (floodWaitCountdownEl) {
+                if (remaining > 0) {
+                    floodWaitCountdownEl.textContent = formatElapsed(remaining);
+                } else {
+                    floodWaitCountdownEl.textContent = 'скоро...';
+                    stopFloodWaitCountdown();
+                }
+            }
+        }, 1000);
+    }
+
+    function stopFloodWaitCountdown() {
+        if (floodWaitTimer) {
+            clearInterval(floodWaitTimer);
+            floodWaitTimer = null;
+        }
+    }
+
+    function hideFloodWait() {
+        stopFloodWaitCountdown();
+        floodWaitTarget = null;
+        if (floodWaitEl) {
+            floodWaitEl.style.display = 'none';
+        }
+    }
+
+    // Update status badge dynamically
+    function updateStatusBadge(status) {
+        if (!statusBadgeEl) return;
+        // Remove old status classes
+        statusBadgeEl.className = 'status-badge ' + status;
+        if (status === 'waiting_for_accounts') {
+            statusBadgeEl.textContent = 'Ожидание аккаунтов';
+        } else if (status === 'in_progress') {
+            statusBadgeEl.textContent = 'In progress';
         }
     }
 
@@ -267,6 +336,12 @@
                         progressFillEl.style.width = percent + '%';
                     }
                 }
+
+                // Handle flood_wait_until in init event
+                if (data.status === 'waiting_for_accounts' && data.flood_wait_until) {
+                    updateStatusBadge('waiting_for_accounts');
+                    startFloodWaitCountdown(new Date(data.flood_wait_until));
+                }
                 return;
             }
 
@@ -282,6 +357,18 @@
                     if (progressFillEl) {
                         progressFillEl.style.width = percent + '%';
                     }
+                }
+
+                // Handle status transitions
+                if (data.status === 'waiting_for_accounts') {
+                    updateStatusBadge('waiting_for_accounts');
+                    if (data.flood_wait_until) {
+                        startFloodWaitCountdown(new Date(data.flood_wait_until));
+                    }
+                } else if (data.status === 'in_progress') {
+                    // Transitioned back from waiting → in_progress
+                    updateStatusBadge('in_progress');
+                    hideFloodWait();
                 }
 
                 // Update status badges from breakdown
@@ -318,6 +405,7 @@
             if (sseEvent.type === 'complete') {
                 stopElapsedTimer();
                 stopStaleCheckTimer();
+                hideFloodWait();
 
                 // Hide current chat on completion
                 if (currentChatEl) {
@@ -348,6 +436,7 @@
         )) {
             stopElapsedTimer();
             stopStaleCheckTimer();
+            stopFloodWaitCountdown();
             document.body.removeEventListener('htmx:beforeSwap', cleanupOnSwap);
         }
     });
@@ -359,6 +448,7 @@
                 if (node === cardEl || (node.contains && node.contains(cardEl))) {
                     stopElapsedTimer();
                     stopStaleCheckTimer();
+                    stopFloodWaitCountdown();
                     observer.disconnect();
                 }
             });
