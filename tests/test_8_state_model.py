@@ -112,7 +112,14 @@ def test_only_8_states_in_python_code():
 
 
 def test_only_8_states_in_templates():
-    """Verify only 8 allowed states appear in HTML templates."""
+    """Verify only 8 allowed states appear in HTML templates.
+
+    Only match removed states when used as STATE values, not as:
+    - Suffixes: flood_wait_until (data field)
+    - CSS/HTML IDs/classes: flood-wait-*, flood-wait-{{ ... }}
+    - JavaScript variables: floodWaitTarget, floodWaitEl, etc.
+    - Comments
+    """
     project_root = Path(__file__).parent.parent
     templates_dir = project_root / "src" / "chatfilter" / "templates"
 
@@ -126,14 +133,46 @@ def test_only_8_states_in_templates():
         if template_file.is_file():
             try:
                 content = template_file.read_text(encoding="utf-8")
+                lines = content.split("\n")
 
                 # Check for removed states
                 for removed_state in REMOVED_STATES:
-                    if removed_state in content:
-                        # Find all occurrences with line numbers
-                        lines = content.split("\n")
-                        for line_num, line in enumerate(lines, start=1):
-                            if removed_state in line:
+                    # Pattern to match STATE VALUES (not identifiers/fields/comments)
+                    # Match patterns like:
+                    # - status="flood_wait" or status='flood_wait'
+                    # - state="flood_wait" or state='flood_wait'
+                    # - 'flood_wait' in states
+                    # - == 'flood_wait' or == "flood_wait"
+                    # But NOT:
+                    # - flood_wait_until (has underscore suffix)
+                    # - flood-wait-* (hyphenated identifiers)
+                    # - floodWait* (camelCase variables)
+
+                    # Use word boundary and negative lookahead/lookbehind to ensure
+                    # the state is not part of a larger identifier
+                    state_pattern = re.compile(
+                        rf"(?<![a-zA-Z0-9_\-])"  # Not preceded by letter, digit, underscore, or hyphen
+                        rf"{re.escape(removed_state)}"
+                        rf"(?![a-zA-Z0-9_\-])"   # Not followed by letter, digit, underscore, or hyphen
+                    )
+
+                    for line_num, line in enumerate(lines, start=1):
+                        # Skip comments
+                        if line.strip().startswith(("{#", "//", "<!--")):
+                            continue
+
+                        # Skip lines where the state appears only in comments
+                        # (check if all occurrences are after comment markers)
+                        if state_pattern.search(line):
+                            # Additional filter: if it's in a comment part of the line, skip
+                            # For example: "   let floodWaitTarget = null; // flood_wait_until"
+                            comment_start = min(
+                                line.find("//") if "//" in line else len(line),
+                                line.find("#}") if "#}" in line else len(line),
+                            )
+                            code_part = line[:comment_start]
+
+                            if state_pattern.search(code_part):
                                 violations.append(
                                     f"{template_file.relative_to(project_root)}:{line_num} - "
                                     f"Found removed state '{removed_state}'"
