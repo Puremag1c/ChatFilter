@@ -23,8 +23,8 @@ from . import analysis, crud, export, modals, progress
 router = APIRouter()
 
 # Include all sub-routers
-router.include_router(crud.router, tags=["groups"])
 router.include_router(progress.router, tags=["groups"])
+router.include_router(crud.router, tags=["groups"])
 router.include_router(export.router, tags=["groups"])
 router.include_router(analysis.router, tags=["groups"])
 router.include_router(modals.router, tags=["groups"])
