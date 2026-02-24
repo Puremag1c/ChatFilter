@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import re
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, HTTPException, Request
@@ -17,6 +19,53 @@ from chatfilter.models.group import GroupStatus
 from .helpers import _get_group_service, _get_progress_tracker
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _sanitize_chat_title(title: str | None) -> str:
+    """Sanitize chat title to prevent leaking sensitive data via SSE.
+
+    - Strip control characters
+    - Limit length to 100 chars
+    - Return empty string if None
+
+    Args:
+        title: Raw chat title from Telegram
+
+    Returns:
+        Sanitized chat title safe for SSE transmission
+    """
+    if not title:
+        return ""
+
+    # Strip control characters (ASCII 0-31 and 127)
+    sanitized = re.sub(r"[\x00-\x1f\x7f]", "", title)
+
+    # Limit length
+    max_length = 100
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length] + "..."
+
+    return sanitized
+
+
+def _sanitize_error_message(error: str | None) -> str:
+    """Sanitize error message to prevent leaking sensitive data via SSE.
+
+    Returns generic error message for client. Full error should be logged server-side.
+
+    Args:
+        error: Raw error message (may contain stack traces, file paths, etc.)
+
+    Returns:
+        Generic error message safe for SSE transmission
+    """
+    if not error:
+        return "An error occurred during analysis"
+
+    # Never send raw exception messages, stack traces, or DB errors
+    # Always return generic message
+    return "Analysis error. Please try again or contact support."
 
 
 async def _generate_group_sse_events(
@@ -28,6 +77,9 @@ async def _generate_group_sse_events(
     Subscribes to ProgressTracker events and streams them as SSE.
     Sends heartbeat pings every 15s to detect stale connections.
 
+    All errors are sanitized before sending to prevent data leakage.
+    Full errors are logged server-side.
+
     Args:
         group_id: Group identifier
         request: FastAPI request for disconnect detection
@@ -35,122 +87,138 @@ async def _generate_group_sse_events(
     Yields:
         SSE formatted event strings
     """
-    service = _get_group_service()
-    tracker = _get_progress_tracker()
+    try:
+        service = _get_group_service()
+        tracker = _get_progress_tracker()
 
-    # Verify group exists
-    group = service.get_group(group_id)
-    if not group:
-        yield f"event: error\ndata: {json.dumps({'error': 'Group not found'})}\n\n"
-        return
+        # Verify group exists
+        group = service.get_group(group_id)
+        if not group:
+            yield f"event: error\ndata: {json.dumps({'error': 'Group not found'})}\n\n"
+            return
 
-    # Get analysis start time
-    started_at = service._db.get_analysis_started_at(group_id)
+        # Get analysis start time
+        started_at = service._db.get_analysis_started_at(group_id)
 
-    # Get global processed/total counts from DB
-    processed, total = service._db.count_processed_chats(group_id)
+        # Get global processed/total counts from DB
+        processed, total = service._db.count_processed_chats(group_id)
 
-    # Send initial event with current state
-    init_data = {
-        "group_id": group_id,
-        "started_at": started_at.isoformat() if started_at else None,
-        "processed": processed,
-        "total": total,
-        "status": group.status.value,
-    }
-    yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
-
-    # Check if group is already in terminal state (race condition fix)
-    # If analysis completed/failed/paused BEFORE we subscribed, send completion immediately
-    if group.status in (GroupStatus.COMPLETED, GroupStatus.FAILED, GroupStatus.PAUSED):
-        # Send final complete event with current counts
-        complete_data = {
+        # Send initial event with current state
+        init_data = {
             "group_id": group_id,
+            "started_at": started_at.isoformat() if started_at else None,
             "processed": processed,
             "total": total,
-            "message": "Analysis complete",
+            "status": group.status.value,
         }
-        yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
-        return  # Don't subscribe or wait for events
+        yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
-    # Track max processed count for monotonic guarantee
-    max_processed = processed
+        # Check if group is already in terminal state (race condition fix)
+        # If analysis completed/failed/paused BEFORE we subscribed, send completion immediately
+        if group.status in (GroupStatus.COMPLETED, GroupStatus.FAILED, GroupStatus.PAUSED):
+            # Send final complete event with current counts
+            complete_data = {
+                "group_id": group_id,
+                "processed": processed,
+                "total": total,
+                "message": "Analysis complete",
+            }
+            yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+            return  # Don't subscribe or wait for events
 
-    # Subscribe to progress tracker events
-    progress_queue = tracker.subscribe(group_id)
+        # Track max processed count for monotonic guarantee
+        max_processed = processed
 
-    # Heartbeat tracking (using non-blocking event loop time)
-    loop = asyncio.get_event_loop()
-    last_heartbeat = loop.time()
-    HEARTBEAT_INTERVAL = 15.0  # seconds
+        # Subscribe to progress tracker events
+        progress_queue = tracker.subscribe(group_id)
 
-    try:
-        # Stream progress events until completion
-        while True:
-            # Check for client disconnect
-            if await request.is_disconnected():
-                break
+        # Heartbeat tracking (using non-blocking event loop time)
+        loop = asyncio.get_event_loop()
+        last_heartbeat = loop.time()
+        HEARTBEAT_INTERVAL = 15.0  # seconds
 
-            # Send heartbeat ping every 15s
-            now = loop.time()
-            if now - last_heartbeat >= HEARTBEAT_INTERVAL:
-                yield f"event: ping\ndata: {json.dumps({'timestamp': now})}\n\n"
-                last_heartbeat = now
-
-            try:
-                # Wait for next event with timeout to allow heartbeat checks
-                event = await asyncio.wait_for(progress_queue.get(), timeout=1.0)
-
-                if event is None:
-                    # Analysis completed - get final counts from DB
-                    final_processed, final_total = service._db.count_processed_chats(group_id)
-                    # Enforce monotonic guarantee: max with last sent value
-                    max_processed = max(max_processed, final_processed)
-                    complete_data = {
-                        "group_id": group_id,
-                        "processed": max_processed,
-                        "total": final_total,
-                        "message": "Analysis complete",
-                    }
-                    yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+        try:
+            # Stream progress events until completion
+            while True:
+                # Check for client disconnect
+                if await request.is_disconnected():
                     break
 
-                # Send progress event
-                # Note: event.current and event.total are now global DB-based counts
-                # from publish_from_db() in ProgressTracker
-                # Enforce monotonic guarantee: never decrease
-                max_processed = max(max_processed, event.current)
-                progress_data = {
-                    "group_id": event.group_id,
-                    "status": event.status,
-                    "processed": max_processed,
-                    "total": event.total,
-                    "chat_title": event.chat_title,
-                    "message": event.message,
-                }
-                # Include status breakdown for live badge updates
-                if event.breakdown:
-                    progress_data["breakdown"] = event.breakdown
-                # Include FloodWait expiry timestamp if present
-                if event.flood_wait_until:
-                    progress_data["flood_wait_until"] = event.flood_wait_until.isoformat()
-                yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
+                # Send heartbeat ping every 15s
+                now = loop.time()
+                if now - last_heartbeat >= HEARTBEAT_INTERVAL:
+                    yield f"event: ping\ndata: {json.dumps({'timestamp': now})}\n\n"
+                    last_heartbeat = now
 
-                # Send error event if present
-                if event.error:
-                    error_data = {
+                try:
+                    # Wait for next event with timeout to allow heartbeat checks
+                    event = await asyncio.wait_for(progress_queue.get(), timeout=1.0)
+
+                    if event is None:
+                        # Analysis completed - get final counts from DB
+                        final_processed, final_total = service._db.count_processed_chats(group_id)
+                        # Enforce monotonic guarantee: max with last sent value
+                        max_processed = max(max_processed, final_processed)
+                        complete_data = {
+                            "group_id": group_id,
+                            "processed": max_processed,
+                            "total": final_total,
+                            "message": "Analysis complete",
+                        }
+                        yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+                        break
+
+                    # Send progress event
+                    # Note: event.current and event.total are now global DB-based counts
+                    # from publish_from_db() in ProgressTracker
+                    # Enforce monotonic guarantee: never decrease
+                    max_processed = max(max_processed, event.current)
+                    progress_data = {
                         "group_id": event.group_id,
-                        "error": event.error,
+                        "status": event.status,
+                        "processed": max_processed,
+                        "total": event.total,
+                        "chat_title": _sanitize_chat_title(event.chat_title),
+                        "message": event.message,
                     }
-                    yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+                    # Include status breakdown for live badge updates
+                    if event.breakdown:
+                        progress_data["breakdown"] = event.breakdown
+                    # Include FloodWait expiry timestamp if present
+                    if event.flood_wait_until:
+                        progress_data["flood_wait_until"] = event.flood_wait_until.isoformat()
+                    yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
 
-            except asyncio.TimeoutError:
-                # Timeout waiting for event - continue to check disconnect and heartbeat
-                continue
+                    # Send error event if present
+                    if event.error:
+                        # Log full error server-side
+                        logger.error(
+                            f"SSE progress error for group {event.group_id}: {event.error}",
+                            extra={"group_id": event.group_id, "raw_error": event.error},
+                        )
+                        # Send sanitized error to client
+                        error_data = {
+                            "group_id": event.group_id,
+                            "error": _sanitize_error_message(event.error),
+                        }
+                        yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
 
-    finally:
-        # Cleanup: queue will be cleaned up by tracker
-        pass
+                except asyncio.TimeoutError:
+                    # Timeout waiting for event - continue to check disconnect and heartbeat
+                    continue
+
+        finally:
+            # Cleanup: queue will be cleaned up by tracker
+            pass
+
+    except Exception as e:
+        # Log full exception server-side
+        logger.exception(
+            f"Unhandled exception in SSE stream for group {group_id}",
+            extra={"group_id": group_id},
+        )
+        # Send generic error to client (no stack trace, no internal details)
+        yield f"event: error\ndata: {json.dumps({'error': 'Stream error. Please refresh.'})}\n\n"
 
 
 async def _generate_unified_sse_events(
@@ -162,135 +230,151 @@ async def _generate_unified_sse_events(
     their events as SSE. Each event includes group_id for client routing.
     Sends heartbeat pings every 15s to detect stale connections.
 
+    All errors are sanitized before sending to prevent data leakage.
+    Full errors are logged server-side.
+
     Args:
         request: FastAPI request for disconnect detection
 
     Yields:
         SSE formatted event strings with group_id in data
     """
-    service = _get_group_service()
-    tracker = _get_progress_tracker()
-
-    # Find all groups with status=in_progress
-    all_groups = service.get_all_groups()
-    active_groups = [g for g in all_groups if g.status == GroupStatus.IN_PROGRESS]
-
-    # Track subscriptions for cleanup
-    subscriptions: dict[str, asyncio.Queue] = {}
-
-    # Subscribe to each active group and send init events
-    for group in active_groups:
-        group_id = group.group_id
-
-        # Get current state from DB
-        started_at = service._db.get_analysis_started_at(group_id)
-        processed, total = service._db.count_processed_chats(group_id)
-
-        # Send init event
-        init_data = {
-            "group_id": group_id,
-            "started_at": started_at.isoformat() if started_at else None,
-            "processed": processed,
-            "total": total,
-            "status": group.status.value,
-        }
-        yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
-
-        # Subscribe to progress tracker
-        subscriptions[group_id] = tracker.subscribe(group_id)
-
-    # Merge all subscription queues into single async stream
-    # We'll use asyncio.create_task to monitor all queues concurrently
-
-    # Heartbeat tracking
-    loop = asyncio.get_event_loop()
-    last_heartbeat = loop.time()
-    HEARTBEAT_INTERVAL = 15.0  # seconds
-
     try:
-        # Create tasks to wait on all queues
-        pending_tasks = {}
-        for group_id, queue in subscriptions.items():
-            task = asyncio.create_task(queue.get())
-            pending_tasks[task] = group_id
+        service = _get_group_service()
+        tracker = _get_progress_tracker()
 
-        while pending_tasks or subscriptions:
-            # Check for client disconnect
-            if await request.is_disconnected():
-                break
+        # Find all groups with status=in_progress
+        all_groups = service.get_all_groups()
+        active_groups = [g for g in all_groups if g.status == GroupStatus.IN_PROGRESS]
 
-            # Send heartbeat ping every 15s
-            now = loop.time()
-            if now - last_heartbeat >= HEARTBEAT_INTERVAL:
-                yield f"event: ping\ndata: {json.dumps({'timestamp': now})}\n\n"
-                last_heartbeat = now
+        # Track subscriptions for cleanup
+        subscriptions: dict[str, asyncio.Queue] = {}
 
-            # Wait for any queue to have data (with timeout for heartbeat)
-            if pending_tasks:
-                done, pending = await asyncio.wait(
-                    pending_tasks.keys(),
-                    timeout=1.0,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
+        # Subscribe to each active group and send init events
+        for group in active_groups:
+            group_id = group.group_id
 
-                # Process completed tasks
-                for task in done:
-                    group_id = pending_tasks.pop(task)
-                    event = task.result()
+            # Get current state from DB
+            started_at = service._db.get_analysis_started_at(group_id)
+            processed, total = service._db.count_processed_chats(group_id)
 
-                    if event is None:
-                        # Completion sentinel - send complete event and unsubscribe
-                        final_processed, final_total = service._db.count_processed_chats(group_id)
-                        complete_data = {
-                            "group_id": group_id,
-                            "processed": final_processed,
-                            "total": final_total,
-                            "message": "Analysis complete",
-                        }
-                        yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
+            # Send init event
+            init_data = {
+                "group_id": group_id,
+                "started_at": started_at.isoformat() if started_at else None,
+                "processed": processed,
+                "total": total,
+                "status": group.status.value,
+            }
+            yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
 
-                        # Remove subscription
-                        subscriptions.pop(group_id, None)
-                    else:
-                        # Progress event - send and create new task for next event
-                        progress_data = {
-                            "group_id": event.group_id,
-                            "status": event.status,
-                            "processed": event.current,
-                            "total": event.total,
-                            "chat_title": event.chat_title,
-                            "message": event.message,
-                        }
+            # Subscribe to progress tracker
+            subscriptions[group_id] = tracker.subscribe(group_id)
 
-                        # Include status breakdown for live badge updates
-                        if event.breakdown:
-                            progress_data["breakdown"] = event.breakdown
-                        # Include FloodWait expiry timestamp if present
-                        if event.flood_wait_until:
-                            progress_data["flood_wait_until"] = event.flood_wait_until.isoformat()
+        # Merge all subscription queues into single async stream
+        # We'll use asyncio.create_task to monitor all queues concurrently
 
-                        yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
+        # Heartbeat tracking
+        loop = asyncio.get_event_loop()
+        last_heartbeat = loop.time()
+        HEARTBEAT_INTERVAL = 15.0  # seconds
 
-                        # Send error event if present
-                        if event.error:
-                            error_data = {
-                                "group_id": event.group_id,
-                                "error": event.error,
+        try:
+            # Create tasks to wait on all queues
+            pending_tasks = {}
+            for group_id, queue in subscriptions.items():
+                task = asyncio.create_task(queue.get())
+                pending_tasks[task] = group_id
+
+            while pending_tasks or subscriptions:
+                # Check for client disconnect
+                if await request.is_disconnected():
+                    break
+
+                # Send heartbeat ping every 15s
+                now = loop.time()
+                if now - last_heartbeat >= HEARTBEAT_INTERVAL:
+                    yield f"event: ping\ndata: {json.dumps({'timestamp': now})}\n\n"
+                    last_heartbeat = now
+
+                # Wait for any queue to have data (with timeout for heartbeat)
+                if pending_tasks:
+                    done, pending = await asyncio.wait(
+                        pending_tasks.keys(),
+                        timeout=1.0,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+
+                    # Process completed tasks
+                    for task in done:
+                        group_id = pending_tasks.pop(task)
+                        event = task.result()
+
+                        if event is None:
+                            # Completion sentinel - send complete event and unsubscribe
+                            final_processed, final_total = service._db.count_processed_chats(group_id)
+                            complete_data = {
+                                "group_id": group_id,
+                                "processed": final_processed,
+                                "total": final_total,
+                                "message": "Analysis complete",
                             }
-                            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+                            yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
 
-                        # Create new task for next event from this group
-                        if group_id in subscriptions:
-                            new_task = asyncio.create_task(subscriptions[group_id].get())
-                            pending_tasks[new_task] = group_id
-            else:
-                # No pending tasks, just sleep for heartbeat
-                await asyncio.sleep(1.0)
+                            # Remove subscription
+                            subscriptions.pop(group_id, None)
+                        else:
+                            # Progress event - send and create new task for next event
+                            progress_data = {
+                                "group_id": event.group_id,
+                                "status": event.status,
+                                "processed": event.current,
+                                "total": event.total,
+                                "chat_title": _sanitize_chat_title(event.chat_title),
+                                "message": event.message,
+                            }
 
-    finally:
-        # Cleanup: cancel pending tasks
-        for task in pending_tasks.keys():
-            task.cancel()
+                            # Include status breakdown for live badge updates
+                            if event.breakdown:
+                                progress_data["breakdown"] = event.breakdown
+                            # Include FloodWait expiry timestamp if present
+                            if event.flood_wait_until:
+                                progress_data["flood_wait_until"] = event.flood_wait_until.isoformat()
+
+                            yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
+
+                            # Send error event if present
+                            if event.error:
+                                # Log full error server-side
+                                logger.error(
+                                    f"SSE progress error for group {event.group_id}: {event.error}",
+                                    extra={"group_id": event.group_id, "raw_error": event.error},
+                                )
+                                # Send sanitized error to client
+                                error_data = {
+                                    "group_id": event.group_id,
+                                    "error": _sanitize_error_message(event.error),
+                                }
+                                yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+
+                            # Create new task for next event from this group
+                            if group_id in subscriptions:
+                                new_task = asyncio.create_task(subscriptions[group_id].get())
+                                pending_tasks[new_task] = group_id
+                else:
+                    # No pending tasks, just sleep for heartbeat
+                    await asyncio.sleep(1.0)
+
+        finally:
+            # Cleanup: cancel pending tasks
+            for task in pending_tasks.keys():
+                task.cancel()
+
+    except Exception as e:
+        # Log full exception server-side
+        logger.exception("Unhandled exception in unified SSE stream")
+        # Send generic error to client (no stack trace, no internal details)
+        yield f"event: error\ndata: {json.dumps({'error': 'Stream error. Please refresh.'})}\n\n"
 
 
 @router.get("/api/groups/events")
