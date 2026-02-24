@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-02-24
+
+### Added
+- **Unified SSE channel for groups**: Single `/api/groups/events` endpoint multiplexes progress events for all groups through one SSE connection, replacing per-group SSE connections that exhausted browser connection limit (6 on HTTP/1.1)
+- **Resume live update**: Clicking "Continue analysis" immediately transitions group card to active state with real-time SSE progress updates — no page reload needed
+- Integration tests for unified SSE with 10+ simultaneous groups
+- SSE reconnect scenario tests
+- Smoke test for group analysis pipeline
+
+### Fixed
+- SMOKE: SSE unified endpoint tests fail due to mock mismatch (get_all_groups → list_groups)
+- SMOKE: SSE endpoint crashes with AttributeError (ChatGroup.group_id → ChatGroup.id)
+- SMOKE: Unified SSE endpoint immediately fails with AttributeError
+- SMOKE: /api/groups/events returns 404 due to route ordering
+- SMOKE: 6 test files have import errors after dead code cleanup
+
+### Changed
+- **SSE architecture**: Moved from per-card `sse-connect` to page-level SSE container — one connection handles all group cards
+- Input validation for unified SSE endpoint
+- Error handling to prevent SSE data leakage
+- CSP header to prevent XSS escalation
+- Group ownership validation in unified SSE endpoint
+
+### Removed
+- **Dead code cleanup**: Removed old per-chat analysis system
+  - `/{task_id}/progress` SSE endpoint
+  - `/api/analysis/start`, `/api/analysis/{task_id}/cancel` and related routes
+  - `analysis_progress.html` template
+  - Old per-group SSE endpoint `/api/groups/{id}/progress`
+  - Unused TaskQueue and task_execution modules (after dependency audit)
+
 ## [0.11.1] - 2026-02-22
 
 ### Fixed
@@ -1066,7 +1097,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.9...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.12.0...v0.13.0
 [0.10.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.6...v0.10.7
