@@ -25,6 +25,7 @@ from chatfilter.telegram.client import (
     join_chat,
     leave_chat,
 )
+from chatfilter.telegram.rate_limiter import get_rate_limiter
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
@@ -179,7 +180,9 @@ async def _resolve_by_username(
     account_id: str,
 ) -> _ResolvedChat:
     """Resolve chat via get_entity(username)."""
+    rate_limiter = get_rate_limiter()
     try:
+        await rate_limiter.wait_if_needed("get_entity")
         entity = await client.get_entity(username)
 
         if isinstance(entity, Channel):
@@ -190,6 +193,7 @@ async def _resolve_by_username(
 
             if (not is_megagroup) or (subscribers is None):
                 try:
+                    await rate_limiter.wait_if_needed("get_full_channel")
                     full_channel = await client(GetFullChannelRequest(entity))
                     if subscribers is None:
                         subscribers = getattr(full_channel.full_chat, "participants_count", None)
@@ -249,6 +253,7 @@ async def _resolve_by_invite(
     account_id: str,
 ) -> _ResolvedChat:
     """Resolve chat via CheckChatInviteRequest (no join)."""
+    rate_limiter = get_rate_limiter()
     try:
         result = await client(CheckChatInviteRequest(hash=invite_hash))
 
@@ -260,6 +265,7 @@ async def _resolve_by_invite(
                 subscribers = getattr(entity, "participants_count", None)
                 if subscribers is None:
                     try:
+                        await rate_limiter.wait_if_needed("get_full_channel")
                         full_channel = await client(GetFullChannelRequest(entity))
                         subscribers = getattr(full_channel.full_chat, "participants_count", None)
                     except errors.FloodWaitError:
@@ -318,6 +324,7 @@ async def _analyze_chat_activity(
     """Join chat, analyze activity, always leave."""
     chat_ref = resolved.chat_ref
     numeric_id = None
+    rate_limiter = get_rate_limiter()
 
     try:
         joined = await join_chat(client, chat_ref)
@@ -331,6 +338,7 @@ async def _analyze_chat_activity(
 
         async def _fetch_messages():
             nonlocal msg_count, authors, messages
+            await rate_limiter.wait_if_needed("get_messages")
             async for msg in client.iter_messages(numeric_id, limit=5000):
                 converted = _telethon_message_to_model(msg, numeric_id)
                 if converted is None:
@@ -374,8 +382,10 @@ async def _detect_captcha(
     messages: list,
 ) -> bool:
     """Detect captcha bots in messages."""
+    rate_limiter = get_rate_limiter()
     for msg in messages:
         try:
+            await rate_limiter.wait_if_needed("get_entity")
             sender = await client.get_entity(msg.author_id)
             username = getattr(sender, "username", None)
             if username and username.lower() in CAPTCHA_BOTS:

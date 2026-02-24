@@ -323,7 +323,7 @@ class GroupAnalysisEngine:
                     await self._process_single_chat(
                         group_id, chat, client, account_id, settings, all_accounts, mode, health_tracker,
                     )
-                    await asyncio.sleep(5.0 + random.random() * 2)
+                    await asyncio.sleep(random.uniform(5, 10))
         except asyncio.CancelledError:
             logger.info(f"Account '{account_id}' cancelled for '{group_id}'")
             raise
