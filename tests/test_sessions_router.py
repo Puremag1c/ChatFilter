@@ -3908,3 +3908,95 @@ class TestPreConnectDiagnostic:
         assert "telegram" in error_msg_telegram_fail.lower()
         # Verify generic phrasing (no specific proxy details)
         assert "the proxy" in error_msg_proxy_fail.lower() or "proxy" in error_msg_proxy_fail.lower()
+
+
+class TestDeleteSessionClearsFloodWait:
+    """Test that deleting a session clears its FloodWait entry."""
+
+    @pytest.fixture
+    def client(self) -> TestClient:
+        """Create test client."""
+        app = create_app()
+        return TestClient(app)
+
+    @pytest.fixture
+    def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
+        """Provide a clean data directory and clean up after test."""
+        from unittest.mock import MagicMock
+
+        test_data_dir = tmp_path / "test_sessions"
+        test_data_dir.mkdir(parents=True, exist_ok=True)
+
+        mock_settings = MagicMock()
+        mock_settings.sessions_dir = test_data_dir
+
+        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+            yield test_data_dir
+
+        if test_data_dir.exists():
+            shutil.rmtree(test_data_dir)
+
+    def test_delete_session_clears_flood_wait_entry(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Deleting an account with an active FloodWait entry should clear it."""
+        from chatfilter.telegram.flood_tracker import get_flood_tracker
+
+        tracker = get_flood_tracker()
+        session_name = "test_flood_session"
+
+        # Setup: create session directory so delete doesn't 404
+        session_dir = clean_data_dir / session_name
+        session_dir.mkdir(parents=True)
+        (session_dir / "session.session").write_bytes(b"fake")
+
+        # Setup: record a FloodWait for this account
+        tracker.record_flood_wait(session_name, 300)
+        assert tracker.is_blocked(session_name) is True
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        response = client.delete(
+            f"/api/sessions/{session_name}",
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        assert response.status_code == 200
+        # FloodWait entry should be cleared
+        assert tracker.is_blocked(session_name) is False
+        assert tracker.get_wait_until(session_name) is None
+
+        # Cleanup tracker state
+        tracker.clear_account(session_name)
+
+    def test_delete_session_without_flood_wait_no_error(
+        self, client: TestClient, clean_data_dir: Path
+    ) -> None:
+        """Deleting an account with no FloodWait entry should not raise errors."""
+        from chatfilter.telegram.flood_tracker import get_flood_tracker
+
+        tracker = get_flood_tracker()
+        session_name = "test_no_flood_session"
+
+        # Setup: create session directory
+        session_dir = clean_data_dir / session_name
+        session_dir.mkdir(parents=True)
+        (session_dir / "session.session").write_bytes(b"fake")
+
+        # Verify no FloodWait entry exists
+        assert tracker.is_blocked(session_name) is False
+
+        # Get CSRF token
+        home_response = client.get("/")
+        csrf_token = extract_csrf_token(home_response.text)
+        assert csrf_token is not None
+
+        response = client.delete(
+            f"/api/sessions/{session_name}",
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        assert response.status_code == 200
