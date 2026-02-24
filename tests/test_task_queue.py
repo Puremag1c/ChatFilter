@@ -1,4 +1,11 @@
-"""Tests for the analysis task queue."""
+"""Tests for the analysis task queue.
+
+DEPRECATED: TaskQueue was part of the old individual chat analysis system.
+The system has been replaced with group-based analysis using ProgressTracker.
+
+Tests are kept for reference but marked with skip since TaskQueue is no longer used.
+See test_unified_sse_groups.py for new architecture tests.
+"""
 
 from __future__ import annotations
 
@@ -9,14 +16,49 @@ from uuid import UUID
 
 import pytest
 
-from chatfilter.analyzer.task_queue import (
-    ProgressEvent,
-    QueueFullError,
-    TaskQueue,
-    TaskStatus,
-    get_task_queue,
-    reset_task_queue,
-)
+# Old imports - no longer available (task_queue removed)
+# from chatfilter.analyzer.task_queue import (
+#     ProgressEvent,
+#     QueueFullError,
+#     TaskQueue,
+#     TaskStatus,
+#     get_task_queue,
+#     reset_task_queue,
+# )
+
+# Stub imports for tests to at least load
+class TaskQueue:
+    """Stub for removed TaskQueue."""
+    pass
+
+class TaskStatus:
+    """Stub for removed TaskStatus."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMEOUT = "timeout"
+
+class QueueFullError(Exception):
+    """Stub for removed QueueFullError."""
+    def __init__(self, message, current=0, limit=0):
+        super().__init__(message)
+        self.current = current
+        self.limit = limit
+
+class ProgressEvent:
+    """Stub for removed ProgressEvent."""
+    pass
+
+def get_task_queue():
+    """Stub for removed get_task_queue."""
+    return TaskQueue()
+
+def reset_task_queue():
+    """Stub for removed reset_task_queue."""
+    pass
+
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 
 
@@ -89,8 +131,12 @@ def reset_global_queue() -> None:
     reset_task_queue()
 
 
+@pytest.mark.skip(reason="TaskQueue removed - replaced with ProgressTracker for groups")
 class TestTaskQueue:
-    """Tests for TaskQueue class."""
+    """Tests for TaskQueue class.
+
+    DEPRECATED: TaskQueue is no longer used.
+    """
 
     def test_create_task(self, task_queue: TaskQueue) -> None:
         """Test creating a new task."""
@@ -730,8 +776,12 @@ class TestTaskQueue:
             )
 
 
+@pytest.mark.skip(reason="TaskQueue removed - replaced with ProgressTracker for groups")
 class TestConcurrentTaskLimit:
-    """Tests for concurrent task limit functionality."""
+    """Tests for concurrent task limit functionality.
+
+    DEPRECATED: TaskQueue is no longer used.
+    """
 
     def test_create_task_within_limit(self) -> None:
         """Test creating tasks within the concurrent limit."""
@@ -807,8 +857,12 @@ class TestConcurrentTaskLimit:
         assert queue.count_active_tasks() == 1
 
 
+@pytest.mark.skip(reason="TaskQueue removed - replaced with ProgressTracker for groups")
 class TestGlobalTaskQueue:
-    """Tests for global task queue singleton."""
+    """Tests for global task queue singleton.
+
+    DEPRECATED: TaskQueue is no longer used.
+    """
 
     def test_get_task_queue_returns_same_instance(self) -> None:
         """Test that get_task_queue returns the same instance."""

@@ -1,4 +1,11 @@
-"""Tests for the analysis router."""
+"""Tests for the analysis router.
+
+DEPRECATED: These tests are for the old individual chat analysis system.
+The system has been replaced with group-based analysis.
+
+Tests are kept for reference but marked with xfail since endpoints are removed.
+See test_unified_sse_groups.py for new SSE architecture tests.
+"""
 
 from __future__ import annotations
 
@@ -12,14 +19,47 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from chatfilter.analyzer.task_queue import (
-    QueueFullError,
-    TaskStatus,
-    get_task_queue,
-    reset_task_queue,
-)
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 from chatfilter.web.app import create_app
+
+# Old imports - no longer used (task_queue removed)
+# Stubs for old tests to at least load
+class TaskStatus:
+    """Stub for removed TaskStatus."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMEOUT = "timeout"
+
+class QueueFullError(Exception):
+    """Stub for removed QueueFullError."""
+    def __init__(self, message, current=0, limit=0):
+        super().__init__(message)
+        self.current = current
+        self.limit = limit
+
+def get_task_queue():
+    """Stub for removed get_task_queue."""
+    class FakeQueue:
+        def create_task(self, *args, **kwargs):
+            class FakeTask:
+                task_id = "fake-task-id"
+                session_id = args[0] if args else ""
+                chat_ids = args[1] if len(args) > 1 else []
+                status = TaskStatus.PENDING
+                results = []
+                error = None
+                completed_at = None
+            return FakeTask()
+        def get_task(self, task_id):
+            return None
+    return FakeQueue()
+
+def reset_task_queue():
+    """Stub for removed reset_task_queue."""
+    pass
 
 
 def extract_csrf_token(html: str) -> str | None:
@@ -51,12 +91,13 @@ def csrf_token(client: TestClient) -> str:
     return token
 
 
-@pytest.fixture(autouse=True)
-def reset_queue() -> None:
-    """Reset the global task queue before each test."""
-    reset_task_queue()
-    yield
-    reset_task_queue()
+# Removed: reset_queue fixture - TaskQueue no longer used
+# @pytest.fixture(autouse=True)
+# def reset_queue() -> None:
+#     """Reset the global task queue before each test."""
+#     reset_task_queue()
+#     yield
+#     reset_task_queue()
 
 
 @pytest.fixture
@@ -72,8 +113,12 @@ def mock_session_dir(tmp_path: Path) -> Path:
     return session_dir
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestAnalysisStatusEndpoint:
-    """Tests for GET /api/analysis/{task_id}/status endpoint."""
+    """Tests for GET /api/analysis/{task_id}/status endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of unified SSE /api/groups/events.
+    """
 
     def test_get_status_valid_task(self, client: TestClient) -> None:
         """Test getting status of a valid task."""
@@ -105,8 +150,12 @@ class TestAnalysisStatusEndpoint:
         assert "Task not found" in response.json()["detail"]
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestAnalysisResultsEndpoint:
-    """Tests for GET /api/analysis/{task_id}/results endpoint."""
+    """Tests for GET /api/analysis/{task_id}/results endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of unified SSE /api/groups/events.
+    """
 
     def test_get_results_completed_task(self, client: TestClient) -> None:
         """Test getting results of a completed task."""
@@ -269,8 +318,12 @@ class TestAnalysisResultsEndpoint:
         assert response.status_code == 200
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestProgressStreamEndpoint:
-    """Tests for GET /api/analysis/{task_id}/progress SSE endpoint."""
+    """Tests for GET /api/analysis/{task_id}/progress SSE endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of unified SSE /api/groups/events.
+    """
 
     def test_progress_stream_invalid_uuid(self, client: TestClient) -> None:
         """Test SSE stream with invalid UUID."""
@@ -383,8 +436,12 @@ class TestProgressStreamEndpoint:
         assert "Task timeout" in content or "timeout" in content.lower()
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestStartAnalysisEndpoint:
-    """Tests for POST /api/analysis/start endpoint."""
+    """Tests for POST /api/analysis/start endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of group-based analysis.
+    """
 
     def test_start_analysis_no_session(self, client: TestClient, csrf_token: str) -> None:
         """Test starting analysis with no session selected."""
@@ -658,8 +715,12 @@ class TestStartAnalysisEndpoint:
         assert "3" in response.text
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestCancelAnalysisEndpoint:
-    """Tests for POST /api/analysis/{task_id}/cancel endpoint."""
+    """Tests for POST /api/analysis/{task_id}/cancel endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of group-based analysis.
+    """
 
     def test_cancel_invalid_task_id(self, client: TestClient, csrf_token: str) -> None:
         """Test cancelling with invalid task ID format."""
@@ -724,8 +785,12 @@ class TestCancelAnalysisEndpoint:
         assert "partial_results" in data
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestForceCancelAnalysisEndpoint:
-    """Tests for POST /api/analysis/{task_id}/force_cancel endpoint."""
+    """Tests for POST /api/analysis/{task_id}/force_cancel endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of group-based analysis.
+    """
 
     def test_force_cancel_invalid_task_id(self, client: TestClient, csrf_token: str) -> None:
         """Test force cancelling with invalid task ID format."""
@@ -794,8 +859,12 @@ class TestForceCancelAnalysisEndpoint:
         assert data["reason"] == "Task hung"
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestCheckOrphanedEndpoint:
-    """Tests for GET /api/analysis/check_orphaned endpoint."""
+    """Tests for GET /api/analysis/check_orphaned endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of group-based analysis.
+    """
 
     def test_check_orphaned_no_session_task(self, client: TestClient) -> None:
         """Test checking for orphaned task when none exists in session."""
@@ -928,8 +997,12 @@ class TestCheckOrphanedEndpoint:
         assert response.json() == {}
 
 
+@pytest.mark.skip(reason="Old /api/analysis/* endpoints removed - see test_unified_sse_groups.py")
 class TestDismissNotificationEndpoint:
-    """Tests for POST /api/analysis/{task_id}/dismiss_notification endpoint."""
+    """Tests for POST /api/analysis/{task_id}/dismiss_notification endpoint.
+
+    DEPRECATED: This endpoint was removed in favor of group-based analysis.
+    """
 
     def test_dismiss_notification(self, client: TestClient, csrf_token: str) -> None:
         """Test dismissing orphaned task notification."""
@@ -967,8 +1040,12 @@ class TestDismissNotificationEndpoint:
         assert response.json()["status"] == "dismissed"
 
 
+@pytest.mark.skip(reason="Old /results page removed - see test_unified_sse_groups.py")
 class TestResultsPage:
-    """Tests for the results page."""
+    """Tests for the results page.
+
+    DEPRECATED: This page was removed in favor of group-based analysis.
+    """
 
     def test_results_page_no_task_id(self, client: TestClient) -> None:
         """Test results page without task ID shows empty state."""
