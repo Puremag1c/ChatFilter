@@ -60,7 +60,7 @@ async def test_sse_endpoint_delivers_events_over_http(app: FastAPI) -> None:
     bus = get_event_bus()
     received_events = []
 
-    async def subscriber(session_id: str, status: str):
+    async def subscriber(session_id: str, status: str, data: dict | None = None):
         """Mock SSE subscriber."""
         received_events.append({"session_id": session_id, "status": status})
 
@@ -103,10 +103,10 @@ async def test_sse_multiple_clients_receive_events(app: FastAPI) -> None:
     client1_events = []
     client2_events = []
 
-    async def subscriber1(session_id: str, status: str):
+    async def subscriber1(session_id: str, status: str, data: dict | None = None):
         client1_events.append({"session_id": session_id, "status": status})
 
-    async def subscriber2(session_id: str, status: str):
+    async def subscriber2(session_id: str, status: str, data: dict | None = None):
         client2_events.append({"session_id": session_id, "status": status})
 
     bus.subscribe(subscriber1)
@@ -145,7 +145,7 @@ async def test_sse_connection_cleanup_on_disconnect(app: FastAPI) -> None:
     bus = get_event_bus()
     initial_subscribers = bus.subscriber_count
 
-    async def subscriber(session_id: str, status: str):
+    async def subscriber(session_id: str, status: str, data: dict | None = None):
         pass
 
     # Subscribe
@@ -204,7 +204,7 @@ async def test_sse_delivers_rapid_status_changes(app: FastAPI) -> None:
     bus = get_event_bus()
     received_events = []
 
-    async def subscriber(session_id: str, status: str):
+    async def subscriber(session_id: str, status: str, data: dict | None = None):
         if session_id == "rapid-change-session":
             received_events.append({"session_id": session_id, "status": status})
 

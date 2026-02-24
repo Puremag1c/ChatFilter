@@ -34,7 +34,7 @@ class TestSessionEventBus:
         bus = SessionEventBus()
         received_events = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_events.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -50,10 +50,10 @@ class TestSessionEventBus:
         received1 = []
         received2 = []
 
-        async def handler1(session_id: str, new_status: str) -> None:
+        async def handler1(session_id: str, new_status: str, data: dict | None = None) -> None:
             received1.append((session_id, new_status))
 
-        async def handler2(session_id: str, new_status: str) -> None:
+        async def handler2(session_id: str, new_status: str, data: dict | None = None) -> None:
             received2.append((session_id, new_status))
 
         bus.subscribe(handler1)
@@ -69,7 +69,7 @@ class TestSessionEventBus:
         bus = SessionEventBus()
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -88,7 +88,7 @@ class TestSessionEventBus:
         bus = SessionEventBus()
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -104,7 +104,7 @@ class TestSessionEventBus:
         """Unsubscribing non-existent handler should not raise error."""
         bus = SessionEventBus()
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             pass
 
         # Should not raise
@@ -124,10 +124,10 @@ class TestSessionEventBus:
         bus = SessionEventBus()
         received = []
 
-        async def failing_handler(session_id: str, new_status: str) -> None:
+        async def failing_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             raise ValueError("Handler failure")
 
-        async def working_handler(session_id: str, new_status: str) -> None:
+        async def working_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(failing_handler)
@@ -145,7 +145,7 @@ class TestSessionEventBus:
         bus = SessionEventBus()
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -163,7 +163,7 @@ class TestSessionEventBus:
         """clear_subscribers should remove all subscribers."""
         bus = SessionEventBus()
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             pass
 
         bus.subscribe(handler)
@@ -178,11 +178,11 @@ class TestSessionEventBus:
         bus = SessionEventBus()
         execution_order = []
 
-        async def slow_handler(session_id: str, new_status: str) -> None:
+        async def slow_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             await asyncio.sleep(0.1)
             execution_order.append("slow")
 
-        async def fast_handler(session_id: str, new_status: str) -> None:
+        async def fast_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             execution_order.append("fast")
 
         bus.subscribe(slow_handler)
@@ -213,7 +213,7 @@ class TestGlobalEventBus:
         reset_event_bus()  # Start fresh
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus1 = get_event_bus()
@@ -241,7 +241,7 @@ class TestEventBusIntegration:
         bus = SessionEventBus()
         events = []
 
-        async def logger(session_id: str, new_status: str) -> None:
+        async def logger(session_id: str, new_status: str, data: dict | None = None) -> None:
             events.append(f"{session_id}: {new_status}")
 
         bus.subscribe(logger)
@@ -267,7 +267,7 @@ class TestEventBusIntegration:
         bus = SessionEventBus()
         events = []
 
-        async def logger(session_id: str, new_status: str) -> None:
+        async def logger(session_id: str, new_status: str, data: dict | None = None) -> None:
             events.append((session_id, new_status))
 
         bus.subscribe(logger)
@@ -295,7 +295,7 @@ class TestEventThrottling:
         bus = SessionEventBus()
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -314,7 +314,7 @@ class TestEventThrottling:
         bus = SessionEventBus()
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -333,7 +333,7 @@ class TestEventThrottling:
         bus = SessionEventBus(max_events_per_second=3)
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -352,7 +352,7 @@ class TestEventThrottling:
         bus = SessionEventBus(max_events_per_second=2)
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -378,10 +378,10 @@ class TestEventThrottling:
         bus = SessionEventBus()
         fast_received = []
 
-        async def slow_handler(session_id: str, new_status: str) -> None:
+        async def slow_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             await asyncio.sleep(10)  # Will timeout at 5s
 
-        async def fast_handler(session_id: str, new_status: str) -> None:
+        async def fast_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             fast_received.append((session_id, new_status))
 
         bus.subscribe(slow_handler)
@@ -403,7 +403,7 @@ class TestEventThrottling:
         bus = SessionEventBus(max_events_per_second=2)
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -435,7 +435,7 @@ class TestEventThrottling:
         bus = SessionEventBus()
         received = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(handler)

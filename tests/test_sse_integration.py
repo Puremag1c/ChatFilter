@@ -59,7 +59,7 @@ class TestSSEIntegration:
         bus = get_event_bus()
         received_events = []
 
-        async def capture_handler(session_id: str, new_status: str) -> None:
+        async def capture_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_events.append((session_id, new_status))
 
         bus.subscribe(capture_handler)
@@ -78,7 +78,7 @@ class TestSSEIntegration:
         bus = get_event_bus()
         received_events = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_events.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -101,7 +101,7 @@ class TestSSEIntegration:
         bus = get_event_bus()
         received_events = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_events.append({
                 "session_id": session_id,
                 "status": new_status
@@ -125,7 +125,7 @@ class TestSSEIntegration:
         bus = get_event_bus()
         initial_count = bus.subscriber_count
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             pass
 
         bus.subscribe(handler)
@@ -140,7 +140,7 @@ class TestSSEIntegration:
         bus = SessionEventBus()
         received_events = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_events.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -164,7 +164,7 @@ class TestSSEIntegration:
         bus = SessionEventBus(max_events_per_second=2)
         received_events = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_events.append((session_id, new_status))
 
         bus.subscribe(handler)
@@ -193,7 +193,7 @@ class TestSSEIntegration:
         bus = get_event_bus()
         received_sse_lines = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_sse_lines.append({
                 "session_id": session_id,
                 "status": new_status
@@ -221,10 +221,10 @@ class TestSSEIntegration:
         received_good = []
         received_bad = []
 
-        async def good_handler(session_id: str, new_status: str) -> None:
+        async def good_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_good.append((session_id, new_status))
 
-        async def bad_handler(session_id: str, new_status: str) -> None:
+        async def bad_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_bad.append((session_id, new_status))
             raise RuntimeError("Handler failed")
 
@@ -315,7 +315,7 @@ class TestSSEIntegration:
         bus = get_event_bus()
         received_events = []
 
-        async def handler(session_id: str, new_status: str) -> None:
+        async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
             received_events.append((session_id, new_status))
 
         bus.subscribe(handler)
