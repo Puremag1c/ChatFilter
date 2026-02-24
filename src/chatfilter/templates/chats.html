@@ -154,6 +154,11 @@
         vertical-align: bottom;
     }
 
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
     @media (max-width: 768px) {
         .groups-list {
             grid-template-columns: 1fr;
@@ -299,6 +304,45 @@ document.body.addEventListener('htmx:sseError', function(evt) {
     // Listen for HX-Trigger refreshGroups events from button actions
     document.body.addEventListener('refreshGroups', function() {
         refreshGroups();
+    });
+
+    // Add loading state for Resume button (paused → in_progress transition)
+    // htmx:beforeRequest fires when Resume button is clicked
+    document.body.addEventListener('htmx:beforeRequest', function(event) {
+        var target = event.detail.elt;
+
+        // Check if this is a resume action
+        if (target && target.tagName === 'BUTTON' &&
+            event.detail.requestConfig &&
+            event.detail.requestConfig.path &&
+            event.detail.requestConfig.path.match(/\/api\/groups\/[^\/]+\/resume$/)) {
+
+            // Find parent card
+            var card = target.closest('.group-card');
+            if (!card) return;
+
+            // Save original button text
+            target.setAttribute('data-original-text', target.textContent);
+
+            // Show loading state
+            target.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 0.5rem;">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;">' +
+                '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" stroke-opacity="0.25"/>' +
+                '<path d="M12 2 A10 10 0 0 1 22 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>' +
+                '</svg>' +
+                '<span>Resuming...</span>' +
+                '</span>';
+        }
+    });
+
+    // Clear loading state after card swap (refreshGroups triggers outerHTML swap)
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        // Check if swap was on a group card (hx-target="#group-{id}")
+        if (event.detail.target && event.detail.target.id &&
+            event.detail.target.id.match(/^group-/)) {
+            // Card was swapped — loading state is gone (new card rendered)
+            // Nothing to do here, but keeping for clarity
+        }
     });
 
     // Show toast when analysis starts (start/reanalyze endpoints)
