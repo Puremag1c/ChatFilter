@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-02-24
+
+### Added
+- **Randomized rate limiting for all Telegram API calls**: `get_entity`, `get_full_channel` now pass through rate limiter with randomized delays (5-10s between chats, 0.5-2s between requests within a chat)
+- **FloodWait account lockout**: In-memory registry tracks FloodWait per account; pre-request check blocks all Telegram API calls from locked account until timer expires
+- **WAITING_FOR_ACCOUNTS group status**: When all accounts are in FloodWait, group enters "Wait For Accounts" state with auto-resume polling loop (~30s) that resumes analysis when an account becomes available or a new account is added
+- **Health tracker ignores dead chats**: "Username not found", "Channel private/banned" no longer count as account failures; FloodWait exhaustion also excluded from health score
+- **FloodWait countdown in sessions UI**: Sessions page shows "FloodWait до HH:MM" with live countdown timer via SSE
+- **FloodWait status in group card**: Group card renders `flood_wait_until` and WAITING_FOR_ACCOUNTS status with countdown to nearest account unlock
+- **Pause/Stop button for WAITING_FOR_ACCOUNTS**: Users can stop analysis while waiting for accounts
+- **Confirmation dialog for stopping WAITING_FOR_ACCOUNTS**: Prevents accidental stop during wait
+- **FloodWait persistence**: FloodWait state survives app restarts
+- **Thread safety for rate limiter**: Safe for concurrent multi-account workers
+- **TTL cleanup for expired FloodWait entries**: Automatic garbage collection
+- **Error modal when starting analysis with zero accounts**: Clear feedback instead of silent failure
+
+### Fixed
+- **FloodWait does NOT stop worker**: Worker now checks `flood_tracker.is_blocked()` before each chat and breaks the loop, leaving remaining chats PENDING
+- **test_only_8_states_in_templates false-positives**: Fixed substring matching that falsely flagged `flood_wait` in templates
+
+### Changed
+- **Rate limiter architecture**: Extended existing `rate_limiter.py` with `get_entity` and `get_full_channel` operations and randomized delay ranges
+- **Health tracker error classification**: Distinguishes dead-chat errors from real account errors
+- **FloodWait error log sanitization**: Phone numbers stripped from FloodWait log messages
+- **Network binding validation**: Warning for non-localhost deployments
+
 ## [0.13.0] - 2026-02-24
 
 ### Added
@@ -1097,7 +1123,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.12.0...v0.13.0
 [0.10.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.7...v0.10.8
