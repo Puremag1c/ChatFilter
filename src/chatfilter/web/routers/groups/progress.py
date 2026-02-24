@@ -91,7 +91,7 @@ async def _generate_unified_sse_events(
         tracker = _get_progress_tracker()
 
         # Find all groups with status=in_progress
-        all_groups = service.get_all_groups()
+        all_groups = service.list_groups()
         active_groups = [g for g in all_groups if g.status == GroupStatus.IN_PROGRESS]
 
         # Track subscriptions for cleanup
