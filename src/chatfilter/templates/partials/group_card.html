@@ -86,7 +86,8 @@
         {% elif group.status.value == 'paused' %}
         <button class="btn btn-primary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/resume"
-                hx-swap="none"
+                hx-target="#group-{{ group.id }}"
+                hx-swap="outerHTML"
                 hx-disabled-elt="this">
             {{ _("Продолжить анализ") }}
         </button>

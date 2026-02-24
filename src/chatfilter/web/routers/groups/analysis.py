@@ -343,8 +343,18 @@ async def resume_group_analysis(
         # Resume analysis via service (handles status, task)
         await service.start_analysis(group_id)
 
-        # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
+        # Return updated card with in_progress state so SSE connection starts immediately
+        updated_group = service.get_group(group_id)
+        updated_stats = service.get_group_stats(group_id)
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context={
+                "group": updated_group,
+                "stats": updated_stats,
+            },
+        )
 
     except HTTPException:
         raise
