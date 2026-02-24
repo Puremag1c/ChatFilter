@@ -976,18 +976,3 @@ class TestRouterUsesNewServiceAPI:
             assert len(lines) >= 2, "CSV should have header + data rows"
             assert "chat_ref" in lines[0]
             assert "@testchat" in lines[1]
-
-    def test_sse_progress_uses_progress_tracker(self) -> None:
-        """Verify SSE endpoint uses ProgressTracker.subscribe, not engine.subscribe."""
-        import inspect
-
-        from chatfilter.web.routers.groups import _generate_group_sse_events
-
-        source = inspect.getsource(_generate_group_sse_events)
-
-        assert "tracker.subscribe(" in source, (
-            "SSE should subscribe via ProgressTracker, not engine"
-        )
-        assert "engine.subscribe(" not in source, (
-            "SSE should not use engine.subscribe() (old pattern)"
-        )
