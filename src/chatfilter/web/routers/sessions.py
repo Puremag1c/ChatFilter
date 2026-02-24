@@ -185,6 +185,7 @@ class SessionListItem(BaseModel):
     auth_id: str | None = None
     has_session_file: bool = False  # True if session.session exists (cached auth)
     retry_available: bool | None = None  # True if error is transient and user can retry
+    flood_wait_until: str | None = None  # ISO timestamp when FloodWait expires (for countdown)
 
 
 def classify_error_state(error_message: str | None, exception: Exception | None = None) -> str:
@@ -1076,10 +1077,13 @@ def list_stored_sessions(
     Returns:
         List of session info items
     """
+    from datetime import datetime, timezone
+    from chatfilter.telegram.flood_tracker import get_flood_tracker
     from chatfilter.web.auth_state import AuthStep
 
     sessions = []
     data_dir = ensure_data_dir()
+    flood_tracker = get_flood_tracker()
 
     for session_dir in data_dir.iterdir():
         if session_dir.is_dir():
@@ -1159,6 +1163,14 @@ def list_stored_sessions(
                             state = classify_error_state(error_message)
                         # DISCONNECTED keeps config_status
 
+                # Get flood_wait_until from flood_tracker
+                flood_wait_until = None
+                wait_until_ts = flood_tracker.get_wait_until(session_id)
+                if wait_until_ts:
+                    # Convert timestamp to ISO format
+                    wait_until_dt = datetime.fromtimestamp(wait_until_ts, tz=timezone.utc)
+                    flood_wait_until = wait_until_dt.isoformat()
+
                 sessions.append(
                     SessionListItem(
                         session_id=session_id,
@@ -1167,6 +1179,7 @@ def list_stored_sessions(
                         auth_id=auth_id,
                         has_session_file=session_file.is_file(),
                         retry_available=retry_available,
+                        flood_wait_until=flood_wait_until,
                     )
                 )
 
@@ -5214,7 +5227,7 @@ async def session_events(request: Request):
             get_event_bus().unsubscribe(event_handler)
             logger.debug("SSE client unsubscribed from event bus")
 
-    async def event_handler(session_id: str, new_status: str):
+    async def event_handler(session_id: str, new_status: str, data: dict | None = None):
         """Handler for event bus messages."""
         try:
             await event_queue.put((session_id, new_status))

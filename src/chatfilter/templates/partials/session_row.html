@@ -5,6 +5,15 @@
         <span class="account-name">{{ session.session_id }}</span>
     </td>
     <td class="account-status-cell">
+        {# FloodWait countdown badge (if flood_wait_until is set) #}
+        {% if session.flood_wait_until %}
+        <span class="flood-wait-badge badge badge-warning"
+              id="flood-wait-{{ session.session_id }}"
+              data-flood-wait-until="{{ session.flood_wait_until }}"
+              style="display: inline-block; margin-right: 8px;">
+            <span class="countdown-text">⏳ FloodWait до <span class="countdown-time"></span></span>
+        </span>
+        {% endif %}
         <span class="account-status status-{{ session.state }}{% if session.state == 'disconnected' and not session.has_session_file %} status-needs-auth{% endif %}"
               {% if session.error_message %}title="{{ session.error_message }}"
               {% elif session.state == 'disconnected' and not session.has_session_file %}title="{{ _('No cached session - authorization required') }}"
@@ -190,3 +199,71 @@
         </div>
     </td>
 </tr>
+
+{# FloodWait countdown timer script #}
+{% if session.flood_wait_until %}
+<script>
+(function() {
+    const sessionId = "{{ session.session_id }}";
+    const badgeEl = document.getElementById("flood-wait-" + sessionId);
+    const timeEl = badgeEl ? badgeEl.querySelector(".countdown-time") : null;
+
+    if (!badgeEl || !timeEl) return;
+
+    const expiryMs = new Date("{{ session.flood_wait_until }}").getTime();
+
+    function formatCountdown(remainingMs) {
+        const remainingSec = Math.floor(remainingMs / 1000);
+
+        if (remainingSec < 10) return "скоро";
+        if (remainingSec < 60) return remainingSec + "с";
+
+        const minutes = Math.floor(remainingSec / 60);
+        const seconds = remainingSec % 60;
+
+        if (remainingSec < 3600) {
+            return minutes + "м " + seconds + "с";
+        }
+
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return hours + "ч " + mins + "м";
+    }
+
+    function updateCountdown() {
+        const now = Date.now();
+        const remaining = expiryMs - now;
+
+        if (remaining <= 0) {
+            // Timer expired - remove badge
+            badgeEl.style.display = "none";
+            return;
+        }
+
+        timeEl.textContent = formatCountdown(remaining);
+    }
+
+    // Update immediately
+    updateCountdown();
+
+    // Update every 10 seconds
+    const intervalId = setInterval(updateCountdown, 10000);
+
+    // Cleanup on row removal
+    const row = badgeEl.closest("tr");
+    if (row) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.removedNodes.forEach(function(node) {
+                    if (node === row || node.contains(row)) {
+                        clearInterval(intervalId);
+                        observer.disconnect();
+                    }
+                });
+            });
+        });
+        observer.observe(row.parentNode, { childList: true });
+    }
+})();
+</script>
+{% endif %}

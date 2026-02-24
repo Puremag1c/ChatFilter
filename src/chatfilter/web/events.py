@@ -40,13 +40,14 @@ class SessionEventBus:
         bus = SessionEventBus()
 
         # Subscribe to events
-        async def handler(session_id: str, new_status: str):
+        async def handler(session_id: str, new_status: str, data: dict | None = None):
             print(f"Session {session_id} changed to {new_status}")
 
         bus.subscribe(handler)
 
         # Publish events
         await bus.publish("session123", "connected")
+        await bus.publish("session123", "flood_wait", {"flood_wait_until": "2026-02-24T18:30:00"})
     """
 
     def __init__(self, max_events_per_second: int = 10):
@@ -55,7 +56,7 @@ class SessionEventBus:
         Args:
             max_events_per_second: Maximum events per session per second (default: 10)
         """
-        self._subscribers: list[Callable[[str, str], Awaitable[None]]] = []
+        self._subscribers: list[Callable[[str, str, dict | None], Awaitable[None]]] = []
         self._max_events_per_second = max_events_per_second
 
         # Deduplication: track last status per session
@@ -64,7 +65,7 @@ class SessionEventBus:
         # Rate limiting: track event timestamps per session
         self._event_times: dict[str, list[float]] = defaultdict(list)
 
-    def subscribe(self, callback: Callable[[str, str], Awaitable[None]]) -> None:
+    def subscribe(self, callback: Callable[[str, str, dict | None], Awaitable[None]]) -> None:
         """Subscribe to session status change events.
 
         Duplicate subscriptions are automatically prevented. If the same callback
@@ -72,12 +73,12 @@ class SessionEventBus:
         leaks during SSE reconnect scenarios.
 
         Args:
-            callback: Async function that receives (session_id, new_status)
+            callback: Async function that receives (session_id, new_status, data)
         """
         if callback not in self._subscribers:
             self._subscribers.append(callback)
 
-    def unsubscribe(self, callback: Callable[[str, str], Awaitable[None]]) -> None:
+    def unsubscribe(self, callback: Callable[[str, str, dict | None], Awaitable[None]]) -> None:
         """Unsubscribe from session status change events.
 
         Args:
@@ -109,7 +110,7 @@ class SessionEventBus:
 
         return False
 
-    async def publish(self, session_id: str, new_status: str) -> None:
+    async def publish(self, session_id: str, new_status: str, data: dict | None = None) -> None:
         """Publish a session status change event to all subscribers.
 
         Events are throttled to prevent flooding:
@@ -120,6 +121,7 @@ class SessionEventBus:
         Args:
             session_id: ID of the session that changed
             new_status: New status of the session
+            data: Optional event data (e.g., {"flood_wait_until": "2026-02-24T18:30:00"})
         """
         # Throttle check
         if self._should_throttle(session_id, new_status):
@@ -132,7 +134,7 @@ class SessionEventBus:
         # Call all subscribers concurrently with timeout
         if self._subscribers:
             tasks = [
-                asyncio.wait_for(callback(session_id, new_status), timeout=5.0)
+                asyncio.wait_for(callback(session_id, new_status, data), timeout=5.0)
                 for callback in self._subscribers
             ]
             await asyncio.gather(

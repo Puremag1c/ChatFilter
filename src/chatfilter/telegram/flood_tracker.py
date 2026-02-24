@@ -6,9 +6,11 @@ Thread-safe in-memory storage.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -37,6 +39,9 @@ class FloodWaitTracker:
             self._lockouts[account_id] = expiry
         logger.info(f"FloodWait recorded: account '{account_id}' blocked for {seconds}s (until {expiry})")
 
+        # Publish flood_wait event via EventBus
+        self._publish_flood_wait_event(account_id, expiry)
+
     def is_blocked(self, account_id: str) -> bool:
         """Check if account is currently blocked by FloodWait.
 
@@ -55,7 +60,9 @@ class FloodWaitTracker:
             # Expired — remove entry
             del self._lockouts[account_id]
             logger.info(f"FloodWait expired: account '{account_id}' now available")
-            return False
+            # Publish flood_wait_cleared event
+            self._publish_flood_wait_cleared_event(account_id)
+        return False
 
     def get_wait_until(self, account_id: str) -> Optional[float]:
         """Get expiry timestamp for account's FloodWait.
@@ -138,6 +145,42 @@ class FloodWaitTracker:
             if count:
                 logger.info(f"Cleared all {count} FloodWait entries")
             return count
+
+    def _publish_flood_wait_event(self, account_id: str, expiry_timestamp: float) -> None:
+        """Publish flood_wait event to EventBus.
+
+        Args:
+            account_id: Session/account ID
+            expiry_timestamp: Unix timestamp when FloodWait expires
+        """
+        try:
+            from chatfilter.web.events import get_event_bus
+
+            # Convert timestamp to ISO format
+            expiry_dt = datetime.fromtimestamp(expiry_timestamp, tz=timezone.utc)
+            flood_wait_until = expiry_dt.isoformat()
+
+            # Publish event in async context
+            event_bus = get_event_bus()
+            asyncio.create_task(
+                event_bus.publish(account_id, "flood_wait", {"flood_wait_until": flood_wait_until})
+            )
+        except Exception as e:
+            logger.warning(f"Failed to publish flood_wait event for '{account_id}': {e}")
+
+    def _publish_flood_wait_cleared_event(self, account_id: str) -> None:
+        """Publish flood_wait_cleared event to EventBus.
+
+        Args:
+            account_id: Session/account ID
+        """
+        try:
+            from chatfilter.web.events import get_event_bus
+
+            event_bus = get_event_bus()
+            asyncio.create_task(event_bus.publish(account_id, "flood_wait_cleared"))
+        except Exception as e:
+            logger.warning(f"Failed to publish flood_wait_cleared event for '{account_id}': {e}")
 
 
 # Global singleton
