@@ -424,6 +424,14 @@ class GroupAnalysisEngine:
                         )
                         break
 
+                    # Check if account is in FloodWait before processing
+                    if flood_tracker.is_blocked(account_id):
+                        logger.warning(
+                            f"Account '{account_id}' is in FloodWait. "
+                            f"Remaining chats left PENDING."
+                        )
+                        break
+
                     await self._process_single_chat(
                         group_id, chat, client, account_id, settings, all_accounts, mode, health_tracker,
                     )
