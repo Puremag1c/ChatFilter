@@ -1,8 +1,4 @@
-<div class="group-card {{ group.status.value }}" id="group-{{ group.id }}"
-     {% if group.status.value == 'in_progress' %}
-     hx-ext="sse"
-     sse-connect="/api/groups/{{ group.id }}/progress"
-     {% endif %}>
+<div class="group-card {{ group.status.value }}" id="group-{{ group.id }}">
     <!-- SSE event handlers: hidden elements for HTMX SSE extension to register EventSource listeners -->
     <div sse-swap="init" style="display:none"></div>
     <div sse-swap="progress" style="display:none"></div>
@@ -220,7 +216,8 @@
     }
 
     // Listen for htmx:sseMessage events (fired by HTMX SSE extension)
-    cardEl.addEventListener('htmx:sseMessage', function(event) {
+    // SSE connection is now on page-level container, listen globally
+    document.body.addEventListener('htmx:sseMessage', function(event) {
         if (!event || !event.detail) return;
 
         // The SSE extension passes the raw event in event.detail

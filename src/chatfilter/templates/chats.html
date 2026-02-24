@@ -190,7 +190,9 @@
     <div id="groups-container"
          role="region"
          aria-live="polite"
-         aria-label="{{ _("Groups list") }}">
+         aria-label="{{ _("Groups list") }}"
+         hx-ext="sse"
+         sse-connect="/api/groups/events">
         <div class="groups-list" id="groups-list">
             <div class="no-groups" role="status">
                 <p>{{ _("Loading groups...") }}</p>
