@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import time
 from dataclasses import dataclass
 from typing import Literal
@@ -16,24 +17,34 @@ class RateLimitConfig:
     """Configuration for Telegram API rate limiting.
 
     Attributes:
-        get_messages_delay: Minimum delay between get_messages() calls (seconds)
-        get_dialogs_delay: Minimum delay between get_dialogs() calls (seconds)
-        join_chat_delay: Minimum delay between join_chat() calls (seconds)
-        leave_chat_delay: Minimum delay between leave_chat() calls (seconds)
-        get_account_info_delay: Minimum delay between get_account_info() calls (seconds)
+        get_messages_delay: Delay range (min, max) for get_messages() calls (seconds)
+        get_dialogs_delay: Delay range (min, max) for get_dialogs() calls (seconds)
+        join_chat_delay: Delay range (min, max) for join_chat() calls (seconds)
+        leave_chat_delay: Delay range (min, max) for leave_chat() calls (seconds)
+        get_account_info_delay: Delay range (min, max) for get_account_info() calls (seconds)
+        get_entity_delay: Delay range (min, max) for get_entity() calls (seconds)
+        get_full_channel_delay: Delay range (min, max) for get_full_channel() calls (seconds)
         enabled: Whether rate limiting is enabled
     """
 
-    get_messages_delay: float = 1.5  # 1.5 seconds default
-    get_dialogs_delay: float = 1.0  # 1 second default
-    join_chat_delay: float = 2.0  # 2 seconds default (more conservative for writes)
-    leave_chat_delay: float = 2.0  # 2 seconds default (more conservative for writes)
-    get_account_info_delay: float = 1.0  # 1 second default
+    get_messages_delay: tuple[float, float] = (1.5, 2.5)
+    get_dialogs_delay: tuple[float, float] = (1.0, 2.0)
+    join_chat_delay: tuple[float, float] = (2.0, 3.0)
+    leave_chat_delay: tuple[float, float] = (2.0, 3.0)
+    get_account_info_delay: tuple[float, float] = (1.0, 2.0)
+    get_entity_delay: tuple[float, float] = (1.0, 2.0)
+    get_full_channel_delay: tuple[float, float] = (1.0, 2.0)
     enabled: bool = True
 
 
 OperationType = Literal[
-    "get_messages", "get_dialogs", "join_chat", "leave_chat", "get_account_info"
+    "get_messages",
+    "get_dialogs",
+    "join_chat",
+    "leave_chat",
+    "get_account_info",
+    "get_entity",
+    "get_full_channel",
 ]
 
 
@@ -78,6 +89,8 @@ class TelegramRateLimiter:
             f"join_chat={self._config.join_chat_delay}s, "
             f"leave_chat={self._config.leave_chat_delay}s, "
             f"get_account_info={self._config.get_account_info_delay}s, "
+            f"get_entity={self._config.get_entity_delay}s, "
+            f"get_full_channel={self._config.get_full_channel_delay}s, "
             f"enabled={self._config.enabled}"
         )
 
@@ -85,23 +98,26 @@ class TelegramRateLimiter:
         """Wait if needed to respect rate limits for the given operation.
 
         This method checks the time since the last call of this operation type
-        and sleeps if necessary to enforce the minimum delay.
+        and sleeps if necessary to enforce a randomized delay within the configured range.
 
         Args:
-            operation: Type of operation ("get_messages", "get_dialogs", "join_chat")
+            operation: Type of operation (get_messages, get_dialogs, join_chat, etc.)
         """
         if not self._config.enabled:
             return
 
-        # Get configured delay for this operation type
-        delay_map = {
+        # Get configured delay range for this operation type
+        delay_map: dict[OperationType, tuple[float, float]] = {
             "get_messages": self._config.get_messages_delay,
             "get_dialogs": self._config.get_dialogs_delay,
             "join_chat": self._config.join_chat_delay,
             "leave_chat": self._config.leave_chat_delay,
             "get_account_info": self._config.get_account_info_delay,
+            "get_entity": self._config.get_entity_delay,
+            "get_full_channel": self._config.get_full_channel_delay,
         }
-        min_delay = delay_map.get(operation, 1.0)
+        delay_range = delay_map.get(operation, (1.0, 2.0))
+        required_delay = random.uniform(delay_range[0], delay_range[1])
 
         async with self._lock:
             now = time.monotonic()
@@ -109,11 +125,12 @@ class TelegramRateLimiter:
 
             if last_call is not None:
                 elapsed = now - last_call
-                if elapsed < min_delay:
-                    wait_time = min_delay - elapsed
+                if elapsed < required_delay:
+                    wait_time = required_delay - elapsed
                     logger.debug(
                         f"Rate limiting {operation}: waiting {wait_time:.2f}s "
-                        f"(elapsed: {elapsed:.2f}s, min_delay: {min_delay:.2f}s)"
+                        f"(elapsed: {elapsed:.2f}s, required_delay: {required_delay:.2f}s, "
+                        f"range: {delay_range})"
                     )
                     await asyncio.sleep(wait_time)
                     now = time.monotonic()  # Update after sleep
@@ -150,6 +167,10 @@ class TelegramRateLimiter:
             f"get_messages={config.get_messages_delay}s, "
             f"get_dialogs={config.get_dialogs_delay}s, "
             f"join_chat={config.join_chat_delay}s, "
+            f"leave_chat={config.leave_chat_delay}s, "
+            f"get_account_info={config.get_account_info_delay}s, "
+            f"get_entity={config.get_entity_delay}s, "
+            f"get_full_channel={config.get_full_channel_delay}s, "
             f"enabled={config.enabled}"
         )
 
