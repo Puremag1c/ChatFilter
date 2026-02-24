@@ -4,7 +4,6 @@ Tests cover:
 - get_web_session: web session dependency
 - get_session_manager: Telegram session manager
 - get_chat_analysis_service: chat analysis service
-- get_database: task database
 """
 
 from __future__ import annotations
@@ -15,7 +14,6 @@ from starlette.requests import Request
 
 from chatfilter.web.dependencies import (
     get_chat_analysis_service,
-    get_database,
     get_session_manager,
     get_web_session,
 )
@@ -89,40 +87,3 @@ class TestGetChatAnalysisService:
         result = get_chat_analysis_service()
 
         assert result is mock_service
-
-
-class TestGetDatabase:
-    """Tests for get_database function."""
-
-    def test_creates_database(self) -> None:
-        """Should create TaskDatabase instance."""
-        from pathlib import Path
-
-        import chatfilter.web.dependencies as deps
-
-        deps._database = None
-
-        with patch("chatfilter.config.get_settings") as mock_settings:
-            mock_data_dir = MagicMock(spec=Path)
-            mock_data_dir.__truediv__ = MagicMock(return_value=Path("/tmp/tasks.db"))
-            mock_data_dir.mkdir = MagicMock()
-            mock_settings.return_value = MagicMock(data_dir=mock_data_dir)
-
-            with patch("chatfilter.storage.database.TaskDatabase") as mock_class:
-                mock_db = MagicMock()
-                mock_class.return_value = mock_db
-
-                result = get_database()
-
-                assert result is mock_db
-
-    def test_returns_cached_instance(self) -> None:
-        """Should return cached instance on subsequent calls."""
-        import chatfilter.web.dependencies as deps
-
-        mock_db = MagicMock()
-        deps._database = mock_db
-
-        result = get_database()
-
-        assert result is mock_db
