@@ -57,14 +57,14 @@ class TestUnifiedSSEEndpoint:
         """Test: multiple groups emit events through single SSE connection."""
         # Setup: two groups with in_progress status
         group1 = MagicMock()
-        group1.group_id = "group-1"
+        group1.id = "group-1"
         group1.status = GroupStatus.IN_PROGRESS
 
         group2 = MagicMock()
-        group2.group_id = "group-2"
+        group2.id = "group-2"
         group2.status = GroupStatus.IN_PROGRESS
 
-        mock_group_service.get_all_groups.return_value = [group1, group2]
+        mock_group_service.list_groups.return_value = [group1, group2]
 
         # Setup progress tracker to return queues with events
         queue1 = asyncio.Queue()
@@ -129,10 +129,10 @@ class TestUnifiedSSEEndpoint:
         """
         # Setup: initially one group
         group1 = MagicMock()
-        group1.group_id = "group-1"
+        group1.id = "group-1"
         group1.status = GroupStatus.IN_PROGRESS
 
-        mock_group_service.get_all_groups.return_value = [group1]
+        mock_group_service.list_groups.return_value = [group1]
 
         queue1 = asyncio.Queue()
         queue1.put_nowait(GroupProgressEvent(
@@ -170,11 +170,11 @@ class TestUnifiedSSEEndpoint:
         groups = []
         for i in range(1, 4):
             group = MagicMock()
-            group.group_id = f"group-{i}"
+            group.id = f"group-{i}"
             group.status = GroupStatus.IN_PROGRESS
             groups.append(group)
 
-        mock_group_service.get_all_groups.return_value = groups
+        mock_group_service.list_groups.return_value = groups
 
         # Mock subscribe to return empty queues (we only care about init events)
         def mock_subscribe(group_id: str):
@@ -205,7 +205,7 @@ class TestUnifiedSSEEndpoint:
     ):
         """Test: heartbeat ping events are sent every 15 seconds."""
         # Setup: no active groups
-        mock_group_service.get_all_groups.return_value = []
+        mock_group_service.list_groups.return_value = []
 
         from chatfilter.web.routers.groups.progress import _generate_unified_sse_events
 
@@ -242,10 +242,10 @@ class TestUnifiedSSEEndpoint:
         """Test: error messages are sanitized before sending to client."""
         # Setup: group with error event
         group1 = MagicMock()
-        group1.group_id = "group-1"
+        group1.id = "group-1"
         group1.status = GroupStatus.IN_PROGRESS
 
-        mock_group_service.get_all_groups.return_value = [group1]
+        mock_group_service.list_groups.return_value = [group1]
 
         queue1 = asyncio.Queue()
         queue1.put_nowait(GroupProgressEvent(
@@ -282,10 +282,10 @@ class TestUnifiedSSEEndpoint:
         """Test: SSE stream stops when client disconnects."""
         # Setup: long-running group
         group1 = MagicMock()
-        group1.group_id = "group-1"
+        group1.id = "group-1"
         group1.status = GroupStatus.IN_PROGRESS
 
-        mock_group_service.get_all_groups.return_value = [group1]
+        mock_group_service.list_groups.return_value = [group1]
 
         queue1 = asyncio.Queue()
         # Add many events (won't finish quickly)
@@ -362,7 +362,7 @@ class TestResumeButtonCardUpdate:
             async def mock_resume(group_id: str):
                 # Return updated group
                 group = MagicMock()
-                group.group_id = group_id
+                group.id = group_id
                 group.status = GroupStatus.IN_PROGRESS
                 group.name = "Test Group"
                 return group
