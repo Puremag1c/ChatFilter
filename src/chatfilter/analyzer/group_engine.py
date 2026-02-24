@@ -58,6 +58,12 @@ class AccountHealthTracker:
         self.consecutive_errors[account_id] = self.consecutive_errors.get(account_id, 0) + 1
         self.total_error[account_id] = self.total_error.get(account_id, 0) + 1
 
+    def record_chat_error(self, account_id: str) -> None:
+        """Record dead chat error - increments total error but NOT consecutive (not account's fault)."""
+        self.total_error[account_id] = self.total_error.get(account_id, 0) + 1
+        # Reset consecutive errors - dead chat is not account failure
+        self.consecutive_errors[account_id] = 0
+
     def should_stop(self, account_id: str) -> bool:
         """Check if account should stop processing due to too many consecutive failures."""
         return self.consecutive_errors.get(account_id, 0) >= self.max_consecutive_errors
@@ -396,7 +402,62 @@ class GroupAnalysisEngine:
             health_tracker.record_success(account_id)
         else:
             self._save_chat_error(chat["id"], result.error or "All accounts exhausted")
-            health_tracker.record_failure(account_id)
+            # Classify error to determine if it's account's fault
+            error_msg = result.error or ""
+
+            # 1. Primary classification: check if worker marked chat as DEAD
+            # Worker sets chat_type=DEAD for InviteHashExpired, ChatForbidden, etc.
+            is_dead_chat = (
+                result.value is not None
+                and result.value.chat_type == ChatTypeEnum.DEAD.value
+            )
+
+            # 2. FloodWait exhaustion (temporary, account not broken)
+            # Exact match from retry.py: "All accounts rate-limited, max retries (...) exhausted"
+            is_floodwait = "All accounts rate-limited" in error_msg
+
+            # 3. Real account errors (permanent account failure)
+            # SessionInvalidError, UserDeactivated, etc. — these indicate broken account
+            account_error_patterns = [
+                "SessionInvalidError",
+                "UserDeactivatedError",
+                "UserDeactivatedBan",
+                "AuthKeyUnregistered",
+                "account.*invalid",
+                "session.*invalid",
+            ]
+            is_account_error = any(
+                pattern.lower() in error_msg.lower() for pattern in account_error_patterns
+            )
+
+            # Classify and record
+            if is_dead_chat:
+                # Dead chat (permanent, but not account's fault)
+                logger.info(
+                    f"Account '{account_id}': dead chat '{chat_ref}' (category: permanent, not account's fault)"
+                )
+                health_tracker.record_chat_error(account_id)
+            elif is_floodwait:
+                # FloodWait exhaustion (temporary, account still healthy)
+                logger.warning(
+                    f"Account '{account_id}': FloodWait exhausted for '{chat_ref}' "
+                    f"(category: temporary, chat stays PENDING)"
+                )
+                # Don't count as failure at all
+            elif is_account_error:
+                # Real account error (permanent, account broken)
+                logger.error(
+                    f"Account '{account_id}': account error for '{chat_ref}' - {error_msg} "
+                    f"(category: permanent, account failure)"
+                )
+                health_tracker.record_failure(account_id)
+            else:
+                # Unknown error — treat as account failure for safety
+                logger.warning(
+                    f"Account '{account_id}': unknown error for '{chat_ref}' - {error_msg} "
+                    f"(category: unknown, counted as account failure)"
+                )
+                health_tracker.record_failure(account_id)
 
         title = (result.value.title or chat_ref) if result.success and result.value else chat_ref
         self._progress.publish_from_db(
