@@ -86,7 +86,8 @@
         {% elif group.status.value == 'waiting_for_accounts' %}
         <button class="btn btn-warning btn-sm"
                 hx-post="/api/groups/{{ group.id }}/stop"
-                hx-swap="none">
+                hx-swap="none"
+                hx-confirm="{{ _('Stop analysis? The group is waiting for account unblock (FloodWait). If you stop, you will need to resume manually.') }}">
             {{ _("Stop analysis") }}
         </button>
         {% elif group.status.value == 'paused' %}
