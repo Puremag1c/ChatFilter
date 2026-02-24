@@ -99,7 +99,7 @@ async def _generate_unified_sse_events(
 
         # Subscribe to each active group and send init events
         for group in active_groups:
-            group_id = group.group_id
+            group_id = group.id
 
             # Get current state from DB
             started_at = service._db.get_analysis_started_at(group_id)
