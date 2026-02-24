@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import get_args
+from unittest.mock import patch
 
 import pytest
 
 from chatfilter.telegram.rate_limiter import (
+    OperationType,
     RateLimitConfig,
     TelegramRateLimiter,
     get_rate_limiter,
@@ -19,11 +22,13 @@ class TestRateLimitConfig:
     """Tests for RateLimitConfig."""
 
     def test_default_config(self) -> None:
-        """Test default configuration values."""
+        """Test default configuration values for all operation types."""
         config = RateLimitConfig()
         assert config.get_messages_delay == (1.5, 2.5)
         assert config.get_dialogs_delay == (1.0, 2.0)
         assert config.join_chat_delay == (2.0, 3.0)
+        assert config.leave_chat_delay == (2.0, 3.0)
+        assert config.get_account_info_delay == (1.0, 2.0)
         assert config.get_entity_delay == (1.0, 2.0)
         assert config.get_full_channel_delay == (1.0, 2.0)
         assert config.enabled is True
@@ -200,29 +205,129 @@ class TestTelegramRateLimiter:
 
     @pytest.mark.asyncio
     async def test_all_operation_types(self) -> None:
-        """Test all operation types are supported."""
+        """Test all 7 operation types enforce delays."""
         config = RateLimitConfig(
             get_messages_delay=(0.2, 0.3),
             get_dialogs_delay=(0.2, 0.3),
             join_chat_delay=(0.2, 0.3),
+            leave_chat_delay=(0.2, 0.3),
+            get_account_info_delay=(0.2, 0.3),
             get_entity_delay=(0.2, 0.3),
             get_full_channel_delay=(0.2, 0.3),
         )
         limiter = TelegramRateLimiter(config)
 
-        # Test each operation type including new ones
-        for operation in [
-            "get_messages",
-            "get_dialogs",
-            "join_chat",
-            "get_entity",
-            "get_full_channel",
-        ]:
+        all_ops = get_args(OperationType)
+        assert len(all_ops) == 7, f"Expected 7 operation types, got {len(all_ops)}"
+
+        for operation in all_ops:
+            limiter.reset()
             await limiter.wait_if_needed(operation)  # type: ignore
             start = time.monotonic()
             await limiter.wait_if_needed(operation)  # type: ignore
             elapsed = time.monotonic() - start
-            assert 0.15 <= elapsed <= 0.4  # Should enforce randomized delay
+            assert 0.15 <= elapsed <= 0.4, (
+                f"Operation {operation}: delay {elapsed:.3f}s not in expected range"
+            )
+
+    def test_all_operation_types_have_config(self) -> None:
+        """Every OperationType must have a corresponding delay field in RateLimitConfig."""
+        config = RateLimitConfig()
+        all_ops = get_args(OperationType)
+        for op in all_ops:
+            attr = f"{op}_delay"
+            assert hasattr(config, attr), f"RateLimitConfig missing {attr} for operation '{op}'"
+            delay = getattr(config, attr)
+            assert isinstance(delay, tuple) and len(delay) == 2, (
+                f"{attr} should be a (min, max) tuple, got {delay}"
+            )
+            assert delay[0] <= delay[1], f"{attr}: min ({delay[0]}) > max ({delay[1]})"
+            assert delay[0] > 0, f"{attr}: min delay must be positive"
+
+    @pytest.mark.asyncio
+    async def test_randomized_delays_vary(self) -> None:
+        """Verify delays are randomized within (min, max) range across multiple calls."""
+        config = RateLimitConfig(get_messages_delay=(0.3, 0.5))
+        limiter = TelegramRateLimiter(config)
+
+        delays: list[float] = []
+        for _ in range(6):
+            limiter.reset()
+            # First call — no delay
+            await limiter.wait_if_needed("get_messages")
+            # Second call — should wait within range
+            start = time.monotonic()
+            await limiter.wait_if_needed("get_messages")
+            delays.append(time.monotonic() - start)
+
+        # All delays should be within the configured range (with tolerance)
+        for d in delays:
+            assert 0.25 <= d <= 0.6, f"Delay {d:.3f}s outside expected range [0.25, 0.6]"
+
+        # With 6 samples from uniform(0.3, 0.5), delays should NOT all be identical
+        # (probability of all 6 being within 0.01s of each other is negligible)
+        assert max(delays) - min(delays) > 0.01, (
+            f"Delays appear non-random: {[f'{d:.3f}' for d in delays]}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_entity_enforces_delay(self) -> None:
+        """Test get_entity operation enforces delay on second call."""
+        config = RateLimitConfig(get_entity_delay=(0.3, 0.5))
+        limiter = TelegramRateLimiter(config)
+
+        await limiter.wait_if_needed("get_entity")
+        start = time.monotonic()
+        await limiter.wait_if_needed("get_entity")
+        elapsed = time.monotonic() - start
+
+        assert 0.25 <= elapsed <= 0.6
+
+    @pytest.mark.asyncio
+    async def test_get_full_channel_enforces_delay(self) -> None:
+        """Test get_full_channel operation enforces delay on second call."""
+        config = RateLimitConfig(get_full_channel_delay=(0.3, 0.5))
+        limiter = TelegramRateLimiter(config)
+
+        await limiter.wait_if_needed("get_full_channel")
+        start = time.monotonic()
+        await limiter.wait_if_needed("get_full_channel")
+        elapsed = time.monotonic() - start
+
+        assert 0.25 <= elapsed <= 0.6
+
+    @pytest.mark.asyncio
+    async def test_backward_compat_original_operations(self) -> None:
+        """Original 5 operations still work correctly with tuple-based delay config."""
+        original_ops: list[OperationType] = [
+            "get_messages",
+            "get_dialogs",
+            "join_chat",
+            "leave_chat",
+            "get_account_info",
+        ]
+        config = RateLimitConfig(
+            get_messages_delay=(0.2, 0.3),
+            get_dialogs_delay=(0.2, 0.3),
+            join_chat_delay=(0.2, 0.3),
+            leave_chat_delay=(0.2, 0.3),
+            get_account_info_delay=(0.2, 0.3),
+        )
+        limiter = TelegramRateLimiter(config)
+
+        for op in original_ops:
+            limiter.reset()
+            # First call immediate
+            start = time.monotonic()
+            await limiter.wait_if_needed(op)
+            assert time.monotonic() - start < 0.1, f"{op}: first call should be immediate"
+            # Second call delayed
+            start = time.monotonic()
+            await limiter.wait_if_needed(op)
+            elapsed = time.monotonic() - start
+            assert 0.15 <= elapsed <= 0.4, (
+                f"{op}: delay {elapsed:.3f}s not in expected range"
+            )
 
 
 class TestGlobalRateLimiter:
