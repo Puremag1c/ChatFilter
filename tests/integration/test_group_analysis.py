@@ -586,6 +586,14 @@ class TestAllChatsGetResultsGuarantee:
     No silent skips allowed.
     """
 
+    @pytest.fixture(autouse=True)
+    def clear_flood_tracker(self):
+        """Clear global FloodWaitTracker state before each test to prevent cross-test interference."""
+        from chatfilter.telegram.flood_tracker import get_flood_tracker
+        tracker = get_flood_tracker()
+        tracker.clear_all()
+        yield
+
     @pytest.mark.asyncio
     async def test_all_chats_get_results_pass_or_dead(
         self,
@@ -731,13 +739,18 @@ class TestAllChatsGetResultsGuarantee:
         self,
         test_db: GroupDatabase,
     ) -> None:
-        """Test that FloodWait on chat #50 doesn't break the loop.
+        """Test that FloodWait on chat #50 stops account worker and leaves remaining chats PENDING.
 
         Scenario:
         - 100 chats in group
         - Chat #50 triggers FloodWait (2s wait)
-        - Verify: Remaining chats processed after wait
-        - Verify: No break from loop — all 100 get results
+        - Account blocked by flood_tracker
+        - Verify: Worker stops, remaining chats (50-99) stay PENDING
+        - Verify: Processed chats (0-49) have results
+
+        Note: This behavior changed with WAITING_FOR_ACCOUNTS feature.
+        Previously: FloodWait → wait → continue.
+        Now: FloodWait → stop worker → WAITING_FOR_ACCOUNTS status (tested separately).
         """
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 
@@ -829,28 +842,31 @@ class TestAllChatsGetResultsGuarantee:
             # Verify sleep was called for FloodWait
             assert mock_retry_sleep.called, "FloodWait should trigger sleep in retry"
 
-        # CRITICAL ASSERTION: ALL 100 chats processed despite FloodWait
+        # NEW BEHAVIOR: Account worker stops after FloodWait, remaining chats stay PENDING
         all_chats = test_db.load_chats(group_id=group_id)
         done_chats = [c for c in all_chats if c["status"] == GroupChatStatus.DONE.value]
         error_chats = [c for c in all_chats if c["status"] == GroupChatStatus.ERROR.value]
         pending_chats = [c for c in all_chats if c["status"] == GroupChatStatus.PENDING.value]
 
-        total_processed = len(done_chats) + len(error_chats)
-        assert total_processed == 100, (
-            f"FloodWait broke the loop! Expected 100 processed, got {total_processed}. "
-            f"({len(done_chats)} done, {len(error_chats)} error, {len(pending_chats)} pending)"
-        )
-
-        # Verify chat #50 is processed
-        chat50_result = _load_result_for_chat(test_db, group_id, "https://t.me/chat50")
-        assert chat50_result is not None, "Chat #50 missing from results after FloodWait"
-
         # Verify FloodWait was hit
         assert floodwait_hit, "FloodWait scenario should have been triggered"
 
-        # Verify process_chat called 101 times (100 chats + 1 retry for chat #50)
-        assert call_count == 101, (
-            f"Expected 101 process_chat calls (100 chats + 1 FloodWait retry), got {call_count}"
+        # Verify chats 0-50 were processed (50 is the one that triggered FloodWait)
+        # After FloodWait, worker should stop and leave remaining chats PENDING
+        assert len(done_chats) >= 50, (
+            f"Expected at least 50 done chats (0-49 + maybe 50 on retry), got {len(done_chats)}"
+        )
+
+        # Verify remaining chats stay PENDING (worker stopped after FloodWait)
+        assert len(pending_chats) > 0, (
+            f"Expected some PENDING chats after FloodWait (worker should stop), got {len(pending_chats)}"
+        )
+
+        # Verify NOT all chats processed (worker stopped)
+        total_processed = len(done_chats) + len(error_chats)
+        assert total_processed < 100, (
+            f"Worker should stop after FloodWait! Expected <100 processed, got {total_processed}. "
+            f"({len(done_chats)} done, {len(error_chats)} error, {len(pending_chats)} pending)"
         )
 
     @pytest.mark.asyncio
