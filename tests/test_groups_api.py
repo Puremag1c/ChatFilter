@@ -981,9 +981,9 @@ class TestRouterUsesNewServiceAPI:
         """Verify SSE endpoint uses ProgressTracker.subscribe, not engine.subscribe."""
         import inspect
 
-        from chatfilter.web.routers.groups import _generate_group_sse_events
+        from chatfilter.web.routers.groups.progress import _generate_unified_sse_events
 
-        source = inspect.getsource(_generate_group_sse_events)
+        source = inspect.getsource(_generate_unified_sse_events)
 
         assert "tracker.subscribe(" in source, (
             "SSE should subscribe via ProgressTracker, not engine"
