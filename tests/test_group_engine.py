@@ -150,6 +150,52 @@ async def test_floodwait_global_retry_max_retries_exhausted() -> None:
     assert mock_sleep.call_count >= policy.max_global_retries
 
 
+# ===== TEST 3.5: FloodWait log sanitization - no phone numbers =====
+
+
+@pytest.mark.asyncio
+async def test_floodwait_logs_do_not_leak_traceback(caplog) -> None:
+    """Test that FloodWait error logs never include exc_info (traceback).
+
+    SECURITY: FloodWaitError traceback can expose phone numbers from the
+    Telethon session context. All FloodWait logs must use controlled format
+    strings without exc_info=True.
+    """
+    import logging
+
+    async def mock_fn(account_id: str, chat: dict) -> str:
+        error = FloodWaitError("FLOOD_WAIT_X")
+        error.seconds = 30
+        raise error
+
+    chat = {"id": "chat-1", "chat_ref": "https://t.me/test"}
+    accounts = ["acc1", "acc2"]
+    policy = RetryPolicy(max_retries=1, max_global_retries=0)
+
+    with (
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.DEBUG, logger="chatfilter.analyzer.retry"),
+    ):
+        result = await try_with_retry(fn=mock_fn, chat=chat, accounts=accounts, policy=policy)
+
+    assert not result.success
+
+    # Collect all FloodWait-related log messages
+    flood_logs = [r for r in caplog.records if "FloodWait" in r.message]
+    assert len(flood_logs) > 0, "Expected at least one FloodWait log message"
+
+    for record in flood_logs:
+        # CRITICAL: no exc_info (traceback) on FloodWait logs — traceback can leak phone numbers
+        assert record.exc_info is None or record.exc_info == (None, None, None), (
+            f"FloodWait log should NOT include traceback (exc_info): {record.message}"
+        )
+        # Verify: log uses controlled format with account_id, not raw exception repr
+        assert "FloodWait" in record.message
+        assert "FLOOD_WAIT_X" not in record.message, (
+            "FloodWait log should not contain raw exception message"
+        )
+
+
 # ===== TEST 4: Account health - account failing 5 times =====
 
 

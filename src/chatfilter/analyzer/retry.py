@@ -214,6 +214,11 @@ async def try_with_retry(
                     # Record FloodWait immediately in global tracker
                     flood_tracker.record_flood_wait(account_id, wait_seconds)
 
+                    # Log FloodWait without exposing phone number in traceback
+                    logger.warning(
+                        f"Account '{account_id}' received FloodWait {wait_seconds}s on '{chat_ref}'"
+                    )
+
                     # Check if we should retry this FloodWait
                     should_retry, skip_reason = should_retry_floodwait(
                         wait_seconds, cumulative_wait, policy,
@@ -229,10 +234,9 @@ async def try_with_retry(
 
                     # Check if we've exhausted retries for this account
                     if retry_count >= policy.max_retries:
-                        logger.warning(
-                            f"Account '{account_id}' on '{chat_ref}': "
-                            f"FloodWait retries exhausted ({policy.max_retries}). "
-                            f"Trying next account."
+                        logger.info(
+                            f"Account '{account_id}': FloodWait retries exhausted "
+                            f"({policy.max_retries} attempts). Trying next account."
                         )
                         # Track when this account will be available
                         buffer = int(wait_seconds * policy.backoff_buffer_percent)
@@ -245,10 +249,9 @@ async def try_with_retry(
                     total_wait = wait_seconds + buffer
                     cumulative_wait += total_wait
 
-                    logger.warning(
-                        f"Account '{account_id}' on '{chat_ref}': FloodWait {wait_seconds}s "
-                        f"(attempt {retry_count}/{policy.max_retries}). "
-                        f"Waiting {total_wait}s... (cumulative: {int(cumulative_wait)}s/{policy.max_chat_timeout}s)"
+                    logger.info(
+                        f"Account '{account_id}': waiting {total_wait}s for FloodWait to expire "
+                        f"(attempt {retry_count}/{policy.max_retries}, cumulative: {int(cumulative_wait)}s)"
                     )
 
                     await asyncio.sleep(total_wait)
@@ -267,6 +270,15 @@ async def try_with_retry(
                     break  # Move to next account
 
                 except Exception as e:
+                    # Check if this is FloodWait (defensive - should not reach here)
+                    if isinstance(e, errors.FloodWaitError):
+                        wait_seconds = getattr(e, "seconds", 0)
+                        logger.warning(
+                            f"Account '{account_id}': FloodWait {wait_seconds}s (unexpected path). "
+                            f"Trying next account."
+                        )
+                        had_non_floodwait_error = True
+                        break  # Move to next account
                     # Check if this is a network error
                     if detect_network_error(e):
                         # Network error: try next account (don't propagate)

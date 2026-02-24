@@ -252,7 +252,13 @@ class GroupAnalysisEngine:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for acct, res in zip(accounts, results):
                 if isinstance(res, Exception):
-                    logger.error(f"Account '{acct}' worker failed: {res}", exc_info=res)
+                    # Check if this is FloodWait-related error
+                    from telethon import errors as tl_errors
+                    if isinstance(res, tl_errors.FloodWaitError):
+                        wait_seconds = getattr(res, "seconds", 0)
+                        logger.warning(f"Account '{acct}' worker: FloodWait {wait_seconds}s")
+                    else:
+                        logger.error(f"Account '{acct}' worker failed: {res}", exc_info=res)
         finally:
             self._active_tasks.pop(group_id, None)
 
@@ -322,8 +328,14 @@ class GroupAnalysisEngine:
             logger.info(f"Account '{account_id}' cancelled for '{group_id}'")
             raise
         except Exception as e:
+            from telethon import errors as tl_errors
+            # Check for FloodWait first (should not happen here, but defensive)
+            if isinstance(e, tl_errors.FloodWaitError):
+                wait_seconds = getattr(e, "seconds", 0)
+                logger.warning(f"Account '{account_id}': FloodWait {wait_seconds}s (unexpected at worker level)")
+                # Don't mark chats as error — they stay PENDING
             # Distinguish network errors from actual failures
-            if detect_network_error(e):
+            elif detect_network_error(e):
                 # Network error: leave chats PENDING for retry on resume
                 logger.warning(
                     f"Account '{account_id}' network error for '{group_id}': {e}. "
