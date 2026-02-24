@@ -16,6 +16,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 
 from telethon import errors
 
+from chatfilter.telegram.flood_tracker import get_flood_tracker
 from chatfilter.utils.network import detect_network_error
 
 logger = logging.getLogger(__name__)
@@ -164,17 +165,29 @@ async def try_with_retry(
     tried_accounts: list[str] = []
     global_retry_count = 0
 
+    flood_tracker = get_flood_tracker()
+
     while True:
         # Track FloodWait expiry times per account
         floodwait_expires: dict[str, float] = {}
         had_non_floodwait_error = False
         accounts_tried_this_round = 0
+        accounts_available_this_round = 0  # Track how many accounts were available (not pre-blocked)
 
         for account_id in accounts:
             # Skip accounts already tried in this round
             if account_id in tried_accounts:
                 continue
 
+            # Check if account is blocked by FloodWait tracker
+            if flood_tracker.is_blocked(account_id):
+                logger.info(f"Account '{account_id}' skipped: blocked by FloodWait tracker")
+                wait_until = flood_tracker.get_wait_until(account_id)
+                if wait_until:
+                    floodwait_expires[account_id] = wait_until
+                continue
+
+            accounts_available_this_round += 1
             tried_accounts.append(account_id)
             accounts_tried_this_round += 1
             retry_count = 0
@@ -197,6 +210,9 @@ async def try_with_retry(
                 except errors.FloodWaitError as e:
                     wait_seconds = getattr(e, "seconds", 0)
                     retry_count += 1
+
+                    # Record FloodWait immediately in global tracker
+                    flood_tracker.record_flood_wait(account_id, wait_seconds)
 
                     # Check if we should retry this FloodWait
                     should_retry, skip_reason = should_retry_floodwait(
@@ -270,8 +286,17 @@ async def try_with_retry(
                         had_non_floodwait_error = True
                         break  # Move to next account
 
-        # Check if all accounts tried this round hit FloodWait (no other errors)
-        if floodwait_expires and not had_non_floodwait_error and len(floodwait_expires) == accounts_tried_this_round:
+        # Check if all available accounts hit FloodWait (no other errors)
+        # accounts_available_this_round includes both tracker-blocked and newly-tried accounts
+        # If all available accounts are FloodWait-blocked, trigger global retry
+        total_floodwait_accounts = len(floodwait_expires)
+        all_accounts_floodwait = (
+            floodwait_expires
+            and not had_non_floodwait_error
+            and accounts_available_this_round == 0  # No accounts were available to try
+        )
+
+        if all_accounts_floodwait or (floodwait_expires and not had_non_floodwait_error and total_floodwait_accounts == accounts_tried_this_round):
             # All accounts are rate-limited — wait for minimum FloodWait
             min_wait_account = min(floodwait_expires.items(), key=lambda x: x[1])
             account_id, expiry_time = min_wait_account

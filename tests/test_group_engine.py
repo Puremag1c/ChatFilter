@@ -17,7 +17,17 @@ from chatfilter.analyzer.group_engine import (
 from chatfilter.analyzer.retry import RetryPolicy, RetryResult, try_with_retry
 from chatfilter.models.group import GroupChatStatus, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
+from chatfilter.telegram.flood_tracker import get_flood_tracker
 from chatfilter.telegram.session_manager import SessionInvalidError, SessionManager
+
+
+@pytest.fixture(autouse=True)
+def clear_flood_tracker():
+    """Clear FloodWait tracker before each test to prevent state leakage."""
+    tracker = get_flood_tracker()
+    tracker.clear_all()
+    yield
+    tracker.clear_all()
 
 
 # ===== TEST 1: FloodWait global retry - all accounts hit FloodWait =====

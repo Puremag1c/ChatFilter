@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from chatfilter.analyzer.progress import GroupProgressEvent, ProgressTracker
 from chatfilter.analyzer.retry import RetryPolicy, try_with_retry
 from chatfilter.analyzer.worker import ChatResult, process_chat
+from chatfilter.telegram.flood_tracker import get_flood_tracker
 from chatfilter.models.group import (
     AnalysisMode,
     ChatTypeEnum,
@@ -284,9 +285,20 @@ class GroupAnalysisEngine:
             return
 
         logger.info(f"Account '{account_id}' processing {len(chats)} chats")
+        flood_tracker = get_flood_tracker()
+
         try:
             async with self._session_mgr.session(account_id, auto_disconnect=False) as client:
                 for chat in chats:
+                    # Check if account is blocked by FloodWait
+                    if flood_tracker.is_blocked(account_id):
+                        wait_until = flood_tracker.get_wait_until(account_id)
+                        logger.warning(
+                            f"Account '{account_id}' blocked by FloodWait until {wait_until}. "
+                            f"Leaving {len(chats) - chats.index(chat)} chats PENDING."
+                        )
+                        return
+
                     # Check if account should stop due to consecutive failures
                     if health_tracker.should_stop(account_id):
                         stats = health_tracker.get_stats(account_id)
