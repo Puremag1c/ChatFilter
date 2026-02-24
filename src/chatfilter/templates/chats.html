@@ -205,6 +205,23 @@
 {% block scripts %}
 <script src="/static/js/groups.js"></script>
 <script>
+// Handle SSE connection errors - show persistent banner when connection drops
+document.body.addEventListener('htmx:sseError', function(evt) {
+    console.error('[SSE] Connection error:', evt.detail);
+
+    // Show persistent banner to inform user that realtime updates stopped
+    if (typeof SSEStatusBanner !== 'undefined') {
+        SSEStatusBanner.show();
+    }
+
+    // Also show a brief toast for immediate feedback
+    if (typeof ToastManager !== 'undefined') {
+        ToastManager.warning('{{ _("Connection lost. Real-time updates paused.") }}', {
+            duration: 4000
+        });
+    }
+});
+
 // Vanilla JS polling replaces HTMX polling to prevent duplicate card accumulation.
 // HTMX innerHTML swap + settle processing + request-dedup interactions caused
 // exponential card duplication. Plain fetch + innerHTML avoids all HTMX swap machinery.
