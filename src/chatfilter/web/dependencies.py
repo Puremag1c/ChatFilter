@@ -16,7 +16,6 @@ from chatfilter.web.session import SessionData, get_session
 
 if TYPE_CHECKING:
     from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-    from chatfilter.storage.database import TaskDatabase
 
 
 def get_web_session(request: Request) -> SessionData:
@@ -45,7 +44,6 @@ WebSession = Annotated[SessionData, Depends(get_web_session)]
 # Global instances (in production, these would be in app state)
 _session_manager: SessionManager | None = None
 _chat_service: ChatAnalysisService | None = None
-_database: TaskDatabase | None = None
 _group_engine: GroupAnalysisEngine | None = None
 
 
@@ -81,24 +79,6 @@ def get_chat_analysis_service() -> ChatAnalysisService:
             data_dir=settings.sessions_dir,
         )
     return _chat_service
-
-
-def get_database() -> TaskDatabase:
-    """Get or create the task database instance.
-
-    Returns:
-        TaskDatabase instance for accessing historical analysis tasks
-    """
-    global _database
-    if _database is None:
-        from chatfilter.config import get_settings
-        from chatfilter.storage.database import TaskDatabase
-
-        settings = get_settings()
-        db_path = settings.data_dir / "tasks.db"
-        settings.data_dir.mkdir(parents=True, exist_ok=True)
-        _database = TaskDatabase(db_path)
-    return _database
 
 
 def get_group_engine() -> GroupAnalysisEngine:

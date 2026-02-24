@@ -22,13 +22,11 @@ from chatfilter.web.middleware import (
     SecurityHeadersMiddleware,
     SessionMiddleware,
 )
-from chatfilter.web.routers.analysis import router as analysis_router
 from chatfilter.web.routers.chatlist import router as chatlist_router
 from chatfilter.web.routers.chats import router as chats_router
 from chatfilter.web.routers.export import router as export_router
 from chatfilter.web.routers.groups import router as groups_router
 from chatfilter.web.routers.health import router as health_router
-from chatfilter.web.routers.history import router as history_router
 from chatfilter.web.routers.monitoring import router as monitoring_router
 from chatfilter.web.routers.pages import router as pages_router
 from chatfilter.web.routers.proxy_pool import router as proxy_pool_router
@@ -76,8 +74,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     import platform
 
     from chatfilter import __version__
-    from chatfilter.analyzer.task_queue import get_task_queue
-    from chatfilter.storage.database import TaskDatabase
     from chatfilter.utils import cleanup_orphaned_resources
 
     logger.info("=" * 60)
@@ -106,7 +102,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "for production deployments."
         )
 
-    db_path = settings.data_dir / "tasks.db"
     settings.data_dir.mkdir(parents=True, exist_ok=True)
 
     # Clean up orphaned resources from SIGKILL/crashes
@@ -122,13 +117,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     migrated_sessions = migrate_legacy_sessions()
     if migrated_sessions:
         logger.info(f"Migrated {len(migrated_sessions)} legacy sessions to new config format")
-
-    task_db = TaskDatabase(db_path)
-    task_queue = get_task_queue(
-        db=task_db,
-        stale_task_threshold_hours=settings.stale_task_threshold_hours,
-    )
-    logger.info(f"Task database initialized at {db_path}")
 
     # Recover stale in_progress groups after server restart
     from chatfilter.web.dependencies import get_group_engine
@@ -202,16 +190,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         await asyncio.sleep(0.5)
 
-    # 3. Clear completed tasks to free memory
-    try:
-        logger.info("Cleaning up completed tasks")
-        cleared = task_queue.clear_completed()
-        orphaned = await task_queue.cleanup_orphaned_subscribers()
-        logger.info(f"Cleared {cleared} tasks and {orphaned} orphaned subscriber lists")
-    except Exception as e:
-        logger.error(f"Error clearing tasks during shutdown: {e}")
-
-    # 3.5. Cancel background analysis tasks
+    # 3. Cancel background analysis tasks
     if app.state.app_state.analysis_tasks:
         logger.info(f"Cancelling {len(app.state.app_state.analysis_tasks)} background analysis tasks")
         for group_id, task in app.state.app_state.analysis_tasks.items():
@@ -375,12 +354,10 @@ def create_app(
     # Include routers
     app.include_router(health_router)
     app.include_router(export_router)
-    app.include_router(history_router)
     app.include_router(sessions_router)
     app.include_router(chatlist_router)
     app.include_router(chats_router)
     app.include_router(groups_router)
-    app.include_router(analysis_router)
     app.include_router(monitoring_router)
     app.include_router(proxy_pool_router)
     app.include_router(pages_router)
