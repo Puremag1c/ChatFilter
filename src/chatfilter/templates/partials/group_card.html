@@ -83,6 +83,12 @@
                 hx-swap="none">
             {{ _("Stop analysis") }}
         </button>
+        {% elif group.status.value == 'waiting_for_accounts' %}
+        <button class="btn btn-warning btn-sm"
+                hx-post="/api/groups/{{ group.id }}/stop"
+                hx-swap="none">
+            {{ _("Stop analysis") }}
+        </button>
         {% elif group.status.value == 'paused' %}
         <button class="btn btn-primary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/resume"
