@@ -51,6 +51,10 @@ from .progress import (
     _generate_unified_sse_events,
     get_unified_group_events,
 )
+
+# Backward compatibility aliases for tests
+_generate_group_sse_events = _generate_unified_sse_events
+get_group_progress = get_unified_group_events
 from .analysis import (
     start_group_analysis,
     stop_group_analysis,
