@@ -156,6 +156,10 @@
 (function() {
     const groupId = '{{ group.id }}';
 
+    // AbortController for cleanup - abort() removes ALL listeners with this signal
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
     // DO NOT cache DOM references - look them up fresh on each event
     // This prevents stale references when refreshGroups() swaps innerHTML
     function getElements() {
@@ -439,7 +443,8 @@
 
     // Listen for htmx:sseMessage events (fired by HTMX SSE extension)
     // SSE connection is now on page-level container, listen globally
-    document.body.addEventListener('htmx:sseMessage', handleSseMessage);
+    // Use signal for automatic cleanup when abortController.abort() is called
+    document.body.addEventListener('htmx:sseMessage', handleSseMessage, {signal});
 
     // Start elapsed timer when card initializes
     startElapsedTimer();
@@ -457,12 +462,12 @@
             stopElapsedTimer();
             stopStaleCheckTimer();
             stopFloodWaitCountdown();
-            // CRITICAL: Remove SSE listener to prevent stale DOM updates
-            document.body.removeEventListener('htmx:sseMessage', handleSseMessage);
-            document.body.removeEventListener('htmx:beforeSwap', cleanupOnSwap);
+            // CRITICAL: Abort signal removes ALL listeners registered with this signal
+            // This includes the SSE listener AND this cleanup listener
+            abortController.abort();
         }
     }
-    document.body.addEventListener('htmx:beforeSwap', cleanupOnSwap);
+    document.body.addEventListener('htmx:beforeSwap', cleanupOnSwap, {signal});
 
     // Fallback: MutationObserver for non-HTMX removal
     const observer = new MutationObserver(function(mutations) {
@@ -473,8 +478,8 @@
                     stopElapsedTimer();
                     stopStaleCheckTimer();
                     stopFloodWaitCountdown();
-                    // CRITICAL: Remove SSE listener to prevent stale DOM updates
-                    document.body.removeEventListener('htmx:sseMessage', handleSseMessage);
+                    // CRITICAL: Abort signal removes ALL listeners registered with this signal
+                    abortController.abort();
                     observer.disconnect();
                 }
             });
