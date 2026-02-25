@@ -405,9 +405,8 @@
                     });
 
                     // Update error count in stats section
-                    const errorEl = document.getElementById('error-' + groupId);
-                    if (errorEl && data.breakdown.error !== undefined) {
-                        errorEl.textContent = data.breakdown.error;
+                    if (els.errorEl && data.breakdown.error !== undefined) {
+                        els.errorEl.textContent = data.breakdown.error;
                     }
                 }
 
