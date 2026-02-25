@@ -155,17 +155,24 @@
 <script>
 (function() {
     const groupId = '{{ group.id }}';
-    const processedEl = document.getElementById('processed-' + groupId);
-    const errorEl = document.getElementById('error-' + groupId);
-    const currentChatEl = document.getElementById('current-chat-' + groupId);
-    const elapsedEl = document.getElementById('elapsed-' + groupId);
-    const progressFillEl = document.getElementById('progress-fill-' + groupId);
-    const staleWarningEl = document.getElementById('stale-warning-' + groupId);
-    const floodWaitEl = document.getElementById('flood-wait-' + groupId);
-    const floodWaitTimeEl = document.getElementById('flood-wait-time-' + groupId);
-    const floodWaitCountdownEl = document.getElementById('flood-wait-countdown-' + groupId);
-    const statusBadgeEl = document.querySelector('#group-' + groupId + ' .status-badge');
-    const cardEl = document.getElementById('group-' + groupId);
+
+    // DO NOT cache DOM references - look them up fresh on each event
+    // This prevents stale references when refreshGroups() swaps innerHTML
+    function getElements() {
+        return {
+            processedEl: document.getElementById('processed-' + groupId),
+            errorEl: document.getElementById('error-' + groupId),
+            currentChatEl: document.getElementById('current-chat-' + groupId),
+            elapsedEl: document.getElementById('elapsed-' + groupId),
+            progressFillEl: document.getElementById('progress-fill-' + groupId),
+            staleWarningEl: document.getElementById('stale-warning-' + groupId),
+            floodWaitEl: document.getElementById('flood-wait-' + groupId),
+            floodWaitTimeEl: document.getElementById('flood-wait-time-' + groupId),
+            floodWaitCountdownEl: document.getElementById('flood-wait-countdown-' + groupId),
+            statusBadgeEl: document.querySelector('#group-' + groupId + ' .status-badge'),
+            cardEl: document.getElementById('group-' + groupId)
+        };
+    }
 
     let startTime = Date.now(); // Will be updated from init event
     let elapsedTimer = null;
@@ -194,8 +201,9 @@
         if (elapsedTimer) return; // Already running
         elapsedTimer = setInterval(function() {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            if (elapsedEl) {
-                elapsedEl.textContent = formatElapsed(elapsed);
+            const els = getElements();
+            if (els.elapsedEl) {
+                els.elapsedEl.textContent = formatElapsed(elapsed);
             }
         }, 1000);
     }
@@ -212,20 +220,22 @@
         floodWaitTarget = untilDate;
         stopFloodWaitCountdown();
 
-        if (floodWaitTimeEl) {
-            floodWaitTimeEl.textContent = formatTime(untilDate);
+        const els = getElements();
+        if (els.floodWaitTimeEl) {
+            els.floodWaitTimeEl.textContent = formatTime(untilDate);
         }
-        if (floodWaitEl) {
-            floodWaitEl.style.display = 'block';
+        if (els.floodWaitEl) {
+            els.floodWaitEl.style.display = 'block';
         }
 
         floodWaitTimer = setInterval(function() {
             const remaining = Math.max(0, Math.floor((floodWaitTarget.getTime() - Date.now()) / 1000));
-            if (floodWaitCountdownEl) {
+            const els = getElements();
+            if (els.floodWaitCountdownEl) {
                 if (remaining > 0) {
-                    floodWaitCountdownEl.textContent = formatElapsed(remaining);
+                    els.floodWaitCountdownEl.textContent = formatElapsed(remaining);
                 } else {
-                    floodWaitCountdownEl.textContent = 'скоро...';
+                    els.floodWaitCountdownEl.textContent = 'скоро...';
                     stopFloodWaitCountdown();
                 }
             }
@@ -242,20 +252,22 @@
     function hideFloodWait() {
         stopFloodWaitCountdown();
         floodWaitTarget = null;
-        if (floodWaitEl) {
-            floodWaitEl.style.display = 'none';
+        const els = getElements();
+        if (els.floodWaitEl) {
+            els.floodWaitEl.style.display = 'none';
         }
     }
 
     // Update status badge dynamically
     function updateStatusBadge(status) {
-        if (!statusBadgeEl) return;
+        const els = getElements();
+        if (!els.statusBadgeEl) return;
         // Remove old status classes
-        statusBadgeEl.className = 'status-badge ' + status;
+        els.statusBadgeEl.className = 'status-badge ' + status;
         if (status === 'waiting_for_accounts') {
-            statusBadgeEl.textContent = 'Ожидание аккаунтов';
+            els.statusBadgeEl.textContent = 'Ожидание аккаунтов';
         } else if (status === 'in_progress') {
-            statusBadgeEl.textContent = 'In progress';
+            els.statusBadgeEl.textContent = 'In progress';
         }
     }
 
@@ -264,8 +276,9 @@
         const timeSinceLastEvent = Date.now() - lastEventTime;
         if (timeSinceLastEvent > STALE_THRESHOLD_MS) {
             // Show stale warning
-            if (staleWarningEl) {
-                staleWarningEl.style.display = 'block';
+            const els = getElements();
+            if (els.staleWarningEl) {
+                els.staleWarningEl.style.display = 'block';
             }
         }
     }
@@ -287,14 +300,15 @@
     function recordSseEvent() {
         lastEventTime = Date.now();
         // Hide stale warning if visible
-        if (staleWarningEl) {
-            staleWarningEl.style.display = 'none';
+        const els = getElements();
+        if (els.staleWarningEl) {
+            els.staleWarningEl.style.display = 'none';
         }
     }
 
-    // Listen for htmx:sseMessage events (fired by HTMX SSE extension)
-    // SSE connection is now on page-level container, listen globally
-    document.body.addEventListener('htmx:sseMessage', function(event) {
+    // Named SSE handler function for proper cleanup
+    // Use named function so we can remove it later with removeEventListener
+    function handleSseMessage(event) {
         if (!event || !event.detail) return;
 
         // The SSE extension passes the raw event in event.detail
@@ -315,6 +329,9 @@
             // Guard: only process events for this group
             if (data.group_id !== groupId) return;
 
+            // Lookup fresh DOM elements on each event (prevents stale references)
+            const els = getElements();
+
             // Handle init event (sent on SSE connection open)
             if (sseEvent.type === 'init') {
                 // Update startTime from server's started_at
@@ -329,11 +346,11 @@
                 if (data.processed !== undefined && data.total !== undefined) {
                     const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
 
-                    if (processedEl) {
-                        processedEl.textContent = data.processed + ' / ' + data.total;
+                    if (els.processedEl) {
+                        els.processedEl.textContent = data.processed + ' / ' + data.total;
                     }
-                    if (progressFillEl) {
-                        progressFillEl.style.width = percent + '%';
+                    if (els.progressFillEl) {
+                        els.progressFillEl.style.width = percent + '%';
                     }
                 }
 
@@ -351,11 +368,11 @@
                 if (data.processed !== undefined && data.total !== undefined) {
                     const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
 
-                    if (processedEl) {
-                        processedEl.textContent = data.processed + ' / ' + data.total;
+                    if (els.processedEl) {
+                        els.processedEl.textContent = data.processed + ' / ' + data.total;
                     }
-                    if (progressFillEl) {
-                        progressFillEl.style.width = percent + '%';
+                    if (els.progressFillEl) {
+                        els.progressFillEl.style.width = percent + '%';
                     }
                 }
 
@@ -395,9 +412,9 @@
                 }
 
                 // Update current chat
-                if (data.chat_title && currentChatEl) {
-                    currentChatEl.textContent = data.chat_title;
-                    currentChatEl.title = data.chat_title;
+                if (data.chat_title && els.currentChatEl) {
+                    els.currentChatEl.textContent = data.chat_title;
+                    els.currentChatEl.title = data.chat_title;
                 }
             }
 
@@ -408,9 +425,9 @@
                 hideFloodWait();
 
                 // Hide current chat on completion
-                if (currentChatEl) {
-                    currentChatEl.textContent = '—';
-                    currentChatEl.title = '';
+                if (els.currentChatEl) {
+                    els.currentChatEl.textContent = '—';
+                    els.currentChatEl.title = '';
                 }
 
                 // Trigger group refresh to show completed state
@@ -419,7 +436,11 @@
         } catch (e) {
             console.error('Failed to parse SSE event:', e);
         }
-    });
+    }
+
+    // Listen for htmx:sseMessage events (fired by HTMX SSE extension)
+    // SSE connection is now on page-level container, listen globally
+    document.body.addEventListener('htmx:sseMessage', handleSseMessage);
 
     // Start elapsed timer when card initializes
     startElapsedTimer();
@@ -428,7 +449,7 @@
 
     // Cleanup on card removal (HTMX swap or DOM removal)
     // Use htmx:beforeSwap as primary cleanup - fires reliably before HTMX swaps
-    document.body.addEventListener('htmx:beforeSwap', function cleanupOnSwap(event) {
+    function cleanupOnSwap(event) {
         // Check if the swap target is our container or parent
         if (event.detail.target && (
             event.detail.target.id === 'groups-container' ||
@@ -437,26 +458,33 @@
             stopElapsedTimer();
             stopStaleCheckTimer();
             stopFloodWaitCountdown();
+            // CRITICAL: Remove SSE listener to prevent stale DOM updates
+            document.body.removeEventListener('htmx:sseMessage', handleSseMessage);
             document.body.removeEventListener('htmx:beforeSwap', cleanupOnSwap);
         }
-    });
+    }
+    document.body.addEventListener('htmx:beforeSwap', cleanupOnSwap);
 
     // Fallback: MutationObserver for non-HTMX removal
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             mutation.removedNodes.forEach(function(node) {
-                if (node === cardEl || (node.contains && node.contains(cardEl))) {
+                const els = getElements();
+                if (node === els.cardEl || (node.contains && els.cardEl && node.contains(els.cardEl))) {
                     stopElapsedTimer();
                     stopStaleCheckTimer();
                     stopFloodWaitCountdown();
+                    // CRITICAL: Remove SSE listener to prevent stale DOM updates
+                    document.body.removeEventListener('htmx:sseMessage', handleSseMessage);
                     observer.disconnect();
                 }
             });
         });
     });
 
-    if (cardEl && cardEl.parentNode) {
-        observer.observe(cardEl.parentNode, { childList: true });
+    const initialEls = getElements();
+    if (initialEls.cardEl && initialEls.cardEl.parentNode) {
+        observer.observe(initialEls.cardEl.parentNode, { childList: true });
     }
 })();
 </script>
