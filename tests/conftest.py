@@ -241,19 +241,68 @@ def mock_http_server() -> Generator[MockHTTPServer, None, None]:
 
 
 @pytest.fixture
-def fastapi_test_client() -> Iterator[Any]:
-    """Provide a FastAPI TestClient for web application tests.
+def test_settings(tmp_path: Any) -> Any:
+    """Provide test settings with isolated data directory.
+
+    Args:
+        tmp_path: pytest tmp_path fixture for temporary directory
+
+    Returns:
+        Settings instance with data_dir set to tmp_path
+    """
+    from chatfilter.config import Settings
+
+    return Settings(data_dir=tmp_path / "test_data")
+
+
+@pytest.fixture
+def fastapi_test_client(test_settings: Any, monkeypatch: Any) -> Iterator[Any]:
+    """Provide a FastAPI TestClient for web application tests with isolated DB.
+
+    This fixture ensures tests use a temporary database instead of production DB.
+    The test_settings fixture provides data_dir override to tmp_path, and we
+    monkeypatch get_settings() to return test_settings for any code that calls it.
+
+    Args:
+        test_settings: Test settings with isolated data_dir
+        monkeypatch: pytest monkeypatch fixture
 
     Yields:
         TestClient instance for the ChatFilter app
     """
     from fastapi.testclient import TestClient
 
+    from chatfilter import config
     from chatfilter.web.app import create_app
+    from chatfilter.web.dependencies import reset_group_engine
 
-    app = create_app()
+    # Save original get_settings for restoration
+    original_get_settings = config.get_settings
+
+    # Reset settings cache before patching
+    if hasattr(original_get_settings, "cache_clear"):
+        original_get_settings.cache_clear()
+
+    # Monkeypatch get_settings() to return test_settings
+    def mock_get_settings():
+        return test_settings
+
+    monkeypatch.setattr(config, "get_settings", mock_get_settings)
+
+    # Reset any cached group engine from previous tests
+    reset_group_engine()
+
+    app = create_app(settings=test_settings)
     with TestClient(app) as client:
         yield client
+
+    # Clean up after test
+    reset_group_engine()
+
+    # Restore original get_settings and clear cache
+    monkeypatch.setattr(config, "get_settings", original_get_settings)
+    if hasattr(original_get_settings, "cache_clear"):
+        original_get_settings.cache_clear()
 
 
 # ============================================================================

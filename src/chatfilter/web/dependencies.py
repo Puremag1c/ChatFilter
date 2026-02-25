@@ -105,3 +105,12 @@ def get_group_engine() -> GroupAnalysisEngine:
             session_manager=session_manager,
         )
     return _group_engine
+
+
+def reset_group_engine() -> None:
+    """Reset cached group engine instance.
+
+    Used in tests to ensure each test gets a fresh engine with isolated database.
+    """
+    global _group_engine
+    _group_engine = None

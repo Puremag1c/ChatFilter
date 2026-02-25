@@ -222,7 +222,13 @@ def _get_group_service(request: Request | None = None) -> GroupService:
     """
     from chatfilter.config import get_settings
 
-    settings = get_settings()
+    # Use settings from app state if available (for test isolation)
+    # Otherwise fall back to global settings
+    if request is not None and hasattr(request.app.state, "settings"):
+        settings = request.app.state.settings
+    else:
+        settings = get_settings()
+
     db_path = settings.data_dir / "groups.db"
     settings.data_dir.mkdir(parents=True, exist_ok=True)
 
