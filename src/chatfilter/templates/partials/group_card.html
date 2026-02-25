@@ -3,12 +3,16 @@
     <div sse-swap="init" style="display:none"></div>
     <div sse-swap="progress" style="display:none"></div>
     <div sse-swap="complete" style="display:none"></div>
+    <div sse-swap="error" style="display:none"></div>
     <div sse-swap="ping" style="display:none"></div>
 
     <h3>{{ group.name }}</h3>
 
     <span class="status-badge {{ group.status.value }}">{{ _(group.status.value) }}</span>
     {% if group.status.value in ('in_progress', 'waiting_for_accounts') %}
+    <div id="error-warning-{{ group.id }}" class="error-warning" style="display: none; background: #ffebee; color: #c62828; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
+        <strong>{{ _("Analysis error") }}:</strong> <span id="error-message-{{ group.id }}"></span>
+    </div>
     <div id="stale-warning-{{ group.id }}" class="stale-warning" style="display: none; background: #fff9c4; color: #f57f17; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
         Нет обновлений более 60 секунд. Возможно, анализ завис.
     </div>
@@ -169,6 +173,8 @@
             currentChatEl: document.getElementById('current-chat-' + groupId),
             elapsedEl: document.getElementById('elapsed-' + groupId),
             progressFillEl: document.getElementById('progress-fill-' + groupId),
+            errorWarningEl: document.getElementById('error-warning-' + groupId),
+            errorMessageEl: document.getElementById('error-message-' + groupId),
             staleWarningEl: document.getElementById('stale-warning-' + groupId),
             floodWaitEl: document.getElementById('flood-wait-' + groupId),
             floodWaitTimeEl: document.getElementById('flood-wait-time-' + groupId),
@@ -419,6 +425,34 @@
                     els.currentChatEl.textContent = data.chat_title;
                     els.currentChatEl.title = data.chat_title;
                 }
+            }
+
+            // Handle error event
+            if (sseEvent.type === 'error') {
+                stopElapsedTimer();
+                stopStaleCheckTimer();
+                hideFloodWait();
+
+                // Hide current chat on error
+                if (els.currentChatEl) {
+                    els.currentChatEl.textContent = '—';
+                    els.currentChatEl.title = '';
+                }
+
+                // Update status badge to show error
+                if (els.statusBadgeEl) {
+                    els.statusBadgeEl.className = 'status-badge failed';
+                    els.statusBadgeEl.textContent = 'Error';
+                }
+
+                // Show error message if provided
+                if (data.error && els.errorWarningEl && els.errorMessageEl) {
+                    els.errorMessageEl.textContent = data.error;
+                    els.errorWarningEl.style.display = 'block';
+                }
+
+                // DO NOT trigger refreshGroups - keep card for debugging
+                // User can see error state and manually refresh if needed
             }
 
             // Handle complete event
