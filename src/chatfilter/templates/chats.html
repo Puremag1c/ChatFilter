@@ -291,15 +291,18 @@ document.body.addEventListener('htmx:sseError', function(evt) {
 
     function schedulePoll() {
         if (pollTimer) clearTimeout(pollTimer);
-        // SSE-aware polling: ONLY poll when NO in_progress groups exist
+        // SSE-aware polling with safety net
         // SSE handles real-time updates for in_progress groups
-        // Polling is ONLY for non-SSE groups (completed/paused/pending)
+        // Polling is fallback for both SSE (slow) and non-SSE (fast) states
         var hasActive = container.querySelector('.status-badge.in_progress') || container.querySelector('.status-badge.waiting_for_accounts');
-        if (!hasActive) {
+        if (hasActive) {
+            // Slow polling when SSE active - safety net in case listener is broken
+            // 30s interval allows eventual consistency even if SSE fails
+            pollTimer = setTimeout(refreshGroups, 30000);
+        } else {
             // Fast polling when no SSE connections - check for new groups
             pollTimer = setTimeout(refreshGroups, 3000);
         }
-        // else: SSE is active, no polling needed
     }
 
     // Listen for HX-Trigger refreshGroups events from button actions
