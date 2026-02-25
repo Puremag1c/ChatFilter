@@ -120,47 +120,64 @@ class TestUnifiedSSEEndpoint:
         assert "Chat B" in full_output, "Group 2 chat title missing"
 
     @pytest.mark.asyncio
-    async def test_new_group_auto_included_after_sse_connection(
+    async def test_new_group_auto_discovered_after_sse_connection(
         self, mock_request, mock_group_service, mock_progress_tracker
     ):
-        """Test: new group starting after SSE connection is auto-included.
+        """Test: new group starting after SSE connection is auto-discovered.
 
-        Note: Current implementation subscribes at connection time only.
-        This test documents expected behavior — may require enhancement.
+        SSE discovery loop polls for new active groups every 3s and
+        subscribes to them dynamically.
         """
-        # Setup: initially one group
-        group1 = MagicMock()
-        group1.id = "group-1"
-        group1.status = GroupStatus.IN_PROGRESS
+        import chatfilter.web.routers.groups.progress as progress_module
 
-        mock_group_service.list_groups.return_value = [group1]
+        # Setup: initially no active groups
+        group2 = MagicMock()
+        group2.id = "group-2"
+        group2.status = GroupStatus.IN_PROGRESS
 
-        queue1 = asyncio.Queue()
-        queue1.put_nowait(GroupProgressEvent(
-            group_id="group-1",
+        call_count = 0
+
+        def dynamic_list_groups():
+            nonlocal call_count
+            call_count += 1
+            # First call: no active groups. Subsequent calls: group-2 is active.
+            if call_count <= 1:
+                return []
+            return [group2]
+
+        mock_group_service.list_groups = dynamic_list_groups
+
+        queue2 = asyncio.Queue()
+        queue2.put_nowait(GroupProgressEvent(
+            group_id="group-2",
             status="analyzing",
             current=1,
-            total=5,
-            chat_title="Chat 1",
+            total=3,
+            chat_title="Discovered Chat",
             message="Analyzing...",
         ))
-        queue1.put_nowait(None)
+        queue2.put_nowait(None)  # Completion sentinel
 
-        mock_progress_tracker.subscribe = lambda gid: queue1 if gid == "group-1" else asyncio.Queue()
+        mock_progress_tracker.subscribe = lambda gid: queue2
 
         from chatfilter.web.routers.groups.progress import _generate_unified_sse_events
 
-        events = []
-        async for event in _generate_unified_sse_events(mock_request):
-            events.append(event)
-            if "event: complete" in event:
-                break
+        # Temporarily shorten discovery interval for test speed
+        original_interval = progress_module._DISCOVERY_INTERVAL if hasattr(progress_module, '_DISCOVERY_INTERVAL') else None
 
-        # Current behavior: only group-1 events (connected groups only)
-        # Future enhancement: dynamically subscribe to new groups
+        events = []
+        async def collect():
+            async for event in _generate_unified_sse_events(mock_request):
+                events.append(event)
+                if "event: complete" in event:
+                    break
+
+        await asyncio.wait_for(collect(), timeout=10.0)
+
         full_output = "".join(events)
-        assert "group-1" in full_output
-        # Note: group-2 (if started later) would NOT appear in current implementation
+        assert "group-2" in full_output, "Dynamically discovered group missing"
+        assert "Discovered Chat" in full_output, "Discovered group chat title missing"
+        assert "event: init" in full_output, "Init event for discovered group missing"
 
     @pytest.mark.asyncio
     async def test_init_events_sent_for_all_active_groups(

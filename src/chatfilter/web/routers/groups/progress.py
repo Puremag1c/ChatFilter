@@ -127,7 +127,9 @@ async def _generate_unified_sse_events(
         # Heartbeat tracking
         loop = asyncio.get_event_loop()
         last_heartbeat = loop.time()
+        last_discovery = loop.time()
         HEARTBEAT_INTERVAL = 15.0  # seconds
+        DISCOVERY_INTERVAL = 3.0  # seconds - check for new active groups
 
         try:
             # Create tasks to wait on all queues
@@ -141,11 +143,39 @@ async def _generate_unified_sse_events(
                 if await request.is_disconnected():
                     break
 
-                # Send heartbeat ping every 15s
                 now = loop.time()
+
+                # Send heartbeat ping every 15s
                 if now - last_heartbeat >= HEARTBEAT_INTERVAL:
                     yield f"event: ping\ndata: {json.dumps({'timestamp': now})}\n\n"
                     last_heartbeat = now
+
+                # Discover new active groups every 3s
+                if now - last_discovery >= DISCOVERY_INTERVAL:
+                    try:
+                        current_groups = service.list_groups()
+                        for g in current_groups:
+                            if g.status in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS):
+                                if g.id not in subscriptions:
+                                    # New active group — subscribe and send init
+                                    group_id = g.id
+                                    started_at = service._db.get_analysis_started_at(group_id)
+                                    processed, total = service._db.count_processed_chats(group_id)
+                                    init_data = {
+                                        "group_id": group_id,
+                                        "started_at": started_at.isoformat() if started_at else None,
+                                        "processed": processed,
+                                        "total": total,
+                                        "status": g.status.value,
+                                    }
+                                    yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
+                                    subscriptions[group_id] = tracker.subscribe(group_id)
+                                    new_task = asyncio.create_task(subscriptions[group_id].get())
+                                    pending_tasks[new_task] = group_id
+                                    logger.debug(f"SSE: discovered new active group {group_id}")
+                    except Exception:
+                        logger.debug("SSE: error during group discovery", exc_info=True)
+                    last_discovery = now
 
                 # Wait for any queue to have data (with timeout for heartbeat)
                 if pending_tasks:
