@@ -136,7 +136,7 @@ async def _generate_unified_sse_events(
                 task = asyncio.create_task(queue.get())
                 pending_tasks[task] = group_id
 
-            while pending_tasks or subscriptions:
+            while True:
                 # Check for client disconnect
                 if await request.is_disconnected():
                     break
@@ -212,7 +212,7 @@ async def _generate_unified_sse_events(
                                 new_task = asyncio.create_task(subscriptions[group_id].get())
                                 pending_tasks[new_task] = group_id
                 else:
-                    # No pending tasks, just sleep for heartbeat
+                    # No active subscriptions - idle keepalive
                     await asyncio.sleep(1.0)
 
         finally:

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-02-25
+
+### Fixed
+- **SSE connection spam when no active groups**: SSE endpoint exited immediately when no groups had IN_PROGRESS/WAITING_FOR_ACCOUNTS status, causing infinite "Connection lost" notifications. Now keeps connection alive with heartbeat pings regardless of active group count.
+
 ## [0.14.0] - 2026-02-24
 
 ### Added

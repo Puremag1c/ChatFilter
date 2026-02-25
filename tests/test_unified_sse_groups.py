@@ -107,7 +107,8 @@ class TestUnifiedSSEEndpoint:
         async for event in _generate_unified_sse_events(mock_request):
             events.append(event)
             # Stop after getting complete events for both groups
-            if event.count("event: complete") >= 2:
+            complete_count = sum(1 for e in events if "event: complete" in e)
+            if complete_count >= 2:
                 break
 
         # Verify: both groups sent events
@@ -189,7 +190,8 @@ class TestUnifiedSSEEndpoint:
         events = []
         async for event in _generate_unified_sse_events(mock_request):
             events.append(event)
-            if event.count("event: complete") >= 3:
+            complete_count = sum(1 for e in events if "event: complete" in e)
+            if complete_count >= 3:
                 break
 
         # Verify: init event sent for each group
