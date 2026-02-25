@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-02-25
+
+### Added
+- **SSE error event handler**: Shows analysis failures in real-time via SSE error events in group cards
+- **Safety polling fallback**: 30-second interval polling as fallback when SSE is active, preventing UI freeze if SSE breaks
+
+### Fixed
+- **Stale DOM references in SSE listener**: SSE event handler now uses `getElementById` on each event instead of cached references, fixing progress bar/numbers not updating after `refreshGroups()` innerHTML swap
+- **Listener leak on card refresh**: Named function + AbortController for SSE listener cleanup — old listeners no longer accumulate on `document.body` when cards are re-rendered
+- **Test isolation from production DB**: Tests now use isolated temporary databases via `conftest.py` fixture override, preventing test data from polluting `~/Library/Application Support/ChatFilter/groups.db`
+- **SSE keepalive when no analysis running**: Fixed SSE endpoint exiting immediately when no groups had active status (carried over from 0.14.1)
+
 ## [0.14.1] - 2026-02-25
 
 ### Fixed
@@ -1128,7 +1140,9 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.1...v0.15.0
+[0.14.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.12.0...v0.13.0
 [0.10.9]: https://github.com/Puremag1c/ChatFilter/compare/v0.10.8...v0.10.9
