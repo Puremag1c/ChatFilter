@@ -209,6 +209,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/morphdom.min.js"></script>
 <script src="/static/js/groups.js"></script>
 <script>
 // Handle SSE connection errors - show persistent banner when connection drops
@@ -268,7 +269,19 @@ document.body.addEventListener('htmx:sseError', function(evt) {
         fetch('/api/groups')
             .then(function(resp) { return resp.text(); })
             .then(function(html) {
-                container.innerHTML = html;
+                // Use morphdom to smoothly update DOM instead of innerHTML swap
+                // Wrap html in temporary container to preserve #groups-container structure
+                var tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+
+                morphdom(container, tempDiv.firstChild, {
+                    childrenOnly: true,  // Only morph children, preserve container
+                    onBeforeElUpdated: function(fromEl, toEl) {
+                        // Preserve htmx attributes and event listeners on unchanged elements
+                        return true;
+                    }
+                });
+
                 htmx.process(container);
                 executeScripts(container);
 
