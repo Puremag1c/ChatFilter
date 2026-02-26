@@ -181,21 +181,29 @@ from . import routes  # noqa: F401
 # Import upload and import routes
 from . import upload  # noqa: F401
 
-# Import auth module to register routes
-from . import auth  # noqa: F401
+# Import auth modules to register routes
+from . import auth_initial  # noqa: F401
+from . import auth_device  # noqa: F401
+from . import auth_reconnect  # noqa: F401
 
 # Re-export auth functions for backwards compatibility (used by tests)
-from .auth import (  # noqa: F401
-    _check_device_confirmation,
+from .auth_initial import (  # noqa: F401
     _complete_auth_flow,
-    _finalize_reconnect_auth,
-    _handle_needs_confirmation,
-    _poll_device_confirmation,
     start_auth_flow,
     submit_auth_2fa,
     submit_auth_code,
+)
+from .auth_device import (  # noqa: F401
+    _check_device_confirmation,
+    _handle_needs_confirmation,
+    _poll_device_confirmation,
+)
+from .auth_reconnect import (  # noqa: F401
     verify_2fa,
     verify_code,
+)
+from .auth_reconnect_helpers import (  # noqa: F401
+    _finalize_reconnect_auth,
 )
 
 # Re-export connect functions for backwards compatibility (used by tests)
