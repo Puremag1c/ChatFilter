@@ -138,7 +138,7 @@ class TestConnectFlowSmoke:
         # After sessions/ package refactor, each submodule has its own import binding
         with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
-             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions.background._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.classify_error_state", return_value="needs_config"), \
              patch("chatfilter.telegram.error_mapping.get_user_friendly_message", return_value="API ID invalid"), \
              patch("chatfilter.web.routers.sessions.sanitize_error_message_for_client", return_value="API ID invalid"), \
@@ -192,10 +192,10 @@ class TestConnectFlowSmoke:
 
         with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
-             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
-             patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
+             patch("chatfilter.web.routers.sessions.background._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions.background.load_account_info", return_value=account_info), \
              patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \
-             patch("chatfilter.web.routers.sessions._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
+             patch("chatfilter.web.routers.sessions.background._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
              patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
             from chatfilter.web.routers.sessions import _do_connect_in_background_v2
@@ -237,7 +237,7 @@ class TestConnectFlowSmoke:
         mock_session_manager.connect = AsyncMock()
 
         with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
-             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions.background._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
             from chatfilter.web.routers.sessions import _do_connect_in_background_v2
@@ -283,7 +283,7 @@ class TestConnectFlowSmoke:
 
         with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
-             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions.background._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.telegram.error_mapping.get_user_friendly_message", return_value="Account banned"), \
              patch("chatfilter.web.routers.sessions.sanitize_error_message_for_client", return_value="Account banned"), \
              patch("chatfilter.web.routers.sessions._save_error_to_config"), \
@@ -340,10 +340,10 @@ class TestConnectFlowSmoke:
 
         with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
-             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
-             patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
+             patch("chatfilter.web.routers.sessions.background._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions.background.load_account_info", return_value=account_info), \
              patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \
-             patch("chatfilter.web.routers.sessions._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
+             patch("chatfilter.web.routers.sessions.background._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
              patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
             from chatfilter.web.routers.sessions import _do_connect_in_background_v2

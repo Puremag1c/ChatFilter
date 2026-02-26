@@ -3083,10 +3083,13 @@ class TestVerifyCode2FAAutoEntry:
         from unittest.mock import MagicMock
         mock_ensure_data_dir = MagicMock(return_value=tmp_path)
         monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.ensure_data_dir", mock_ensure_data_dir
+            "chatfilter.web.routers.sessions.helpers.ensure_data_dir", mock_ensure_data_dir
         )
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.auth_reconnect.ensure_data_dir", mock_ensure_data_dir
+        )
+        monkeypatch.setattr(
+            "chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir", mock_ensure_data_dir
         )
         yield tmp_path
 
