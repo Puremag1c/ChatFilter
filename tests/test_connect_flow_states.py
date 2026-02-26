@@ -54,10 +54,10 @@ class TestConnectFlowConfigValidation:
         # Mock dependencies
         with (
             patch(
-                "chatfilter.web.dependencies.get_session_manager"
+                "chatfilter.web.routers.sessions.background.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
-            patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+            patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
         ):
             # Setup mocks
             mock_lock.return_value = asyncio.Lock()
@@ -101,10 +101,10 @@ class TestConnectFlowConfigValidation:
         # Mock dependencies
         with (
             patch(
-                "chatfilter.web.dependencies.get_session_manager"
+                "chatfilter.web.routers.sessions.background.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
-            patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+            patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
             patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
         ):
             # Setup mocks
@@ -167,16 +167,16 @@ class TestConnectFlowFirstTimeAuth:
         # Mock dependencies
         with (
             patch(
-                "chatfilter.web.dependencies.get_session_manager"
+                "chatfilter.web.routers.sessions.background.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
-            patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+            patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
             patch(
-                "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
+                "chatfilter.web.routers.sessions.background._send_verification_code_with_timeout"
             ) as mock_send_code,
             patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
-            patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_info,
+            patch("chatfilter.web.routers.sessions.background.load_account_info") as mock_load_info,
         ):
             # Setup mocks
             mock_lock.return_value = asyncio.Lock()
@@ -242,10 +242,10 @@ class TestConnectFlowCodeVerification:
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
-            patch("chatfilter.web.routers.sessions.save_account_info") as mock_save_info,
-            patch("chatfilter.web.routers.sessions.secure_file_permissions") as mock_secure_perms,
-            patch("chatfilter.web.routers.sessions.secure_delete_dir") as mock_secure_delete,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
         ):
             # Setup mocks
@@ -336,8 +336,9 @@ class TestConnectFlowCodeVerification:
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
             ) as mock_auth_manager_getter,
-            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_bus_getter,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
+            patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
         ):
             # Setup mocks
             mock_client = AsyncMock()
@@ -363,6 +364,11 @@ class TestConnectFlowCodeVerification:
             mock_publish = AsyncMock()
             mock_bus.publish = mock_publish
             mock_bus_getter.return_value = mock_bus
+
+            # Mock credentials manager (used by _attempt_auto_2fa_login)
+            mock_cred_instance = MagicMock()
+            mock_cred_instance.retrieve_2fa.return_value = None  # No stored 2FA password
+            mock_cred_manager.return_value = mock_cred_instance
 
             # Mock templates with TemplateResponse method
             mock_templates = MagicMock()
@@ -407,10 +413,10 @@ class TestConnectFlow2FA:
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
-            patch("chatfilter.web.routers.sessions.save_account_info") as mock_save_info,
-            patch("chatfilter.web.routers.sessions.secure_file_permissions") as mock_secure_perms,
-            patch("chatfilter.web.routers.sessions.secure_delete_dir") as mock_secure_delete,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
         ):
             # Setup mocks
@@ -505,10 +511,10 @@ class TestConnectFlowErrorRecovery:
         # Mock dependencies
         with (
             patch(
-                "chatfilter.web.dependencies.get_session_manager"
+                "chatfilter.web.routers.sessions.background.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
-            patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+            patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
             patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
         ):
@@ -588,10 +594,10 @@ class TestConnectFlowErrorRecovery:
         # Mock dependencies
         with (
             patch(
-                "chatfilter.web.dependencies.get_session_manager"
+                "chatfilter.web.routers.sessions.background.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
-            patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+            patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
             patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
         ):
@@ -694,17 +700,17 @@ class TestConnectFlowSessionExpiredRecovery:
         # Mock dependencies
         with (
             patch(
-                "chatfilter.web.dependencies.get_session_manager"
+                "chatfilter.web.routers.sessions.background.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.events.get_event_bus") as mock_bus_getter,
-            patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+            patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_bus_getter,
+            patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
             patch(
-                "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
+                "chatfilter.web.routers.sessions.background._send_verification_code_with_timeout"
             ) as mock_send_code,
             patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete,
             patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
-            patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_info,
+            patch("chatfilter.web.routers.sessions.background.load_account_info") as mock_load_info,
         ):
             # Setup mocks
             mock_lock.return_value = asyncio.Lock()
