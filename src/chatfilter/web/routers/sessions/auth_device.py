@@ -212,6 +212,8 @@ async def _handle_needs_confirmation(
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import AuthStep
 
+    from . import get_event_bus
+
     # Update auth state to track confirmation
     await auth_manager.update_auth_state(auth_id, step=AuthStep.NEED_CONFIRMATION)
 
