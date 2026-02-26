@@ -242,7 +242,7 @@ class TestConnectFlowCodeVerification:
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.helpers.ensure_data_dir") as mock_ensure_dir,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
@@ -413,7 +413,7 @@ class TestConnectFlow2FA:
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.helpers.ensure_data_dir") as mock_ensure_dir,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
