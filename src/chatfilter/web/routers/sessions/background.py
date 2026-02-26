@@ -30,7 +30,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
-from chatfilter.storage.proxy_pool import get_proxy_by_id
+from chatfilter.storage import proxy_pool
 from chatfilter.telegram.error_mapping import get_user_friendly_message
 from chatfilter.telegram.retry import calculate_backoff_delay
 from chatfilter.telegram.client import SessionFileError
@@ -139,7 +139,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 from chatfilter.service.proxy_health import socks5_tunnel_check
 
                 try:
-                    proxy_entry = get_proxy_by_id(proxy_id)
+                    proxy_entry = proxy_pool.get_proxy_by_id(proxy_id)
                     # Only check SOCKS5 proxies (HTTP proxies use different protocol)
                     if proxy_entry.type == ProxyType.SOCKS5:
                         logger.debug(f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}")
@@ -396,7 +396,7 @@ async def _send_verification_code_and_create_auth(
 
     # Get proxy once (no retry needed)
     try:
-        proxy_info = get_proxy_by_id(proxy_id)
+        proxy_info = proxy_pool.get_proxy_by_id(proxy_id)
     except StorageNotFoundError:
         # Security: sanitize error message before publishing to client
         error_message = f"Proxy '{proxy_id}' not found in pool"

@@ -16,11 +16,13 @@ from chatfilter.i18n import _
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.web.events import get_event_bus
 from chatfilter.web.template_helpers import get_template_context
+# Access ensure_data_dir via module attribute so tests can mock at
+# chatfilter.web.routers.sessions.ensure_data_dir
+import chatfilter.web.routers.sessions as _sessions_pkg
 
 from .helpers import (
     SessionListItem,
     _get_flood_wait_until,
-    ensure_data_dir,
     find_duplicate_accounts,
     sanitize_session_name,
     save_account_info,
@@ -150,7 +152,7 @@ async def start_auth_flow(
         )
 
     # Check if session already exists (AFTER credential validation)
-    session_dir = ensure_data_dir() / safe_name
+    session_dir = _sessions_pkg.ensure_data_dir() / safe_name
     if session_dir.exists():
         return templates.TemplateResponse(
             request=request,
@@ -187,7 +189,7 @@ async def start_auth_flow(
 
         # Store credentials if provided
         if has_api_id and has_api_hash:
-            cred_manager = SecureCredentialManager(ensure_data_dir())
+            cred_manager = SecureCredentialManager(_sessions_pkg.ensure_data_dir())
             cred_manager.store_credentials(
                 session_id=safe_name,
                 api_id=api_id,
@@ -576,7 +578,7 @@ async def _complete_auth_flow(
             duplicate_sessions = find_duplicate_accounts(me.id, exclude_session=session_name)
 
         # Create session directory
-        session_dir = ensure_data_dir() / session_name
+        session_dir = _sessions_pkg.ensure_data_dir() / session_name
         session_dir.mkdir(parents=True, exist_ok=True)
         session_path = session_dir / "session.session"
 
@@ -644,7 +646,7 @@ async def _complete_auth_flow(
     except Exception:
         logger.exception(f"Failed to complete auth flow for '{session_name}'")
         # Clean up on failure
-        session_dir = ensure_data_dir() / session_name
+        session_dir = _sessions_pkg.ensure_data_dir() / session_name
         if session_dir.exists():
             shutil.rmtree(session_dir, ignore_errors=True)
         temp_dir = getattr(auth_state, "temp_dir", None)

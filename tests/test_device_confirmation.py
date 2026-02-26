@@ -33,6 +33,11 @@ class TestDeviceConfirmation:
         from unittest.mock import MagicMock
 
         mock_dir = MagicMock(return_value=isolated_tmp_dir)
+        # Patch the helpers module directly since list_stored_sessions calls it from there
+        monkeypatch.setattr(
+            "chatfilter.web.routers.sessions.helpers.ensure_data_dir", mock_dir
+        )
+        # Also patch the re-exported version for other functions
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir", mock_dir
         )

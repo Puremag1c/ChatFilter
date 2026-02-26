@@ -14,11 +14,13 @@ from starlette.responses import HTMLResponse
 from chatfilter.i18n import _
 from chatfilter.web.events import get_event_bus
 from chatfilter.web.template_helpers import get_template_context
+# Access ensure_data_dir via module attribute so tests can mock at
+# chatfilter.web.routers.sessions.ensure_data_dir
+import chatfilter.web.routers.sessions as _sessions_pkg
 
 from .helpers import (
     SessionListItem,
     _get_flood_wait_until,
-    ensure_data_dir,
     list_stored_sessions,
     load_account_info,
     save_account_info,
@@ -56,7 +58,7 @@ async def _finalize_reconnect_auth(
     Raises:
         FileNotFoundError: If session directory doesn't exist
     """
-    session_dir = ensure_data_dir() / safe_name
+    session_dir = _sessions_pkg.ensure_data_dir() / safe_name
     if not session_dir.exists():
         await auth_manager.remove_auth_state(auth_state.auth_id)
         raise FileNotFoundError(f"Session directory not found for '{safe_name}'")
@@ -254,7 +256,7 @@ async def _attempt_auto_2fa_login(
 
     from .auth_device import _check_device_confirmation, _handle_needs_confirmation
 
-    session_dir = ensure_data_dir() / safe_name
+    session_dir = _sessions_pkg.ensure_data_dir() / safe_name
     session_path = session_dir / "session.session"
     manager = SecureCredentialManager(session_dir)
 
