@@ -134,10 +134,10 @@ class TestConnectFlowSmoke:
         from chatfilter.telegram.session_manager import SessionState
         mock_session_manager._sessions = {}
 
-        # CRITICAL: patch get_event_bus at module level (chatfilter.web.events)
-        # so that import inside _do_connect_in_background_v2 gets the mock
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
-             patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
+        # CRITICAL: patch get_event_bus/get_session_manager where they are USED (background.py)
+        # After sessions/ package refactor, each submodule has its own import binding
+        with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
+             patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.classify_error_state", return_value="needs_config"), \
              patch("chatfilter.telegram.error_mapping.get_user_friendly_message", return_value="API ID invalid"), \
@@ -190,8 +190,8 @@ class TestConnectFlowSmoke:
         wrapped.__cause__ = original
         mock_session_manager.connect.side_effect = wrapped
 
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
-             patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
+        with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
+             patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
              patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \
@@ -236,7 +236,7 @@ class TestConnectFlowSmoke:
         # Mock connect to succeed (publishes 'connected' internally)
         mock_session_manager.connect = AsyncMock()
 
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
+        with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
@@ -281,8 +281,8 @@ class TestConnectFlowSmoke:
         wrapped.__cause__ = original
         mock_session_manager.connect.side_effect = wrapped
 
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
-             patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
+        with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
+             patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.telegram.error_mapping.get_user_friendly_message", return_value="Account banned"), \
              patch("chatfilter.web.routers.sessions.sanitize_error_message_for_client", return_value="Account banned"), \
@@ -338,8 +338,8 @@ class TestConnectFlowSmoke:
         wrapped.__cause__ = original
         mock_session_manager.connect.side_effect = wrapped
 
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager), \
-             patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
+        with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
+             patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
              patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \

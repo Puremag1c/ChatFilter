@@ -355,7 +355,7 @@ class TestConnectSessionErrorHandling:
         mock_client.send_code_request = mock_send_code_request
 
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy), patch(
-            "chatfilter.web.events.get_event_bus", return_value=mock_event_bus
+            "chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus
         ), patch("telethon.TelegramClient", return_value=mock_client):
             await _send_verification_code_and_create_auth(
                 session_id=session_id,
@@ -413,7 +413,7 @@ class TestConnectSessionErrorHandling:
 
         # Mock proxy lookup to fail with StorageNotFoundError
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy, patch(
-            "chatfilter.web.events.get_event_bus", return_value=mock_event_bus
+            "chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus
         ):
             mock_get_proxy.side_effect = StorageNotFoundError("Proxy not found")
 
@@ -482,7 +482,7 @@ class TestConnectSessionErrorHandling:
         mock_client.connect = mock_connect
 
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy), patch(
-            "chatfilter.web.events.get_event_bus", return_value=mock_event_bus
+            "chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus
         ), patch("telethon.TelegramClient", return_value=mock_client):
             await _send_verification_code_and_create_auth(
                 session_id=session_id,

@@ -352,7 +352,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = test_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             yield test_data_dir
 
         # Cleanup
@@ -366,7 +366,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.get("/api/sessions")
 
         assert response.status_code == 200
@@ -415,7 +415,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -455,7 +455,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -482,7 +482,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.delete(
                 "/api/sessions/nonexistent", headers={"X-CSRF-Token": csrf_token}
             )
@@ -529,7 +529,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -560,7 +560,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -623,7 +623,7 @@ class TestSessionsAPIEndpoints:
                 account_info["user_id"] = 0  # Use 0 as placeholder for JSON-only uploads
             return original_save_account_info(session_dir, account_info)
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings), \
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings), \
              patch("chatfilter.web.routers.sessions.get_account_info_from_session") as mock_get_account, \
              patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader, \
              patch("chatfilter.web.routers.sessions.save_account_info", side_effect=patched_save_account_info):
@@ -700,7 +700,7 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings), \
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings), \
              patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader:
             # Mock TelegramClientLoader to avoid validation errors
             mock_loader_instance = MagicMock()
@@ -774,7 +774,7 @@ class TestSessionsAPIEndpoints:
                 account_info["user_id"] = 0  # Use 0 as placeholder for JSON-only uploads
             return original_save_account_info(session_dir, account_info)
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings), \
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings), \
              patch("chatfilter.web.routers.sessions.get_account_info_from_session") as mock_get_account, \
              patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader, \
              patch("chatfilter.web.routers.sessions.save_account_info", side_effect=patched_save_account_info):
@@ -878,7 +878,7 @@ class TestMigrateLegacySessions:
         mock_manager.retrieve_credentials.return_value = (12345, "test_api_hash", None)
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.security.SecureCredentialManager",
                 return_value=mock_manager,
@@ -911,7 +911,7 @@ class TestMigrateLegacySessions:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = legacy_session_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             migrated = migrate_legacy_sessions()
 
         # Should not have migrated anything
@@ -938,7 +938,7 @@ class TestMigrateLegacySessions:
         mock_manager.retrieve_credentials.side_effect = CredentialNotFoundError("No credentials")
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.security.SecureCredentialManager",
                 return_value=mock_manager,
@@ -972,7 +972,7 @@ class TestMigrateLegacySessions:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = sessions_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             migrated = migrate_legacy_sessions()
 
         # Should not have migrated anything
@@ -1034,7 +1034,7 @@ class TestSessionConfigAPI:
         mock_settings.sessions_dir = clean_data_dir
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch("chatfilter.storage.proxy_pool.load_proxy_pool", return_value=[]),
         ):
             response = client.get("/api/sessions/test_session/config")
@@ -1053,7 +1053,7 @@ class TestSessionConfigAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.get("/api/sessions/nonexistent/config")
 
         # Returns 200 OK with config form (not an error)
@@ -1072,7 +1072,7 @@ class TestSessionConfigAPI:
 
         # Use URL-encoded invalid characters that won't break URL parsing
         # After sanitization, "..." becomes empty, which raises ValueError
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.get("/api/sessions/.../config")
 
         # Returns 200 OK with HTML error to prevent HTMX from destroying session list
@@ -1113,7 +1113,7 @@ class TestSessionConfigAPI:
         mock_client.is_connected.return_value = True
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1156,7 +1156,7 @@ class TestSessionConfigAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.put(
                 "/api/sessions/test_session/config",
                 data={
@@ -1190,7 +1190,7 @@ class TestSessionConfigAPI:
         mock_settings.sessions_dir = clean_data_dir
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 side_effect=StorageNotFoundError("Not found"),
@@ -1226,7 +1226,7 @@ class TestSessionConfigAPI:
 
         test_proxy_id = str(uuid.uuid4())
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.put(
                 "/api/sessions/nonexistent/config",
                 data={
@@ -1326,7 +1326,7 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/nonexistent/connect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -1346,7 +1346,7 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/.../connect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -1368,7 +1368,7 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/unconfigured_session/connect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -1395,7 +1395,7 @@ class TestSessionConnectDisconnectAPI:
         mock_settings.sessions_dir = clean_data_dir
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 side_effect=StorageNotFoundError("Not found"),
@@ -1448,7 +1448,7 @@ class TestSessionConnectDisconnectAPI:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1512,7 +1512,7 @@ class TestSessionConnectDisconnectAPI:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1578,7 +1578,7 @@ class TestSessionConnectDisconnectAPI:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1642,7 +1642,7 @@ class TestSessionConnectDisconnectAPI:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1713,7 +1713,7 @@ class TestSessionConnectDisconnectAPI:
         mock_loader.validate.return_value = None
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1791,7 +1791,7 @@ class TestSessionConnectDisconnectAPI:
         mock_loader.validate.return_value = None
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1846,7 +1846,7 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             response = client.post(
                 "/api/sessions/.../disconnect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -1888,7 +1888,7 @@ class TestSessionConnectDisconnectAPI:
         mock_session_manager.disconnect = AsyncMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -1943,7 +1943,7 @@ class TestSessionConnectDisconnectAPI:
         mock_session_manager.disconnect = AsyncMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2052,7 +2052,7 @@ class TestDeadSessionRecoveryUX:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2116,7 +2116,7 @@ class TestDeadSessionRecoveryUX:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2180,7 +2180,7 @@ class TestDeadSessionRecoveryUX:
         csrf_token = extract_csrf_token(home_response.text)
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2246,7 +2246,7 @@ class TestDeadSessionRecoveryUX:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2278,7 +2278,7 @@ class TestDeadSessionRecoveryUX:
         mock_session_manager.get_info.return_value = None
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2389,7 +2389,7 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = True
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2462,7 +2462,7 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = False
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2530,7 +2530,7 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = True
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2599,7 +2599,7 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = False
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2662,7 +2662,7 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = False
 
         with (
-            patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings),
+            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -2808,7 +2808,7 @@ class TestVerify2FA:
 
             with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr, \
                  patch("chatfilter.web.routers.sessions.auth.get_event_bus") as mock_event_bus_fn, \
-                 patch("chatfilter.web.routers.sessions.get_settings") as mock_settings_fn, \
+                 patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock_settings_fn, \
                  patch("chatfilter.web.routers.sessions.auth.ensure_data_dir", return_value=Path(tmp_dir)):
 
                 mock_mgr = MagicMock()
@@ -3406,7 +3406,7 @@ class TestSessionImport:
         data_dir = tmp_path / "data"
         data_dir.mkdir(parents=True, exist_ok=True)
 
-        with patch("chatfilter.web.routers.sessions.get_settings") as mock_settings_fn:
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock_settings_fn:
             from unittest.mock import MagicMock
 
             mock_settings = MagicMock()
@@ -3934,7 +3934,7 @@ class TestDeleteSessionClearsFloodWait:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = test_data_dir
 
-        with patch("chatfilter.web.routers.sessions.get_settings", return_value=mock_settings):
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
             yield test_data_dir
 
         if test_data_dir.exists():
