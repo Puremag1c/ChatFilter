@@ -212,6 +212,21 @@
 <script src="/static/js/morphdom.min.js"></script>
 <script src="/static/js/groups.js"></script>
 <script>
+// Close SSE connection on page unload to prevent events firing during navigation
+(function() {
+    function closeSSE() {
+        var sseElt = document.querySelector('[sse-connect]');
+        if (sseElt) {
+            var internalData = htmx.config && htmx._('getInternalData') ? htmx._('getInternalData')(sseElt) : null;
+            if (internalData && internalData.sseEventSource) {
+                internalData.sseEventSource.close();
+            }
+        }
+    }
+    window.addEventListener('beforeunload', closeSSE);
+    window.addEventListener('pagehide', closeSSE);
+})();
+
 // Handle SSE connection errors with debouncing - only show banner after 5s disconnect
 (function() {
     var disconnectTimer = null;
