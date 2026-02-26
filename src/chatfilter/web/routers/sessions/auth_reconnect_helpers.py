@@ -181,10 +181,15 @@ async def _finalize_and_return_session_row(
 
     Returns HTMLResponse with either:
     - session_row.html (success)
-    - auth_result.html (error)
+    - auth_result.html (error, only FileNotFoundError)
+
+    All other exceptions propagate to the caller for proper HTTP status codes.
     """
+    # Import from sessions module to allow test patching of re-exported version
+    from . import _finalize_reconnect_auth as finalize_func
+
     try:
-        await _finalize_reconnect_auth(
+        await finalize_func(
             client, auth_state, auth_manager, safe_name, log_msg
         )
     except FileNotFoundError:
@@ -195,23 +200,14 @@ async def _finalize_and_return_session_row(
             context={"success": False, "error": _("Session directory not found.")},
             status_code=500,
         )
-    except Exception as e:
-        logger.error(f"Error finalizing reconnect auth after {log_msg}: {e}")
-        await auth_manager.remove_auth_state(auth_id)
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/auth_result.html",
-            context={
-                "success": False,
-                "error": _("Failed to finalize connection. Please try Connect again."),
-            },
-        )
 
     # Get updated session data after reconnect
     from chatfilter.web.dependencies import get_session_manager
+    # Import from sessions module to allow test patching
+    from . import list_stored_sessions as _list_stored_sessions
 
     session_manager = get_session_manager()
-    all_sessions = list_stored_sessions(session_manager, auth_manager)
+    all_sessions = _list_stored_sessions(session_manager, auth_manager)
     session_data = next(
         (s for s in all_sessions if s.session_id == safe_name),
         None,

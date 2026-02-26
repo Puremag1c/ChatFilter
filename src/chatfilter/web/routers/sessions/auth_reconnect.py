@@ -12,7 +12,6 @@ from fastapi import Form, Request
 from fastapi.responses import HTMLResponse
 
 from chatfilter.i18n import _
-from chatfilter.web.events import get_event_bus
 from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import (
@@ -73,6 +72,7 @@ async def verify_code(
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import AuthStep, get_auth_state_manager
 
+    from . import get_event_bus
     from .auth_device import _check_device_confirmation, _handle_needs_confirmation
     from .auth_errors import auth_code_form_error, auth_error_response
     from .auth_reconnect_helpers import (
@@ -376,6 +376,7 @@ async def verify_2fa(
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import get_auth_state_manager
 
+    from . import get_event_bus
     from .auth_device import _check_device_confirmation, _handle_needs_confirmation
     from .auth_errors import auth_2fa_form_error, auth_error_response
     from .auth_reconnect_helpers import _finalize_and_return_session_row

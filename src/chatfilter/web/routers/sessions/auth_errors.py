@@ -62,7 +62,7 @@ def auth_2fa_form_error(
     """Return 2FA form with error message (reconnect flow)."""
     return templates.TemplateResponse(
         request=request,
-        name="partials/auth_2fa_form_reconnect.html",
+        name="partials/auth_2fa_form.html",
         context={
             "auth_id": auth_id,
             "phone": phone,
