@@ -1809,7 +1809,7 @@ class TestSessionConnectDisconnectAPI:
                 new_callable=AsyncMock,
             ) as mock_send_code,
             patch(
-                "chatfilter.web.routers.sessions.secure_delete_file",
+                "chatfilter.web.routers.sessions.background.secure_delete_file",
                 return_value=None,
             ) as mock_delete,
             patch(

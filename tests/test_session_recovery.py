@@ -121,7 +121,7 @@ async def test_authkey_unregistered_triggers_recovery(
             "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
         ) as mock_send_code,
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
-        patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
+        patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
@@ -185,7 +185,7 @@ async def test_session_revoked_triggers_recovery(
             "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
         ) as mock_send_code,
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
-        patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
+        patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
@@ -245,7 +245,7 @@ async def test_session_expired_triggers_recovery(
             "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
         ) as mock_send_code,
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
-        patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
+        patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
@@ -314,7 +314,7 @@ async def test_corrupted_session_file_triggers_recovery(
             "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
         ) as mock_send_code,
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
-        patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
+        patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
@@ -373,7 +373,7 @@ async def test_recovery_without_phone_publishes_error(
         patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
         patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
         patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
-        patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_secure_delete,
+        patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
         patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
         patch("chatfilter.web.routers.sessions._save_error_to_config") as mock_save_error,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),

@@ -701,7 +701,7 @@ class TestConnectFlowSessionExpiredRecovery:
             patch(
                 "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
             ) as mock_send_code,
-            patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_delete,
+            patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete,
             patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
             patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_info,

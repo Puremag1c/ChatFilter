@@ -194,7 +194,7 @@ class TestConnectFlowSmoke:
              patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
-             patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_delete, \
+             patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \
              patch("chatfilter.web.routers.sessions._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
              patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
@@ -342,7 +342,7 @@ class TestConnectFlowSmoke:
              patch("chatfilter.web.events.get_event_bus", return_value=mock_event_bus), \
              patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.load_account_info", return_value=account_info), \
-             patch("chatfilter.web.routers.sessions.secure_delete_file") as mock_delete, \
+             patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \
              patch("chatfilter.web.routers.sessions._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
              patch("chatfilter.storage.proxy_pool.get_proxy_by_id"):
 
