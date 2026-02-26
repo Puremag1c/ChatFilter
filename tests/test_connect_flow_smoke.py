@@ -192,7 +192,7 @@ class TestConnectFlowSmoke:
 
         with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
-             patch("chatfilter.web.routers.sessions.background._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.background.load_account_info", return_value=account_info), \
              patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \
              patch("chatfilter.web.routers.sessions.background._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
@@ -340,7 +340,7 @@ class TestConnectFlowSmoke:
 
         with patch("chatfilter.web.routers.sessions.background.get_session_manager", return_value=mock_session_manager), \
              patch("chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus), \
-             patch("chatfilter.web.routers.sessions.background._get_session_lock", new=mock_session_lock), \
+             patch("chatfilter.web.routers.sessions._get_session_lock", new=mock_session_lock), \
              patch("chatfilter.web.routers.sessions.background.load_account_info", return_value=account_info), \
              patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_delete, \
              patch("chatfilter.web.routers.sessions.background._send_verification_code_with_timeout", new_callable=AsyncMock) as mock_send_code, \
