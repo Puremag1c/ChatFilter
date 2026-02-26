@@ -268,9 +268,6 @@ async def get_account_info_from_session(
     session_path: Path, api_id: int, api_hash: str
 ) -> dict[str, int | str] | None:
     """Extract account info from a session by connecting to Telegram.
-    session_path: Path, api_id: int, api_hash: str
-) -> dict[str, int | str] | None:
-    """Extract account info from a session by connecting to Telegram.
 
     Args:
         session_path: Path to the session file
@@ -347,8 +344,8 @@ def _save_session_to_disk(
 
     Uses atomic transaction pattern:
     1. Write all files to temp directory
-    2. On success → rename temp dir to final name (POSIX atomic)
-    3. On failure → delete temp dir (no orphaned files)
+    2. On success - rename temp dir to final name (POSIX atomic)
+    3. On failure - delete temp dir (no orphaned files)
 
     Creates:
     - session.session file (atomic write, secure permissions)
