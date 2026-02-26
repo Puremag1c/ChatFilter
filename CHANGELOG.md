@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-02-26
+
+### Fixed
+- **STOP button bypass**: Added status check before auto-resume in `_wait_for_accounts_and_resume()` — paused groups no longer restart automatically
+- **STOP button cancellation**: Registered waiting coroutine in `_active_tasks` so STOP cancels it immediately instead of waiting for next polling cycle
+- **FloodWait badge on sessions**: Added `flood_wait_until` to all 19 `SessionListItem` constructors — FloodWait badge no longer disappears after HTMX actions
+- **FloodWait initial render**: Added FloodWait badge to `sessions_list.html` initial page render (was only visible via SSE updates)
+- **SSE error banner on navigation**: Added debounce to sessions page SSE error handler — no more false "connection lost" banners during page navigation
+- **Loading placeholder persists**: Fixed `no-groups` placeholder remaining visible alongside loaded group cards on /chats page
+- **Test timeouts**: Fixed 4 test timeouts in `test_waiting_for_accounts.py` caused by unshutdown ThreadPoolExecutor
+
+### Changed
+- **FloodWait cleanup events**: `get_blocked_accounts()` now publishes `flood_wait_cleared` events when removing expired entries
+- **STOP/Resume toasts**: Added user feedback toasts for STOP and Resume operations
+- **FloodWait countdown**: Added JavaScript countdown timer for FloodWait on sessions page
+- **Regression tests**: Added web regression tests for SSE progress, resume, CSV export
+
 ## [0.15.0] - 2026-02-25
 
 ### Added
@@ -1140,7 +1157,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.13.0...v0.14.0
