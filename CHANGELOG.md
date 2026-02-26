@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-02-26
+
+### Changed
+- **sessions.py split into modules**: Replaced monolithic `sessions.py` (5,281 lines, 52 functions) with `routers/sessions/` package containing 13 focused modules (each < 800 lines)
+  - `routes.py` — HTTP endpoints and TemplateResponse
+  - `connect.py` — connect/disconnect/reconnect flows
+  - `auth_initial.py` — initial auth (send_code, verify_code, verify_2fa)
+  - `auth_reconnect.py` — reconnect auth flow
+  - `auth_reconnect_helpers.py` — reconnect auth helpers
+  - `auth_device.py` — device confirmation polling
+  - `auth_errors.py` — auth error handling
+  - `upload.py` — upload, import, validate
+  - `validation.py` — config validation
+  - `helpers.py` — shared utilities (sanitize, validate, SessionListItem, locks)
+  - `background.py` — background tasks
+  - `sse.py` — SSE endpoint
+  - `__init__.py` — re-export router + backward compatibility
+- **Template deduplication**: Removed `session_actions.html` and `session_connection_button.html` — session state rendering now handled by `session_row.html` only
+
+### Fixed
+- Fix test mock paths after sessions/ package refactor
+- Fix mock path: get_event_bus in 2FA manual modal test
+- Fix mock path: ensure_data_dir in 2FA auto-entry tests
+- SMOKE: Missing import _finalize_reconnect_auth blocks 7 tests
+- SMOKE: Fix test imports after sessions.py refactoring
+- SMOKE: Connect/disconnect endpoints failing — 14 tests
+- SMOKE: Auth flow doesn't return session row after 2FA
+- SMOKE: Session factory not found in background tasks
+- SMOKE: Connect flow state transitions failing
+- SMOKE: SSE event publishing not working after refactor
+- SMOKE: auth_reconnect missing get_event_bus import
+- SMOKE: Save account without connect failing
+
 ## [0.15.1] - 2026-02-26
 
 ### Fixed
@@ -1157,7 +1190,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.0...v0.14.1
