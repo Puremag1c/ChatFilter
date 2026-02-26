@@ -53,7 +53,7 @@ sessions/
 
 **Related code:**
 - Model: `chatfilter.models.account.AccountInfo`
-- Usage: `src/chatfilter/web/routers/sessions.py` (read on session discovery)
+- Usage: `src/chatfilter/web/routers/sessions/routes.py` (read on session discovery)
 
 ---
 
@@ -171,6 +171,36 @@ Edit Credentials Flow:
   ├─ Save to .credentials.enc
   └─ No change to metadata or session.session
 ```
+
+---
+
+## Sessions Router Architecture
+
+The monolithic `sessions.py` router was refactored into a package at `src/chatfilter/web/routers/sessions/`:
+
+```
+sessions/
+  __init__.py     # Package init, re-exports router for backward compatibility
+  helpers.py      # Shared utilities and data classes (session discovery, state helpers)
+  routes.py       # Basic CRUD endpoints (list, create, delete, edit)
+  connect.py      # Connect/disconnect/reconnect flows (send_code, verify, 2FA)
+  upload.py       # File upload and import (.session files, JSON metadata)
+  sse.py          # Server-Sent Events for real-time session status updates
+```
+
+### Module Responsibilities
+
+| Module | Responsibility |
+|--------|---------------|
+| `helpers.py` | `SessionInfo` dataclass, session discovery, template rendering helpers |
+| `routes.py` | CRUD: list sessions, create/delete/edit session, credential management |
+| `connect.py` | Telegram auth flow: connect, disconnect, reconnect, send_code, verify_code, 2FA |
+| `upload.py` | File upload: parse .session files, extract metadata, import accounts |
+| `sse.py` | SSE endpoint for live connection status updates |
+
+### Import Pattern
+
+The `__init__.py` re-exports the `router` object so existing imports (`from chatfilter.web.routers.sessions import router`) continue to work without changes to the app mounting code.
 
 ---
 
