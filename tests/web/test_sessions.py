@@ -356,7 +356,7 @@ class TestConnectSessionErrorHandling:
 
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy), patch(
             "chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus
-        ), patch("telethon.TelegramClient", return_value=mock_client):
+        ), patch("chatfilter.web.routers.sessions.background.TelegramClient", return_value=mock_client):
             await _send_verification_code_and_create_auth(
                 session_id=session_id,
                 session_path=session_path,
