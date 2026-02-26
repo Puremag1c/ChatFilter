@@ -143,7 +143,7 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 					}
 
 					// If the body no longer contains the element, remove the listener
-					if (!api.bodyContains(child)) {
+					if (!child || !api.bodyContains(child)) {
 						source.removeEventListener(sseEventName, listener);
 						return;
 					}
@@ -180,7 +180,7 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 					return
 				}
 
-				if (!api.bodyContains(child)) {
+				if (!child || !api.bodyContains(child)) {
 					source.removeEventListener(sseEventName, listener);
 				}
 			}
@@ -261,13 +261,16 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 	 * @returns boolean
 	 */
 	function maybeCloseSSESource(elt) {
-		if (!api.bodyContains(elt)) {
-			var source = api.getInternalData(elt).sseEventSource;
-			if (source != undefined) {
-				source.close();
-				// source = null
-				return true;
+		if (!elt || !api.bodyContains(elt)) {
+			if (elt) {
+				var source = api.getInternalData(elt).sseEventSource;
+				if (source != undefined) {
+					source.close();
+					// source = null
+					return true;
+				}
 			}
+			return true; // Element is null/undefined, treat as "should close"
 		}
 		return false;
 	}
