@@ -229,6 +229,9 @@
         disconnectTimer = setTimeout(function() {
             isDisconnected = true;
 
+            // Mark SSE as disconnected (used by polling logic)
+            document.body.classList.add('sse-disconnected');
+
             // Show persistent banner after 5s disconnect
             if (typeof SSEStatusBanner !== 'undefined') {
                 SSEStatusBanner.show();
@@ -252,6 +255,9 @@
             clearTimeout(disconnectTimer);
             disconnectTimer = null;
         }
+
+        // Clear SSE disconnected flag
+        document.body.classList.remove('sse-disconnected');
 
         // If we were showing the banner, hide it and show reconnected toast
         if (isDisconnected) {
@@ -277,6 +283,36 @@
     var container = document.getElementById('groups-container');
     var pollTimer = null;
     var isRefreshing = false;
+    var lastSseEventTimes = {}; // Track lastEventTime for each group card's SSE listeners
+
+    // Periodically sync SSE event times from group cards (they track it in their scope)
+    // We look for cards with data-last-sse-event attribute which is updated by group_card.html listeners
+    function syncSseEventTimes() {
+        container.querySelectorAll('.group-card[id^="group-"]').forEach(function(card) {
+            var groupId = card.id.replace('group-', '');
+            // Check if this card has any currently active SSE listeners
+            // by looking for active status badges
+            var isActive = card.querySelector('.status-badge.in_progress') ||
+                          card.querySelector('.status-badge.waiting_for_accounts');
+            if (isActive && card.hasAttribute('data-last-sse-event')) {
+                var eventTime = parseInt(card.getAttribute('data-last-sse-event'), 10);
+                lastSseEventTimes[groupId] = eventTime;
+            }
+        });
+    }
+
+    // Check if any group has fresh SSE activity (last event <30s old)
+    function hasHealthySse() {
+        var now = Date.now();
+        for (var groupId in lastSseEventTimes) {
+            var lastEventTime = lastSseEventTimes[groupId];
+            var timeSinceLast = now - lastEventTime;
+            if (timeSinceLast < 30000) { // <30s = healthy SSE
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Execute <script> tags inserted via innerHTML (browser spec: innerHTML does NOT run scripts).
     // Creates new script elements and appends them so the browser evaluates the code.
@@ -345,18 +381,36 @@
 
     function schedulePoll() {
         if (pollTimer) clearTimeout(pollTimer);
-        // SSE-aware polling with safety net
-        // SSE handles real-time updates for in_progress groups
-        // Polling is fallback for both SSE (slow) and non-SSE (fast) states
+
+        // Sync SSE event times from active group cards
+        syncSseEventTimes();
+
+        // Determine polling interval based on SSE health and active state
         var hasActive = container.querySelector('.status-badge.in_progress') || container.querySelector('.status-badge.waiting_for_accounts');
+        var sseHealthy = hasHealthySse();
+        var isSseDisconnected = document.body.classList && document.body.classList.contains('sse-disconnected');
+
+        var pollInterval;
         if (hasActive) {
-            // Slow polling when SSE active - safety net in case listener is broken
-            // 30s interval allows eventual consistency even if SSE fails
-            pollTimer = setTimeout(refreshGroups, 30000);
+            if (sseHealthy) {
+                // SSE is working (recent events) - increase interval to 60s
+                // morphdom smooth updates + healthy SSE means polling is just a safety net
+                pollInterval = 60000;
+            } else if (isSseDisconnected) {
+                // SSE is disconnected - keep safety net polling at 30s
+                pollInterval = 30000;
+            } else {
+                // SSE exists but no recent events - fallback to 30s
+                // (SSE listener may be broken, polling is primary)
+                pollInterval = 30000;
+            }
         } else {
-            // Fast polling when no SSE connections - check for new groups
-            pollTimer = setTimeout(refreshGroups, 3000);
+            // No active groups - check for new groups less aggressively
+            // was 3s (too aggressive), now 10s
+            pollInterval = 10000;
         }
+
+        pollTimer = setTimeout(refreshGroups, pollInterval);
     }
 
     // Listen for HX-Trigger refreshGroups events from button actions

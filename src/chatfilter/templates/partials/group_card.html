@@ -1,4 +1,4 @@
-<div class="group-card {{ group.status.value }}" id="group-{{ group.id }}">
+<div class="group-card {{ group.status.value }}" id="group-{{ group.id }}" data-last-sse-event="0">
     <!-- SSE event handlers: hidden elements for HTMX SSE extension to register EventSource listeners -->
     <div sse-swap="init" style="display:none"></div>
     <div sse-swap="progress" style="display:none"></div>
@@ -313,6 +313,10 @@
         const els = getElements();
         if (els.staleWarningEl) {
             els.staleWarningEl.style.display = 'none';
+        }
+        // Update card's data attribute so parent polling can see SSE health
+        if (els.cardEl) {
+            els.cardEl.setAttribute('data-last-sse-event', lastEventTime.toString());
         }
     }
 
