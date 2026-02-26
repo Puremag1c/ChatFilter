@@ -100,6 +100,8 @@ class FloodWaitTracker:
             for aid in expired:
                 del self._lockouts[aid]
                 logger.info(f"FloodWait expired: account '{aid}' now available")
+                # Publish flood_wait_cleared event
+                self._publish_flood_wait_cleared_event(aid)
             return dict(self._lockouts)
 
     def clear_expired(self) -> int:
