@@ -165,21 +165,970 @@ from .helpers import (
 router = APIRouter(tags=["sessions"])
 
 # Register SSE routes
-from .sse import register_sse_routes, session_events  # noqa: F401
+from .sse import register_sse_routes
 register_sse_routes(router)
-
-# Import connect module to register routes (must be after router definition)
-from . import connect  # noqa: E402, F401
 
 # Import basic CRUD routes
 from . import routes  # noqa: F401
 
-# Import upload and import routes
-from . import upload  # noqa: F401
+
+@router.get("/api/sessions", response_class=HTMLResponse)
+async def get_sessions(request: Request) -> HTMLResponse:
+    """List all registered sessions as HTML partial."""
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.auth_state import get_auth_state_manager
+    from chatfilter.web.dependencies import get_session_manager
+
+    session_manager = get_session_manager()
+    auth_manager = get_auth_state_manager()
+    sessions = list_stored_sessions(session_manager, auth_manager)
+    templates = get_templates()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/sessions_list.html",
+        context={"sessions": sessions},
+    )
+
+
+@router.post("/api/sessions/upload", response_class=HTMLResponse)
+async def upload_session(
+    request: Request,
+    session_name: Annotated[str, Form()],
+    session_file: Annotated[UploadFile, File()],
+    config_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile | None, File()] = None,
+) -> HTMLResponse:
+    """Upload a new session with config file.
+
+    Args:
+        json_file: Optional JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
+
+    Returns HTML partial for HTMX to display result.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        # Sanitize session name (path traversal protection)
+        try:
+            safe_name = sanitize_session_name(session_name)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        # Atomically create session directory to prevent TOCTOU race
+        session_dir = ensure_data_dir() / safe_name
+        try:
+            session_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _("Session '{name}' already exists").format(name=safe_name),
+                },
+            )
+
+        # Read and validate session file with size limit enforcement
+        try:
+            session_content = await read_upload_with_size_limit(
+                session_file, MAX_SESSION_SIZE, "session"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            validate_session_file_format(session_content)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
+            )
+
+        # Read and validate config file with size limit enforcement
+        try:
+            config_content = await read_upload_with_size_limit(
+                config_file, MAX_CONFIG_SIZE, "config"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            config_data = validate_config_file_format(config_content)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Invalid config: {error}").format(error=e)},
+            )
+
+        # Parse JSON file if provided (TelegramExpert format)
+        json_account_info = None
+        twofa_password = None
+        json_api_id = None
+        json_api_hash = None
+        if json_file:
+            try:
+                # Read JSON with size limit (10KB max)
+                MAX_JSON_SIZE = 10 * 1024  # 10KB
+                json_content = await read_upload_with_size_limit(
+                    json_file, MAX_JSON_SIZE, "JSON"
+                )
+            except ValueError as e:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": str(e)},
+                )
+
+            try:
+                json_data = json.loads(json_content)
+                # Security: Zero plaintext JSON after parsing to prevent memory dumps
+                json_content = b'\x00' * len(json_content)
+                del json_content
+            except json.JSONDecodeError as e:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+                )
+
+            # Validate JSON structure, fields, and phone format
+            validation_error = validate_account_info_json(json_data)
+            if validation_error:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/upload_result.html",
+                    context={"success": False, "error": _(validation_error)},
+                )
+
+            # Extract account info from JSON (validated above)
+            json_account_info = {
+                "phone": str(json_data["phone"]),
+                "first_name": str(json_data.get("first_name", "")),
+                "last_name": str(json_data.get("last_name", "")),
+            }
+
+            # Extract 2FA password if present (will encrypt later)
+            if "twoFA" in json_data and json_data["twoFA"]:
+                twofa_password = str(json_data["twoFA"])
+                # Security: Zero plaintext 2FA in JSON dict to prevent memory leaks
+                json_data["twoFA"] = "\x00" * len(json_data["twoFA"])
+                del json_data["twoFA"]
+
+            # Extract API credentials from JSON (if present)
+            from chatfilter.parsers.telegram_expert import extract_api_credentials
+
+            json_api_id, json_api_hash = extract_api_credentials(json_data)
+
+        # Extract account info from session to check for duplicates
+        import tempfile
+
+        account_info = None
+        duplicate_sessions = []
+
+        # Create a temporary session file to test connection
+        with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
+            tmp_session.write(session_content)
+            tmp_session.flush()
+            tmp_session_path = Path(tmp_session.name)
+
+        # Track credential sources for later storage
+        config_has_credentials = False
+        json_has_credentials = False
+
+        try:
+            # Priority: config.json credentials > JSON credentials
+            api_id_value = config_data.get("api_id")
+            api_hash_value = config_data.get("api_hash")
+
+            # Convert to appropriate types, handling None
+            api_id = int(api_id_value) if api_id_value is not None else None
+            api_hash = str(api_hash_value) if api_hash_value is not None else None
+
+            # Fallback to JSON credentials if config doesn't have them
+            config_has_credentials = api_id is not None and api_hash is not None
+            json_has_credentials = (
+                json_api_id is not None and json_api_hash is not None
+            )
+
+            if not config_has_credentials and json_has_credentials:
+                # Use credentials from JSON
+                api_id = json_api_id
+                api_hash = json_api_hash
+                logger.info(
+                    f"Using API credentials from JSON file for session: {safe_name}"
+                )
+
+            # Try to get account info from the session only if both api_id and api_hash are available
+            account_info = None
+            if api_id is not None and api_hash is not None:
+                account_info = await get_account_info_from_session(
+                    tmp_session_path, api_id, api_hash
+                )
+
+            if account_info:
+                # Check for duplicate accounts
+                user_id = account_info["user_id"]
+                if isinstance(user_id, int):
+                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+        finally:
+            # Clean up temporary session file
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                tmp_session_path.unlink()
+
+        # Save session with atomic transaction (no orphaned files on failure)
+        # session_dir already created (mkdir exist_ok=False) to prevent TOCTOU race
+        # _save_session_to_disk() creates temp dir, writes files, then renames over empty session_dir
+        try:
+            from chatfilter.utils.disk import DiskSpaceError
+
+            # proxy_id is None - user must configure it after upload
+            # source is 'file' because config was uploaded
+            # Use json_account_info if provided, otherwise use account_info from session
+            final_account_info = json_account_info if json_account_info else account_info
+            _save_session_to_disk(
+                session_dir=session_dir,
+                session_content=session_content,
+                api_id=api_id,
+                api_hash=api_hash,
+                proxy_id=None,
+                account_info=final_account_info,
+                source="file",
+            )
+
+        except DiskSpaceError:
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
+            )
+        except TelegramConfigError:
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _("Configuration error. Please check your session file and credentials."),
+                },
+            )
+        except Exception:
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
+            logger.exception("Failed to save session files")
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _("Failed to save session files. Please try again."),
+                },
+            )
+
+        logger.info(f"Session '{safe_name}' uploaded successfully")
+
+        # Store API credentials if they came from JSON (not config.json)
+        if not config_has_credentials and json_has_credentials:
+            try:
+                from chatfilter.security import SecureCredentialManager
+
+                storage_dir = session_dir
+                manager = SecureCredentialManager(storage_dir)
+                manager.store_credentials(safe_name, api_id, api_hash)
+                logger.info(f"Stored API credentials from JSON for session: {safe_name}")
+            except Exception:
+                logger.exception("Failed to store API credentials from JSON")
+                # Don't fail the upload if credential storage fails
+
+        # Store encrypted 2FA password if provided in JSON
+        if twofa_password:
+            try:
+                from chatfilter.security import SecureCredentialManager
+
+                storage_dir = session_dir
+                manager = SecureCredentialManager(storage_dir)
+                manager.store_2fa(safe_name, twofa_password)
+                logger.info(f"Stored encrypted 2FA password for session: {safe_name}")
+            except Exception:
+                logger.exception("Failed to store 2FA password")
+                # Don't fail the upload if 2FA storage fails
+            finally:
+                # Security: Zero plaintext 2FA password in memory after encryption
+                if twofa_password:
+                    twofa_password = "\x00" * len(twofa_password)
+                    del twofa_password
+
+        # Prepare response with duplicate account warning if needed
+        response_data = {
+            "request": request,
+            "success": True,
+            "message": _("Session '{name}' uploaded successfully").format(name=safe_name),
+            "duplicate_sessions": duplicate_sessions,
+            "account_info": account_info,
+        }
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/upload_result.html",
+            context=response_data,
+            headers={"HX-Trigger": "refreshSessions"},
+        )
+
+    except Exception:
+        logger.exception("Unexpected error during session upload")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/upload_result.html",
+            context={
+                "success": False,
+                "error": _("An unexpected error occurred during upload. Please try again."),
+            },
+        )
+
+
+@router.delete("/api/sessions/{session_id}", response_class=HTMLResponse)
+async def delete_session(session_id: str) -> HTMLResponse:
+    """Delete a session.
+
+    Returns empty response for HTMX to remove the element.
+    """
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid session name",
+        ) from e
+
+    session_dir = ensure_data_dir() / safe_name
+
+    if not session_dir.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    try:
+        # Delete credentials from secure storage
+        from chatfilter.security import SecureCredentialManager
+
+        storage_dir = session_dir.parent
+        try:
+            manager = SecureCredentialManager(storage_dir)
+            manager.delete_credentials(safe_name)
+            logger.info(f"Deleted credentials from secure storage for session: {safe_name}")
+        except Exception as e:
+            logger.warning(f"Error deleting credentials from secure storage: {e}")
+
+        # Clear any FloodWait entry for this account
+        get_flood_tracker().clear_account(session_id)
+
+        # Securely delete session file
+        session_file = session_dir / "session.session"
+        secure_delete_file(session_file)
+
+        # Delete any legacy plaintext config file (if it exists)
+        config_file = session_dir / "config.json"
+        if config_file.exists():
+            secure_delete_file(config_file)
+
+        # Remove directory
+        shutil.rmtree(session_dir, ignore_errors=True)
+        logger.info(f"Session '{safe_name}' deleted successfully")
+    except Exception as e:
+        logger.exception(f"Failed to delete session '{safe_name}'")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete session: {e}",
+        ) from e
+
+    # Return empty response - HTMX will remove the element
+    return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": "refreshSessions"})
+
+
+@router.post("/api/sessions/import/validate", response_class=HTMLResponse)
+async def validate_import_session(
+    request: Request,
+    session_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile, File()],
+) -> HTMLResponse:
+    """Validate session and JSON files for import.
+
+    Args:
+        json_file: JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
+
+    Returns HTML partial with validation result.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        # Read and validate session file with size limit enforcement
+        try:
+            session_content = await read_upload_with_size_limit(
+                session_file, MAX_SESSION_SIZE, "session"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        # Validate session file format
+        try:
+            validate_session_file_format(session_content)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        # Validate JSON file
+        try:
+            json_content = await read_upload_with_size_limit(
+                json_file, MAX_JSON_SIZE, "JSON"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            json_data = json.loads(json_content)
+
+            # Validate JSON structure and fields using dedicated parser module
+            validation_error = validate_account_info_json(json_data)
+            if validation_error:
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/import_validation_result.html",
+                    context={"success": False, "error": validation_error},
+                )
+
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/import_validation_result.html",
+                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+            )
+
+        # Validation successful - extract API credentials if present
+        from chatfilter.parsers.telegram_expert import extract_api_credentials
+
+        api_id, api_hash = extract_api_credentials(json_data)
+
+        logger.info("Session and JSON files validated successfully for import")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/import_validation_result.html",
+            context={
+                "success": True,
+                "api_id": api_id,
+                "api_hash": api_hash,
+            },
+        )
+
+    except Exception:
+        logger.exception("Unexpected error during session validation")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/import_validation_result.html",
+            context={
+                "success": False,
+                "error": _("An unexpected error occurred during validation."),
+            },
+        )
+
+
+@router.get("/api/sessions/{session_id}/config", response_class=HTMLResponse)
+async def get_session_config(
+    request: Request,
+    session_id: str,
+) -> HTMLResponse:
+    """Get session configuration form.
+
+    Returns HTML partial with proxy dropdown showing current selection.
+
+    Always returns the config form, even if session files are missing or corrupted.
+    This ensures the Edit button always works - users can fix missing config via the form.
+    """
+    from chatfilter.storage.proxy_pool import load_proxy_pool
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError:
+        # Return error as HTML with 200 OK to prevent HTMX error handler from destroying session list
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{_("Invalid session name")}</div>',
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    config_file = session_dir / "config.json"
+
+    # Load current config (use empty values if missing/corrupted)
+    # This allows users to fix configuration issues via the Edit form
+    current_api_id = None
+    current_api_hash = None
+    current_proxy_id = None
+
+    if config_file.exists():
+        try:
+            with config_file.open("r", encoding="utf-8") as f:
+                config = json.load(f)
+                current_api_id = config.get("api_id")
+                current_api_hash = config.get("api_hash")
+                current_proxy_id = config.get("proxy_id")
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to read config for session {safe_name}: {e}")
+
+    # Load proxy pool
+    proxies = load_proxy_pool()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_config.html",
+        context={
+            "session_id": safe_name,
+            "current_api_id": current_api_id,
+            "current_api_hash": current_api_hash,
+            "current_proxy_id": current_proxy_id,
+            "proxies": proxies,
+        },
+    )
+
+
+@router.put("/api/sessions/{session_id}/config", response_class=HTMLResponse)
+async def update_session_config(
+    request: Request,
+    session_id: str,
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+    proxy_id: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Update session configuration.
+
+    Updates api_id, api_hash, and proxy_id for a session.
+    All fields are required.
+    """
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{e}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    config_file = session_dir / "config.json"
+
+    if not session_dir.exists() or not config_file.exists():
+        return HTMLResponse(
+            content='<div class="alert alert-error">Session not found</div>',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Validate api_id
+    if api_id < 1:
+        return HTMLResponse(
+            content='<div class="alert alert-error">API ID must be a positive number</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate api_hash format (32-char hex string)
+    api_hash = api_hash.strip()
+    if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+        return HTMLResponse(
+            content='<div class="alert alert-error">API hash must be a 32-character hexadecimal string</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate proxy_id (required)
+    if not proxy_id:
+        return HTMLResponse(
+            content='<div class="alert alert-error">Proxy selection is required</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+    try:
+        get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        return HTMLResponse(
+            content='<div class="alert alert-error">Selected proxy not found in pool</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Load existing config
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"Failed to read config for session {safe_name}: {e}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to read session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Check if API credentials changed
+    old_api_id = config.get("api_id")
+    old_api_hash = config.get("api_hash")
+    credentials_changed = (old_api_id != api_id) or (old_api_hash != api_hash)
+
+    # If credentials changed, validate them with Telegram API
+    if credentials_changed:
+        from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+        # Get proxy for validation
+        try:
+            proxy_entry = get_proxy_by_id(proxy_id)
+        except StorageNotFoundError:
+            return HTMLResponse(
+                content='<div class="alert alert-error">Selected proxy not found</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate credentials with retry logic
+        is_valid, error_message = await validate_telegram_credentials_with_retry(
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_entry=proxy_entry,
+            session_name=safe_name,
+        )
+
+        if not is_valid:
+            # Validation failed after retries
+            status_code = (
+                status.HTTP_400_BAD_REQUEST
+                if "Invalid API" in error_message
+                else status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">{error_message}</div>',
+                status_code=status_code,
+            )
+
+        # Credentials valid - disconnect current session if connected
+        from chatfilter.web.dependencies import get_session_manager
+
+        session_manager = get_session_manager()
+        try:
+            await session_manager.disconnect(safe_name)
+            logger.info(f"Disconnected session '{safe_name}' after credentials change")
+        except Exception as e:
+            logger.warning(f"Failed to disconnect session '{safe_name}': {e}")
+            # Non-fatal - continue with config update
+
+    # Update all config fields
+    config["api_id"] = api_id
+    config["api_hash"] = api_hash
+    config["proxy_id"] = proxy_id
+
+    # Save updated config
+    try:
+        config_content = json.dumps(config, indent=2).encode("utf-8")
+        atomic_write(config_file, config_content)
+        secure_file_permissions(config_file)
+        logger.info(
+            f"Updated config for session '{safe_name}': api_id={api_id}, proxy_id={proxy_id}"
+        )
+    except Exception:
+        logger.exception(f"Failed to save config for session {safe_name}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to save session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Also update secure credential storage
+    try:
+        from chatfilter.security import SecureCredentialManager
+
+        storage_dir = session_dir.parent
+        manager = SecureCredentialManager(storage_dir)
+        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
+        logger.info(f"Updated credentials in secure storage for session: {safe_name}")
+    except Exception as e:
+        logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
+        # Non-fatal: config.json is the primary source
+
+    # If credentials changed, trigger reconnect flow
+    if credentials_changed:
+        # Return success message with auto-trigger for reconnect
+        return HTMLResponse(
+            content=f'''
+                <div class="alert alert-success">
+                    Credentials updated. Re-authorization required...
+                </div>
+                <form hx-post="/api/sessions/{safe_name}/reconnect/start"
+                      hx-target="#session-config-result-{safe_name}"
+                      hx-swap="innerHTML"
+                      hx-trigger="load">
+                </form>
+            ''',
+            headers={"HX-Trigger": "refreshSessions"},
+        )
+
+    # Return success message with HX-Trigger to refresh sessions list
+    return HTMLResponse(
+        content='<div class="alert alert-success">Configuration saved</div>',
+        headers={"HX-Trigger": "refreshSessions"},
+    )
+
+
+
+
+@router.put("/api/sessions/{session_id}/credentials", response_class=HTMLResponse)
+async def update_session_credentials(
+    request: Request,
+    session_id: str,
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Update session API credentials.
+
+    Updates api_id and api_hash for a session that was created without credentials
+    (e.g., from phone auth flow). Does not change proxy_id or other fields.
+    """
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{e}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    config_file = session_dir / "config.json"
+
+    if not session_dir.exists() or not config_file.exists():
+        return HTMLResponse(
+            content='<div class="alert alert-error">Session not found</div>',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Validate api_id
+    if api_id < 1:
+        return HTMLResponse(
+            content='<div class="alert alert-error">API ID must be a positive number</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Validate api_hash format (32-char hex string)
+    api_hash = api_hash.strip()
+    if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+        return HTMLResponse(
+            content='<div class="alert alert-error">API hash must be a 32-character hexadecimal string</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Load existing config
+    try:
+        with config_file.open("r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error(f"Failed to read config for session {safe_name}: {e}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to read session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Check if API credentials changed
+    old_api_id = config.get("api_id")
+    old_api_hash = config.get("api_hash")
+    credentials_changed = (old_api_id != api_id) or (old_api_hash != api_hash)
+
+    # If credentials changed, validate them with Telegram API
+    if credentials_changed:
+        from chatfilter.storage.errors import StorageNotFoundError
+        from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+        # Get proxy for validation
+        proxy_id = config.get("proxy_id")
+        if not proxy_id:
+            return HTMLResponse(
+                content='<div class="alert alert-error">Session has no proxy configured. Please use the full config form to set both credentials and proxy.</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            proxy_entry = get_proxy_by_id(proxy_id)
+        except StorageNotFoundError:
+            return HTMLResponse(
+                content='<div class="alert alert-error">Session proxy not found in pool</div>',
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate credentials with retry logic
+        is_valid, error_message = await validate_telegram_credentials_with_retry(
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy_entry=proxy_entry,
+            session_name=safe_name,
+        )
+
+        if not is_valid:
+            # Validation failed after retries
+            status_code = (
+                status.HTTP_400_BAD_REQUEST
+                if "Invalid API" in error_message
+                else status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            return HTMLResponse(
+                content=f'<div class="alert alert-error">{error_message}</div>',
+                status_code=status_code,
+            )
+
+        # Credentials valid - disconnect current session if connected
+        from chatfilter.web.dependencies import get_session_manager
+
+        session_manager = get_session_manager()
+        try:
+            await session_manager.disconnect(safe_name)
+            logger.info(f"Disconnected session '{safe_name}' after credentials change")
+        except Exception as e:
+            logger.warning(f"Failed to disconnect session '{safe_name}': {e}")
+            # Non-fatal - continue with config update
+
+    # Update only api_id and api_hash (preserve proxy_id and source)
+    config["api_id"] = api_id
+    config["api_hash"] = api_hash
+
+    # Save updated config
+    try:
+        config_content = json.dumps(config, indent=2).encode("utf-8")
+        atomic_write(config_file, config_content)
+        secure_file_permissions(config_file)
+        logger.info(
+            f"Updated credentials for session '{safe_name}': api_id={api_id}"
+        )
+    except Exception:
+        logger.exception(f"Failed to save config for session {safe_name}")
+        return HTMLResponse(
+            content='<div class="alert alert-error">Failed to save session config</div>',
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    # Also update secure credential storage
+    proxy_id = config.get("proxy_id")
+    try:
+        from chatfilter.security import SecureCredentialManager
+
+        storage_dir = session_dir.parent
+        manager = SecureCredentialManager(storage_dir)
+        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
+        logger.info(f"Updated credentials in secure storage for session: {safe_name}")
+    except Exception as e:
+        logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
+        # Non-fatal: config.json is the primary source
+
+    # If credentials changed, need to trigger reconnect flow
+    if credentials_changed:
+        # Delete session.session file to force re-authorization
+        session_file = session_dir / "session.session"
+        if session_file.exists():
+            try:
+                session_file.unlink()
+                logger.info(f"Deleted session file for '{safe_name}' to trigger re-auth")
+            except Exception as e:
+                logger.warning(f"Failed to delete session file for '{safe_name}': {e}")
+                # Non-fatal - continue with reconnect
+
+        # Return success message with auto-trigger for reconnect
+        return HTMLResponse(
+            content=f'''
+                <div class="alert alert-success">
+                    Credentials updated. Re-authorization required...
+                </div>
+                <form hx-post="/api/sessions/{safe_name}/reconnect/start"
+                      hx-target="#session-config-result-{safe_name}"
+                      hx-swap="innerHTML"
+                      hx-trigger="load">
+                </form>
+            ''',
+            headers={"HX-Trigger": "refreshSessions"},
+        )
+
+    # Get updated session status
+    config_status, _config_reason = get_session_config_status(session_dir)
+    session_info = SessionListItem(
+        session_id=safe_name,
+        state=config_status,
+        error_message=config.get("error_message"),
+        retry_available=config.get("retry_available"),
+        flood_wait_until=_get_flood_wait_until(safe_name),
+    )
+
+    # Return session row HTML with updated status
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_row.html",
+        context=get_template_context(request, session=session_info),
+        headers={"HX-Trigger": "refreshSessions"},
+    )
 
 # =============================================================================
 # Session Auth Flow (Create New Session from Phone)
 # =============================================================================
+
+
+@router.get("/api/sessions/auth/form", response_class=HTMLResponse)
+async def get_auth_form(request: Request) -> HTMLResponse:
+    """Get the auth flow start form.
+
+    Returns HTML form for starting a new session auth flow.
+    """
+    from chatfilter.storage.proxy_pool import load_proxy_pool
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+    proxies = load_proxy_pool()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/auth_start_form.html",
+        context={"proxies": proxies},
+    )
 
 
 @router.post("/api/sessions/auth/start", response_class=HTMLResponse)
@@ -1214,6 +2163,861 @@ async def _finalize_reconnect_auth(
     await auth_manager.remove_auth_state(auth_state.auth_id)
 
     logger.info(f"Session '{safe_name}' re-authenticated successfully ({log_context})")
+async def _do_connect_in_background_v2(session_id: str) -> None:
+    """Background task that performs the actual Telegram connection (v2 - no registration).
+
+    This version assumes the loader is already registered and state is already CONNECTING.
+    This prevents race conditions from parallel requests.
+
+    This runs after HTTP response is sent. Results are delivered via SSE.
+
+    Handles ALL cases per SPEC (8-state model):
+    1. No api_id/api_hash → publish 'needs_config'
+    2. Proxy error → publish 'needs_config' with tooltip
+    3. Banned → publish 'banned'
+    4. No session.session → create client, send_code → publish 'needs_code'
+    5. session.session expired/revoked → auto-delete file, send_code → publish 'needs_code'
+    6. session.session corrupted → auto-delete file, send_code → publish 'needs_code'
+    7. Valid session → connect → publish 'connected'
+    8. Needs 2FA → publish 'needs_2fa' (handled by auth flow, not here)
+    9. Any other error → publish 'error' with tooltip
+
+    No more 'session_expired', 'corrupted_session', 'flood_wait', 'proxy_error' SSE events.
+    """
+    import asyncio
+    import struct
+
+    from telethon.errors import (
+        ApiIdInvalidError,
+        AuthKeyUnregisteredError,
+        PhoneNumberBannedError,
+        SessionExpiredError,
+        SessionRevokedError,
+        UserDeactivatedBanError,
+        UserDeactivatedError,
+    )
+
+    from chatfilter.telegram.error_mapping import get_user_friendly_message
+    from chatfilter.telegram.session_manager import (
+        SessionConnectError,
+        SessionInvalidError,
+        SessionReauthRequiredError,
+    )
+    from chatfilter.web.dependencies import get_session_manager
+    from chatfilter.web.events import get_event_bus
+
+    # Exception types that indicate session file is invalid and needs auto-recovery
+    _SESSION_INVALID_CAUSES = (
+        AuthKeyUnregisteredError,
+        SessionRevokedError,
+        SessionExpiredError,
+        SessionFileError,
+        struct.error,
+    )
+    # Exception types that indicate account is banned (terminal state)
+    _BANNED_CAUSES = (
+        UserDeactivatedBanError,
+        UserDeactivatedError,
+        PhoneNumberBannedError,
+    )
+
+    # Acquire per-session lock to prevent parallel operations
+    lock = await _get_session_lock(session_id)
+    async with lock:
+        session_manager = get_session_manager()
+        session_path: Path | None = None
+        config_path: Path | None = None
+
+        try:
+            # Get paths from the registered factory (loader), NOT from _sessions.
+            # register() stores in _factories; _sessions entry is only created by connect().
+            factory = session_manager._factories.get(session_id)
+            if not factory:
+                logger.error(f"Session '{session_id}' factory not found in _do_connect_in_background_v2")
+                await get_event_bus().publish(session_id, "error")
+                return
+
+            # Extract paths from the factory (TelegramClientLoader has session_path/config_path)
+            if hasattr(factory, 'session_path'):
+                session_path = factory.session_path
+                config_path = session_path.parent / "config.json"
+                session_dir = session_path.parent
+
+            # CASE 1: Check config validity (no api_id/api_hash or proxy missing)
+            # This catches ApiIdInvalidError BEFORE attempting connection
+            config_status, config_reason = get_session_config_status(session_dir)
+            if config_status == "needs_config":
+                # Missing credentials or proxy → needs_config
+                logger.warning(f"Session '{session_id}' has config issue: {config_reason}")
+                error_message = config_reason or "Configuration incomplete"
+                safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+                if config_path:
+                    _save_error_to_config(config_path, safe_error_message, retry_available=False)
+                await get_event_bus().publish(session_id, "needs_config")
+                return
+
+            # PRE-CONNECT DIAGNOSTIC: Check SOCKS5 proxy health before wasting 30s on timeout
+            # SECURITY: Don't include proxy.name in SSE messages (may contain credentials)
+            proxy_id = getattr(factory, '_proxy_id', None)
+            proxy_entry = None
+            if proxy_id:
+                from chatfilter.config import ProxyType
+                from chatfilter.service.proxy_health import socks5_tunnel_check
+                from chatfilter.storage.errors import StorageNotFoundError
+                from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+                try:
+                    proxy_entry = get_proxy_by_id(proxy_id)
+                    # Only check SOCKS5 proxies (HTTP proxies use different protocol)
+                    if proxy_entry.type == ProxyType.SOCKS5:
+                        logger.debug(f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}")
+                        proxy_ok = await socks5_tunnel_check(proxy_entry)
+                        if not proxy_ok:
+                            # Proxy is broken → early return with generic error
+                            # SECURITY: Don't include proxy.name in logs (may contain credentials)
+                            logger.warning(f"Pre-connect diagnostic failed: proxy ID {proxy_id} not responding")
+                            error_message = (
+                                "The proxy is not responding. "
+                                "Please check proxy settings or switch to another proxy."
+                            )
+                            safe_error_message = sanitize_error_message_for_client(error_message, "proxy_error")
+                            if session_id in session_manager._sessions:
+                                session_manager._sessions[session_id].state = SessionState.ERROR
+                                session_manager._sessions[session_id].error_message = safe_error_message
+                            if config_path:
+                                _save_error_to_config(config_path, safe_error_message, retry_available=True)
+                            await get_event_bus().publish(session_id, "error")
+                            return
+                except StorageNotFoundError:
+                    # Proxy ID in config but not in storage → will be caught by get_session_config_status
+                    logger.warning(f"Proxy {proxy_id} not found in storage")
+
+            # CASE 4: Check if session.session file exists (first time auth)
+            # If missing → trigger send_code flow
+            if not session_path.exists():
+                logger.info(f"Session '{session_id}' has no session file, triggering send_code")
+                # Load account_info for phone number
+                account_info = load_account_info(session_dir)
+                if not account_info or "phone" not in account_info:
+                    logger.error(f"Cannot send code for session '{session_id}': phone number unknown")
+                    error_message = "Phone number required"
+                    safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+                    if config_path:
+                        _save_error_to_config(config_path, safe_error_message, retry_available=False)
+                    await get_event_bus().publish(session_id, "needs_config")
+                    return
+
+                phone = str(account_info["phone"])
+                # Trigger send_code flow (with timeout protection)
+                await _send_verification_code_with_timeout(
+                    session_id,
+                    session_path,
+                    config_path,
+                    phone,
+                )
+                return
+
+            # CASE 7: Attempt connection with timeout (30 seconds)
+            # session_manager.connect() creates _sessions entry and publishes SSE events
+            await asyncio.wait_for(
+                session_manager.connect(session_id),
+                timeout=30.0
+            )
+            # Success - SSE "connected" event already published by session_manager
+
+        except ApiIdInvalidError as e:
+            # CASE 2: Invalid api_id/api_hash → needs_config
+            logger.warning(f"Session '{session_id}' has invalid api_id/api_hash")
+            error_message = get_user_friendly_message(e)
+            safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+            if config_path:
+                _save_error_to_config(config_path, safe_error_message, retry_available=False)
+            await get_event_bus().publish(session_id, "needs_config")
+
+        except (SessionInvalidError, SessionReauthRequiredError, SessionConnectError) as e:
+            # session_manager.connect() wraps Telethon errors:
+            #   SessionInvalidError  ← AuthKeyUnregistered, SessionRevoked, Banned
+            #   SessionReauthRequiredError ← SessionExpired, SessionPasswordNeeded
+            #   SessionConnectError  ← SessionFileError, struct.error, other
+            # Inspect __cause__ to determine correct action.
+            cause = e.__cause__
+
+            if isinstance(cause, _BANNED_CAUSES):
+                # CASE 3: Account banned → terminal state
+                logger.warning(f"Session '{session_id}' is banned ({type(cause).__name__})")
+                if config_path:
+                    error_message = get_user_friendly_message(cause)
+                    safe_error_message = sanitize_error_message_for_client(error_message, "banned")
+                    _save_error_to_config(config_path, safe_error_message, retry_available=False)
+                await get_event_bus().publish(session_id, "banned")
+
+            elif isinstance(cause, _SESSION_INVALID_CAUSES):
+                # CASE 5 & 6: Session expired/revoked/corrupted → auto-delete + send_code
+                await _handle_session_recovery(
+                    session_id, session_path, config_path, cause,
+                )
+
+            else:
+                # Unknown cause → classify and publish
+                logger.exception(f"Failed to connect session '{session_id}' in background")
+                error_message = get_user_friendly_message(e)
+                error_state = classify_error_state(error_message, exception=e)
+                safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+                if config_path:
+                    retry_available = error_state == "error"
+                    _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
+                await get_event_bus().publish(session_id, error_state)
+
+        except TimeoutError:
+            logger.warning(f"Connection timeout for session '{session_id}'")
+            # Proxy-aware timeout: check if proxy was tested
+            # SECURITY: Don't include proxy.name in logs (may contain credentials)
+            if proxy_entry:
+                logger.info(f"Timeout occurred with proxy ID: {proxy_entry.id}")
+                error_message = (
+                    "Telegram servers are not reachable through the proxy. "
+                    "Try a different proxy or check your network."
+                )
+            else:
+                error_message = "Connection timeout"
+            safe_error_message = sanitize_error_message_for_client(error_message, "timeout")
+            if session_id in session_manager._sessions:
+                session_manager._sessions[session_id].state = SessionState.ERROR
+                session_manager._sessions[session_id].error_message = safe_error_message
+            if config_path:
+                _save_error_to_config(config_path, safe_error_message, retry_available=True)
+            await get_event_bus().publish(session_id, "error")
+
+        except SessionBusyError:
+            # Session is already busy - publish current state
+            logger.warning(f"Session busy during background connect: {session_id}")
+            info = session_manager.get_info(session_id)
+            if info:
+                await get_event_bus().publish(session_id, info.state.value)
+
+        except Exception as e:
+            logger.exception(f"Failed to connect session '{session_id}' in background")
+            error_message = get_user_friendly_message(e)
+            error_state = classify_error_state(error_message, exception=e)
+            safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+            if config_path:
+                retry_available = error_state == "error"
+                _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
+            await get_event_bus().publish(session_id, error_state)
+
+
+async def _handle_session_recovery(
+    session_id: str,
+    session_path: Path | None,
+    config_path: Path | None,
+    cause: Exception,
+) -> None:
+    """Auto-recover from invalid/corrupted session: delete file and trigger send_code.
+
+    Handles CASE 5 (expired/revoked) and CASE 6 (corrupted) from the SPEC.
+    """
+    from chatfilter.web.events import get_event_bus
+
+    logger.info(f"Session '{session_id}' has invalid/corrupted session ({type(cause).__name__}), triggering reauth")
+
+    if not session_path or not config_path:
+        logger.error(f"Cannot reauth session '{session_id}': paths not available")
+        await get_event_bus().publish(session_id, "error")
+        return
+
+    # Securely delete invalid session file
+    secure_delete_file(session_path)
+
+    # Load account_info (handles corrupted JSON gracefully - returns None on parse errors)
+    session_dir = session_path.parent
+    account_info = load_account_info(session_dir)
+    if not account_info or "phone" not in account_info:
+        logger.error(f"Cannot reauth session '{session_id}': phone number unknown or corrupted account info")
+        error_message = _("Phone number required")
+        safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+        if config_path:
+            _save_error_to_config(config_path, safe_error_message, retry_available=False)
+        await get_event_bus().publish(session_id, "needs_config")
+        return
+
+    phone = str(account_info["phone"])
+    await _send_verification_code_with_timeout(
+        session_id,
+        session_path,
+        config_path,
+        phone,
+    )
+
+
+async def _send_verification_code_with_timeout(
+    session_id: str,
+    session_path: Path,
+    config_path: Path,
+    phone: str,
+) -> None:
+    """Wrapper: run _send_verification_code_and_create_auth with 30s timeout.
+
+    If timeout occurs, publishes 'error' SSE and saves error to config.json.
+    This prevents indefinite hangs if network operations stall.
+    """
+    import asyncio
+
+    from chatfilter.web.events import get_event_bus
+
+    try:
+        await asyncio.wait_for(
+            _send_verification_code_and_create_auth(
+                session_id, session_path, config_path, phone
+            ),
+            timeout=30.0,
+        )
+    except TimeoutError:
+        logger.warning(f"Verification code request timeout for session '{session_id}'")
+        error_message = "Connection timeout"
+        # Save error to config.json for UI display (Bug 2 fix)
+        _save_error_to_config(config_path, error_message, retry_available=True)
+        # Publish error via SSE
+        await get_event_bus().publish(session_id, "error")
+
+
+async def _send_verification_code_and_create_auth(
+    session_id: str,
+    session_path: Path,
+    config_path: Path,
+    phone: str,
+) -> None:
+    """Helper: send verification code and create AuthState for reconnect.
+
+    This is the minimal difference from normal connection flow.
+    Publishes 'needs_code' via SSE, then user completes auth via existing /api/sessions/auth/code.
+
+    Retries transient network errors (ConnectionError, TimeoutError) with exponential backoff.
+    Does NOT retry on permanent errors (AuthKeyUnregistered, PhoneNumberInvalid).
+
+    NOTE: This function should be called via _send_verification_code_with_timeout() wrapper
+    which enforces a 30s overall timeout to prevent indefinite hangs.
+    """
+    import asyncio
+    import json
+
+    from telethon import TelegramClient
+    from telethon.errors import AuthKeyUnregisteredError, PhoneNumberInvalidError
+
+    from chatfilter.storage.errors import StorageNotFoundError
+    from chatfilter.storage.proxy_pool import get_proxy_by_id
+    from chatfilter.telegram.error_mapping import get_user_friendly_message
+    from chatfilter.telegram.retry import calculate_backoff_delay
+    from chatfilter.web.auth_state import get_auth_state_manager
+    from chatfilter.web.events import get_event_bus
+
+    def save_error_metadata(error_message: str, retry_available: bool) -> None:
+        """Save error metadata to config.json for SSE/UI display."""
+        try:
+            with config_path.open("r") as f:
+                config = json.load(f)
+            config["error_message"] = error_message
+            config["retry_available"] = retry_available
+            config_content = json.dumps(config, indent=2).encode("utf-8")
+            atomic_write(config_path, config_content)
+        except Exception:
+            logger.exception(f"Failed to save error metadata for session '{session_id}'")
+
+    # Load config once (no retry needed for local file read)
+    try:
+        with config_path.open("r") as f:
+            config = json.load(f)
+        api_id = config["api_id"]
+        api_hash = config["api_hash"]
+        proxy_id = config["proxy_id"]
+    except Exception as e:
+        logger.exception(f"Failed to load config for session '{session_id}'")
+        error_message = get_user_friendly_message(e)
+        error_state = classify_error_state(error_message, exception=e)
+        # Config read failure is permanent (file corruption/missing)
+        # Security: sanitize error message before publishing to client
+        safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+        save_error_metadata(safe_error_message, retry_available=False)
+        await get_event_bus().publish(session_id, error_state)
+        return
+
+    # Get proxy once (no retry needed)
+    try:
+        proxy_info = get_proxy_by_id(proxy_id)
+    except StorageNotFoundError:
+        # Security: sanitize error message before publishing to client
+        error_message = f"Proxy '{proxy_id}' not found in pool"
+        safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+        save_error_metadata(safe_error_message, retry_available=False)
+        await get_event_bus().publish(session_id, "needs_config")
+        return
+
+    # Retry configuration
+    max_attempts = 3
+    retryable_exceptions = (ConnectionError, TimeoutError, asyncio.TimeoutError, OSError)
+    non_retryable_exceptions = (AuthKeyUnregisteredError, PhoneNumberInvalidError)
+
+    # Retry loop for network operations
+    last_exception: Exception | None = None
+    for attempt in range(max_attempts):
+        try:
+            # Create client, send code
+            client = TelegramClient(
+                str(session_path),
+                api_id,
+                api_hash,
+                proxy=proxy_info.to_telethon_proxy(),
+            )
+            await asyncio.wait_for(client.connect(), timeout=15.0)
+
+            result = await asyncio.wait_for(
+                client.send_code_request(phone),
+                timeout=15.0,
+            )
+
+            # Success - create auth state and publish
+            auth_manager = get_auth_state_manager()
+            await auth_manager.create_auth_state(
+                session_name=session_id,
+                api_id=api_id,
+                api_hash=api_hash,
+                proxy_id=proxy_id,
+                phone=phone,
+                phone_code_hash=result.phone_code_hash,
+                client=client,
+            )
+
+            await get_event_bus().publish(session_id, "needs_code")
+            return  # Success, exit
+
+        except non_retryable_exceptions as e:
+            # Permanent errors - do not retry
+            logger.error(f"Non-retryable error for session '{session_id}': {type(e).__name__}")
+            error_message = get_user_friendly_message(e)
+            error_state = classify_error_state(error_message, exception=e)
+            # Security: sanitize error message before publishing to client
+            safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+            save_error_metadata(safe_error_message, retry_available=False)
+            await get_event_bus().publish(session_id, error_state)
+            return
+
+        except retryable_exceptions as e:
+            last_exception = e
+            is_final_attempt = attempt == max_attempts - 1
+
+            if is_final_attempt:
+                # All retries exhausted - transient error
+                logger.error(
+                    f"Failed to send code for session '{session_id}' after {max_attempts} attempts: {e}"
+                )
+                error_message = get_user_friendly_message(e)
+                error_state = classify_error_state(error_message, exception=e)
+                # Security: sanitize error message before publishing to client
+                safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+                save_error_metadata(safe_error_message, retry_available=True)
+                await get_event_bus().publish(session_id, error_state)
+                return
+            else:
+                # Retry with exponential backoff
+                delay = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=4.0, jitter=0.1)
+                logger.warning(
+                    f"Send code attempt {attempt + 1}/{max_attempts} failed for session '{session_id}' "
+                    f"with {type(e).__name__}: {e}. Retrying in {delay:.2f}s..."
+                )
+                await asyncio.sleep(delay)
+
+        except Exception as e:
+            # Unexpected error - treat as non-retryable
+            logger.exception(f"Unexpected error sending code for session '{session_id}'")
+            error_message = get_user_friendly_message(e)
+            error_state = classify_error_state(error_message, exception=e)
+            # Security: sanitize error message before publishing to client
+            safe_error_message = sanitize_error_message_for_client(error_message, error_state)
+            save_error_metadata(safe_error_message, retry_available=False)
+            await get_event_bus().publish(session_id, error_state)
+            return
+
+
+@router.post("/api/sessions/{session_id}/connect", response_class=HTMLResponse)
+async def connect_session(
+    request: Request,
+    session_id: str,
+    background_tasks: BackgroundTasks,
+) -> HTMLResponse:
+    """Connect a session to Telegram.
+
+    Returns immediately with 'connecting' state. Actual connection happens
+    in background task, with final state delivered via SSE.
+    """
+    from chatfilter.web.app import get_templates
+    from chatfilter.web.dependencies import get_session_manager
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        session_data = SessionListItem(
+            session_id=session_id,
+            state="error",
+            error_message=str(e),
+            has_session_file=False,
+            retry_available=False,  # Invalid session name is permanent error
+            flood_wait_until=_get_flood_wait_until(session_id),
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
+            status_code=status.HTTP_200_OK,
+        )
+
+    # Check if operation already in progress (prevents race condition)
+    lock = await _get_session_lock(safe_name)
+    if lock.locked():
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="error",
+            error_message="Operation already in progress",
+            has_session_file=False,
+            retry_available=True,  # Transient error, can retry later
+            flood_wait_until=_get_flood_wait_until(safe_name),
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
+            status_code=status.HTTP_200_OK,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    session_path = session_dir / "session.session"
+    config_path = session_dir / "config.json"
+
+    # Check if session exists (must have at least config.json)
+    # Note: session.session can be missing (will trigger send_code flow)
+    if not config_path.exists():
+        # If session directory exists with .account_info.json, this is needs_config state
+        # (account was saved but config.json wasn't created yet)
+        account_info_path = session_dir / ".account_info.json"
+        if session_dir.exists() and account_info_path.exists():
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="needs_config",
+                error_message="Session configuration required",
+                has_session_file=session_path.exists(),
+                retry_available=False,  # Must configure first
+                flood_wait_until=_get_flood_wait_until(safe_name),
+            )
+        else:
+            # Session directory doesn't exist or no account info - true error
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="error",
+                error_message="Session not found",
+                has_session_file=False,
+                retry_available=False,  # No config = permanent error
+                flood_wait_until=_get_flood_wait_until(safe_name),
+            )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
+            status_code=status.HTTP_200_OK,
+        )
+
+    # Check if session is properly configured
+    config_status, _config_reason = get_session_config_status(session_dir)
+    if config_status == "needs_config":
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="needs_config",
+            error_message=_config_reason,
+            has_session_file=session_path.exists(),
+            retry_available=False,  # Must configure first
+            flood_wait_until=_get_flood_wait_until(safe_name),
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
+            status_code=status.HTTP_200_OK,
+        )
+
+    session_manager = get_session_manager()
+
+    # Check current session state before attempting connect
+    info = session_manager.get_info(safe_name)
+    if info and info.state.value in ("connected", "connecting"):
+        # Session is already connected or connecting
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state=info.state.value,
+            error_message=None,
+            has_session_file=session_path.exists(),
+            retry_available=None,
+            flood_wait_until=_get_flood_wait_until(safe_name),
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
+            headers={"HX-Trigger": "refreshSessions"},
+        )
+
+    # FIX RACE CONDITION: Register loader and set state BEFORE scheduling background task
+    # This prevents parallel requests from both seeing DISCONNECTED and scheduling duplicate tasks
+    from chatfilter.telegram.session_manager import SessionState
+
+    try:
+        loader = TelegramClientLoader(session_path, config_path)
+        loader.validate()
+    except FileNotFoundError:
+        # AC2: Session file doesn't exist - trigger send_code flow instead of error
+        account_info = load_account_info(session_dir)
+        if not account_info or not account_info.get("phone"):
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="error",
+                error_message="Phone number is required for new session",
+                has_session_file=False,
+                retry_available=False,  # Must configure phone first
+                flood_wait_until=_get_flood_wait_until(safe_name),
+            )
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/session_row.html",
+                context=get_template_context(request, session=session_data),
+                status_code=status.HTTP_200_OK,
+            )
+
+        phone = account_info["phone"]
+        if not isinstance(phone, str):
+            session_data = SessionListItem(
+                session_id=safe_name,
+                state="error",
+                error_message="Invalid phone number format",
+                has_session_file=False,
+                retry_available=False,  # Must fix phone format first
+                flood_wait_until=_get_flood_wait_until(safe_name),
+            )
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/session_row.html",
+                context=get_template_context(request, session=session_data),
+                status_code=status.HTTP_200_OK,
+            )
+
+        # Trigger send_code flow in background (with timeout protection)
+        background_tasks.add_task(
+            _send_verification_code_with_timeout,
+            safe_name,
+            session_path,
+            config_path,
+            phone,
+        )
+
+        # Return connecting state (will transition to needs_code via SSE)
+        # NOTE: Do NOT include HX-Trigger: refreshSessions here!
+        # The session is not registered in session_manager yet, so a full
+        # session list refresh would show it as "disconnected", immediately
+        # reverting the "connecting" state we just set.
+        # The SSE event from _send_verification_code_and_create_auth will
+        # update the UI when the code is sent (needs_code) or on error.
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="connecting",
+            error_message=None,
+            has_session_file=False,
+            retry_available=None,
+            flood_wait_until=_get_flood_wait_until(safe_name),
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
+        )
+    except Exception as e:
+        # Validation error (bad config, missing files, etc.)
+        from chatfilter.telegram.error_mapping import get_user_friendly_message
+        error_message = get_user_friendly_message(e)
+        session_data = SessionListItem(
+            session_id=safe_name,
+            state="error",
+            error_message=error_message,
+            has_session_file=session_path.exists(),
+            retry_available=True,  # Validation errors are usually transient
+            flood_wait_until=_get_flood_wait_until(safe_name),
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/session_row.html",
+            context=get_template_context(request, session=session_data),
+            status_code=status.HTTP_200_OK,
+        )
+
+    # Register loader factory (stores in _factories, NOT _sessions)
+    session_manager.register(safe_name, loader)
+
+    # Eagerly create _sessions entry so state is CONNECTING before background task runs.
+    # This prevents race conditions from parallel requests and ensures get_info() works.
+    from chatfilter.telegram.session_manager import ManagedSession
+    async with session_manager._global_lock:
+        session = session_manager._sessions.get(safe_name)
+        if session:
+            if session.state in (SessionState.CONNECTED, SessionState.CONNECTING):
+                # Another request beat us to it — return current state
+                session_data = {
+                    "session_id": safe_name,
+                    "state": session.state.value,
+                    "error_message": None,
+                }
+                return templates.TemplateResponse(
+                    request=request,
+                    name="partials/session_row.html",
+                    context=get_template_context(request, session=session_data),
+                    headers={"HX-Trigger": "refreshSessions"},
+                )
+            session.state = SessionState.CONNECTING
+        else:
+            # Create ManagedSession with a client from the factory
+            client = loader.create_client()
+            session_manager._sessions[safe_name] = ManagedSession(
+                client=client, state=SessionState.CONNECTING
+            )
+
+    # Now schedule background task (loader already registered, state already CONNECTING)
+    background_tasks.add_task(
+        _do_connect_in_background_v2,
+        safe_name,
+    )
+
+    # Return immediately with 'connecting' state (template shows spinner)
+    session_data = {
+        "session_id": safe_name,
+        "state": "connecting",
+        "error_message": None,
+    }
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_row.html",
+        context=get_template_context(request, session=session_data),
+    )
+
+
+@router.post("/api/sessions/{session_id}/reconnect/start", response_class=HTMLResponse)
+async def reconnect_session_start(
+    request: Request,
+    session_id: str,
+    background_tasks: BackgroundTasks,
+) -> HTMLResponse:
+    """Start reconnect flow after credential change.
+
+    Triggers send_code flow in background. Returns 'connecting' state immediately.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{e}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_dir = ensure_data_dir() / safe_name
+    session_path = session_dir / "session.session"
+    config_path = session_dir / "config.json"
+
+    if not config_path.exists():
+        return HTMLResponse(
+            content='<div class="alert alert-error">Session not found</div>',
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Load phone from account_info
+    account_info = load_account_info(session_dir)
+    if not account_info or not account_info.get("phone"):
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{_("Phone number required for re-authorization")}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    phone = account_info["phone"]
+    if not isinstance(phone, str):
+        return HTMLResponse(
+            content=f'<div class="alert alert-error">{_("Invalid phone number format")}</div>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Trigger send_code flow in background (with timeout protection)
+    background_tasks.add_task(
+        _send_verification_code_with_timeout,
+        safe_name,
+        session_path,
+        config_path,
+        phone,
+    )
+
+    # Return connecting state
+    session_data = {
+        "session_id": safe_name,
+        "state": "connecting",
+        "error_message": None,
+    }
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/session_row.html",
+        context=get_template_context(request, session=session_data),
+    )
+
+
+@router.post("/api/sessions/{session_id}/disconnect", response_class=HTMLResponse)
+async def disconnect_session(
+    request: Request,
+    session_id: str,
+) -> HTMLResponse:
+    """Disconnect a session from Telegram.
+
+    Returns empty response; SSE OOB swap handles DOM update.
+    """
+    from chatfilter.web.dependencies import get_session_manager
+
+    try:
+        safe_name = sanitize_session_name(session_id)
+    except ValueError as e:
+        return HTMLResponse(
+            content=f'<span class="error">{e}</span>',
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    session_manager = get_session_manager()
+
+    # Check current session state before attempting disconnect
+    info = session_manager.get_info(safe_name)
+    if info and info.state.value in ("disconnected", "disconnecting"):
+        # Session is already disconnected or disconnecting — DOM already correct
+        return HTMLResponse(content="", headers={"HX-Reswap": "none"})
+
+    try:
+        # Disconnect — this publishes "disconnected" via SSE event bus
+        # (session_manager.py:440), which triggers an OOB swap that updates the <tr> in the DOM.
+        await session_manager.disconnect(safe_name)
+
+        # Return empty response with HX-Reswap:none so HTMX doesn't also try to swap the row,
+        # which would race with SSE and cause htmx:swapError on the detached element.
+        return HTMLResponse(content="", headers={"HX-Reswap": "none"})
+
+    except Exception:
+        logger.exception(f"Failed to disconnect session '{safe_name}'")
+
+        # Publish state change event for SSE — this triggers OOB swap to update the row
+        await get_event_bus().publish(safe_name, "error")
+
+        # Return empty response; SSE OOB swap handles the DOM update.
+        return HTMLResponse(content="", headers={"HX-Reswap": "none"})
 
 
 @router.post("/api/sessions/{session_id}/verify-code", response_class=HTMLResponse)
@@ -2065,3 +3869,258 @@ async def verify_2fa(
             status_code=500,
         )
 
+@router.post("/api/sessions/import/save", response_class=HTMLResponse)
+async def save_import_session(
+    request: Request,
+    session_name: Annotated[str, Form()],
+    session_file: Annotated[UploadFile, File()],
+    json_file: Annotated[UploadFile, File()],
+    api_id: Annotated[int, Form()],
+    api_hash: Annotated[str, Form()],
+    proxy_id: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Save an imported session with configuration.
+
+    Args:
+        json_file: JSON file with account info (TelegramExpert format).
+                   Expected fields: phone (required), first_name, last_name, twoFA.
+
+    Returns HTML partial with save result.
+    """
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    try:
+        # Sanitize session name (path traversal protection)
+        try:
+            safe_name = sanitize_session_name(session_name)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        # Check if session already exists
+        session_dir = ensure_data_dir() / safe_name
+        if session_dir.exists():
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _("Session '{name}' already exists").format(name=safe_name),
+                },
+            )
+
+        # Read and validate session file
+        try:
+            session_content = await read_upload_with_size_limit(
+                session_file, MAX_SESSION_SIZE, "session"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            validate_session_file_format(session_content)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
+            )
+
+        # Validate api_hash format (32-char hex string)
+        api_hash = api_hash.strip()
+        if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _(
+                        "Invalid API hash format. Must be a 32-character hexadecimal string."
+                    ),
+                },
+            )
+
+        # Validate proxy exists
+        from chatfilter.storage.errors import StorageNotFoundError
+        from chatfilter.storage.proxy_pool import get_proxy_by_id
+
+        try:
+            get_proxy_by_id(proxy_id)
+        except StorageNotFoundError:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _("Selected proxy not found. Please select a valid proxy."),
+                },
+            )
+
+        # Parse JSON file for account info (TelegramExpert format)
+        twofa_password = None
+
+        try:
+            json_content = await read_upload_with_size_limit(
+                json_file, MAX_JSON_SIZE, "JSON"
+            )
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+
+        try:
+            json_data = json.loads(json_content)
+
+            # Parse and validate JSON using dedicated parser module
+            account_info, twofa_password = parse_telegram_expert_json(json_content, json_data)
+
+        except ValueError as e:
+            # Validation error from parser
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": str(e)},
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+            )
+
+        # Try to get user_id from session for duplicate check
+        # JSON account_info is already prepared above as primary source
+        import tempfile
+
+        duplicate_sessions = []
+
+        # Create a temporary session file to try extracting user_id
+        with tempfile.NamedTemporaryFile(suffix=".session", delete=False) as tmp_session:
+            tmp_session.write(session_content)
+            tmp_session.flush()
+            tmp_session_path = Path(tmp_session.name)
+
+        try:
+            # Try to get user_id from session (best effort)
+            session_account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+
+            # Add user_id to account_info if available from session
+            if session_account_info and "user_id" in session_account_info:
+                account_info["user_id"] = session_account_info["user_id"]
+
+                # Check for duplicate accounts only if we have user_id
+                user_id = session_account_info["user_id"]
+                if isinstance(user_id, int):
+                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+
+        finally:
+            # Clean up temporary session file
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                tmp_session_path.unlink()
+
+        # Save session files (directory created atomically by _save_session_to_disk)
+        try:
+            from chatfilter.utils.disk import DiskSpaceError
+
+            # source is 'file' because session was imported from file
+            _save_session_to_disk(
+                session_dir=session_dir,
+                session_content=session_content,
+                api_id=api_id,
+                api_hash=api_hash,
+                proxy_id=proxy_id,
+                account_info=account_info,
+                source="file",
+            )
+
+            # Encrypt and save 2FA password if provided in JSON
+            if twofa_password:
+                from chatfilter.security import SecureCredentialManager
+
+                storage_dir = session_dir.parent
+                manager = SecureCredentialManager(storage_dir)
+                manager.store_2fa(safe_name, twofa_password)
+                logger.info(f"Stored encrypted 2FA for session: {safe_name}")
+
+                # Update account_info to indicate 2FA is available
+                if account_info:
+                    account_info_data = load_account_info(session_dir) or {}
+                    account_info_data["has_2fa"] = True
+                    save_account_info(session_dir, account_info_data)
+
+        except DiskSpaceError:
+            shutil.rmtree(session_dir, ignore_errors=True)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
+            )
+        except TelegramConfigError:
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _("Configuration error. Please check your session file and credentials."),
+                },
+            )
+        except Exception:
+            # temp_dir cleanup already done by _save_session_to_disk()
+            # If rename succeeded, session_dir exists and should be removed
+            if session_dir.exists():
+                shutil.rmtree(session_dir, ignore_errors=True)
+            logger.exception("Failed to save session files")
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/upload_result.html",
+                context={
+                    "success": False,
+                    "error": _("Failed to save session files. Please try again."),
+                },
+            )
+
+        logger.info(f"Session '{safe_name}' imported successfully")
+
+        # Prepare response with duplicate account warning if needed
+        response_data = {
+            "request": request,
+            "success": True,
+            "message": _("Session '{name}' imported successfully").format(name=safe_name),
+            "duplicate_sessions": duplicate_sessions,
+            "account_info": account_info,
+        }
+
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/upload_result.html",
+            context=response_data,
+            headers={"HX-Trigger": "refreshSessions"},
+        )
+
+    except Exception:
+        logger.exception("Unexpected error during session import")
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/upload_result.html",
+            context={
+                "success": False,
+                "error": _("An unexpected error occurred during import. Please try again."),
+            },
+        )
