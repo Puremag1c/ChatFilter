@@ -115,14 +115,15 @@ async def test_authkey_unregistered_triggers_recovery(
     wrapped = _wrap_as_invalid(AuthKeyUnregisteredError(request=None))
 
     with (
-        patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-        patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
+        patch("chatfilter.web.routers.sessions.background.get_session_manager") as mock_get_sm,
+        patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_get_bus,
         patch(
-            "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
+            "chatfilter.web.routers.sessions.background._send_verification_code_with_timeout"
         ) as mock_send_code,
-        patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+        patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
-        patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.get_session_config_status") as mock_config_status,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
@@ -142,6 +143,7 @@ async def test_authkey_unregistered_triggers_recovery(
         mock_lock_ctx.__aexit__ = AsyncMock()
         mock_lock.return_value = mock_lock_ctx
 
+        mock_config_status.return_value = ("connected", None)  # Config is valid
         mock_load_account.return_value = {"phone": "+1234567890"}
         mock_send_code.return_value = None
 
@@ -179,14 +181,15 @@ async def test_session_revoked_triggers_recovery(
     wrapped = _wrap_as_invalid(SessionRevokedError(request=None))
 
     with (
-        patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-        patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
+        patch("chatfilter.web.routers.sessions.background.get_session_manager") as mock_get_sm,
+        patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_get_bus,
         patch(
-            "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
+            "chatfilter.web.routers.sessions.background._send_verification_code_with_timeout"
         ) as mock_send_code,
-        patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+        patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
-        patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.get_session_config_status") as mock_config_status,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
@@ -206,6 +209,7 @@ async def test_session_revoked_triggers_recovery(
         mock_lock_ctx.__aexit__ = AsyncMock()
         mock_lock.return_value = mock_lock_ctx
 
+        mock_config_status.return_value = ("connected", None)  # Config is valid
         mock_load_account.return_value = {"phone": "+1234567890"}
         mock_send_code.return_value = None
 
@@ -239,14 +243,15 @@ async def test_session_expired_triggers_recovery(
     wrapped = _wrap_as_reauth(SessionExpiredError(request=None))
 
     with (
-        patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-        patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
+        patch("chatfilter.web.routers.sessions.background.get_session_manager") as mock_get_sm,
+        patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_get_bus,
         patch(
-            "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
+            "chatfilter.web.routers.sessions.background._send_verification_code_with_timeout"
         ) as mock_send_code,
-        patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+        patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
-        patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.get_session_config_status") as mock_config_status,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
@@ -266,6 +271,7 @@ async def test_session_expired_triggers_recovery(
         mock_lock_ctx.__aexit__ = AsyncMock()
         mock_lock.return_value = mock_lock_ctx
 
+        mock_config_status.return_value = ("connected", None)  # Config is valid
         mock_load_account.return_value = {"phone": "+1234567890"}
         mock_send_code.return_value = None
 
@@ -308,14 +314,15 @@ async def test_corrupted_session_file_triggers_recovery(
     wrapped = _wrap_as_connect_error(struct.error("invalid session file format"))
 
     with (
-        patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-        patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
+        patch("chatfilter.web.routers.sessions.background.get_session_manager") as mock_get_sm,
+        patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_get_bus,
         patch(
-            "chatfilter.web.routers.sessions._send_verification_code_with_timeout"
+            "chatfilter.web.routers.sessions.background._send_verification_code_with_timeout"
         ) as mock_send_code,
-        patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+        patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
-        patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.get_session_config_status") as mock_config_status,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
@@ -335,6 +342,7 @@ async def test_corrupted_session_file_triggers_recovery(
         mock_lock_ctx.__aexit__ = AsyncMock()
         mock_lock.return_value = mock_lock_ctx
 
+        mock_config_status.return_value = ("connected", None)  # Config is valid
         mock_load_account.return_value = {"phone": "+1234567890"}
         mock_send_code.return_value = None
 
@@ -370,12 +378,13 @@ async def test_recovery_without_phone_publishes_error(
     wrapped = _wrap_as_invalid(AuthKeyUnregisteredError(request=None))
 
     with (
-        patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-        patch("chatfilter.web.events.get_event_bus") as mock_get_bus,
-        patch("chatfilter.web.routers.sessions._get_session_lock") as mock_lock,
+        patch("chatfilter.web.routers.sessions.background.get_session_manager") as mock_get_sm,
+        patch("chatfilter.web.routers.sessions.background.get_event_bus") as mock_get_bus,
+        patch("chatfilter.web.routers.sessions.background._get_session_lock") as mock_lock,
         patch("chatfilter.web.routers.sessions.background.secure_delete_file") as mock_secure_delete,
-        patch("chatfilter.web.routers.sessions.load_account_info") as mock_load_account,
-        patch("chatfilter.web.routers.sessions._save_error_to_config") as mock_save_error,
+        patch("chatfilter.web.routers.sessions.background.load_account_info") as mock_load_account,
+        patch("chatfilter.web.routers.sessions.background.get_session_config_status") as mock_config_status,
+        patch("chatfilter.web.routers.sessions.background._save_error_to_config") as mock_save_error,
         patch("chatfilter.storage.proxy_pool.get_proxy_by_id"),
     ):
         # Setup mocks
@@ -395,6 +404,7 @@ async def test_recovery_without_phone_publishes_error(
         mock_lock_ctx.__aexit__ = AsyncMock()
         mock_lock.return_value = mock_lock_ctx
 
+        mock_config_status.return_value = ("connected", None)  # Config is valid
         mock_load_account.return_value = {}  # No phone number
         mock_secure_delete.return_value = None
 
