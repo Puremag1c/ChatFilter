@@ -152,10 +152,14 @@ from .helpers import (
     migrate_legacy_sessions,
     read_upload_with_size_limit,
     sanitize_error_message_for_client,
-    sanitize_session_name,
     save_account_info,
     secure_delete_dir,
     secure_file_permissions,
+)
+
+# Import validation functions from validation module
+from .validation import (
+    sanitize_session_name,
     validate_config_file_format,
     validate_phone_number,
     validate_session_file_format,
