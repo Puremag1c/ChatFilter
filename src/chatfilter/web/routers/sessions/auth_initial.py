@@ -85,18 +85,6 @@ async def start_auth_flow(
             context={"success": False, "error": str(e)},
         )
 
-    # Check if session already exists
-    session_dir = ensure_data_dir() / safe_name
-    if session_dir.exists():
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/auth_result.html",
-            context={
-                "success": False,
-                "error": _("Session '{name}' already exists").format(name=safe_name),
-            },
-        )
-
     # Normalize empty strings to None
     if api_id is not None:
         api_id_str = str(api_id).strip()
@@ -158,6 +146,18 @@ async def start_auth_flow(
             context={
                 "success": False,
                 "error": str(e),
+            },
+        )
+
+    # Check if session already exists (AFTER credential validation)
+    session_dir = ensure_data_dir() / safe_name
+    if session_dir.exists():
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Session '{name}' already exists").format(name=safe_name),
             },
         )
 
