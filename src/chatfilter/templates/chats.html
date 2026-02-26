@@ -329,6 +329,12 @@
                     }
                 });
 
+                // Remove placeholder if groups are now loaded
+                var placeholder = document.querySelector('#groups-list .no-groups');
+                if (placeholder && document.querySelectorAll('#groups-list .group-card').length > 0) {
+                    placeholder.remove();
+                }
+
                 htmx.process(container);
                 executeScripts(container);
 
