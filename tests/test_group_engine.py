@@ -11,6 +11,7 @@ from telethon.errors import FloodWaitError
 
 from chatfilter.analyzer.group_engine import (
     AccountHealthTracker,
+    AnalysisMode,
     GroupAnalysisEngine,
     NoConnectedAccountsError,
 )
@@ -589,3 +590,254 @@ async def test_stop_immediately_cancels_waiting_loop() -> None:
 
         # Verify: stop_event was cleaned up
         assert "group-1" not in engine._stop_events
+
+
+# ===== TEST 9: PAUSED status prevents auto-resume =====
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)
+async def test_paused_status_prevents_auto_resume() -> None:
+    """Test that _wait_for_accounts_and_resume exits immediately when group is PAUSED.
+
+    This test verifies that when group status is PAUSED, the waiting loop
+    exits without calling start_analysis(), even if accounts become available.
+    """
+    # Setup
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    # Mock group data - PAUSED status
+    db.load_group.return_value = {
+        "id": "group-1",
+        "name": "Test Group",
+        "settings": GroupSettings().model_dump(),
+        "status": "paused",  # PAUSED prevents auto-resume
+        "created_at": datetime.now(UTC),
+    }
+
+    # Mock that group has pending chats
+    db.load_chats.return_value = [
+        {
+            "id": i,
+            "group_id": "group-1",
+            "chat_ref": f"https://t.me/chat{i}",
+            "status": GroupChatStatus.PENDING.value,
+        }
+        for i in range(1, 6)
+    ]
+
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+
+    # Create stop_event for this group (simulates start_analysis() setup)
+    stop_event = asyncio.Event()
+    engine._stop_events["group-1"] = stop_event
+
+    # Mock flood_tracker to have blocked accounts that will expire
+    with patch("chatfilter.analyzer.group_engine.get_flood_tracker") as mock_get_tracker:
+        mock_tracker = MagicMock()
+        # Simulate accounts blocked but will expire soon
+        mock_tracker.get_blocked_accounts.return_value = {
+            "acc1": datetime.now(UTC).timestamp() + 2,  # Will expire in 2s
+        }
+        mock_tracker.get_earliest_available.return_value = datetime.now(UTC).timestamp() + 2
+        mock_get_tracker.return_value = mock_tracker
+
+        settings = GroupSettings()
+
+        # Mock start_analysis to track if it's called
+        engine.start_analysis = AsyncMock()
+
+        # Mock _progress.publish to avoid DB calls
+        engine._progress.publish = AsyncMock()
+
+        # Call _wait_for_accounts_and_resume
+        await engine._wait_for_accounts_and_resume("group-1", settings)
+
+        # Verify: start_analysis was NOT called
+        engine.start_analysis.assert_not_called()
+
+        # Verify: logs should contain 'paused, skipping auto-resume' (checked via caplog in real test)
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)
+async def test_paused_status_prevents_auto_resume_with_logging(caplog) -> None:
+    """Test that PAUSED status logs 'paused, skipping auto-resume'."""
+    import logging
+
+    # Setup
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    # Mock group data - PAUSED status
+    db.load_group.return_value = {
+        "id": "group-1",
+        "name": "Test Group",
+        "settings": GroupSettings().model_dump(),
+        "status": "paused",
+        "created_at": datetime.now(UTC),
+    }
+
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+
+    # Create stop_event
+    stop_event = asyncio.Event()
+    engine._stop_events["group-1"] = stop_event
+
+    # Mock flood_tracker
+    with (
+        patch("chatfilter.analyzer.group_engine.get_flood_tracker") as mock_get_tracker,
+        caplog.at_level(logging.INFO, logger="chatfilter.analyzer.group_engine"),
+    ):
+        mock_tracker = MagicMock()
+        mock_tracker.get_blocked_accounts.return_value = {"acc1": datetime.now(UTC).timestamp() + 2}
+        mock_tracker.get_earliest_available.return_value = datetime.now(UTC).timestamp() + 2
+        mock_get_tracker.return_value = mock_tracker
+
+        settings = GroupSettings()
+        engine._progress.publish = AsyncMock()
+
+        # Call
+        await engine._wait_for_accounts_and_resume("group-1", settings)
+
+        # Verify logs
+        log_messages = [r.message for r in caplog.records]
+        assert any("paused, skipping auto-resume" in msg for msg in log_messages), (
+            f"Expected 'paused, skipping auto-resume' in logs, got: {log_messages}"
+        )
+
+
+# ===== TEST 10: Normal flow - accounts unblock and start_analysis called =====
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)
+async def test_normal_flow_accounts_unblock_resumes_analysis() -> None:
+    """Test normal flow: when accounts become available, start_analysis() IS called.
+
+    This test verifies that when group is NOT paused and accounts become available,
+    _wait_for_accounts_and_resume calls start_analysis(mode=INCREMENT).
+    """
+    # Setup
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    # Mock group data - IN_PROGRESS status (not paused)
+    db.load_group.return_value = {
+        "id": "group-1",
+        "name": "Test Group",
+        "settings": GroupSettings().model_dump(),
+        "status": "in_progress",  # Not paused - should resume
+        "created_at": datetime.now(UTC),
+    }
+
+    # Mock that group has pending chats
+    db.load_chats.return_value = [
+        {
+            "id": i,
+            "group_id": "group-1",
+            "chat_ref": f"https://t.me/chat{i}",
+            "status": GroupChatStatus.PENDING.value,
+        }
+        for i in range(1, 6)
+    ]
+
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+
+    # Create stop_event
+    stop_event = asyncio.Event()
+    engine._stop_events["group-1"] = stop_event
+
+    # Mock session manager to have healthy accounts
+    session_mgr.list_sessions.return_value = ["acc1", "acc2"]
+
+    async def mock_is_healthy(account_id: str) -> bool:
+        return True
+
+    session_mgr.is_healthy = mock_is_healthy
+
+    # Mock flood_tracker - no blocked accounts (accounts became available)
+    with patch("chatfilter.analyzer.group_engine.get_flood_tracker") as mock_get_tracker:
+        mock_tracker = MagicMock()
+        mock_tracker.get_blocked_accounts.return_value = {}  # No blocked accounts
+        mock_tracker.get_earliest_available.return_value = None  # No blocked accounts
+        mock_get_tracker.return_value = mock_tracker
+
+        settings = GroupSettings()
+
+        # Mock start_analysis to track calls
+        engine.start_analysis = AsyncMock()
+
+        # Mock _progress.publish
+        engine._progress.publish = AsyncMock()
+
+        # Call _wait_for_accounts_and_resume
+        await engine._wait_for_accounts_and_resume("group-1", settings)
+
+        # Verify: start_analysis WAS called with INCREMENT mode
+        engine.start_analysis.assert_called_once()
+        call_args = engine.start_analysis.call_args
+        assert call_args.args[0] == "group-1"
+        # Check mode parameter (can be positional or keyword arg)
+        if len(call_args.args) > 1:
+            assert call_args.args[1] == AnalysisMode.INCREMENT
+        else:
+            assert call_args.kwargs.get("mode") == AnalysisMode.INCREMENT
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)
+async def test_normal_flow_accounts_unblock_with_logging(caplog) -> None:
+    """Test that normal resume flow logs 'New account available, resuming analysis'."""
+    import logging
+
+    # Setup
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    # Mock group data - IN_PROGRESS
+    db.load_group.return_value = {
+        "id": "group-1",
+        "name": "Test Group",
+        "settings": GroupSettings().model_dump(),
+        "status": "in_progress",
+        "created_at": datetime.now(UTC),
+    }
+
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+
+    # Create stop_event
+    stop_event = asyncio.Event()
+    engine._stop_events["group-1"] = stop_event
+
+    # Mock session manager
+    session_mgr.list_sessions.return_value = ["acc1"]
+
+    async def mock_is_healthy(account_id: str) -> bool:
+        return True
+
+    session_mgr.is_healthy = mock_is_healthy
+
+    # Mock flood_tracker - no blocked accounts
+    with (
+        patch("chatfilter.analyzer.group_engine.get_flood_tracker") as mock_get_tracker,
+        caplog.at_level(logging.INFO, logger="chatfilter.analyzer.group_engine"),
+    ):
+        mock_tracker = MagicMock()
+        mock_tracker.get_blocked_accounts.return_value = {}
+        mock_tracker.get_earliest_available.return_value = None
+        mock_get_tracker.return_value = mock_tracker
+
+        settings = GroupSettings()
+        engine.start_analysis = AsyncMock()
+        engine._progress.publish = AsyncMock()
+
+        # Call
+        await engine._wait_for_accounts_and_resume("group-1", settings)
+
+        # Verify logs
+        log_messages = [r.message for r in caplog.records]
+        assert any("resuming analysis" in msg.lower() for msg in log_messages), (
+            f"Expected 'resuming analysis' in logs, got: {log_messages}"
+        )
