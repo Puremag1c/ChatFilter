@@ -732,6 +732,38 @@ def pytest_unconfigure(config: Any) -> None:
         tracemalloc.stop()
 
 
+@pytest.fixture(autouse=True, scope="function")
+def _cleanup_proxy_health_executor() -> Generator[None, None, None]:
+    """Clean up the proxy health ThreadPoolExecutor before and after each test.
+
+    The proxy_health module uses a global ThreadPoolExecutor for SOCKS5
+    operations. If not properly shut down, worker threads can hang tests
+    by blocking on work_queue.get() indefinitely.
+
+    This fixture ensures the executor is shut down both before (to clean up
+    state from previous tests) and after each test.
+    """
+    # Clean up before test (in case previous test left executor running)
+    try:
+        from chatfilter.service.proxy_health import shutdown_executor
+
+        shutdown_executor(wait=False)
+    except Exception:
+        # Ignore errors during cleanup (e.g., module not imported yet)
+        pass
+
+    yield
+
+    # Clean up after test
+    try:
+        from chatfilter.service.proxy_health import shutdown_executor
+
+        shutdown_executor(wait=False)
+    except Exception:
+        # Ignore errors during cleanup
+        pass
+
+
 @pytest.fixture(autouse=True)
 def _detect_memory_leaks(request: Any) -> Generator[None, None, None]:
     """Fixture to detect memory leaks per test.

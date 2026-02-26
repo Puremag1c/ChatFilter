@@ -150,13 +150,17 @@ class TestAutoResume:
         _setup_group_with_chats(test_db, group_id, chat_refs)
 
         # Track how many times _wait loop runs
-        sleep_call_count = 0
+        wait_call_count = 0
+        original_wait_for = asyncio.wait_for
 
-        async def mock_sleep(seconds: float) -> None:
-            nonlocal sleep_call_count
-            sleep_call_count += 1
-            # After first sleep, clear flood wait (simulate time passing)
-            flood_tracker.clear_all()
+        async def mock_wait_for(coro, *, timeout=None):
+            nonlocal wait_call_count
+            wait_call_count += 1
+            # After first wait, clear flood wait (simulate time passing)
+            if wait_call_count == 1:
+                flood_tracker.clear_all()
+            # Always timeout immediately to avoid actual waiting
+            raise asyncio.TimeoutError()
 
         # Track start_analysis calls to handle INCREMENT resume
         original_start = engine.start_analysis
@@ -181,13 +185,13 @@ class TestAutoResume:
         with (
             patch.object(engine, "start_analysis", side_effect=patched_start),
             patch("chatfilter.analyzer.group_engine.get_flood_tracker", return_value=flood_tracker),
-            patch("asyncio.sleep", side_effect=mock_sleep),
+            patch("asyncio.wait_for", side_effect=mock_wait_for),
         ):
             settings = GroupSettings()
             await engine._wait_for_accounts_and_resume(group_id, settings)
 
-        # Verify: sleep was called (at least one poll cycle happened)
-        assert sleep_call_count >= 1, "Expected at least one poll cycle"
+        # Verify: wait_for was called (at least one poll cycle happened)
+        assert wait_call_count >= 1, "Expected at least one poll cycle"
 
         # Verify: start_analysis was called with INCREMENT mode
         assert AnalysisMode.INCREMENT in start_calls, (
@@ -308,16 +312,18 @@ class TestNewAccountDetection:
                 test_db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.DONE.value)
             engine._finalize_group(gid)
 
-        async def mock_sleep(seconds: float) -> None:
+        async def mock_wait_for(coro, *, timeout=None):
             nonlocal call_idx
             call_idx += 1
             # Clear flood so acct1 is no longer blocked, simulating account deletion
             flood_tracker.clear_all()
+            # Always timeout to continue loop iteration
+            raise asyncio.TimeoutError()
 
         with (
             patch.object(engine, "start_analysis", side_effect=patched_start),
             patch("chatfilter.analyzer.group_engine.get_flood_tracker", return_value=flood_tracker),
-            patch("asyncio.sleep", side_effect=mock_sleep),
+            patch("asyncio.wait_for", side_effect=mock_wait_for),
         ):
             settings = GroupSettings()
             await engine._wait_for_accounts_and_resume(group_id, settings)
@@ -371,11 +377,13 @@ class TestSSEEvents:
 
         poll_count = 0
 
-        async def mock_sleep(seconds: float) -> None:
+        async def mock_wait_for(coro, *, timeout=None):
             nonlocal poll_count
             poll_count += 1
             # Unblock after first poll so engine resumes
             flood_tracker.clear_all()
+            # Always timeout to continue loop iteration
+            raise asyncio.TimeoutError()
 
         async def patched_start(gid: str, mode: AnalysisMode = AnalysisMode.FRESH) -> None:
             # Mark remaining pending as DONE
@@ -386,7 +394,7 @@ class TestSSEEvents:
         with (
             patch.object(engine, "start_analysis", side_effect=patched_start),
             patch("chatfilter.analyzer.group_engine.get_flood_tracker", return_value=flood_tracker),
-            patch("asyncio.sleep", side_effect=mock_sleep),
+            patch("asyncio.wait_for", side_effect=mock_wait_for),
         ):
             settings = GroupSettings()
             await engine._wait_for_accounts_and_resume(group_id, settings)
@@ -452,13 +460,15 @@ class TestSSEEvents:
         # Capture DB status during the wait
         captured_status: list[str] = []
 
-        async def mock_sleep(seconds: float) -> None:
-            # Read DB status during the sleep (after save_group was called)
+        async def mock_wait_for(coro, *, timeout=None):
+            # Read DB status during the wait (after save_group was called)
             group_data = test_db.load_group(group_id)
             if group_data:
                 captured_status.append(group_data["status"])
             # Unblock
             flood_tracker.clear_all()
+            # Always timeout to continue loop iteration
+            raise asyncio.TimeoutError()
 
         async def patched_start(gid: str, mode: AnalysisMode = AnalysisMode.FRESH) -> None:
             for c in test_db.load_chats(group_id=gid, status=GroupChatStatus.PENDING.value):
@@ -468,7 +478,7 @@ class TestSSEEvents:
         with (
             patch.object(engine, "start_analysis", side_effect=patched_start),
             patch("chatfilter.analyzer.group_engine.get_flood_tracker", return_value=flood_tracker),
-            patch("asyncio.sleep", side_effect=mock_sleep),
+            patch("asyncio.wait_for", side_effect=mock_wait_for),
         ):
             settings = GroupSettings()
             await engine._wait_for_accounts_and_resume(group_id, settings)

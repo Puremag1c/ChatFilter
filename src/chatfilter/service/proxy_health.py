@@ -42,6 +42,21 @@ def _get_executor() -> ThreadPoolExecutor:
     return _executor
 
 
+def shutdown_executor(wait: bool = True, timeout: float | None = None) -> None:
+    """Shutdown the thread pool executor if it exists.
+
+    This is primarily for test cleanup to prevent hanging threads.
+
+    Args:
+        wait: If True, wait for threads to finish (default: True)
+        timeout: Max seconds to wait for shutdown (default: None = wait forever)
+    """
+    global _executor
+    if _executor is not None:
+        _executor.shutdown(wait=wait, cancel_futures=True)
+        _executor = None
+
+
 class ProxyCheckError(Exception):
     """Sanitized proxy check error that doesn't leak credentials."""
 
