@@ -165,7 +165,7 @@ from .helpers import (
 router = APIRouter(tags=["sessions"])
 
 # Register SSE routes
-from .sse import register_sse_routes
+from .sse import register_sse_routes, session_events  # noqa: F401
 register_sse_routes(router)
 
 # Import basic CRUD routes
