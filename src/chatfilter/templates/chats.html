@@ -316,12 +316,6 @@
         fetch('/api/groups')
             .then(function(resp) { return resp.text(); })
             .then(function(html) {
-                // Remove the .no-groups placeholder on first successful fetch
-                var placeholder = container.querySelector('.no-groups');
-                if (placeholder) {
-                    placeholder.remove();
-                }
-
                 // Use morphdom to smoothly update DOM instead of innerHTML swap
                 // Wrap html in temporary container to preserve #groups-container structure
                 var tempDiv = document.createElement('div');
