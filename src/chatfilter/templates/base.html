@@ -667,7 +667,7 @@
                     const response = await fetch('/health', {
                         method: 'GET',
                         cache: 'no-cache',
-                        signal: AbortSignal.timeout(5000) // 5 second timeout
+                        signal: AbortSignal.timeout(10000) // 10 second timeout (server may be slow under load)
                     });
 
                     if (!response.ok) {
@@ -682,13 +682,22 @@
                     this.notifyStatusChange(networkOnline);
 
                 } catch (error) {
-                    console.error('Network status check failed:', error);
-                    this.consecutiveErrors++;
+                    // If SSE is connected, server is reachable — skip error counting.
+                    // During heavy analysis /health may timeout but SSE stays alive.
+                    const sseConnected = document.body.classList &&
+                        !document.body.classList.contains('sse-disconnected');
+                    if (sseConnected) {
+                        console.warn('Network status check failed but SSE connected, ignoring:', error.message);
+                        // Don't count this as an error — SSE proves connectivity
+                    } else {
+                        console.error('Network status check failed:', error);
+                        this.consecutiveErrors++;
 
-                    // After multiple failures, assume offline
-                    if (this.consecutiveErrors >= this.maxErrors) {
-                        this.updateUI(false, 'Unable to reach server');
-                        this.notifyStatusChange(false);
+                        // After multiple failures, assume offline
+                        if (this.consecutiveErrors >= this.maxErrors) {
+                            this.updateUI(false, 'Unable to reach server');
+                            this.notifyStatusChange(false);
+                        }
                     }
                 }
 
