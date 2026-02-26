@@ -506,3 +506,86 @@ def test_account_health_tracker_multiple_accounts() -> None:
 
     assert not tracker.should_stop("acc1")
     assert not tracker.should_stop("acc2")
+
+
+# ===== TEST 8: STOP immediately cancels waiting loop =====
+
+
+@pytest.mark.asyncio
+@pytest.mark.timeout(5)  # Should finish in <5s (not 30s)
+async def test_stop_immediately_cancels_waiting_loop() -> None:
+    """Test that stop_analysis() immediately cancels _wait_for_accounts_and_resume.
+
+    This test verifies that when STOP is clicked during FloodWait, the waiting
+    loop exits immediately without waiting full 30s cycle.
+    """
+    import time
+
+    # Setup
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    # Mock group data - RUNNING status
+    db.load_group.return_value = {
+        "id": "group-1",
+        "name": "Test Group",
+        "settings": GroupSettings().model_dump(),
+        "status": "in_progress",  # Not paused
+        "created_at": datetime.now(UTC),
+    }
+
+    # Mock that group has 5 pending chats
+    db.load_chats.return_value = [
+        {
+            "id": i,
+            "group_id": "group-1",
+            "chat_ref": f"https://t.me/chat{i}",
+            "status": GroupChatStatus.PENDING.value,
+        }
+        for i in range(1, 6)
+    ]
+
+    # Mock get_active_task to return None (no task)
+    db.get_active_task.return_value = None
+
+    # Mock count_processed_chats to return (processed=0, total=5)
+    db.count_processed_chats.return_value = (0, 5)
+
+    # Mock progress.publish to avoid DB calls
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+    engine._progress.publish = AsyncMock()
+
+    # Mock flood_tracker so all accounts are blocked
+    with patch("chatfilter.analyzer.group_engine.get_flood_tracker") as mock_get_tracker:
+        mock_tracker = MagicMock()
+        mock_tracker.get_blocked_accounts.return_value = {
+            "acc1": datetime.now(UTC).timestamp() + 3600,  # Blocked for 1 hour
+            "acc2": datetime.now(UTC).timestamp() + 3600,
+        }
+        mock_get_tracker.return_value = mock_tracker
+
+        settings = GroupSettings()
+
+        # Start waiting loop in background
+        start_time = time.time()
+        waiting_task = asyncio.create_task(
+            engine._wait_for_accounts_and_resume("group-1", settings)
+        )
+
+        # Wait 1 second, then call stop_analysis
+        await asyncio.sleep(1)
+        engine.stop_analysis("group-1")
+
+        # Waiting task should finish IMMEDIATELY, not after 30s
+        try:
+            await asyncio.wait_for(waiting_task, timeout=3)
+        except asyncio.TimeoutError:
+            pytest.fail("Waiting loop did not exit within 3s after STOP")
+
+        elapsed = time.time() - start_time
+
+        # Verify: loop exited in <3s (not 30s)
+        assert elapsed < 3, f"Waiting loop took {elapsed:.1f}s, expected <3s"
+
+        # Verify: stop_event was cleaned up
+        assert "group-1" not in engine._stop_events

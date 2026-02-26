@@ -104,6 +104,7 @@ class GroupAnalysisEngine:
         self._db = db
         self._session_mgr = session_manager
         self._active_tasks: dict[str, list[asyncio.Task]] = {}
+        self._stop_events: dict[str, asyncio.Event] = {}
         self._progress = progress if progress is not None else ProgressTracker(db)
 
     # -- Startup recovery --------------------------------------------------
@@ -161,11 +162,22 @@ class GroupAnalysisEngine:
         2. Poll every 30s for available accounts
         3. Resume analysis with INCREMENT mode when account available
         4. Publish progress events on each check cycle
+        5. Exit immediately if stop_event is set (STOP clicked)
         """
         flood_tracker = get_flood_tracker()
+        stop_event = self._stop_events.get(group_id)
+        if stop_event is None:
+            # Should not happen, but defensive
+            logger.warning(f"No stop_event for group '{group_id}', creating one")
+            stop_event = asyncio.Event()
+            self._stop_events[group_id] = stop_event
 
         while True:
             # Safety check: if user clicked STOP, exit immediately
+            if stop_event.is_set():
+                logger.info(f"Group '{group_id}' stop_event set, exiting waiting loop")
+                return
+
             group_data = self._db.load_group(group_id)
             if group_data and group_data['status'] == GroupStatus.PAUSED.value:
                 logger.info(f"Group '{group_id}' is paused, skipping auto-resume")
@@ -232,8 +244,15 @@ class GroupAnalysisEngine:
             )
             self._progress.publish(event)
 
-            # Wait 30s before checking again
-            await asyncio.sleep(30)
+            # Wait 30s before checking again, but exit immediately if STOP clicked
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=30)
+                # If we get here, stop_event was set — exit immediately
+                logger.info(f"Group '{group_id}' STOP detected during wait, exiting")
+                return
+            except asyncio.TimeoutError:
+                # Timeout after 30s — normal flow, continue to next check
+                pass
 
             # Check if FloodWait expired or new accounts available
             blocked = flood_tracker.get_blocked_accounts()
@@ -385,12 +404,29 @@ class GroupAnalysisEngine:
             ]
 
             if not healthy_accounts:
-                # All accounts blocked - enter waiting loop
+                # All accounts blocked - enter waiting loop as a separate Task
                 logger.info(
                     f"Group '{group_id}': all accounts blocked by FloodWait, "
                     f"entering waiting loop for {len(remaining_pending)} pending chats"
                 )
-                await self._wait_for_accounts_and_resume(group_id, settings)
+                # Create stop_event for this group
+                stop_event = asyncio.Event()
+                self._stop_events[group_id] = stop_event
+
+                # Create waiting task and register in _active_tasks
+                waiting_task = asyncio.create_task(
+                    self._wait_for_accounts_and_resume(group_id, settings)
+                )
+                self._active_tasks[group_id] = [waiting_task]
+
+                # Wait for completion or cancellation
+                try:
+                    await waiting_task
+                except asyncio.CancelledError:
+                    logger.info(f"Group '{group_id}' waiting task cancelled")
+                finally:
+                    self._active_tasks.pop(group_id, None)
+                    self._stop_events.pop(group_id, None)
                 return
 
         self._finalize_group(group_id)
@@ -711,10 +747,19 @@ class GroupAnalysisEngine:
 
     def stop_analysis(self, group_id: str) -> None:
         """Stop ongoing analysis. Cancels tasks, leaves chats as-is."""
+        # Signal stop event first (for waiting loop to exit immediately)
+        stop_event = self._stop_events.get(group_id)
+        if stop_event:
+            stop_event.set()
+            logger.info(f"Set stop_event for group '{group_id}'")
+
+        # Cancel all active tasks
         for task in self._active_tasks.get(group_id, []):
             if not task.done():
                 task.cancel()
         self._active_tasks.pop(group_id, None)
+        self._stop_events.pop(group_id, None)
+
         active_task = self._db.get_active_task(group_id)
         if active_task:
             self._db.cancel_task(active_task["id"])
