@@ -212,22 +212,63 @@
 <script src="/static/js/morphdom.min.js"></script>
 <script src="/static/js/groups.js"></script>
 <script>
-// Handle SSE connection errors - show persistent banner when connection drops
-document.body.addEventListener('htmx:sseError', function(evt) {
-    console.error('[SSE] Connection error:', evt.detail);
+// Handle SSE connection errors with debouncing - only show banner after 5s disconnect
+(function() {
+    var disconnectTimer = null;
+    var isDisconnected = false;
 
-    // Show persistent banner to inform user that realtime updates stopped
-    if (typeof SSEStatusBanner !== 'undefined') {
-        SSEStatusBanner.show();
-    }
+    document.body.addEventListener('htmx:sseError', function(evt) {
+        console.error('[SSE] Connection error:', evt.detail);
 
-    // Also show a brief toast for immediate feedback
-    if (typeof ToastManager !== 'undefined') {
-        ToastManager.warning('{{ _("Connection lost. Real-time updates paused.") }}', {
-            duration: 4000
-        });
-    }
-});
+        // Clear any existing timer
+        if (disconnectTimer) {
+            clearTimeout(disconnectTimer);
+        }
+
+        // Start 5-second timer before showing banner
+        disconnectTimer = setTimeout(function() {
+            isDisconnected = true;
+
+            // Show persistent banner after 5s disconnect
+            if (typeof SSEStatusBanner !== 'undefined') {
+                SSEStatusBanner.show();
+            }
+
+            // Show warning toast
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.warning('{{ _("Connection lost. Real-time updates paused.") }}', {
+                    duration: 4000
+                });
+            }
+        }, 5000);
+    });
+
+    // Handle reconnection
+    document.body.addEventListener('htmx:sseOpen', function(evt) {
+        console.log('[SSE] Connection restored');
+
+        // Clear the disconnect timer (reconnect within 5s)
+        if (disconnectTimer) {
+            clearTimeout(disconnectTimer);
+            disconnectTimer = null;
+        }
+
+        // If we were showing the banner, hide it and show reconnected toast
+        if (isDisconnected) {
+            isDisconnected = false;
+
+            if (typeof SSEStatusBanner !== 'undefined') {
+                SSEStatusBanner.hide();
+            }
+
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.success('{{ _("Reconnected") }}', {
+                    duration: 2000
+                });
+            }
+        }
+    });
+})();
 
 // Vanilla JS polling replaces HTMX polling to prevent duplicate card accumulation.
 // HTMX innerHTML swap + settle processing + request-dedup interactions caused
