@@ -236,7 +236,9 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 error_state = classify_error_state(error_message, exception=e)
                 safe_error_message = sanitize_error_message_for_client(error_message, error_state)
                 if config_path:
-                    retry_available = error_state == "error"
+                    # Network errors (ConnectionError, OSError) are retryable even if classified as needs_config
+                    is_network_error = isinstance(e, (ConnectionError, OSError))
+                    retry_available = error_state == "error" or is_network_error
                     _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
                 await get_event_bus().publish(session_id, error_state)
 
@@ -273,7 +275,9 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             error_state = classify_error_state(error_message, exception=e)
             safe_error_message = sanitize_error_message_for_client(error_message, error_state)
             if config_path:
-                retry_available = error_state == "error"
+                # Network errors (ConnectionError, OSError) are retryable even if classified as needs_config
+                is_network_error = isinstance(e, (ConnectionError, OSError))
+                retry_available = error_state == "error" or is_network_error
                 _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
             await get_event_bus().publish(session_id, error_state)
 
