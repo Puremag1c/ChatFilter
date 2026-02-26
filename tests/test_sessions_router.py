@@ -3088,9 +3088,6 @@ class TestVerifyCode2FAAutoEntry:
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.auth_reconnect.ensure_data_dir", mock_ensure_data_dir
         )
-        monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir", mock_ensure_data_dir
-        )
         yield tmp_path
 
     @pytest.mark.asyncio
@@ -3171,7 +3168,7 @@ class TestVerifyCode2FAAutoEntry:
             client=mock_client,
         )
 
-        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.auth_reconnect.get_event_bus") as mock_event_bus_fn,              patch("chatfilter.web.dependencies.get_session_manager") as mock_session_mgr_fn,              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir", return_value=session_dir.parent),              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_event_bus_helpers_fn:
+        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,              patch("chatfilter.web.dependencies.get_session_manager") as mock_session_mgr_fn,              patch("chatfilter.web.routers.sessions.ensure_data_dir", return_value=session_dir.parent),              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_event_bus_helpers_fn:
 
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
@@ -3251,7 +3248,7 @@ class TestVerifyCode2FAAutoEntry:
             client=mock_client,
         )
 
-        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.auth_reconnect.get_event_bus") as mock_event_bus_fn:
+        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn:
 
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
@@ -3339,7 +3336,7 @@ class TestVerifyCode2FAAutoEntry:
             client=mock_client,
         )
 
-        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.auth_reconnect.get_event_bus") as mock_event_bus_fn,              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.ensure_data_dir", return_value=session_dir.parent),              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_event_bus_helpers_fn:
+        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,              patch("chatfilter.web.routers.sessions.ensure_data_dir", return_value=session_dir.parent),              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_event_bus_helpers_fn:
 
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
