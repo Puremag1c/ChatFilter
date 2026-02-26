@@ -2807,7 +2807,7 @@ class TestVerify2FA:
             )
 
             with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr, \
-                 patch("chatfilter.web.routers.sessions.auth_reconnect.get_event_bus") as mock_event_bus_fn, \
+                 patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn, \
                  patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock_settings_fn, \
                  patch("chatfilter.web.routers.sessions.auth_reconnect.ensure_data_dir", return_value=Path(tmp_dir)):
 
