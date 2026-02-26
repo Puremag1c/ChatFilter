@@ -2884,7 +2884,7 @@ class TestBackwardCompatibilityLegacySessions:
 
         mock_ensure_data_dir = MagicMock(return_value=tmp_path)
         monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.ensure_data_dir", mock_ensure_data_dir
+            "chatfilter.web.routers.sessions.helpers.ensure_data_dir", mock_ensure_data_dir
         )
         yield tmp_path
 
