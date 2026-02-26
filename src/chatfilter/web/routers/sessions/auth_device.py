@@ -47,7 +47,7 @@ async def _poll_device_confirmation(
     from telethon.errors import AuthKeyUnregisteredError, RPCError
     from telethon.tl.functions.account import GetAuthorizationsRequest
 
-    from .auth_reconnect import _finalize_reconnect_auth
+    from .auth_reconnect_helpers import _finalize_reconnect_auth
 
     timeout_seconds = 300  # 5 minutes
     poll_interval = 5  # Start with 5 seconds
