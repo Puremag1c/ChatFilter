@@ -233,16 +233,19 @@
     var isDisconnected = false;
 
     document.body.addEventListener('htmx:sseError', function(evt) {
-        console.error('[SSE] Connection error:', evt.detail);
+        // Don't log as error yet — brief disconnects are normal during SSE reconnect
+        console.warn('[SSE] Connection interrupted, waiting 5s before alerting...');
 
         // Clear any existing timer
         if (disconnectTimer) {
             clearTimeout(disconnectTimer);
+            disconnectTimer = null;
         }
 
         // Start 5-second timer before showing banner
         disconnectTimer = setTimeout(function() {
             isDisconnected = true;
+            console.error('[SSE] Connection lost (>5s disconnect):', evt.detail);
 
             // Mark SSE as disconnected (used by polling logic)
             document.body.classList.add('sse-disconnected');
