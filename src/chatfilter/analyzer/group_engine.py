@@ -165,6 +165,11 @@ class GroupAnalysisEngine:
         flood_tracker = get_flood_tracker()
 
         while True:
+            # Safety check: if user clicked STOP, exit immediately
+            group_data = self._db.load_group(group_id)
+            if group_data and group_data['status'] == GroupStatus.PAUSED.value:
+                logger.info(f"Group '{group_id}' is paused, skipping auto-resume")
+                return
             # Get earliest available account
             earliest_expiry = flood_tracker.get_earliest_available()
             if earliest_expiry is None:
@@ -174,6 +179,12 @@ class GroupAnalysisEngine:
                     if await self._session_mgr.is_healthy(s)
                 ]
                 if accounts:
+                    # Check status before resuming - user may have clicked STOP
+                    group_data = self._db.load_group(group_id)
+                    if group_data and group_data['status'] == GroupStatus.PAUSED.value:
+                        logger.info(f"Group '{group_id}' is paused, skipping auto-resume")
+                        return
+
                     logger.info(f"New account available for '{group_id}', resuming analysis")
                     await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
                     return
@@ -233,6 +244,12 @@ class GroupAnalysisEngine:
             ]
 
             if healthy_accounts:
+                # Check status before resuming - user may have clicked STOP during wait
+                group_data = self._db.load_group(group_id)
+                if group_data and group_data['status'] == GroupStatus.PAUSED.value:
+                    logger.info(f"Group '{group_id}' is paused, skipping auto-resume")
+                    return
+
                 logger.info(
                     f"Account(s) now available for '{group_id}': {healthy_accounts}, resuming analysis"
                 )
