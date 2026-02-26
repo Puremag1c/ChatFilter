@@ -196,6 +196,7 @@ from .auth import (  # noqa: F401
 
 # Re-export connect functions for backwards compatibility (used by tests)
 from .connect import (  # noqa: F401
+    _do_connect_in_background_v2,
     _send_verification_code_and_create_auth,
     _send_verification_code_with_timeout,
 )
