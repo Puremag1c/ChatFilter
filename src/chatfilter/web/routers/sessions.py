@@ -188,6 +188,28 @@ class SessionListItem(BaseModel):
     flood_wait_until: str | None = None  # ISO timestamp when FloodWait expires (for countdown)
 
 
+def _get_flood_wait_until(session_id: str) -> str | None:
+    """Get flood_wait_until timestamp for a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        ISO format timestamp string when FloodWait expires, or None if not blocked
+    """
+    from datetime import datetime, timezone
+
+    from chatfilter.telegram.flood_tracker import get_flood_tracker
+
+    flood_tracker = get_flood_tracker()
+    wait_until_ts = flood_tracker.get_wait_until(session_id)
+    if wait_until_ts:
+        # Convert timestamp to ISO format
+        wait_until_dt = datetime.fromtimestamp(wait_until_ts, tz=timezone.utc)
+        return wait_until_dt.isoformat()
+    return None
+
+
 def classify_error_state(error_message: str | None, exception: Exception | None = None) -> str:
     """Classify an error message or exception into a specific state.
 
@@ -1103,6 +1125,7 @@ def list_stored_sessions(
                             error_message="Account information missing",
                             auth_id=None,
                             has_session_file=session_file.is_file(),
+                            flood_wait_until=_get_flood_wait_until(session_id),
                         )
                     )
                     continue
@@ -1163,14 +1186,6 @@ def list_stored_sessions(
                             state = classify_error_state(error_message)
                         # DISCONNECTED keeps config_status
 
-                # Get flood_wait_until from flood_tracker
-                flood_wait_until = None
-                wait_until_ts = flood_tracker.get_wait_until(session_id)
-                if wait_until_ts:
-                    # Convert timestamp to ISO format
-                    wait_until_dt = datetime.fromtimestamp(wait_until_ts, tz=timezone.utc)
-                    flood_wait_until = wait_until_dt.isoformat()
-
                 sessions.append(
                     SessionListItem(
                         session_id=session_id,
@@ -1179,7 +1194,7 @@ def list_stored_sessions(
                         auth_id=auth_id,
                         has_session_file=session_file.is_file(),
                         retry_available=retry_available,
-                        flood_wait_until=flood_wait_until,
+                        flood_wait_until=_get_flood_wait_until(session_id),
                     )
                 )
 
@@ -2112,6 +2127,7 @@ async def update_session_credentials(
         state=config_status,
         error_message=config.get("error_message"),
         retry_available=config.get("retry_available"),
+        flood_wait_until=_get_flood_wait_until(safe_name),
     )
 
     # Return session row HTML with updated status
@@ -2984,6 +3000,7 @@ async def _handle_needs_confirmation(
         error_message=None,
         has_session_file=session_path.exists(),
         retry_available=None,
+        flood_wait_until=_get_flood_wait_until(safe_name),
     )
     templates = get_templates()
     return templates.TemplateResponse(
@@ -3700,6 +3717,7 @@ async def connect_session(
             error_message=str(e),
             has_session_file=False,
             retry_available=False,  # Invalid session name is permanent error
+            flood_wait_until=_get_flood_wait_until(session_id),
         )
         return templates.TemplateResponse(
             request=request,
@@ -3717,6 +3735,7 @@ async def connect_session(
             error_message="Operation already in progress",
             has_session_file=False,
             retry_available=True,  # Transient error, can retry later
+            flood_wait_until=_get_flood_wait_until(safe_name),
         )
         return templates.TemplateResponse(
             request=request,
@@ -3742,6 +3761,7 @@ async def connect_session(
                 error_message="Session configuration required",
                 has_session_file=session_path.exists(),
                 retry_available=False,  # Must configure first
+                flood_wait_until=_get_flood_wait_until(safe_name),
             )
         else:
             # Session directory doesn't exist or no account info - true error
@@ -3751,6 +3771,7 @@ async def connect_session(
                 error_message="Session not found",
                 has_session_file=False,
                 retry_available=False,  # No config = permanent error
+                flood_wait_until=_get_flood_wait_until(safe_name),
             )
         return templates.TemplateResponse(
             request=request,
@@ -3768,6 +3789,7 @@ async def connect_session(
             error_message=_config_reason,
             has_session_file=session_path.exists(),
             retry_available=False,  # Must configure first
+            flood_wait_until=_get_flood_wait_until(safe_name),
         )
         return templates.TemplateResponse(
             request=request,
@@ -3788,6 +3810,7 @@ async def connect_session(
             error_message=None,
             has_session_file=session_path.exists(),
             retry_available=None,
+            flood_wait_until=_get_flood_wait_until(safe_name),
         )
         return templates.TemplateResponse(
             request=request,
@@ -3813,6 +3836,7 @@ async def connect_session(
                 error_message="Phone number is required for new session",
                 has_session_file=False,
                 retry_available=False,  # Must configure phone first
+                flood_wait_until=_get_flood_wait_until(safe_name),
             )
             return templates.TemplateResponse(
                 request=request,
@@ -3829,6 +3853,7 @@ async def connect_session(
                 error_message="Invalid phone number format",
                 has_session_file=False,
                 retry_available=False,  # Must fix phone format first
+                flood_wait_until=_get_flood_wait_until(safe_name),
             )
             return templates.TemplateResponse(
                 request=request,
@@ -3859,6 +3884,7 @@ async def connect_session(
             error_message=None,
             has_session_file=False,
             retry_available=None,
+            flood_wait_until=_get_flood_wait_until(safe_name),
         )
         return templates.TemplateResponse(
             request=request,
@@ -3875,6 +3901,7 @@ async def connect_session(
             error_message=error_message,
             has_session_file=session_path.exists(),
             retry_available=True,  # Validation errors are usually transient
+            flood_wait_until=_get_flood_wait_until(safe_name),
         )
         return templates.TemplateResponse(
             request=request,
@@ -4248,6 +4275,7 @@ async def verify_code(
                 state="connected",
                 has_session_file=True,
                 retry_available=False,
+                flood_wait_until=_get_flood_wait_until(safe_name),
             )
 
         # Return session row HTML (tr element)
@@ -4332,6 +4360,7 @@ async def verify_code(
                         state="connected",
                         has_session_file=True,
                         retry_available=False,
+                        flood_wait_until=_get_flood_wait_until(safe_name),
                     )
 
                 # Return session row HTML (tr element)
@@ -4356,6 +4385,7 @@ async def verify_code(
                     error_message=None,
                     has_session_file=session_path.exists(),
                     retry_available=None,
+                    flood_wait_until=_get_flood_wait_until(safe_name),
                 )
                 return templates.TemplateResponse(
                     request=request,
@@ -4377,6 +4407,7 @@ async def verify_code(
                 error_message=None,
                 has_session_file=session_path.exists(),
                 retry_available=None,
+                flood_wait_until=_get_flood_wait_until(safe_name),
             )
             return templates.TemplateResponse(
                 request=request,
@@ -4733,6 +4764,7 @@ async def verify_2fa(
                 state="connected",
                 has_session_file=True,
                 retry_available=False,
+                flood_wait_until=_get_flood_wait_until(safe_name),
             )
 
         # Return session row HTML (tr element)
