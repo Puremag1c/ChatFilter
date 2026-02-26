@@ -66,14 +66,15 @@ class TestFloodWaitTrackerBasics:
         tracker = FloodWaitTracker()
         tracker.record_flood_wait("account_1", 1)
 
-        # Wait for expiry
-        time.sleep(1.1)
+        # Wait for expiry with generous margin
+        time.sleep(1.5)
 
-        # is_blocked triggers cleanup
-        tracker.is_blocked("account_1")
+        # get_wait_until now triggers cleanup and returns None
+        result = tracker.get_wait_until("account_1")
+        assert result is None
 
-        # Now get_wait_until should return None
-        assert tracker.get_wait_until("account_1") is None
+        # Entry should also be removed from internal storage
+        assert "account_1" not in tracker.get_blocked_accounts()
 
 
 class TestFloodWaitTrackerMultipleAccounts:

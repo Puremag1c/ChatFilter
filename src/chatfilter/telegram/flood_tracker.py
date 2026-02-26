@@ -74,7 +74,13 @@ class FloodWaitTracker:
             Expiry timestamp (time.time() format) or None if not blocked
         """
         with self._lock:
-            return self._lockouts.get(account_id)
+            expiry = self._lockouts.get(account_id)
+            if expiry is None:
+                return None
+            if time.time() >= expiry:
+                del self._lockouts[account_id]
+                return None
+            return expiry
 
     def get_earliest_available(self) -> Optional[float]:
         """Get earliest expiry time across all blocked accounts.
