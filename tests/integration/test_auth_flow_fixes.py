@@ -430,7 +430,7 @@ class TestAdoptClientFailureHandling:
                 return_value=mock_session_manager,
             ),
             patch(
-                "chatfilter.web.events.get_event_bus",
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus",
                 return_value=mock_event_bus,
             ),
             patch(
