@@ -1,14 +1,12 @@
-<div class="groups-list" id="groups-list">
-    {% if groups %}
-        {% for item in groups %}
-            {% set group = item.group %}
-            {% set stats = item.stats %}
-            {% include "partials/group_card.html" with context %}
-        {% endfor %}
-    {% else %}
-    <div class="no-groups" role="status">
-        <p>{{ _("No groups yet") }}</p>
-        <p>{{ _("Click 'Import chats' to create your first group") }}</p>
-    </div>
-    {% endif %}
+{% if groups %}
+    {% for item in groups %}
+        {% set group = item.group %}
+        {% set stats = item.stats %}
+        {% include "partials/group_card.html" with context %}
+    {% endfor %}
+{% else %}
+<div class="no-groups" role="status">
+    <p>{{ _("No groups yet") }}</p>
+    <p>{{ _("Click 'Import chats' to create your first group") }}</p>
 </div>
+{% endif %}

@@ -332,23 +332,17 @@
             .then(function(resp) { return resp.text(); })
             .then(function(html) {
                 // Use morphdom to smoothly update DOM instead of innerHTML swap
-                // Wrap html in temporary container to preserve #groups-container structure
+                // Server returns just the children (group cards or placeholder), not wrapped
                 var tempDiv = document.createElement('div');
                 tempDiv.innerHTML = html;
 
-                morphdom(container, tempDiv.firstChild, {
+                morphdom(container, tempDiv, {
                     childrenOnly: true,  // Only morph children, preserve container
                     onBeforeElUpdated: function(fromEl, toEl) {
                         // Preserve htmx attributes and event listeners on unchanged elements
                         return true;
                     }
                 });
-
-                // Remove placeholder if groups are now loaded
-                var placeholder = document.querySelector('#groups-list .no-groups');
-                if (placeholder && document.querySelectorAll('#groups-list .group-card').length > 0) {
-                    placeholder.remove();
-                }
 
                 htmx.process(container);
                 executeScripts(container);
