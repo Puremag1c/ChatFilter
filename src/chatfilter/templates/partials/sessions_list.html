@@ -160,6 +160,10 @@
     // Timeout feedback for long-running operations (10s+ shows "Still working...", 30s+ shows elapsed time)
     const operationTimers = new Map();
 
+    // SSE connection error debouncing - only show banner after 5s disconnect
+    var disconnectTimer = null;
+    var isDisconnected = false;
+
     function showTimeoutFeedback(element, sessionId, startTime) {
         if (!element || !element.isConnected) return;
         const spinner = element.querySelector('.htmx-indicator, .spinner');
@@ -265,20 +269,65 @@
         }
     });
 
-    // Handle SSE connection errors - show persistent banner when connection drops
+    // Handle SSE connection errors with debouncing - only show banner after 5s disconnect
     document.body.addEventListener('htmx:sseError', function(evt) {
-        console.error('[SSE] Connection error:', evt.detail);
+        // Don't log as error yet — brief disconnects are normal during SSE reconnect
+        console.warn('[SSE] Connection interrupted, waiting 5s before alerting...');
 
-        // Show persistent banner to inform user that realtime updates stopped
-        if (typeof SSEStatusBanner !== 'undefined') {
-            SSEStatusBanner.show();
+        // Clear any existing timer
+        if (disconnectTimer) {
+            clearTimeout(disconnectTimer);
+            disconnectTimer = null;
         }
 
-        // Also show a brief toast for immediate feedback
-        if (typeof ToastManager !== 'undefined') {
-            ToastManager.warning('{{ _("Connection lost. Real-time updates paused.") }}', {
-                duration: 4000
-            });
+        // Start 5-second timer before showing banner
+        disconnectTimer = setTimeout(function() {
+            isDisconnected = true;
+            console.error('[SSE] Connection lost (>5s disconnect):', evt.detail);
+
+            // Mark SSE as disconnected (used by polling logic)
+            document.body.classList.add('sse-disconnected');
+
+            // Show persistent banner after 5s disconnect
+            if (typeof SSEStatusBanner !== 'undefined') {
+                SSEStatusBanner.show();
+            }
+
+            // Show warning toast
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.warning('{{ _("Connection lost. Real-time updates paused.") }}', {
+                    duration: 4000
+                });
+            }
+        }, 5000);
+    });
+
+    // Handle reconnection
+    document.body.addEventListener('htmx:sseOpen', function(evt) {
+        console.log('[SSE] Connection restored');
+
+        // Clear the disconnect timer (reconnect within 5s)
+        if (disconnectTimer) {
+            clearTimeout(disconnectTimer);
+            disconnectTimer = null;
+        }
+
+        // Clear SSE disconnected flag
+        document.body.classList.remove('sse-disconnected');
+
+        // If we were showing the banner, hide it and show reconnected toast
+        if (isDisconnected) {
+            isDisconnected = false;
+
+            if (typeof SSEStatusBanner !== 'undefined') {
+                SSEStatusBanner.hide();
+            }
+
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.success('{{ _("Reconnected") }}', {
+                    duration: 2000
+                });
+            }
         }
     });
 
