@@ -10,12 +10,11 @@ from fastapi.responses import HTMLResponse
 
 from chatfilter.i18n import _
 from chatfilter.telegram.error_mapping import get_user_friendly_message
-from chatfilter.telegram.client import TelegramClientLoader
 from chatfilter.telegram.session_manager import (
     ManagedSession,
     SessionState,
 )
-from chatfilter.web.dependencies import get_session_manager
+import chatfilter.web.dependencies as _web_deps
 from chatfilter.web.events import get_event_bus
 from chatfilter.web.routers.sessions.helpers import (
     _get_session_lock,
@@ -155,7 +154,7 @@ async def connect_session(
             status_code=status.HTTP_200_OK,
         )
 
-    session_manager = get_session_manager()
+    session_manager = _web_deps.get_session_manager()
 
     # Check current session state before attempting connect
     info = session_manager.get_info(safe_name)
@@ -179,7 +178,11 @@ async def connect_session(
     # FIX RACE CONDITION: Register loader and set state BEFORE scheduling background task
     # This prevents parallel requests from both seeing DISCONNECTED and scheduling duplicate tasks
     try:
-        loader = TelegramClientLoader(session_path, config_path)
+        # Access via module attribute so tests can mock at
+        # chatfilter.web.routers.sessions.TelegramClientLoader
+        import chatfilter.web.routers.sessions as _sessions_pkg
+
+        loader = _sessions_pkg.TelegramClientLoader(session_path, config_path)
         loader.validate()
     except FileNotFoundError:
         # AC2: Session file doesn't exist - trigger send_code flow instead of error
@@ -399,7 +402,7 @@ async def disconnect_session(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    session_manager = get_session_manager()
+    session_manager = _web_deps.get_session_manager()
 
     # Check current session state before attempting disconnect
     info = session_manager.get_info(safe_name)
