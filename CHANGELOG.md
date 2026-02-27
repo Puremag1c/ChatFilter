@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-02-27
+
+### Changed
+- **JS extraction: group_card.html**: Extracted ~370 lines of inline JS from `group_card.html` into `static/js/group-card.js` (SSE handler, stale detection, timers, DOM updates, AbortController cleanup)
+- **JS extraction: session_row.html**: Extracted FloodWait countdown timer from `session_row.html` into `static/js/flood-wait-countdown.js`
+- **JS extraction: chats.html**: Extracted ~220 lines of inline JS from `chats.html` into `static/js/chats-page.js` (SSE error/reconnect handling, polling fallback, group refresh)
+- **Test restructuring**: Split monolithic `test_sessions_router.py` (4,002 lines) into `tests/sessions/` package with focused modules (test_routes, test_connect, test_auth, test_upload, test_sse, test_helpers, conftest)
+
+### Fixed
+- **SSE current chat display**: Current analyzed chat title now shown in group card during analysis
+- **SSE DOM jitter**: Fixed screen jitter on SSE updates by updating individual DOM elements instead of full card re-render
+- **SSE false stale warning**: Fixed false "analysis hung" warning when heartbeat ping correctly resets stale timer
+
 ## [0.16.0] - 2026-02-26
 
 ### Changed
@@ -1190,7 +1203,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.14.1...v0.15.0
