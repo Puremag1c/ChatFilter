@@ -95,10 +95,15 @@
   },
   "analysis": {
     "complete": "Analysis Complete",
+    "started": "Analysis Started",
     "failed": "Analysis Failed",
     "in_progress": "Analysis in progress",
     "select_chats": "Select chats for analysis",
     "no_results": "No results found"
+  },
+  "chats": {
+    "reconnected": "Reconnected",
+    "resuming": "Resuming..."
   },
   "updates": {
     "available": "Update Available",
