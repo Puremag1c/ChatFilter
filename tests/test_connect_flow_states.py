@@ -224,6 +224,7 @@ class TestConnectFlowCodeVerification:
         """Test: needs_code → submit code → connected (success)."""
         from chatfilter.web.auth_state import AuthState
         from chatfilter.web.routers.sessions import verify_code
+        from chatfilter.web.routers.sessions.helpers import SessionListItem
 
         session_id = "test_session"
         auth_id = "auth_123"
@@ -234,6 +235,8 @@ class TestConnectFlowCodeVerification:
         session_dir.mkdir()
 
         # Mock dependencies
+        # NOTE: ensure_data_dir must be patched on the package (chatfilter.web.routers.sessions)
+        # because _finalize_reconnect_auth accesses it via _sessions_pkg.ensure_data_dir()
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
@@ -242,11 +245,13 @@ class TestConnectFlowCodeVerification:
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.routers.sessions.helpers.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
+            patch("chatfilter.web.routers.sessions.auth_device._check_device_confirmation", new_callable=AsyncMock, return_value=False),
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.list_stored_sessions") as mock_list_sessions,
         ):
             # Setup mocks
             mock_client = AsyncMock()
@@ -260,6 +265,7 @@ class TestConnectFlowCodeVerification:
                 last_name="User"
             ))
             mock_client.disconnect = AsyncMock()
+            mock_client.session = MagicMock()  # For client.session.save()
 
             mock_auth_state = MagicMock(spec=AuthState)
             mock_auth_state.session_name = session_id
@@ -279,18 +285,11 @@ class TestConnectFlowCodeVerification:
             mock_bus.publish = mock_publish
             mock_bus_getter.return_value = mock_bus
 
-            # Mock session manager
-            async def mock_connect_fn(sid):
-                # Simulate successful connect by publishing 'connected'
-                await mock_publish(sid, "connected")
-
             # Mock adopt_client to publish 'connected' event (mimics real behavior)
             async def mock_adopt_client(sid, client):
                 await mock_publish(sid, "connected")
 
             mock_manager = MagicMock()
-            mock_manager._add_session = MagicMock()
-            mock_manager.connect = mock_connect_fn  # Async function that publishes
             mock_manager.adopt_client = mock_adopt_client
             mock_manager_getter.return_value = mock_manager
 
@@ -299,6 +298,16 @@ class TestConnectFlowCodeVerification:
             mock_save_info.return_value = None
             mock_secure_perms.return_value = None
             mock_secure_delete.return_value = None
+
+            # Mock list_stored_sessions to return session data for template
+            mock_list_sessions.return_value = [
+                SessionListItem(
+                    session_id=session_id,
+                    state="connected",
+                    has_session_file=True,
+                    retry_available=False,
+                )
+            ]
 
             # Mock templates
             mock_templates = MagicMock()
@@ -395,6 +404,7 @@ class TestConnectFlow2FA:
         """Test: needs_2fa → submit password → connected (success)."""
         from chatfilter.web.auth_state import AuthState
         from chatfilter.web.routers.sessions import verify_2fa
+        from chatfilter.web.routers.sessions.helpers import SessionListItem
 
         session_id = "test_session"
         auth_id = "auth_123"
@@ -405,6 +415,8 @@ class TestConnectFlow2FA:
         session_dir.mkdir()
 
         # Mock dependencies
+        # NOTE: ensure_data_dir must be patched on the package (chatfilter.web.routers.sessions)
+        # because _finalize_reconnect_auth accesses it via _sessions_pkg.ensure_data_dir()
         with (
             patch(
                 "chatfilter.web.auth_state.get_auth_state_manager"
@@ -413,11 +425,13 @@ class TestConnectFlow2FA:
             patch(
                 "chatfilter.web.dependencies.get_session_manager"
             ) as mock_manager_getter,
-            patch("chatfilter.web.routers.sessions.helpers.ensure_data_dir") as mock_ensure_dir,
+            patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
             patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
+            patch("chatfilter.web.routers.sessions.auth_device._check_device_confirmation", new_callable=AsyncMock, return_value=False),
+            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.list_stored_sessions") as mock_list_sessions,
         ):
             # Setup mocks
             mock_client = AsyncMock()
@@ -431,6 +445,7 @@ class TestConnectFlow2FA:
                 last_name="User"
             ))
             mock_client.disconnect = AsyncMock()
+            mock_client.session = MagicMock()  # For client.session.save()
 
             mock_auth_state = MagicMock(spec=AuthState)
             mock_auth_state.session_name = session_id
@@ -450,18 +465,11 @@ class TestConnectFlow2FA:
             mock_bus.publish = mock_publish
             mock_bus_getter.return_value = mock_bus
 
-            # Mock session manager
-            async def mock_connect_fn(sid):
-                # Simulate successful connect by publishing 'connected'
-                await mock_publish(sid, "connected")
-
             # Mock adopt_client to publish 'connected' event (mimics real behavior)
             async def mock_adopt_client(sid, client):
                 await mock_publish(sid, "connected")
 
             mock_manager = MagicMock()
-            mock_manager._add_session = MagicMock()
-            mock_manager.connect = mock_connect_fn  # Async function that publishes
             mock_manager.adopt_client = mock_adopt_client
             mock_manager_getter.return_value = mock_manager
 
@@ -470,6 +478,16 @@ class TestConnectFlow2FA:
             mock_save_info.return_value = None
             mock_secure_perms.return_value = None
             mock_secure_delete.return_value = None
+
+            # Mock list_stored_sessions to return session data for template
+            mock_list_sessions.return_value = [
+                SessionListItem(
+                    session_id=session_id,
+                    state="connected",
+                    has_session_file=True,
+                    retry_available=False,
+                )
+            ]
 
             # Mock templates
             mock_templates = MagicMock()
