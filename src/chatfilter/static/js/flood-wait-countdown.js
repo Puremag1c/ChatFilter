@@ -1,6 +1,6 @@
 /**
  * FloodWait countdown timer
- * Extracts flood_wait_until timestamp from badge data attributes and updates countdown display
+ * Reads the FloodWait-until timestamp from badge data attributes and updates countdown display
  */
 (function() {
     function formatCountdown(remainingMs) {
