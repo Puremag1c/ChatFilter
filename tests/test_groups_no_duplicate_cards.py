@@ -259,16 +259,31 @@ class TestChatsPageNoDuplicatePolling:
     def test_chats_page_has_vanilla_js_polling(
         self, fastapi_test_client: TestClient, tmp_path: Path
     ) -> None:
-        """Chats page must include vanilla JS fetch-based polling script."""
+        """Chats page must include vanilla JS fetch-based polling script.
+
+        The polling logic lives in static/js/chats-page.js (extracted from
+        inline HTML). The page must load this script, and the script must
+        contain the fetch-based polling implementation.
+        """
         import os
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         resp = fastapi_test_client.get("/chats")
         assert resp.status_code == 200
 
-        assert "fetch('/api/groups')" in resp.text, (
-            "Chats page missing vanilla JS fetch polling for groups"
+        # The external JS file must be loaded by the page
+        assert "chats-page.js" in resp.text, (
+            "Chats page missing chats-page.js script tag"
         )
-        assert "refreshGroups" in resp.text, (
-            "Chats page missing refreshGroups event listener"
+
+        # Verify the JS file itself contains the polling implementation
+        js_resp = fastapi_test_client.get("/static/js/chats-page.js")
+        assert js_resp.status_code == 200, (
+            "chats-page.js not served (static file serving broken)"
+        )
+        assert "fetch('/api/groups')" in js_resp.text, (
+            "chats-page.js missing vanilla JS fetch polling for groups"
+        )
+        assert "refreshGroups" in js_resp.text, (
+            "chats-page.js missing refreshGroups event listener"
         )
