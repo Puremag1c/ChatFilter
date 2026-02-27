@@ -71,6 +71,7 @@
         let floodWaitTimer = null;
         let floodWaitTarget = null; // Date object for flood_wait_until
         let lastEventTime = Date.now();
+        let sseConnected = false; // Track if SSE connection has been established
 
         // Parse flood_wait_until from data-attr if present
         const floodWaitUntilStr = cardEl.dataset.floodWaitUntil;
@@ -200,6 +201,13 @@
         // Record SSE event received (dismisses stale warning)
         function recordSseEvent() {
             lastEventTime = Date.now();
+
+            // Start stale check on first SSE event (prevents false positives before connection)
+            if (!sseConnected) {
+                sseConnected = true;
+                startStaleCheckTimer();
+            }
+
             // Hide stale warning if visible
             const els = getElements();
             if (els.staleWarningEl) {
@@ -311,10 +319,10 @@
                         }
                     }
 
-                    // Update current chat
-                    if (data.chat_title && els.currentChatEl) {
-                        els.currentChatEl.textContent = data.chat_title;
-                        els.currentChatEl.title = data.chat_title;
+                    // Update current chat (check for presence, not truthiness — "" is valid)
+                    if ('chat_title' in data && els.currentChatEl) {
+                        els.currentChatEl.textContent = data.chat_title || '—';
+                        els.currentChatEl.title = data.chat_title || '';
                     }
                 }
 
@@ -373,8 +381,7 @@
 
         // Start elapsed timer when card initializes
         startElapsedTimer();
-        // Start stale check timer
-        startStaleCheckTimer();
+        // NOTE: stale check timer starts on first SSE event (see recordSseEvent)
 
         // Start FloodWait countdown if floodWaitTarget was parsed from data-attr
         if (floodWaitTarget && groupStatus === 'waiting_for_accounts') {

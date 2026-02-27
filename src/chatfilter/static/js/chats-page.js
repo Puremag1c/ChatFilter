@@ -99,7 +99,16 @@
 
                 morphdom(container, tempDiv, {
                     childrenOnly: true,
-                    onBeforeElUpdated: function() {
+                    onBeforeElUpdated: function(fromEl) {
+                        // Skip updating group cards with active SSE (in_progress/waiting_for_accounts)
+                        // to prevent DOM jitter and timer resets
+                        if (fromEl.classList && fromEl.classList.contains('group-card')) {
+                            var statusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts');
+                            if (statusBadge) {
+                                // Active card — skip update to prevent jitter
+                                return false;
+                            }
+                        }
                         return true;
                     }
                 });
