@@ -189,8 +189,8 @@ def test_only_8_states_in_javascript():
     """Verify only 8 allowed states appear in JavaScript files.
 
     Only match removed states when used as STATE values, not as:
-    - Suffixes: flood_wait_until (data field name)
-    - camelCase variables: floodWaitTarget, floodWaitEl, etc.
+    - Suffixes: flood_wait_until (data field)
+    - JavaScript variables: floodWaitTarget, floodWaitEl, etc.
     - Comments
     """
     project_root = Path(__file__).parent.parent
@@ -210,8 +210,8 @@ def test_only_8_states_in_javascript():
 
                 # Check for removed states
                 for removed_state in REMOVED_STATES:
-                    # Use word boundary to avoid matching substrings like
-                    # flood_wait_until when checking for flood_wait
+                    # Use word boundary regex (same as template test)
+                    # to avoid matching flood_wait_until, floodWaitTarget, etc.
                     state_pattern = re.compile(
                         rf"(?<![a-zA-Z0-9_\-])"
                         rf"{re.escape(removed_state)}"
@@ -219,15 +219,13 @@ def test_only_8_states_in_javascript():
                     )
 
                     for line_num, line in enumerate(lines, start=1):
-                        # Skip comment lines
-                        stripped = line.strip()
-                        if stripped.startswith("//") or stripped.startswith("/*"):
+                        if line.strip().startswith("//"):
                             continue
 
                         if state_pattern.search(line):
-                            # Skip inline comments after code
+                            # Skip occurrences in inline comments
                             comment_start = line.find("//")
-                            code_part = line[:comment_start] if comment_start >= 0 else line
+                            code_part = line[:comment_start] if comment_start != -1 else line
 
                             if state_pattern.search(code_part):
                                 violations.append(
