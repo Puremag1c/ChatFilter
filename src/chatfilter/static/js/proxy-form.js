@@ -26,6 +26,10 @@
         trapFocusHandler: null,
 
         init() {
+            // Guard: only initialize if proxy form elements exist on this page
+            if (!document.getElementById('add-proxy-btn')) {
+                return;
+            }
             this.overlay = document.getElementById('proxy-form-overlay');
             this.form = document.getElementById('proxy-form');
             this.titleEl = document.getElementById('proxy-modal-title');
