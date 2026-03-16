@@ -1687,6 +1687,7 @@ class TestGetMessages:
         from telethon.tl.types import Channel
 
         import chatfilter.telegram.client as client_module
+        from chatfilter.telegram.client import messages as messages_module
 
         # Create mock messages for different topics
         topic1_messages = [
@@ -1723,7 +1724,7 @@ class TestGetMessages:
             return [100, 200]
 
         # Patch _get_forum_topics
-        monkeypatch.setattr(client_module, "_get_forum_topics", mock_get_forum_topics)
+        monkeypatch.setattr(messages_module, "_get_forum_topics", mock_get_forum_topics)
 
         client = MagicMock()
         client.get_entity = AsyncMock(return_value=mock_entity)
@@ -2323,6 +2324,7 @@ class TestGetMessagesSince:
         from telethon.tl.types import Channel
 
         import chatfilter.telegram.client as client_module
+        from chatfilter.telegram.client import messages as messages_module
 
         messages = [
             create_mock_message(10, "New message 1"),
@@ -2346,7 +2348,7 @@ class TestGetMessagesSince:
         async def mock_get_forum_topics(client: object, chat_id: int) -> list[int]:
             return [100]
 
-        monkeypatch.setattr(client_module, "_get_forum_topics", mock_get_forum_topics)
+        monkeypatch.setattr(messages_module, "_get_forum_topics", mock_get_forum_topics)
 
         client = MagicMock()
         client.get_entity = AsyncMock(return_value=mock_entity)
