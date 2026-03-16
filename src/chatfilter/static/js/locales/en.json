@@ -264,5 +264,46 @@
       "success_title": "Proxy Deleted",
       "failed": "Deletion Failed"
     }
+  },
+  "sessions_list": {
+    "auth": {
+      "verifying": "Verifying...",
+      "verify": "Verify",
+      "enter_verification_code": "Please enter the verification code.",
+      "code_verified_enter_2fa": "Code verified. Please enter your 2FA password.",
+      "enter_2fa_password": "Please enter your 2FA password.",
+      "twofa_accepted": "2FA password accepted successfully",
+      "cancelled": "Authentication cancelled. Session remains disconnected. You can try again anytime.",
+      "auth_id_not_found": "Error: auth_id not found. Please refresh and try again.",
+      "request_timeout": "Request timeout. Please try again."
+    },
+    "messages": {
+      "still_working": "Still working...",
+      "connected_successfully": "Connected successfully",
+      "disconnected_successfully": "Disconnected successfully",
+      "requires_verification": "Session requires verification. Click Enter Verification Code button to proceed.",
+      "reconnected": "Reconnected",
+      "retry_initiated": "Retry initiated successfully",
+      "connection_lost_realtime_paused": "Connection lost. Real-time updates paused."
+    },
+    "operations": {
+      "connecting": "connecting",
+      "disconnecting": "disconnecting",
+      "loading_configuration": "loading configuration",
+      "processing_request": "processing request"
+    },
+    "errors": {
+      "timeout_while": "Request timeout while",
+      "connection_failed_while": "Connection failed while",
+      "network_error_while": "Network error while",
+      "server_error_while": "Server error while",
+      "service_unavailable_while": "Service temporarily unavailable while",
+      "request_failed_while": "Request failed while",
+      "please_try_again": "Please try again.",
+      "please_try_again_later": "Please try again later.",
+      "please_check_and_retry": "Please check and try again.",
+      "check_network_and_retry": "Please check your network and try again.",
+      "check_connection_and_retry": "Please check your connection and try again."
+    }
   }
 }

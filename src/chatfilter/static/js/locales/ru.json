@@ -275,5 +275,46 @@
       "success_title": "Прокси удалён",
       "failed": "Не удалось удалить"
     }
+  },
+  "sessions_list": {
+    "auth": {
+      "verifying": "Подтверждение...",
+      "verify": "Подтвердить",
+      "enter_verification_code": "Пожалуйста, введите код подтверждения.",
+      "code_verified_enter_2fa": "Код подтверждён. Пожалуйста, введите пароль 2FA.",
+      "enter_2fa_password": "Пожалуйста, введите пароль 2FA.",
+      "twofa_accepted": "Пароль 2FA успешно принят",
+      "cancelled": "Аутентификация отменена. Сессия остается отключенной. Вы можете попробовать снова в любое время.",
+      "auth_id_not_found": "Ошибка: auth_id не найден. Пожалуйста, обновите страницу и попробуйте снова.",
+      "request_timeout": "Превышено время ожидания. Попробуйте снова."
+    },
+    "messages": {
+      "still_working": "Всё ещё работаем...",
+      "connected_successfully": "Успешно подключено",
+      "disconnected_successfully": "Успешно отключено",
+      "requires_verification": "Сессия требует подтверждения. Нажмите кнопку Ввести код подтверждения, чтобы продолжить.",
+      "reconnected": "Переподключено",
+      "retry_initiated": "Повтор успешно инициирован",
+      "connection_lost_realtime_paused": "Соединение потеряно. Обновления в реальном времени приостановлены."
+    },
+    "operations": {
+      "connecting": "подключение",
+      "disconnecting": "отключение",
+      "loading_configuration": "загрузка конфигурации",
+      "processing_request": "обработка запроса"
+    },
+    "errors": {
+      "timeout_while": "Превышено время ожидания при",
+      "connection_failed_while": "Не удалось подключиться при",
+      "network_error_while": "Ошибка сети при",
+      "server_error_while": "Ошибка сервера при",
+      "service_unavailable_while": "Сервис временно недоступен при",
+      "request_failed_while": "Запрос не удался при",
+      "please_try_again": "Пожалуйста, попробуйте снова.",
+      "please_try_again_later": "Пожалуйста, попробуйте позже.",
+      "please_check_and_retry": "Пожалуйста, проверьте и попробуйте снова.",
+      "check_network_and_retry": "Пожалуйста, проверьте сеть и попробуйте снова.",
+      "check_connection_and_retry": "Пожалуйста, проверьте соединение и попробуйте снова."
+    }
   }
 }
