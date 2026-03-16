@@ -1,0 +1,367 @@
+"""Session I/O operations: reading, writing, and account info management."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import shutil
+import tempfile
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from fastapi import UploadFile
+
+from chatfilter.config import get_settings
+from chatfilter.storage.file import secure_delete_file
+from chatfilter.storage.helpers import atomic_write
+
+if TYPE_CHECKING:
+    from telethon import TelegramClient
+
+logger = logging.getLogger(__name__)
+
+
+# Maximum file sizes (security limit)
+MAX_SESSION_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_JSON_SIZE = 10 * 1024  # 10 KB (account info JSON)
+MAX_CONFIG_SIZE = 1024  # 1 KB
+# Chunk size for reading uploaded files (to prevent memory exhaustion)
+READ_CHUNK_SIZE = 8192  # 8 KB chunks
+
+
+def ensure_data_dir() -> Path:
+    """Ensure sessions directory exists with proper permissions."""
+    sessions_dir = get_settings().sessions_dir
+    sessions_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return sessions_dir
+
+
+def secure_file_permissions(file_path: Path) -> None:
+    """Set file permissions to 600 (owner read/write only)."""
+    import os
+    import stat
+
+    # chmod 600: owner read/write, no access for group/others
+    os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
+
+
+async def read_upload_with_size_limit(
+    upload_file: UploadFile, max_size: int, file_type: str = "file"
+) -> bytes:
+    """Read uploaded file with size limit enforcement.
+
+    Reads file in chunks to prevent loading large files into memory.
+    Raises ValueError if file exceeds size limit.
+
+    Args:
+        upload_file: FastAPI UploadFile object
+        max_size: Maximum allowed file size in bytes
+        file_type: Description of file type for error messages
+
+    Returns:
+        File content as bytes
+
+    Raises:
+        ValueError: If file size exceeds max_size
+    """
+    chunks = []
+    total_size = 0
+
+    # Read file in chunks to enforce size limit without loading entire file
+    while True:
+        chunk = await upload_file.read(READ_CHUNK_SIZE)
+        if not chunk:
+            break
+
+        total_size += len(chunk)
+        if total_size > max_size:
+            # Stop reading immediately to prevent memory exhaustion
+            raise ValueError(
+                f"{file_type.capitalize()} file too large "
+                f"(max {max_size:,} bytes, got {total_size:,}+ bytes)"
+            )
+
+        chunks.append(chunk)
+
+    return b"".join(chunks)
+
+
+async def get_account_info_from_session(
+    session_path: Path, api_id: int, api_hash: str
+) -> dict[str, int | str] | None:
+    """Extract account info from a session by connecting to Telegram.
+
+    Args:
+        session_path: Path to the session file
+        api_id: Telegram API ID
+        api_hash: Telegram API hash
+
+    Returns:
+        Dict with user_id, phone, first_name, last_name if successful, None otherwise
+    """
+    from telethon import TelegramClient
+
+    try:
+        # Create a temporary client to get account info
+        client = TelegramClient(str(session_path), api_id, api_hash)
+
+        # Connect with a timeout to avoid hanging
+        await asyncio.wait_for(client.connect(), timeout=30.0)
+
+        if not await client.is_user_authorized():
+            await asyncio.wait_for(client.disconnect(), timeout=30.0)
+            return None
+
+        # Get user info
+        me = await asyncio.wait_for(client.get_me(), timeout=30.0)
+        await asyncio.wait_for(client.disconnect(), timeout=30.0)
+
+        return {
+            "user_id": me.id,
+            "phone": me.phone or "",
+            "first_name": me.first_name or "",
+            "last_name": me.last_name or "",
+        }
+    except Exception as e:
+        logger.warning(f"Failed to extract account info from session: {e}")
+        return None
+
+
+def save_account_info(session_dir: Path, account_info: dict[str, int | str]) -> None:
+    """Save account info metadata to session directory."""
+    metadata_file = session_dir / ".account_info.json"
+    metadata_content = json.dumps(account_info, indent=2).encode("utf-8")
+    atomic_write(metadata_file, metadata_content)
+    secure_file_permissions(metadata_file)
+
+
+def load_account_info(session_dir: Path) -> dict[str, int | str] | None:
+    """Load account info metadata from session directory, or None if not found."""
+    metadata_file = session_dir / ".account_info.json"
+    if not metadata_file.exists():
+        return None
+
+    try:
+        with metadata_file.open("r") as f:
+            data = json.load(f)
+            # Type narrowing: ensure it's a dict before returning
+            if isinstance(data, dict):
+                return data
+            return None
+    except Exception as e:
+        logger.warning(f"Failed to load account info from {metadata_file}: {e}")
+        return None
+
+
+def _save_session_to_disk(
+    session_dir: Path,
+    session_content: bytes,
+    api_id: int | None,
+    api_hash: str | None,
+    proxy_id: str | None,
+    account_info: dict[str, int | str] | None,
+    source: str = "file",
+) -> None:
+    """Save session files to disk with secure credentials.
+
+    Uses atomic transaction pattern:
+    1. Write all files to temp directory
+    2. On success - rename temp dir to final name (POSIX atomic)
+    3. On failure - delete temp dir (no orphaned files)
+
+    Creates:
+    - session.session file (atomic write, secure permissions)
+    - config.json with api_id, api_hash, proxy_id, source
+    - .secure_storage marker
+    - .account_info.json if account_info provided
+
+    Also stores credentials in secure storage.
+
+    Args:
+        session_dir: Session directory path (must NOT exist)
+        session_content: Session file content bytes
+        api_id: Telegram API ID (can be None for source=phone)
+        api_hash: Telegram API hash (can be None for source=phone)
+        proxy_id: Proxy ID (can be None)
+        account_info: Account info dict or None
+        source: Source of credentials ('file' or 'phone')
+
+    Raises:
+        DiskSpaceError: If not enough disk space
+        TelegramConfigError: If validation fails
+        Exception: On other failures (temp dir is cleaned up)
+    """
+    from chatfilter.security import SecureCredentialManager
+    from chatfilter.utils.disk import ensure_space_available
+
+    safe_name = session_dir.name
+
+    marker_text = (
+        "Credentials are stored in secure storage (OS keyring or encrypted file).\n"
+        "Do not create a plaintext config.json file.\n"
+    )
+
+    # Calculate total space needed (session file + marker file)
+    total_bytes_needed = len(session_content) + len(marker_text.encode("utf-8"))
+
+    # Check disk space before writing (use parent dir since session_dir doesn't exist yet)
+    ensure_space_available(session_dir.parent / ".space_check", total_bytes_needed)
+
+    # Create temporary directory for atomic transaction
+    # Use parent directory to ensure same filesystem (for atomic rename)
+    temp_dir = None
+    try:
+        temp_dir = Path(tempfile.mkdtemp(prefix=f".tmp_{safe_name}_", dir=session_dir.parent))
+
+        # Write all files to temp directory
+        session_path = temp_dir / "session.session"
+        atomic_write(session_path, session_content)
+        secure_file_permissions(session_path)
+
+        # Store credentials securely (NOT in plaintext)
+        # Only store if api_id and api_hash are provided
+        if api_id is not None and api_hash is not None:
+            storage_dir = session_dir.parent
+            manager = SecureCredentialManager(storage_dir)
+            manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
+            logger.info(f"Stored credentials securely for session: {safe_name}")
+        else:
+            logger.info(f"Session {safe_name} created without api_id/api_hash (source=phone)")
+
+        # Create per-session config.json
+        session_config: dict[str, int | str | None] = {
+            "api_id": api_id,
+            "api_hash": api_hash,
+            "proxy_id": proxy_id,
+            "source": source,
+        }
+        session_config_path = temp_dir / "config.json"
+        session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
+        atomic_write(session_config_path, session_config_content)
+        secure_file_permissions(session_config_path)
+        logger.info(f"Created per-session config for session: {safe_name}")
+
+        # Create migration marker to indicate we're using secure storage
+        marker_file = temp_dir / ".secure_storage"
+        atomic_write(marker_file, marker_text)
+
+        # Save account info if we successfully extracted it
+        if account_info:
+            save_account_info(temp_dir, account_info)
+            # user_id might not be available if get_account_info_from_session failed
+            if "user_id" in account_info:
+                logger.info(
+                    f"Saved account info for session '{safe_name}': "
+                    f"user_id={account_info['user_id']}, phone=[REDACTED]"
+                )
+            else:
+                logger.info(
+                    f"Saved account info for session '{safe_name}' (user_id not available): "
+                    f"phone=[REDACTED]"
+                )
+
+        # All writes succeeded → atomic rename (POSIX atomic operation)
+        temp_dir.rename(session_dir)
+        temp_dir = None  # Prevent cleanup
+        logger.info(f"Session '{safe_name}' saved successfully (atomic transaction)")
+
+    except Exception:
+        # Cleanup temp directory on any failure
+        if temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            logger.info(f"Cleaned up temp directory after failed write: {temp_dir}")
+        raise
+
+
+def find_duplicate_accounts(target_user_id: int, exclude_session: str | None = None) -> list[str]:
+    """Find all sessions that belong to the same Telegram account (by user_id)."""
+    duplicates = []
+    data_dir = ensure_data_dir()
+
+    for session_dir in data_dir.iterdir():
+        if not session_dir.is_dir():
+            continue
+
+        # Skip the excluded session
+        if exclude_session and session_dir.name == exclude_session:
+            continue
+
+        # Load account info
+        account_info = load_account_info(session_dir)
+        if account_info and account_info.get("user_id") == target_user_id:
+            duplicates.append(session_dir.name)
+
+    return duplicates
+
+
+def migrate_legacy_sessions() -> list[str]:
+    """Migrate legacy sessions (v0.4) to per-session config format (v0.5).
+
+    Legacy sessions have:
+    - session.session file
+    - .secure_storage marker (or credentials in keyring)
+    - No config.json
+
+    Migration creates config.json with api_id, api_hash from keyring
+    and proxy_id=null.
+
+    Returns:
+        List of migrated session IDs
+    """
+    from chatfilter.security import CredentialNotFoundError, SecureCredentialManager
+
+    migrated = []
+    data_dir = ensure_data_dir()
+
+    for session_dir in data_dir.iterdir():
+        if not session_dir.is_dir():
+            continue
+
+        session_file = session_dir / "session.session"
+        config_file = session_dir / "config.json"
+
+        # Skip if not a valid session directory
+        if not session_file.exists():
+            continue
+
+        # Skip if already has config.json (already migrated or new format)
+        if config_file.exists():
+            continue
+
+        session_id = session_dir.name
+        logger.info(f"Found legacy session without config.json: {session_id}")
+
+        # Try to read credentials from keyring
+        try:
+            manager = SecureCredentialManager(data_dir)
+            api_id, api_hash, proxy_id = manager.retrieve_credentials(session_id)
+
+            # Create config.json with credentials
+            # Default to 'file' source for migrated sessions
+            config_data: dict[str, int | str | None] = {
+                "api_id": api_id,
+                "api_hash": api_hash,
+                "proxy_id": proxy_id,  # Will be None for legacy sessions
+                "source": "file",
+            }
+
+            config_content = json.dumps(config_data, indent=2).encode("utf-8")
+            atomic_write(config_file, config_content)
+            secure_file_permissions(config_file)
+
+            migrated.append(session_id)
+            logger.info(f"Migrated legacy session '{session_id}' to per-session config format")
+
+        except CredentialNotFoundError:
+            logger.warning(
+                f"Legacy session '{session_id}' has no credentials in keyring. "
+                f"Session will be invisible until credentials are configured."
+            )
+        except Exception as e:
+            logger.error(f"Failed to migrate legacy session '{session_id}': {e}")
+
+    if migrated:
+        logger.info(f"Migrated {len(migrated)} legacy sessions: {migrated}")
+
+    return migrated
