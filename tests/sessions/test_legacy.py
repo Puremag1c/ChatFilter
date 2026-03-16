@@ -200,6 +200,10 @@ class TestBackwardCompatibilityLegacySessions:
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.helpers.ensure_data_dir", mock_ensure_data_dir
         )
+        # Also patch the import in listing.py which imports from .io
+        monkeypatch.setattr(
+            "chatfilter.web.routers.sessions.io.ensure_data_dir", mock_ensure_data_dir
+        )
         yield tmp_path
 
 

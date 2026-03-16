@@ -41,6 +41,10 @@ class TestDeviceConfirmation:
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir", mock_dir
         )
+        # Patch the io module import that listing.py uses
+        monkeypatch.setattr(
+            "chatfilter.web.routers.sessions.io.ensure_data_dir", mock_dir
+        )
         yield isolated_tmp_dir
 
     async def test_verify_code_needs_confirmation(
