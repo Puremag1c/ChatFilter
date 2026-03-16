@@ -96,6 +96,11 @@
 
     <!-- Global error handling and toast system -->
     <script>
+        // i18n helper for inline scripts
+        var t = function(key, params) {
+            return window.i18n ? window.i18n.t(key, params) : key;
+        };
+
         // Toast Notification System
         const ToastManager = {
             container: null,
@@ -202,7 +207,7 @@
                             ${toast.message ? `<div class="toast-message">${this.escapeHtml(toast.message)}</div>` : ''}
                             ${actionsHTML}
                         </div>
-                        <button class="toast-close" onclick="ToastManager.hide('${toast.id}')" aria-label="Close notification">&times;</button>
+                        <button class="toast-close" onclick="ToastManager.hide('${toast.id}')" aria-label="${t('toast.close_notification')}">&times;</button>
                     </div>
                 `;
             },
@@ -221,12 +226,12 @@
 
             getDefaultTitle(type) {
                 const titles = {
-                    error: 'Error',
-                    success: 'Success',
-                    warning: 'Warning',
-                    info: 'Info'
+                    error: t('toast.default_title.error'),
+                    success: t('toast.default_title.success'),
+                    warning: t('toast.default_title.warning'),
+                    info: t('toast.default_title.info')
                 };
-                return titles[type] || 'Notification';
+                return titles[type] || t('toast.default_title.notification');
             },
 
             escapeHtml(text) {
@@ -261,17 +266,17 @@
             console.error('Global error caught:', event.error);
 
             ToastManager.error(
-                event.error?.message || 'An unexpected error occurred',
+                event.error?.message || t('errors.unknown_error'),
                 {
-                    title: 'Application Error',
+                    title: t('toast.app_error'),
                     duration: 0,
                     actions: [{
-                        label: 'Reload Page',
+                        label: t('toast.reload_page'),
                         class: 'retry',
                         action: 'reload',
                         callback: () => window.location.reload()
                     }, {
-                        label: 'Dismiss',
+                        label: t('toast.dismiss'),
                         class: 'dismiss',
                         action: 'dismiss'
                     }]
@@ -284,9 +289,9 @@
             console.error('Unhandled promise rejection:', event.reason);
 
             ToastManager.error(
-                event.reason?.message || 'An unexpected error occurred',
+                event.reason?.message || t('errors.unknown_error'),
                 {
-                    title: 'Application Error',
+                    title: t('toast.app_error'),
                     duration: 8000
                 }
             );
@@ -335,10 +340,10 @@
                         id: Date.now() + Math.random(),
                         type: options.type || 'warning',
                         icon: options.icon || this.getDefaultIcon(options.type),
-                        title: options.title || 'Confirm Action',
-                        message: options.message || 'Are you sure?',
-                        confirmText: options.confirmText || 'Confirm',
-                        cancelText: options.cancelText || 'Cancel',
+                        title: options.title || t('modal.confirm_action'),
+                        message: options.message || t('modal.are_you_sure'),
+                        confirmText: options.confirmText || t('modal.confirm'),
+                        cancelText: options.cancelText || t('modal.cancel'),
                         confirmClass: options.confirmClass || 'danger',
                         onConfirm: () => {
                             resolve(true);
@@ -462,8 +467,8 @@
         document.body.addEventListener('htmx:responseError', function(event) {
             const status = event.detail.xhr.status;
             const statusText = event.detail.xhr.statusText;
-            let message = 'An error occurred while processing your request';
-            let title = 'Request Failed';
+            let message = t('errors.unknown_error');
+            let title = t('errors.request_failed');
 
             // Parse error response if JSON
             try {
@@ -474,17 +479,17 @@
             } catch (e) {
                 // If not JSON, use status text
                 if (status === 404) {
-                    message = 'The requested resource was not found';
-                    title = 'Not Found';
+                    message = t('errors.not_found_message');
+                    title = t('errors.not_found');
                 } else if (status === 403) {
-                    message = 'You do not have permission to access this resource';
-                    title = 'Access Denied';
+                    message = t('errors.access_denied_message');
+                    title = t('errors.access_denied');
                 } else if (status === 422) {
-                    message = 'Invalid input. Please check your data and try again';
-                    title = 'Validation Error';
+                    message = t('errors.validation_error_message');
+                    title = t('errors.validation_error');
                 } else if (status >= 500) {
-                    message = 'A server error occurred. Please try again later';
-                    title = 'Server Error';
+                    message = t('errors.server_error_message');
+                    title = t('errors.server_error');
                 } else if (statusText) {
                     message = statusText;
                 }
@@ -497,7 +502,7 @@
             const actions = [];
             if (canRetry) {
                 actions.push({
-                    label: 'Retry',
+                    label: t('errors.retry'),
                     class: 'retry',
                     action: 'retry',
                     callback: () => {
@@ -506,7 +511,7 @@
                 });
             }
             actions.push({
-                label: 'Dismiss',
+                label: t('toast.dismiss'),
                 class: 'dismiss',
                 action: 'dismiss'
             });
@@ -526,7 +531,7 @@
             const actions = [];
             if (canRetry) {
                 actions.push({
-                    label: 'Retry',
+                    label: t('errors.retry'),
                     class: 'retry',
                     action: 'retry',
                     callback: () => {
@@ -535,15 +540,15 @@
                 });
             }
             actions.push({
-                label: 'Dismiss',
+                label: t('toast.dismiss'),
                 class: 'dismiss',
                 action: 'dismiss'
             });
 
             ToastManager.error(
-                'Unable to connect to the server. Please check your internet connection',
+                t('errors.unable_to_connect'),
                 {
-                    title: 'Connection Error',
+                    title: t('errors.connection_error'),
                     duration: 8000,
                     actions: actions
                 }
@@ -558,7 +563,7 @@
             const actions = [];
             if (canRetry) {
                 actions.push({
-                    label: 'Retry',
+                    label: t('errors.retry'),
                     class: 'retry',
                     action: 'retry',
                     callback: () => {
@@ -567,15 +572,15 @@
                 });
             }
             actions.push({
-                label: 'Dismiss',
+                label: t('toast.dismiss'),
                 class: 'dismiss',
                 action: 'dismiss'
             });
 
             ToastManager.error(
-                'The request took too long to complete. The server may be busy',
+                t('errors.request_timeout_message'),
                 {
-                    title: 'Request Timeout',
+                    title: t('errors.request_timeout_title'),
                     duration: 8000,
                     actions: actions
                 }
@@ -607,9 +612,9 @@
             console.error('HTMX swap error:', event.detail);
 
             ToastManager.error(
-                'The server returned an unexpected response format',
+                t('errors.unexpected_format'),
                 {
-                    title: 'Response Error',
+                    title: t('errors.response_error'),
                     duration: 8000
                 }
             );
@@ -727,17 +732,17 @@
                     if (!isOnline) {
                         // Network went offline
                         ToastManager.error(
-                            'Please check your internet connection. Operations may fail until connectivity is restored.',
+                            t('network.offline_toast'),
                             {
-                                title: 'Network Offline',
+                                title: t('network.no_internet'),
                                 duration: 0, // Persist until dismissed or network restored
                                 actions: [{
-                                    label: 'Check Now',
+                                    label: t('network.check_now'),
                                     class: 'retry',
                                     action: 'check',
                                     callback: () => this.checkStatus()
                                 }, {
-                                    label: 'Dismiss',
+                                    label: t('toast.dismiss'),
                                     class: 'dismiss',
                                     action: 'dismiss'
                                 }]
@@ -751,9 +756,9 @@
                     } else {
                         // Network came back online
                         ToastManager.success(
-                            'Network connectivity restored',
+                            t('network.back_online_message'),
                             {
-                                title: 'Back Online',
+                                title: t('network.back_online'),
                                 duration: 3000
                             }
                         );

@@ -59,7 +59,18 @@
     "error_title": "Error",
     "success_title": "Success",
     "warning_title": "Warning",
-    "info_title": "Information"
+    "info_title": "Information",
+    "default_title": {
+      "error": "Error",
+      "success": "Success",
+      "warning": "Warning",
+      "info": "Info",
+      "notification": "Notification"
+    },
+    "close_notification": "Close notification",
+    "app_error": "Application Error",
+    "reload_page": "Reload Page",
+    "dismiss": "Dismiss"
   },
   "errors": {
     "connection_failed": "Connection failed",
@@ -70,7 +81,21 @@
     "load_failed": "Failed to load data",
     "save_failed": "Failed to save changes",
     "delete_failed": "Failed to delete",
-    "validation_error": "Validation error"
+    "validation_error": "Validation error",
+    "request_failed": "Request Failed",
+    "not_found": "Not Found",
+    "not_found_message": "The requested resource was not found",
+    "access_denied": "Access Denied",
+    "access_denied_message": "You do not have permission to access this resource",
+    "validation_error_message": "Invalid input. Please check your data and try again",
+    "server_error_message": "A server error occurred. Please try again later",
+    "retry": "Retry",
+    "connection_error": "Connection Error",
+    "unable_to_connect": "Unable to connect to the server. Please check your internet connection",
+    "request_timeout_title": "Request Timeout",
+    "request_timeout_message": "The request took too long to complete. The server may be busy",
+    "response_error": "Response Error",
+    "unexpected_format": "The server returned an unexpected response format"
   },
   "monitor": {
     "connection_offline": "Connection monitor offline",
@@ -91,7 +116,9 @@
   "modal": {
     "confirm_action": "Confirm Action",
     "are_you_sure": "Are you sure?",
-    "cannot_be_undone": "This action cannot be undone."
+    "cannot_be_undone": "This action cannot be undone.",
+    "confirm": "Confirm",
+    "cancel": "Cancel"
   },
   "analysis": {
     "complete": "Analysis Complete",
@@ -109,6 +136,13 @@
     "available": "Update Available",
     "view_release": "View Release",
     "version_info": "Version {latest} is now available (current: {current})"
+  },
+  "network": {
+    "offline_toast": "Please check your internet connection. Operations may fail until connectivity is restored.",
+    "check_now": "Check Now",
+    "back_online": "Back Online",
+    "back_online_message": "Network connectivity restored",
+    "no_internet": "No internet connection"
   },
   "warnings": {
     "tabs_open": "You have {count} tabs open. This may cause performance issues and conflicts.",
