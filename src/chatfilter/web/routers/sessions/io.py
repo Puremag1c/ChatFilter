@@ -12,9 +12,13 @@ from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
 
-from chatfilter.config import get_settings
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
+
+# Import get_settings from helpers to support test mocking.
+# Tests patch chatfilter.web.routers.sessions.helpers.get_settings,
+# so we import via that path to ensure patches work.
+from . import helpers
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
@@ -32,7 +36,7 @@ READ_CHUNK_SIZE = 8192  # 8 KB chunks
 
 def ensure_data_dir() -> Path:
     """Ensure sessions directory exists with proper permissions."""
-    sessions_dir = get_settings().sessions_dir
+    sessions_dir = helpers.get_settings().sessions_dir
     sessions_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     return sessions_dir
 

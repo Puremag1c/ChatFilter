@@ -15,6 +15,20 @@ from chatfilter.storage.file import secure_delete_file
 logger = logging.getLogger(__name__)
 
 
+def get_settings():
+    """Get settings — patchable wrapper for tests.
+
+    Tests patch chatfilter.web.routers.sessions.helpers.get_settings
+    to inject test settings without affecting chatfilter.config.get_settings.
+
+    This must be a real function (not module-level import) to support
+    unittest.mock.patch, but it must call chatfilter.config.get_settings
+    via module lookup (not direct import) to respect test patches.
+    """
+    import chatfilter.config
+    return chatfilter.config.get_settings()
+
+
 # Per-session locks to prevent race conditions on parallel operations
 _session_locks: dict[str, asyncio.Lock] = {}
 _locks_lock = asyncio.Lock()  # Lock for _session_locks dict access
@@ -197,7 +211,6 @@ def __getattr__(name: str):
         "migrate_legacy_sessions",
         "ensure_data_dir",
         "secure_file_permissions",
-        "get_settings",
         "MAX_SESSION_SIZE",
         "MAX_JSON_SIZE",
         "MAX_CONFIG_SIZE",
@@ -224,6 +237,7 @@ __all__ = [
     "_get_session_lock",
     "_get_flood_wait_until",
     "secure_delete_dir",
+    "get_settings",  # Moved to top-level (no longer re-exported from io.py)
     # From validation.py
     "sanitize_session_name",
     "validate_config_file_format",
@@ -240,7 +254,6 @@ __all__ = [
     "migrate_legacy_sessions",
     "ensure_data_dir",
     "secure_file_permissions",
-    "get_settings",
     "MAX_SESSION_SIZE",
     "MAX_JSON_SIZE",
     "MAX_CONFIG_SIZE",
