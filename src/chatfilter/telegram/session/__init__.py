@@ -1,30 +1,11 @@
-"""Session manager for Telethon client lifecycle management.
+"""Session management package for Telethon client lifecycle.
 
-DEPRECATED: This module is now a compatibility stub.
-Please import from chatfilter.telegram.session instead:
-
-    from chatfilter.telegram.session import (
-        SessionManager,
-        SessionState,
-        SessionInfo,
-        ManagedSession,
-        ClientFactory,
-        SessionError,
-        SessionConnectError,
-        SessionTimeoutError,
-        SessionNotConnectedError,
-        SessionInvalidError,
-        SessionReauthRequiredError,
-        SessionBusyError,
-        DEFAULT_CONNECT_TIMEOUT,
-        DEFAULT_OPERATION_TIMEOUT,
-        DEFAULT_DISCONNECT_TIMEOUT,
-        DEFAULT_HEALTH_CHECK_TIMEOUT,
-    )
+This package provides session management functionality for Telegram clients,
+including connection lifecycle, health monitoring, and error handling.
 """
 
-# Re-export all public names for backward compatibility
-from chatfilter.telegram.session import (
+from .manager import SessionManager
+from .models import (
     ClientFactory,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_DISCONNECT_TIMEOUT,
@@ -36,7 +17,6 @@ from chatfilter.telegram.session import (
     SessionError,
     SessionInfo,
     SessionInvalidError,
-    SessionManager,
     SessionNotConnectedError,
     SessionReauthRequiredError,
     SessionState,
@@ -44,11 +24,14 @@ from chatfilter.telegram.session import (
 )
 
 __all__ = [
+    # Main manager
     "SessionManager",
+    # Data models
     "SessionState",
     "SessionInfo",
     "ManagedSession",
     "ClientFactory",
+    # Exceptions
     "SessionError",
     "SessionConnectError",
     "SessionTimeoutError",
@@ -56,6 +39,7 @@ __all__ = [
     "SessionInvalidError",
     "SessionReauthRequiredError",
     "SessionBusyError",
+    # Constants
     "DEFAULT_CONNECT_TIMEOUT",
     "DEFAULT_OPERATION_TIMEOUT",
     "DEFAULT_DISCONNECT_TIMEOUT",
