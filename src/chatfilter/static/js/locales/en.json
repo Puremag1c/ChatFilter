@@ -228,5 +228,41 @@
       "enter_2fa_password": "Please enter your 2FA password.",
       "request_timeout": "Request timeout. Please try again."
     }
+  },
+  "proxy": {
+    "form": {
+      "add_proxy": "Add Proxy",
+      "edit_proxy": "Edit Proxy",
+      "save_changes": "Save Changes"
+    },
+    "validation": {
+      "field_required": "This field is required",
+      "min_length": "Minimum length is",
+      "max_length": "Maximum length is",
+      "characters": "characters",
+      "min_value": "Minimum value is",
+      "max_value": "Maximum value is",
+      "host_no_spaces": "Host cannot contain spaces",
+      "fix_errors": "Please fix the errors in the form",
+      "error_title": "Validation Error"
+    },
+    "messages": {
+      "operation_failed": "Operation failed",
+      "updated_successfully": "Proxy updated successfully",
+      "added_successfully": "Proxy added successfully",
+      "proxy_updated": "Proxy Updated",
+      "proxy_added": "Proxy Added",
+      "save_failed": "Save Failed"
+    },
+    "delete": {
+      "title": "Delete Proxy",
+      "used_by_prefix": "This proxy is used by",
+      "used_by_suffix": "session(s). They will be blocked. Continue?",
+      "confirm": "Delete",
+      "cancel": "Cancel",
+      "success": "Proxy deleted successfully",
+      "success_title": "Proxy Deleted",
+      "failed": "Deletion Failed"
+    }
   }
 }
