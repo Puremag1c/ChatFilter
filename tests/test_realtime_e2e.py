@@ -168,6 +168,8 @@ def test_template_has_sse_htmx_integration() -> None:
     - hx-ext="sse" - enables HTMX SSE extension
     - sse-connect="/api/sessions/events" - connects to SSE endpoint
     - sse-swap="message" - handles incoming SSE events
+
+    And the extracted JS file contains:
     - htmx:sseError - handles SSE connection errors
     """
     template_path = Path("src/chatfilter/templates/partials/sessions_list.html")
@@ -187,9 +189,12 @@ def test_template_has_sse_htmx_integration() -> None:
     assert 'sse-swap="message"' in template_content, \
         "Template must have sse-swap='message' to handle SSE events"
 
-    # Verify SSE error handler exists
-    assert "htmx:sseError" in template_content, \
-        "Template must have htmx:sseError event handler for connection errors"
+    # Verify SSE error handler exists (moved to extracted JS file)
+    js_path = Path("src/chatfilter/static/js/sessions-list.js")
+    assert js_path.exists(), f"JS file not found: {js_path}"
+    js_content = js_path.read_text()
+    assert "htmx:sseError" in js_content, \
+        "sessions-list.js must have htmx:sseError event handler for connection errors"
 
 
 @pytest.mark.asyncio
