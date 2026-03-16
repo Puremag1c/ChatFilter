@@ -11,6 +11,7 @@ All public APIs are re-exported here for backward compatibility.
 """
 
 from chatfilter.storage.file import secure_delete_file as _secure_delete_file
+from chatfilter.telegram.rate_limiter import get_rate_limiter
 
 # Re-export config module
 from .config import (
@@ -34,6 +35,7 @@ from .messages import (
     ChatAccessDeniedError,
     MAX_MESSAGES_LIMIT,
     MessageFetchError,
+    _get_forum_topics,
     _telethon_message_to_model,
     get_messages,
     get_messages_since,
@@ -69,6 +71,7 @@ __all__ = [
     # Messages
     "MessageFetchError",
     "ChatAccessDeniedError",
+    "_get_forum_topics",
     "_telethon_message_to_model",
     "get_messages",
     "get_messages_streaming",
@@ -84,6 +87,8 @@ __all__ = [
     "leave_chat",
     "join_chat_with_rotation",
     "get_account_info",
+    # Rate Limiter
+    "get_rate_limiter",
     # Storage
     "_secure_delete_file",
 ]
