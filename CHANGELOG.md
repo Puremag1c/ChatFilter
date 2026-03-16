@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-03-16
+
+### Changed
+- **telegram/client.py split into modules**: Replaced monolithic `telegram/client.py` (2,099 lines) with `telegram/client/` package containing 5 focused modules:
+  - `config.py` — Configuration and credential management
+  - `loader.py` — Client creation and initialization
+  - `chats.py` — Dialog fetching and chat operations
+  - `messages.py` — Message fetching and streaming
+  - `membership.py` — Join/leave operations and account info
+- **telegram/session_manager.py split into modules**: Replaced monolithic `telegram/session_manager.py` (1,228 lines) with `telegram/session/` package containing 4 focused modules:
+  - `manager.py` — Session connection management
+  - `auth.py` — Authentication flows
+  - `validators.py` — Session validation
+  - `cleanup.py` — Cleanup and recovery
+- **sessions/helpers.py split into modules**: Split monolithic `sessions/helpers.py` (847 lines) into 3 focused modules:
+  - `helpers.py` — Core helper functions
+  - `io.py` — I/O operations
+  - `listing.py` — List formatting
+
+### Fixed
+- **Private function re-exports**: Re-exported private functions in `telegram/client/__init__.py` to maintain backward compatibility after module split
+
 ## [0.18.0] - 2026-03-16
 
 ### Changed

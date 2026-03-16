@@ -10,12 +10,15 @@ This package provides a split module structure for better organization:
 All public APIs are re-exported here for backward compatibility.
 """
 
+from chatfilter.storage.file import secure_delete_file as _secure_delete_file
+
 # Re-export config module
 from .config import (
     SessionBlockedError,
     SessionFileError,
     TelegramConfig,
     TelegramConfigError,
+    _migrate_plaintext_to_secure,
     validate_session_file,
 )
 
@@ -23,7 +26,7 @@ from .config import (
 from .loader import TelegramClientLoader
 
 # Re-export chats module
-from .chats import get_chat_slowmode, get_dialogs
+from .chats import _dialog_to_chat, get_chat_slowmode, get_dialogs
 
 # Re-export messages module
 from .messages import (
@@ -56,11 +59,13 @@ __all__ = [
     "SessionBlockedError",
     "TelegramConfig",
     "validate_session_file",
+    "_migrate_plaintext_to_secure",
     # Loader
     "TelegramClientLoader",
     # Chats
     "get_dialogs",
     "get_chat_slowmode",
+    "_dialog_to_chat",
     # Messages
     "MessageFetchError",
     "ChatAccessDeniedError",
@@ -79,4 +84,6 @@ __all__ = [
     "leave_chat",
     "join_chat_with_rotation",
     "get_account_info",
+    # Storage
+    "_secure_delete_file",
 ]

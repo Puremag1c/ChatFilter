@@ -2631,11 +2631,11 @@ class TestJoinChatWithRotation:
             )
 
         monkeypatch.setattr(
-            "chatfilter.telegram.client.get_account_info",
+            "chatfilter.telegram.client.membership.get_account_info",
             mock_get_account_info,
         )
         monkeypatch.setattr(
-            "chatfilter.telegram.client.join_chat",
+            "chatfilter.telegram.client.membership.join_chat",
             mock_join_chat,
         )
 
@@ -2679,15 +2679,15 @@ class TestJoinChatWithRotation:
             return True
 
         monkeypatch.setattr(
-            "chatfilter.telegram.client.get_account_info",
+            "chatfilter.telegram.client.membership.get_account_info",
             mock_get_account_info,
         )
         monkeypatch.setattr(
-            "chatfilter.telegram.client.join_chat",
+            "chatfilter.telegram.client.membership.join_chat",
             mock_join_chat,
         )
         monkeypatch.setattr(
-            "chatfilter.telegram.client.leave_chat",
+            "chatfilter.telegram.client.membership.leave_chat",
             mock_leave_chat,
         )
 
@@ -2719,7 +2719,7 @@ class TestJoinChatWithRotation:
             return mock_account
 
         monkeypatch.setattr(
-            "chatfilter.telegram.client.get_account_info",
+            "chatfilter.telegram.client.membership.get_account_info",
             mock_get_account_info,
         )
 
