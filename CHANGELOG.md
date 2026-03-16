@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-03-16
+
+### Changed
+- **JS extraction: base.html**: Extracted ~950 lines of inline JS from `base.html` into 7 separate modules:
+  - `static/js/csrf-config.js` — CSRF token setup for HTMX
+  - `static/js/toast-manager.js` — ToastManager + global error/rejection handlers
+  - `static/js/modal-manager.js` — ModalManager (confirm dialogs, focus trap)
+  - `static/js/htmx-error-handler.js` — HTMX responseError, sendError, timeout, swapError handlers
+  - `static/js/network-status.js` — NetworkStatusMonitor (health polling, online/offline, TabSync)
+  - `static/js/sse-status-banner.js` — SSEStatusBanner (show/hide banner, CSS moved to style.css)
+  - `static/js/analysis-state-tracker.js` — AnalysisStateTracker + beforeunload protection
+- **JS extraction: sessions_list.html**: Extracted ~680 lines of inline JS into `static/js/sessions-list.js` (SSE handling, operation timers, code/2FA modals, MutationObserver)
+- **JS extraction: proxies.html**: Extracted ~310 lines of inline JS into `static/js/proxy-form.js` (ProxyFormModal, form validation, edit/delete handlers)
+- **i18n keys**: Added translation keys for all extracted JS modules to `static/locales/en.json` and `static/locales/ru.json`
+- **XSS protection**: Added sanitization to ToastManager.createToastHTML() and ModalManager confirm dialogs
+
+### Fixed
+- **proxy-form.js crash**: Fixed proxy-form.js crashing on non-proxy pages (sessions, chats) due to missing DOM elements
+- **i18n race condition**: Fixed raw i18n keys showing in error toasts before translations loaded
+- **Missing sessions_list translations**: Added missing translation keys for sessions list page
+- **Test assertion path**: Updated test_template_has_sse_htmx_integration to check sessions-list.js instead of template after JS extraction
+
 ## [0.17.0] - 2026-02-27
 
 ### Changed
@@ -1203,7 +1225,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.1...v0.16.0
 [0.15.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.0...v0.15.1
