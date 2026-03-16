@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-03-16
+
+### Fixed
+- **Missing re-exports after module split**: Fixed missing `get_settings` re-export in `sessions/helpers.py`, `get_rate_limiter` and private functions (`_parse_chat_reference`, `_telethon_message_to_model`, `_get_forum_topics`) in `telegram/client/__init__.py`
+- **Test mock paths**: Fixed 17+ test failures caused by mock patches targeting old module paths after helpers.py split (device confirmation, session upload, forum messages, join rotation, 2FA, legacy sessions)
+- **Build command**: Fixed build failure after module decomposition
+- **Server startup**: Fixed dev server startup failures after refactoring
+
+### Changed
+- **Session module structure**: Simplified `telegram/session/` to 2 modules (`models.py`, `manager.py`) instead of 4, keeping SessionManager class intact as designed in SPEC
+
 ## [0.19.0] - 2026-03-16
 
 ### Changed
@@ -1247,7 +1258,9 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.1...HEAD
+[0.19.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.0...v0.19.1
+[0.19.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.15.1...v0.16.0
