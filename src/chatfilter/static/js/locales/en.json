@@ -188,11 +188,13 @@
     "messages": {
       "still_working": "Still working...",
       "connection_lost_realtime_paused": "Connection lost. Real-time updates paused.",
+      "reconnected": "Reconnected",
       "retry_initiated": "Retry initiated successfully",
       "connected_successfully": "Connected successfully",
       "disconnected_successfully": "Disconnected successfully",
       "code_accepted": "Verification code accepted successfully",
       "2fa_accepted": "2FA password accepted successfully",
+      "requires_verification": "Session requires verification. Click Enter Verification Code button to proceed.",
       "no_accounts": "No Telegram Accounts",
       "no_accounts_hint": "You haven't added any Telegram accounts yet. Click \"Add Account\" above to get started."
     },
@@ -214,6 +216,17 @@
       "check_connection_and_retry": "Please check your connection and try again.",
       "connection_failed_while": "Connection failed while",
       "check_network_and_retry": "Please check your network and try again."
+    },
+    "auth": {
+      "verify": "Verify",
+      "verifying": "Verifying...",
+      "cancelled": "Authentication cancelled. Session remains disconnected. You can try again anytime.",
+      "code_verified_enter_2fa": "Code verified. Please enter your 2FA password.",
+      "twofa_accepted": "2FA password accepted successfully",
+      "auth_id_not_found": "Error: auth_id not found. Please refresh and try again.",
+      "enter_verification_code": "Please enter the verification code.",
+      "enter_2fa_password": "Please enter your 2FA password.",
+      "request_timeout": "Request timeout. Please try again."
     }
   }
 }
