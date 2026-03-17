@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-03-17
+
+### Changed
+- **config.py decomposition**: Extracted filesystem utilities (`_is_path_readonly`, `_format_permission_error`, `_get_default_data_dir`, platform checks) to `config_filesystem.py`
+- **error_mapping.py cleanup**: Extracted `_format_duration` and `_extract_wait_time` utilities to `telegram/error_utils.py`
+- **utils/logging.py split into package**: Replaced monolithic `utils/logging.py` (546 lines) with `utils/logging/` package:
+  - `sanitizer.py` — LogSanitizer, SanitizingFormatter, SENSITIVE_PATTERNS
+  - `context.py` — Correlation ID, chat ID context management
+  - `formatting.py` — JSONFormatter, TimingContext, timing decorator
+- **Import migration (54 imports, 38 files)**: Updated all consumers to use direct submodule paths:
+  - `telegram.session_manager` → `telegram.session` (src/ + tests/)
+  - `telegram.client` → `telegram.client.loader/messages/chats/config/membership` (src/ + tests/)
+  - Simplified `client/__init__.py` and `helpers.py` re-exports after migration
+- **Deleted deprecated stub**: Removed `telegram/session_manager.py` compatibility stub
+
 ## [0.19.1] - 2026-03-16
 
 ### Fixed
