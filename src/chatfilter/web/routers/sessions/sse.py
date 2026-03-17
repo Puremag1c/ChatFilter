@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from chatfilter.web.events import get_event_bus
 from chatfilter.web.template_helpers import get_template_context
-from .helpers import list_stored_sessions
+from .listing import list_stored_sessions
 
 if TYPE_CHECKING:
     from fastapi import APIRouter

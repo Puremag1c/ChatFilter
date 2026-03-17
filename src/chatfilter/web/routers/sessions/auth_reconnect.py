@@ -14,17 +14,10 @@ from fastapi.responses import HTMLResponse
 from chatfilter.i18n import _
 from chatfilter.web.template_helpers import get_template_context
 
-from .helpers import (
-    SessionListItem,
-    _get_flood_wait_until,
-    ensure_data_dir,
-    list_stored_sessions,
-    load_account_info,
-    sanitize_session_name,
-    save_account_info,
-    secure_delete_dir,
-    secure_file_permissions,
-)
+from .helpers import SessionListItem, _get_flood_wait_until, secure_delete_dir
+from .io import ensure_data_dir, load_account_info, save_account_info, secure_file_permissions
+from .listing import list_stored_sessions
+from .validation import sanitize_session_name
 
 if TYPE_CHECKING:
     from telethon import TelegramClient

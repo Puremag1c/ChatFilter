@@ -22,7 +22,7 @@ from chatfilter.parsers.telegram_expert import (
 from chatfilter.telegram.client import TelegramConfigError
 from chatfilter.utils.disk import DiskSpaceError
 
-from .helpers import (
+from .io import (
     MAX_CONFIG_SIZE,
     MAX_JSON_SIZE,
     MAX_SESSION_SIZE,
@@ -32,8 +32,10 @@ from .helpers import (
     get_account_info_from_session,
     load_account_info,
     read_upload_with_size_limit,
-    sanitize_session_name,
     save_account_info,
+)
+from .validation import (
+    sanitize_session_name,
     validate_config_file_format,
     validate_session_file_format,
 )

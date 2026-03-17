@@ -20,16 +20,9 @@ from chatfilter.web.template_helpers import get_template_context
 # chatfilter.web.routers.sessions.ensure_data_dir
 import chatfilter.web.routers.sessions as _sessions_pkg
 
-from .helpers import (
-    SessionListItem,
-    _get_flood_wait_until,
-    find_duplicate_accounts,
-    sanitize_session_name,
-    save_account_info,
-    secure_delete_dir,
-    secure_file_permissions,
-    validate_phone_number,
-)
+from .helpers import SessionListItem, _get_flood_wait_until, secure_delete_dir
+from .io import find_duplicate_accounts, save_account_info, secure_file_permissions
+from .validation import sanitize_session_name, validate_phone_number
 
 if TYPE_CHECKING:
     from starlette.templating import Jinja2Templates

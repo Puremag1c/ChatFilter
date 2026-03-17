@@ -129,32 +129,40 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Import helpers from helpers module
+# Import core helpers from helpers module
 from .helpers import (
-    MAX_CONFIG_SIZE,
-    MAX_JSON_SIZE,
-    MAX_SESSION_SIZE,
-    READ_CHUNK_SIZE,
     SessionListItem,
     _get_flood_wait_until,
     _get_session_lock,
     _locks_lock,
-    _save_error_to_config,
-    _save_session_to_disk,
     _session_locks,
     classify_error_state,
+    sanitize_error_message_for_client,
+    secure_delete_dir,
+)
+
+# Import IO functions from io module
+from .io import (
+    MAX_CONFIG_SIZE,
+    MAX_JSON_SIZE,
+    MAX_SESSION_SIZE,
+    READ_CHUNK_SIZE,
+    _save_session_to_disk,
     ensure_data_dir,
     find_duplicate_accounts,
     get_account_info_from_session,
-    get_session_config_status,
-    list_stored_sessions,
     load_account_info,
     migrate_legacy_sessions,
     read_upload_with_size_limit,
-    sanitize_error_message_for_client,
     save_account_info,
-    secure_delete_dir,
     secure_file_permissions,
+)
+
+# Import listing functions from listing module
+from .listing import (
+    _save_error_to_config,
+    get_session_config_status,
+    list_stored_sessions,
 )
 
 # Import validation functions from validation module
