@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-03-17
+
+### Changed
+- **ProxyConfig extraction**: Extracted `ProxyType`, `ProxyStatus`, `ProxyConfig` from `config.py` to dedicated `config_proxy.py` module
+- **Import migration (12 files)**: Updated all consumers (6 src/ + 6 tests/) to use direct `from chatfilter.config_proxy import ...` paths
+- Backward-compatible re-exports preserved in `config.py`
+
+### Fixed
+- **Test mock paths**: Fixed `get_event_bus` patch paths in auth_flow_fixes tests after sessions package refactor
+- **Version sync**: Fixed `__init__.py` version stuck at 0.19.1
+
 ## [0.20.0] - 2026-03-17
 
 ### Changed
@@ -1273,7 +1284,9 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.1...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.17.0...v0.18.0

@@ -1,3 +1,3 @@
 """ChatFilter - Telegram chat filtering and analysis tool."""
 
-__version__ = "0.19.1"
+__version__ = "0.21.0"
