@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from chatfilter.i18n import _
 from chatfilter.service.chat_analysis import SessionNotFoundError
 from chatfilter.telegram.error_mapping import get_actionable_error_info
-from chatfilter.telegram.session_manager import (
+from chatfilter.telegram.session import (
     SessionInvalidError,
     SessionReauthRequiredError,
 )

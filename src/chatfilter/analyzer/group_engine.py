@@ -25,7 +25,7 @@ from chatfilter.models.group import (
     GroupStatus,
 )
 from chatfilter.storage.group_database import GroupDatabase
-from chatfilter.telegram.session_manager import SessionInvalidError, SessionManager
+from chatfilter.telegram.session import SessionInvalidError, SessionManager
 from chatfilter.utils.network import detect_network_error
 
 if TYPE_CHECKING:

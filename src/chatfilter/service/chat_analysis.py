@@ -26,7 +26,7 @@ from chatfilter.telegram.client import (
     join_chat_with_rotation,
     leave_chat,
 )
-from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.telegram.session import SessionManager
 from chatfilter.utils.memory import MemoryMonitor, MemoryTracker, log_memory_usage
 
 if TYPE_CHECKING:

@@ -34,7 +34,7 @@ from chatfilter.storage import proxy_pool
 from chatfilter.telegram.error_mapping import get_user_friendly_message
 from chatfilter.telegram.retry import calculate_backoff_delay
 from chatfilter.telegram.client import SessionFileError
-from chatfilter.telegram.session_manager import (
+from chatfilter.telegram.session import (
     SessionBusyError,
     SessionConnectError,
     SessionInvalidError,

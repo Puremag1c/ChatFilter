@@ -50,7 +50,7 @@ class AppState:
             import asyncio
 
             from chatfilter.service.proxy_health import ProxyHealthMonitor
-            from chatfilter.telegram.session_manager import SessionManager
+            from chatfilter.telegram.session import SessionManager
 
         self.shutting_down = False
         self.active_connections = 0

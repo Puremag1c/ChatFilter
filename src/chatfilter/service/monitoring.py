@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from chatfilter.models import ChatMonitorState, GrowthMetrics, MonitoringSummary, SyncSnapshot
 from chatfilter.storage.database import MonitoringDatabase
 from chatfilter.telegram.client import get_messages, get_messages_since
-from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.telegram.session import SessionManager
 
 if TYPE_CHECKING:
     from chatfilter.telegram.client import TelegramClientLoader

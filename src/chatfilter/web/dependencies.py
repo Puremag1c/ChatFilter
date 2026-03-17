@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import Depends, Request
 
 from chatfilter.service import ChatAnalysisService
-from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.telegram.session import SessionManager
 from chatfilter.web.session import SessionData, get_session
 
 if TYPE_CHECKING:

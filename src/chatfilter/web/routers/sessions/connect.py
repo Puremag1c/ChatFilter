@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 from chatfilter.i18n import _
 from chatfilter.telegram.error_mapping import get_user_friendly_message
-from chatfilter.telegram.session_manager import (
+from chatfilter.telegram.session import (
     ManagedSession,
     SessionState,
 )

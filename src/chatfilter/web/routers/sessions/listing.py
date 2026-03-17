@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from chatfilter.storage.helpers import atomic_write
 
 if TYPE_CHECKING:
-    from chatfilter.telegram.session_manager import SessionManager
+    from chatfilter.telegram.session import SessionManager
     from chatfilter.web.auth_state import AuthStateManager
 
 logger = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ def list_stored_sessions(
         List of session info items
     """
     from chatfilter.telegram.flood_tracker import get_flood_tracker
-    from chatfilter.telegram.session_manager import SessionState
+    from chatfilter.telegram.session import SessionState
     from chatfilter.web.auth_state import AuthStep
 
     # Import from helpers to avoid duplication

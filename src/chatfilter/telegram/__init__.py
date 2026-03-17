@@ -23,7 +23,7 @@ from chatfilter.telegram.rate_limiter import (
     get_rate_limiter,
     set_rate_limiter,
 )
-from chatfilter.telegram.session_manager import (
+from chatfilter.telegram.session import (
     SessionConnectError,
     SessionError,
     SessionInfo,
