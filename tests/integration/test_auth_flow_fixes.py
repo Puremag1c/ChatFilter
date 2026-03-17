@@ -676,7 +676,7 @@ class TestVerifyCodeHTTPStatusCodes:
                 return_value=mock_event_bus,
             ),
             patch(
-                "chatfilter.web.routers.sessions._check_device_confirmation",
+                "chatfilter.web.routers.sessions.auth_device._check_device_confirmation",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -926,7 +926,7 @@ class TestVerify2FAHTTPStatusCodes:
                 return_value=mock_event_bus,
             ),
             patch(
-                "chatfilter.web.routers.sessions._check_device_confirmation",
+                "chatfilter.web.routers.sessions.auth_device._check_device_confirmation",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
