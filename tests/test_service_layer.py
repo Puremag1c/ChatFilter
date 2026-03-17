@@ -10,7 +10,7 @@ import pytest
 
 from chatfilter.models import Chat, ChatMetrics, ChatType, Message
 from chatfilter.service.chat_analysis import ChatAnalysisService, SessionNotFoundError
-from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.telegram.session import SessionManager
 
 
 @pytest.fixture

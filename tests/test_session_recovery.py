@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from chatfilter.telegram.session_manager import (
+from chatfilter.telegram.session import (
     SessionConnectError,
     SessionInvalidError,
     SessionReauthRequiredError,

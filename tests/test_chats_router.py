@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from chatfilter.models import AccountInfo, Chat, ChatType
 from chatfilter.service.chat_analysis import SessionNotFoundError
-from chatfilter.telegram.session_manager import (
+from chatfilter.telegram.session import (
     SessionInvalidError,
     SessionReauthRequiredError,
 )

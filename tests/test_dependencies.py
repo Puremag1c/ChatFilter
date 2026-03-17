@@ -43,7 +43,7 @@ class TestGetSessionManager:
         """Should create SessionManager instance."""
         # Reset global
         import chatfilter.web.dependencies as deps
-        from chatfilter.telegram.session_manager import SessionManager
+        from chatfilter.telegram.session import SessionManager
 
         deps._session_manager = None
 

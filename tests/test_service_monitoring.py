@@ -22,7 +22,7 @@ from chatfilter.service.monitoring import (
     get_monitoring_service,
     reset_monitoring_service,
 )
-from chatfilter.telegram.session_manager import SessionManager
+from chatfilter.telegram.session import SessionManager
 
 # ============================================================================
 # Fixtures

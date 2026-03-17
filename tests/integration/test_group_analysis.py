@@ -1101,7 +1101,7 @@ class TestAccountPreValidation:
         caplog.set_level(logging.DEBUG)
 
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-        from chatfilter.telegram.session_manager import SessionInvalidError
+        from chatfilter.telegram.session import SessionInvalidError
 
         # Setup: Create group with 3 chats
         group_id = "test-prevalidation"

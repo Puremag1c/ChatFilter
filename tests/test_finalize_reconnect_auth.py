@@ -271,7 +271,7 @@ class TestFinalizeReconnectAuth:
     ) -> None:
         """Test full cycle: finalize → adopt → connected (no AuthKeyUnregisteredError)."""
         from chatfilter.web.routers.sessions import _finalize_reconnect_auth
-        from chatfilter.telegram.session_manager import SessionManager
+        from chatfilter.telegram.session import SessionManager
 
         # Setup real SessionManager (not mocked)
         session_manager = SessionManager()
@@ -311,7 +311,7 @@ class TestFinalizeReconnectAuth:
                     )
 
         # Verify session is CONNECTED in SessionManager
-        from chatfilter.telegram.session_manager import SessionState
+        from chatfilter.telegram.session import SessionState
 
         assert safe_name in session_manager._sessions
         session = session_manager._sessions[safe_name]

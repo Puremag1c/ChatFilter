@@ -131,7 +131,7 @@ class TestConnectFlowSmoke:
         mock_session_manager.connect.side_effect = ApiIdInvalidError("API ID is invalid")
 
         # Need to mock SessionState enum for state assignment
-        from chatfilter.telegram.session_manager import SessionState
+        from chatfilter.telegram.session import SessionState
         mock_session_manager._sessions = {}
 
         # CRITICAL: patch get_event_bus/get_session_manager where they are USED (background.py)
@@ -161,7 +161,7 @@ class TestConnectFlowSmoke:
         This scenario tests auto-recovery from expired session.
         Should delete old session file and trigger send_code flow (publishes 'needs_code').
         """
-        from chatfilter.telegram.session_manager import SessionReauthRequiredError
+        from chatfilter.telegram.session import SessionReauthRequiredError
 
         session_id = "test_session"
         session_dir = tmp_path / session_id
@@ -256,7 +256,7 @@ class TestConnectFlowSmoke:
         This scenario tests connecting with a banned account.
         Should publish 'banned' SSE event.
         """
-        from chatfilter.telegram.session_manager import SessionInvalidError
+        from chatfilter.telegram.session import SessionInvalidError
 
         session_id = "test_session"
         session_dir = tmp_path / session_id
@@ -308,7 +308,7 @@ class TestConnectFlowSmoke:
         Uses same recovery path as expired session (SessionReauthRequiredError).
         Should delete old session file and trigger send_code flow.
         """
-        from chatfilter.telegram.session_manager import SessionReauthRequiredError
+        from chatfilter.telegram.session import SessionReauthRequiredError
         import struct
 
         session_id = "test_session"

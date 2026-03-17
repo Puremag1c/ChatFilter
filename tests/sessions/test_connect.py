@@ -263,7 +263,7 @@ class TestSessionConnectDisconnectAPI:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
-        from chatfilter.telegram.session_manager import SessionConnectError
+        from chatfilter.telegram.session import SessionConnectError
 
         # Get CSRF token
         home_response = client.get("/")
@@ -327,7 +327,7 @@ class TestSessionConnectDisconnectAPI:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
-        from chatfilter.telegram.session_manager import SessionBusyError
+        from chatfilter.telegram.session import SessionBusyError
 
         # Get CSRF token
         home_response = client.get("/")

@@ -78,7 +78,7 @@ class TestDeadSessionRecoveryUX:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
-        from chatfilter.telegram.session_manager import SessionReauthRequiredError
+        from chatfilter.telegram.session import SessionReauthRequiredError
 
         # Get CSRF token
         home_response = client.get("/")
@@ -143,7 +143,7 @@ class TestDeadSessionRecoveryUX:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
-        from chatfilter.telegram.session_manager import SessionReauthRequiredError
+        from chatfilter.telegram.session import SessionReauthRequiredError
 
         # Get CSRF token
         home_response = client.get("/")
@@ -207,7 +207,7 @@ class TestDeadSessionRecoveryUX:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
-        from chatfilter.telegram.session_manager import SessionInfo, SessionState
+        from chatfilter.telegram.session import SessionInfo, SessionState
 
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
@@ -271,7 +271,7 @@ class TestDeadSessionRecoveryUX:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from chatfilter.models.proxy import ProxyEntry
-        from chatfilter.telegram.session_manager import (
+        from chatfilter.telegram.session import (
             SessionConnectError,
             SessionInvalidError,
         )

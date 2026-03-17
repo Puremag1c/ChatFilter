@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from telethon import errors
 
-from chatfilter.telegram.session_manager import (
+from chatfilter.telegram.session import (
     SessionConnectError,
     SessionError,
     SessionInvalidError,
@@ -339,7 +339,7 @@ class TestSessionManagerLocking:
     @pytest.mark.asyncio
     async def test_concurrent_connects_rejected(self) -> None:
         """Test that concurrent connect requests are rejected with SessionBusyError."""
-        from chatfilter.telegram.session_manager import SessionBusyError
+        from chatfilter.telegram.session import SessionBusyError
 
         manager = SessionManager()
         # Use a slow connecting client to ensure concurrent requests

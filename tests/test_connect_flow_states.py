@@ -588,7 +588,7 @@ class TestConnectFlowErrorRecovery:
         """
         from telethon.errors import UserDeactivatedBanError
 
-        from chatfilter.telegram.session_manager import SessionInvalidError
+        from chatfilter.telegram.session import SessionInvalidError
         from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
         session_id = "test_session"
@@ -689,7 +689,7 @@ class TestConnectFlowSessionExpiredRecovery:
         """
         from telethon.errors import AuthKeyUnregisteredError
 
-        from chatfilter.telegram.session_manager import SessionInvalidError
+        from chatfilter.telegram.session import SessionInvalidError
         from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
         session_id = "test_session"
