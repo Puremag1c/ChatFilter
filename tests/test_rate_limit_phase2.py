@@ -12,7 +12,7 @@ from telethon import errors
 from chatfilter.analyzer.group_engine import AnalysisMode, GroupAnalysisEngine
 from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupSettings, GroupStatus
 from chatfilter.storage.group_database import GroupDatabase
-from chatfilter.telegram.client import RateLimitedJoinError
+from chatfilter.telegram.client.membership import RateLimitedJoinError
 from chatfilter.telegram.session import SessionManager
 
 
@@ -46,7 +46,7 @@ def engine(mock_db, mock_session_manager):
 @pytest.mark.asyncio
 async def test_join_chat_flood_wait_raises_rate_limited_error():
     """Test 1: join_chat wraps FloodWaitError as RateLimitedJoinError with seconds."""
-    from chatfilter.telegram.client import join_chat
+    from chatfilter.telegram.client.membership import join_chat
 
     mock_client = AsyncMock()
 
@@ -58,7 +58,7 @@ async def test_join_chat_flood_wait_raises_rate_limited_error():
     flood_error.seconds = 120
 
     # Mock the rate limiter to not wait
-    with patch("chatfilter.telegram.client.get_rate_limiter") as mock_limiter:
+    with patch("chatfilter.telegram.client.membership.get_rate_limiter") as mock_limiter:
         mock_limiter.return_value.wait_if_needed = AsyncMock()
 
         # Mock JoinChannelRequest to raise FloodWaitError

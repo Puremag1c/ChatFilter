@@ -199,7 +199,7 @@ class TestSaveNotConnect:
         mock_session_manager = MagicMock()
 
         with patch("telethon.TelegramClient", mock_telethon_client), \
-             patch("chatfilter.telegram.client.TelegramClientLoader", mock_client_loader), \
+             patch("chatfilter.telegram.client.loader.TelegramClientLoader", mock_client_loader), \
              patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager):
 
             response = client.post(

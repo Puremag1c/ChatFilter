@@ -17,11 +17,11 @@ from typing import TYPE_CHECKING
 
 from chatfilter.models import ChatMonitorState, GrowthMetrics, MonitoringSummary, SyncSnapshot
 from chatfilter.storage.database import MonitoringDatabase
-from chatfilter.telegram.client import get_messages, get_messages_since
+from chatfilter.telegram.client.messages import get_messages, get_messages_since
 from chatfilter.telegram.session import SessionManager
 
 if TYPE_CHECKING:
-    from chatfilter.telegram.client import TelegramClientLoader
+    from chatfilter.telegram.client.loader import TelegramClientLoader
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class MonitoringService:
         Raises:
             MonitoringError: If session not found
         """
-        from chatfilter.telegram.client import TelegramClientLoader
+        from chatfilter.telegram.client.loader import TelegramClientLoader
 
         if session_id not in self._loaders:
             session_dir = self._data_dir / session_id

@@ -45,7 +45,7 @@ class SessionManager:
 
     Example:
         ```python
-        from chatfilter.telegram.client import TelegramClientLoader
+        from chatfilter.telegram.client.loader import TelegramClientLoader
 
         loader = TelegramClientLoader(session_path, config_path)
         manager = SessionManager()

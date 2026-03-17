@@ -133,7 +133,7 @@ class TestFinalizeReconnectAuth:
 
         # Mock get_session_manager to return our mock
         with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.TelegramClientLoader"):
+            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
                 # Call _finalize_reconnect_auth
                 await _finalize_reconnect_auth(
                     client, auth_state, auth_manager, safe_name, "test context"
@@ -174,7 +174,7 @@ class TestFinalizeReconnectAuth:
 
         # Mock get_session_manager to return our mock
         with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.TelegramClientLoader"):
+            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
                 # Call _finalize_reconnect_auth
                 await _finalize_reconnect_auth(
                     client, auth_state, auth_manager, safe_name, "test context"
@@ -215,7 +215,7 @@ class TestFinalizeReconnectAuth:
 
         # Mock get_session_manager to return our mock
         with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.TelegramClientLoader"):
+            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
                 # Call _finalize_reconnect_auth
                 await _finalize_reconnect_auth(
                     client, auth_state, auth_manager, safe_name, "test context"
@@ -257,7 +257,7 @@ class TestFinalizeReconnectAuth:
 
         # Mock get_session_manager to return our mock
         with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.TelegramClientLoader"):
+            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
                 # Call _finalize_reconnect_auth
                 await _finalize_reconnect_auth(
                     client, auth_state, auth_manager, safe_name, "test context"
@@ -303,7 +303,7 @@ class TestFinalizeReconnectAuth:
 
             # Mock get_session_manager to return real SessionManager
             with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-                with patch("chatfilter.telegram.client.TelegramClientLoader"):
+                with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
                     # Call _finalize_reconnect_auth
                     # Should NOT raise AuthKeyUnregisteredError
                     await _finalize_reconnect_auth(

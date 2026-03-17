@@ -11,31 +11,33 @@ import pytest
 
 from chatfilter.config import ProxyConfig, ProxyType
 from chatfilter.models.chat import Chat, ChatType
-from chatfilter.telegram.client import (
-    ChatAccessDeniedError,
-    JoinChatError,
-    LeaveChatError,
-    MessageFetchError,
+from chatfilter.storage.file import secure_delete_file as _secure_delete_file
+from chatfilter.telegram.client.chats import _dialog_to_chat, get_chat_slowmode, get_dialogs
+from chatfilter.telegram.client.config import (
     SessionBlockedError,
     SessionFileError,
-    TelegramClientLoader,
     TelegramConfig,
     TelegramConfigError,
-    _dialog_to_chat,
     _migrate_plaintext_to_secure,
+    validate_session_file,
+)
+from chatfilter.telegram.client.loader import TelegramClientLoader
+from chatfilter.telegram.client.membership import (
+    JoinChatError,
+    LeaveChatError,
     _parse_chat_reference,
-    _secure_delete_file,
-    _telethon_message_to_model,
     get_account_info,
-    get_chat_slowmode,
-    get_dialogs,
-    get_messages,
-    get_messages_since,
-    get_messages_streaming,
     join_chat,
     join_chat_with_rotation,
     leave_chat,
-    validate_session_file,
+)
+from chatfilter.telegram.client.messages import (
+    ChatAccessDeniedError,
+    MessageFetchError,
+    _telethon_message_to_model,
+    get_messages,
+    get_messages_since,
+    get_messages_streaming,
 )
 
 

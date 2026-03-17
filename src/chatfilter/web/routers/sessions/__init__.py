@@ -113,7 +113,8 @@ from chatfilter.parsers.telegram_expert import (
 )
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
-from chatfilter.telegram.client import SessionFileError, TelegramClientLoader, TelegramConfigError
+from chatfilter.telegram.client.config import SessionFileError, TelegramConfigError
+from chatfilter.telegram.client.loader import TelegramClientLoader
 from chatfilter.telegram.session import SessionBusyError, SessionState
 from chatfilter.telegram.flood_tracker import get_flood_tracker
 from chatfilter.web.events import get_event_bus

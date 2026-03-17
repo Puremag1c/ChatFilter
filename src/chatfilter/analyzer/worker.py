@@ -19,12 +19,12 @@ from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready, ChatInvite
 from telethon.tl.types import Chat as TelegramChat
 
 from chatfilter.models.group import ChatTypeEnum, GroupSettings
-from chatfilter.telegram.client import (
+from chatfilter.telegram.client.membership import (
     _parse_chat_reference,
-    _telethon_message_to_model,
     join_chat,
     leave_chat,
 )
+from chatfilter.telegram.client.messages import _telethon_message_to_model
 from chatfilter.telegram.rate_limiter import get_rate_limiter
 
 if TYPE_CHECKING:

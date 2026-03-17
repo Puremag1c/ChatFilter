@@ -22,7 +22,7 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from chatfilter.telegram.client import (
+from chatfilter.telegram.client.config import (
     SessionFileError,
     TelegramConfig,
     TelegramConfigError,

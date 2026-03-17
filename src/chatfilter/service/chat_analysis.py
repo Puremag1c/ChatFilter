@@ -15,17 +15,15 @@ from typing import TYPE_CHECKING
 from chatfilter.analyzer import compute_metrics
 from chatfilter.analyzer.metrics import StreamingMetricsAggregator
 from chatfilter.models import AccountInfo, AnalysisResult, Chat, ChatType
-from chatfilter.telegram.client import (
-    TelegramClientLoader,
+from chatfilter.telegram.client.chats import get_chat_slowmode, get_dialogs
+from chatfilter.telegram.client.loader import TelegramClientLoader
+from chatfilter.telegram.client.membership import (
     get_account_info,
-    get_chat_slowmode,
-    get_dialogs,
-    get_messages,
-    get_messages_streaming,
     join_chat,
     join_chat_with_rotation,
     leave_chat,
 )
+from chatfilter.telegram.client.messages import get_messages, get_messages_streaming
 from chatfilter.telegram.session import SessionManager
 from chatfilter.utils.memory import MemoryMonitor, MemoryTracker, log_memory_usage
 

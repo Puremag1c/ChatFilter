@@ -169,7 +169,7 @@ class TestEnsureLoader:
         """Test ensuring loader for valid session."""
         session_id, _ = session_with_files
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -186,7 +186,7 @@ class TestEnsureLoader:
         """Test ensuring loader when already loaded."""
         session_id, _ = session_with_files
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -239,7 +239,7 @@ class TestEnableMonitoring:
         session_id, _ = session_with_files
         chat_id = 123456
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -285,7 +285,7 @@ class TestEnableMonitoring:
         )
         monitoring_service._db.save_monitor_state(existing_state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -315,7 +315,7 @@ class TestEnableMonitoring:
         )
         monitoring_service._db.save_monitor_state(existing_state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -337,7 +337,7 @@ class TestEnableMonitoring:
         session_id, _ = session_with_files
         chat_id = 999999
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -470,7 +470,7 @@ class TestSyncChat:
         )
         monitoring_service._db.save_monitor_state(state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -513,7 +513,7 @@ class TestSyncChat:
         )
         monitoring_service._db.save_monitor_state(state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -548,7 +548,7 @@ class TestSyncChat:
         )
         monitoring_service._db.save_monitor_state(state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -587,7 +587,7 @@ class TestSyncChat:
         )
         monitoring_service._db.save_monitor_state(state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -623,7 +623,7 @@ class TestSyncChat:
         """Test syncing chat that is not being monitored."""
         session_id, _ = session_with_files
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -647,7 +647,7 @@ class TestSyncChat:
         )
         monitoring_service._db.save_monitor_state(state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -673,7 +673,7 @@ class TestSyncChat:
         )
         monitoring_service._db.save_monitor_state(state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -731,7 +731,7 @@ class TestSyncAllEnabled:
         )
         monitoring_service._db.save_monitor_state(disabled_state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -766,7 +766,7 @@ class TestSyncAllEnabled:
             )
             monitoring_service._db.save_monitor_state(state)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -1255,7 +1255,7 @@ class TestEdgeCasesAndErrors:
         session_id, _ = session_with_files
         chat_id = 123456
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -1309,7 +1309,7 @@ class TestEdgeCasesAndErrors:
             )
             monitoring_service._db.save_snapshot(session_id, snapshot)
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
@@ -1348,7 +1348,7 @@ class TestEdgeCasesAndErrors:
         session_id, _ = session_with_files
         chat_id = 123456
 
-        with patch("chatfilter.telegram.client.TelegramClientLoader") as mock_loader_cls:
+        with patch("chatfilter.telegram.client.loader.TelegramClientLoader") as mock_loader_cls:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 

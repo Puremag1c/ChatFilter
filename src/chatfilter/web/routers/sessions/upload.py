@@ -19,7 +19,7 @@ from chatfilter.parsers.telegram_expert import (
     parse_telegram_expert_json,
     validate_account_info_json,
 )
-from chatfilter.telegram.client import TelegramConfigError
+from chatfilter.telegram.client.config import TelegramConfigError
 from chatfilter.utils.disk import DiskSpaceError
 
 from .io import (
