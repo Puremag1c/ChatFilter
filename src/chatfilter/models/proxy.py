@@ -8,7 +8,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 
-from chatfilter.config import ProxyStatus, ProxyType
+from chatfilter.config_proxy import ProxyStatus, ProxyType
 
 
 def _parse_datetime(v: str | datetime | None) -> datetime | None:

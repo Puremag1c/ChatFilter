@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from chatfilter.config import ProxyStatus, ProxyType
+from chatfilter.config_proxy import ProxyStatus, ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.service.proxy_health import (
     MAX_CONSECUTIVE_FAILURES,

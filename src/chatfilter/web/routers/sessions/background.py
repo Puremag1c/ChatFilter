@@ -139,7 +139,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             proxy_id = getattr(factory, '_proxy_id', None)
             proxy_entry = None
             if proxy_id:
-                from chatfilter.config import ProxyType
+                from chatfilter.config_proxy import ProxyType
                 from chatfilter.service.proxy_health import socks5_tunnel_check
 
                 try:

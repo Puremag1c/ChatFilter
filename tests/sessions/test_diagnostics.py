@@ -57,7 +57,7 @@ class TestPreConnectDiagnosticIntegration:
     async def test_socks5_tunnel_check_integration(self) -> None:
         """Verify socks5_tunnel_check is properly integrated in sessions router."""
         from chatfilter.service.proxy_health import socks5_tunnel_check
-        from chatfilter.config import ProxyType
+        from chatfilter.config_proxy import ProxyType
         from chatfilter.models.proxy import ProxyEntry
         from unittest.mock import patch
 

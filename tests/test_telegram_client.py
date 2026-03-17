@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from chatfilter.config import ProxyConfig, ProxyType
+from chatfilter.config_proxy import ProxyConfig, ProxyType
 from chatfilter.models.chat import Chat, ChatType
 from chatfilter.storage.file import secure_delete_file as _secure_delete_file
 from chatfilter.telegram.client.chats import _dialog_to_chat, get_chat_slowmode, get_dialogs
@@ -876,7 +876,7 @@ class TestTelegramClientLoader:
         )
 
         # Mock get_proxy_by_id to return a valid proxy
-        from chatfilter.config import ProxyType
+        from chatfilter.config_proxy import ProxyType
         from chatfilter.models.proxy import ProxyEntry
 
         def mock_get_proxy_by_id(proxy_id: str) -> ProxyEntry:

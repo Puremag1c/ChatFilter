@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from chatfilter.config import ProxyStatus, ProxyType
+from chatfilter.config_proxy import ProxyStatus, ProxyType
 from chatfilter.models.proxy import ProxyEntry
 
 

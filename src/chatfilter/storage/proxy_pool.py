@@ -10,7 +10,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from chatfilter.config import ProxyType, get_settings
+from chatfilter.config import get_settings
+from chatfilter.config_proxy import ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.helpers import load_json, save_json

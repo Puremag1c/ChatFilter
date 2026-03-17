@@ -17,7 +17,8 @@ from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from chatfilter.config import ProxyType, get_settings
+from chatfilter.config import get_settings
+from chatfilter.config_proxy import ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.proxy_pool import (

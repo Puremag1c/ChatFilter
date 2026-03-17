@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 import socks
 
-from chatfilter.config import ProxyStatus, ProxyType
+from chatfilter.config_proxy import ProxyStatus, ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.proxy_pool import load_proxy_pool, update_proxy
 

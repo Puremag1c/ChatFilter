@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import socks
 from telethon import TelegramClient
 
-from chatfilter.config import ProxyConfig, ProxyType
+from chatfilter.config_proxy import ProxyConfig, ProxyType
 from chatfilter.i18n.translations import _ as gettext
 
 from .config import (

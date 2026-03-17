@@ -142,7 +142,7 @@ ChatFilter supports SOCKS5 and HTTP proxies to bypass firewall restrictions. Thi
 ```python
 from pathlib import Path
 from chatfilter.telegram.client import TelegramClientLoader
-from chatfilter.config import ProxyConfig, ProxyType
+from chatfilter.config_proxy import ProxyConfig, ProxyType
 
 # Configure proxy
 proxy = ProxyConfig(

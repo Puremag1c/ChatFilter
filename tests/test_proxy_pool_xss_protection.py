@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from chatfilter.config import ProxyConfig, ProxyType
+from chatfilter.config_proxy import ProxyConfig, ProxyType
 from chatfilter.web.app import create_app
 
 
