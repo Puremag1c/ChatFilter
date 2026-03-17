@@ -189,6 +189,9 @@ def secure_delete_dir(dir_path: Path | str) -> None:
         shutil.rmtree(dir_path, ignore_errors=True)
 
 
+# Re-export from io.py (for test mocking)
+from .io import ensure_data_dir
+
 # Re-export from validation.py (for backward compatibility)
 from .validation import (
     sanitize_session_name,
@@ -209,6 +212,8 @@ __all__ = [
     "_get_flood_wait_until",
     "secure_delete_dir",
     "get_settings",
+    # From io.py (for test mocking)
+    "ensure_data_dir",
     # From validation.py
     "sanitize_session_name",
     "validate_config_file_format",
