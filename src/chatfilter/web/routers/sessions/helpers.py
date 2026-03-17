@@ -198,35 +198,6 @@ from .validation import (
     validate_telegram_credentials_with_retry,
 )
 
-# Re-export from io.py and listing.py - lazy import to avoid circular dependency
-def __getattr__(name: str):
-    """Lazy import for backward compatibility with existing imports."""
-    if name in {
-        "read_upload_with_size_limit",
-        "get_account_info_from_session",
-        "save_account_info",
-        "load_account_info",
-        "_save_session_to_disk",
-        "find_duplicate_accounts",
-        "migrate_legacy_sessions",
-        "ensure_data_dir",
-        "secure_file_permissions",
-        "MAX_SESSION_SIZE",
-        "MAX_JSON_SIZE",
-        "MAX_CONFIG_SIZE",
-        "READ_CHUNK_SIZE",
-    }:
-        from . import io
-        return getattr(io, name)
-    elif name in {
-        "get_session_config_status",
-        "list_stored_sessions",
-        "_save_error_to_config",
-    }:
-        from . import listing
-        return getattr(listing, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 # Ensure __all__ is defined for star imports
 __all__ = [
@@ -237,29 +208,11 @@ __all__ = [
     "_get_session_lock",
     "_get_flood_wait_until",
     "secure_delete_dir",
-    "get_settings",  # Moved to top-level (no longer re-exported from io.py)
+    "get_settings",
     # From validation.py
     "sanitize_session_name",
     "validate_config_file_format",
     "validate_phone_number",
     "validate_session_file_format",
     "validate_telegram_credentials_with_retry",
-    # From io.py
-    "read_upload_with_size_limit",
-    "get_account_info_from_session",
-    "save_account_info",
-    "load_account_info",
-    "_save_session_to_disk",
-    "find_duplicate_accounts",
-    "migrate_legacy_sessions",
-    "ensure_data_dir",
-    "secure_file_permissions",
-    "MAX_SESSION_SIZE",
-    "MAX_JSON_SIZE",
-    "MAX_CONFIG_SIZE",
-    "READ_CHUNK_SIZE",
-    # From listing.py
-    "get_session_config_status",
-    "list_stored_sessions",
-    "_save_error_to_config",
 ]

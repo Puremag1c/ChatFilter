@@ -7,36 +7,26 @@ This package provides a split module structure for better organization:
 - messages: Message fetching and streaming
 - membership: Join/leave operations and account info
 
-All public APIs are re-exported here for backward compatibility.
+Only public APIs used by telegram/__init__.py are re-exported here.
 """
-
-from chatfilter.storage.file import secure_delete_file as _secure_delete_file
-from chatfilter.telegram.rate_limiter import get_rate_limiter
 
 # Re-export config module
 from .config import (
-    SessionBlockedError,
     SessionFileError,
     TelegramConfig,
     TelegramConfigError,
-    _migrate_plaintext_to_secure,
-    validate_session_file,
 )
 
 # Re-export loader module
 from .loader import TelegramClientLoader
 
 # Re-export chats module
-from .chats import _dialog_to_chat, get_chat_slowmode, get_dialogs
+from .chats import get_dialogs
 
 # Re-export messages module
 from .messages import (
-    TELEGRAM_BATCH_SIZE,
     ChatAccessDeniedError,
-    MAX_MESSAGES_LIMIT,
     MessageFetchError,
-    _get_forum_topics,
-    _telethon_message_to_model,
     get_messages,
     get_messages_since,
     get_messages_streaming,
@@ -46,8 +36,6 @@ from .messages import (
 from .membership import (
     JoinChatError,
     LeaveChatError,
-    RateLimitedJoinError,
-    _parse_chat_reference,
     get_account_info,
     join_chat,
     join_chat_with_rotation,
@@ -58,37 +46,22 @@ __all__ = [
     # Config
     "TelegramConfigError",
     "SessionFileError",
-    "SessionBlockedError",
     "TelegramConfig",
-    "validate_session_file",
-    "_migrate_plaintext_to_secure",
     # Loader
     "TelegramClientLoader",
     # Chats
     "get_dialogs",
-    "get_chat_slowmode",
-    "_dialog_to_chat",
     # Messages
     "MessageFetchError",
     "ChatAccessDeniedError",
-    "_get_forum_topics",
-    "_telethon_message_to_model",
     "get_messages",
     "get_messages_streaming",
     "get_messages_since",
-    "MAX_MESSAGES_LIMIT",
-    "TELEGRAM_BATCH_SIZE",
     # Membership
     "JoinChatError",
-    "RateLimitedJoinError",
     "LeaveChatError",
-    "_parse_chat_reference",
     "join_chat",
     "leave_chat",
     "join_chat_with_rotation",
     "get_account_info",
-    # Rate Limiter
-    "get_rate_limiter",
-    # Storage
-    "_secure_delete_file",
 ]
