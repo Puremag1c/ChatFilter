@@ -1,5 +1,7 @@
 // Sessions list page logic: SSE handling, modals, operation tracking
 (function() {
+    var initialized = false;
+
     // Wait for DOM and check if we're on sessions page
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
@@ -9,11 +11,20 @@
 
     function init() {
         // Only initialize if sessions table exists
-        if (!document.querySelector('.accounts-table-container')) {
+        if (document.querySelector('.accounts-table-container')) {
+            setupSessionsListLogic();
             return;
         }
 
-        setupSessionsListLogic();
+        // Table may be loaded dynamically via HTMX (hx-get="/api/sessions")
+        // Wait for it to appear after HTMX swap
+        document.body.addEventListener('htmx:afterSettle', function onSettle() {
+            if (!initialized && document.querySelector('.accounts-table-container')) {
+                initialized = true;
+                document.body.removeEventListener('htmx:afterSettle', onSettle);
+                setupSessionsListLogic();
+            }
+        });
     }
 
     function setupSessionsListLogic() {
@@ -204,26 +215,11 @@
             }
         });
 
-        // Toggle config panel visibility when HTMX loads content
-        document.body.addEventListener('htmx:afterSettle', function(evt) {
-            const target = evt.detail.target;
-
-            // Check if this is a config panel swap (target id starts with session-config-)
-            if (target && target.id && target.id.startsWith('session-config-')) {
-                const sessionId = target.id.replace('session-config-', '');
-                const configRow = document.getElementById('session-config-row-' + sessionId);
-                const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
-
-                if (target.innerHTML.trim() && configRow) {
-                    configRow.style.display = 'table-row';
-                    if (btn) btn.setAttribute('aria-expanded', 'true');
-                    console.log('[sessions-list] Config panel shown for:', sessionId);
-                }
-            }
-        });
-
-        // Toggle panel on button click (hide if already shown)
-        document.body.addEventListener('click', function(e) {
+        // Toggle config panel on Edit button click (capture phase).
+        // Capture runs BEFORE HTMX's element-level handler, so we can
+        // preventDefault() to stop HTMX from fetching when toggling off.
+        // When opening, we show the row and let the event propagate to HTMX.
+        document.addEventListener('click', function(e) {
             const configBtn = e.target.closest('.session-config-btn');
             if (!configBtn) return;
 
@@ -231,17 +227,23 @@
             const panel = document.getElementById('session-config-' + sessionId);
             const configRow = document.getElementById('session-config-row-' + sessionId);
 
-            if (panel && configRow && configRow.style.display !== 'none' && panel.innerHTML.trim()) {
-                // Panel is visible, hide it
+            if (!panel || !configRow) return;
+
+            if (configRow.style.display !== 'none' && panel.innerHTML.trim()) {
+                // Panel is visible with content — hide it (toggle off)
                 configRow.style.display = 'none';
                 panel.innerHTML = '';
                 configBtn.setAttribute('aria-expanded', 'false');
                 e.preventDefault();
                 e.stopPropagation();
-                return false;
+                return;
             }
-            // Otherwise let HTMX handle it (fetch and show)
-        });
+
+            // Panel is hidden — show the row immediately, HTMX will load content
+            configRow.style.display = 'table-row';
+            configBtn.setAttribute('aria-expanded', 'true');
+            // Let the click propagate so HTMX processes hx-get
+        }, true); // capture phase
 
         // Handle HTMX errors for non-modal actions (Connect/Disconnect/Edit)
         document.body.addEventListener('htmx:responseError', function(evt) {
