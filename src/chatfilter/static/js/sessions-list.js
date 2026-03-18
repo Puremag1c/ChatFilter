@@ -205,17 +205,16 @@
         });
 
         // Toggle config panel visibility when HTMX loads content
-        console.log('[sessions-list] Registering htmx:afterSwap listener for config panel');
         document.body.addEventListener('htmx:afterSwap', function(evt) {
             if (evt.detail.target.classList.contains('session-config-panel')) {
-                console.log('[sessions-list] htmx:afterSwap fired for session-config-panel', evt.detail.target);
                 const panel = evt.detail.target;
                 const sessionId = panel.id.replace('session-config-', '');
                 const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
                 const configRow = document.getElementById('session-config-row-' + sessionId);
 
                 if (panel.innerHTML.trim()) {
-                    if (configRow) configRow.style.display = 'table-row';
+                    // Use setProperty with !important to override CSS specificity
+                    if (configRow) configRow.style.setProperty('display', 'table-row', 'important');
                     if (btn) btn.setAttribute('aria-expanded', 'true');
                 }
             }
@@ -230,14 +229,18 @@
             const panel = document.getElementById('session-config-' + sessionId);
             const configRow = document.getElementById('session-config-row-' + sessionId);
 
-            if (panel && configRow && configRow.style.display !== 'none' && panel.innerHTML.trim()) {
-                // Panel is visible, hide it
-                configRow.style.display = 'none';
-                panel.innerHTML = '';
-                configBtn.setAttribute('aria-expanded', 'false');
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
+            if (panel && configRow) {
+                // Check computed style (handles !important declarations)
+                const isVisible = window.getComputedStyle(configRow).display !== 'none';
+                if (isVisible && panel.innerHTML.trim()) {
+                    // Panel is visible, hide it
+                    configRow.style.setProperty('display', 'none', 'important');
+                    panel.innerHTML = '';
+                    configBtn.setAttribute('aria-expanded', 'false');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
             }
             // Otherwise let HTMX handle it (fetch and show)
         });
