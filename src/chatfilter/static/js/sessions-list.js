@@ -205,21 +205,19 @@
         });
 
         // Toggle config panel visibility when HTMX loads content
-        // Using htmx:afterSettle instead of htmx:afterSwap to ensure DOM is fully updated
         document.body.addEventListener('htmx:afterSettle', function(evt) {
-            if (evt.detail.target.classList && evt.detail.target.classList.contains('session-config-panel')) {
-                const panel = evt.detail.target;
-                const sessionId = panel.id.replace('session-config-', '');
-                const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
-                const configRow = document.getElementById('session-config-row-' + sessionId);
+            const target = evt.detail.target;
 
-                if (panel.innerHTML.trim()) {
-                    if (configRow) {
-                        configRow.style.display = 'table-row';
-                        // Force reflow to ensure style is applied
-                        void configRow.offsetHeight;
-                    }
+            // Check if this is a config panel swap (target id starts with session-config-)
+            if (target && target.id && target.id.startsWith('session-config-')) {
+                const sessionId = target.id.replace('session-config-', '');
+                const configRow = document.getElementById('session-config-row-' + sessionId);
+                const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
+
+                if (target.innerHTML.trim() && configRow) {
+                    configRow.style.display = 'table-row';
                     if (btn) btn.setAttribute('aria-expanded', 'true');
+                    console.log('[sessions-list] Config panel shown for:', sessionId);
                 }
             }
         });
