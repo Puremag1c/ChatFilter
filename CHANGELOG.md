@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-03-19
+
+### Fixed
+- **Edit button fix**: Fixed non-working "Edit" (Редактировать) button in session row on /sessions page
+  - Root cause: JavaScript `htmx:afterSwap` event listener in `sessions-list.js` was not executing despite HTMX successfully loading config form
+  - Fix: Corrected Edit button click handler and HTMX flow so config panel (`config-row`) toggles visibility correctly
+  - Config form with API ID, API Hash, Proxy fields now loads and displays properly
+  - Toggle behavior works: repeated click collapses the panel
+
 ## [0.21.0] - 2026-03-17
 
 ### Changed
@@ -1284,7 +1293,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.1...v0.20.0
 [0.19.1]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.0...v0.19.1
