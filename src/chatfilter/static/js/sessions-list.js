@@ -205,16 +205,20 @@
         });
 
         // Toggle config panel visibility when HTMX loads content
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            if (evt.detail.target.classList.contains('session-config-panel')) {
+        // Using htmx:afterSettle instead of htmx:afterSwap to ensure DOM is fully updated
+        document.body.addEventListener('htmx:afterSettle', function(evt) {
+            if (evt.detail.target.classList && evt.detail.target.classList.contains('session-config-panel')) {
                 const panel = evt.detail.target;
                 const sessionId = panel.id.replace('session-config-', '');
                 const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
                 const configRow = document.getElementById('session-config-row-' + sessionId);
 
                 if (panel.innerHTML.trim()) {
-                    // Use setProperty with !important to override CSS specificity
-                    if (configRow) configRow.style.setProperty('display', 'table-row', 'important');
+                    if (configRow) {
+                        configRow.style.display = 'table-row';
+                        // Force reflow to ensure style is applied
+                        void configRow.offsetHeight;
+                    }
                     if (btn) btn.setAttribute('aria-expanded', 'true');
                 }
             }
@@ -229,18 +233,14 @@
             const panel = document.getElementById('session-config-' + sessionId);
             const configRow = document.getElementById('session-config-row-' + sessionId);
 
-            if (panel && configRow) {
-                // Check computed style (handles !important declarations)
-                const isVisible = window.getComputedStyle(configRow).display !== 'none';
-                if (isVisible && panel.innerHTML.trim()) {
-                    // Panel is visible, hide it
-                    configRow.style.setProperty('display', 'none', 'important');
-                    panel.innerHTML = '';
-                    configBtn.setAttribute('aria-expanded', 'false');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return false;
-                }
+            if (panel && configRow && configRow.style.display !== 'none' && panel.innerHTML.trim()) {
+                // Panel is visible, hide it
+                configRow.style.display = 'none';
+                panel.innerHTML = '';
+                configBtn.setAttribute('aria-expanded', 'false');
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
             }
             // Otherwise let HTMX handle it (fetch and show)
         });
