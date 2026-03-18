@@ -205,8 +205,10 @@
         });
 
         // Toggle config panel visibility when HTMX loads content
+        console.log('[sessions-list] Registering htmx:afterSwap listener for config panel');
         document.body.addEventListener('htmx:afterSwap', function(evt) {
             if (evt.detail.target.classList.contains('session-config-panel')) {
+                console.log('[sessions-list] htmx:afterSwap fired for session-config-panel', evt.detail.target);
                 const panel = evt.detail.target;
                 const sessionId = panel.id.replace('session-config-', '');
                 const btn = document.querySelector(`[data-session-id="${sessionId}"].session-config-btn`);
