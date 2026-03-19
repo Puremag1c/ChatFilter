@@ -169,5 +169,14 @@
             closeModal();
         }
     };
+
+    // FIX: Explicitly process HTMX attributes on dynamically loaded modal
+    // Modal is loaded via hx-get into #modal-container with innerHTML swap.
+    // HTMX should auto-process new content, but timing issues can cause
+    // form hx-post to not be registered. Explicitly calling htmx.process()
+    // ensures all hx-* attributes are properly initialized.
+    if (typeof htmx !== 'undefined' && htmx.process) {
+        htmx.process(modal);
+    }
 })();
 </script>
