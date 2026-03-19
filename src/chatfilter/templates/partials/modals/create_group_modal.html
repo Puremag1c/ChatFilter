@@ -10,7 +10,9 @@
               hx-target="#groups-list"
               hx-swap="afterbegin"
               hx-encoding="multipart/form-data"
-              hx-on::htmx:responseError="handleCSRFError(event)">
+              hx-on::htmx:responseError="handleCSRFError(event)"
+              hx-indicator="#create-group-spinner"
+              hx-disabled-elt="button[type='submit']">
             <div class="modal-body">
                 <div class="form-group">
                     <label for="group-name">{{ _("Group Name") }} *</label>
@@ -72,7 +74,8 @@
                     {{ _("Cancel") }}
                 </button>
                 <button type="submit" class="modal-button primary">
-                    {{ _("Create Group") }}
+                    <span class="btn-text">{{ _("Create Group") }}</span>
+                    <span id="create-group-spinner" class="htmx-indicator spinner"></span>
                 </button>
             </div>
         </form>
@@ -140,8 +143,19 @@
         }
     };
 
-    // Form submission handler
-    document.getElementById('create-group-form').addEventListener('htmx:afterRequest', function(event) {
+    // Loading state: change button text during submission
+    const form = document.getElementById('create-group-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const originalText = btnText.textContent;
+
+    form.addEventListener('htmx:beforeRequest', function() {
+        btnText.textContent = '{{ _("Creating...") }}';
+    });
+
+    form.addEventListener('htmx:afterRequest', function(event) {
+        // Restore original text
+        btnText.textContent = originalText;
         if (event.detail.successful) {
             // Remove "no groups" placeholder if it exists
             const noGroupsEl = document.querySelector('.no-groups');
