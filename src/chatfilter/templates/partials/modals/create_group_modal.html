@@ -9,7 +9,8 @@
               hx-post="/api/groups"
               hx-target="#groups-list"
               hx-swap="afterbegin"
-              hx-encoding="multipart/form-data">
+              hx-encoding="multipart/form-data"
+              hx-on::htmx:responseError="handleCSRFError(event)">
             <div class="modal-body">
                 <div class="form-group">
                     <label for="group-name">{{ _("Group Name") }} *</label>
@@ -115,6 +116,29 @@
 
     // Trigger initial state
     sourceTypeSelect.dispatchEvent(new Event('change'));
+
+    // CSRF error handler (exposed globally for hx-on attribute)
+    window.handleCSRFError = function(event) {
+        const xhr = event.detail.xhr;
+
+        // Check if this is a CSRF validation failure (403)
+        if (xhr && xhr.status === 403) {
+            // Prevent HTMX from swapping error response into target
+            event.detail.shouldSwap = false;
+
+            // Show user-friendly error message via ToastManager
+            if (window.ToastManager) {
+                window.ToastManager.error('CSRF validation failed. Please refresh the page.');
+            }
+
+            // Also show in modal's error div as fallback
+            const errorDiv = document.getElementById('create-group-error');
+            if (errorDiv) {
+                errorDiv.textContent = 'CSRF validation failed. Please refresh the page.';
+                errorDiv.style.display = 'block';
+            }
+        }
+    };
 
     // Form submission handler
     document.getElementById('create-group-form').addEventListener('htmx:afterRequest', function(event) {
