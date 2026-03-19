@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-03-19
+
+### Fixed
+- **Create Group form submission**: Fixed HTMX `hx-post` not firing in import chats modal — form now submits correctly via POST `/api/groups`
+- **Modal re-open JS error**: Wrapped inline JS in `create_group_modal.html` in IIFE to prevent `const` re-declaration error on repeated modal opens
+- **Export modal scope pollution**: Wrapped inline JS in `export_modal.html` in IIFE to prevent scope pollution on re-open
+- **Settings modal scope pollution**: Wrapped inline JS in `settings_modal.html` in IIFE to prevent scope pollution on re-open
+- **Keydown event listener leak**: Fixed keydown listener not being cleaned up when create group modal is closed
+- **Error message swap target**: Fixed error messages swapping into wrong target in create group form
+
+### Changed
+- **Loading state for Create Group**: Submit button now shows spinner + "Creating..." during form submission
+- **CSRF error handling**: Added explicit error handling for CSRF token failures in create group form with user-facing toast message
+- **Error message UX**: Improved error message display in Create Group modal — errors now appear inline in modal
+- **Audit: buttons and JS**: Full audit of all interactive elements across /chats, /sessions, /proxies — all buttons confirmed working
+- **Audit: modal inline JS**: Verified all HTMX-loaded modals use IIFE pattern to prevent scope issues
+- **E2E tests**: Added automated functional tests for import chats modal flow
+
 ## [0.22.0] - 2026-03-19
 
 ### Fixed
@@ -1293,7 +1311,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.19.1...v0.20.0
