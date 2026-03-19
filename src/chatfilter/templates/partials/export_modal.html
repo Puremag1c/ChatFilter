@@ -195,126 +195,143 @@
 </div>
 
 <script>
-// Show modal
-document.getElementById('export-modal').classList.add('show');
-
-// HTMX afterSwap handler for preview updates
-document.getElementById('export-preview').addEventListener('htmx:afterSwap', function(event) {
-    const previewElement = event.detail.target;
-    const countSpan = previewElement.querySelector('span[data-count]');
-
-    if (countSpan) {
-        const count = parseInt(countSpan.getAttribute('data-count'), 10);
-        const downloadBtn = document.getElementById('download-csv-btn');
-        const warningDiv = document.getElementById('export-warning');
-
-        if (count === 0) {
-            // Zero results: disable button, show warning
-            downloadBtn.disabled = true;
-            downloadBtn.style.opacity = '0.5';
-            downloadBtn.style.cursor = 'not-allowed';
-            warningDiv.style.display = 'block';
-        } else {
-            // Has results: enable button, hide warning
-            downloadBtn.disabled = false;
-            downloadBtn.style.opacity = '1';
-            downloadBtn.style.cursor = 'pointer';
-            warningDiv.style.display = 'none';
-        }
-    }
-});
-
-// Preset button handlers
-function setSubscribersMin(value) {
-    document.getElementById('subscribers_min').value = value;
-    // Trigger change event to update preview
-    document.getElementById('subscribers_min').dispatchEvent(new Event('change', { bubbles: true }));
-}
-
-// Download handler
-async function downloadFilteredExport() {
-    const form = document.getElementById('export-form');
-    const formData = new FormData(form);
-
-    // Build query params
-    const params = new URLSearchParams();
-
-    // Chat types (multiple params)
-    const chatTypes = formData.getAll('chat_types');
-    for (const chatType of chatTypes) {
-        params.append('chat_types', chatType);
-    }
-    // Numeric filters
-    const numericFields = [
-        'subscribers_min', 'subscribers_max',
-        'activity_min', 'activity_max',
-        'authors_min', 'authors_max'
-    ];
-    for (const field of numericFields) {
-        const value = formData.get(field);
-        if (value && value.trim() !== '') {
-            params.append(field, value);
-        }
-    }
-
-    // Radio filters
-    const moderation = formData.get('moderation');
-    if (moderation) {
-        params.append('moderation', moderation);
-    }
-    const captcha = formData.get('captcha');
-    if (captcha) {
-        params.append('captcha', captcha);
-    }
-
-    // Fetch CSV
-    const url = `/api/groups/{{ group.id }}/export?${params.toString()}`;
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error('Export failed');
-        }
-
-        // Create download blob
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = '{{ group.name }}.csv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(downloadUrl);
-
-        // Close modal
-        closeModal('export-modal');
-    } catch (error) {
-        alert('Failed to download export: ' + error.message);
-    }
-}
-
-// Modal close function
-function closeModal(modalId) {
+(function() {
+    const modalId = 'export-modal';
     const modal = document.getElementById(modalId);
-    if (modal) {
+
+    // Show modal
+    modal.classList.add('show');
+
+    // HTMX afterSwap handler for preview updates
+    document.getElementById('export-preview').addEventListener('htmx:afterSwap', function(event) {
+        const previewElement = event.detail.target;
+        const countSpan = previewElement.querySelector('span[data-count]');
+
+        if (countSpan) {
+            const count = parseInt(countSpan.getAttribute('data-count'), 10);
+            const downloadBtn = document.getElementById('download-csv-btn');
+            const warningDiv = document.getElementById('export-warning');
+
+            if (count === 0) {
+                // Zero results: disable button, show warning
+                downloadBtn.disabled = true;
+                downloadBtn.style.opacity = '0.5';
+                downloadBtn.style.cursor = 'not-allowed';
+                warningDiv.style.display = 'block';
+            } else {
+                // Has results: enable button, hide warning
+                downloadBtn.disabled = false;
+                downloadBtn.style.opacity = '1';
+                downloadBtn.style.cursor = 'pointer';
+                warningDiv.style.display = 'none';
+            }
+        }
+    });
+
+    // Preset button handlers (exposed to window for inline onclick)
+    function setSubscribersMin(value) {
+        document.getElementById('subscribers_min').value = value;
+        // Trigger change event to update preview
+        document.getElementById('subscribers_min').dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    window.setSubscribersMin = setSubscribersMin;
+
+    // Download handler (exposed to window for inline onclick)
+    async function downloadFilteredExport() {
+        const form = document.getElementById('export-form');
+        const formData = new FormData(form);
+
+        // Build query params
+        const params = new URLSearchParams();
+
+        // Chat types (multiple params)
+        const chatTypes = formData.getAll('chat_types');
+        for (const chatType of chatTypes) {
+            params.append('chat_types', chatType);
+        }
+        // Numeric filters
+        const numericFields = [
+            'subscribers_min', 'subscribers_max',
+            'activity_min', 'activity_max',
+            'authors_min', 'authors_max'
+        ];
+        for (const field of numericFields) {
+            const value = formData.get(field);
+            if (value && value.trim() !== '') {
+                params.append(field, value);
+            }
+        }
+
+        // Radio filters
+        const moderation = formData.get('moderation');
+        if (moderation) {
+            params.append('moderation', moderation);
+        }
+        const captcha = formData.get('captcha');
+        if (captcha) {
+            params.append('captcha', captcha);
+        }
+
+        // Fetch CSV
+        const url = `/api/groups/{{ group.id }}/export?${params.toString()}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Export failed');
+            }
+
+            // Create download blob
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = '{{ group.name }}.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(downloadUrl);
+
+            // Close modal
+            closeModal();
+        } catch (error) {
+            alert('Failed to download export: ' + error.message);
+        }
+    }
+    window.downloadFilteredExport = downloadFilteredExport;
+
+    // Modal close function with cleanup (exposed to window for inline onclick)
+    function closeModal() {
         modal.classList.remove('show');
+
+        // Cleanup: remove event listeners
+        document.removeEventListener('keydown', handleEscape);
+
+        // Remove DOM after transition
         setTimeout(() => modal.remove(), 300);
     }
-}
+    window.closeModal = function(modalId) {
+        if (modalId === 'export-modal') {
+            closeModal();
+        }
+    };
 
-// Close on overlay click
-document.getElementById('export-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal('export-modal');
+    // Named handler for escape key (allows removal)
+    function handleEscape(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
     }
-});
 
-// Close on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeModal('export-modal');
-    }
-});
+    // Close on overlay click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', handleEscape);
+})();
 </script>
 
 <style>
