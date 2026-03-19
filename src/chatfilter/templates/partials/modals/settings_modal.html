@@ -116,59 +116,80 @@
 </div>
 
 <script>
-// Show modal
-document.getElementById('settings-modal').classList.add('show');
-
-// Toggle time window visibility based on checkboxes
-function toggleTimeWindow() {
-    const detectActivity = document.getElementById('detect-activity').checked;
-    const detectUniqueAuthors = document.getElementById('detect-unique-authors').checked;
-    const timeWindowGroup = document.getElementById('time-window-group');
-
-    // Show time window selector only if either checkbox is checked
-    if (detectActivity || detectUniqueAuthors) {
-        timeWindowGroup.style.display = 'block';
-    } else {
-        timeWindowGroup.style.display = 'none';
-    }
-}
-
-// Initialize time window visibility on load
-toggleTimeWindow();
-
-// Form submission handler
-document.getElementById('settings-form').addEventListener('htmx:afterRequest', function(event) {
-    if (event.detail.successful) {
-        // Close modal on success
-        closeModal('settings-modal');
-    } else {
-        // Show error
-        const errorDiv = document.getElementById('settings-error');
-        errorDiv.textContent = event.detail.xhr.responseText || 'Failed to update settings';
-        errorDiv.style.display = 'block';
-    }
-});
-
-// Modal close function
-function closeModal(modalId) {
+(function() {
+    const modalId = 'settings-modal';
     const modal = document.getElementById(modalId);
-    if (modal) {
+
+    // Show modal
+    modal.classList.add('show');
+
+    // Toggle time window visibility based on checkboxes
+    function toggleTimeWindow() {
+        const detectActivity = document.getElementById('detect-activity').checked;
+        const detectUniqueAuthors = document.getElementById('detect-unique-authors').checked;
+        const timeWindowGroup = document.getElementById('time-window-group');
+
+        // Show time window selector only if either checkbox is checked
+        if (detectActivity || detectUniqueAuthors) {
+            timeWindowGroup.style.display = 'block';
+        } else {
+            timeWindowGroup.style.display = 'none';
+        }
+    }
+
+    // Initialize time window visibility on load
+    toggleTimeWindow();
+
+    // Form submission handler
+    document.getElementById('settings-form').addEventListener('htmx:afterRequest', function(event) {
+        if (event.detail.successful) {
+            // Close modal on success
+            closeModal();
+        } else {
+            // Show error
+            const errorDiv = document.getElementById('settings-error');
+            errorDiv.textContent = event.detail.xhr.responseText || 'Failed to update settings';
+            errorDiv.style.display = 'block';
+        }
+    });
+
+    // Modal close function with cleanup
+    function closeModal() {
         modal.classList.remove('show');
+
+        // Cleanup: remove event listeners
+        document.removeEventListener('keydown', handleEscape);
+
+        // Remove DOM after transition
         setTimeout(() => modal.remove(), 300);
     }
-}
 
-// Close on overlay click
-document.getElementById('settings-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal('settings-modal');
+    // Named handler for escape key (allows removal)
+    function handleEscape(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
     }
-});
 
-// Close on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeModal('settings-modal');
-    }
-});
+    // Close on overlay click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', handleEscape);
+
+    // Expose for inline onclick handler and external calls
+    window.closeModal = function(modalIdParam) {
+        // Support both old signature closeModal('settings-modal') and new closeModal()
+        if (!modalIdParam || modalIdParam === modalId) {
+            closeModal();
+        }
+    };
+
+    // Expose toggleTimeWindow for inline onchange handlers
+    window.toggleTimeWindow = toggleTimeWindow;
+})();
 </script>
