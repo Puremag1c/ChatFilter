@@ -1,61 +1,39 @@
-# Test Import Verification
+# Browser Verification: create_group_modal.html IIFE Fix
 
-Task: ChatFilter-5y1 - Fix test imports after refactoring
+## Task: ChatFilter-414
+Fix const re-declaration error by wrapping inline JS in IIFE
 
-## Result: NO CHANGES NEEDED ✅
+## Verification Results
 
-The refactoring in ChatFilter-zhs correctly set up `__init__.py` to re-export all necessary symbols.
+### Test Date
+2026-03-19 17:22 UTC
 
-### Verification Steps:
+### Test Procedure
+1. Navigate to http://127.0.0.1:9123/chats
+2. Click "Import chats" button → modal opens
+3. Click "Cancel" → modal closes
+4. Repeat steps 2-3 for 4 complete cycles
 
-1. **Test Collection**: All 2240 tests collected successfully with no import errors
-   ```bash
-   pytest tests/ --collect-only
-   # Result: 2240 tests collected
-   ```
+### Results
+✅ **PASSED**: Modal opened and closed 4 times without JavaScript errors
 
-2. **Import Verification**: Manual verification of key imports
-   ```python
-   from chatfilter.web.routers.sessions import (
-       _do_connect_in_background_v2,
-       _send_verification_code_and_create_auth,
-       _check_device_confirmation,
-       verify_code,
-       verify_2fa,
-       # ... all other functions
-   )
-   # Result: ✅ All imports work
-   ```
+**Console state:**
+- Before test: 1 error (unrelated htmx.min.js error)
+- After cycle 1: 1 error (no new errors)
+- After cycle 2: 1 error (no new errors)
+- After cycle 3: 1 error (no new errors)
+- After cycle 4: 1 error (no new errors)
 
-3. **Test Execution**: Tests run without import errors
-   - Test failures present are logic issues, not import errors
-   - All 15 test files mentioned in task can import successfully
+**No const re-declaration errors detected**
 
-### Files Checked (from task description):
-- tests/test_sessions_router.py ✅
-- tests/web/test_sessions.py ✅
-- tests/test_error_sanitization.py ✅
-- tests/test_session_recovery.py ✅
-- tests/test_sse_integration.py ✅
-- tests/test_connect_flow_smoke.py ✅
-- tests/test_connect_flow_states.py ✅
-- tests/test_device_confirmation.py ✅
-- tests/test_finalize_reconnect_auth.py ✅
-- tests/test_removed_states_verification.py ✅
-- tests/test_save_not_connect.py ✅
-- tests/test_release_smoke_v082.py ✅
-- tests/integration/test_auth_flow_fixes.py ✅
-- tests/integration/test_device_confirmation_timeout.py ✅
+### What was fixed
+1. ✅ Wrapped entire inline script in IIFE: `(function() { ... })();`
+2. ✅ All const/let declarations now scoped to IIFE (sourceTypeSelect, sourceInputs)
+3. ✅ closeModal function is local (no global conflict with other modals)
+4. ✅ Keydown event listener cleanup implemented via handleEscape reference
+5. ✅ window.closeModal exposed for backwards compatibility with inline onclick
 
-### Why No Changes Needed:
+### done_when criteria met
+✅ "Modal can be opened, closed (Cancel), and reopened 3+ times without JS errors in console or toast"
 
-The `__init__.py` in `chatfilter/web/routers/sessions/` already:
-1. Imports and re-exports all helper functions (lines 133-163)
-2. Re-exports all auth functions (lines 184-195)
-3. Re-exports all connect functions (lines 198-202)
-
-All test imports work because they use the public API from `__init__.py`, which was properly configured during the refactoring.
-
-### Conclusion:
-
-**done_when criteria met**: pytest passes with 0 import errors ✅
+**Evidence:** 4 complete open/close cycles with no JavaScript errors.

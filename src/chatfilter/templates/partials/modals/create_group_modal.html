@@ -79,77 +79,95 @@
 </div>
 
 <script>
-// Show modal
-document.getElementById('create-group-modal').classList.add('show');
+(function() {
+    const modalId = 'create-group-modal';
+    const modal = document.getElementById(modalId);
 
-// Source type switching
-const sourceTypeSelect = document.getElementById('source-type');
-const sourceInputs = {
-    'file_upload': document.getElementById('source-file-upload'),
-    'google_sheets': document.getElementById('source-google-sheets'),
-    'file_url': document.getElementById('source-file-url')
-};
+    // Show modal
+    modal.classList.add('show');
 
-sourceTypeSelect.addEventListener('change', function() {
-    // Hide all source inputs
-    Object.values(sourceInputs).forEach(el => {
-        el.style.display = 'none';
-        // Disable inputs
-        const inputs = el.querySelectorAll('input');
-        inputs.forEach(input => input.disabled = true);
+    // Source type switching
+    const sourceTypeSelect = document.getElementById('source-type');
+    const sourceInputs = {
+        'file_upload': document.getElementById('source-file-upload'),
+        'google_sheets': document.getElementById('source-google-sheets'),
+        'file_url': document.getElementById('source-file-url')
+    };
+
+    sourceTypeSelect.addEventListener('change', function() {
+        // Hide all source inputs
+        Object.values(sourceInputs).forEach(el => {
+            el.style.display = 'none';
+            // Disable inputs
+            const inputs = el.querySelectorAll('input');
+            inputs.forEach(input => input.disabled = true);
+        });
+
+        // Show selected source input
+        const selected = sourceInputs[this.value];
+        if (selected) {
+            selected.style.display = 'block';
+            // Enable inputs
+            const inputs = selected.querySelectorAll('input');
+            inputs.forEach(input => input.disabled = false);
+        }
     });
 
-    // Show selected source input
-    const selected = sourceInputs[this.value];
-    if (selected) {
-        selected.style.display = 'block';
-        // Enable inputs
-        const inputs = selected.querySelectorAll('input');
-        inputs.forEach(input => input.disabled = false);
-    }
-});
+    // Trigger initial state
+    sourceTypeSelect.dispatchEvent(new Event('change'));
 
-// Trigger initial state
-sourceTypeSelect.dispatchEvent(new Event('change'));
-
-// Form submission handler
-document.getElementById('create-group-form').addEventListener('htmx:afterRequest', function(event) {
-    if (event.detail.successful) {
-        // Remove "no groups" placeholder if it exists
-        const noGroupsEl = document.querySelector('.no-groups');
-        if (noGroupsEl) {
-            noGroupsEl.remove();
+    // Form submission handler
+    document.getElementById('create-group-form').addEventListener('htmx:afterRequest', function(event) {
+        if (event.detail.successful) {
+            // Remove "no groups" placeholder if it exists
+            const noGroupsEl = document.querySelector('.no-groups');
+            if (noGroupsEl) {
+                noGroupsEl.remove();
+            }
+            // Close modal on success - HTMX will auto-swap the new group card
+            closeModal();
+        } else {
+            // Show error
+            const errorDiv = document.getElementById('create-group-error');
+            errorDiv.textContent = event.detail.xhr.responseText || 'Failed to create group';
+            errorDiv.style.display = 'block';
         }
-        // Close modal on success - HTMX will auto-swap the new group card
-        closeModal('create-group-modal');
-    } else {
-        // Show error
-        const errorDiv = document.getElementById('create-group-error');
-        errorDiv.textContent = event.detail.xhr.responseText || 'Failed to create group';
-        errorDiv.style.display = 'block';
-    }
-});
+    });
 
-// Modal close function
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
+    // Modal close function with cleanup
+    function closeModal() {
         modal.classList.remove('show');
+
+        // Cleanup: remove event listeners
+        document.removeEventListener('keydown', handleEscape);
+
+        // Remove DOM after transition
         setTimeout(() => modal.remove(), 300);
     }
-}
 
-// Close on overlay click
-document.getElementById('create-group-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal('create-group-modal');
+    // Named handler for escape key (allows removal)
+    function handleEscape(e) {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
     }
-});
 
-// Close on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeModal('create-group-modal');
-    }
-});
+    // Close on overlay click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', handleEscape);
+
+    // Expose closeModal for inline onclick handler
+    window.closeModal = function(modalIdParam) {
+        // Support both old signature closeModal('create-group-modal') and new closeModal()
+        if (!modalIdParam || modalIdParam === modalId) {
+            closeModal();
+        }
+    };
+})();
 </script>
