@@ -162,8 +162,8 @@ def test_empty_csv_file(
         data=data,
     )
 
-    # Should return error about no valid chats or parsing error
-    assert response.status_code == 200  # Returns HTML error partial
+    # Should return 422 with error about no valid chats or parsing error
+    assert response.status_code == 422
     assert "error" in response.text.lower() or "failed" in response.text.lower()
 
 

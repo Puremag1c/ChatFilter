@@ -64,6 +64,7 @@ async def create_group(
             request=request,
             name="partials/error_message.html",
             context={"error": "Group name is required"},
+            status_code=422,
         )
 
     try:
@@ -76,6 +77,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": "File upload is required"},
+                    status_code=422,
                 )
 
             # Validate file extension
@@ -89,6 +91,7 @@ async def create_group(
                     context={
                         "error": f"Invalid file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
                     },
+                    status_code=422,
                 )
 
             # Read file with size limit
@@ -101,6 +104,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": str(e)},
+                    status_code=422,
                 )
 
             # Validate MIME type matches extension
@@ -111,6 +115,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": str(e)},
+                    status_code=422,
                 )
 
             # Parse chat list from file
@@ -121,6 +126,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": f"Failed to parse file: {str(e)}"},
+                    status_code=422,
                 )
 
         elif source_type == "google_sheets":
@@ -129,6 +135,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": "Google Sheets URL is required"},
+                    status_code=422,
                 )
 
             # Fetch and parse Google Sheets (returns ChatListEntry objects directly)
@@ -139,6 +146,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": f"Failed to fetch Google Sheets: {str(e)}"},
+                    status_code=422,
                 )
 
         elif source_type == "file_url":
@@ -147,6 +155,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": "File URL is required"},
+                    status_code=422,
                 )
 
             # Fetch file from URL with validation
@@ -159,12 +168,14 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": str(e)},
+                    status_code=422,
                 )
             except HTTPException as e:
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": f"Failed to fetch file: {e.detail}"},
+                    status_code=422,
                 )
 
             # Parse chat list from fetched file
@@ -175,6 +186,7 @@ async def create_group(
                     request=request,
                     name="partials/error_message.html",
                     context={"error": f"Failed to parse file: {str(e)}"},
+                    status_code=422,
                 )
 
         else:
@@ -182,6 +194,7 @@ async def create_group(
                 request=request,
                 name="partials/error_message.html",
                 context={"error": f"Invalid source type: {source_type}"},
+                status_code=422,
             )
 
         if not chat_entries:
@@ -189,6 +202,7 @@ async def create_group(
                 request=request,
                 name="partials/error_message.html",
                 context={"error": "No valid chat references found in file"},
+                status_code=422,
             )
 
         # Create group via GroupService
@@ -211,6 +225,7 @@ async def create_group(
             request=request,
             name="partials/error_message.html",
             context={"error": f"Failed to create group: {str(e)}"},
+            status_code=422,
         )
 
 

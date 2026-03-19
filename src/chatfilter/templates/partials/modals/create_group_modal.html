@@ -164,10 +164,20 @@
             }
             // Close modal on success - HTMX will auto-swap the new group card
             closeModal();
-        } else {
-            // Show error
-            const errorDiv = document.getElementById('create-group-error');
-            errorDiv.textContent = event.detail.xhr.responseText || 'Failed to create group';
+        }
+    });
+
+    // Intercept non-2xx responses BEFORE swap to prevent error HTML going into #groups-list
+    form.addEventListener('htmx:beforeSwap', function(event) {
+        if (event.detail.xhr.status === 422) {
+            // Prevent swap into #groups-list
+            event.detail.shouldSwap = false;
+            // Server returns HTML (e.g. <div class="alert alert-error">msg</div>)
+            // Extract text content to display in modal's own error div
+            var tmp = document.createElement('div');
+            tmp.innerHTML = event.detail.xhr.responseText || 'Failed to create group';
+            var errorDiv = document.getElementById('create-group-error');
+            errorDiv.textContent = tmp.textContent.trim();
             errorDiv.style.display = 'block';
         }
     });
