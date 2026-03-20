@@ -121,6 +121,9 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
         updated_group = service.get_group(group_id)
         assert updated_group.status == GroupStatus.IN_PROGRESS
 
+        # Flush background tasks before asserting (start_analysis fires create_task internally)
+        await asyncio.sleep(0)
+
         # Verify start_analysis was called (with mode parameter)
         from chatfilter.analyzer.group_engine import AnalysisMode
         mock_engine.start_analysis.assert_called_once_with(group_id, mode=AnalysisMode.FRESH)

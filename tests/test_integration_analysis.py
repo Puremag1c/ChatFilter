@@ -687,7 +687,11 @@ class TestServiceLayer:
             patch("chatfilter.analyzer.group_engine.process_chat", side_effect=mock_process),
             patch("chatfilter.analyzer.group_engine.asyncio.sleep", new_callable=AsyncMock),
         ):
-            await svc.start_analysis(group_id)
+            svc.start_analysis(group_id)
+            # Drain background task to completion (start_analysis is now sync, fires create_task)
+            pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
 
         # Status is computed from chat statuses
         computed_status = db.compute_group_status(group_id)
