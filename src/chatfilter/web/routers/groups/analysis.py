@@ -5,6 +5,7 @@ This module handles starting, stopping, resuming, and reanalyzing groups.
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -71,8 +72,9 @@ async def start_group_analysis(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Start analysis via service (creates task internally, handles status)
-        await service.start_analysis(group_id)
+        # Update status immediately, then fire analysis in background
+        service.update_status(group_id, GroupStatus.IN_PROGRESS)
+        asyncio.create_task(service.start_analysis(group_id))
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
@@ -163,8 +165,9 @@ async def reanalyze_group(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Reanalyze via service (handles mode, task creation, status)
-        await service.reanalyze(group_id, mode=analysis_mode)
+        # Update status immediately, then fire reanalysis in background
+        service.update_status(group_id, GroupStatus.IN_PROGRESS)
+        asyncio.create_task(service.reanalyze(group_id, mode=analysis_mode))
 
         # Return 204 No Content with HX-Trigger header to refresh the container
         return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
@@ -340,8 +343,9 @@ async def resume_group_analysis(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Resume analysis via service (handles status, task)
-        await service.start_analysis(group_id)
+        # Update status immediately, then fire analysis in background
+        service.update_status(group_id, GroupStatus.IN_PROGRESS)
+        asyncio.create_task(service.start_analysis(group_id))
 
         # Return updated card with in_progress state so SSE connection starts immediately
         updated_group = service.get_group(group_id)

@@ -1,7 +1,6 @@
 <div class="group-card {{ group.status.value }}" id="group-{{ group.id }}"
      data-group-id="{{ group.id }}"
      data-group-status="{{ group.status.value }}"
-     data-started-at="{% if group.started_at %}{{ group.started_at.isoformat() }}{% endif %}"
      data-flood-wait-until="{% if group.flood_wait_until %}{{ group.flood_wait_until.isoformat() }}{% endif %}">
     <!-- SSE event handlers: hidden elements for HTMX SSE extension to register EventSource listeners -->
     <div sse-swap="init" style="display:none"></div>
@@ -43,10 +42,6 @@
         <div class="stat-row">
             <span>{{ _("Current chat") }}:</span>
             <strong id="current-chat-{{ group.id }}" class="current-chat-title">—</strong>
-        </div>
-        <div class="stat-row">
-            <span>{{ _("Elapsed time") }}:</span>
-            <strong id="elapsed-{{ group.id }}">0:00</strong>
         </div>
         {% endif %}
     </div>

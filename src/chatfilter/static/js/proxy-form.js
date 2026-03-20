@@ -309,6 +309,7 @@
                 if (!confirmed) return;
             }
 
+            deleteBtn.disabled = true;
             try {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
                 const response = await fetch(`/api/proxies/${proxyId}`, {
@@ -338,6 +339,8 @@
                     title: t('proxy.delete.failed'),
                     duration: 8000
                 });
+            } finally {
+                deleteBtn.disabled = false;
             }
         });
     });

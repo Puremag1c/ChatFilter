@@ -41,7 +41,6 @@
                 processedEl: document.getElementById('processed-' + groupId),
                 errorEl: document.getElementById('error-' + groupId),
                 currentChatEl: document.getElementById('current-chat-' + groupId),
-                elapsedEl: document.getElementById('elapsed-' + groupId),
                 progressFillEl: document.getElementById('progress-fill-' + groupId),
                 errorWarningEl: document.getElementById('error-warning-' + groupId),
                 errorMessageEl: document.getElementById('error-message-' + groupId),
@@ -54,19 +53,6 @@
             };
         }
 
-        // Parse started_at from data-attr (ISO 8601 format)
-        let startTime = Date.now(); // Default fallback
-        const startedAtStr = cardEl.dataset.startedAt;
-        if (startedAtStr) {
-            const parsedDate = new Date(startedAtStr);
-            if (!isNaN(parsedDate.getTime())) {
-                startTime = parsedDate.getTime();
-            } else {
-                console.warn('group-card.js: Invalid data-started-at:', startedAtStr);
-            }
-        }
-
-        let elapsedTimer = null;
         let staleCheckTimer = null;
         let floodWaitTimer = null;
         let floodWaitTarget = null; // Date object for flood_wait_until
@@ -84,7 +70,7 @@
             }
         }
 
-        // Format elapsed time as M:SS
+        // Format elapsed time as M:SS (used by FloodWait countdown)
         function formatElapsed(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
@@ -96,25 +82,6 @@
             const h = date.getHours();
             const m = date.getMinutes();
             return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
-        }
-
-        // Update elapsed time every second
-        function startElapsedTimer() {
-            if (elapsedTimer) return; // Already running
-            elapsedTimer = setInterval(function() {
-                const elapsed = Math.floor((Date.now() - startTime) / 1000);
-                const els = getElements();
-                if (els.elapsedEl) {
-                    els.elapsedEl.textContent = formatElapsed(elapsed);
-                }
-            }, 1000);
-        }
-
-        function stopElapsedTimer() {
-            if (elapsedTimer) {
-                clearInterval(elapsedTimer);
-                elapsedTimer = null;
-            }
         }
 
         // FloodWait countdown timer
@@ -243,14 +210,6 @@
 
                 // Handle init event (sent on SSE connection open)
                 if (sseEvent.type === 'init') {
-                    // Update startTime from server's started_at
-                    if (data.started_at) {
-                        startTime = new Date(data.started_at).getTime();
-                    } else {
-                        // Fallback to current time if no started_at
-                        startTime = Date.now();
-                    }
-
                     // Update initial progress from DB
                     if (data.processed !== undefined && data.total !== undefined) {
                         const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
@@ -328,7 +287,6 @@
 
                 // Handle error event
                 if (sseEvent.type === 'error') {
-                    stopElapsedTimer();
                     stopStaleCheckTimer();
                     hideFloodWait();
 
@@ -356,7 +314,6 @@
 
                 // Handle complete event
                 if (sseEvent.type === 'complete') {
-                    stopElapsedTimer();
                     stopStaleCheckTimer();
                     hideFloodWait();
 
@@ -379,8 +336,6 @@
         // Use signal for automatic cleanup when abortController.abort() is called
         document.body.addEventListener('htmx:sseMessage', handleSseMessage, {signal});
 
-        // Start elapsed timer when card initializes
-        startElapsedTimer();
         // NOTE: stale check timer starts on first SSE event (see recordSseEvent)
 
         // Start FloodWait countdown if floodWaitTarget was parsed from data-attr
@@ -396,7 +351,6 @@
                 event.detail.target.id === 'groups-container' ||
                 event.detail.target.id === 'groups-list'
             )) {
-                stopElapsedTimer();
                 stopStaleCheckTimer();
                 stopFloodWaitCountdown();
                 // CRITICAL: Abort signal removes ALL listeners registered with this signal
@@ -412,7 +366,6 @@
                 mutation.removedNodes.forEach(function(node) {
                     const els = getElements();
                     if (node === els.cardEl || (node.contains && els.cardEl && node.contains(els.cardEl))) {
-                        stopElapsedTimer();
                         stopStaleCheckTimer();
                         stopFloodWaitCountdown();
                         // CRITICAL: Abort signal removes ALL listeners registered with this signal
