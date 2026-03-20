@@ -323,6 +323,18 @@
                         els.currentChatEl.title = '';
                     }
 
+                    // Remove in_progress/waiting_for_accounts from status badge so morphdom
+                    // won't skip this card when refreshGroups runs (onBeforeElUpdated check)
+                    if (els.statusBadgeEl) {
+                        els.statusBadgeEl.classList.remove('in_progress', 'waiting_for_accounts');
+                        els.statusBadgeEl.classList.add('completed');
+                        els.statusBadgeEl.textContent = 'Completed';
+                    }
+                    if (els.cardEl) {
+                        els.cardEl.classList.remove('in_progress');
+                        els.cardEl.classList.add('completed');
+                    }
+
                     // Trigger group refresh to show completed state
                     document.body.dispatchEvent(new CustomEvent('refreshGroups'));
                 }
