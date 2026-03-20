@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
 from chatfilter.models.group import AnalysisMode, GroupStatus
+from chatfilter.telegram.session.models import SessionState
 
 from .helpers import _get_group_service
 
@@ -58,10 +59,10 @@ async def start_group_analysis(
                 headers={'HX-Trigger': json.dumps({'showToast': {'message': 'Analysis already running', 'type': 'warning'}})}
             )
 
-        # Validate connected accounts BEFORE starting
+        # Validate connected accounts BEFORE starting (instant in-memory check)
         connected_accounts = [
             sid for sid in session_mgr.list_sessions()
-            if await session_mgr.is_healthy(sid)
+            if (info := session_mgr.get_info(sid)) and info.state == SessionState.CONNECTED
         ]
 
         if not connected_accounts:
@@ -149,10 +150,10 @@ async def reanalyze_group(
         # Convert mode string to AnalysisMode enum
         analysis_mode = AnalysisMode.INCREMENT if mode == "increment" else AnalysisMode.OVERWRITE
 
-        # Validate connected accounts BEFORE starting
+        # Validate connected accounts BEFORE starting (instant in-memory check)
         connected_accounts = [
             sid for sid in session_mgr.list_sessions()
-            if await session_mgr.is_healthy(sid)
+            if (info := session_mgr.get_info(sid)) and info.state == SessionState.CONNECTED
         ]
 
         if not connected_accounts:
@@ -325,10 +326,10 @@ async def resume_group_analysis(
                 headers={'HX-Trigger': trigger_data}
             )
 
-        # Validate connected accounts BEFORE starting
+        # Validate connected accounts BEFORE starting (instant in-memory check)
         connected_accounts = [
             sid for sid in session_mgr.list_sessions()
-            if await session_mgr.is_healthy(sid)
+            if (info := session_mgr.get_info(sid)) and info.state == SessionState.CONNECTED
         ]
 
         if not connected_accounts:
