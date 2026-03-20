@@ -3228,14 +3228,18 @@ body:has(.update-notification.show) {
         border: 1px solid var(--border-light);
         border-radius: 8px;
         padding: 0.75rem;
+        overflow: hidden;
     }
 
     .proxy-pool-table tbody td {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
         padding: 0.5rem 0;
         border-bottom: 1px solid var(--border-light);
+        min-width: 0;
     }
 
     .proxy-pool-table tbody td:last-child {
@@ -3249,11 +3253,24 @@ body:has(.update-notification.show) {
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.03em;
+        flex-shrink: 0;
+    }
+
+    .proxy-pool-table tbody td .proxy-address {
+        white-space: normal;
+        word-break: break-all;
+    }
+
+    .proxy-pool-table tbody td .proxy-name {
+        word-break: break-word;
+        text-align: right;
     }
 
     .proxy-actions {
         width: 100%;
+        flex-wrap: wrap;
         justify-content: flex-end;
+        gap: 0.375rem;
     }
 }
 
