@@ -1,7 +1,7 @@
 /**
  * Group Card SSE Handler
  * Handles SSE events for in_progress/waiting_for_accounts group cards
- * - Progress updates, elapsed timer, FloodWait countdown
+ * - Progress updates, FloodWait countdown
  * - Stale connection detection, error handling
  */
 
@@ -70,7 +70,7 @@
             }
         }
 
-        // Format elapsed time as M:SS (used by FloodWait countdown)
+        // Format seconds as M:SS (used by FloodWait countdown)
         function formatElapsed(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
