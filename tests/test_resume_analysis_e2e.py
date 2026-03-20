@@ -79,8 +79,11 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
     mock_request.app.state.app_state.analysis_tasks = {}
 
     # Mock session manager
+    from chatfilter.telegram.session.models import SessionState
+
     mock_session_manager = MagicMock()
     mock_session_manager.list_sessions.return_value = ["test_session"]
+    mock_session_manager.get_info.return_value.state = SessionState.CONNECTED
 
     async def mock_is_healthy(session_id: str) -> bool:
         return True
@@ -239,11 +242,14 @@ async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
     service.update_status(group_id, GroupStatus.PAUSED)
 
     # Mock request with session manager
+    from chatfilter.telegram.session.models import SessionState
+
     mock_request = MagicMock()
     mock_request.app.state.app_state.analysis_tasks = {}
 
     mock_session_manager = MagicMock()
     mock_session_manager.list_sessions.return_value = ["test_session"]
+    mock_session_manager.get_info.return_value.state = SessionState.CONNECTED
 
     async def mock_is_healthy(session_id: str) -> bool:
         return True
