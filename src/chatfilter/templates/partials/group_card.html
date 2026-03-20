@@ -87,14 +87,16 @@
         {% if group.status.value == 'in_progress' %}
         <button class="btn btn-warning btn-sm"
                 hx-post="/api/groups/{{ group.id }}/stop"
-                hx-swap="none">
+                hx-swap="none"
+                hx-disabled-elt="this">
             {{ _("Stop analysis") }}
         </button>
         {% elif group.status.value == 'waiting_for_accounts' %}
         <button class="btn btn-warning btn-sm"
                 hx-post="/api/groups/{{ group.id }}/stop"
                 hx-swap="none"
-                hx-confirm="{{ _('Stop analysis? The group is waiting for account unblock (FloodWait). If you stop, you will need to resume manually.') }}">
+                hx-confirm="{{ _('Stop analysis? The group is waiting for account unblock (FloodWait). If you stop, you will need to resume manually.') }}"
+                hx-disabled-elt="this">
             {{ _("Stop analysis") }}
         </button>
         {% elif group.status.value == 'paused' %}
@@ -139,7 +141,8 @@
         <button class="btn btn-danger btn-sm"
                 hx-delete="/api/groups/{{ group.id }}"
                 hx-swap="none"
-                hx-confirm="{{ _('Delete group? This cannot be undone.') }}">
+                hx-confirm="{{ _('Delete group? This cannot be undone.') }}"
+                hx-disabled-elt="this">
             {{ _("Delete") }}
         </button>
     </div>

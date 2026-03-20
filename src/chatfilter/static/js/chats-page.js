@@ -142,27 +142,34 @@
         refreshGroups();
     });
 
-    // Resume button loading state
+    var SPINNER_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;">' +
+        '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" stroke-opacity="0.25"/>' +
+        '<path d="M12 2 A10 10 0 0 1 22 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>' +
+        '</svg>';
+
+    function addSpinner(btn, label) {
+        btn.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 0.5rem;">' +
+            SPINNER_SVG + '<span>' + label + '</span></span>';
+    }
+
+    // Button loading states
     document.body.addEventListener('htmx:beforeRequest', function(event) {
         var target = event.detail.elt;
+        if (!target || target.tagName !== 'BUTTON') return;
 
-        if (target && target.tagName === 'BUTTON' &&
-            event.detail.requestConfig &&
-            event.detail.requestConfig.path &&
-            event.detail.requestConfig.path.match(/\/api\/groups\/[^\/]+\/resume$/)) {
+        var path = event.detail.requestConfig && event.detail.requestConfig.path;
+        if (!path) return;
 
-            var card = target.closest('.group-card');
-            if (!card) return;
-
-            target.setAttribute('data-original-text', target.textContent);
-
-            target.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 0.5rem;">' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;">' +
-                '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" stroke-opacity="0.25"/>' +
-                '<path d="M12 2 A10 10 0 0 1 22 12" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>' +
-                '</svg>' +
-                '<span>' + t('chats.resuming') + '</span>' +
-                '</span>';
+        if (path.match(/\/api\/groups\/[^\/]+\/resume$/)) {
+            addSpinner(target, t('chats.resuming'));
+        } else if (path.match(/\/api\/groups\/[^\/]+\/start$/)) {
+            addSpinner(target, target.textContent.trim());
+        } else if (path.match(/\/api\/groups\/[^\/]+\/reanalyze/)) {
+            addSpinner(target, target.textContent.trim());
+        } else if (path.match(/\/api\/groups\/[^\/]+\/stop$/)) {
+            addSpinner(target, target.textContent.trim());
+        } else if (path.match(/\/api\/groups\/[^\/]+$/) && event.detail.requestConfig.verb === 'delete') {
+            addSpinner(target, target.textContent.trim());
         }
     });
 
