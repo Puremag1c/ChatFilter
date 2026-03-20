@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import uuid
 from datetime import UTC, datetime
+
+logger = logging.getLogger(__name__)
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 from chatfilter.analyzer.progress import compute_group_status
@@ -367,10 +371,12 @@ class GroupService:
         """
         self._db.delete_group(group_id)
 
-    async def start_analysis(self, group_id: str) -> None:
-        """Start group analysis.
+    def start_analysis(self, group_id: str) -> None:
+        """Start group analysis in background.
 
-        Creates group_task and delegates to engine.
+        Updates status to IN_PROGRESS immediately, then fires the engine as a
+        background asyncio task. If the task crashes before sending an SSE
+        error event, group status is reset to ERROR so the UI does not stall.
 
         Args:
             group_id: Group identifier.
@@ -386,18 +392,18 @@ class GroupService:
             raise ValueError(f"Group not found: {group_id}")
 
         # Clear PAUSED status if present (resume → in_progress)
-        # Status will be computed from chat statuses during analysis
         if group_data["status"] == GroupStatus.PAUSED.value:
             self._db.save_group(
                 group_id=group_id,
                 name=group_data["name"],
                 settings=group_data["settings"],
-                status=GroupStatus.PENDING.value,  # Will compute to IN_PROGRESS once analysis starts
+                status=GroupStatus.PENDING.value,
                 created_at=group_data["created_at"],
                 updated_at=datetime.now(UTC),
             )
 
-        await self._engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
+        self.update_status(group_id, GroupStatus.IN_PROGRESS)
+        asyncio.get_running_loop().create_task(self._run_analysis(group_id, AnalysisMode.FRESH))
 
     def stop_analysis(self, group_id: str) -> None:
         """Stop ongoing analysis.
@@ -419,11 +425,26 @@ class GroupService:
         # This persists until resume clears it
         self.update_status(group_id, GroupStatus.PAUSED)
 
-    async def reanalyze(self, group_id: str, mode: AnalysisMode) -> None:
-        """Reanalyze group with specified mode.
+    async def _run_analysis(self, group_id: str, mode: AnalysisMode) -> None:
+        """Run analysis with crash recovery.
+
+        If the engine raises an unhandled exception, group status is reset to
+        ERROR so the UI does not get stuck in IN_PROGRESS.
+        """
+        try:
+            await self._engine.start_analysis(group_id, mode=mode)
+        except Exception:
+            logger.exception("Background analysis task failed for group %s", group_id)
+            self.update_status(group_id, GroupStatus.ERROR)
+
+    def reanalyze(self, group_id: str, mode: AnalysisMode) -> None:
+        """Reanalyze group with specified mode in background.
 
         OVERWRITE: clears all metrics and starts fresh.
         INCREMENT: analyzes only missing/failed chats.
+
+        Updates status to IN_PROGRESS immediately, then fires the engine as a
+        background asyncio task with crash recovery.
 
         Args:
             group_id: Group identifier.
@@ -439,7 +460,8 @@ class GroupService:
         if not group_data:
             raise ValueError(f"Group not found: {group_id}")
 
-        await self._engine.start_analysis(group_id, mode=mode)
+        self.update_status(group_id, GroupStatus.IN_PROGRESS)
+        asyncio.get_running_loop().create_task(self._run_analysis(group_id, mode))
 
     def get_group_status(self, group_id: str) -> str:
         """Get computed group status.
