@@ -67,18 +67,6 @@
     var pollTimer = null;
     var isRefreshing = false;
 
-    function executeScripts(el) {
-        var scripts = el.querySelectorAll('script');
-        scripts.forEach(function(oldScript) {
-            var newScript = document.createElement('script');
-            Array.from(oldScript.attributes).forEach(function(attr) {
-                newScript.setAttribute(attr.name, attr.value);
-            });
-            newScript.textContent = oldScript.textContent;
-            oldScript.parentNode.replaceChild(newScript, oldScript);
-        });
-    }
-
     function refreshGroups() {
         if (isRefreshing) return;
         isRefreshing = true;
@@ -114,7 +102,6 @@
                 });
 
                 htmx.process(container);
-                executeScripts(container);
 
                 container.querySelectorAll('.group-card').forEach(function(card) {
                     var completedBadge = card.querySelector('.status-badge.completed');
