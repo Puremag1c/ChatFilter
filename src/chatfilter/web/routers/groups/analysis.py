@@ -51,6 +51,14 @@ async def start_group_analysis(
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
+        # Guard against duplicate analysis (e.g. double-click)
+        if group.status == GroupStatus.IN_PROGRESS:
+            return HTMLResponse(
+                content='',
+                status_code=409,
+                headers={'HX-Trigger': json.dumps({'showToast': {'message': 'Analysis already running', 'type': 'warning'}})}
+            )
+
         # Validate connected accounts BEFORE starting
         connected_accounts = [
             sid for sid in session_mgr.list_sessions()
