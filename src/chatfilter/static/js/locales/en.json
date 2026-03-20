@@ -51,7 +51,7 @@
     "needs_2fa": "Needs 2FA Password",
     "needs_config": "Setup Required",
     "corrupted": "Corrupted",
-    "banned": "Banned",
+    "banned": "Banned"
   },
   "toast": {
     "error_title": "Error",
