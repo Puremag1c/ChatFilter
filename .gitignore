@@ -74,10 +74,13 @@ PROJECT_CONTEXT.md
 SPEC.md
 SPEC.draft.md
 
-# Beads daemon files
+# Beads local files
 .beads/*.sock
 .beads/*.lock
 .beads/*.startlock
+.beads/.beads-credential-key
+.beads/backup/
+.beads/dolt-server.log
 
 # hype
 .hype/
