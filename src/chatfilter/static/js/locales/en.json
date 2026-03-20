@@ -52,8 +52,6 @@
     "needs_config": "Setup Required",
     "corrupted": "Corrupted",
     "banned": "Banned",
-    "network_connected": "Network: Connected",
-    "network_disconnected": "Network: Disconnected"
   },
   "toast": {
     "error_title": "Error",
@@ -136,13 +134,6 @@
     "available": "Update Available",
     "view_release": "View Release",
     "version_info": "Version {latest} is now available (current: {current})"
-  },
-  "network": {
-    "offline_toast": "Please check your internet connection. Operations may fail until connectivity is restored.",
-    "check_now": "Check Now",
-    "back_online": "Back Online",
-    "back_online_message": "Network connectivity restored",
-    "no_internet": "No internet connection"
   },
   "warnings": {
     "tabs_open": "You have {count} tabs open. This may cause performance issues and conflicts.",

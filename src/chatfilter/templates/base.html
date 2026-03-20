@@ -39,11 +39,7 @@
                 <li><a href="/chats" data-tooltip="{{ _("Select chats to analyze from your Telegram account") }}" data-tooltip-position="bottom">{{ _("Chats") }}</a></li>
             </ul>
             <div class="status-indicators">
-                <div class="network-status" id="network-status" role="status" aria-live="polite" data-tooltip="{{ _("Shows your internet connection status") }}" data-tooltip-position="bottom">
-                    <span class="status-indicator" id="network-indicator" aria-hidden="true"></span>
-                    <span class="status-text" id="network-text">{{ _("Online") }}</span>
-                </div>
-                <button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}" data-tooltip="{{ _("Switch between light and dark theme") }}" data-tooltip-position="bottom">
+<button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}" data-tooltip="{{ _("Switch between light and dark theme") }}" data-tooltip-position="bottom">
                     <span class="theme-icon" aria-hidden="true">🌙</span>
                 </button>
                 <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}" data-tooltip="{{ _("Switch between English and Russian") }}" data-tooltip-position="bottom">
@@ -101,10 +97,7 @@
     <!-- HTMX Error Handler (loaded after ToastManager) -->
     <script src="/static/js/htmx-error-handler.js"></script>
 
-    <!-- Network Connectivity Status Monitor -->
-    <script src="/static/js/network-status.js"></script>
-
-    <!-- SSE Connection Status Banner Manager -->
+<!-- SSE Connection Status Banner Manager -->
     <script src="/static/js/sse-status-banner.js"></script>
 
     <!-- Analysis State Tracker for beforeunload protection -->
