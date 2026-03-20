@@ -81,6 +81,9 @@ SPEC.draft.md
 .beads/.beads-credential-key
 .beads/backup/
 .beads/dolt-server.log
+.beads/dolt-server.pid
+.beads/dolt-server.port
+.beads/metadata.json
 
 # hype
 .hype/

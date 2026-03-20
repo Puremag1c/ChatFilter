@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-03-20
+
+### Changed
+- **Non-blocking analysis endpoints**: Start/Resume/Reanalyze endpoints now return immediately; heavy validation runs in background task
+- **Loading states on all buttons**: All interactive buttons across /chats, /sessions, /proxies show instant feedback (spinner, disabled state)
+- **Group card auto-update on completion**: Card automatically transitions to "completed" when analysis finishes (SSE complete event + morphdom fix)
+- **Concurrent analysis guard**: Prevents duplicate analysis starts after async refactor
+- **Background task crash handling**: Prevents group stuck in IN_PROGRESS if background task fails
+
+### Removed
+- **Elapsed timer**: Removed glitchy M:SS timer from group card (startElapsedTimer, stopElapsedTimer, formatElapsed, elapsed-{id} element)
+- **Network status indicator**: Removed green/red internet connection indicator from header (network-status.js, .network-status CSS, related i18n keys)
+- **executeScripts()**: Removed from refreshGroups polling (no longer needed after timer removal)
+
+### Fixed
+- **Test regressions**: Fixed resume_group_analysis tests after session validation refactor (mock get_info to return SessionState.CONNECTED)
+- **Test regressions**: Fixed start_analysis tests after sync-to-async refactor
+- **i18n JSON trailing commas**: Fixed broken translations caused by trailing commas in JSON locale files
+- **Proxies page mobile clipping**: Fixed content clipped on mobile viewport (375px)
+- **Import save form**: Added hx-disabled-elt to prevent double-submit
+- **Proxy delete button**: Disabled delete button during fetch in proxy-form.js
+
 ## [0.23.0] - 2026-03-19
 
 ### Fixed
@@ -1311,7 +1333,8 @@ Users upgrading from 0.5.x desktop app:
 ### Documentation
 - Windows SmartScreen bypass instructions
 
-[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/Puremag1c/ChatFilter/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/Puremag1c/ChatFilter/compare/v0.20.0...v0.21.0
