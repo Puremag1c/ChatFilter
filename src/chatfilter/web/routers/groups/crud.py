@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
 from chatfilter.models.group import GroupSettings
+from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import (
     ALLOWED_EXTENSIONS,
@@ -217,7 +218,7 @@ async def create_group(
         return templates.TemplateResponse(
             request=request,
             name="partials/group_card.html",
-            context={"group": group, "stats": stats},
+            context=get_template_context(request, group=group, stats=stats),
         )
 
     except Exception as e:
@@ -258,7 +259,7 @@ async def list_groups(request: Request) -> HTMLResponse:
         return templates.TemplateResponse(
             request=request,
             name="partials/groups_list.html",
-            context={"groups": groups_with_stats},
+            context=get_template_context(request, groups=groups_with_stats),
         )
 
     except Exception as e:
@@ -296,7 +297,7 @@ async def get_group(request: Request, group_id: str) -> HTMLResponse:
         return templates.TemplateResponse(
             request=request,
             name="partials/group_card.html",
-            context={"group": group, "stats": stats},
+            context=get_template_context(request, group=group, stats=stats),
         )
 
     except HTTPException:
@@ -351,7 +352,7 @@ async def update_group(
         return templates.TemplateResponse(
             request=request,
             name="partials/group_card.html",
-            context={"group": updated_group, "stats": stats},
+            context=get_template_context(request, group=updated_group, stats=stats),
         )
 
     except HTTPException:
@@ -449,7 +450,7 @@ async def update_group_settings(
         return templates.TemplateResponse(
             request=request,
             name="partials/group_card.html",
-            context={"group": group, "stats": stats},
+            context=get_template_context(request, group=group, stats=stats),
         )
 
     except ValueError as e:

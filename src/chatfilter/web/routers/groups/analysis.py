@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 
 from chatfilter.models.group import AnalysisMode, GroupStatus
 from chatfilter.telegram.session.models import SessionState
+from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import _get_group_service
 
@@ -356,10 +357,7 @@ async def resume_group_analysis(
         return templates.TemplateResponse(
             request=request,
             name="partials/group_card.html",
-            context={
-                "group": updated_group,
-                "stats": updated_stats,
-            },
+            context=get_template_context(request, group=updated_group, stats=updated_stats),
         )
 
     except HTTPException:

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 
+from chatfilter.i18n.translations import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, set_current_locale
 from chatfilter.web.events import get_event_bus
 from chatfilter.web.template_helpers import get_template_context
 from .listing import list_stored_sessions
@@ -36,11 +37,21 @@ async def session_events(request: Request):
     session_manager = get_session_manager()
     auth_manager = get_auth_state_manager()
 
+    # Capture locale from request cookie at handler invocation time.
+    # ContextVars may not propagate reliably into the SSE async generator,
+    # so we read the locale here and set it explicitly inside the generator.
+    locale = request.cookies.get("lang", DEFAULT_LANGUAGE)
+    if locale not in SUPPORTED_LANGUAGES:
+        locale = DEFAULT_LANGUAGE
+
     # Queue for this client's events
     event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
 
     async def event_generator():
         """Generate SSE events from the queue."""
+        # Set locale explicitly — ContextVar may not propagate through BaseHTTPMiddleware
+        # into the SSE async generator context.
+        set_current_locale(locale)
         try:
             # Send initial connection message
             yield 'data: {"type": "connected"}\n\n'
