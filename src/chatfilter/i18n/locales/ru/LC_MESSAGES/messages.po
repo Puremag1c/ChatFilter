@@ -388,7 +388,7 @@ msgstr "Пул прокси"
 #: src/chatfilter/templates/proxies.html:13
 #, fuzzy
 msgid "Proxy List"
-msgstr "Прокси"
+msgstr "Список прокси"
 
 #: src/chatfilter/templates/proxies.html:17
 msgid "Add new proxy"
@@ -405,17 +405,17 @@ msgstr "Ошибка"
 #: src/chatfilter/templates/proxies.html:26
 #, fuzzy
 msgid "Failed to load proxies. Please refresh the page."
-msgstr "Не удалось загрузить аккаунты. Пожалуйста, обновите страницу."
+msgstr "Не удалось загрузить прокси. Пожалуйста, обновите страницу."
 
 #: src/chatfilter/templates/proxies.html:29
 #, fuzzy
 msgid "List of configured proxies"
-msgstr "Не настроено"
+msgstr "Список настроенных прокси"
 
 #: src/chatfilter/templates/proxies.html:32
 #, fuzzy
 msgid "Loading proxies..."
-msgstr "Загрузка аккаунтов..."
+msgstr "Загрузка прокси..."
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:23 src/chatfilter/templates/partials/proxy_pool_list.html:96 src/chatfilter/templates/proxies.html:52
 msgid "Name"
@@ -452,7 +452,7 @@ msgstr "Имя хоста или IP-адрес прокси-сервера"
 #: src/chatfilter/templates/proxies.html:91
 #, fuzzy
 msgid "Port"
-msgstr "Импорт"
+msgstr "Порт"
 
 #: src/chatfilter/templates/proxies.html:100
 msgid "Proxy server port number"
@@ -1155,7 +1155,7 @@ msgstr "Статус"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:5
 #, fuzzy
 msgid "Testing..."
-msgstr "Всё ещё работаю..."
+msgstr "Тестирование..."
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:7
 msgid "Working - last checked"
@@ -1178,7 +1178,7 @@ msgstr "Ошибка"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:12
 #, fuzzy
 msgid "consecutive failures"
-msgstr "Не удалось подключиться во время"
+msgstr "последовательных ошибок"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:14
 msgid "No ping"
@@ -1191,7 +1191,7 @@ msgstr "Ещё не проверялся"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:19
 #, fuzzy
 msgid "Untested"
-msgstr "Аккаунт удалён"
+msgstr "Не проверялся"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:29 src/chatfilter/templates/partials/proxy_pool_list.html:98
 msgid "Address"
@@ -1200,7 +1200,7 @@ msgstr "Адрес"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:32 src/chatfilter/templates/partials/proxy_pool_list.html:99
 #, fuzzy
 msgid "Auth"
-msgstr "Авторизовать"
+msgstr "Авторизация"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:34
 msgid "Authentication required"
@@ -1209,12 +1209,12 @@ msgstr "Требуется аутентификация"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:39
 #, fuzzy
 msgid "No authentication"
-msgstr "Авторизация по телефону"
+msgstr "Без аутентификации"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:41
 #, fuzzy
 msgid "None"
-msgstr "Заблокирован"
+msgstr "Нет"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:50 src/chatfilter/templates/partials/proxy_pool_list.html:101 src/chatfilter/templates/partials/sessions_list.html:17
 msgid "Actions"
@@ -1223,17 +1223,17 @@ msgstr "Действия"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:61
 #, fuzzy
 msgid "Test Timeout"
-msgstr "Таймаут запроса во время"
+msgstr "Таймаут теста"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:61
 #, fuzzy
 msgid "Test timeout (30s)"
-msgstr "Таймаут запроса во время"
+msgstr "Таймаут теста (30с)"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:62
 #, fuzzy
 msgid "Test proxy connection"
-msgstr "Повторить подключение"
+msgstr "Проверить соединение прокси"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:63
 msgid "Retest proxy"
@@ -1262,7 +1262,7 @@ msgstr "Удалить этот прокси"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:82
 #, fuzzy
 msgid "Delete proxy"
-msgstr "Удалить"
+msgstr "Удалить прокси"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:92
 msgid "Proxy servers list"
@@ -1271,12 +1271,12 @@ msgstr "Список прокси-серверов"
 #: src/chatfilter/templates/partials/proxy_pool_list.html:114
 #, fuzzy
 msgid "No Proxies Configured"
-msgstr "Не настроено"
+msgstr "Прокси не настроены"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:115
 #, fuzzy
 msgid "Add a proxy server to route Telegram connections through it."
-msgstr "Управление прокси-серверами для Telegram"
+msgstr "Добавьте прокси-сервер для маршрутизации соединений Telegram."
 
 #: src/chatfilter/templates/partials/session_config.html:24
 msgid "Numeric ID from my.telegram.org/apps"
@@ -2159,11 +2159,3 @@ msgstr "Ожидание аккаунтов"
 #~ msgid "Setup"
 #~ msgstr "Настроить"
 
-#~ msgid "in_progress"
-#~ msgstr "Анализируется"
-
-#~ msgid "paused"
-#~ msgstr "Приостановлен"
-
-#~ msgid "completed"
-#~ msgstr "Завершён"
