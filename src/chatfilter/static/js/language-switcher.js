@@ -19,7 +19,7 @@
         initLanguageSwitcher();
     }
 
-    async function initLanguageSwitcher() {
+    function initLanguageSwitcher() {
         const languageButton = document.getElementById('language-toggle');
         if (!languageButton) {
             console.warn('Language toggle button not found');
@@ -28,11 +28,6 @@
 
         // Set up click handler
         languageButton.addEventListener('click', toggleLanguage);
-
-        // Wait for i18n to be ready before updating button with translations
-        if (window.i18n && window.i18n.ready) {
-            await window.i18n.ready;
-        }
 
         // Update button text with current language
         updateLanguageButton();
@@ -47,35 +42,17 @@
         const currentLocale = getCurrentLocale();
         const nextLocale = getNextLocale(currentLocale);
 
-        // Try to set cookie first
-        const cookieBeforeSet = document.cookie;
+        // Set language cookie
         document.cookie = `lang=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
-        const cookieAfterSet = document.cookie;
 
-        // Check if cookie was actually set (it won't be if there's an HttpOnly cookie)
-        const cookieWasSet = cookieAfterSet.includes(`lang=${nextLocale}`);
+        // Update visual state before reload
+        updateLanguageButton();
 
-        if (!cookieWasSet) {
-            // Cookie couldn't be set (probably HttpOnly), use query parameter instead
-            console.warn('Language cookie is HttpOnly, using query parameter fallback');
-            window.location.href = `${window.location.pathname}?lang=${nextLocale}`;
-            return;
-        }
+        // Notify any listeners before reload
+        window.dispatchEvent(new CustomEvent('localechange', { detail: { locale: nextLocale } }));
 
-        // Cookie was set successfully, use normal flow with i18n
-        if (window.i18n) {
-            window.i18n.setLocale(nextLocale).then(() => {
-                // Reload page to apply new locale on server-rendered content
-                window.location.reload();
-            }).catch(error => {
-                console.error('Failed to switch language:', error);
-                // Try to reload anyway, as cookie might be set
-                window.location.reload();
-            });
-        } else {
-            // If i18n not loaded yet, just reload
-            window.location.reload();
-        }
+        // Reload so server renders new translations inline
+        window.location.reload();
     }
 
     function getCurrentLocale() {
