@@ -1,8 +1,8 @@
 /**
  * Simple i18n (internationalization) utility for ChatFilter frontend.
  *
- * Loads translation files based on the current locale and provides
- * translation functions for JavaScript code.
+ * Reads translations from window.__i18n__ (injected server-side in base.html)
+ * and provides translation functions for JavaScript code.
  */
 
 class I18n {
@@ -11,44 +11,19 @@ class I18n {
         this.currentLocale = 'en';
         this.fallbackLocale = 'en';
         this.initialized = false;
-        // Promise that resolves when i18n is ready
-        this._readyResolve = null;
-        this.ready = new Promise((resolve) => {
-            this._readyResolve = resolve;
-        });
     }
 
     /**
-     * Initialize i18n with the current locale from cookie or document attribute
-     * @returns {Promise<void>}
+     * Initialize i18n with inline translations from window.__i18n__
      */
-    async init() {
-        // Get locale from cookie, document attribute, or default to 'en'
+    init() {
         this.currentLocale = this.detectLocale();
 
-        try {
-            await this.loadTranslations(this.currentLocale);
+        if (window.__i18n__ && typeof window.__i18n__ === 'object') {
+            this.translations = window.__i18n__;
             this.initialized = true;
-            this._readyResolve();
-        } catch (error) {
-            console.error(`Failed to load translations for ${this.currentLocale}:`, error);
-
-            // Try fallback locale if not already trying it
-            if (this.currentLocale !== this.fallbackLocale) {
-                try {
-                    await this.loadTranslations(this.fallbackLocale);
-                    this.currentLocale = this.fallbackLocale;
-                    this.initialized = true;
-                    this._readyResolve();
-                } catch (fallbackError) {
-                    console.error(`Failed to load fallback translations:`, fallbackError);
-                    // Resolve anyway to not block forever
-                    this._readyResolve();
-                }
-            } else {
-                // Resolve anyway to not block forever
-                this._readyResolve();
-            }
+        } else {
+            console.warn('i18n: window.__i18n__ not found, translations unavailable');
         }
     }
 
@@ -71,19 +46,6 @@ class I18n {
 
         // 3. Fallback
         return this.fallbackLocale;
-    }
-
-    /**
-     * Load translation file for the specified locale
-     * @param {string} locale - Locale code (e.g., 'en', 'ru')
-     * @returns {Promise<void>}
-     */
-    async loadTranslations(locale) {
-        const response = await fetch(`/static/js/locales/${locale}.json`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        this.translations = await response.json();
     }
 
     /**
@@ -136,44 +98,34 @@ class I18n {
     }
 
     /**
-     * Switch to a different locale
+     * Switch to a different locale — sets cookie and reloads page so server
+     * renders new inline translations.
      * @param {string} locale - New locale code
-     * @returns {Promise<void>}
      */
-    async setLocale(locale) {
+    setLocale(locale) {
         if (locale === this.currentLocale) {
             return;
         }
 
-        await this.loadTranslations(locale);
-        this.currentLocale = locale;
-
         // Set cookie to persist preference
         document.cookie = `lang=${locale}; path=/; max-age=31536000; SameSite=Lax`;
 
-        // Update document lang attribute
-        document.documentElement.lang = locale;
-
-        // Dispatch event for other components to react to locale change
+        // Dispatch event for any listeners before reload
         window.dispatchEvent(new CustomEvent('localechange', { detail: { locale } }));
+
+        // Reload so server re-renders page with new locale translations
+        window.location.reload();
     }
 }
 
 // Create global instance
 const i18n = new I18n();
 
-// Auto-initialize when DOM is ready
+// Initialize synchronously (data is already in window.__i18n__)
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        i18n.init().catch(error => {
-            console.error('Failed to initialize i18n:', error);
-        });
-    });
+    document.addEventListener('DOMContentLoaded', () => i18n.init());
 } else {
-    // DOM already loaded
-    i18n.init().catch(error => {
-        console.error('Failed to initialize i18n:', error);
-    });
+    i18n.init();
 }
 
 // Export for use in other scripts
