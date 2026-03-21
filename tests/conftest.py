@@ -36,26 +36,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-import subprocess
-
 import pytest
-
-
-@pytest.fixture(scope="session", autouse=True)
-def compile_mo_files() -> None:
-    """Compile .po translation files to .mo before any tests run.
-
-    pytest runs without starting the app, so the runtime auto-compile in
-    i18n/__init__.py never fires. This fixture ensures .mo files are up-to-date
-    in CI and local runs without a manual pre-compile step.
-    """
-    project_root = Path(__file__).parent.parent
-    subprocess.run(
-        ["pybabel", "compile", "-d", "src/chatfilter/i18n/locales"],
-        cwd=project_root,
-        check=True,
-        capture_output=True,
-    )
 
 
 @pytest.fixture

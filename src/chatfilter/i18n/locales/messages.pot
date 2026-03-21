@@ -25,14 +25,14 @@ msgstr ""
 
 #: src/chatfilter/telegram/client.py:464
 msgid ""
-"Session '{session_id}' has no api_hash configured. Please configure "
-"api_hash before connecting."
+"Session '{session_id}' has no api_hash configured. Please configure api_hash"
+" before connecting."
 msgstr ""
 
 #: src/chatfilter/telegram/client.py:473 src/chatfilter/telegram/client.py:598
 msgid ""
-"Session '{session_id}' has no proxy configured. Please configure a proxy "
-"for this session before connecting."
+"Session '{session_id}' has no proxy configured. Please configure a proxy for"
+" this session before connecting."
 msgstr ""
 
 #: src/chatfilter/telegram/client.py:487 src/chatfilter/telegram/client.py:588
@@ -164,8 +164,8 @@ msgstr ""
 #: src/chatfilter/telegram/error_mapping.py:622
 #, python-format
 msgid ""
-"An error occurred: %(error_class)s. Please try again or contact support "
-"if the issue persists."
+"An error occurred: %(error_class)s. Please try again or contact support if "
+"the issue persists."
 msgstr ""
 
 #: src/chatfilter/web/routers/analysis.py:227
@@ -203,8 +203,8 @@ msgstr ""
 
 #: src/chatfilter/web/routers/analysis.py:302
 msgid ""
-"The selected chats (IDs: {invalid_list}) may have been deleted or removed"
-" from Telegram. Please refresh the chat list and select valid chats."
+"The selected chats (IDs: {invalid_list}) may have been deleted or removed "
+"from Telegram. Please refresh the chat list and select valid chats."
 msgstr ""
 
 #: src/chatfilter/web/routers/analysis.py:355
@@ -281,7 +281,8 @@ msgid "No valid chat entries found in file"
 msgstr ""
 
 #: src/chatfilter/web/routers/chatlist.py:255
-msgid "An unexpected error occurred while processing the file. Please try again."
+msgid ""
+"An unexpected error occurred while processing the file. Please try again."
 msgstr ""
 
 #: src/chatfilter/web/routers/chatlist.py:284
@@ -308,9 +309,8 @@ msgstr ""
 
 #: src/chatfilter/web/routers/chats.py:208
 msgid ""
-"Session is invalid and has been removed. The session may have been "
-"revoked, logged out from another device, or the account may be banned or "
-"deactivated."
+"Session is invalid and has been removed. The session may have been revoked, "
+"logged out from another device, or the account may be banned or deactivated."
 msgstr ""
 
 #: src/chatfilter/web/routers/chats.py:213
@@ -435,7 +435,8 @@ msgstr ""
 #: src/chatfilter/web/routers/sessions.py:2338
 #: src/chatfilter/web/routers/sessions.py:3869
 #: src/chatfilter/web/routers/sessions.py:4151
-msgid "Proxy connection failed. Please check your proxy settings and try again."
+msgid ""
+"Proxy connection failed. Please check your proxy settings and try again."
 msgstr ""
 
 #: src/chatfilter/web/routers/sessions.py:2358
@@ -580,7 +581,8 @@ msgid "This session has been revoked. Please delete and recreate the session."
 msgstr ""
 
 #: src/chatfilter/web/routers/sessions.py:4071
-msgid "Authorization key is unregistered. Please delete and recreate the session."
+msgid ""
+"Authorization key is unregistered. Please delete and recreate the session."
 msgstr ""
 
 #: src/chatfilter/web/routers/sessions.py:4079
@@ -607,3 +609,574 @@ msgstr ""
 msgid "An unexpected error occurred during import. Please try again."
 msgstr ""
 
+msgid "Error"
+msgstr ""
+
+msgid "Success"
+msgstr ""
+
+msgid "Warning"
+msgstr ""
+
+msgid "Information"
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Confirm"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Back"
+msgstr ""
+
+msgid "Next"
+msgstr ""
+
+msgid "Previous"
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "Filter"
+msgstr ""
+
+msgid "Export"
+msgstr ""
+
+msgid "Import"
+msgstr ""
+
+msgid "Refresh"
+msgstr ""
+
+msgid "Retry"
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+msgid "Got it"
+msgstr ""
+
+msgid "Reload Page"
+msgstr ""
+
+msgid "Continue"
+msgstr ""
+
+msgid "Dismiss"
+msgstr ""
+
+msgid "Sessions"
+msgstr ""
+
+msgid "Chats"
+msgstr ""
+
+msgid "Results"
+msgstr ""
+
+msgid "History"
+msgstr ""
+
+msgid "Proxy"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "Offline"
+msgstr ""
+
+msgid "Connected"
+msgstr ""
+
+msgid "Disconnected"
+msgstr ""
+
+msgid "Connecting"
+msgstr ""
+
+msgid "Ready"
+msgstr ""
+
+msgid "Processing"
+msgstr ""
+
+msgid "Completed"
+msgstr ""
+
+msgid "Failed"
+msgstr ""
+
+msgid "Not configured"
+msgstr ""
+
+msgid "Needs Verification Code"
+msgstr ""
+
+msgid "Needs 2FA Password"
+msgstr ""
+
+msgid "Setup Required"
+msgstr ""
+
+msgid "Corrupted"
+msgstr ""
+
+msgid "Banned"
+msgstr ""
+
+msgid "Info"
+msgstr ""
+
+msgid "Notification"
+msgstr ""
+
+msgid "Close notification"
+msgstr ""
+
+msgid "Application Error"
+msgstr ""
+
+msgid "Connection failed"
+msgstr ""
+
+msgid "Server error occurred"
+msgstr ""
+
+msgid "Network error. Please check your connection."
+msgstr ""
+
+msgid "An unknown error occurred"
+msgstr ""
+
+msgid "Failed to load data"
+msgstr ""
+
+msgid "Failed to save changes"
+msgstr ""
+
+msgid "Failed to delete"
+msgstr ""
+
+msgid "Validation error"
+msgstr ""
+
+msgid "Request Failed"
+msgstr ""
+
+msgid "Not Found"
+msgstr ""
+
+msgid "The requested resource was not found"
+msgstr ""
+
+msgid "Access Denied"
+msgstr ""
+
+msgid "You do not have permission to access this resource"
+msgstr ""
+
+msgid "Invalid input. Please check your data and try again"
+msgstr ""
+
+msgid "A server error occurred. Please try again later"
+msgstr ""
+
+msgid "Connection Error"
+msgstr ""
+
+msgid "Unable to connect to the server. Please check your internet connection"
+msgstr ""
+
+msgid "Request Timeout"
+msgstr ""
+
+msgid "The request took too long to complete. The server may be busy"
+msgstr ""
+
+msgid "Response Error"
+msgstr ""
+
+msgid "The server returned an unexpected response format"
+msgstr ""
+
+msgid "Connection monitor offline"
+msgstr ""
+
+msgid "Unable to check Telegram connection"
+msgstr ""
+
+msgid "{count} session"
+msgstr ""
+
+msgid "{count} sessions"
+msgstr ""
+
+msgid "Telegram Connected"
+msgstr ""
+
+msgid "Telegram Disconnected"
+msgstr ""
+
+msgid "Session active"
+msgstr ""
+
+msgid "Session inactive"
+msgstr ""
+
+msgid "Session selection synced from another tab"
+msgstr ""
+
+msgid "Data updated from another tab"
+msgstr ""
+
+msgid "Confirm Action"
+msgstr ""
+
+msgid "Are you sure?"
+msgstr ""
+
+msgid "This action cannot be undone."
+msgstr ""
+
+msgid "Analysis Complete"
+msgstr ""
+
+msgid "Analysis Started"
+msgstr ""
+
+msgid "Analysis Failed"
+msgstr ""
+
+msgid "Analysis in progress"
+msgstr ""
+
+msgid "Select chats for analysis"
+msgstr ""
+
+msgid "No results found"
+msgstr ""
+
+msgid "Reconnected"
+msgstr ""
+
+msgid "Resuming..."
+msgstr ""
+
+msgid "Request failed. Please try again."
+msgstr ""
+
+msgid "Update Available"
+msgstr ""
+
+msgid "View Release"
+msgstr ""
+
+msgid "Version {latest} is now available (current: {current})"
+msgstr ""
+
+msgid ""
+"You have {count} tabs open. This may cause performance issues and conflicts."
+msgstr ""
+
+msgid "Multiple Tabs Detected"
+msgstr ""
+
+msgid "You've been away for a while. The page state may be outdated."
+msgstr ""
+
+msgid "Stale State Warning"
+msgstr ""
+
+msgid "Another tab is performing: {operation} on {resourceType}"
+msgstr ""
+
+msgid "Concurrent Operation"
+msgstr ""
+
+msgid "Conflict Warning"
+msgstr ""
+
+msgid ""
+"Current language: {languageName}. Click to switch to {nextLanguageName}"
+msgstr ""
+
+msgid "Switch to {nextLanguageName}"
+msgstr ""
+
+msgid "Wait..."
+msgstr ""
+
+msgid "Reconnect"
+msgstr ""
+
+msgid "Connect"
+msgstr ""
+
+msgid "Disconnect"
+msgstr ""
+
+msgid "Enter Verification Code"
+msgstr ""
+
+msgid "Retry Verification"
+msgstr ""
+
+msgid "Enter 2FA Password"
+msgstr ""
+
+msgid "Retry 2FA"
+msgstr ""
+
+msgid "Verify"
+msgstr ""
+
+msgid "Disconnect session"
+msgstr ""
+
+msgid "Connect session"
+msgstr ""
+
+msgid "Please wait"
+msgstr ""
+
+msgid "Reconnect session"
+msgstr ""
+
+msgid "Retry connection"
+msgstr ""
+
+msgid "Connection error"
+msgstr ""
+
+msgid "Configure account"
+msgstr ""
+
+msgid "Enter verification code"
+msgstr ""
+
+msgid "Enter 2FA password"
+msgstr ""
+
+msgid "Account banned"
+msgstr ""
+
+msgid "This account has been banned by Telegram"
+msgstr ""
+
+msgid "Unknown state"
+msgstr ""
+
+msgid "Unknown session state"
+msgstr ""
+
+msgid "Delete account"
+msgstr ""
+
+msgid "Still working..."
+msgstr ""
+
+msgid "Connection lost. Real-time updates paused."
+msgstr ""
+
+msgid "Retry initiated successfully"
+msgstr ""
+
+msgid "Connected successfully"
+msgstr ""
+
+msgid "Disconnected successfully"
+msgstr ""
+
+msgid "Verification code accepted successfully"
+msgstr ""
+
+msgid "2FA password accepted successfully"
+msgstr ""
+
+msgid ""
+"Session requires verification. Click Enter Verification Code button to "
+"proceed."
+msgstr ""
+
+msgid "No Telegram Accounts"
+msgstr ""
+
+msgid ""
+"You haven't added any Telegram accounts yet. Click \"Add Account\" above to "
+"get started."
+msgstr ""
+
+msgid "processing request"
+msgstr ""
+
+msgid "connecting"
+msgstr ""
+
+msgid "disconnecting"
+msgstr ""
+
+msgid "loading configuration"
+msgstr ""
+
+msgid "Server error while"
+msgstr ""
+
+msgid "Please try again."
+msgstr ""
+
+msgid "Service temporarily unavailable while"
+msgstr ""
+
+msgid "Please try again later."
+msgstr ""
+
+msgid "Request failed while"
+msgstr ""
+
+msgid "Please check and try again."
+msgstr ""
+
+msgid "Network error while"
+msgstr ""
+
+msgid "Request timeout while"
+msgstr ""
+
+msgid "Please check your connection and try again."
+msgstr ""
+
+msgid "Connection failed while"
+msgstr ""
+
+msgid "Please check your network and try again."
+msgstr ""
+
+msgid "Verifying..."
+msgstr ""
+
+msgid ""
+"Authentication cancelled. Session remains disconnected. You can try again "
+"anytime."
+msgstr ""
+
+msgid "Code verified. Please enter your 2FA password."
+msgstr ""
+
+msgid "Error: auth_id not found. Please refresh and try again."
+msgstr ""
+
+msgid "Please enter your 2FA password."
+msgstr ""
+
+msgid "Add Proxy"
+msgstr ""
+
+msgid "Edit Proxy"
+msgstr ""
+
+msgid "Save Changes"
+msgstr ""
+
+msgid "This field is required"
+msgstr ""
+
+msgid "Minimum length is"
+msgstr ""
+
+msgid "Maximum length is"
+msgstr ""
+
+msgid "characters"
+msgstr ""
+
+msgid "Minimum value is"
+msgstr ""
+
+msgid "Maximum value is"
+msgstr ""
+
+msgid "Host cannot contain spaces"
+msgstr ""
+
+msgid "Please fix the errors in the form"
+msgstr ""
+
+msgid "Validation Error"
+msgstr ""
+
+msgid "Operation failed"
+msgstr ""
+
+msgid "Proxy updated successfully"
+msgstr ""
+
+msgid "Proxy added successfully"
+msgstr ""
+
+msgid "Proxy Updated"
+msgstr ""
+
+msgid "Proxy Added"
+msgstr ""
+
+msgid "Save Failed"
+msgstr ""
+
+msgid "Delete Proxy"
+msgstr ""
+
+msgid "This proxy is used by"
+msgstr ""
+
+msgid "session(s). They will be blocked. Continue?"
+msgstr ""
+
+msgid "Proxy deleted successfully"
+msgstr ""
+
+msgid "Proxy Deleted"
+msgstr ""
+
+msgid "Deletion Failed"
+msgstr ""
+
+msgid "soon..."
+msgstr ""
+
+msgid "Waiting for accounts"
+msgstr ""
+
+msgid "soon"
+msgstr ""
+
+msgid "{count}s"
+msgstr ""
+
+msgid "{minutes}m {seconds}s"
+msgstr ""
+
+msgid "{hours}h {minutes}m"
+msgstr ""
