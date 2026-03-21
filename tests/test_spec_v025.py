@@ -92,8 +92,10 @@ class TestI18nCompleteness:
             msgid_m = re.search(r'^msgid "(.*)"', entry, re.MULTILINE)
             if not msgid_m:
                 continue
-            # Check msgstr is empty
-            if re.search(r'^msgstr ""\s*$', entry, re.MULTILINE):
+            # Check msgstr is truly empty (not a multi-line PO continuation)
+            # In PO format: msgstr ""\n"..." is non-empty (multi-line string)
+            msgstr_empty = re.search(r'^msgstr ""\s*$', entry, re.MULTILINE)
+            if msgstr_empty and not re.match(r'\s*"', entry[msgstr_empty.end():]):
                 empty.append(repr(msgid_m.group(1)))
 
         assert not empty, (
@@ -119,7 +121,10 @@ class TestI18nCompleteness:
             msgid_m = re.search(r'^msgid "(.*)"', entry, re.MULTILINE)
             if not msgid_m:
                 continue
-            if re.search(r'^msgstr ""\s*$', entry, re.MULTILINE):
+            # Check msgstr is truly empty (not a multi-line PO continuation)
+            # In PO format: msgstr ""\n"..." is non-empty (multi-line string)
+            msgstr_empty = re.search(r'^msgstr ""\s*$', entry, re.MULTILINE)
+            if msgstr_empty and not re.match(r'\s*"', entry[msgstr_empty.end():]):
                 empty.append(repr(msgid_m.group(1)))
 
         assert not empty, (
@@ -172,7 +177,7 @@ class TestInstantCardFeedback:
         assert "card-loading" in content, (
             "chats-page.js must add 'card-loading' CSS class for instant card feedback"
         )
-        assert re.search(r"/start\$", content) or re.search(r"\/start", content), (
+        assert re.search(r"/start$", content) or re.search(r"\/start", content), (
             "chats-page.js must handle /start endpoint for loading state"
         )
 
