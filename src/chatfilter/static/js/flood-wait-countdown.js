@@ -3,22 +3,24 @@
  * Reads the FloodWait-until timestamp from badge data attributes and updates countdown display
  */
 (function() {
+    const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+
     function formatCountdown(remainingMs) {
         const remainingSec = Math.floor(remainingMs / 1000);
 
-        if (remainingSec < 10) return "скоро";
-        if (remainingSec < 60) return remainingSec + "с";
+        if (remainingSec < 10) return t('flood_wait.soon');
+        if (remainingSec < 60) return t('flood_wait.format_seconds', { count: remainingSec });
 
         const minutes = Math.floor(remainingSec / 60);
         const seconds = remainingSec % 60;
 
         if (remainingSec < 3600) {
-            return minutes + "м " + seconds + "с";
+            return t('flood_wait.format_minutes', { minutes: minutes, seconds: seconds });
         }
 
         const hours = Math.floor(minutes / 60);
         const mins = minutes % 60;
-        return hours + "ч " + mins + "м";
+        return t('flood_wait.format_hours', { hours: hours, minutes: mins });
     }
 
     function initCountdownBadge(badgeEl) {

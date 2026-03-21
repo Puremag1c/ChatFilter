@@ -256,6 +256,16 @@
       "failed": "Deletion Failed"
     }
   },
+  "group_card": {
+    "flood_wait_soon": "soon...",
+    "status_waiting_for_accounts": "Waiting for accounts"
+  },
+  "flood_wait": {
+    "soon": "soon",
+    "format_seconds": "{count}s",
+    "format_minutes": "{minutes}m {seconds}s",
+    "format_hours": "{hours}h {minutes}m"
+  },
   "sessions_list": {
     "auth": {
       "verifying": "Verifying...",

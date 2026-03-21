@@ -8,6 +8,8 @@
 (function() {
     'use strict';
 
+    const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
+
     const STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
     const STALE_CHECK_INTERVAL_MS = 5000; // 5 seconds
 
@@ -104,7 +106,7 @@
                     if (remaining > 0) {
                         els.floodWaitCountdownEl.textContent = formatElapsed(remaining);
                     } else {
-                        els.floodWaitCountdownEl.textContent = 'скоро...';
+                        els.floodWaitCountdownEl.textContent = t('group_card.flood_wait_soon');
                         stopFloodWaitCountdown();
                     }
                 }
@@ -134,7 +136,7 @@
             // Remove old status classes
             els.statusBadgeEl.className = 'status-badge ' + status;
             if (status === 'waiting_for_accounts') {
-                els.statusBadgeEl.textContent = 'Ожидание аккаунтов';
+                els.statusBadgeEl.textContent = t('group_card.status_waiting_for_accounts');
             } else if (status === 'in_progress') {
                 els.statusBadgeEl.textContent = 'In progress';
             }

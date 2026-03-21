@@ -267,6 +267,16 @@
       "failed": "Не удалось удалить"
     }
   },
+  "group_card": {
+    "flood_wait_soon": "скоро...",
+    "status_waiting_for_accounts": "Ожидание аккаунтов"
+  },
+  "flood_wait": {
+    "soon": "скоро",
+    "format_seconds": "{count}с",
+    "format_minutes": "{minutes}м {seconds}с",
+    "format_hours": "{hours}ч {minutes}м"
+  },
   "sessions_list": {
     "auth": {
       "verifying": "Подтверждение...",
