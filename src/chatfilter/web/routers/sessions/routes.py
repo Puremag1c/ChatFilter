@@ -14,6 +14,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.flood_tracker import get_flood_tracker
+from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import SessionListItem, _get_flood_wait_until
 from .io import ensure_data_dir, secure_file_permissions
@@ -39,7 +40,7 @@ async def get_sessions(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="partials/sessions_list.html",
-        context={"sessions": sessions},
+        context=get_template_context(request, sessions=sessions),
     )
 
 
@@ -153,13 +154,14 @@ async def get_session_config(
     return templates.TemplateResponse(
         request=request,
         name="partials/session_config.html",
-        context={
-            "session_id": safe_name,
-            "current_api_id": current_api_id,
-            "current_api_hash": current_api_hash,
-            "current_proxy_id": current_proxy_id,
-            "proxies": proxies,
-        },
+        context=get_template_context(
+            request,
+            session_id=safe_name,
+            current_api_id=current_api_id,
+            current_api_hash=current_api_hash,
+            current_proxy_id=current_proxy_id,
+            proxies=proxies,
+        ),
     )
 
 
@@ -552,5 +554,5 @@ async def get_auth_form(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="partials/auth_start_form.html",
-        context={"proxies": proxies},
+        context=get_template_context(request, proxies=proxies),
     )
