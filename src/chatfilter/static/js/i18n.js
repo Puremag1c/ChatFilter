@@ -11,20 +11,60 @@ class I18n {
         this.currentLocale = 'en';
         this.fallbackLocale = 'en';
         this.initialized = false;
+        // Promise that resolves when i18n is ready
+        this._readyResolve = null;
+        this.ready = new Promise((resolve) => {
+            this._readyResolve = resolve;
+        });
     }
 
     /**
-     * Initialize i18n with inline translations from window.__i18n__
+     * Initialize i18n with the current locale
+     * @returns {Promise<void>}
      */
-    init() {
+    async init() {
         this.currentLocale = this.detectLocale();
 
+        try {
+            await this.loadTranslations(this.currentLocale);
+            this.initialized = true;
+            this._readyResolve();
+        } catch (error) {
+            console.error(`Failed to load translations for ${this.currentLocale}:`, error);
+
+            if (this.currentLocale !== this.fallbackLocale) {
+                try {
+                    await this.loadTranslations(this.fallbackLocale);
+                    this.currentLocale = this.fallbackLocale;
+                    this.initialized = true;
+                    this._readyResolve();
+                } catch (fallbackError) {
+                    console.error('Failed to load fallback translations:', fallbackError);
+                    this._readyResolve();
+                }
+            } else {
+                this._readyResolve();
+            }
+        }
+    }
+
+    /**
+     * Load translations: uses window.__i18n__ inline data if available,
+     * otherwise fetches from /static/js/locales/{locale}.json.
+     * @param {string} locale - Locale code (e.g., 'en', 'ru')
+     * @returns {Promise<void>}
+     */
+    async loadTranslations(locale) {
         if (window.__i18n__ && typeof window.__i18n__ === 'object') {
             this.translations = window.__i18n__;
-            this.initialized = true;
-        } else {
-            console.warn('i18n: window.__i18n__ not found, translations unavailable');
+            return;
         }
+
+        const response = await fetch(`/static/js/locales/${locale}.json`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        this.translations = await response.json();
     }
 
     /**
@@ -121,11 +161,17 @@ class I18n {
 // Create global instance
 const i18n = new I18n();
 
-// Initialize synchronously (data is already in window.__i18n__)
+// Auto-initialize when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => i18n.init());
+    document.addEventListener('DOMContentLoaded', () => {
+        i18n.init().catch(error => {
+            console.error('Failed to initialize i18n:', error);
+        });
+    });
 } else {
-    i18n.init();
+    i18n.init().catch(error => {
+        console.error('Failed to initialize i18n:', error);
+    });
 }
 
 // Export for use in other scripts
