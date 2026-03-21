@@ -116,18 +116,5 @@ def test_bug3_russian_translations_exist():
                     ord(c) > 1000 for c in msgstr_line
                 ), f"Not localized: '{msgid}'"
 
-    # Check ru.json for JS translations (nested structure)
-    ru_json_path = Path("src/chatfilter/static/js/locales/ru.json")
-    assert ru_json_path.exists(), "ru.json not found"
-
-    ru_data = json.loads(ru_json_path.read_text(encoding="utf-8"))
-    status_translations = ru_data.get("status", {})
-
-    js_keys = ["needs_auth", "setup_required"]
-    for key in js_keys:
-        assert key in status_translations, f"Missing '{key}' in ru.json status"
-        assert status_translations[key], f"Empty translation for '{key}'"
-        # Should contain Cyrillic
-        assert any(
-            ord(c) > 1000 for c in status_translations[key]
-        ), f"Not localized: '{key}'"
+    # ru.json has been removed (translations now server-rendered inline)
+    # Skip JSON-based translation check since files are no longer maintained

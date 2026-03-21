@@ -28,6 +28,13 @@ def _flatten(obj: dict, prefix: str = "") -> dict[str, str]:
 
 
 def _load_js_keys() -> dict[str, str]:
+    """Load JS keys from en.json if available, else return empty dict.
+
+    The static JSON files have been removed since translations are now
+    server-rendered inline. This function returns an empty dict gracefully.
+    """
+    if not _EN_JSON.exists():
+        return {}
     with open(_EN_JSON, encoding="utf-8") as f:
         data = json.load(f)
     return _flatten(data)

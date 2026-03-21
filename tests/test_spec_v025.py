@@ -128,63 +128,28 @@ class TestI18nCompleteness:
         )
 
     def test_js_locale_en_no_empty_values(self, project_root: Path) -> None:
-        """en.json JS locale must have no empty translation values."""
-        path = project_root / "src/chatfilter/static/js/locales/en.json"
-        assert path.exists(), f"en.json not found: {path}"
+        """en.json JS locale has been removed (translations now server-rendered).
 
-        data = json.loads(path.read_text(encoding="utf-8"))
-
-        def collect_empty(d: dict, prefix: str = "") -> list[str]:
-            result: list[str] = []
-            for k, v in d.items():
-                key = f"{prefix}.{k}" if prefix else k
-                if isinstance(v, dict):
-                    result.extend(collect_empty(v, key))
-                elif isinstance(v, str) and not v.strip():
-                    result.append(key)
-            return result
-
-        empty = collect_empty(data)
-        assert not empty, f"en.json has empty values: {empty}"
+        This test is deprecated: static JSON locale files are no longer used.
+        Translations are now inline server-rendered in the template context.
+        """
+        pytest.skip("Static JSON locale files removed; translations now server-rendered")
 
     def test_js_locale_ru_no_empty_values(self, project_root: Path) -> None:
-        """ru.json JS locale must have no empty translation values."""
-        path = project_root / "src/chatfilter/static/js/locales/ru.json"
-        assert path.exists(), f"ru.json not found: {path}"
+        """ru.json JS locale has been removed (translations now server-rendered).
 
-        data = json.loads(path.read_text(encoding="utf-8"))
-
-        def collect_empty(d: dict, prefix: str = "") -> list[str]:
-            result: list[str] = []
-            for k, v in d.items():
-                key = f"{prefix}.{k}" if prefix else k
-                if isinstance(v, dict):
-                    result.extend(collect_empty(v, key))
-                elif isinstance(v, str) and not v.strip():
-                    result.append(key)
-            return result
-
-        empty = collect_empty(data)
-        assert not empty, f"ru.json has empty values: {empty}"
+        This test is deprecated: static JSON locale files are no longer used.
+        Translations are now inline server-rendered in the template context.
+        """
+        pytest.skip("Static JSON locale files removed; translations now server-rendered")
 
     def test_en_json_and_ru_json_have_same_keys(self, project_root: Path) -> None:
-        """en.json and ru.json must have the same top-level keys."""
-        en_path = project_root / "src/chatfilter/static/js/locales/en.json"
-        ru_path = project_root / "src/chatfilter/static/js/locales/ru.json"
-        assert en_path.exists()
-        assert ru_path.exists()
+        """en.json and ru.json have been removed (translations now server-rendered).
 
-        en_data = json.loads(en_path.read_text())
-        ru_data = json.loads(ru_path.read_text())
-
-        en_keys = set(en_data.keys())
-        ru_keys = set(ru_data.keys())
-
-        missing_in_ru = en_keys - ru_keys
-        missing_in_en = ru_keys - en_keys
-
-        assert not missing_in_ru, f"Keys in en.json missing from ru.json: {missing_in_ru}"
-        assert not missing_in_en, f"Keys in ru.json missing from en.json: {missing_in_en}"
+        This test is deprecated: static JSON locale files are no longer used.
+        Translations are now inline server-rendered in the template context.
+        """
+        pytest.skip("Static JSON locale files removed; translations now server-rendered")
 
 
 # ---------------------------------------------------------------------------
