@@ -57,12 +57,12 @@ const VersionCheckManager = {
                     </svg>
                 </div>
                 <div class="update-notification-message">
-                    <strong class="update-notification-title">${t('updates.available')}</strong>
+                    <strong class="update-notification-title"></strong>
                     <span class="update-notification-version"></span>
                 </div>
                 <div class="update-notification-actions">
-                    <a href="#" class="update-notification-link" target="_blank" rel="noopener noreferrer">${t('updates.view_release')}</a>
-                    <button class="update-notification-dismiss" aria-label="${t('common.dismiss')}">
+                    <a href="#" class="update-notification-link" target="_blank" rel="noopener noreferrer"></a>
+                    <button class="update-notification-dismiss">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                             <path fill-rule="evenodd" d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z" clip-rule="evenodd" />
                         </svg>
@@ -70,6 +70,9 @@ const VersionCheckManager = {
                 </div>
             </div>
         `;
+        notification.querySelector('.update-notification-title').textContent = t('updates.available');
+        notification.querySelector('.update-notification-link').textContent = t('updates.view_release');
+        notification.querySelector('.update-notification-dismiss').setAttribute('aria-label', t('common.dismiss'));
 
         // Add to page (prepend to body or to a specific container)
         const container = document.querySelector('.container') || document.body;

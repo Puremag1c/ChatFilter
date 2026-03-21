@@ -150,7 +150,8 @@
     function addSpinner(btn, label) {
         btn.dataset.originalHtml = btn.innerHTML;
         btn.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 0.5rem;">' +
-            SPINNER_SVG + '<span>' + label + '</span></span>';
+            SPINNER_SVG + '<span></span></span>';
+        btn.querySelector('span > span:last-child').textContent = label;
     }
 
     function restoreButton(btn) {

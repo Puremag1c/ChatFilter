@@ -84,28 +84,35 @@
                 <div class="modal-dialog" role="document">
                     <div class="modal-header">
                         <span class="modal-icon ${modal.type}" aria-hidden="true">${modal.icon}</span>
-                        <h2 class="modal-title" id="modal-title-${modal.id}">${this.escapeHtml(modal.title)}</h2>
+                        <h2 class="modal-title" id="modal-title-${modal.id}"></h2>
                     </div>
                     <div class="modal-body">
-                        <p class="modal-message">${this.escapeHtml(modal.message)}</p>
+                        <p class="modal-message"></p>
                     </div>
                     <div class="modal-footer">
                         <button class="modal-button secondary"
-                                onclick="ModalManager.currentModal.onCancel()"
-                                aria-label="${this.escapeHtml(modal.cancelText)}">
-                            ${this.escapeHtml(modal.cancelText)}
+                                onclick="ModalManager.currentModal.onCancel()">
                         </button>
                         <button class="modal-button ${modal.confirmClass}"
                                 onclick="ModalManager.currentModal.onConfirm()"
-                                aria-label="${this.escapeHtml(modal.confirmText)}"
                                 autofocus>
-                            ${this.escapeHtml(modal.confirmText)}
                         </button>
                     </div>
                 </div>
             `;
 
             this.overlayElement.innerHTML = modalHTML;
+
+            // Set translated text via DOM APIs to prevent XSS through translation strings
+            this.overlayElement.querySelector('.modal-title').textContent = modal.title;
+            this.overlayElement.querySelector('.modal-message').textContent = modal.message;
+            const cancelBtn = this.overlayElement.querySelector('.modal-button.secondary');
+            cancelBtn.textContent = modal.cancelText;
+            cancelBtn.setAttribute('aria-label', modal.cancelText);
+            const confirmBtn = this.overlayElement.querySelector(`.modal-button.${modal.confirmClass}`);
+            confirmBtn.textContent = modal.confirmText;
+            confirmBtn.setAttribute('aria-label', modal.confirmText);
+
             this.overlayElement.setAttribute('aria-labelledby', `modal-title-${modal.id}`);
 
             // Show modal with animation

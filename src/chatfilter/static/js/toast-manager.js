@@ -78,6 +78,23 @@
             const visibleToasts = this.queue.slice(-this.maxToasts);
             this.container.innerHTML = visibleToasts.map(toast => this.createToastHTML(toast)).join('');
 
+            // Set translated text via DOM APIs to prevent XSS through translation strings
+            visibleToasts.forEach(toast => {
+                const el = this.container.querySelector(`[data-toast-id="${toast.id}"]`);
+                if (!el) return;
+                el.querySelector('.toast-title').textContent = toast.title;
+                const msgEl = el.querySelector('.toast-message');
+                if (msgEl) msgEl.textContent = toast.message;
+                el.querySelector('.toast-close').setAttribute('aria-label', t('toast.close_notification'));
+                toast.actions.forEach((action, idx) => {
+                    const btn = el.querySelector(`.toast-action[data-action-index="${idx}"]`);
+                    if (btn) {
+                        btn.textContent = action.label;
+                        btn.setAttribute('aria-label', action.label);
+                    }
+                });
+            });
+
             setTimeout(() => {
                 visibleToasts.forEach(toast => {
                     const element = document.querySelector(`[data-toast-id="${toast.id}"]`);
@@ -103,11 +120,10 @@
 
             const actionsHTML = toast.actions.length > 0 ? `
                 <div class="toast-actions">
-                    ${toast.actions.map(action => `
+                    ${toast.actions.map((action, idx) => `
                         <button class="toast-action ${action.class || ''}"
                                 onclick="ToastManager.handleAction('${toast.id}', '${action.action}')"
-                                aria-label="${this.escapeHtml(action.label)}">
-                            ${action.label}
+                                data-action-index="${idx}">
                         </button>
                     `).join('')}
                 </div>
@@ -117,11 +133,11 @@
                 <div class="toast toast-${toast.type}" data-toast-id="${toast.id}" role="alert" aria-live="assertive">
                     <div class="toast-icon" aria-label="${iconLabels[toast.type] || iconLabels.info}" role="img">${icons[toast.type] || icons.info}</div>
                     <div class="toast-content">
-                        <div class="toast-title">${this.escapeHtml(toast.title)}</div>
-                        ${toast.message ? `<div class="toast-message">${this.escapeHtml(toast.message)}</div>` : ''}
+                        <div class="toast-title"></div>
+                        ${toast.message ? '<div class="toast-message"></div>' : ''}
                         ${actionsHTML}
                     </div>
-                    <button class="toast-close" onclick="ToastManager.hide('${toast.id}')" aria-label="${t('toast.close_notification')}">&times;</button>
+                    <button class="toast-close" onclick="ToastManager.hide('${toast.id}')">&times;</button>
                 </div>
             `;
         },
