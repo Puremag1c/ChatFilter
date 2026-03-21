@@ -2,13 +2,27 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from chatfilter.web.csrf import get_csrf_token
 from chatfilter.web.session import get_session
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from starlette.requests import Request
+
+
+def _safe_get_js_translations(locale: str) -> dict:
+    """Return JS translations dict, falling back to {} on any error."""
+    from chatfilter.i18n.js_translations import get_js_translations
+
+    try:
+        return get_js_translations(locale)
+    except Exception:
+        logger.exception("Failed to load JS translations for locale %r; falling back to {}", locale)
+        return {}
 
 
 def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
@@ -23,7 +37,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
     Returns:
         Context dictionary with request, csrf_token, locale, and any provided kwargs
     """
-    from chatfilter.i18n.js_translations import get_js_translations
     from chatfilter.i18n.translations import get_current_locale, get_translations
 
     session = get_session(request)
@@ -55,6 +68,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "gettext": translations.gettext,
         "ngettext": translations.ngettext,
         "css_version": css_version,  # CSS file hash for cache-busting
-        "js_translations": get_js_translations(locale),
+        "js_translations": _safe_get_js_translations(locale),
         **kwargs,
     }
