@@ -1401,6 +1401,10 @@ msgstr "Готово"
 msgid "Needs Auth"
 msgstr "Требуется авторизация"
 
+#: src/chatfilter/templates/partials/session_row.html:35
+msgid "Needs API ID"
+msgstr "Требуется API ID"
+
 #: src/chatfilter/templates/partials/session_row.html:36
 msgid "Connected"
 msgstr "Подключено"
