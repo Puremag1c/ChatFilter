@@ -816,7 +816,7 @@ msgstr "Супергруппа"
 
 #: src/chatfilter/templates/partials/chat_list.html:48
 msgid "Channel"
-msgstr "Отмена"
+msgstr "Канал"
 
 #: src/chatfilter/templates/partials/chat_list.html:49 src/chatfilter/templates/partials/export_modal.html:25
 msgid "Forum"
@@ -991,7 +991,7 @@ msgstr "Всего чатов"
 
 #: src/chatfilter/templates/partials/group_card.html:34
 msgid "Processed"
-msgstr "Прокси"
+msgstr "Обработано"
 
 #: src/chatfilter/templates/partials/group_card.html:43
 msgid "Current chat"
