@@ -22,22 +22,22 @@ msgstr ""
 #: src/chatfilter/telegram/error_mapping.py:537
 #, python-format
 msgid "Rate limit exceeded. Please wait %(duration)s before trying again."
-msgstr ""
+msgstr "Rate limit exceeded. Please wait %(duration)s before trying again."
 
 #: src/chatfilter/telegram/error_mapping.py:385
 #, python-format
 msgid "Wait %(duration)s and then click 'Retry'"
-msgstr ""
+msgstr "Wait %(duration)s and then click 'Retry'"
 
 #: src/chatfilter/telegram/error_mapping.py:387
 #: src/chatfilter/telegram/error_mapping.py:501
 #: src/chatfilter/telegram/error_mapping.py:540
 msgid "Rate limit exceeded. Please wait before trying again."
-msgstr ""
+msgstr "Rate limit exceeded. Please wait before trying again."
 
 #: src/chatfilter/telegram/error_mapping.py:388
 msgid "Wait a few minutes and then click 'Retry'"
-msgstr ""
+msgstr "Wait a few minutes and then click 'Retry'"
 
 #: src/chatfilter/telegram/error_mapping.py:403
 #: src/chatfilter/telegram/error_mapping.py:508
@@ -45,122 +45,122 @@ msgstr ""
 msgid ""
 "Slow mode is enabled. Please wait %(duration)s before sending another "
 "message."
-msgstr ""
+msgstr "Slow mode is enabled. Please wait %(duration)s before sending another message."
 
 #: src/chatfilter/telegram/error_mapping.py:406
 #, python-format
 msgid "Wait %(duration)s before trying again"
-msgstr ""
+msgstr "Wait %(duration)s before trying again"
 
 #: src/chatfilter/telegram/error_mapping.py:409
 #: src/chatfilter/telegram/error_mapping.py:512
 msgid "Slow mode is enabled. Please wait before sending another message."
-msgstr ""
+msgstr "Slow mode is enabled. Please wait before sending another message."
 
 #: src/chatfilter/telegram/error_mapping.py:411
 msgid "Wait for the slow mode cooldown before trying again"
-msgstr ""
+msgstr "Wait for the slow mode cooldown before trying again"
 
 #: src/chatfilter/telegram/error_mapping.py:429
 msgid "action"
-msgstr ""
+msgstr "action"
 
 #: src/chatfilter/telegram/error_mapping.py:438
 msgid "Check your internet connection and click 'Retry'"
-msgstr ""
+msgstr "Check your internet connection and click 'Retry'"
 
 #: src/chatfilter/telegram/error_mapping.py:442
 msgid "Upload a new session file from your Sessions page"
-msgstr ""
+msgstr "Upload a new session file from your Sessions page"
 
 #: src/chatfilter/telegram/error_mapping.py:446
 msgid "Try a different chat or verify your access permissions"
-msgstr ""
+msgstr "Try a different chat or verify your access permissions"
 
 #: src/chatfilter/telegram/error_mapping.py:450
 msgid "Check your input and try again with correct information"
-msgstr ""
+msgstr "Check your input and try again with correct information"
 
 #: src/chatfilter/telegram/error_mapping.py:454
 msgid "Wait a few minutes and click 'Retry'"
-msgstr ""
+msgstr "Wait a few minutes and click 'Retry'"
 
 #: src/chatfilter/telegram/error_mapping.py:458
 msgid "Try again or contact support if the issue persists"
-msgstr ""
+msgstr "Try again or contact support if the issue persists"
 
 #: src/chatfilter/telegram/error_mapping.py:545
 msgid "Your session has expired. Please log in again with a new session file."
-msgstr ""
+msgstr "Your session has expired. Please log in again with a new session file."
 
 #: src/chatfilter/telegram/error_mapping.py:548
 msgid "Access denied. You may have been banned or removed from this chat."
-msgstr ""
+msgstr "Access denied. You may have been banned or removed from this chat."
 
 #: src/chatfilter/telegram/error_mapping.py:551
 msgid "Access to this resource is restricted."
-msgstr ""
+msgstr "Access to this resource is restricted."
 
 #: src/chatfilter/telegram/error_mapping.py:554
 msgid "Request timed out. Please try again."
-msgstr ""
+msgstr "Request timed out. Please try again."
 
 #: src/chatfilter/telegram/error_mapping.py:557
 msgid ""
 "Network connection error. Please check your internet connection and try "
 "again."
-msgstr ""
+msgstr "Network connection error. Please check your internet connection and try again."
 
 #: src/chatfilter/telegram/error_mapping.py:562
 msgid "Chat or user not found. Please verify the information is correct."
-msgstr ""
+msgstr "Chat or user not found. Please verify the information is correct."
 
 #: src/chatfilter/telegram/error_mapping.py:566
 #, python-format
 msgid ""
 "An error occurred: %(error_class)s. Please try again or contact support "
 "if the issue persists."
-msgstr ""
+msgstr "An error occurred: %(error_class)s. Please try again or contact support if the issue persists."
 
 #: src/chatfilter/telegram/error_utils.py:30
 #, python-format
 msgid "%(num)d second"
 msgid_plural "%(num)d seconds"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d second"
+msgstr[1] "%(num)d seconds"
 
 #: src/chatfilter/telegram/error_utils.py:33
 #, python-format
 msgid "%(num)d minute"
 msgid_plural "%(num)d minutes"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d minute"
+msgstr[1] "%(num)d minutes"
 
 #: src/chatfilter/telegram/error_utils.py:36
 #, python-format
 msgid "%(num)d hour"
 msgid_plural "%(num)d hours"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(num)d hour"
+msgstr[1] "%(num)d hours"
 
 #: src/chatfilter/telegram/client/loader.py:160
 msgid ""
 "Session '{session_id}' has no api_id configured. Please configure api_id "
 "before connecting."
-msgstr ""
+msgstr "Session '{session_id}' has no api_id configured. Please configure api_id before connecting."
 
 #: src/chatfilter/telegram/client/loader.py:169
 msgid ""
 "Session '{session_id}' has no api_hash configured. Please configure "
 "api_hash before connecting."
-msgstr ""
+msgstr "Session '{session_id}' has no api_hash configured. Please configure api_hash before connecting."
 
 #: src/chatfilter/telegram/client/loader.py:178
 #: src/chatfilter/telegram/client/loader.py:303
 msgid ""
 "Session '{session_id}' has no proxy configured. Please configure a proxy "
 "for this session before connecting."
-msgstr ""
+msgstr "Session '{session_id}' has no proxy configured. Please configure a proxy for this session before connecting."
 
 #: src/chatfilter/telegram/client/loader.py:192
 #: src/chatfilter/telegram/client/loader.py:293
@@ -168,210 +168,210 @@ msgid ""
 "Session '{session_id}' requires proxy '{proxy_id}' which is not found in "
 "proxy pool. Please add the proxy to the pool or update the session "
 "configuration."
-msgstr ""
+msgstr "Session '{session_id}' requires proxy '{proxy_id}' which is not found in proxy pool. Please add the proxy to the pool or update the session configuration."
 
 #: src/chatfilter/templates/base.html:31
 msgid "Skip to main content"
-msgstr ""
+msgstr "Skip to main content"
 
 #: src/chatfilter/templates/base.html:34
 msgid "Main navigation"
-msgstr ""
+msgstr "Main navigation"
 
 #: src/chatfilter/templates/base.html:37
 #: src/chatfilter/templates/proxies.html:8
 msgid "Manage proxy servers for Telegram sessions"
-msgstr ""
+msgstr "Manage proxy servers for Telegram sessions"
 
 #: src/chatfilter/templates/base.html:37
 msgid "Proxies"
-msgstr ""
+msgstr "Proxies"
 
 #: src/chatfilter/templates/base.html:38
 msgid "Manage your Telegram session files"
-msgstr ""
+msgstr "Manage your Telegram session files"
 
 #: src/chatfilter/templates/base.html:38
 #: src/chatfilter/templates/partials/proxy_pool_list.html:45
 #: src/chatfilter/templates/partials/proxy_pool_list.html:100
 msgid "Sessions"
-msgstr ""
+msgstr "Sessions"
 
 #: src/chatfilter/templates/base.html:39
 msgid "Select chats to analyze from your Telegram account"
-msgstr ""
+msgstr "Select chats to analyze from your Telegram account"
 
 #: src/chatfilter/templates/base.html:39
 msgid "Chats"
-msgstr ""
+msgstr "Chats"
 
 #: src/chatfilter/templates/base.html:42
 msgid "Toggle dark mode"
-msgstr ""
+msgstr "Toggle dark mode"
 
 #: src/chatfilter/templates/base.html:42
 msgid "Switch between light and dark theme"
-msgstr ""
+msgstr "Switch between light and dark theme"
 
 #: src/chatfilter/templates/base.html:45
 msgid "Switch language"
-msgstr ""
+msgstr "Switch language"
 
 #: src/chatfilter/templates/base.html:45
 msgid "Switch between English and Russian"
-msgstr ""
+msgstr "Switch between English and Russian"
 
 #: src/chatfilter/templates/base.html:57
 msgid "Real-time updates paused"
-msgstr ""
+msgstr "Real-time updates paused"
 
 #: src/chatfilter/templates/base.html:58
 msgid "Connection lost. Please refresh to restore live status updates."
-msgstr ""
+msgstr "Connection lost. Please refresh to restore live status updates."
 
 #: src/chatfilter/templates/base.html:60
 msgid "Refresh page to reconnect"
-msgstr ""
+msgstr "Refresh page to reconnect"
 
 #: src/chatfilter/templates/base.html:61
 msgid "Refresh Now"
-msgstr ""
+msgstr "Refresh Now"
 
 #: src/chatfilter/templates/base.html:63
 msgid "Dismiss banner"
-msgstr ""
+msgstr "Dismiss banner"
 
 #: src/chatfilter/templates/base.html:78
 msgid "Export diagnostic information for troubleshooting"
-msgstr ""
+msgstr "Export diagnostic information for troubleshooting"
 
 #: src/chatfilter/templates/base.html:79
 msgid "Export Diagnostics"
-msgstr ""
+msgstr "Export Diagnostics"
 
 #: src/chatfilter/templates/chatlist.html:3
 #: src/chatfilter/templates/chatlist.html:127
 msgid "Import Chat List"
-msgstr ""
+msgstr "Import Chat List"
 
 #: src/chatfilter/templates/chatlist.html:128
 msgid ""
 "Upload a file or enter a Google Sheets URL to import a list of chats for "
 "analysis"
-msgstr ""
+msgstr "Upload a file or enter a Google Sheets URL to import a list of chats for analysis"
 
 #: src/chatfilter/templates/chatlist.html:132
 msgid "Import Source"
-msgstr ""
+msgstr "Import Source"
 
 #: src/chatfilter/templates/chatlist.html:136
 msgid "Upload a file containing a list of chats to analyze"
-msgstr ""
+msgstr "Upload a file containing a list of chats to analyze"
 
 #: src/chatfilter/templates/chatlist.html:136
 #: src/chatfilter/templates/chatlist.html:172
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:38
 msgid "Upload File"
-msgstr ""
+msgstr "Upload File"
 
 #: src/chatfilter/templates/chatlist.html:137
 msgid ""
 "Upload a text file with one chat per line, or a CSV/Excel file with chat "
 "usernames, links, or IDs."
-msgstr ""
+msgstr "Upload a text file with one chat per line, or a CSV/Excel file with chat usernames, links, or IDs."
 
 #: src/chatfilter/templates/chatlist.html:145
 #: src/chatfilter/templates/chatlist.html:169
 msgid "Upload chat list file"
-msgstr ""
+msgstr "Upload chat list file"
 
 #: src/chatfilter/templates/chatlist.html:148
 msgid "Select chat list file"
-msgstr ""
+msgstr "Select chat list file"
 
 #: src/chatfilter/templates/chatlist.html:156
 msgid "Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
-msgstr ""
+msgstr "Select a .txt, .csv, or .xlsx file with chat usernames, links, or IDs"
 
 #: src/chatfilter/templates/chatlist.html:160
 msgid "Supported file formats"
-msgstr ""
+msgstr "Supported file formats"
 
 #: src/chatfilter/templates/chatlist.html:170
 msgid "Upload and parse the selected file"
-msgstr ""
+msgstr "Upload and parse the selected file"
 
 #: src/chatfilter/templates/chatlist.html:173
 msgid "Upload in progress"
-msgstr ""
+msgstr "Upload in progress"
 
 #: src/chatfilter/templates/chatlist.html:180
 msgid "Import chats from a public Google Sheets document"
-msgstr ""
+msgstr "Import chats from a public Google Sheets document"
 
 #: src/chatfilter/templates/chatlist.html:180
 msgid "Google Sheets"
-msgstr ""
+msgstr "Google Sheets"
 
 #: src/chatfilter/templates/chatlist.html:181
 msgid ""
 "Enter a link to a public Google Sheets document. The sheet must be shared"
 " with \"Anyone with the link\"."
-msgstr ""
+msgstr "Enter a link to a public Google Sheets document. The sheet must be shared with \"Anyone with the link\"."
 
 #: src/chatfilter/templates/chatlist.html:188
 msgid "Import chat list from Google Sheets"
-msgstr ""
+msgstr "Import chat list from Google Sheets"
 
 #: src/chatfilter/templates/chatlist.html:196
 msgid "Enter the full URL of a public Google Sheets document"
-msgstr ""
+msgstr "Enter the full URL of a public Google Sheets document"
 
 #: src/chatfilter/templates/chatlist.html:203
 msgid "Fetch and import chats from the Google Sheets URL"
-msgstr ""
+msgstr "Fetch and import chats from the Google Sheets URL"
 
 #: src/chatfilter/templates/chatlist.html:205
 msgid "Fetch Sheet"
-msgstr ""
+msgstr "Fetch Sheet"
 
 #: src/chatfilter/templates/chatlist.html:215
 msgid "Imported Chats"
-msgstr ""
+msgstr "Imported Chats"
 
 #: src/chatfilter/templates/chatlist.html:217
 msgid "Import a file or Google Sheet to see the list of chats"
-msgstr ""
+msgstr "Import a file or Google Sheet to see the list of chats"
 
 #: src/chatfilter/templates/chatlist.html:222
 msgid "Loading imported chats..."
-msgstr ""
+msgstr "Loading imported chats..."
 
 #: src/chatfilter/templates/chatlist.html:265
 msgid "File Format Examples"
-msgstr ""
+msgstr "File Format Examples"
 
 #: src/chatfilter/templates/chatlist.html:267
 msgid "Text File (.txt)"
-msgstr ""
+msgstr "Text File (.txt)"
 
 #: src/chatfilter/templates/chatlist.html:278
 msgid "CSV File (.csv)"
-msgstr ""
+msgstr "CSV File (.csv)"
 
 #: src/chatfilter/templates/chats.html:3
 #: src/chatfilter/templates/chats.html:215
 msgid "Chat Groups"
-msgstr ""
+msgstr "Chat Groups"
 
 #: src/chatfilter/templates/chats.html:216
 msgid "Manage and analyze groups of chats"
-msgstr ""
+msgstr "Manage and analyze groups of chats"
 
 #: src/chatfilter/templates/chats.html:221
 #: src/chatfilter/templates/partials/group_card.html:62
 msgid "Groups"
-msgstr ""
+msgstr "Groups"
 
 #: src/chatfilter/templates/chats.html:226
 msgid "Import chats"
@@ -379,44 +379,44 @@ msgstr "Import chats"
 
 #: src/chatfilter/templates/chats.html:233
 msgid "Groups list"
-msgstr ""
+msgstr "Groups list"
 
 #: src/chatfilter/templates/chats.html:238
 msgid "Loading groups..."
-msgstr ""
+msgstr "Loading groups..."
 
 #: src/chatfilter/templates/error.html:23
 #: src/chatfilter/templates/partials/chat_list.html:19
 #: src/chatfilter/templates/partials/session_row.html:103
 #: src/chatfilter/templates/upload.html:253
 msgid "Retry"
-msgstr ""
+msgstr "Retry"
 
 #: src/chatfilter/templates/error.html:26
 msgid "Go to Home"
-msgstr ""
+msgstr "Go to Home"
 
 #: src/chatfilter/templates/error.html:32
 msgid "Request ID"
-msgstr ""
+msgstr "Request ID"
 
 #: src/chatfilter/templates/proxies.html:3
 #: src/chatfilter/templates/proxies.html:7
 msgid "Proxy Pool"
-msgstr ""
+msgstr "Proxy Pool"
 
 #: src/chatfilter/templates/proxies.html:13
 msgid "Proxy List"
-msgstr ""
+msgstr "Proxy List"
 
 #: src/chatfilter/templates/proxies.html:17
 msgid "Add new proxy"
-msgstr ""
+msgstr "Add new proxy"
 
 #: src/chatfilter/templates/proxies.html:18
 #: src/chatfilter/templates/proxies.html:45
 msgid "Add Proxy"
-msgstr ""
+msgstr "Add Proxy"
 
 #: src/chatfilter/templates/partials/group_card.html:38
 #: src/chatfilter/templates/partials/group_card.html:59
@@ -425,84 +425,84 @@ msgstr ""
 #: src/chatfilter/templates/proxies.html:26
 #: src/chatfilter/templates/upload.html:23
 msgid "Error"
-msgstr ""
+msgstr "Error"
 
 #: src/chatfilter/templates/proxies.html:26
 msgid "Failed to load proxies. Please refresh the page."
-msgstr ""
+msgstr "Failed to load proxies. Please refresh the page."
 
 #: src/chatfilter/templates/proxies.html:29
 msgid "List of configured proxies"
-msgstr ""
+msgstr "List of configured proxies"
 
 #: src/chatfilter/templates/proxies.html:32
 msgid "Loading proxies..."
-msgstr ""
+msgstr "Loading proxies..."
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:23
 #: src/chatfilter/templates/partials/proxy_pool_list.html:96
 #: src/chatfilter/templates/proxies.html:52
 msgid "Name"
-msgstr ""
+msgstr "Name"
 
 #: src/chatfilter/templates/proxies.html:59
 msgid "My Proxy"
-msgstr ""
+msgstr "My Proxy"
 
 #: src/chatfilter/templates/proxies.html:61
 msgid "Proxy name for identification"
-msgstr ""
+msgstr "Proxy name for identification"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:26
 #: src/chatfilter/templates/partials/proxy_pool_list.html:97
 #: src/chatfilter/templates/proxies.html:66
 msgid "Type"
-msgstr ""
+msgstr "Type"
 
 #: src/chatfilter/templates/proxies.html:67
 msgid "Select proxy type"
-msgstr ""
+msgstr "Select proxy type"
 
 #: src/chatfilter/templates/proxies.html:77
 msgid "Host"
-msgstr ""
+msgstr "Host"
 
 #: src/chatfilter/templates/proxies.html:84
 msgid "proxy.example.com"
-msgstr ""
+msgstr "proxy.example.com"
 
 #: src/chatfilter/templates/proxies.html:86
 msgid "Proxy server hostname or IP address"
-msgstr ""
+msgstr "Proxy server hostname or IP address"
 
 #: src/chatfilter/templates/proxies.html:91
 msgid "Port"
-msgstr ""
+msgstr "Port"
 
 #: src/chatfilter/templates/proxies.html:100
 msgid "Proxy server port number"
-msgstr ""
+msgstr "Proxy server port number"
 
 #: src/chatfilter/templates/proxies.html:107
 msgid "Username (optional)"
-msgstr ""
+msgstr "Username (optional)"
 
 #: src/chatfilter/templates/proxies.html:112
 #: src/chatfilter/templates/proxies.html:122
 msgid "Leave empty if not required"
-msgstr ""
+msgstr "Leave empty if not required"
 
 #: src/chatfilter/templates/proxies.html:113
 msgid "Proxy authentication username"
-msgstr ""
+msgstr "Proxy authentication username"
 
 #: src/chatfilter/templates/proxies.html:117
 msgid "Password (optional)"
-msgstr ""
+msgstr "Password (optional)"
 
 #: src/chatfilter/templates/proxies.html:123
 msgid "Proxy authentication password"
-msgstr ""
+msgstr "Proxy authentication password"
 
 #: src/chatfilter/templates/partials/export_modal.html:187
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:74
@@ -515,584 +515,584 @@ msgstr ""
 #: src/chatfilter/templates/proxies.html:129
 #: src/chatfilter/templates/upload.html:203
 msgid "Cancel"
-msgstr ""
+msgstr "Cancel"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:111
 #: src/chatfilter/templates/partials/session_config.html:86
 #: src/chatfilter/templates/proxies.html:132
 msgid "Save"
-msgstr ""
+msgstr "Save"
 
 #: src/chatfilter/templates/upload.html:3
 msgid "Telegram Sessions"
-msgstr ""
+msgstr "Telegram Sessions"
 
 #: src/chatfilter/templates/upload.html:7
 msgid "Telegram Accounts"
-msgstr ""
+msgstr "Telegram Accounts"
 
 #: src/chatfilter/templates/upload.html:8
 msgid "Manage your Telegram sessions for chat analysis"
-msgstr ""
+msgstr "Manage your Telegram sessions for chat analysis"
 
 #: src/chatfilter/templates/upload.html:13
 msgid "Accounts"
-msgstr ""
+msgstr "Accounts"
 
 #: src/chatfilter/templates/upload.html:14
 msgid "Add new account"
-msgstr ""
+msgstr "Add new account"
 
 #: src/chatfilter/templates/upload.html:15
 msgid "Add Account"
-msgstr ""
+msgstr "Add Account"
 
 #: src/chatfilter/templates/upload.html:23
 msgid "Failed to load accounts. Please refresh the page."
-msgstr ""
+msgstr "Failed to load accounts. Please refresh the page."
 
 #: src/chatfilter/templates/upload.html:26
 msgid "List of Telegram accounts"
-msgstr ""
+msgstr "List of Telegram accounts"
 
 #: src/chatfilter/templates/upload.html:28
 msgid "Loading accounts..."
-msgstr ""
+msgstr "Loading accounts..."
 
 #: src/chatfilter/templates/upload.html:42
 msgid "Add Telegram Account"
-msgstr ""
+msgstr "Add Telegram Account"
 
 #: src/chatfilter/templates/upload.html:43
 msgid "Close modal"
-msgstr ""
+msgstr "Close modal"
 
 #: src/chatfilter/templates/upload.html:48
 msgid "Phone Authorization"
-msgstr ""
+msgstr "Phone Authorization"
 
 #: src/chatfilter/templates/upload.html:51
 msgid "Upload Session"
-msgstr ""
+msgstr "Upload Session"
 
 #: src/chatfilter/templates/upload.html:58
 msgid "Authenticate with your phone number to create a new session."
-msgstr ""
+msgstr "Authenticate with your phone number to create a new session."
 
 #: src/chatfilter/templates/upload.html:72
 msgid "Already have a .session file? Upload it here with your API credentials."
-msgstr ""
+msgstr "Already have a .session file? Upload it here with your API credentials."
 
 #: src/chatfilter/templates/upload.html:186
 #: src/chatfilter/templates/upload.html:187
 msgid "Deletion is already in progress in another tab"
-msgstr ""
+msgstr "Deletion is already in progress in another tab"
 
 #: src/chatfilter/templates/upload.html:186
 msgid "s ago"
-msgstr ""
+msgstr "s ago"
 
 #: src/chatfilter/templates/upload.html:190
 msgid "Operation in Progress"
-msgstr ""
+msgstr "Operation in Progress"
 
 #: src/chatfilter/templates/upload.html:200
 msgid "Delete Telegram Account"
-msgstr ""
+msgstr "Delete Telegram Account"
 
 #: src/chatfilter/templates/upload.html:201
 msgid "Are you sure you want to delete the account"
-msgstr ""
+msgstr "Are you sure you want to delete the account"
 
 #: src/chatfilter/templates/upload.html:201
 msgid ""
 "This action cannot be undone. All session data and credentials will be "
 "permanently removed."
-msgstr ""
+msgstr "This action cannot be undone. All session data and credentials will be permanently removed."
 
 #: src/chatfilter/templates/upload.html:202
 msgid "Delete Account"
-msgstr ""
+msgstr "Delete Account"
 
 #: src/chatfilter/templates/upload.html:233
 msgid "Account has been deleted."
-msgstr ""
+msgstr "Account has been deleted."
 
 #: src/chatfilter/templates/upload.html:234
 msgid "Account Deleted"
-msgstr ""
+msgstr "Account Deleted"
 
 #: src/chatfilter/templates/upload.html:249
 msgid "Failed to delete account:"
-msgstr ""
+msgstr "Failed to delete account:"
 
 #: src/chatfilter/templates/upload.html:250
 msgid "Deletion Failed"
-msgstr ""
+msgstr "Deletion Failed"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:4
 msgid "Two-Factor Authentication Required"
-msgstr ""
+msgstr "Two-Factor Authentication Required"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:5
 msgid "Your account has 2FA enabled. Please enter your password to continue."
-msgstr ""
+msgstr "Your account has 2FA enabled. Please enter your password to continue."
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:9
 #: src/chatfilter/templates/partials/auth_code_form.html:10
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:10
 msgid "Session:"
-msgstr ""
+msgstr "Session:"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:27
 msgid "Enter your Telegram 2FA password"
-msgstr ""
+msgstr "Enter your Telegram 2FA password"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:28
 msgid "2FA Password"
-msgstr ""
+msgstr "2FA Password"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:33
 msgid "Your 2FA password"
-msgstr ""
+msgstr "Your 2FA password"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:38
 msgid ""
 "Enter the password you set in Telegram Settings > Privacy and Security > "
 "Two-Step Verification"
-msgstr ""
+msgstr "Enter the password you set in Telegram Settings > Privacy and Security > Two-Step Verification"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:43
 msgid "Complete Authentication"
-msgstr ""
+msgstr "Complete Authentication"
 
 #: src/chatfilter/templates/partials/auth_2fa_form.html:50
 msgid "Note: Your password is sent securely and is never stored."
-msgstr ""
+msgstr "Note: Your password is sent securely and is never stored."
 
 #: src/chatfilter/templates/partials/auth_code_form.html:4
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:4
 msgid "Verification code sent!"
-msgstr ""
+msgstr "Verification code sent!"
 
 #: src/chatfilter/templates/partials/auth_code_form.html:5
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:5
 msgid "Please enter the code you received via Telegram."
-msgstr ""
+msgstr "Please enter the code you received via Telegram."
 
 #: src/chatfilter/templates/partials/auth_code_form.html:9
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:9
 msgid "Code sent to:"
-msgstr ""
+msgstr "Code sent to:"
 
 #: src/chatfilter/templates/partials/auth_code_form.html:28
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:28
 msgid "Enter the verification code sent to your phone"
-msgstr ""
+msgstr "Enter the verification code sent to your phone"
 
 #: src/chatfilter/templates/partials/auth_code_form.html:29
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:29
 msgid "Verification Code"
-msgstr ""
+msgstr "Verification Code"
 
 #: src/chatfilter/templates/partials/auth_code_form.html:34
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:34
 msgid "e.g., 12345"
-msgstr ""
+msgstr "e.g., 12345"
 
 #: src/chatfilter/templates/partials/auth_code_form.html:43
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:43
 msgid "Enter the 5-digit code from Telegram"
-msgstr ""
+msgstr "Enter the 5-digit code from Telegram"
 
 #: src/chatfilter/templates/partials/auth_code_form.html:48
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:48
 msgid "Verify Code"
-msgstr ""
+msgstr "Verify Code"
 
 #: src/chatfilter/templates/partials/auth_code_form.html:55
 #: src/chatfilter/templates/partials/auth_code_form_reconnect.html:55
 msgid ""
 "Note: The code expires in a few minutes. If you didn't receive it, start "
 "the process again."
-msgstr ""
+msgstr "Note: The code expires in a few minutes. If you didn't receive it, start the process again."
 
 #: src/chatfilter/templates/partials/auth_result.html:10
 msgid "Account Information"
-msgstr ""
+msgstr "Account Information"
 
 #: src/chatfilter/templates/partials/auth_result.html:12
 msgid "Name:"
-msgstr ""
+msgstr "Name:"
 
 #: src/chatfilter/templates/partials/auth_result.html:14
 msgid "Phone:"
-msgstr ""
+msgstr "Phone:"
 
 #: src/chatfilter/templates/partials/auth_result.html:16
 msgid "User ID:"
-msgstr ""
+msgstr "User ID:"
 
 #: src/chatfilter/templates/partials/auth_result.html:23
 msgid "Warning: Duplicate Account Detected"
-msgstr ""
+msgstr "Warning: Duplicate Account Detected"
 
 #: src/chatfilter/templates/partials/auth_result.html:25
 msgid "This account is already registered in these sessions:"
-msgstr ""
+msgstr "This account is already registered in these sessions:"
 
 #: src/chatfilter/templates/partials/auth_result.html:29
 msgid ""
 "Using multiple sessions for the same account may cause conflicts. "
 "Consider removing duplicate sessions."
-msgstr ""
+msgstr "Using multiple sessions for the same account may cause conflicts. Consider removing duplicate sessions."
 
 #: src/chatfilter/templates/partials/auth_result.html:36
 msgid "Create Another Session"
-msgstr ""
+msgstr "Create Another Session"
 
 #: src/chatfilter/templates/partials/auth_result.html:39
 msgid "Go to Sessions"
-msgstr ""
+msgstr "Go to Sessions"
 
 #: src/chatfilter/templates/partials/auth_result.html:53
 msgid "Authentication Failed"
-msgstr ""
+msgstr "Authentication Failed"
 
 #: src/chatfilter/templates/partials/auth_result.html:59
 msgid "Try Again"
-msgstr ""
+msgstr "Try Again"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:12
 #: src/chatfilter/templates/partials/session_import.html:57
 msgid "A unique identifier for this Telegram session"
-msgstr ""
+msgstr "A unique identifier for this Telegram session"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:13
 #: src/chatfilter/templates/partials/session_import.html:58
 msgid "Session Name"
-msgstr ""
+msgstr "Session Name"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:18
 #: src/chatfilter/templates/partials/session_import.html:63
 msgid "e.g., my_account"
-msgstr ""
+msgstr "e.g., my_account"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:22
 #: src/chatfilter/templates/partials/session_import.html:67
 msgid ""
 "A unique name to identify this session. Only letters, numbers, "
 "underscores, and hyphens allowed."
-msgstr ""
+msgstr "A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed."
 
 #: src/chatfilter/templates/partials/auth_start_form.html:27
 msgid "Your Telegram phone number with country code"
-msgstr ""
+msgstr "Your Telegram phone number with country code"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:28
 msgid "Phone Number"
-msgstr ""
+msgstr "Phone Number"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:33
 msgid "+1234567890"
-msgstr ""
+msgstr "+1234567890"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:36
 msgid "Your Telegram phone number with country code (e.g., +1234567890)"
-msgstr ""
+msgstr "Your Telegram phone number with country code (e.g., +1234567890)"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:42
 #: src/chatfilter/templates/partials/session_config.html:12
 #: src/chatfilter/templates/partials/session_import.html:74
 msgid "Your Telegram API ID from my.telegram.org"
-msgstr ""
+msgstr "Your Telegram API ID from my.telegram.org"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:43
 #: src/chatfilter/templates/partials/session_config.html:13
 #: src/chatfilter/templates/partials/session_import.html:75
 msgid "API ID"
-msgstr ""
+msgstr "API ID"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:47
 #: src/chatfilter/templates/partials/session_config.html:20
 #: src/chatfilter/templates/partials/session_import.html:79
 msgid "e.g., 12345678"
-msgstr ""
+msgstr "e.g., 12345678"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:50
 msgid "Optional: Numeric ID from my.telegram.org/apps"
-msgstr ""
+msgstr "Optional: Numeric ID from my.telegram.org/apps"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:55
 #: src/chatfilter/templates/partials/session_config.html:29
 #: src/chatfilter/templates/partials/session_import.html:87
 msgid "Your Telegram API Hash from my.telegram.org"
-msgstr ""
+msgstr "Your Telegram API Hash from my.telegram.org"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:56
 #: src/chatfilter/templates/partials/session_config.html:30
 #: src/chatfilter/templates/partials/session_import.html:88
 msgid "API Hash"
-msgstr ""
+msgstr "API Hash"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:60
 #: src/chatfilter/templates/partials/session_config.html:37
 #: src/chatfilter/templates/partials/session_import.html:92
 msgid "e.g., 0123456789abcdef..."
-msgstr ""
+msgstr "e.g., 0123456789abcdef..."
 
 #: src/chatfilter/templates/partials/auth_start_form.html:65
 msgid "Optional: 32-character hex string from my.telegram.org/apps"
-msgstr ""
+msgstr "Optional: 32-character hex string from my.telegram.org/apps"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:71
 #: src/chatfilter/templates/partials/session_config.html:49
 #: src/chatfilter/templates/partials/session_import.html:103
 msgid "Select a proxy for this session"
-msgstr ""
+msgstr "Select a proxy for this session"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:72
 #: src/chatfilter/templates/partials/session_config.html:50
 #: src/chatfilter/templates/partials/session_import.html:104
 msgid "Proxy"
-msgstr ""
+msgstr "Proxy"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:76
 #: src/chatfilter/templates/partials/session_config.html:57
 #: src/chatfilter/templates/partials/session_import.html:108
 msgid "-- Select a proxy --"
-msgstr ""
+msgstr "-- Select a proxy --"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:84
 #: src/chatfilter/templates/partials/session_config.html:65
 #: src/chatfilter/templates/partials/session_import.html:116
 msgid "unavailable"
-msgstr ""
+msgstr "unavailable"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:90
 #: src/chatfilter/templates/partials/session_import.html:122
 msgid "Optional: Select a proxy for Telegram connection."
-msgstr ""
+msgstr "Optional: Select a proxy for Telegram connection."
 
 #: src/chatfilter/templates/partials/auth_start_form.html:92
 #: src/chatfilter/templates/partials/session_config.html:73
 msgid "Add a proxy first"
-msgstr ""
+msgstr "Add a proxy first"
 
 #: src/chatfilter/templates/partials/auth_start_form.html:105
 msgid ""
 "I understand that session files provide complete access to my Telegram "
 "account and accept the security risks."
-msgstr ""
+msgstr "I understand that session files provide complete access to my Telegram account and accept the security risks."
 
 #: src/chatfilter/templates/partials/chat_list.html:6
 msgid "What to do:"
-msgstr ""
+msgstr "What to do:"
 
 #: src/chatfilter/templates/partials/chat_list.html:17
 msgid "Try loading chats again"
-msgstr ""
+msgstr "Try loading chats again"
 
 #: src/chatfilter/templates/partials/chat_list.html:24
 msgid "Go to Sessions Page"
-msgstr ""
+msgstr "Go to Sessions Page"
 
 #: src/chatfilter/templates/partials/chat_list.html:35
 msgid "Search chats..."
-msgstr ""
+msgstr "Search chats..."
 
 #: src/chatfilter/templates/partials/chat_list.html:37
 msgid "Search chats by name or username"
-msgstr ""
+msgstr "Search chats by name or username"
 
 #: src/chatfilter/templates/partials/chat_list.html:42
 msgid "Filter chats by type (private, group, channel, etc.)"
-msgstr ""
+msgstr "Filter chats by type (private, group, channel, etc.)"
 
 #: src/chatfilter/templates/partials/chat_list.html:44
 msgid "All Types"
-msgstr ""
+msgstr "All Types"
 
 #: src/chatfilter/templates/partials/chat_list.html:45
 msgid "Private"
-msgstr ""
+msgstr "Private"
 
 #: src/chatfilter/templates/partials/chat_list.html:46
 #: src/chatfilter/templates/partials/export_modal.html:24
 msgid "Group"
-msgstr ""
+msgstr "Group"
 
 #: src/chatfilter/templates/partials/chat_list.html:47
 msgid "Supergroup"
-msgstr ""
+msgstr "Supergroup"
 
 #: src/chatfilter/templates/partials/chat_list.html:48
 msgid "Channel"
-msgstr ""
+msgstr "Channel"
 
 #: src/chatfilter/templates/partials/chat_list.html:49
 #: src/chatfilter/templates/partials/export_modal.html:25
 msgid "Forum"
-msgstr ""
+msgstr "Forum"
 
 #: src/chatfilter/templates/partials/chat_list.html:58
 msgid "Select all visible chats"
-msgstr ""
+msgstr "Select all visible chats"
 
 #: src/chatfilter/templates/partials/chat_list.html:59
 msgid "Select All"
-msgstr ""
+msgstr "Select All"
 
 #: src/chatfilter/templates/partials/chat_list.html:63
 msgid "Deselect all chats"
-msgstr ""
+msgstr "Deselect all chats"
 
 #: src/chatfilter/templates/partials/chat_list.html:64
 msgid "Select None"
-msgstr ""
+msgstr "Select None"
 
 #: src/chatfilter/templates/partials/chat_list.html:69
 msgid "Remove all active filters"
-msgstr ""
+msgstr "Remove all active filters"
 
 #: src/chatfilter/templates/partials/chat_list.html:71
 msgid "Clear Filters"
-msgstr ""
+msgstr "Clear Filters"
 
 #: src/chatfilter/templates/partials/chat_list.html:73
 #, python-format
 msgid "0 of %(total)s chats"
-msgstr ""
+msgstr "0 of %(total)s chats"
 
 #: src/chatfilter/templates/partials/chat_list.html:119
 #, python-format
 msgid "%(count)s members"
-msgstr ""
+msgstr "%(count)s members"
 
 #: src/chatfilter/templates/partials/chat_list.html:136
 #: src/chatfilter/templates/partials/chat_list.html:200
 msgid "Load more chats from this session"
-msgstr ""
+msgstr "Load more chats from this session"
 
 #: src/chatfilter/templates/partials/chat_list.html:138
 #: src/chatfilter/templates/partials/chat_list.html:202
 #, python-format
 msgid "Load More Chats (%(remaining)s remaining)"
-msgstr ""
+msgstr "Load More Chats (%(remaining)s remaining)"
 
 #: src/chatfilter/templates/partials/chat_list.html:146
 msgid "Configure how many messages to analyze from each chat"
-msgstr ""
+msgstr "Configure how many messages to analyze from each chat"
 
 #: src/chatfilter/templates/partials/chat_list.html:147
 msgid "Analysis Settings"
-msgstr ""
+msgstr "Analysis Settings"
 
 #: src/chatfilter/templates/partials/chat_list.html:150
 msgid "Set the number of recent messages to fetch and analyze"
-msgstr ""
+msgstr "Set the number of recent messages to fetch and analyze"
 
 #: src/chatfilter/templates/partials/chat_list.html:151
 msgid "Messages per chat"
-msgstr ""
+msgstr "Messages per chat"
 
 #: src/chatfilter/templates/partials/chat_list.html:160
 msgid "Higher values take longer but provide more comprehensive analysis"
-msgstr ""
+msgstr "Higher values take longer but provide more comprehensive analysis"
 
 #: src/chatfilter/templates/partials/chat_list.html:162
 msgid "Number of recent messages to analyze (10-10000)"
-msgstr ""
+msgstr "Number of recent messages to analyze (10-10000)"
 
 #: src/chatfilter/templates/partials/chat_list.html:169
 msgid "Begin analyzing the selected chats"
-msgstr ""
+msgstr "Begin analyzing the selected chats"
 
 #: src/chatfilter/templates/partials/chat_list.html:171
 msgid "Start Analysis"
-msgstr ""
+msgstr "Start Analysis"
 
 #: src/chatfilter/templates/partials/chat_list.html:211
 msgid "No Chats Found"
-msgstr ""
+msgstr "No Chats Found"
 
 #: src/chatfilter/templates/partials/chat_list.html:212
 msgid ""
 "This Telegram session doesn't have any chats available for analysis. Try "
 "selecting a different session or verify that your session has active "
 "chats."
-msgstr ""
+msgstr "This Telegram session doesn't have any chats available for analysis. Try selecting a different session or verify that your session has active chats."
 
 #: src/chatfilter/templates/partials/export_modal.html:6
 msgid "Export Filters"
-msgstr ""
+msgstr "Export Filters"
 
 #: src/chatfilter/templates/partials/export_modal.html:13
 msgid "Chat Types"
-msgstr ""
+msgstr "Chat Types"
 
 #: src/chatfilter/templates/partials/export_modal.html:22
 msgid "Channel with Comments"
-msgstr ""
+msgstr "Channel with Comments"
 
 #: src/chatfilter/templates/partials/export_modal.html:23
 msgid "Channel without Comments"
-msgstr ""
+msgstr "Channel without Comments"
 
 #: src/chatfilter/templates/partials/export_modal.html:39
 msgid "Subscribers Count"
-msgstr ""
+msgstr "Subscribers Count"
 
 #: src/chatfilter/templates/partials/export_modal.html:42
 #: src/chatfilter/templates/partials/export_modal.html:75
 #: src/chatfilter/templates/partials/export_modal.html:104
 msgid "Min"
-msgstr ""
+msgstr "Min"
 
 #: src/chatfilter/templates/partials/export_modal.html:51
 #: src/chatfilter/templates/partials/export_modal.html:85
 #: src/chatfilter/templates/partials/export_modal.html:114
 msgid "Max"
-msgstr ""
+msgstr "Max"
 
 #: src/chatfilter/templates/partials/export_modal.html:72
 msgid "Messages per Hour"
-msgstr ""
+msgstr "Messages per Hour"
 
 #: src/chatfilter/templates/partials/export_modal.html:101
 msgid "Unique Authors per Hour"
-msgstr ""
+msgstr "Unique Authors per Hour"
 
 #: src/chatfilter/templates/partials/export_modal.html:130
 msgid "Moderation"
-msgstr ""
+msgstr "Moderation"
 
 #: src/chatfilter/templates/partials/export_modal.html:134
 #: src/chatfilter/templates/partials/export_modal.html:155
 msgid "All"
-msgstr ""
+msgstr "All"
 
 #: src/chatfilter/templates/partials/export_modal.html:138
 #: src/chatfilter/templates/partials/export_modal.html:159
 msgid "Yes"
-msgstr ""
+msgstr "Yes"
 
 #: src/chatfilter/templates/partials/export_modal.html:142
 #: src/chatfilter/templates/partials/export_modal.html:163
 msgid "No"
-msgstr ""
+msgstr "No"
 
 #: src/chatfilter/templates/partials/export_modal.html:151
 msgid "Captcha"
-msgstr ""
+msgstr "Captcha"
 
 #: src/chatfilter/templates/partials/export_modal.html:176
 msgid "Loading preview..."
-msgstr ""
+msgstr "Loading preview..."
 
 #: src/chatfilter/templates/partials/export_modal.html:182
 msgid "No chats match the selected filters. Try changing the conditions."
-msgstr ""
+msgstr "No chats match the selected filters. Try changing the conditions."
 
 #: src/chatfilter/templates/partials/export_modal.html:190
 #, fuzzy
@@ -1101,20 +1101,20 @@ msgstr "Download results"
 
 #: src/chatfilter/templates/partials/group_card.html:17
 msgid "Analysis error"
-msgstr ""
+msgstr "Analysis error"
 
 #: src/chatfilter/templates/partials/group_card.html:20
 msgid "No updates for 60 seconds. Analysis may be stuck."
-msgstr ""
+msgstr "No updates for 60 seconds. Analysis may be stuck."
 
 #: src/chatfilter/templates/partials/group_card.html:23
 #: src/chatfilter/templates/partials/session_row.html:15
 msgid "FloodWait until"
-msgstr ""
+msgstr "FloodWait until"
 
 #: src/chatfilter/templates/partials/group_card.html:30
 msgid "Total chats"
-msgstr ""
+msgstr "Total chats"
 
 #: src/chatfilter/templates/partials/group_card.html:34
 #, fuzzy
@@ -1123,39 +1123,39 @@ msgstr "In Progress"
 
 #: src/chatfilter/templates/partials/group_card.html:43
 msgid "Current chat"
-msgstr ""
+msgstr "Current chat"
 
 #: src/chatfilter/templates/partials/group_card.html:57
 msgid "Pending"
-msgstr ""
+msgstr "Pending"
 
 #: src/chatfilter/templates/partials/group_card.html:58
 msgid "Done"
-msgstr ""
+msgstr "Done"
 
 #: src/chatfilter/templates/partials/group_card.html:60
 msgid "Dead"
-msgstr ""
+msgstr "Dead"
 
 #: src/chatfilter/templates/partials/group_card.html:65
 msgid "Forums"
-msgstr ""
+msgstr "Forums"
 
 #: src/chatfilter/templates/partials/group_card.html:68
 msgid "Channels+"
-msgstr ""
+msgstr "Channels+"
 
 #: src/chatfilter/templates/partials/group_card.html:71
 msgid "Channels"
-msgstr ""
+msgstr "Channels"
 
 #: src/chatfilter/templates/partials/group_card.html:74
 msgid "These chats require approval to join. Metrics requiring join are N/A"
-msgstr ""
+msgstr "These chats require approval to join. Metrics requiring join are N/A"
 
 #: src/chatfilter/templates/partials/group_card.html:74
 msgid "Skipped (moderation)"
-msgstr ""
+msgstr "Skipped (moderation)"
 
 #: src/chatfilter/templates/partials/group_card.html:84
 msgid "Configure analysis"
@@ -1170,7 +1170,7 @@ msgstr "Stop analysis"
 msgid ""
 "Stop analysis? The group is waiting for account unblock (FloodWait). If "
 "you stop, you will need to resume manually."
-msgstr ""
+msgstr "Stop analysis? The group is waiting for account unblock (FloodWait). If you stop, you will need to resume manually."
 
 #: src/chatfilter/templates/partials/group_card.html:108
 #, fuzzy
@@ -1197,7 +1197,7 @@ msgstr "Download results"
 
 #: src/chatfilter/templates/partials/group_card.html:144
 msgid "Delete group? This cannot be undone."
-msgstr ""
+msgstr "Delete group? This cannot be undone."
 
 #: src/chatfilter/templates/partials/group_card.html:146
 #: src/chatfilter/templates/partials/proxy_pool_list.html:83
@@ -1207,7 +1207,7 @@ msgstr "Delete"
 
 #: src/chatfilter/templates/partials/groups_list.html:10
 msgid "No groups yet"
-msgstr ""
+msgstr "No groups yet"
 
 #: src/chatfilter/templates/partials/groups_list.html:11
 msgid "Click 'Import chats' to create your first group"
@@ -1215,1464 +1215,1464 @@ msgstr "Click 'Import chats' to create your first group"
 
 #: src/chatfilter/templates/partials/import_validation_result.html:6
 msgid "Session file is valid!"
-msgstr ""
+msgstr "Session file is valid!"
 
 #: src/chatfilter/templates/partials/import_validation_result.html:7
 msgid "Proceed to configure the session settings."
-msgstr ""
+msgstr "Proceed to configure the session settings."
 
 #: src/chatfilter/templates/partials/import_validation_result.html:11
 msgid "Validation failed:"
-msgstr ""
+msgstr "Validation failed:"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:4
 #: src/chatfilter/templates/partials/proxy_pool_list.html:95
 #: src/chatfilter/templates/partials/sessions_list.html:16
 msgid "Status"
-msgstr ""
+msgstr "Status"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:5
 msgid "Testing..."
-msgstr ""
+msgstr "Testing..."
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:7
 msgid "Working - last checked"
-msgstr ""
+msgstr "Working - last checked"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:7
 msgid "Never"
-msgstr ""
+msgstr "Never"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:9
 msgid "Working"
-msgstr ""
+msgstr "Working"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:12
 msgid "Failed"
-msgstr ""
+msgstr "Failed"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:12
 msgid "consecutive failures"
-msgstr ""
+msgstr "consecutive failures"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:14
 msgid "No ping"
-msgstr ""
+msgstr "No ping"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:17
 msgid "Not yet tested"
-msgstr ""
+msgstr "Not yet tested"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:19
 msgid "Untested"
-msgstr ""
+msgstr "Untested"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:29
 #: src/chatfilter/templates/partials/proxy_pool_list.html:98
 msgid "Address"
-msgstr ""
+msgstr "Address"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:32
 #: src/chatfilter/templates/partials/proxy_pool_list.html:99
 msgid "Auth"
-msgstr ""
+msgstr "Auth"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:34
 msgid "Authentication required"
-msgstr ""
+msgstr "Authentication required"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:39
 msgid "No authentication"
-msgstr ""
+msgstr "No authentication"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:41
 msgid "None"
-msgstr ""
+msgstr "None"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:50
 #: src/chatfilter/templates/partials/proxy_pool_list.html:101
 #: src/chatfilter/templates/partials/sessions_list.html:17
 msgid "Actions"
-msgstr ""
+msgstr "Actions"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:61
 msgid "Test Timeout"
-msgstr ""
+msgstr "Test Timeout"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:61
 msgid "Test timeout (30s)"
-msgstr ""
+msgstr "Test timeout (30s)"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:62
 msgid "Test proxy connection"
-msgstr ""
+msgstr "Test proxy connection"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:63
 msgid "Retest proxy"
-msgstr ""
+msgstr "Retest proxy"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:64
 msgid "Test"
-msgstr ""
+msgstr "Test"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:73
 msgid "Edit this proxy"
-msgstr ""
+msgstr "Edit this proxy"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:74
 msgid "Edit proxy"
-msgstr ""
+msgstr "Edit proxy"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:75
 #: src/chatfilter/templates/partials/session_row.html:192
 msgid "Edit"
-msgstr ""
+msgstr "Edit"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:81
 msgid "Delete this proxy"
-msgstr ""
+msgstr "Delete this proxy"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:82
 msgid "Delete proxy"
-msgstr ""
+msgstr "Delete proxy"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:92
 msgid "Proxy servers list"
-msgstr ""
+msgstr "Proxy servers list"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:114
 msgid "No Proxies Configured"
-msgstr ""
+msgstr "No Proxies Configured"
 
 #: src/chatfilter/templates/partials/proxy_pool_list.html:115
 msgid "Add a proxy server to route Telegram connections through it."
-msgstr ""
+msgstr "Add a proxy server to route Telegram connections through it."
 
 #: src/chatfilter/templates/partials/session_config.html:24
 msgid "Numeric ID from my.telegram.org/apps"
-msgstr ""
+msgstr "Numeric ID from my.telegram.org/apps"
 
 #: src/chatfilter/templates/partials/session_config.html:43
 msgid "32-character hex string from my.telegram.org/apps"
-msgstr ""
+msgstr "32-character hex string from my.telegram.org/apps"
 
 #: src/chatfilter/templates/partials/session_config.html:71
 msgid "A proxy is required for Telegram connection."
-msgstr ""
+msgstr "A proxy is required for Telegram connection."
 
 #: src/chatfilter/templates/partials/session_config.html:79
 msgid ""
 "The selected proxy is currently unavailable. Consider selecting a working"
 " proxy."
-msgstr ""
+msgstr "The selected proxy is currently unavailable. Consider selecting a working proxy."
 
 #: src/chatfilter/templates/partials/session_import.html:7
 msgid "Session File (.session)"
-msgstr ""
+msgstr "Session File (.session)"
 
 #: src/chatfilter/templates/partials/session_import.html:13
 msgid "Select your Telegram session file"
-msgstr ""
+msgstr "Select your Telegram session file"
 
 #: src/chatfilter/templates/partials/session_import.html:18
 msgid "Account Info (.json)"
-msgstr ""
+msgstr "Account Info (.json)"
 
 #: src/chatfilter/templates/partials/session_import.html:24
 msgid "JSON file with phone and 2FA (TelegramExpert format)"
-msgstr ""
+msgstr "JSON file with phone and 2FA (TelegramExpert format)"
 
 #: src/chatfilter/templates/partials/session_import.html:31
 msgid "Validate and Continue"
-msgstr ""
+msgstr "Validate and Continue"
 
 #: src/chatfilter/templates/partials/session_import.html:41
 msgid "Session files validated successfully!"
-msgstr ""
+msgstr "Session files validated successfully!"
 
 #: src/chatfilter/templates/partials/session_import.html:42
 msgid "Now configure the session settings below."
-msgstr ""
+msgstr "Now configure the session settings below."
 
 #: src/chatfilter/templates/partials/session_import.html:82
 msgid "Numeric ID from my.telegram.org/apps (optional)"
-msgstr ""
+msgstr "Numeric ID from my.telegram.org/apps (optional)"
 
 #: src/chatfilter/templates/partials/session_import.html:97
 msgid "32-character hex string from my.telegram.org/apps (optional)"
-msgstr ""
+msgstr "32-character hex string from my.telegram.org/apps (optional)"
 
 #: src/chatfilter/templates/partials/session_import.html:124
 msgid "Add a proxy"
-msgstr ""
+msgstr "Add a proxy"
 
 #: src/chatfilter/templates/partials/session_import.html:137
 msgid ""
 "I understand that session files provide complete access to my Telegram "
 "account and accept the security risks. I confirm this session was created"
 " on a trusted device and will be stored securely."
-msgstr ""
+msgstr "I understand that session files provide complete access to my Telegram account and accept the security risks. I confirm this session was created on a trusted device and will be stored securely."
 
 #: src/chatfilter/templates/partials/session_import.html:144
 msgid "Back"
-msgstr ""
+msgstr "Back"
 
 #: src/chatfilter/templates/partials/session_import.html:147
 msgid "Save Session"
-msgstr ""
+msgstr "Save Session"
 
 #: src/chatfilter/templates/partials/session_import.html:211
 msgid "Invalid file type. Please select a .session file."
-msgstr ""
+msgstr "Invalid file type. Please select a .session file."
 
 #: src/chatfilter/templates/partials/session_import.html:232
 msgid "Invalid file type. Please select a .json file."
-msgstr ""
+msgstr "Invalid file type. Please select a .json file."
 
 #: src/chatfilter/templates/partials/session_import.html:250
 msgid "Please select both files."
-msgstr ""
+msgstr "Please select both files."
 
 #: src/chatfilter/templates/partials/session_import.html:259
 msgid "Validating files..."
-msgstr ""
+msgstr "Validating files..."
 
 #: src/chatfilter/templates/partials/session_import.html:333
 msgid "Failed to validate files. Please try again."
-msgstr ""
+msgstr "Failed to validate files. Please try again."
 
 #: src/chatfilter/templates/partials/session_row.html:20
 msgid "No cached session - authorization required"
-msgstr ""
+msgstr "No cached session - authorization required"
 
 #: src/chatfilter/templates/partials/session_row.html:21
 msgid "Permanent error: Account has been banned by Telegram"
-msgstr ""
+msgstr "Permanent error: Account has been banned by Telegram"
 
 #: src/chatfilter/templates/partials/session_row.html:22
 #: src/chatfilter/templates/partials/session_row.html:151
 msgid ""
 "Please confirm this login in your other Telegram app. This will auto-"
 "update when confirmed."
-msgstr ""
+msgstr "Please confirm this login in your other Telegram app. This will auto-update when confirmed."
 
 #: src/chatfilter/templates/partials/session_row.html:23
 msgid "Temporary error: Connection issue - retry may help"
-msgstr ""
+msgstr "Temporary error: Connection issue - retry may help"
 
 #: src/chatfilter/templates/partials/session_row.html:24
 msgid "API credentials required"
-msgstr ""
+msgstr "API credentials required"
 
 #: src/chatfilter/templates/partials/session_row.html:29
 msgid "Ready"
-msgstr ""
+msgstr "Ready"
 
 #: src/chatfilter/templates/partials/session_row.html:32
 msgid "Needs Auth"
-msgstr ""
+msgstr "Needs Auth"
 
 #: src/chatfilter/templates/partials/session_row.html:36
 msgid "Connected"
-msgstr ""
+msgstr "Connected"
 
 #: src/chatfilter/templates/partials/session_row.html:39
 msgid "Connecting"
-msgstr ""
+msgstr "Connecting"
 
 #: src/chatfilter/templates/partials/session_row.html:42
 #: src/chatfilter/templates/partials/session_row.html:169
 msgid "Banned"
-msgstr ""
+msgstr "Banned"
 
 #: src/chatfilter/templates/partials/session_row.html:45
 msgid "Setup Required"
-msgstr ""
+msgstr "Setup Required"
 
 #: src/chatfilter/templates/partials/session_row.html:51
 msgid "Needs Verification Code"
-msgstr ""
+msgstr "Needs Verification Code"
 
 #: src/chatfilter/templates/partials/session_row.html:54
 msgid "Needs 2FA Password"
-msgstr ""
+msgstr "Needs 2FA Password"
 
 #: src/chatfilter/templates/partials/session_row.html:57
 msgid "Awaiting Confirmation"
-msgstr ""
+msgstr "Awaiting Confirmation"
 
 #: src/chatfilter/templates/partials/session_row.html:74
 msgid "Disconnect session"
-msgstr ""
+msgstr "Disconnect session"
 
 #: src/chatfilter/templates/partials/session_row.html:75
 msgid "Disconnect"
-msgstr ""
+msgstr "Disconnect"
 
 #: src/chatfilter/templates/partials/session_row.html:83
 msgid "Connect session"
-msgstr ""
+msgstr "Connect session"
 
 #: src/chatfilter/templates/partials/session_row.html:83
 msgid "Authorize session"
-msgstr ""
+msgstr "Authorize session"
 
 #: src/chatfilter/templates/partials/session_row.html:84
 #: src/chatfilter/templates/partials/session_row.html:179
 msgid "Connect"
-msgstr ""
+msgstr "Connect"
 
 #: src/chatfilter/templates/partials/session_row.html:84
 msgid "Authorize"
-msgstr ""
+msgstr "Authorize"
 
 #: src/chatfilter/templates/partials/session_row.html:89
 msgid "Please wait"
-msgstr ""
+msgstr "Please wait"
 
 #: src/chatfilter/templates/partials/session_row.html:90
 msgid "Wait..."
-msgstr ""
+msgstr "Wait..."
 
 #: src/chatfilter/templates/partials/session_row.html:101
 msgid "Retry connection"
-msgstr ""
+msgstr "Retry connection"
 
 #: src/chatfilter/templates/partials/session_row.html:102
 msgid "Connection error"
-msgstr ""
+msgstr "Connection error"
 
 #: src/chatfilter/templates/partials/session_row.html:107
 msgid "Permanent error"
-msgstr ""
+msgstr "Permanent error"
 
 #: src/chatfilter/templates/partials/session_row.html:108
 msgid "Permanent error - cannot retry"
-msgstr ""
+msgstr "Permanent error - cannot retry"
 
 #: src/chatfilter/templates/partials/session_row.html:121
 msgid "Enter verification code"
-msgstr ""
+msgstr "Enter verification code"
 
 #: src/chatfilter/templates/partials/session_row.html:124
 msgid "Retry Verification"
-msgstr ""
+msgstr "Retry Verification"
 
 #: src/chatfilter/templates/partials/modals/modal_code.html:6
 #: src/chatfilter/templates/partials/session_row.html:126
 msgid "Enter Verification Code"
-msgstr ""
+msgstr "Enter Verification Code"
 
 #: src/chatfilter/templates/partials/session_row.html:137
 msgid "Enter 2FA password"
-msgstr ""
+msgstr "Enter 2FA password"
 
 #: src/chatfilter/templates/partials/session_row.html:140
 msgid "Retry 2FA"
-msgstr ""
+msgstr "Retry 2FA"
 
 #: src/chatfilter/templates/partials/modals/modal_2fa.html:6
 #: src/chatfilter/templates/partials/session_row.html:142
 msgid "Enter 2FA Password"
-msgstr ""
+msgstr "Enter 2FA Password"
 
 #: src/chatfilter/templates/partials/session_row.html:150
 msgid "Waiting for device confirmation"
-msgstr ""
+msgstr "Waiting for device confirmation"
 
 #: src/chatfilter/templates/partials/session_row.html:152
 msgid "Confirm in Telegram"
-msgstr ""
+msgstr "Confirm in Telegram"
 
 #: src/chatfilter/templates/partials/session_row.html:160
 msgid "Cancel authentication"
-msgstr ""
+msgstr "Cancel authentication"
 
 #: src/chatfilter/templates/partials/session_row.html:161
 msgid "Cancel the authentication process and return to disconnected state"
-msgstr ""
+msgstr "Cancel the authentication process and return to disconnected state"
 
 #: src/chatfilter/templates/partials/session_row.html:167
 msgid "Account banned"
-msgstr ""
+msgstr "Account banned"
 
 #: src/chatfilter/templates/partials/session_row.html:168
 msgid "This account has been banned by Telegram"
-msgstr ""
+msgstr "This account has been banned by Telegram"
 
 #: src/chatfilter/templates/partials/session_row.html:177
 msgid "Not configured"
-msgstr ""
+msgstr "Not configured"
 
 #: src/chatfilter/templates/partials/session_row.html:178
 msgid "Configure session first"
-msgstr ""
+msgstr "Configure session first"
 
 #: src/chatfilter/templates/partials/session_row.html:189
 msgid "Configure account"
-msgstr ""
+msgstr "Configure account"
 
 #: src/chatfilter/templates/partials/session_row.html:197
 msgid "Delete account"
-msgstr ""
+msgstr "Delete account"
 
 #: src/chatfilter/templates/partials/sessions_list.html:15
 msgid "Account"
-msgstr ""
+msgstr "Account"
 
 #: src/chatfilter/templates/partials/sessions_list.html:35
 msgid "No Telegram Accounts"
-msgstr ""
+msgstr "No Telegram Accounts"
 
 #: src/chatfilter/templates/partials/sessions_list.html:36
 msgid ""
 "You haven't added any Telegram accounts yet. Click \"Add Account\" above "
 "to get started."
-msgstr ""
+msgstr "You haven't added any Telegram accounts yet. Click \"Add Account\" above to get started."
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:6
 msgid "Create Chat Group"
-msgstr ""
+msgstr "Create Chat Group"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:18
 msgid "Group Name"
-msgstr ""
+msgstr "Group Name"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:23
 msgid "e.g., Marketing Channels"
-msgstr ""
+msgstr "e.g., Marketing Channels"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:28
 msgid "Source Type"
-msgstr ""
+msgstr "Source Type"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:30
 msgid "File Upload (CSV/XLS/TXT)"
-msgstr ""
+msgstr "File Upload (CSV/XLS/TXT)"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:31
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:50
 msgid "Google Sheets URL"
-msgstr ""
+msgstr "Google Sheets URL"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:32
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:61
 msgid "File URL"
-msgstr ""
+msgstr "File URL"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:44
 msgid "Supported formats: CSV, XLS, XLSX, TXT. Max 10MB."
-msgstr ""
+msgstr "Supported formats: CSV, XLS, XLSX, TXT. Max 10MB."
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:45
 msgid "Supported chat formats: t.me/xxx, @username, -100xxx"
-msgstr ""
+msgstr "Supported chat formats: t.me/xxx, @username, -100xxx"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:56
 msgid "Paste the public Google Sheets URL"
-msgstr ""
+msgstr "Paste the public Google Sheets URL"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:67
 msgid "Direct link to CSV/XLS/TXT file"
-msgstr ""
+msgstr "Direct link to CSV/XLS/TXT file"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:77
 msgid "Create Group"
-msgstr ""
+msgstr "Create Group"
 
 #: src/chatfilter/templates/partials/modals/create_group_modal.html:153
 msgid "Creating..."
-msgstr ""
+msgstr "Creating..."
 
 #: src/chatfilter/templates/partials/modals/modal_2fa.html:10
 msgid ""
 "Enter your two-factor authentication password. If you cancel, your "
 "session will remain disconnected, but you can try again anytime."
-msgstr ""
+msgstr "Enter your two-factor authentication password. If you cancel, your session will remain disconnected, but you can try again anytime."
 
 #: src/chatfilter/templates/partials/modals/modal_2fa.html:13
 msgid "Password"
-msgstr ""
+msgstr "Password"
 
 #: src/chatfilter/templates/partials/modals/modal_2fa.html:17
 msgid "Enter your 2FA password"
-msgstr ""
+msgstr "Enter your 2FA password"
 
 #: src/chatfilter/templates/partials/modals/modal_2fa.html:27
 #: src/chatfilter/templates/partials/modals/modal_code.html:30
 msgid "Verify"
-msgstr ""
+msgstr "Verify"
 
 #: src/chatfilter/templates/partials/modals/modal_code.html:10
 msgid ""
 "Enter the 5-6 digit code sent to your phone. If you cancel, your session "
 "will remain disconnected, but you can try again anytime."
-msgstr ""
+msgstr "Enter the 5-6 digit code sent to your phone. If you cancel, your session will remain disconnected, but you can try again anytime."
 
 #: src/chatfilter/templates/partials/modals/modal_code.html:13
 msgid "Code"
-msgstr ""
+msgstr "Code"
 
 #: src/chatfilter/templates/partials/modals/modal_code.html:17
 msgid "Enter the 5-6 digit code sent to your phone"
-msgstr ""
+msgstr "Enter the 5-6 digit code sent to your phone"
 
 #: src/chatfilter/templates/partials/modals/modal_credentials.html:6
 msgid "Enter Credentials"
-msgstr ""
+msgstr "Enter Credentials"
 
 #: src/chatfilter/templates/partials/modals/modal_credentials.html:16
 msgid "Submit"
-msgstr ""
+msgstr "Submit"
 
 #: src/chatfilter/templates/partials/modals/reanalyze_confirm_modal.html:6
 msgid "Are you sure?"
-msgstr ""
+msgstr "Are you sure?"
 
 #: src/chatfilter/templates/partials/modals/reanalyze_confirm_modal.html:10
 msgid ""
 "This will delete all existing analysis results and start from scratch. "
 "Continue?"
-msgstr ""
+msgstr "This will delete all existing analysis results and start from scratch. Continue?"
 
 #: src/chatfilter/templates/partials/modals/reanalyze_confirm_modal.html:13
 msgid ""
 "This action cannot be undone. If you want to extend the existing analysis"
 " without losing data, use the 'Extend analysis' button."
-msgstr ""
+msgstr "This action cannot be undone. If you want to extend the existing analysis without losing data, use the 'Extend analysis' button."
 
 #: src/chatfilter/templates/partials/modals/reanalyze_confirm_modal.html:21
 msgid "Yes, restart"
-msgstr ""
+msgstr "Yes, restart"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:6
 msgid "Group Settings"
-msgstr ""
+msgstr "Group Settings"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:14
 msgid "Metrics to Analyze"
-msgstr ""
+msgstr "Metrics to Analyze"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:23
 msgid "Detect Chat Type"
-msgstr ""
+msgstr "Detect Chat Type"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:25
 #: src/chatfilter/templates/partials/modals/settings_modal.html:37
 msgid "No join required - uses chat metadata"
-msgstr ""
+msgstr "No join required - uses chat metadata"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:35
 msgid "Detect Subscribers Count"
-msgstr ""
+msgstr "Detect Subscribers Count"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:48
 msgid "Detect Activity Metrics"
-msgstr ""
+msgstr "Detect Activity Metrics"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:50
 #: src/chatfilter/templates/partials/modals/settings_modal.html:63
 msgid "Requires joining chats to read messages"
-msgstr ""
+msgstr "Requires joining chats to read messages"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:61
 msgid "Detect Unique Authors"
-msgstr ""
+msgstr "Detect Unique Authors"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:73
 msgid "Detect Moderation Settings"
-msgstr ""
+msgstr "Detect Moderation Settings"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:75
 msgid "No join required - uses chat settings"
-msgstr ""
+msgstr "No join required - uses chat settings"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:85
 msgid "Detect Captcha Presence"
-msgstr ""
+msgstr "Detect Captcha Presence"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:87
 msgid "Requires joining chats to check restrictions"
-msgstr ""
+msgstr "Requires joining chats to check restrictions"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:94
 msgid "Time Window for Activity Analysis"
-msgstr ""
+msgstr "Time Window for Activity Analysis"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:96
 msgid "1 hour"
-msgstr ""
+msgstr "1 hour"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:97
 msgid "6 hours"
-msgstr ""
+msgstr "6 hours"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:98
 msgid "24 hours"
-msgstr ""
+msgstr "24 hours"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:99
 msgid "48 hours"
-msgstr ""
+msgstr "48 hours"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:101
 msgid "Time window for analyzing activity and unique authors"
-msgstr ""
+msgstr "Time window for analyzing activity and unique authors"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:111
 msgid "Save Settings"
-msgstr ""
+msgstr "Save Settings"
 
 #: src/chatfilter/web/routers/chatlist.py:184
 msgid "File too large (max {size} MB)"
-msgstr ""
+msgstr "File too large (max {size} MB)"
 
 #: src/chatfilter/web/routers/chatlist.py:196
 msgid "File is empty"
-msgstr ""
+msgstr "File is empty"
 
 #: src/chatfilter/web/routers/chatlist.py:212
 msgid "Parse error: {error}"
-msgstr ""
+msgstr "Parse error: {error}"
 
 #: src/chatfilter/web/routers/chatlist.py:222
 msgid "No valid chat entries found in file"
-msgstr ""
+msgstr "No valid chat entries found in file"
 
 #: src/chatfilter/web/routers/chatlist.py:255
 msgid "An unexpected error occurred while processing the file. Please try again."
-msgstr ""
+msgstr "An unexpected error occurred while processing the file. Please try again."
 
 #: src/chatfilter/web/routers/chatlist.py:284
 msgid "Please enter a Google Sheets URL"
-msgstr ""
+msgstr "Please enter a Google Sheets URL"
 
 #: src/chatfilter/web/routers/chatlist.py:294
 msgid "Invalid Google Sheets URL"
-msgstr ""
+msgstr "Invalid Google Sheets URL"
 
 #: src/chatfilter/web/routers/chatlist.py:317
 msgid "No valid chat entries found in spreadsheet"
-msgstr ""
+msgstr "No valid chat entries found in spreadsheet"
 
 #: src/chatfilter/web/routers/chatlist.py:348
 msgid ""
 "An unexpected error occurred while fetching the Google Sheet. Please try "
 "again."
-msgstr ""
+msgstr "An unexpected error occurred while fetching the Google Sheet. Please try again."
 
 #: src/chatfilter/web/routers/chatlist.py:376
 msgid "List not found or expired"
-msgstr ""
+msgstr "List not found or expired"
 
 #: src/chatfilter/web/routers/chats.py:208
 msgid ""
 "Session is invalid and has been removed. The session may have been "
 "revoked, logged out from another device, or the account may be banned or "
 "deactivated."
-msgstr ""
+msgstr "Session is invalid and has been removed. The session may have been revoked, logged out from another device, or the account may be banned or deactivated."
 
 #: src/chatfilter/web/routers/chats.py:213
 msgid "Upload a new session file from an active Telegram account"
-msgstr ""
+msgstr "Upload a new session file from an active Telegram account"
 
 #: src/chatfilter/web/routers/chats.py:224
 msgid ""
 "Two-factor authentication (2FA) is required. This session needs re-"
 "authorization with your 2FA password."
-msgstr ""
+msgstr "Two-factor authentication (2FA) is required. This session needs re-authorization with your 2FA password."
 
 #: src/chatfilter/web/routers/chats.py:228
 msgid ""
 "Create a new session file using Telethon or Pyrogram and enter your 2FA "
 "password during authentication. See the Upload page for instructions."
-msgstr ""
+msgstr "Create a new session file using Telethon or Pyrogram and enter your 2FA password during authentication. See the Upload page for instructions."
 
 #: src/chatfilter/web/routers/chats.py:233
 msgid "Session has expired and requires re-authorization."
-msgstr ""
+msgstr "Session has expired and requires re-authorization."
 
 #: src/chatfilter/web/routers/chats.py:234
 msgid ""
 "Create and upload a new session file from your Telegram account. See the "
 "Upload page for step-by-step instructions."
-msgstr ""
+msgstr "Create and upload a new session file from your Telegram account. See the Upload page for step-by-step instructions."
 
 #: src/chatfilter/web/routers/chats.py:280
 msgid "Failed to connect to Telegram. Please check your session."
-msgstr ""
+msgstr "Failed to connect to Telegram. Please check your session."
 
 #: src/chatfilter/web/routers/chats.py:281
 msgid "Verify your session file is valid or try uploading a new one"
-msgstr ""
+msgstr "Verify your session file is valid or try uploading a new one"
 
 #: src/chatfilter/web/routers/chats.py:409
 msgid "Session not found"
-msgstr ""
+msgstr "Session not found"
 
 #: src/chatfilter/web/routers/chats.py:416
 msgid "Failed to fetch account info"
-msgstr ""
+msgstr "Failed to fetch account info"
 
 #: src/chatfilter/web/routers/chats.py:437
 msgid "No session selected"
-msgstr ""
+msgstr "No session selected"
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:106
 msgid "Both API ID and API Hash are required if one is provided."
-msgstr ""
+msgstr "Both API ID and API Hash are required if one is provided."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:117
 msgid "API ID must be a positive integer."
-msgstr ""
+msgstr "API ID must be a positive integer."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:129
 #: src/chatfilter/web/routers/sessions/upload.py:537
 msgid "Invalid API hash format. Must be a 32-character hexadecimal string."
-msgstr ""
+msgstr "Invalid API hash format. Must be a 32-character hexadecimal string."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:155
 #: src/chatfilter/web/routers/sessions/auth_initial.py:171
 #: src/chatfilter/web/routers/sessions/upload.py:91
 #: src/chatfilter/web/routers/sessions/upload.py:504
 msgid "Session '{name}' already exists"
-msgstr ""
+msgstr "Session '{name}' already exists"
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:214
 msgid ""
 "Session '{name}' saved successfully. It will appear as 'disconnected' in "
 "the list."
-msgstr ""
+msgstr "Session '{name}' saved successfully. It will appear as 'disconnected' in the list."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:229
 msgid "Failed to save session. Please try again."
-msgstr ""
+msgstr "Failed to save session. Please try again."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:269
 #: src/chatfilter/web/routers/sessions/auth_initial.py:436
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:99
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:402
 msgid "Auth session expired or not found. Please start over."
-msgstr ""
+msgstr "Auth session expired or not found. Please start over."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:283
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:136
 msgid "Invalid code format. Please enter the numeric code you received."
-msgstr ""
+msgstr "Invalid code format. Please enter the numeric code you received."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:295
 #: src/chatfilter/web/routers/sessions/auth_initial.py:458
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:145
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:435
 msgid "Connection lost. Please start over."
-msgstr ""
+msgstr "Connection lost. Please start over."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:335
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:208
 msgid "Invalid code. Please check and try again."
-msgstr ""
+msgstr "Invalid code. Please check and try again."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:346
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:227
 msgid "Code has expired. Please start over."
-msgstr ""
+msgstr "Code has expired. Please start over."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:372
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:253
 msgid "Please enter the verification code."
-msgstr ""
+msgstr "Please enter the verification code."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:384
 #: src/chatfilter/web/routers/sessions/auth_initial.py:509
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:299
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:599
 msgid "Request timeout. Please try again."
-msgstr ""
+msgstr "Request timeout. Please try again."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:397
 msgid "Failed to verify code. Please check the code and try again."
-msgstr ""
+msgstr "Failed to verify code. Please check the code and try again."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:425
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:383
 msgid "Invalid password: must be at most 256 characters."
-msgstr ""
+msgstr "Invalid password: must be at most 256 characters."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:446
 msgid "Invalid auth state. Please start over."
-msgstr ""
+msgstr "Invalid auth state. Please start over."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:485
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:529
 msgid "Incorrect password. Please try again."
-msgstr ""
+msgstr "Incorrect password. Please try again."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:521
 msgid "Failed to verify password. Please try again."
-msgstr ""
+msgstr "Failed to verify password. Please try again."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:550
 msgid "Client connection lost. Please start over."
-msgstr ""
+msgstr "Client connection lost. Please start over."
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:632
 msgid "Session '{name}' created successfully!"
-msgstr ""
+msgstr "Session '{name}' created successfully!"
 
 #: src/chatfilter/web/routers/sessions/auth_initial.py:655
 msgid "Failed to save session. Please try again or contact support."
-msgstr ""
+msgstr "Failed to save session. Please try again or contact support."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:81
 msgid "Invalid code format."
-msgstr ""
+msgstr "Invalid code format."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:85
 msgid "Code must be 5-6 digits."
-msgstr ""
+msgstr "Code must be 5-6 digits."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:114
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:204
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:417
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:525
 msgid "Too many failed attempts. Please try again in {minutes} minutes."
-msgstr ""
+msgstr "Too many failed attempts. Please try again in {minutes} minutes."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:123
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:426
 msgid "Auth session mismatch. Please start over."
-msgstr ""
+msgstr "Auth session mismatch. Please start over."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:278
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:578
 msgid "Proxy connection failed. Please check your proxy settings and try again."
-msgstr ""
+msgstr "Proxy connection failed. Please check your proxy settings and try again."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:317
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:493
 msgid "Session expired or invalidated. Please reconnect your account."
-msgstr ""
+msgstr "Session expired or invalidated. Please reconnect your account."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:337
 msgid "Code accepted. Connection failed — please try Connect again."
-msgstr ""
+msgstr "Code accepted. Connection failed — please try Connect again."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:388
 msgid "Password cannot be empty."
-msgstr ""
+msgstr "Password cannot be empty."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:481
 msgid "This session has been revoked. Please delete and recreate the session."
-msgstr ""
+msgstr "This session has been revoked. Please delete and recreate the session."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:502
 msgid "Authorization key is invalid. Please delete and recreate the session."
-msgstr ""
+msgstr "Authorization key is invalid. Please delete and recreate the session."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:509
 msgid "This account has been deactivated."
-msgstr ""
+msgstr "This account has been deactivated."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:515
 msgid "This account has been banned."
-msgstr ""
+msgstr "This account has been banned."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect.py:619
 msgid "Password accepted. Connection failed — please try Connect again."
-msgstr ""
+msgstr "Password accepted. Connection failed — please try Connect again."
 
 #: src/chatfilter/web/routers/sessions/auth_reconnect_helpers.py:196
 msgid "Session directory not found."
-msgstr ""
+msgstr "Session directory not found."
 
 #: src/chatfilter/web/routers/sessions/background.py:314
 msgid "Phone number required"
-msgstr ""
+msgstr "Phone number required"
 
 #: src/chatfilter/web/routers/sessions/connect.py:359
 msgid "Phone number required for re-authorization"
-msgstr ""
+msgstr "Phone number required for re-authorization"
 
 #: src/chatfilter/web/routers/sessions/connect.py:366
 msgid "Invalid phone number format"
-msgstr ""
+msgstr "Invalid phone number format"
 
 #: src/chatfilter/web/routers/sessions/routes.py:128
 msgid "Invalid session name"
-msgstr ""
+msgstr "Invalid session name"
 
 #: src/chatfilter/web/routers/sessions/upload.py:113
 #: src/chatfilter/web/routers/sessions/upload.py:526
 msgid "Invalid session: {error}"
-msgstr ""
+msgstr "Invalid session: {error}"
 
 #: src/chatfilter/web/routers/sessions/upload.py:134
 msgid "Invalid config: {error}"
-msgstr ""
+msgstr "Invalid config: {error}"
 
 #: src/chatfilter/web/routers/sessions/upload.py:164
 #: src/chatfilter/web/routers/sessions/upload.py:434
 #: src/chatfilter/web/routers/sessions/upload.py:590
 msgid "Invalid JSON format: {error}"
-msgstr ""
+msgstr "Invalid JSON format: {error}"
 
 #: src/chatfilter/web/routers/sessions/upload.py:274
 #: src/chatfilter/web/routers/sessions/upload.py:655
 msgid "Insufficient disk space. Please free up disk space and try again."
-msgstr ""
+msgstr "Insufficient disk space. Please free up disk space and try again."
 
 #: src/chatfilter/web/routers/sessions/upload.py:286
 #: src/chatfilter/web/routers/sessions/upload.py:667
 msgid "Configuration error. Please check your session file and credentials."
-msgstr ""
+msgstr "Configuration error. Please check your session file and credentials."
 
 #: src/chatfilter/web/routers/sessions/upload.py:300
 #: src/chatfilter/web/routers/sessions/upload.py:681
 msgid "Failed to save session files. Please try again."
-msgstr ""
+msgstr "Failed to save session files. Please try again."
 
 #: src/chatfilter/web/routers/sessions/upload.py:341
 msgid "Session '{name}' uploaded successfully"
-msgstr ""
+msgstr "Session '{name}' uploaded successfully"
 
 #: src/chatfilter/web/routers/sessions/upload.py:360
 msgid "An unexpected error occurred during upload. Please try again."
-msgstr ""
+msgstr "An unexpected error occurred during upload. Please try again."
 
 #: src/chatfilter/web/routers/sessions/upload.py:458
 msgid "An unexpected error occurred during validation."
-msgstr ""
+msgstr "An unexpected error occurred during validation."
 
 #: src/chatfilter/web/routers/sessions/upload.py:555
 msgid "Selected proxy not found. Please select a valid proxy."
-msgstr ""
+msgstr "Selected proxy not found. Please select a valid proxy."
 
 #: src/chatfilter/web/routers/sessions/upload.py:691
 msgid "Session '{name}' imported successfully"
-msgstr ""
+msgstr "Session '{name}' imported successfully"
 
 #: src/chatfilter/web/routers/sessions/upload.py:710
 msgid "An unexpected error occurred during import. Please try again."
-msgstr ""
+msgstr "An unexpected error occurred during import. Please try again."
 
 #: src/chatfilter/web/routers/sessions/validation.py:30
 msgid "Phone number must start with +"
-msgstr ""
+msgstr "Phone number must start with +"
 
 #: src/chatfilter/web/routers/sessions/validation.py:35
 msgid "Phone number must contain only digits after +"
-msgstr ""
+msgstr "Phone number must contain only digits after +"
 
 #~ msgid "Shows your internet connection status"
-#~ msgstr ""
+#~ msgstr "Shows your internet connection status"
 
 #~ msgid "Online"
-#~ msgstr ""
+#~ msgstr "Online"
 
 #~ msgid "Analysis History"
-#~ msgstr ""
+#~ msgstr "Analysis History"
 
 #~ msgid "Browse and view your past chat analyses"
-#~ msgstr ""
+#~ msgstr "Browse and view your past chat analyses"
 
 #~ msgid "Total"
-#~ msgstr ""
+#~ msgstr "Total"
 
 #~ msgid "Completed"
-#~ msgstr ""
+#~ msgstr "Completed"
 
 #~ msgid "Cancelled"
-#~ msgstr ""
+#~ msgstr "Cancelled"
 
 #~ msgid "Timeout"
-#~ msgstr ""
+#~ msgstr "Timeout"
 
 #~ msgid "Filter by status"
-#~ msgstr ""
+#~ msgstr "Filter by status"
 
 #~ msgid "Filter by analysis status"
-#~ msgstr ""
+#~ msgstr "Filter by analysis status"
 
 #~ msgid "All Analyses"
-#~ msgstr ""
+#~ msgstr "All Analyses"
 
 #~ msgid "Loading history..."
-#~ msgstr ""
+#~ msgstr "Loading history..."
 
 #~ msgid "No Analysis History"
-#~ msgstr ""
+#~ msgstr "No Analysis History"
 
 #~ msgid ""
 #~ "You haven't run any analyses yet. "
 #~ "Start analyzing your chats to see "
 #~ "results here."
-#~ msgstr ""
+#~ msgstr "You haven't run any analyses yet. Start analyzing your chats to see results here."
 
 #~ msgid "Previous page"
-#~ msgstr ""
+#~ msgstr "Previous page"
 
 #~ msgid "Previous"
-#~ msgstr ""
+#~ msgstr "Previous"
 
 #~ msgid "Page"
-#~ msgstr ""
+#~ msgstr "Page"
 
 #~ msgid "of"
-#~ msgstr ""
+#~ msgstr "of"
 
 #~ msgid "Next page"
-#~ msgstr ""
+#~ msgstr "Next page"
 
 #~ msgid "Next"
-#~ msgstr ""
+#~ msgstr "Next"
 
 #~ msgid "Edit Proxy"
-#~ msgstr ""
+#~ msgstr "Edit Proxy"
 
 #~ msgid "Save Changes"
-#~ msgstr ""
+#~ msgstr "Save Changes"
 
 #~ msgid "This field is required"
-#~ msgstr ""
+#~ msgstr "This field is required"
 
 #~ msgid "Minimum length is"
-#~ msgstr ""
+#~ msgstr "Minimum length is"
 
 #~ msgid "characters"
-#~ msgstr ""
+#~ msgstr "characters"
 
 #~ msgid "Maximum length is"
-#~ msgstr ""
+#~ msgstr "Maximum length is"
 
 #~ msgid "Minimum value is"
-#~ msgstr ""
+#~ msgstr "Minimum value is"
 
 #~ msgid "Maximum value is"
-#~ msgstr ""
+#~ msgstr "Maximum value is"
 
 #~ msgid "Host cannot contain spaces"
-#~ msgstr ""
+#~ msgstr "Host cannot contain spaces"
 
 #~ msgid "Please fix the errors in the form"
-#~ msgstr ""
+#~ msgstr "Please fix the errors in the form"
 
 #~ msgid "Validation Error"
-#~ msgstr ""
+#~ msgstr "Validation Error"
 
 #~ msgid "Operation failed"
-#~ msgstr ""
+#~ msgstr "Operation failed"
 
 #~ msgid "Proxy updated successfully"
-#~ msgstr ""
+#~ msgstr "Proxy updated successfully"
 
 #~ msgid "Proxy added successfully"
-#~ msgstr ""
+#~ msgstr "Proxy added successfully"
 
 #~ msgid "Proxy Updated"
-#~ msgstr ""
+#~ msgstr "Proxy Updated"
 
 #~ msgid "Proxy Added"
-#~ msgstr ""
+#~ msgstr "Proxy Added"
 
 #~ msgid "Save Failed"
-#~ msgstr ""
+#~ msgstr "Save Failed"
 
 #~ msgid "Delete Proxy"
-#~ msgstr ""
+#~ msgstr "Delete Proxy"
 
 #~ msgid "This proxy is used by"
-#~ msgstr ""
+#~ msgstr "This proxy is used by"
 
 #~ msgid "session(s). They will be blocked. Continue?"
-#~ msgstr ""
+#~ msgstr "session(s). They will be blocked. Continue?"
 
 #~ msgid "Proxy deleted successfully"
-#~ msgstr ""
+#~ msgstr "Proxy deleted successfully"
 
 #~ msgid "Proxy Deleted"
-#~ msgstr ""
+#~ msgstr "Proxy Deleted"
 
 #~ msgid "Analysis Results"
-#~ msgstr ""
+#~ msgstr "Analysis Results"
 
 #~ msgid "View and export your chat analysis results"
-#~ msgstr ""
+#~ msgstr "View and export your chat analysis results"
 
 #~ msgid "Analysis statistics"
-#~ msgstr ""
+#~ msgstr "Analysis statistics"
 
 #~ msgid "Copy all statistics"
-#~ msgstr ""
+#~ msgstr "Copy all statistics"
 
 #~ msgid "%(count)s chats analyzed"
-#~ msgstr ""
+#~ msgstr "%(count)s chats analyzed"
 
 #~ msgid "Chats Analyzed"
-#~ msgstr ""
+#~ msgstr "Chats Analyzed"
 
 #~ msgid "Total messages"
-#~ msgstr ""
+#~ msgstr "Total messages"
 
 #~ msgid "Total Messages"
-#~ msgstr ""
+#~ msgstr "Total Messages"
 
 #~ msgid "Unique authors"
-#~ msgstr ""
+#~ msgstr "Unique authors"
 
 #~ msgid "Unique Authors"
-#~ msgstr ""
+#~ msgstr "Unique Authors"
 
 #~ msgid "Active chats in last 7 days"
-#~ msgstr ""
+#~ msgstr "Active chats in last 7 days"
 
 #~ msgid "Active (7d)"
-#~ msgstr ""
+#~ msgstr "Active (7d)"
 
 #~ msgid "Clock Skew Detected"
-#~ msgstr ""
+#~ msgstr "Clock Skew Detected"
 
 #~ msgid ""
 #~ "Your system clock appears to be "
 #~ "incorrect, which may affect time-based"
 #~ " calculations (messages per hour, history"
 #~ " length)."
-#~ msgstr ""
+#~ msgstr "Your system clock appears to be incorrect, which may affect time-based calculations (messages per hour, history length)."
 
 #~ msgid "%(count)s chat(s) affected:"
-#~ msgstr ""
+#~ msgstr "%(count)s chat(s) affected:"
 
 #~ msgid "System clock is %(minutes)s minutes ahead of Telegram server time"
-#~ msgstr ""
+#~ msgstr "System clock is %(minutes)s minutes ahead of Telegram server time"
 
 #~ msgid "System clock is %(minutes)s minutes behind Telegram server time"
-#~ msgstr ""
+#~ msgstr "System clock is %(minutes)s minutes behind Telegram server time"
 
 #~ msgid ""
 #~ "Please check your system time settings"
 #~ " and synchronize with a reliable time"
 #~ " server (e.g., NTP)."
-#~ msgstr ""
+#~ msgstr "Please check your system time settings and synchronize with a reliable time server (e.g., NTP)."
 
 #~ msgid "Result filters"
-#~ msgstr ""
+#~ msgstr "Result filters"
 
 #~ msgid "Search chats"
-#~ msgstr ""
+#~ msgstr "Search chats"
 
 #~ msgid "Search chats by title or username"
-#~ msgstr ""
+#~ msgstr "Search chats by title or username"
 
 #~ msgid "Filter by chat type"
-#~ msgstr ""
+#~ msgstr "Filter by chat type"
 
 #~ msgid "Filter by activity"
-#~ msgstr ""
+#~ msgstr "Filter by activity"
 
 #~ msgid "Filter by activity status"
-#~ msgstr ""
+#~ msgstr "Filter by activity status"
 
 #~ msgid "All Activity"
-#~ msgstr ""
+#~ msgstr "All Activity"
 
 #~ msgid "Inactive"
-#~ msgstr ""
+#~ msgstr "Inactive"
 
 #~ msgid "Clear all filters"
-#~ msgstr ""
+#~ msgstr "Clear all filters"
 
 #~ msgid "Number of active filters"
-#~ msgstr ""
+#~ msgstr "Number of active filters"
 
 #~ msgid "Copy selected rows"
-#~ msgstr ""
+#~ msgstr "Copy selected rows"
 
 #~ msgid "Copy Selected"
-#~ msgstr ""
+#~ msgstr "Copy Selected"
 
 #~ msgid "Compare selected chats"
-#~ msgstr ""
+#~ msgstr "Compare selected chats"
 
 #~ msgid "Compare Selected"
-#~ msgstr ""
+#~ msgstr "Compare Selected"
 
 #~ msgid "Export results to CSV file"
-#~ msgstr ""
+#~ msgstr "Export results to CSV file"
 
 #~ msgid "Export CSV"
-#~ msgstr ""
+#~ msgstr "Export CSV"
 
 #~ msgid "Analysis results table"
-#~ msgstr ""
+#~ msgstr "Analysis results table"
 
 #~ msgid "Chat analysis results"
-#~ msgstr ""
+#~ msgstr "Chat analysis results"
 
 #~ msgid "Select all chats"
-#~ msgstr ""
+#~ msgstr "Select all chats"
 
 #~ msgid "Sort by chat name"
-#~ msgstr ""
+#~ msgstr "Sort by chat name"
 
 #~ msgid "Chat"
-#~ msgstr ""
+#~ msgstr "Chat"
 
 #~ msgid "Sort by chat type"
-#~ msgstr ""
+#~ msgstr "Sort by chat type"
 
 #~ msgid "Sort by message count"
-#~ msgstr ""
+#~ msgstr "Sort by message count"
 
 #~ msgid "Messages"
-#~ msgstr ""
+#~ msgstr "Messages"
 
 #~ msgid "Sort by author count"
-#~ msgstr ""
+#~ msgstr "Sort by author count"
 
 #~ msgid "Authors"
-#~ msgstr ""
+#~ msgstr "Authors"
 
 #~ msgid "Sort by history hours"
-#~ msgstr ""
+#~ msgstr "Sort by history hours"
 
 #~ msgid "History (h)"
-#~ msgstr ""
+#~ msgstr "History (h)"
 
 #~ msgid "Sort by messages per hour"
-#~ msgstr ""
+#~ msgstr "Sort by messages per hour"
 
 #~ msgid "Msg/Hour"
-#~ msgstr ""
+#~ msgstr "Msg/Hour"
 
 #~ msgid "Sort by activity status"
-#~ msgstr ""
+#~ msgstr "Sort by activity status"
 
 #~ msgid "Activity"
-#~ msgstr ""
+#~ msgstr "Activity"
 
 #~ msgid "Copy"
-#~ msgstr ""
+#~ msgstr "Copy"
 
 #~ msgid "Select %(title)s"
-#~ msgstr ""
+#~ msgstr "Select %(title)s"
 
 #~ msgid "Username"
-#~ msgstr ""
+#~ msgstr "Username"
 
 #~ msgid "Chat type: %(type)s"
-#~ msgstr ""
+#~ msgstr "Chat type: %(type)s"
 
 #~ msgid "%(count)s messages"
-#~ msgstr ""
+#~ msgstr "%(count)s messages"
 
 #~ msgid "%(count)s authors"
-#~ msgstr ""
+#~ msgstr "%(count)s authors"
 
 #~ msgid "%(hours)s hours"
-#~ msgstr ""
+#~ msgstr "%(hours)s hours"
 
 #~ msgid "%(rate)s messages per hour"
-#~ msgstr ""
+#~ msgstr "%(rate)s messages per hour"
 
 #~ msgid "Active in last 7 days"
-#~ msgstr ""
+#~ msgstr "Active in last 7 days"
 
 #~ msgid "Active"
-#~ msgstr ""
+#~ msgstr "Active"
 
 #~ msgid "Copy row data"
-#~ msgstr ""
+#~ msgstr "Copy row data"
 
 #~ msgid "Compare Chat Metrics"
-#~ msgstr ""
+#~ msgstr "Compare Chat Metrics"
 
 #~ msgid "Copy comparison data"
-#~ msgstr ""
+#~ msgstr "Copy comparison data"
 
 #~ msgid "Copy Data"
-#~ msgstr ""
+#~ msgstr "Copy Data"
 
 #~ msgid "Close comparison modal"
-#~ msgstr ""
+#~ msgstr "Close comparison modal"
 
 #~ msgid "No analysis results yet."
-#~ msgstr ""
+#~ msgstr "No analysis results yet."
 
 #~ msgid ""
 #~ "Analysis for these chats is already "
 #~ "in progress. Showing current status..."
-#~ msgstr ""
+#~ msgstr "Analysis for these chats is already in progress. Showing current status..."
 
 #~ msgid "Analyzing %(num)s chat..."
 #~ msgid_plural "Analyzing %(num)s chats..."
-#~ msgstr[0] ""
-#~ msgstr[1] ""
+#~ msgstr[0] "Analyzing %(num)s chat..."
+#~ msgstr[1] "Analyzing %(num)s chats..."
 
 #~ msgid "Starting..."
-#~ msgstr ""
+#~ msgstr "Starting..."
 
 #~ msgid "Cancel analysis"
-#~ msgstr ""
+#~ msgstr "Cancel analysis"
 
 #~ msgid "chats"
-#~ msgstr ""
+#~ msgstr "chats"
 
 #~ msgid "Analyzed"
-#~ msgstr ""
+#~ msgstr "Analyzed"
 
 #~ msgid "Connecting..."
-#~ msgstr ""
+#~ msgstr "Connecting..."
 
 #~ msgid "Unknown state"
-#~ msgstr ""
+#~ msgstr "Unknown state"
 
 #~ msgid "Still working..."
-#~ msgstr ""
+#~ msgstr "Still working..."
 
 #~ msgid "Connection lost. Real-time updates paused."
-#~ msgstr ""
+#~ msgstr "Connection lost. Real-time updates paused."
 
 #~ msgid "Server error while"
-#~ msgstr ""
+#~ msgstr "Server error while"
 
 #~ msgid "Please try again."
-#~ msgstr ""
+#~ msgstr "Please try again."
 
 #~ msgid "Service temporarily unavailable while"
-#~ msgstr ""
+#~ msgstr "Service temporarily unavailable while"
 
 #~ msgid "Please try again later."
-#~ msgstr ""
+#~ msgstr "Please try again later."
 
 #~ msgid "Request failed while"
-#~ msgstr ""
+#~ msgstr "Request failed while"
 
 #~ msgid "Please check and try again."
-#~ msgstr ""
+#~ msgstr "Please check and try again."
 
 #~ msgid "Network error while"
-#~ msgstr ""
+#~ msgstr "Network error while"
 
 #~ msgid "Request timeout while"
-#~ msgstr ""
+#~ msgstr "Request timeout while"
 
 #~ msgid "Please check your connection and try again."
-#~ msgstr ""
+#~ msgstr "Please check your connection and try again."
 
 #~ msgid "Connection failed while"
-#~ msgstr ""
+#~ msgstr "Connection failed while"
 
 #~ msgid "Please check your network and try again."
-#~ msgstr ""
+#~ msgstr "Please check your network and try again."
 
 #~ msgid "Retry initiated successfully"
-#~ msgstr ""
+#~ msgstr "Retry initiated successfully"
 
 #~ msgid "Connected successfully"
-#~ msgstr ""
+#~ msgstr "Connected successfully"
 
 #~ msgid "Disconnected successfully"
-#~ msgstr ""
+#~ msgstr "Disconnected successfully"
 
 #~ msgid "processing request"
-#~ msgstr ""
+#~ msgstr "processing request"
 
 #~ msgid "connecting"
-#~ msgstr ""
+#~ msgstr "connecting"
 
 #~ msgid "disconnecting"
-#~ msgstr ""
+#~ msgstr "disconnecting"
 
 #~ msgid "loading configuration"
-#~ msgstr ""
+#~ msgstr "loading configuration"
 
 #~ msgid ""
 #~ "Authentication cancelled. Session remains "
 #~ "disconnected. You can try again anytime."
-#~ msgstr ""
+#~ msgstr "Authentication cancelled. Session remains disconnected. You can try again anytime."
 
 #~ msgid "Code verified. Please enter your 2FA password."
-#~ msgstr ""
+#~ msgstr "Code verified. Please enter your 2FA password."
 
 #~ msgid "2FA password accepted successfully"
-#~ msgstr ""
+#~ msgstr "2FA password accepted successfully"
 
 #~ msgid ""
 #~ "Session requires verification. Click Enter "
 #~ "Verification Code button to proceed."
-#~ msgstr ""
+#~ msgstr "Session requires verification. Click Enter Verification Code button to proceed."
 
 #~ msgid "Select a Telegram session from the dropdown above"
-#~ msgstr ""
+#~ msgstr "Select a Telegram session from the dropdown above"
 
 #~ msgid "No chats selected for analysis"
-#~ msgstr ""
+#~ msgstr "No chats selected for analysis"
 
 #~ msgid "Select at least one chat from the list above by checking the boxes"
-#~ msgstr ""
+#~ msgstr "Select at least one chat from the list above by checking the boxes"
 
 #~ msgid "Message limit must be between 10 and 10000"
-#~ msgstr ""
+#~ msgstr "Message limit must be between 10 and 10000"
 
 #~ msgid "Adjust the 'Messages per chat' setting to a value between 10 and 10000"
-#~ msgstr ""
+#~ msgstr "Adjust the 'Messages per chat' setting to a value between 10 and 10000"
 
 #~ msgid "Upload a valid session file from the Sessions page"
-#~ msgstr ""
+#~ msgstr "Upload a valid session file from the Sessions page"
 
 #~ msgid "All selected chats are no longer accessible"
-#~ msgstr ""
+#~ msgstr "All selected chats are no longer accessible"
 
 #~ msgid ""
 #~ "The selected chats (IDs: {invalid_list}) "
 #~ "may have been deleted or removed "
 #~ "from Telegram. Please refresh the chat"
 #~ " list and select valid chats."
-#~ msgstr ""
+#~ msgstr "The selected chats (IDs: {invalid_list}) may have been deleted or removed from Telegram. Please refresh the chat list and select valid chats."
 
 #~ msgid "Analysis queue is at capacity ({limit} concurrent tasks)."
-#~ msgstr ""
+#~ msgstr "Analysis queue is at capacity ({limit} concurrent tasks)."
 
 #~ msgid ""
 #~ "Wait for currently running analyses to"
 #~ " complete, or cancel an existing "
 #~ "analysis"
-#~ msgstr ""
+#~ msgstr "Wait for currently running analyses to complete, or cancel an existing analysis"
 
 #~ msgid "Analysis cancelled"
-#~ msgstr ""
+#~ msgstr "Analysis cancelled"
 
 #~ msgid "Task timed out"
-#~ msgstr ""
+#~ msgstr "Task timed out"
 
 #~ msgid "Unknown error"
-#~ msgstr ""
+#~ msgstr "Unknown error"
 
 #~ msgid "Invalid task ID format"
-#~ msgstr ""
+#~ msgstr "Invalid task ID format"
 
 #~ msgid "Task not found"
-#~ msgstr ""
+#~ msgstr "Task not found"
 
 #~ msgid "Analysis still in progress"
-#~ msgstr ""
+#~ msgstr "Analysis still in progress"
 
 #~ msgid "Analysis not started"
-#~ msgstr ""
+#~ msgstr "Analysis not started"
 
 #~ msgid "Analysis failed"
-#~ msgstr ""
+#~ msgstr "Analysis failed"
 
 #~ msgid "Analysis timed out"
-#~ msgstr ""
+#~ msgstr "Analysis timed out"
 
 #~ msgid "Analysis cancelled successfully"
-#~ msgstr ""
+#~ msgstr "Analysis cancelled successfully"
 
 #~ msgid "Task force-cancelled successfully"
-#~ msgstr ""
+#~ msgstr "Task force-cancelled successfully"
 
 #~ msgid "Failed to finalize connection. Please try Connect again."
-#~ msgstr ""
+#~ msgstr "Failed to finalize connection. Please try Connect again."
 
 # Group status translations
 #~ msgid "pending"
