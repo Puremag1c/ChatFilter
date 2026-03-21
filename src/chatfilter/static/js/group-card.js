@@ -274,6 +274,14 @@
                             }
                         });
 
+                        // Hide '—' placeholder when any badge becomes visible via SSE
+                        if ((data.breakdown.dead || 0) > 0) {
+                            const placeholderEl = document.getElementById('badge-placeholder-' + groupId);
+                            if (placeholderEl) {
+                                placeholderEl.style.display = 'none';
+                            }
+                        }
+
                         // Update error count in stats section
                         if (els.errorEl && data.breakdown.error !== undefined) {
                             els.errorEl.textContent = data.breakdown.error;
