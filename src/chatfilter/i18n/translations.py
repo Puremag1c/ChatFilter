@@ -25,6 +25,46 @@ LOCALES_DIR = Path(__file__).parent / "locales"
 _translations_cache: dict[str, gettext.GNUTranslations | gettext.NullTranslations] = {}
 
 
+def _compile_mo_files_if_needed() -> None:
+    """Auto-compile .po files to .mo if .po is newer than .mo.
+
+    Runs at module import time so developers never forget the compile step.
+    Fails gracefully if babel is unavailable or compilation errors occur.
+    """
+    try:
+        from babel.messages.mofile import write_mo
+        from babel.messages.pofile import read_po
+    except ImportError:
+        logger.debug("babel not available, skipping auto-compile of .mo files")
+        return
+
+    for locale in SUPPORTED_LANGUAGES:
+        po_path = LOCALES_DIR / locale / "LC_MESSAGES" / "messages.po"
+        mo_path = LOCALES_DIR / locale / "LC_MESSAGES" / "messages.mo"
+
+        if not po_path.exists():
+            continue
+
+        needs_compile = not mo_path.exists() or po_path.stat().st_mtime > mo_path.stat().st_mtime
+        if not needs_compile:
+            continue
+
+        try:
+            with open(po_path, "rb") as f:
+                catalog = read_po(f, locale=locale)
+            with open(mo_path, "wb") as f:
+                write_mo(f, catalog)
+            logger.info(f"Compiled {po_path.name} -> {mo_path.name} for locale '{locale}'")
+        except Exception as exc:
+            logger.warning(
+                f"Failed to compile .mo for locale '{locale}': {exc}. "
+                f"Using existing .mo file if available."
+            )
+
+
+_compile_mo_files_if_needed()
+
+
 def get_translations(locale: str) -> gettext.GNUTranslations | gettext.NullTranslations:
     """Get translations for the specified locale.
 
