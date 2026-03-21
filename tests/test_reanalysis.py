@@ -532,33 +532,12 @@ async def test_overwrite_resets_chat_statuses(
         assigned_account=None,
     )
 
-    # Initial analysis - make one DONE, one ERROR
-    call_count = 0
-
-    async def mock_initial(chat, client, account_id, settings):
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            # First chat succeeds
-            return _make_chat_result(chat["chat_ref"])
-        else:
-            # Second chat fails
-            raise Exception("Simulated error")
-
-    with (
-        patch("chatfilter.analyzer.group_engine.process_chat", side_effect=mock_initial),
-        patch("chatfilter.analyzer.group_engine.asyncio.sleep", new_callable=AsyncMock),
-    ):
-        try:
-            await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
-        except:
-            pass  # Expected to fail on second chat
-
-    # Verify initial statuses: one DONE, one ERROR
-    done_chats = test_db.load_chats(group_id=group_id, status=GroupChatStatus.DONE.value)
-    error_chats = test_db.load_chats(group_id=group_id, status=GroupChatStatus.ERROR.value)
-    assert len(done_chats) >= 1
-    assert len(error_chats) >= 1
+    # Set up initial statuses directly to avoid depending on auto-retry behavior
+    all_chats = test_db.load_chats(group_id=group_id)
+    done_chat_row = next(c for c in all_chats if c["chat_ref"] == "done_chat")
+    failed_chat_row = next(c for c in all_chats if c["chat_ref"] == "failed_chat")
+    test_db.update_chat_status(done_chat_row["id"], GroupChatStatus.DONE.value)
+    test_db.update_chat_status(failed_chat_row["id"], GroupChatStatus.ERROR.value, error="Simulated error")
 
     # Mark as completed (manually, since it failed)
     test_db.save_group(
