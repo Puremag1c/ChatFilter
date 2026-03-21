@@ -278,7 +278,7 @@ async def test_account_health_stops_after_consecutive_failures() -> None:
         engine._save_chat_error = Mock()
 
         # Mock _finalize_group to avoid DB calls
-        engine._finalize_group = Mock()
+        engine._finalize_group = AsyncMock()
 
         # Run worker directly with health tracker
         health_tracker = AccountHealthTracker(max_consecutive_errors=5)
@@ -380,7 +380,7 @@ async def test_pre_validation_invalid_account_excluded() -> None:
     engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
 
     # Mock _finalize_group to avoid DB calls
-    engine._finalize_group = Mock()
+    engine._finalize_group = AsyncMock()
 
     # Start analysis - should exclude acc1
     await engine.start_analysis(group_id="group-1")
@@ -841,3 +841,87 @@ async def test_normal_flow_accounts_unblock_with_logging(caplog) -> None:
         assert any("resuming analysis" in msg.lower() for msg in log_messages), (
             f"Expected 'resuming analysis' in logs, got: {log_messages}"
         )
+
+
+# ===== TEST 11: Auto-retry ERROR chats after main queue =====
+
+
+@pytest.mark.asyncio
+async def test_auto_retry_error_chats_after_main_queue() -> None:
+    """_finalize_group triggers one INCREMENT retry pass when retriable ERROR chats exist."""
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+
+    error_chat = {"id": 1, "status": "error", "chat_type": "group"}
+    done_chat = {"id": 2, "status": "done", "chat_type": "group"}
+    db.load_chats.return_value = [done_chat, error_chat]
+    db.count_processed_chats.return_value = (1, 2)
+
+    engine.start_analysis = AsyncMock()
+    engine._progress.publish = MagicMock()
+
+    await engine._finalize_group("group-1", retry_done=False)
+
+    # Verify retry was triggered with INCREMENT mode and _error_retry=True
+    engine.start_analysis.assert_awaited_once()
+    call_kwargs = engine.start_analysis.call_args
+    assert call_kwargs.kwargs.get("_error_retry") is True
+    from chatfilter.models.group import AnalysisMode
+    assert call_kwargs.kwargs.get("mode") == AnalysisMode.INCREMENT
+
+    # Verify a progress event was published
+    engine._progress.publish.assert_called_once()
+    event = engine._progress.publish.call_args[0][0]
+    assert "retry" in event.message.lower()
+
+
+@pytest.mark.asyncio
+async def test_auto_retry_no_loop_with_retry_done_flag() -> None:
+    """_finalize_group with retry_done=True does NOT trigger another retry (no infinite loop)."""
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+
+    error_chat = {"id": 1, "status": "error", "chat_type": "group"}
+    db.load_chats.return_value = [error_chat]
+    db.count_processed_chats.return_value = (1, 1)
+
+    engine.start_analysis = AsyncMock()
+    engine._progress.signal_completion = MagicMock()
+    engine._progress.publish = MagicMock()
+
+    await engine._finalize_group("group-1", retry_done=True)
+
+    # No further retry
+    engine.start_analysis.assert_not_awaited()
+    # Should signal completion (all errors = FAILED)
+    engine._progress.signal_completion.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_auto_retry_skips_dead_chats() -> None:
+    """_finalize_group does NOT retry dead chats (permanently inaccessible)."""
+    db = MagicMock(spec=GroupDatabase)
+    session_mgr = MagicMock(spec=SessionManager)
+
+    engine = GroupAnalysisEngine(db=db, session_manager=session_mgr)
+
+    # All error chats are dead
+    dead_chat = {"id": 1, "status": "error", "chat_type": "dead"}
+    done_chat = {"id": 2, "status": "done", "chat_type": "group"}
+    db.load_chats.return_value = [done_chat, dead_chat]
+    db.count_processed_chats.return_value = (2, 2)
+
+    engine.start_analysis = AsyncMock()
+    engine._progress.signal_completion = MagicMock()
+    engine._progress.publish = MagicMock()
+
+    await engine._finalize_group("group-1", retry_done=False)
+
+    # No retry for dead chats
+    engine.start_analysis.assert_not_awaited()
+    # Should finalize normally (1 done + 1 dead error = completed)
+    engine._progress.signal_completion.assert_called_once()

@@ -279,6 +279,7 @@ class GroupAnalysisEngine:
 
     async def start_analysis(
         self, group_id: str, mode: AnalysisMode = AnalysisMode.FRESH,
+        _error_retry: bool = False,
     ) -> None:
         """Start analysis: create task, distribute chats, run workers."""
         group_data = self._db.load_group(group_id)
@@ -429,7 +430,7 @@ class GroupAnalysisEngine:
                     self._stop_events.pop(group_id, None)
                 return
 
-        self._finalize_group(group_id)
+        await self._finalize_group(group_id, retry_done=_error_retry)
 
     def _handle_no_pending(self, group_id: str, mode: AnalysisMode) -> list[dict] | None:
         """Handle case when no PENDING chats. Returns new pending list or None."""
@@ -715,14 +716,41 @@ class GroupAnalysisEngine:
 
     # -- Completion --------------------------------------------------------
 
-    def _finalize_group(self, group_id: str) -> None:
-        """Check chat statuses and set final group status."""
+    async def _finalize_group(self, group_id: str, retry_done: bool = False) -> None:
+        """Check chat statuses and set final group status.
+
+        If ERROR chats remain and this is not yet a retry pass, resets them to PENDING
+        and runs one more INCREMENT analysis pass before finalizing.
+        """
         all_chats = self._db.load_chats(group_id=group_id)
         if not all_chats:
             return
         total = len(all_chats)
         done = sum(1 for c in all_chats if c["status"] == GroupChatStatus.DONE.value)
         errors = sum(1 for c in all_chats if c["status"] == GroupChatStatus.ERROR.value)
+
+        # Auto-retry ERROR chats once after main queue completes.
+        # Exclude dead chats — they are permanently inaccessible and retrying is pointless.
+        retriable = [
+            c for c in all_chats
+            if c["status"] == GroupChatStatus.ERROR.value
+            and c.get("chat_type") != ChatTypeEnum.DEAD.value
+        ]
+        if retriable and not retry_done:
+            logger.info(
+                f"Group '{group_id}': {len(retriable)} retriable ERROR chat(s) after main queue — "
+                f"starting auto-retry pass (INCREMENT mode)"
+            )
+            processed, _ = self._db.count_processed_chats(group_id)
+            self._progress.publish(GroupProgressEvent(
+                group_id=group_id,
+                status=GroupStatus.IN_PROGRESS.value,
+                current=processed,
+                total=total,
+                message=f"Retrying {len(retriable)} error chat(s)...",
+            ))
+            await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT, _error_retry=True)
+            return
 
         if done + errors >= total:
             status = GroupStatus.FAILED.value if errors == total else GroupStatus.COMPLETED.value

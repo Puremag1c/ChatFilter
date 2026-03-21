@@ -178,7 +178,7 @@ class TestAutoResume:
                     )
                     test_db.save_chat_metrics(chat["id"], {"title": chat["chat_ref"], "metrics_version": 2})
                 # Finalize
-                engine._finalize_group(gid)
+                await engine._finalize_group(gid)
             else:
                 await original_start(gid, mode)
 
@@ -310,7 +310,7 @@ class TestNewAccountDetection:
             pending = test_db.load_chats(group_id=gid, status=GroupChatStatus.PENDING.value)
             for chat in pending:
                 test_db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.DONE.value)
-            engine._finalize_group(gid)
+            await engine._finalize_group(gid)
 
         async def mock_wait_for(coro, *, timeout=None):
             nonlocal call_idx
@@ -389,7 +389,7 @@ class TestSSEEvents:
             # Mark remaining pending as DONE
             for c in test_db.load_chats(group_id=gid, status=GroupChatStatus.PENDING.value):
                 test_db.update_chat_status(chat_id=c["id"], status=GroupChatStatus.DONE.value)
-            engine._finalize_group(gid)
+            await engine._finalize_group(gid)
 
         with (
             patch.object(engine, "start_analysis", side_effect=patched_start),
@@ -473,7 +473,7 @@ class TestSSEEvents:
         async def patched_start(gid: str, mode: AnalysisMode = AnalysisMode.FRESH) -> None:
             for c in test_db.load_chats(group_id=gid, status=GroupChatStatus.PENDING.value):
                 test_db.update_chat_status(chat_id=c["id"], status=GroupChatStatus.DONE.value)
-            engine._finalize_group(gid)
+            await engine._finalize_group(gid)
 
         with (
             patch.object(engine, "start_analysis", side_effect=patched_start),
@@ -577,7 +577,7 @@ class TestFullLifecycle:
                 )
 
             # 3. Finalize
-            engine._finalize_group(gid)
+            await engine._finalize_group(gid)
 
         with (
             patch.object(engine, "_run_account_worker", side_effect=mock_worker),

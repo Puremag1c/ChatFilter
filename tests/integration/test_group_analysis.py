@@ -1470,7 +1470,7 @@ class TestExceptionRecoveryPaths:
             assert chat["chat_type"] == "dead", f"Error chat should have type=dead: {chat['chat_ref']}"
 
         # Verify _finalize_group handles this correctly
-        engine._finalize_group(group_id)
+        await engine._finalize_group(group_id)
 
         # Group should be COMPLETED (not FAILED since some chats succeeded)
         # Use compute_group_status (status is now computed from chat statuses)
