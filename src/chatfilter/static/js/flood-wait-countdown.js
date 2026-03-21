@@ -8,19 +8,19 @@
     function formatCountdown(remainingMs) {
         const remainingSec = Math.floor(remainingMs / 1000);
 
-        if (remainingSec < 10) return t('flood_wait.soon');
-        if (remainingSec < 60) return t('flood_wait.format_seconds', { count: remainingSec });
+        if (remainingSec < 10) return t('flood_timer.soon');
+        if (remainingSec < 60) return t('flood_timer.format_seconds', { count: remainingSec });
 
         const minutes = Math.floor(remainingSec / 60);
         const seconds = remainingSec % 60;
 
         if (remainingSec < 3600) {
-            return t('flood_wait.format_minutes', { minutes: minutes, seconds: seconds });
+            return t('flood_timer.format_minutes', { minutes: minutes, seconds: seconds });
         }
 
         const hours = Math.floor(minutes / 60);
         const mins = minutes % 60;
-        return t('flood_wait.format_hours', { hours: hours, minutes: mins });
+        return t('flood_timer.format_hours', { hours: hours, minutes: mins });
     }
 
     function initCountdownBadge(badgeEl) {

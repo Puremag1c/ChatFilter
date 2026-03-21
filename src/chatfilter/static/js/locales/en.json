@@ -261,7 +261,7 @@
     "flood_wait_soon": "soon...",
     "status_waiting_for_accounts": "Waiting for accounts"
   },
-  "flood_wait": {
+  "flood_timer": {
     "soon": "soon",
     "format_seconds": "{count}s",
     "format_minutes": "{minutes}m {seconds}s",

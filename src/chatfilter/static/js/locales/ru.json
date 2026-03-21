@@ -272,7 +272,7 @@
     "flood_wait_soon": "скоро...",
     "status_waiting_for_accounts": "Ожидание аккаунтов"
   },
-  "flood_wait": {
+  "flood_timer": {
     "soon": "скоро",
     "format_seconds": "{count}с",
     "format_minutes": "{minutes}м {seconds}с",
