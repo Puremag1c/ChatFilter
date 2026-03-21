@@ -148,8 +148,16 @@
         '</svg>';
 
     function addSpinner(btn, label) {
+        btn.dataset.originalHtml = btn.innerHTML;
         btn.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 0.5rem;">' +
             SPINNER_SVG + '<span>' + label + '</span></span>';
+    }
+
+    function restoreButton(btn) {
+        if (btn.dataset && btn.dataset.originalHtml !== undefined) {
+            btn.innerHTML = btn.dataset.originalHtml;
+            delete btn.dataset.originalHtml;
+        }
     }
 
     // Button loading states
@@ -187,7 +195,7 @@
         }
     });
 
-    // Toast on analysis start; clear card-loading overlay on error
+    // Toast on analysis start; restore button and clear overlay on error
     document.body.addEventListener('htmx:afterRequest', function(event) {
         var xhr = event.detail.xhr;
         var requestConfig = event.detail.requestConfig;
@@ -198,11 +206,16 @@
             ToastManager.info(t('analysis.started'));
         }
 
-        // Remove loading overlay on any error response for start/resume/reanalyze
-        if (xhr.status >= 400 && target && requestConfig && requestConfig.path &&
-            requestConfig.path.match(/\/api\/groups\/[^\/]+\/(start|resume|reanalyze)/)) {
+        // Restore button and remove loading overlay on error (4xx/5xx)
+        if (!event.detail.successful && target) {
+            if (target.dataset && target.dataset.originalHtml !== undefined) {
+                restoreButton(target);
+            }
             var card = target.closest ? target.closest('.group-card') : null;
             if (card) card.classList.remove('card-loading');
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.warning(t('chats.request_failed'));
+            }
         }
     });
 

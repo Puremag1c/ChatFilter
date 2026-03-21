@@ -128,7 +128,8 @@
   },
   "chats": {
     "reconnected": "Reconnected",
-    "resuming": "Resuming..."
+    "resuming": "Resuming...",
+    "request_failed": "Request failed. Please try again."
   },
   "updates": {
     "available": "Update Available",
