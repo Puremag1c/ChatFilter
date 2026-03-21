@@ -1,8 +1,8 @@
 /**
  * Simple i18n (internationalization) utility for ChatFilter frontend.
  *
- * Loads translation files based on the current locale and provides
- * translation functions for JavaScript code.
+ * Reads translations from window.__i18n__ (injected server-side in base.html)
+ * and provides translation functions for JavaScript code.
  */
 
 class I18n {
@@ -19,11 +19,10 @@ class I18n {
     }
 
     /**
-     * Initialize i18n with the current locale from cookie or document attribute
+     * Initialize i18n with the current locale
      * @returns {Promise<void>}
      */
     async init() {
-        // Get locale from cookie, document attribute, or default to 'en'
         this.currentLocale = this.detectLocale();
 
         try {
@@ -33,7 +32,6 @@ class I18n {
         } catch (error) {
             console.error(`Failed to load translations for ${this.currentLocale}:`, error);
 
-            // Try fallback locale if not already trying it
             if (this.currentLocale !== this.fallbackLocale) {
                 try {
                     await this.loadTranslations(this.fallbackLocale);
@@ -41,15 +39,32 @@ class I18n {
                     this.initialized = true;
                     this._readyResolve();
                 } catch (fallbackError) {
-                    console.error(`Failed to load fallback translations:`, fallbackError);
-                    // Resolve anyway to not block forever
+                    console.error('Failed to load fallback translations:', fallbackError);
                     this._readyResolve();
                 }
             } else {
-                // Resolve anyway to not block forever
                 this._readyResolve();
             }
         }
+    }
+
+    /**
+     * Load translations: uses window.__i18n__ inline data if available,
+     * otherwise fetches from /static/js/locales/{locale}.json.
+     * @param {string} locale - Locale code (e.g., 'en', 'ru')
+     * @returns {Promise<void>}
+     */
+    async loadTranslations(locale) {
+        if (window.__i18n__ && typeof window.__i18n__ === 'object') {
+            this.translations = window.__i18n__;
+            return;
+        }
+
+        const response = await fetch(`/static/js/locales/${locale}.json`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        this.translations = await response.json();
     }
 
     /**
@@ -71,19 +86,6 @@ class I18n {
 
         // 3. Fallback
         return this.fallbackLocale;
-    }
-
-    /**
-     * Load translation file for the specified locale
-     * @param {string} locale - Locale code (e.g., 'en', 'ru')
-     * @returns {Promise<void>}
-     */
-    async loadTranslations(locale) {
-        const response = await fetch(`/static/js/locales/${locale}.json`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        this.translations = await response.json();
     }
 
     /**
@@ -136,26 +138,23 @@ class I18n {
     }
 
     /**
-     * Switch to a different locale
+     * Switch to a different locale — sets cookie and reloads page so server
+     * renders new inline translations.
      * @param {string} locale - New locale code
-     * @returns {Promise<void>}
      */
-    async setLocale(locale) {
+    setLocale(locale) {
         if (locale === this.currentLocale) {
             return;
         }
 
-        await this.loadTranslations(locale);
-        this.currentLocale = locale;
-
         // Set cookie to persist preference
         document.cookie = `lang=${locale}; path=/; max-age=31536000; SameSite=Lax`;
 
-        // Update document lang attribute
-        document.documentElement.lang = locale;
-
-        // Dispatch event for other components to react to locale change
+        // Dispatch event for any listeners before reload
         window.dispatchEvent(new CustomEvent('localechange', { detail: { locale } }));
+
+        // Reload so server re-renders page with new locale translations
+        window.location.reload();
     }
 }
 
@@ -170,7 +169,6 @@ if (document.readyState === 'loading') {
         });
     });
 } else {
-    // DOM already loaded
     i18n.init().catch(error => {
         console.error('Failed to initialize i18n:', error);
     });
