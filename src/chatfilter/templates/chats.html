@@ -47,6 +47,40 @@
         animation: pulse 2s ease-in-out infinite;
     }
 
+    /* Loading overlay when Start/Resume/Reanalyze is clicked */
+    .group-card {
+        position: relative;
+    }
+
+    @keyframes card-spin {
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    .group-card.card-loading::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(1px);
+        z-index: 10;
+    }
+
+    .group-card.card-loading::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 28px;
+        height: 28px;
+        margin: 0;
+        border: 3px solid var(--border-color);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: card-spin 0.7s linear infinite;
+        z-index: 11;
+    }
+
     .group-card h3 {
         margin: 0 0 1rem 0;
         font-size: 1.25rem;

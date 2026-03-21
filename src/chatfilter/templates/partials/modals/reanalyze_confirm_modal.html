@@ -3,22 +3,22 @@
     <div class="modal-dialog" role="document">
         <div class="modal-header">
             <span class="modal-icon warning" aria-hidden="true">⚠️</span>
-            <h2 class="modal-title" id="reanalyze-modal-title">{{ _("Вы уверены?") }}</h2>
+            <h2 class="modal-title" id="reanalyze-modal-title">{{ _("Are you sure?") }}</h2>
         </div>
         <div class="modal-body">
             <p style="margin-bottom: 1rem; line-height: 1.5;">
-                {{ _("Это удалит все существующие результаты анализа и начнёт с нуля. Продолжить?") }}
+                {{ _("This will delete all existing analysis results and start from scratch. Continue?") }}
             </p>
             <p style="color: var(--text-secondary); font-size: 0.875rem;">
-                {{ _("Это действие нельзя отменить. Если вы хотите дополнить существующий анализ без потери данных, используйте кнопку 'Дополнить анализ'.") }}
+                {{ _("This action cannot be undone. If you want to extend the existing analysis without losing data, use the 'Extend analysis' button.") }}
             </p>
         </div>
         <div class="modal-footer">
             <button type="button" class="modal-button secondary" onclick="closeReanalyzeModal()">
-                {{ _("Отмена") }}
+                {{ _("Cancel") }}
             </button>
             <button type="button" class="modal-button danger" onclick="confirmReanalyze('{{ group.id }}')">
-                {{ _("Да, перезапустить") }}
+                {{ _("Yes, restart") }}
             </button>
         </div>
     </div>

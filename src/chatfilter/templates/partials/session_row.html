@@ -12,7 +12,7 @@
               data-flood-wait-until="{{ session.flood_wait_until }}"
               data-session-id="{{ session.session_id }}"
               style="display: inline-block; margin-right: 8px;">
-            <span class="countdown-text">⏳ FloodWait до <span class="countdown-time"></span></span>
+            <span class="countdown-text">⏳ {{ _("FloodWait until") }} <span class="countdown-time"></span></span>
         </span>
         {% endif %}
         <span class="account-status status-{{ session.state }}{% if session.state == 'disconnected' and not session.has_session_file %} status-needs-auth{% endif %}"

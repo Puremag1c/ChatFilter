@@ -1,17 +1,17 @@
-# English translations for ChatFilter.
-# Copyright (C) 2026 ChatFilter
-# This file is distributed under the same license as the ChatFilter project.
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
 #
+#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version:  ChatFilter\n"
-"Report-Msgid-Bugs-To: \n"
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2026-03-21 08:57+0300\n"
-"PO-Revision-Date: 2026-01-28 12:00+0300\n"
-"Last-Translator: \n"
-"Language: en\n"
-"Language-Team: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -375,7 +375,7 @@ msgstr ""
 
 #: src/chatfilter/templates/chats.html:226
 msgid "Import chats"
-msgstr "Import chats"
+msgstr ""
 
 #: src/chatfilter/templates/chats.html:233
 msgid "Groups list"
@@ -1095,9 +1095,8 @@ msgid "No chats match the selected filters. Try changing the conditions."
 msgstr ""
 
 #: src/chatfilter/templates/partials/export_modal.html:190
-#, fuzzy
 msgid "Download CSV"
-msgstr "Download results"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:17
 msgid "Analysis error"
@@ -1117,9 +1116,8 @@ msgid "Total chats"
 msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:34
-#, fuzzy
 msgid "Processed"
-msgstr "In Progress"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:43
 msgid "Current chat"
@@ -1159,12 +1157,12 @@ msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:84
 msgid "Configure analysis"
-msgstr "Configure analysis"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:92
 #: src/chatfilter/templates/partials/group_card.html:100
 msgid "Stop analysis"
-msgstr "Stop analysis"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:98
 msgid ""
@@ -1173,27 +1171,24 @@ msgid ""
 msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:108
-#, fuzzy
 msgid "Resume analysis"
-msgstr "Stop analysis"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:115
-#, fuzzy
 msgid "Extend analysis"
-msgstr "Stop analysis"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:121
-#, fuzzy
 msgid "Restart analysis"
-msgstr "Start analysis"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:128
 msgid "Start analysis"
-msgstr "Start analysis"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:137
 msgid "Download results"
-msgstr "Download results"
+msgstr ""
 
 #: src/chatfilter/templates/partials/group_card.html:144
 msgid "Delete group? This cannot be undone."
@@ -1203,7 +1198,7 @@ msgstr ""
 #: src/chatfilter/templates/partials/proxy_pool_list.html:83
 #: src/chatfilter/templates/partials/session_row.html:198
 msgid "Delete"
-msgstr "Delete"
+msgstr ""
 
 #: src/chatfilter/templates/partials/groups_list.html:10
 msgid "No groups yet"
@@ -1211,7 +1206,7 @@ msgstr ""
 
 #: src/chatfilter/templates/partials/groups_list.html:11
 msgid "Click 'Import chats' to create your first group"
-msgstr "Click 'Import chats' to create your first group"
+msgstr ""
 
 #: src/chatfilter/templates/partials/import_validation_result.html:6
 msgid "Session file is valid!"
@@ -2162,528 +2157,4 @@ msgstr ""
 #: src/chatfilter/web/routers/sessions/validation.py:35
 msgid "Phone number must contain only digits after +"
 msgstr ""
-
-#~ msgid "Shows your internet connection status"
-#~ msgstr ""
-
-#~ msgid "Online"
-#~ msgstr ""
-
-#~ msgid "Analysis History"
-#~ msgstr ""
-
-#~ msgid "Browse and view your past chat analyses"
-#~ msgstr ""
-
-#~ msgid "Total"
-#~ msgstr ""
-
-#~ msgid "Completed"
-#~ msgstr ""
-
-#~ msgid "Cancelled"
-#~ msgstr ""
-
-#~ msgid "Timeout"
-#~ msgstr ""
-
-#~ msgid "Filter by status"
-#~ msgstr ""
-
-#~ msgid "Filter by analysis status"
-#~ msgstr ""
-
-#~ msgid "All Analyses"
-#~ msgstr ""
-
-#~ msgid "Loading history..."
-#~ msgstr ""
-
-#~ msgid "No Analysis History"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "You haven't run any analyses yet. "
-#~ "Start analyzing your chats to see "
-#~ "results here."
-#~ msgstr ""
-
-#~ msgid "Previous page"
-#~ msgstr ""
-
-#~ msgid "Previous"
-#~ msgstr ""
-
-#~ msgid "Page"
-#~ msgstr ""
-
-#~ msgid "of"
-#~ msgstr ""
-
-#~ msgid "Next page"
-#~ msgstr ""
-
-#~ msgid "Next"
-#~ msgstr ""
-
-#~ msgid "Edit Proxy"
-#~ msgstr ""
-
-#~ msgid "Save Changes"
-#~ msgstr ""
-
-#~ msgid "This field is required"
-#~ msgstr ""
-
-#~ msgid "Minimum length is"
-#~ msgstr ""
-
-#~ msgid "characters"
-#~ msgstr ""
-
-#~ msgid "Maximum length is"
-#~ msgstr ""
-
-#~ msgid "Minimum value is"
-#~ msgstr ""
-
-#~ msgid "Maximum value is"
-#~ msgstr ""
-
-#~ msgid "Host cannot contain spaces"
-#~ msgstr ""
-
-#~ msgid "Please fix the errors in the form"
-#~ msgstr ""
-
-#~ msgid "Validation Error"
-#~ msgstr ""
-
-#~ msgid "Operation failed"
-#~ msgstr ""
-
-#~ msgid "Proxy updated successfully"
-#~ msgstr ""
-
-#~ msgid "Proxy added successfully"
-#~ msgstr ""
-
-#~ msgid "Proxy Updated"
-#~ msgstr ""
-
-#~ msgid "Proxy Added"
-#~ msgstr ""
-
-#~ msgid "Save Failed"
-#~ msgstr ""
-
-#~ msgid "Delete Proxy"
-#~ msgstr ""
-
-#~ msgid "This proxy is used by"
-#~ msgstr ""
-
-#~ msgid "session(s). They will be blocked. Continue?"
-#~ msgstr ""
-
-#~ msgid "Proxy deleted successfully"
-#~ msgstr ""
-
-#~ msgid "Proxy Deleted"
-#~ msgstr ""
-
-#~ msgid "Analysis Results"
-#~ msgstr ""
-
-#~ msgid "View and export your chat analysis results"
-#~ msgstr ""
-
-#~ msgid "Analysis statistics"
-#~ msgstr ""
-
-#~ msgid "Copy all statistics"
-#~ msgstr ""
-
-#~ msgid "%(count)s chats analyzed"
-#~ msgstr ""
-
-#~ msgid "Chats Analyzed"
-#~ msgstr ""
-
-#~ msgid "Total messages"
-#~ msgstr ""
-
-#~ msgid "Total Messages"
-#~ msgstr ""
-
-#~ msgid "Unique authors"
-#~ msgstr ""
-
-#~ msgid "Unique Authors"
-#~ msgstr ""
-
-#~ msgid "Active chats in last 7 days"
-#~ msgstr ""
-
-#~ msgid "Active (7d)"
-#~ msgstr ""
-
-#~ msgid "Clock Skew Detected"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Your system clock appears to be "
-#~ "incorrect, which may affect time-based"
-#~ " calculations (messages per hour, history"
-#~ " length)."
-#~ msgstr ""
-
-#~ msgid "%(count)s chat(s) affected:"
-#~ msgstr ""
-
-#~ msgid "System clock is %(minutes)s minutes ahead of Telegram server time"
-#~ msgstr ""
-
-#~ msgid "System clock is %(minutes)s minutes behind Telegram server time"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Please check your system time settings"
-#~ " and synchronize with a reliable time"
-#~ " server (e.g., NTP)."
-#~ msgstr ""
-
-#~ msgid "Result filters"
-#~ msgstr ""
-
-#~ msgid "Search chats"
-#~ msgstr ""
-
-#~ msgid "Search chats by title or username"
-#~ msgstr ""
-
-#~ msgid "Filter by chat type"
-#~ msgstr ""
-
-#~ msgid "Filter by activity"
-#~ msgstr ""
-
-#~ msgid "Filter by activity status"
-#~ msgstr ""
-
-#~ msgid "All Activity"
-#~ msgstr ""
-
-#~ msgid "Inactive"
-#~ msgstr ""
-
-#~ msgid "Clear all filters"
-#~ msgstr ""
-
-#~ msgid "Number of active filters"
-#~ msgstr ""
-
-#~ msgid "Copy selected rows"
-#~ msgstr ""
-
-#~ msgid "Copy Selected"
-#~ msgstr ""
-
-#~ msgid "Compare selected chats"
-#~ msgstr ""
-
-#~ msgid "Compare Selected"
-#~ msgstr ""
-
-#~ msgid "Export results to CSV file"
-#~ msgstr ""
-
-#~ msgid "Export CSV"
-#~ msgstr ""
-
-#~ msgid "Analysis results table"
-#~ msgstr ""
-
-#~ msgid "Chat analysis results"
-#~ msgstr ""
-
-#~ msgid "Select all chats"
-#~ msgstr ""
-
-#~ msgid "Sort by chat name"
-#~ msgstr ""
-
-#~ msgid "Chat"
-#~ msgstr ""
-
-#~ msgid "Sort by chat type"
-#~ msgstr ""
-
-#~ msgid "Sort by message count"
-#~ msgstr ""
-
-#~ msgid "Messages"
-#~ msgstr ""
-
-#~ msgid "Sort by author count"
-#~ msgstr ""
-
-#~ msgid "Authors"
-#~ msgstr ""
-
-#~ msgid "Sort by history hours"
-#~ msgstr ""
-
-#~ msgid "History (h)"
-#~ msgstr ""
-
-#~ msgid "Sort by messages per hour"
-#~ msgstr ""
-
-#~ msgid "Msg/Hour"
-#~ msgstr ""
-
-#~ msgid "Sort by activity status"
-#~ msgstr ""
-
-#~ msgid "Activity"
-#~ msgstr ""
-
-#~ msgid "Copy"
-#~ msgstr ""
-
-#~ msgid "Select %(title)s"
-#~ msgstr ""
-
-#~ msgid "Username"
-#~ msgstr ""
-
-#~ msgid "Chat type: %(type)s"
-#~ msgstr ""
-
-#~ msgid "%(count)s messages"
-#~ msgstr ""
-
-#~ msgid "%(count)s authors"
-#~ msgstr ""
-
-#~ msgid "%(hours)s hours"
-#~ msgstr ""
-
-#~ msgid "%(rate)s messages per hour"
-#~ msgstr ""
-
-#~ msgid "Active in last 7 days"
-#~ msgstr ""
-
-#~ msgid "Active"
-#~ msgstr ""
-
-#~ msgid "Copy row data"
-#~ msgstr ""
-
-#~ msgid "Compare Chat Metrics"
-#~ msgstr ""
-
-#~ msgid "Copy comparison data"
-#~ msgstr ""
-
-#~ msgid "Copy Data"
-#~ msgstr ""
-
-#~ msgid "Close comparison modal"
-#~ msgstr ""
-
-#~ msgid "No analysis results yet."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Analysis for these chats is already "
-#~ "in progress. Showing current status..."
-#~ msgstr ""
-
-#~ msgid "Analyzing %(num)s chat..."
-#~ msgid_plural "Analyzing %(num)s chats..."
-#~ msgstr[0] ""
-#~ msgstr[1] ""
-
-#~ msgid "Starting..."
-#~ msgstr ""
-
-#~ msgid "Cancel analysis"
-#~ msgstr ""
-
-#~ msgid "chats"
-#~ msgstr ""
-
-#~ msgid "Analyzed"
-#~ msgstr ""
-
-#~ msgid "Connecting..."
-#~ msgstr ""
-
-#~ msgid "Unknown state"
-#~ msgstr ""
-
-#~ msgid "Still working..."
-#~ msgstr ""
-
-#~ msgid "Connection lost. Real-time updates paused."
-#~ msgstr ""
-
-#~ msgid "Server error while"
-#~ msgstr ""
-
-#~ msgid "Please try again."
-#~ msgstr ""
-
-#~ msgid "Service temporarily unavailable while"
-#~ msgstr ""
-
-#~ msgid "Please try again later."
-#~ msgstr ""
-
-#~ msgid "Request failed while"
-#~ msgstr ""
-
-#~ msgid "Please check and try again."
-#~ msgstr ""
-
-#~ msgid "Network error while"
-#~ msgstr ""
-
-#~ msgid "Request timeout while"
-#~ msgstr ""
-
-#~ msgid "Please check your connection and try again."
-#~ msgstr ""
-
-#~ msgid "Connection failed while"
-#~ msgstr ""
-
-#~ msgid "Please check your network and try again."
-#~ msgstr ""
-
-#~ msgid "Retry initiated successfully"
-#~ msgstr ""
-
-#~ msgid "Connected successfully"
-#~ msgstr ""
-
-#~ msgid "Disconnected successfully"
-#~ msgstr ""
-
-#~ msgid "processing request"
-#~ msgstr ""
-
-#~ msgid "connecting"
-#~ msgstr ""
-
-#~ msgid "disconnecting"
-#~ msgstr ""
-
-#~ msgid "loading configuration"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Authentication cancelled. Session remains "
-#~ "disconnected. You can try again anytime."
-#~ msgstr ""
-
-#~ msgid "Code verified. Please enter your 2FA password."
-#~ msgstr ""
-
-#~ msgid "2FA password accepted successfully"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Session requires verification. Click Enter "
-#~ "Verification Code button to proceed."
-#~ msgstr ""
-
-#~ msgid "Select a Telegram session from the dropdown above"
-#~ msgstr ""
-
-#~ msgid "No chats selected for analysis"
-#~ msgstr ""
-
-#~ msgid "Select at least one chat from the list above by checking the boxes"
-#~ msgstr ""
-
-#~ msgid "Message limit must be between 10 and 10000"
-#~ msgstr ""
-
-#~ msgid "Adjust the 'Messages per chat' setting to a value between 10 and 10000"
-#~ msgstr ""
-
-#~ msgid "Upload a valid session file from the Sessions page"
-#~ msgstr ""
-
-#~ msgid "All selected chats are no longer accessible"
-#~ msgstr ""
-
-#~ msgid ""
-#~ "The selected chats (IDs: {invalid_list}) "
-#~ "may have been deleted or removed "
-#~ "from Telegram. Please refresh the chat"
-#~ " list and select valid chats."
-#~ msgstr ""
-
-#~ msgid "Analysis queue is at capacity ({limit} concurrent tasks)."
-#~ msgstr ""
-
-#~ msgid ""
-#~ "Wait for currently running analyses to"
-#~ " complete, or cancel an existing "
-#~ "analysis"
-#~ msgstr ""
-
-#~ msgid "Analysis cancelled"
-#~ msgstr ""
-
-#~ msgid "Task timed out"
-#~ msgstr ""
-
-#~ msgid "Unknown error"
-#~ msgstr ""
-
-#~ msgid "Invalid task ID format"
-#~ msgstr ""
-
-#~ msgid "Task not found"
-#~ msgstr ""
-
-#~ msgid "Analysis still in progress"
-#~ msgstr ""
-
-#~ msgid "Analysis not started"
-#~ msgstr ""
-
-#~ msgid "Analysis failed"
-#~ msgstr ""
-
-#~ msgid "Analysis timed out"
-#~ msgstr ""
-
-#~ msgid "Analysis cancelled successfully"
-#~ msgstr ""
-
-#~ msgid "Task force-cancelled successfully"
-#~ msgstr ""
-
-#~ msgid "Failed to finalize connection. Please try Connect again."
-#~ msgstr ""
-
-# Group status translations
-#~ msgid "pending"
-#~ msgstr "Pending"
-
-#~ msgid "paused"
-#~ msgstr "Paused"
-
-#~ msgid "completed"
-#~ msgstr "Completed"
-
-#~ msgid "failed"
-#~ msgstr "Failed"
 

@@ -162,10 +162,16 @@
 
         if (path.match(/\/api\/groups\/[^\/]+\/resume$/)) {
             addSpinner(target, t('chats.resuming'));
+            var card = target.closest('.group-card');
+            if (card) card.classList.add('card-loading');
         } else if (path.match(/\/api\/groups\/[^\/]+\/start$/)) {
             addSpinner(target, target.textContent.trim());
+            var card = target.closest('.group-card');
+            if (card) card.classList.add('card-loading');
         } else if (path.match(/\/api\/groups\/[^\/]+\/reanalyze/)) {
             addSpinner(target, target.textContent.trim());
+            var card = target.closest('.group-card');
+            if (card) card.classList.add('card-loading');
         } else if (path.match(/\/api\/groups\/[^\/]+\/stop$/)) {
             addSpinner(target, target.textContent.trim());
         } else if (path.match(/\/api\/groups\/[^\/]+$/) && event.detail.requestConfig.verb === 'delete') {
@@ -181,14 +187,22 @@
         }
     });
 
-    // Toast on analysis start
+    // Toast on analysis start; clear card-loading overlay on error
     document.body.addEventListener('htmx:afterRequest', function(event) {
         var xhr = event.detail.xhr;
         var requestConfig = event.detail.requestConfig;
+        var target = event.detail.elt;
 
         if (xhr.status === 204 && requestConfig && requestConfig.path &&
             requestConfig.path.match(/\/api\/groups\/[^\/]+\/(start|reanalyze)(\?|$)/)) {
             ToastManager.info(t('analysis.started'));
+        }
+
+        // Remove loading overlay on any error response for start/resume/reanalyze
+        if (xhr.status >= 400 && target && requestConfig && requestConfig.path &&
+            requestConfig.path.match(/\/api\/groups\/[^\/]+\/(start|resume|reanalyze)/)) {
+            var card = target.closest ? target.closest('.group-card') : null;
+            if (card) card.classList.remove('card-loading');
         }
     });
 

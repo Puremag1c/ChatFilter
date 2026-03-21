@@ -17,10 +17,10 @@
         <strong>{{ _("Analysis error") }}:</strong> <span id="error-message-{{ group.id }}"></span>
     </div>
     <div id="stale-warning-{{ group.id }}" class="stale-warning" style="display: none; background: #fff9c4; color: #f57f17; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
-        Нет обновлений более 60 секунд. Возможно, анализ завис.
+        {{ _("No updates for 60 seconds. Analysis may be stuck.") }}
     </div>
     <div id="flood-wait-{{ group.id }}" class="flood-wait-info" style="display: none; background: #fff3e0; color: #e65100; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
-        FloodWait до <span id="flood-wait-time-{{ group.id }}">--:--</span>
+        {{ _("FloodWait until") }} <span id="flood-wait-time-{{ group.id }}">--:--</span>
         (<span id="flood-wait-countdown-{{ group.id }}">—</span>)
     </div>
     {% endif %}
@@ -99,20 +99,20 @@
                 hx-target="#group-{{ group.id }}"
                 hx-swap="outerHTML"
                 hx-disabled-elt="this">
-            {{ _("Продолжить анализ") }}
+            {{ _("Resume analysis") }}
         </button>
         {% elif group.status.value == 'completed' %}
         <button class="btn btn-outline-secondary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/reanalyze?mode=increment"
                 hx-swap="none"
                 hx-disabled-elt="this">
-            {{ _("Дополнить анализ") }}
+            {{ _("Extend analysis") }}
         </button>
         <button class="btn btn-warning btn-sm"
                 hx-get="/api/groups/modal/reanalyze-confirm/{{ group.id }}"
                 hx-target="#modal-container"
                 hx-swap="innerHTML">
-            {{ _("Перезапустить анализ") }}
+            {{ _("Restart analysis") }}
         </button>
         {% else %}
         <button class="btn btn-primary btn-sm"
