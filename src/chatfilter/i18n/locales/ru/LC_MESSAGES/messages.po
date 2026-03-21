@@ -357,7 +357,7 @@ msgstr "Группы"
 #: src/chatfilter/templates/chats.html:226
 #, fuzzy
 msgid "Import chats"
-msgstr "Импорт"
+msgstr "Импорт чатов"
 
 #: src/chatfilter/templates/chats.html:233
 msgid "Groups list"
@@ -1036,7 +1036,7 @@ msgstr "FloodWait до"
 #: src/chatfilter/templates/partials/group_card.html:30
 #, fuzzy
 msgid "Total chats"
-msgstr "Чаты"
+msgstr "Всего чатов"
 
 #: src/chatfilter/templates/partials/group_card.html:34
 #, fuzzy
@@ -1060,7 +1060,7 @@ msgstr "Готово"
 #: src/chatfilter/templates/partials/group_card.html:60
 #, fuzzy
 msgid "Dead"
-msgstr "Готово"
+msgstr "Мёртвые"
 
 #: src/chatfilter/templates/partials/group_card.html:65
 msgid "Forums"
@@ -1069,12 +1069,12 @@ msgstr "Форумы"
 #: src/chatfilter/templates/partials/group_card.html:68
 #, fuzzy
 msgid "Channels+"
-msgstr "Отмена"
+msgstr "Каналы+"
 
 #: src/chatfilter/templates/partials/group_card.html:71
 #, fuzzy
 msgid "Channels"
-msgstr "Отмена"
+msgstr "Каналы"
 
 #: src/chatfilter/templates/partials/group_card.html:74
 msgid "These chats require approval to join. Metrics requiring join are N/A"
@@ -1087,7 +1087,7 @@ msgstr "Пропущено (модерация)"
 #: src/chatfilter/templates/partials/group_card.html:84
 #, fuzzy
 msgid "Configure analysis"
-msgstr "Настроить учётные данные API"
+msgstr "Настроить анализ"
 
 #: src/chatfilter/templates/partials/group_card.html:92 src/chatfilter/templates/partials/group_card.html:100
 msgid "Stop analysis"
@@ -1116,7 +1116,7 @@ msgstr "Начать анализ"
 #: src/chatfilter/templates/partials/group_card.html:137
 #, fuzzy
 msgid "Download results"
-msgstr "Результаты"
+msgstr "Скачать результаты"
 
 #: src/chatfilter/templates/partials/group_card.html:144
 msgid "Delete group? This cannot be undone."
@@ -2059,6 +2059,21 @@ msgstr "Номер телефона должен начинаться с +"
 #: src/chatfilter/web/routers/sessions/validation.py:35
 msgid "Phone number must contain only digits after +"
 msgstr "Номер телефона должен содержать только цифры после +"
+
+msgid "paused"
+msgstr "Приостановлено"
+
+msgid "in_progress"
+msgstr "В процессе"
+
+msgid "completed"
+msgstr "Завершено"
+
+msgid "pending"
+msgstr "Ожидание"
+
+msgid "waiting_for_accounts"
+msgstr "Ожидание аккаунтов"
 
 #~ msgid "2FA password accepted successfully"
 #~ msgstr "Пароль 2FA успешно принят"
