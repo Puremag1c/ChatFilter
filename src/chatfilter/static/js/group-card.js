@@ -258,7 +258,7 @@
 
                     // Update status badges from breakdown
                     if (data.breakdown) {
-                        const badgeTypes = ['pending', 'done', 'error', 'dead'];
+                        const badgeTypes = ['dead'];
                         badgeTypes.forEach(badgeType => {
                             const badgeEl = document.getElementById('badge-' + badgeType + '-' + groupId);
                             if (badgeEl) {
