@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 
 from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
+from chatfilter.web.template_helpers import get_template_context
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.flood_tracker import get_flood_tracker
 
@@ -39,7 +40,7 @@ async def get_sessions(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
         name="partials/sessions_list.html",
-        context={"sessions": sessions},
+        context=get_template_context(request, sessions=sessions),
     )
 
 
