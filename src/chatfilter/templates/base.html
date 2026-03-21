@@ -7,6 +7,7 @@
     <title>{% block title %}ChatFilter{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="/static/images/logo.ico">
     <link rel="stylesheet" href="/static/css/style.css?v={{ css_version }}">
+    <script>window.__i18n__ = {{ js_translations|tojson }};</script>
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/sse.js"></script>
     <script src="/static/js/hyperlist.min.js"></script>

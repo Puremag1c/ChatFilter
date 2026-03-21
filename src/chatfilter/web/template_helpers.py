@@ -23,6 +23,7 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
     Returns:
         Context dictionary with request, csrf_token, locale, and any provided kwargs
     """
+    from chatfilter.i18n.js_translations import get_js_translations
     from chatfilter.i18n.translations import get_current_locale, get_translations
 
     session = get_session(request)
@@ -54,5 +55,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "gettext": translations.gettext,
         "ngettext": translations.ngettext,
         "css_version": css_version,  # CSS file hash for cache-busting
+        "js_translations": get_js_translations(locale),
         **kwargs,
     }
