@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-03-21
+
+### Added
+- Единая система i18n: JS переводы из .po каталогов (inline через `window.__i18n__`), удалены отдельные JSON файлы
+- Модуль маппинга JS ключей (`js_translations`) для генерации переводов из gettext
+- CI-ready тест полноты переводов (`test_i18n_completeness`)
+- Визуальная обратная связь при переключении языка (reload-based flow)
+- Conftest fixture для автокомпиляции .mo файлов перед pytest
+- Graceful fallback если компиляция .mo не удалась при старте
+
+### Fixed
+- SSE endpoints рендерят шаблоны без locale — сессии/чаты показывали английский в RU режиме
+- `window.__i18n__` был пустым — JS переводы не инжектились в base template
+- Language switcher показывал сырые i18n ключи вместо переведённого текста
+- `polib` отсутствовал в dev-зависимостях — `test_i18n_completeness.py` не мог импортировать
+- Браузерный кэш отдавал старый `i18n.js` — добавлен cache-busting для JS скриптов
+- `i18n.js` читал `window.__i18n__` до HTTP fetch
+- GET `/api/sessions` рендерился без locale context
+
+### Changed
+- Рефакторинг I18n JS класса для работы с inline данными вместо HTTP fetch
+- Обновлён language-switcher для reload-based flow
+- Удалены статические JSON locale файлы (`en.json`, `ru.json`)
+- XSS-защита: `textContent` вместо `innerHTML` для переведённых строк в JS
+- XSS-защита: экранирование inline JSON переводов против `</script>` инъекции
+
 ## [0.25.0] - 2026-03-21
 
 ### Added
