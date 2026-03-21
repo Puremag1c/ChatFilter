@@ -12,19 +12,19 @@
     <script src="/static/js/sse.js"></script>
     <script src="/static/js/hyperlist.min.js"></script>
     <script src="/static/js/chart.umd.min.js"></script>
-    <script src="/static/js/i18n.js"></script>
-    <script src="/static/js/language-switcher.js"></script>
-    <script src="/static/js/theme-switcher.js"></script>
-    <script src="/static/js/tab-sync.js"></script>
-    <script src="/static/js/tab-activity.js"></script>
-    <script src="/static/js/request-dedup.js"></script>
-    <script src="/static/js/optimistic-lock.js"></script>
-    <script src="/static/js/conflict-warnings.js"></script>
-    <script src="/static/js/tooltips.js"></script>
-    <script src="/static/js/virtual-chat-list.js"></script>
-    <script src="/static/js/version-check.js"></script>
-    <script src="/static/js/session-config.js"></script>
-    <script src="/static/js/proxy-pool.js"></script>
+    <script src="/static/js/i18n.js?v={{ css_version }}"></script>
+    <script src="/static/js/language-switcher.js?v={{ css_version }}"></script>
+    <script src="/static/js/theme-switcher.js?v={{ css_version }}"></script>
+    <script src="/static/js/tab-sync.js?v={{ css_version }}"></script>
+    <script src="/static/js/tab-activity.js?v={{ css_version }}"></script>
+    <script src="/static/js/request-dedup.js?v={{ css_version }}"></script>
+    <script src="/static/js/optimistic-lock.js?v={{ css_version }}"></script>
+    <script src="/static/js/conflict-warnings.js?v={{ css_version }}"></script>
+    <script src="/static/js/tooltips.js?v={{ css_version }}"></script>
+    <script src="/static/js/virtual-chat-list.js?v={{ css_version }}"></script>
+    <script src="/static/js/version-check.js?v={{ css_version }}"></script>
+    <script src="/static/js/session-config.js?v={{ css_version }}"></script>
+    <script src="/static/js/proxy-pool.js?v={{ css_version }}"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -89,23 +89,23 @@
     <div id="modal-container"></div>
 
     <!-- CSRF Token Configuration for HTMX -->
-    <script src="/static/js/csrf-config.js"></script>
-    <script src="/static/js/toast-manager.js"></script>
+    <script src="/static/js/csrf-config.js?v={{ css_version }}"></script>
+    <script src="/static/js/toast-manager.js?v={{ css_version }}"></script>
 
     <!-- Modal Dialog System (ModalManager) -->
-    <script src="/static/js/modal-manager.js"></script>
+    <script src="/static/js/modal-manager.js?v={{ css_version }}"></script>
 
     <!-- HTMX Error Handler (loaded after ToastManager) -->
-    <script src="/static/js/htmx-error-handler.js"></script>
+    <script src="/static/js/htmx-error-handler.js?v={{ css_version }}"></script>
 
 <!-- SSE Connection Status Banner Manager -->
-    <script src="/static/js/sse-status-banner.js"></script>
+    <script src="/static/js/sse-status-banner.js?v={{ css_version }}"></script>
 
     <!-- Analysis State Tracker for beforeunload protection -->
-    <script src="/static/js/analysis-state-tracker.js"></script>
+    <script src="/static/js/analysis-state-tracker.js?v={{ css_version }}"></script>
 
     <!-- Sessions List Logic (SSE, modals, operation tracking) -->
-    <script src="/static/js/sessions-list.js"></script>
+    <script src="/static/js/sessions-list.js?v={{ css_version }}"></script>
 
     {% block scripts %}{% endblock %}
 </body>
