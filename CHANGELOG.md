@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-03-21
+
+### Added
+- **Auto-retry ERROR chats**: After main queue completes, ERROR chats are automatically re-queued once (no infinite loop)
+- **Instant card loading overlay**: Clicking Start/Resume/Reanalyze immediately shows spinner overlay on group card
+- **Retry phase in progress counter**: Shows retry progress during auto-retry phase
+
+### Changed
+- **i18n full audit**: All msgids converted to English; Russian and English .po files fully translated
+- **i18n JS files**: Fixed hardcoded Russian strings in JavaScript locale files
+- **Badge simplification**: Group card now shows only chat type badges (Groups, Forums, Channels+, Channels, Dead); removed status badges (Pending, Done, Error, Skipped)
+- **Type badges hidden before analysis**: Chat type badges only shown when analysis data exists
+
+### Fixed
+- **i18n RU mode**: Fixed English strings appearing on Sessions, Chats, and Proxies pages in Russian mode
+- **i18n flood_wait namespace**: Fixed renamed i18n namespace in flood-wait-countdown.js
+- **i18n missing 'Needs API ID'**: Added missing translation to Russian messages.po
+- **Auto-retry security**: Scoped auto-retry query to current group_id
+- **Auto-retry guard**: Prevented infinite loop and double finalize_group calls
+- **Spinner error handling**: Instant spinner handles 4xx/5xx errors to avoid stuck UI
+- **Test regressions**: Updated test_overwrite_resets_chat_statuses for auto-retry
+
 ## [0.24.0] - 2026-03-20
 
 ### Changed
