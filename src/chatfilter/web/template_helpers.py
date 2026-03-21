@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from chatfilter.web.csrf import get_csrf_token
@@ -25,6 +26,27 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
     """
     from chatfilter.i18n.js_translations import get_js_translations
     from chatfilter.i18n.translations import get_current_locale, get_translations
+
+    def _js_translations_json(locale: str) -> str:
+        """Return HTML-safe JSON for inline <script> use.
+
+        json.dumps() alone does not escape '<', '>', or '&', so a translation
+        value containing '</script>' would break out of the script block.  We
+        apply the standard three replacements used by Jinja2's tojson /
+        Flask's htmlsafe_json_dumps, making the guarantee explicit in Python.
+        """
+        data: dict
+        try:
+            data = get_js_translations(locale)
+        except Exception:
+            data = {}
+        serialized = json.dumps(data, ensure_ascii=False)
+        return (
+            serialized
+            .replace("&", r"\u0026")
+            .replace("<", r"\u003c")
+            .replace(">", r"\u003e")
+        )
 
     session = get_session(request)
     csrf_token = get_csrf_token(session)
@@ -55,6 +77,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "gettext": translations.gettext,
         "ngettext": translations.ngettext,
         "css_version": css_version,  # CSS file hash for cache-busting
-        "js_translations": get_js_translations(locale),
+        "js_translations_json": _js_translations_json(locale),
         **kwargs,
     }
