@@ -143,7 +143,7 @@ async def connect_session(
         )
 
     # Check if session is properly configured
-    config_status, _config_reason = get_session_config_status(session_dir)
+    config_status, _config_reason = get_session_config_status(session_dir, user_id=user_id or "")
     if config_status == "needs_config":
         session_data = SessionListItem(
             session_id=safe_name,

@@ -12,6 +12,7 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -270,7 +271,7 @@ class TestUpdateProxyHealth:
     async def test_success_updates_status(self, sample_proxy: ProxyEntry) -> None:
         """Should update status to WORKING on success."""
         with patch("chatfilter.service.proxy_health.update_proxy") as mock_update:
-            result = await update_proxy_health(sample_proxy, success=True)
+            result = await update_proxy_health(sample_proxy, success=True, user_id="testuser")
 
             assert result.status == ProxyStatus.WORKING
             assert result.consecutive_failures == 0
@@ -280,7 +281,7 @@ class TestUpdateProxyHealth:
     async def test_failure_increments_counter(self, sample_proxy: ProxyEntry) -> None:
         """Should increment failure counter on failure."""
         with patch("chatfilter.service.proxy_health.update_proxy") as mock_update:
-            result = await update_proxy_health(sample_proxy, success=False)
+            result = await update_proxy_health(sample_proxy, success=False, user_id="testuser")
 
             assert result.consecutive_failures == 1
             mock_update.assert_called_once()
@@ -297,7 +298,7 @@ class TestUpdateProxyHealth:
         )
 
         with patch("chatfilter.service.proxy_health.update_proxy"):
-            result = await update_proxy_health(proxy, success=False)
+            result = await update_proxy_health(proxy, success=False, user_id="testuser")
 
             assert result.status == ProxyStatus.NO_PING
 
@@ -312,7 +313,7 @@ class TestUpdateProxyHealth:
 
             # Exception should propagate (not caught silently)
             with pytest.raises(StorageError):
-                await update_proxy_health(sample_proxy, success=True)
+                await update_proxy_health(sample_proxy, success=True, user_id="testuser")
 
 
 class TestCheckSingleProxy:
@@ -328,10 +329,10 @@ class TestCheckSingleProxy:
                 expected_result = sample_proxy.with_health_update(success=True)
                 mock_update.return_value = expected_result
 
-                await check_single_proxy(sample_proxy)
+                await check_single_proxy(sample_proxy, user_id="testuser")
 
                 mock_check.assert_called_once_with(sample_proxy)
-                mock_update.assert_called_once_with(sample_proxy, True)
+                mock_update.assert_called_once_with(sample_proxy, True, user_id="testuser")
 
 
 class TestCheckAllProxies:
@@ -339,35 +340,53 @@ class TestCheckAllProxies:
 
     @pytest.mark.asyncio
     async def test_checks_all_proxies(self) -> None:
-        """Should check all proxies in pool."""
+        """Should check all proxies across all users."""
+        import tempfile
+
         proxies = [
             ProxyEntry(name="Proxy1", type=ProxyType.SOCKS5, host="1.1.1.1", port=1080),
             ProxyEntry(name="Proxy2", type=ProxyType.HTTP, host="2.2.2.2", port=8080),
         ]
 
-        with patch("chatfilter.service.proxy_health.load_proxy_pool") as mock_load:
-            mock_load.return_value = proxies
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            # Create a per-user proxy file
+            import json
+            proxy_file = config_dir / "proxies_testuser.json"
+            proxy_file.write_text(json.dumps([p.model_dump(mode="json") for p in proxies]))
 
-            with patch("chatfilter.service.proxy_health.check_single_proxy") as mock_check:
-                mock_check.side_effect = [
-                    proxies[0].with_health_update(success=True),
-                    proxies[1].with_health_update(success=False),
-                ]
+            mock_settings = MagicMock()
+            mock_settings.config_dir = config_dir
 
-                result = await check_all_proxies()
+            with patch("chatfilter.config.get_settings", return_value=mock_settings):
+                with patch("chatfilter.service.proxy_health.load_proxy_pool", return_value=proxies):
+                    with patch("chatfilter.service.proxy_health.check_single_proxy") as mock_check:
+                        mock_check.side_effect = [
+                            proxies[0].with_health_update(success=True),
+                            proxies[1].with_health_update(success=False),
+                        ]
 
-                assert len(result) == 2
-                assert mock_check.call_count == 2
+                        result = await check_all_proxies()
+
+                        assert len(result) == 2
+                        assert mock_check.call_count == 2
 
     @pytest.mark.asyncio
     async def test_empty_pool(self) -> None:
-        """Should handle empty proxy pool."""
-        with patch("chatfilter.service.proxy_health.load_proxy_pool") as mock_load:
-            mock_load.return_value = []
+        """Should handle empty config dir."""
+        import tempfile
 
-            result = await check_all_proxies()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            # No proxy files
 
-            assert result == {}
+            mock_settings = MagicMock()
+            mock_settings.config_dir = config_dir
+
+            with patch("chatfilter.config.get_settings", return_value=mock_settings):
+                result = await check_all_proxies()
+
+                assert result == {}
 
 
 class TestRetestProxy:
@@ -386,7 +405,7 @@ class TestRetestProxy:
                 expected = sample_proxy.with_health_update(success=True)
                 mock_check.return_value = expected
 
-                result = await retest_proxy(sample_proxy.id)
+                result = await retest_proxy(sample_proxy.id, user_id="testuser")
 
                 assert result is not None
                 mock_check.assert_called_once()
@@ -399,7 +418,7 @@ class TestRetestProxy:
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get:
             mock_get.side_effect = StorageNotFoundError("Not found")
 
-            result = await retest_proxy("nonexistent-id")
+            result = await retest_proxy("nonexistent-id", user_id="testuser")
 
             assert result is None
 
@@ -422,7 +441,7 @@ class TestRetestProxy:
             ):
                 mock_tunnel.return_value = True
 
-                result = await retest_proxy(socks5_proxy.id)
+                result = await retest_proxy(socks5_proxy.id, user_id="testuser")
 
                 # Should have called socks5_tunnel_check
                 mock_tunnel.assert_called_once()
@@ -451,7 +470,7 @@ class TestRetestProxy:
                 # Health check fails
                 mock_check.return_value = False
 
-                result = await retest_proxy(proxy.id)
+                result = await retest_proxy(proxy.id, user_id="testuser")
 
                 assert result is not None
                 # After 1 failed retest, status should be NO_PING (not UNTESTED)
@@ -480,7 +499,7 @@ class TestRetestProxy:
                 # Health check succeeds
                 mock_check.return_value = True
 
-                result = await retest_proxy(proxy.id)
+                result = await retest_proxy(proxy.id, user_id="testuser")
 
                 assert result is not None
                 assert result.status == ProxyStatus.WORKING
@@ -507,7 +526,7 @@ class TestRetestProxy:
 
                 # Exception should propagate (not silently caught)
                 with pytest.raises(TimeoutError):
-                    await retest_proxy(proxy.id)
+                    await retest_proxy(proxy.id, user_id="testuser")
 
 
 class TestProxyHealthMonitor:

@@ -62,7 +62,7 @@ class TestLegacyProxyMigration:
     def test_migration_creates_proxies_json(self, app_root: Path, legacy_proxy_json: Path) -> None:
         """Migration should create proxies.json from legacy proxy.json."""
         with mock_proxy_pool_paths(app_root):
-            proxies = load_proxy_pool()
+            proxies = load_proxy_pool("testuser")
 
         assert len(proxies) == 1
         proxy = proxies[0]
@@ -74,19 +74,19 @@ class TestLegacyProxyMigration:
         assert proxy.password == "testpass"
 
         # Verify file was created
-        proxies_file = app_root / "data" / "config" / "proxies.json"
+        proxies_file = app_root / "data" / "config" / "proxies_testuser.json"
         assert proxies_file.exists()
 
     def test_migration_skipped_if_proxies_exists(
         self, app_root: Path, legacy_proxy_json: Path
     ) -> None:
         """Migration should not run if proxies.json already exists."""
-        # Create existing proxies.json
-        proxies_file = app_root / "data" / "config" / "proxies.json"
+        # Create existing proxies_testuser.json
+        proxies_file = app_root / "data" / "config" / "proxies_testuser.json"
         proxies_file.write_text(json.dumps([]))
 
         with mock_proxy_pool_paths(app_root):
-            proxies = load_proxy_pool()
+            proxies = load_proxy_pool("testuser")
 
         # Should be empty since we didn't put anything in proxies.json
         assert len(proxies) == 0
@@ -94,7 +94,7 @@ class TestLegacyProxyMigration:
     def test_migration_skipped_if_no_legacy_file(self, app_root: Path) -> None:
         """Migration should not run if no legacy proxy.json exists."""
         with mock_proxy_pool_paths(app_root):
-            proxies = load_proxy_pool()
+            proxies = load_proxy_pool("testuser")
 
         assert len(proxies) == 0
 
@@ -116,7 +116,7 @@ class TestLegacyProxyMigration:
         )
 
         with mock_proxy_pool_paths(app_root):
-            proxies = load_proxy_pool()
+            proxies = load_proxy_pool("testuser")
 
         assert len(proxies) == 1
         assert proxies[0].type.value == "http"
@@ -139,7 +139,7 @@ class TestLegacyProxyMigration:
         )
 
         with mock_proxy_pool_paths(app_root):
-            proxies = load_proxy_pool()
+            proxies = load_proxy_pool("testuser")
 
         assert len(proxies) == 1
         assert proxies[0].type.value == "socks5"  # Default
@@ -151,7 +151,7 @@ class TestLegacyProxyMigration:
         proxy_file.write_text("not valid json")
 
         with mock_proxy_pool_paths(app_root):
-            proxies = load_proxy_pool()
+            proxies = load_proxy_pool("testuser")
 
         # Should return empty list without crashing
         assert len(proxies) == 0
@@ -163,7 +163,7 @@ class TestLegacyProxyMigration:
         proxy_file.write_text(json.dumps([1, 2, 3]))
 
         with mock_proxy_pool_paths(app_root):
-            proxies = load_proxy_pool()
+            proxies = load_proxy_pool("testuser")
 
         # Should return empty list without crashing
         assert len(proxies) == 0

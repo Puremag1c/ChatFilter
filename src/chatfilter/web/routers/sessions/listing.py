@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
+def get_session_config_status(session_dir: Path, *, user_id: str = "") -> tuple[str, str | None]:
     """Check session configuration status.
 
     Validates that the session has required configuration:
@@ -96,7 +96,7 @@ def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
     from chatfilter.storage.proxy_pool import get_proxy_by_id
 
     try:
-        get_proxy_by_id(proxy_id)
+        get_proxy_by_id(proxy_id, user_id=user_id)
     except StorageNotFoundError:
         return ("needs_config", "Proxy not found in pool")
 
@@ -166,7 +166,9 @@ def list_stored_sessions(
                     continue
 
                 # First check config status
-                config_status, config_reason = get_session_config_status(session_dir)
+                config_status, config_reason = get_session_config_status(
+                    session_dir, user_id=str(user_id) if user_id else ""
+                )
 
                 # For list display, map needs_config to disconnected.
                 # Sessions saved without credentials are valid (spec: Save-only flow).

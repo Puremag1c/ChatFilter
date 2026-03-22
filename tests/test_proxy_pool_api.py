@@ -486,7 +486,7 @@ class TestGetSessionsUsingProxy:
             with patch("chatfilter.web.routers.proxy_pool.get_settings") as mock_settings:
                 mock_settings.return_value.sessions_dir = sessions_dir
 
-                result = _get_sessions_using_proxy("target-proxy-id")
+                result = _get_sessions_using_proxy("target-proxy-id", "")
 
             assert result == ["session1"]
 
@@ -507,6 +507,6 @@ class TestGetSessionsUsingProxy:
             with patch("chatfilter.web.routers.proxy_pool.get_settings") as mock_settings:
                 mock_settings.return_value.sessions_dir = sessions_dir
 
-                result = _get_sessions_using_proxy("target-proxy-id")
+                result = _get_sessions_using_proxy("target-proxy-id", "")
 
             assert result == []

@@ -121,9 +121,12 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 config_path = session_path.parent / "config.json"
                 session_dir = session_path.parent
 
+            # Derive user_id from path: sessions_dir / user_id / session_name / session.session
+            user_id_str = session_path.parent.parent.name if session_path else ""
+
             # CASE 1: Check config validity (no api_id/api_hash or proxy missing)
             # This catches ApiIdInvalidError BEFORE attempting connection
-            config_status, config_reason = get_session_config_status(session_dir)
+            config_status, config_reason = get_session_config_status(session_dir, user_id=user_id_str)
             if config_status == "needs_config":
                 # Missing credentials or proxy → needs_config
                 logger.warning(f"Session '{session_id}' has config issue: {config_reason}")
@@ -143,7 +146,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 from chatfilter.service.proxy_health import socks5_tunnel_check
 
                 try:
-                    proxy_entry = proxy_pool.get_proxy_by_id(proxy_id)
+                    proxy_entry = proxy_pool.get_proxy_by_id(proxy_id, user_id=user_id_str)
                     # Only check SOCKS5 proxies (HTTP proxies use different protocol)
                     if proxy_entry.type == ProxyType.SOCKS5:
                         logger.debug(f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}")
@@ -402,9 +405,12 @@ async def _send_verification_code_and_create_auth(
         await get_event_bus().publish(session_id, error_state)
         return
 
+    # Derive user_id from path: sessions_dir / user_id / session_name / session.session
+    user_id_str = session_path.parent.parent.name
+
     # Get proxy once (no retry needed)
     try:
-        proxy_info = proxy_pool.get_proxy_by_id(proxy_id)
+        proxy_info = proxy_pool.get_proxy_by_id(proxy_id, user_id=user_id_str)
     except StorageNotFoundError:
         # Security: sanitize error message before publishing to client
         error_message = f"Proxy '{proxy_id}' not found in pool"
