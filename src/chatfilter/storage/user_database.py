@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -130,3 +131,16 @@ class UserDatabase(SQLiteDatabase):
 def get_user_db(data_dir: Path) -> UserDatabase:
     """Return a UserDatabase instance for the given data directory."""
     return UserDatabase(data_dir / "users.db")
+
+
+def delete_user_files(user_id: str, sessions_dir: Path, config_dir: Path) -> None:
+    """Remove session directory and proxy file for the given user.
+
+    Safe to call even if files/directories do not exist.
+    """
+    session_path = sessions_dir / user_id
+    if session_path.exists():
+        shutil.rmtree(session_path, ignore_errors=True)
+
+    proxy_file = config_dir / f"proxies_{user_id}.json"
+    proxy_file.unlink(missing_ok=True)

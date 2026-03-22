@@ -110,10 +110,30 @@ async def delete_user(request: Request, user_id: str) -> Response:
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
+    from chatfilter.storage.group_database import GroupDatabase
+    from chatfilter.storage.user_database import delete_user_files
+    from chatfilter.web.routers.sessions.client_registry import disconnect_user_clients
+
+    settings = request.app.state.settings
+
     db = _get_user_db(request)
     user = db.get_user_by_id(user_id)
     username = html.escape(user["username"]) if user else "?"
+
+    # 1. Disconnect any active Telegram sessions
+    await disconnect_user_clients(user_id)
+
+    # 2. Remove session files and proxy config
+    delete_user_files(user_id, settings.sessions_dir, settings.config_dir)
+
+    # 3. Delete user's groups from the database
+    group_db = GroupDatabase(settings.data_dir / "groups.db")
+    with group_db._connection() as conn:
+        conn.execute("DELETE FROM chat_groups WHERE user_id = ?", (user_id,))
+
+    # 4. Delete user record
     db.delete_user(user_id)
+
     flash_html = (
         '<div id="flash-container" hx-swap-oob="innerHTML">'
         '<div class="alert alert-success" role="alert">'
