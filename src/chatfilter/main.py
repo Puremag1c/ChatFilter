@@ -147,11 +147,10 @@ def _handle_reset_password() -> None:
     args = parser.parse_args(sys.argv[2:])
 
     if len(args.password) < 8:
-        print(f"Error: Password must be at least 8 characters long", file=sys.stderr)
+        print("Error: Password must be at least 8 characters long", file=sys.stderr)
         sys.exit(1)
 
     if args.data_dir:
-        from pathlib import Path
         data_dir = Path(args.data_dir)
     else:
         settings = get_settings()
