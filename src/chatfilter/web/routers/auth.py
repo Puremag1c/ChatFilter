@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from chatfilter.i18n import _
 from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
@@ -61,7 +62,7 @@ async def login(
         context=get_template_context(
             request,
             version=__version__,
-            error="Неверный логин или пароль",
+            error=_("Invalid username or password"),
             login_username=username,
         ),
         status_code=401,
