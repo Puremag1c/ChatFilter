@@ -3869,4 +3869,16 @@ body:has(.update-notification.show) {
     text-align: center;
     padding: 2rem 0 1rem;
 }
+
+.minimal-logo .logo {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+}
+
+.minimal-logo .logo:hover {
+    color: var(--primary);
+}
 /* ========== End SSE Status Banner Styles ==========*/
