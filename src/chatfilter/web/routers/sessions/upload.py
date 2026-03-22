@@ -549,7 +549,7 @@ async def save_import_session(
         from chatfilter.storage.proxy_pool import get_proxy_by_id
 
         try:
-            get_proxy_by_id(proxy_id)
+            get_proxy_by_id(proxy_id, user_id=web_user_id)
         except StorageNotFoundError:
             return templates.TemplateResponse(
                 request=request,

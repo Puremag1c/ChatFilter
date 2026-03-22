@@ -28,6 +28,7 @@ from chatfilter.storage.proxy_pool import (
     remove_proxy,
     update_proxy,
 )
+from chatfilter.web.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -124,22 +125,23 @@ def _proxy_to_response(proxy: ProxyEntry) -> ProxyResponse:
     )
 
 
-def _get_sessions_using_proxy(proxy_id: str) -> list[str]:
-    """Find all sessions that are using a specific proxy.
+def _get_sessions_using_proxy(proxy_id: str, user_id: str) -> list[str]:
+    """Find all sessions of a user that are using a specific proxy.
 
     Args:
         proxy_id: UUID of the proxy to check.
+        user_id: Owner whose sessions to check.
 
     Returns:
         List of session IDs that have this proxy configured.
     """
     sessions_using = []
-    sessions_dir = get_settings().sessions_dir
+    user_sessions_dir = get_settings().sessions_dir / user_id
 
-    if not sessions_dir.exists():
+    if not user_sessions_dir.exists():
         return []
 
-    for session_dir in sessions_dir.iterdir():
+    for session_dir in user_sessions_dir.iterdir():
         if not session_dir.is_dir():
             continue
 
@@ -161,14 +163,15 @@ def _get_sessions_using_proxy(proxy_id: str) -> list[str]:
 
 
 @router.get("/api/proxies", response_model=ProxyListResponse)
-async def list_proxies() -> ProxyListResponse:
+async def list_proxies(request: Request) -> ProxyListResponse:
     """List all proxies in the pool.
 
     Returns:
         ProxyListResponse with all proxies and count.
     """
     try:
-        proxies = load_proxy_pool()
+        user_id = get_session(request).get("user_id", "")
+        proxies = load_proxy_pool(user_id)
         proxy_responses = [_proxy_to_response(p) for p in proxies]
 
         return ProxyListResponse(
@@ -184,37 +187,40 @@ async def list_proxies() -> ProxyListResponse:
 
 
 @router.post("/api/proxies", response_model=ProxyCreateResponse)
-async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
+async def create_proxy(request: Request, body: ProxyCreateRequest) -> ProxyCreateResponse:
     """Create a new proxy in the pool.
 
     Args:
-        request: Proxy creation request with name, type, host, port, and optional auth.
+        request: FastAPI request object.
+        body: Proxy creation request with name, type, host, port, and optional auth.
 
     Returns:
         ProxyCreateResponse with created proxy or error.
     """
     try:
+        user_id = get_session(request).get("user_id", "")
+
         # Validate proxy type
         try:
-            proxy_type = ProxyType(request.type.lower())
+            proxy_type = ProxyType(body.type.lower())
         except ValueError:
             return ProxyCreateResponse(
                 success=False,
-                error=f"Invalid proxy type: {request.type}. Must be 'socks5' or 'http'.",
+                error=f"Invalid proxy type: {body.type}. Must be 'socks5' or 'http'.",
             )
 
         # Create proxy entry
         proxy = ProxyEntry(
-            name=request.name,
+            name=body.name,
             type=proxy_type,
-            host=request.host,
-            port=request.port,
-            username=request.username,
-            password=request.password,
+            host=body.host,
+            port=body.port,
+            username=body.username,
+            password=body.password,
         )
 
         # Add to pool
-        added_proxy = add_proxy(proxy)
+        added_proxy = add_proxy(proxy, user_id=user_id)
 
         logger.info(f"Created new proxy: {added_proxy.name} ({added_proxy.id})")
 
@@ -238,49 +244,53 @@ async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
 
 @router.put("/api/proxies/{proxy_id}", response_model=ProxyCreateResponse)
 async def update_proxy_endpoint(
+    request: Request,
     proxy_id: Annotated[
         str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
     ],
-    request: ProxyUpdateRequest,
+    body: ProxyUpdateRequest,
 ) -> ProxyCreateResponse:
     """Update an existing proxy in the pool.
 
     Args:
+        request: FastAPI request object.
         proxy_id: UUID of the proxy to update.
-        request: Proxy update request with name, type, host, port, and optional auth.
+        body: Proxy update request with name, type, host, port, and optional auth.
 
     Returns:
         ProxyCreateResponse with updated proxy or error.
     """
     try:
+        user_id = get_session(request).get("user_id", "")
+
         # Validate proxy type
         try:
-            proxy_type = ProxyType(request.type.lower())
+            proxy_type = ProxyType(body.type.lower())
         except ValueError:
             return ProxyCreateResponse(
                 success=False,
-                error=f"Invalid proxy type: {request.type}. Must be 'socks5' or 'http'.",
+                error=f"Invalid proxy type: {body.type}. Must be 'socks5' or 'http'.",
             )
 
         # Get existing proxy to preserve password if not provided
-        existing_proxy = get_proxy_by_id(proxy_id)
+        existing_proxy = get_proxy_by_id(proxy_id, user_id=user_id)
 
         # Use existing password if new one not provided
-        password = request.password if request.password is not None else existing_proxy.password
+        password = body.password if body.password is not None else existing_proxy.password
 
         # Create updated proxy entry
         updated_proxy = ProxyEntry(
             id=proxy_id,
-            name=request.name,
+            name=body.name,
             type=proxy_type,
-            host=request.host,
-            port=request.port,
-            username=request.username,
+            host=body.host,
+            port=body.port,
+            username=body.username,
             password=password,
         )
 
         # Update in pool
-        result = update_proxy(proxy_id, updated_proxy)
+        result = update_proxy(proxy_id, updated_proxy, user_id=user_id)
 
         logger.info(f"Updated proxy: {result.name} ({result.id})")
 
@@ -309,6 +319,7 @@ async def update_proxy_endpoint(
 
 @router.delete("/api/proxies/{proxy_id}", response_model=ProxyDeleteResponse)
 async def delete_proxy(
+    request: Request,
     proxy_id: Annotated[
         str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
     ],
@@ -319,21 +330,24 @@ async def delete_proxy(
     The frontend should warn the user before deletion if sessions are affected.
 
     Args:
+        request: FastAPI request object.
         proxy_id: UUID of the proxy to delete.
 
     Returns:
         ProxyDeleteResponse with success status or error.
     """
     try:
+        user_id = get_session(request).get("user_id", "")
+
         # Log if proxy is in use (sessions will be affected)
-        sessions_using = _get_sessions_using_proxy(proxy_id)
+        sessions_using = _get_sessions_using_proxy(proxy_id, user_id)
         if sessions_using:
             logger.warning(
                 f"Deleting proxy {proxy_id} that is in use by {len(sessions_using)} sessions: {sessions_using}"
             )
 
         # Remove from pool
-        remove_proxy(proxy_id)
+        remove_proxy(proxy_id, user_id=user_id)
 
         logger.info(f"Deleted proxy: {proxy_id}")
 
@@ -379,7 +393,8 @@ async def retest_proxy_endpoint(
     from chatfilter.web.template_helpers import get_template_context
 
     try:
-        updated_proxy = await retest_proxy(proxy_id)
+        user_id = get_session(request).get("user_id", "")
+        updated_proxy = await retest_proxy(proxy_id, user_id=user_id)
 
         if updated_proxy is None:
             raise HTTPException(
@@ -390,7 +405,7 @@ async def retest_proxy_endpoint(
         logger.info(f"Retested proxy: {updated_proxy.name} - status: {updated_proxy.status.value}")
 
         # Get usage count for the proxy
-        usage_count = len(_get_sessions_using_proxy(proxy_id))
+        usage_count = len(_get_sessions_using_proxy(proxy_id, user_id))
 
         # Build proxy data for template
         proxy_data = {
@@ -449,12 +464,13 @@ async def list_proxies_html(request: Request) -> HTMLResponse:
     from chatfilter.web.template_helpers import get_template_context
 
     try:
-        proxies = load_proxy_pool()
+        user_id = get_session(request).get("user_id", "")
+        proxies = load_proxy_pool(user_id)
 
         # Build response with usage count and health status for each proxy
         proxies_with_usage = []
         for proxy in proxies:
-            usage_count = len(_get_sessions_using_proxy(proxy.id))
+            usage_count = len(_get_sessions_using_proxy(proxy.id, user_id))
             proxies_with_usage.append(
                 {
                     "id": proxy.id,

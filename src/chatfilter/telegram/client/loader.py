@@ -185,8 +185,10 @@ class TelegramClientLoader:
         from chatfilter.storage.errors import StorageNotFoundError
         from chatfilter.storage.proxy_pool import get_proxy_by_id
 
+        # Derive user_id from path: sessions_dir / user_id / session_name / session.session
+        owner_id = self._session_path.parent.parent.name
         try:
-            get_proxy_by_id(self._proxy_id)
+            get_proxy_by_id(self._proxy_id, user_id=owner_id)
         except StorageNotFoundError as e:
             raise SessionBlockedError(
                 gettext(
@@ -283,8 +285,10 @@ class TelegramClientLoader:
             from chatfilter.storage.errors import StorageNotFoundError
             from chatfilter.storage.proxy_pool import get_proxy_by_id
 
+            # Derive user_id from path: sessions_dir / user_id / session_name / session.session
+            owner_id = self._session_path.parent.parent.name
             try:
-                proxy_entry = get_proxy_by_id(self._proxy_id)
+                proxy_entry = get_proxy_by_id(self._proxy_id, user_id=owner_id)
                 telethon_proxy = proxy_entry.to_telethon_proxy()
                 logger.debug(f"Using proxy from pool: {proxy_entry.name} ({proxy_entry.id})")
             except StorageNotFoundError as e:
