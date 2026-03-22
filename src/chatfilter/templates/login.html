@@ -12,17 +12,17 @@
         padding: 2rem;
     }
     .login-card {
-        background: var(--card-bg, #fff);
-        border: 1px solid var(--border-color, #ddd);
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         padding: 2.5rem;
         width: 100%;
         max-width: 380px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        box-shadow: 0 2px 12px var(--shadow-lg);
     }
     .login-card .subtitle {
         text-align: center;
-        color: var(--text-muted, #666);
+        color: var(--text-secondary);
         margin-bottom: 2rem;
         font-size: 0.9rem;
     }
@@ -34,16 +34,17 @@
         margin-bottom: 0.4rem;
         font-size: 0.9rem;
         font-weight: 500;
+        color: var(--text-primary);
     }
     .form-group input {
         width: 100%;
         padding: 0.6rem 0.75rem;
-        border: 1px solid var(--border-color, #ccc);
+        border: 1px solid var(--border-color);
         border-radius: 4px;
         font-size: 1rem;
         box-sizing: border-box;
-        background: var(--input-bg, #fff);
-        color: var(--text-color, #000);
+        background: var(--bg-input);
+        color: var(--text-primary);
     }
     .login-btn {
         width: 100%;
@@ -54,9 +55,9 @@
         justify-content: center;
     }
     .login-error {
-        background: var(--error-bg, #fff0f0);
-        border: 1px solid var(--error-border, #f5c6cb);
-        color: var(--error-color, #721c24);
+        background: var(--danger-bg);
+        border: 1px solid var(--danger);
+        color: var(--danger-text);
         border-radius: 4px;
         padding: 0.75rem 1rem;
         margin-bottom: 1rem;
