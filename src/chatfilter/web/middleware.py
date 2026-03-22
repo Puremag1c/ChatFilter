@@ -374,7 +374,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     - /static - Static files
     """
 
-    EXEMPT_PATHS = {"/login", "/health", "/ready", "/favicon.ico"}
+    EXEMPT_PATHS = {"/login", "/health", "/ready", "/favicon.ico", "/api/version/check-updates"}
     EXEMPT_PREFIXES = ("/static",)
 
     def _is_exempt(self, path: str) -> bool:
