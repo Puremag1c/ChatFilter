@@ -406,7 +406,7 @@ class TestDeleteProxy:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        mock_remove.assert_called_once_with(proxy_id)
+        mock_remove.assert_called_once_with(proxy_id, "default")
 
     def test_delete_proxy_in_use(self, client: TestClient, csrf_token: str):
         """Test deleting a proxy that is in use succeeds (with warning)."""
@@ -427,7 +427,7 @@ class TestDeleteProxy:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        mock_remove.assert_called_once_with(proxy_id)
+        mock_remove.assert_called_once_with(proxy_id, "default")
 
     def test_delete_proxy_not_found(self, client: TestClient, csrf_token: str):
         """Test deleting a non-existent proxy returns 404."""
