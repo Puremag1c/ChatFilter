@@ -163,6 +163,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.app_state.css_version = __version__
         logger.warning(f"CSS file not found, using version {__version__} as cache-buster")
 
+    # Initialize admin user
+    try:
+        import secrets
+
+        from chatfilter.storage.user_database import get_user_db
+
+        user_db = get_user_db(settings.data_dir)
+        if settings.admin_login and settings.admin_password:
+            user_db.upsert_user(settings.admin_login, settings.admin_password, is_admin=True)
+            logger.info(f"Admin user '{settings.admin_login}' initialized from environment")
+        elif not user_db.list_users():
+            password = secrets.token_urlsafe(16)
+            user_db.create_user("admin", password, is_admin=True)
+            print(f"\n{'=' * 60}")  # noqa: T201
+            print(f"Admin user created: admin / {password}")  # noqa: T201
+            print(f"{'=' * 60}\n")  # noqa: T201
+            logger.warning("No users found — created admin user with generated password (printed to console)")
+    except Exception as e:
+        logger.error(f"Failed to initialize admin user: {e}")
+        raise SystemExit(1) from e
+
     logger.info("Application startup complete")
 
     yield

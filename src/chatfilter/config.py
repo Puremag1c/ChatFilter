@@ -232,6 +232,16 @@ class Settings(BaseSettings):
         description="Days after which unused session files are auto-deleted (None=disabled)",
     )
 
+    # Admin initialization (env-only, not stored)
+    admin_login: str | None = Field(
+        default=None,
+        description="Admin username for initialization (CHATFILTER_ADMIN_LOGIN)",
+    )
+    admin_password: str | None = Field(
+        default=None,
+        description="Admin password for initialization (CHATFILTER_ADMIN_PASSWORD)",
+    )
+
     # URL security settings
     allowed_file_domains: list[str] = Field(
         default_factory=list,
