@@ -369,7 +369,7 @@ class TestTelegramClientLoader:
         valid_proxy_id = str(uuid.uuid4())
 
         # Mock get_proxy_by_id to return a valid proxy
-        def mock_get_proxy_by_id(proxy_id: str) -> ProxyEntry:
+        def mock_get_proxy_by_id(proxy_id: str, user_id: str) -> ProxyEntry:
             return ProxyEntry(
                 id=proxy_id,
                 name="Test Proxy",
@@ -836,7 +836,7 @@ class TestTelegramClientLoader:
         # Mock get_proxy_by_id to raise StorageNotFoundError
         from chatfilter.storage.errors import StorageNotFoundError
 
-        def mock_get_proxy_by_id(proxy_id: str) -> None:
+        def mock_get_proxy_by_id(proxy_id: str, user_id: str) -> None:
             raise StorageNotFoundError(f"Proxy not found: {proxy_id}")
 
         monkeypatch.setattr(
@@ -879,7 +879,7 @@ class TestTelegramClientLoader:
         from chatfilter.config_proxy import ProxyType
         from chatfilter.models.proxy import ProxyEntry
 
-        def mock_get_proxy_by_id(proxy_id: str) -> ProxyEntry:
+        def mock_get_proxy_by_id(proxy_id: str, user_id: str) -> ProxyEntry:
             return ProxyEntry(
                 id=proxy_id,
                 name="Test Proxy",
