@@ -711,7 +711,17 @@ def pytest_addoption(parser: Any) -> None:
 
 
 def pytest_configure(config: Any) -> None:
-    """Configure memory leak detection plugin."""
+    """Configure memory leak detection plugin and auth bypass for tests."""
+    # Bypass AuthMiddleware globally during tests so existing tests
+    # don't get 302 redirects to /login on every request.
+    from chatfilter.web.middleware import AuthMiddleware
+
+    async def _bypass_dispatch(
+        self: Any, request: Any, call_next: Any
+    ) -> Any:
+        return await call_next(request)
+
+    AuthMiddleware.dispatch = _bypass_dispatch  # type: ignore[assignment]
     # Check if leak detection is enabled via CLI or environment variable
     detect_leaks = config.getoption("--detect-leaks") or os.environ.get(
         "DETECT_MEMORY_LEAKS", ""
