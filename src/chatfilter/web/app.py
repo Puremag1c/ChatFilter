@@ -179,7 +179,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             print(f"\n{'=' * 60}")  # noqa: T201
             print(f"Admin user created: admin / {password}")  # noqa: T201
             print(f"{'=' * 60}\n")  # noqa: T201
-            logger.warning("No users found — created admin user with generated password (printed to console)")
+            logger.warning(f"Admin user created: admin / {password}")
+            logger.warning("No users found — created admin user with generated password (printed to console and log)")
     except Exception as e:
         logger.error(f"Failed to initialize admin user: {e}")
         raise SystemExit(1) from e
