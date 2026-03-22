@@ -32,10 +32,12 @@ async def session_events(request: Request):
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import get_auth_state_manager
     from chatfilter.web.dependencies import get_session_manager
+    from chatfilter.web.session import get_session
 
     templates = get_templates()
     session_manager = get_session_manager()
     auth_manager = get_auth_state_manager()
+    user_id = get_session(request).get("user_id")
 
     # Capture locale from request cookie at handler invocation time.
     # ContextVars may not propagate reliably into the SSE async generator,
@@ -72,7 +74,7 @@ async def session_events(request: Request):
                     session_id, new_status = event
 
                     # Get full session data for this session
-                    all_sessions = list_stored_sessions(session_manager, auth_manager)
+                    all_sessions = list_stored_sessions(session_manager, auth_manager, user_id=user_id)
                     session_data = next(
                         (s for s in all_sessions if s.session_id == session_id),
                         None

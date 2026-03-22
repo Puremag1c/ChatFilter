@@ -34,11 +34,20 @@ MAX_CONFIG_SIZE = 1024  # 1 KB
 READ_CHUNK_SIZE = 8192  # 8 KB chunks
 
 
-def ensure_data_dir() -> Path:
-    """Ensure sessions directory exists with proper permissions."""
+def ensure_data_dir(user_id: str | int | None = None) -> Path:
+    """Ensure sessions directory exists with proper permissions.
+
+    Args:
+        user_id: If provided, returns user-scoped directory (sessions_dir / user_id).
+                 If None, returns base sessions_dir (for migrations only).
+    """
     sessions_dir = helpers.get_settings().sessions_dir
-    sessions_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    return sessions_dir
+    if user_id is not None:
+        target_dir = sessions_dir / str(user_id)
+    else:
+        target_dir = sessions_dir
+    target_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return target_dir
 
 
 def secure_file_permissions(file_path: Path) -> None:
@@ -166,6 +175,7 @@ def _save_session_to_disk(
     proxy_id: str | None,
     account_info: dict[str, int | str] | None,
     source: str = "file",
+    web_user_id: str | int | None = None,
 ) -> None:
     """Save session files to disk with secure credentials.
 
@@ -239,6 +249,7 @@ def _save_session_to_disk(
             "api_hash": api_hash,
             "proxy_id": proxy_id,
             "source": source,
+            "web_user_id": str(web_user_id) if web_user_id is not None else None,
         }
         session_config_path = temp_dir / "config.json"
         session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
@@ -278,10 +289,14 @@ def _save_session_to_disk(
         raise
 
 
-def find_duplicate_accounts(target_user_id: int, exclude_session: str | None = None) -> list[str]:
+def find_duplicate_accounts(
+    target_user_id: int,
+    exclude_session: str | None = None,
+    web_user_id: str | int | None = None,
+) -> list[str]:
     """Find all sessions that belong to the same Telegram account (by user_id)."""
     duplicates = []
-    data_dir = ensure_data_dir()
+    data_dir = ensure_data_dir(web_user_id)
 
     for session_dir in data_dir.iterdir():
         if not session_dir.is_dir():

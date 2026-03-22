@@ -33,6 +33,7 @@ from chatfilter.web.routers.sessions.background import (
     _do_connect_in_background_v2,
     _send_verification_code_with_timeout,
 )
+from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 if TYPE_CHECKING:
@@ -104,7 +105,8 @@ async def connect_session(
             status_code=status.HTTP_200_OK,
         )
 
-    session_dir = ensure_data_dir() / safe_name
+    user_id = get_session(request).get("user_id")
+    session_dir = ensure_data_dir(user_id) / safe_name
     session_path = session_dir / "session.session"
     config_path = session_dir / "config.json"
 
@@ -342,7 +344,8 @@ async def reconnect_session_start(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    session_dir = ensure_data_dir() / safe_name
+    user_id = get_session(request).get("user_id")
+    session_dir = ensure_data_dir(user_id) / safe_name
     session_path = session_dir / "session.session"
     config_path = session_dir / "config.json"
 

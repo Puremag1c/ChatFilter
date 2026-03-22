@@ -22,6 +22,8 @@ from chatfilter.parsers.telegram_expert import (
 from chatfilter.telegram.client.config import TelegramConfigError
 from chatfilter.utils.disk import DiskSpaceError
 
+from chatfilter.web.session import get_session
+
 from .io import (
     MAX_CONFIG_SIZE,
     MAX_JSON_SIZE,
@@ -78,8 +80,9 @@ async def upload_session(
                 context={"success": False, "error": str(e)},
             )
 
+        web_user_id = get_session(request).get("user_id")
         # Atomically create session directory to prevent TOCTOU race
-        session_dir = ensure_data_dir() / safe_name
+        session_dir = ensure_data_dir(web_user_id) / safe_name
         try:
             session_dir.mkdir(parents=True, exist_ok=False)
         except FileExistsError:
@@ -239,7 +242,7 @@ async def upload_session(
                 # Check for duplicate accounts
                 user_id = account_info["user_id"]
                 if isinstance(user_id, int):
-                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name, web_user_id=web_user_id)
         finally:
             # Clean up temporary session file
             with contextlib.suppress(Exception):
@@ -494,7 +497,8 @@ async def save_import_session(
             )
 
         # Check if session already exists
-        session_dir = ensure_data_dir() / safe_name
+        web_user_id = get_session(request).get("user_id")
+        session_dir = ensure_data_dir(web_user_id) / safe_name
         if session_dir.exists():
             return templates.TemplateResponse(
                 request=request,
@@ -612,7 +616,7 @@ async def save_import_session(
                 # Check for duplicate accounts only if we have user_id
                 user_id = session_account_info["user_id"]
                 if isinstance(user_id, int):
-                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name)
+                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name, web_user_id=web_user_id)
 
         finally:
             # Clean up temporary session file

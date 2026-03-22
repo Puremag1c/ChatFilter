@@ -106,6 +106,7 @@ def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
 def list_stored_sessions(
     session_manager: SessionManager | None = None,
     auth_manager: AuthStateManager | None = None,
+    user_id: str | int | None = None,
 ) -> list:
     """List all stored sessions with runtime state when available.
 
@@ -124,6 +125,7 @@ def list_stored_sessions(
     Args:
         session_manager: Optional session manager to check runtime state
         auth_manager: Optional auth state manager to check auth flow state
+        user_id: If provided, list only sessions for this user
 
     Returns:
         List of session info items
@@ -137,7 +139,7 @@ def list_stored_sessions(
     from .io import ensure_data_dir, load_account_info
 
     sessions = []
-    data_dir = ensure_data_dir()
+    data_dir = ensure_data_dir(user_id)
     flood_tracker = get_flood_tracker()
 
     for session_dir in data_dir.iterdir():

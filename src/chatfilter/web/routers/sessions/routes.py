@@ -14,6 +14,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.flood_tracker import get_flood_tracker
+from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import SessionListItem, _get_flood_wait_until
@@ -32,9 +33,10 @@ async def get_sessions(request: Request) -> HTMLResponse:
     from chatfilter.web.auth_state import get_auth_state_manager
     from chatfilter.web.dependencies import get_session_manager
 
+    user_id = get_session(request).get("user_id")
     session_manager = get_session_manager()
     auth_manager = get_auth_state_manager()
-    sessions = list_stored_sessions(session_manager, auth_manager)
+    sessions = list_stored_sessions(session_manager, auth_manager, user_id=user_id)
     templates = get_templates()
 
     return templates.TemplateResponse(
@@ -45,7 +47,7 @@ async def get_sessions(request: Request) -> HTMLResponse:
 
 
 @router.delete("/api/sessions/{session_id}", response_class=HTMLResponse)
-async def delete_session(session_id: str) -> HTMLResponse:
+async def delete_session(request: Request, session_id: str) -> HTMLResponse:
     """Delete a session.
 
     Returns empty response for HTMX to remove the element.
@@ -58,7 +60,8 @@ async def delete_session(session_id: str) -> HTMLResponse:
             detail="Invalid session name",
         ) from e
 
-    session_dir = ensure_data_dir() / safe_name
+    user_id = get_session(request).get("user_id")
+    session_dir = ensure_data_dir(user_id) / safe_name
 
     if not session_dir.exists():
         raise HTTPException(
@@ -129,7 +132,8 @@ async def get_session_config(
             content=f'<div class="alert alert-error">{_("Invalid session name")}</div>',
         )
 
-    session_dir = ensure_data_dir() / safe_name
+    user_id = get_session(request).get("user_id")
+    session_dir = ensure_data_dir(user_id) / safe_name
     config_file = session_dir / "config.json"
 
     # Load current config (use empty values if missing/corrupted)
@@ -186,7 +190,8 @@ async def update_session_config(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    session_dir = ensure_data_dir() / safe_name
+    user_id = get_session(request).get("user_id")
+    session_dir = ensure_data_dir(user_id) / safe_name
     config_file = session_dir / "config.json"
 
     if not session_dir.exists() or not config_file.exists():
@@ -364,7 +369,8 @@ async def update_session_credentials(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    session_dir = ensure_data_dir() / safe_name
+    user_id = get_session(request).get("user_id")
+    session_dir = ensure_data_dir(user_id) / safe_name
     config_file = session_dir / "config.json"
 
     if not session_dir.exists() or not config_file.exists():
