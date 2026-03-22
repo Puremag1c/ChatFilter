@@ -2,10 +2,10 @@
 <table style="width:100%;border-collapse:collapse">
     <thead>
         <tr style="border-bottom:2px solid var(--border-color)">
-            <th style="text-align:left;padding:0.5rem 1rem">Username</th>
-            <th style="text-align:left;padding:0.5rem 1rem">Admin</th>
-            <th style="text-align:left;padding:0.5rem 1rem">Created</th>
-            <th style="text-align:right;padding:0.5rem 1rem">Actions</th>
+            <th style="text-align:left;padding:0.5rem 1rem">{{ _("Username") }}</th>
+            <th style="text-align:left;padding:0.5rem 1rem">{{ _("Admin") }}</th>
+            <th style="text-align:left;padding:0.5rem 1rem">{{ _("Created") }}</th>
+            <th style="text-align:right;padding:0.5rem 1rem">{{ _("Actions") }}</th>
         </tr>
     </thead>
     <tbody>
@@ -15,7 +15,7 @@
                 <strong>{{ user.username }}</strong>
                 {% if user.is_admin %}<span style="font-size:0.75rem;color:var(--accent-color);margin-left:0.5rem">[admin]</span>{% endif %}
             </td>
-            <td style="padding:0.5rem 1rem">{{ "Yes" if user.is_admin else "No" }}</td>
+            <td style="padding:0.5rem 1rem">{{ _("Yes") if user.is_admin else _("No") }}</td>
             <td style="padding:0.5rem 1rem;font-size:0.875rem;color:var(--text-muted)">{{ user.created_at[:10] if user.created_at else "—" }}</td>
             <td style="padding:0.5rem 1rem;text-align:right;white-space:nowrap">
                 <!-- Change password form -->
@@ -27,7 +27,7 @@
                            autocomplete="new-password"
                            style="font-size:0.8rem;padding:0.25rem 0.5rem;width:130px">
                     <button type="submit" class="btn btn-secondary"
-                            style="font-size:0.8rem;padding:0.25rem 0.6rem">Change Password</button>
+                            style="font-size:0.8rem;padding:0.25rem 0.6rem">{{ _("Change Password") }}</button>
                 </form>
                 <!-- Delete button -->
                 <button type="button"
@@ -38,7 +38,7 @@
                         hx-target="#user-row-{{ user.id }}"
                         hx-swap="outerHTML"
                         hx-confirm="Удалить пользователя {{ user.username }} и все его данные? Это действие необратимо.">
-                    Delete
+                    {{ _("Delete") }}
                 </button>
             </td>
         </tr>
@@ -46,5 +46,5 @@
     </tbody>
 </table>
 {% else %}
-<p style="padding:1rem;color:var(--text-muted)">No users found.</p>
+<p style="padding:1rem;color:var(--text-muted)">{{ _("No users found.") }}</p>
 {% endif %}

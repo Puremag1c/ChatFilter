@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Admin Panel</h1>
-    <p class="subtitle">User management</p>
+    <h1>{{ _("Admin Panel") }}</h1>
+    <p class="subtitle">{{ _("User management") }}</p>
 </div>
 
 <div id="flash-container">
@@ -23,27 +23,27 @@
 
 <section class="card">
     <div class="card-header">
-        <h2>Create User</h2>
+        <h2>{{ _("Create User") }}</h2>
     </div>
     <form method="post" action="/admin/users" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div>
-            <label for="new-username" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">Username</label>
+            <label for="new-username" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Username") }}</label>
             <input type="text" id="new-username" name="username" required
                    class="form-input" placeholder="username" autocomplete="off">
         </div>
         <div>
-            <label for="new-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">Password</label>
+            <label for="new-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Password") }}</label>
             <input type="password" id="new-password" name="password" required
                    class="form-input" placeholder="password" autocomplete="new-password">
         </div>
-        <button type="submit" class="btn btn-primary">Create</button>
+        <button type="submit" class="btn btn-primary">{{ _("Create") }}</button>
     </form>
 </section>
 
 <section class="card" style="margin-top:1.5rem">
     <div class="card-header">
-        <h2>Users</h2>
+        <h2>{{ _("Users") }}</h2>
     </div>
     {% include "partials/admin_users.html" %}
 </section>
