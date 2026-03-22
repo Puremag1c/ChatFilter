@@ -33,6 +33,7 @@ from chatfilter.web.routers.sessions.background import (
     _do_connect_in_background_v2,
     _send_verification_code_with_timeout,
 )
+from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 if TYPE_CHECKING:
@@ -141,7 +142,8 @@ async def connect_session(
         )
 
     # Check if session is properly configured
-    config_status, _config_reason = get_session_config_status(session_dir)
+    _user_id = get_session(request).get("user_id", "")
+    config_status, _config_reason = get_session_config_status(session_dir, _user_id)
     if config_status == "needs_config":
         session_data = SessionListItem(
             session_id=safe_name,
@@ -186,7 +188,7 @@ async def connect_session(
         # chatfilter.web.routers.sessions.TelegramClientLoader
         import chatfilter.web.routers.sessions as _sessions_pkg
 
-        loader = _sessions_pkg.TelegramClientLoader(session_path, config_path)
+        loader = _sessions_pkg.TelegramClientLoader(session_path, config_path, user_id=_user_id)
         loader.validate()
     except FileNotFoundError:
         # AC2: Session file doesn't exist - trigger send_code flow instead of error
@@ -304,6 +306,7 @@ async def connect_session(
     background_tasks.add_task(
         _do_connect_in_background_v2,
         safe_name,
+        _user_id,
     )
 
     # Return immediately with 'connecting' state (template shows spinner)

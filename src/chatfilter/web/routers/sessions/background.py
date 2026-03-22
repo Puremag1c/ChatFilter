@@ -78,7 +78,7 @@ _BANNED_CAUSES = (
 )
 
 
-async def _do_connect_in_background_v2(session_id: str) -> None:
+async def _do_connect_in_background_v2(session_id: str, user_id: str = "") -> None:
     """Background task that performs the actual Telegram connection (v2 - no registration).
 
     This version assumes the loader is already registered and state is already CONNECTING.
@@ -123,7 +123,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
             # CASE 1: Check config validity (no api_id/api_hash or proxy missing)
             # This catches ApiIdInvalidError BEFORE attempting connection
-            config_status, config_reason = get_session_config_status(session_dir)
+            config_status, config_reason = get_session_config_status(session_dir, user_id)
             if config_status == "needs_config":
                 # Missing credentials or proxy → needs_config
                 logger.warning(f"Session '{session_id}' has config issue: {config_reason}")
@@ -143,7 +143,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 from chatfilter.service.proxy_health import socks5_tunnel_check
 
                 try:
-                    proxy_entry = proxy_pool.get_proxy_by_id(proxy_id)
+                    proxy_entry = proxy_pool.get_proxy_by_id(proxy_id, user_id)
                     # Only check SOCKS5 proxies (HTTP proxies use different protocol)
                     if proxy_entry.type == ProxyType.SOCKS5:
                         logger.debug(f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}")
@@ -404,7 +404,7 @@ async def _send_verification_code_and_create_auth(
 
     # Get proxy once (no retry needed)
     try:
-        proxy_info = proxy_pool.get_proxy_by_id(proxy_id)
+        proxy_info = proxy_pool.get_proxy_by_id(proxy_id, user_id)
     except StorageNotFoundError:
         # Security: sanitize error message before publishing to client
         error_message = f"Proxy '{proxy_id}' not found in pool"

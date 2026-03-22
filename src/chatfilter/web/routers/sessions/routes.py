@@ -14,6 +14,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.flood_tracker import get_flood_tracker
+from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import SessionListItem, _get_flood_wait_until
@@ -148,8 +149,9 @@ async def get_session_config(
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to read config for session {safe_name}: {e}")
 
-    # Load proxy pool
-    proxies = load_proxy_pool()
+    # Load proxy pool for this user
+    user_id = get_session(request).get("user_id", "")
+    proxies = load_proxy_pool(user_id)
 
     return templates.TemplateResponse(
         request=request,
@@ -220,8 +222,10 @@ async def update_session_config(
     from chatfilter.storage.errors import StorageNotFoundError
     from chatfilter.storage.proxy_pool import get_proxy_by_id
 
+    user_id = get_session(request).get("user_id", "")
+
     try:
-        get_proxy_by_id(proxy_id)
+        get_proxy_by_id(proxy_id, user_id)
     except StorageNotFoundError:
         return HTMLResponse(
             content='<div class="alert alert-error">Selected proxy not found in pool</div>',
@@ -250,7 +254,7 @@ async def update_session_config(
 
         # Get proxy for validation
         try:
-            proxy_entry = get_proxy_by_id(proxy_id)
+            proxy_entry = get_proxy_by_id(proxy_id, user_id)
         except StorageNotFoundError:
             return HTMLResponse(
                 content='<div class="alert alert-error">Selected proxy not found</div>',
@@ -417,8 +421,9 @@ async def update_session_credentials(
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        _user_id = get_session(request).get("user_id", "")
         try:
-            proxy_entry = get_proxy_by_id(proxy_id)
+            proxy_entry = get_proxy_by_id(proxy_id, _user_id)
         except StorageNotFoundError:
             return HTMLResponse(
                 content='<div class="alert alert-error">Session proxy not found in pool</div>',
@@ -549,7 +554,8 @@ async def get_auth_form(request: Request) -> HTMLResponse:
     from chatfilter.web.app import get_templates
 
     templates = get_templates()
-    proxies = load_proxy_pool()
+    user_id = get_session(request).get("user_id", "")
+    proxies = load_proxy_pool(user_id)
 
     return templates.TemplateResponse(
         request=request,

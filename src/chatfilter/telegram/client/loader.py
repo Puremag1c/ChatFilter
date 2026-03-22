@@ -57,6 +57,7 @@ class TelegramClientLoader:
         config_path: Path | None = None,
         *,
         use_secure_storage: bool = True,
+        user_id: str = "",
     ) -> None:
         """Initialize loader with session and credential configuration.
 
@@ -73,6 +74,7 @@ class TelegramClientLoader:
         self._use_secure_storage = use_secure_storage
         self._config: TelegramConfig | None = None
         self._proxy_id: str | None = None
+        self._user_id: str = user_id
 
     @property
     def session_path(self) -> Path:
@@ -186,7 +188,7 @@ class TelegramClientLoader:
         from chatfilter.storage.proxy_pool import get_proxy_by_id
 
         try:
-            get_proxy_by_id(self._proxy_id)
+            get_proxy_by_id(self._proxy_id, self._user_id)
         except StorageNotFoundError as e:
             raise SessionBlockedError(
                 gettext(
@@ -284,7 +286,7 @@ class TelegramClientLoader:
             from chatfilter.storage.proxy_pool import get_proxy_by_id
 
             try:
-                proxy_entry = get_proxy_by_id(self._proxy_id)
+                proxy_entry = get_proxy_by_id(self._proxy_id, self._user_id)
                 telethon_proxy = proxy_entry.to_telethon_proxy()
                 logger.debug(f"Using proxy from pool: {proxy_entry.name} ({proxy_entry.id})")
             except StorageNotFoundError as e:
