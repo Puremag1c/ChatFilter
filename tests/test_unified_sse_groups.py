@@ -137,7 +137,7 @@ class TestUnifiedSSEEndpoint:
 
         call_count = 0
 
-        def dynamic_list_groups():
+        def dynamic_list_groups(user_id=None):
             nonlocal call_count
             call_count += 1
             # First call: no active groups. Subsequent calls: group-2 is active.
