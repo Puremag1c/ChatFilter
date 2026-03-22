@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-03-22
+
+### Fixed
+- Login form card stays white in dark theme — labels unreadable (CSS --card-bg not defined in dark theme)
+- Proxy pool log spam: downgraded "Updated proxy in pool" to DEBUG
+- Login error message styling broken in dark theme
+- Timing attack in login: always run bcrypt even for unknown usernames
+
+### Changed
+- Refactored login.html to extend base_minimal.html (theme/language switchers, logo)
+- Admin password logged via logger.warning instead of print()
+- Login form: mobile responsive layout
+- i18n translations for login page labels (username, password, submit)
+
 ## [0.26.0] - 2026-03-22
 
 ### Added
