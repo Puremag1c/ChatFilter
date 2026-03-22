@@ -270,7 +270,7 @@ class TestUpdateProxyHealth:
     async def test_success_updates_status(self, sample_proxy: ProxyEntry) -> None:
         """Should update status to WORKING on success."""
         with patch("chatfilter.service.proxy_health.update_proxy") as mock_update:
-            result = await update_proxy_health(sample_proxy, success=True)
+            result = await update_proxy_health(sample_proxy, success=True, user_id="test-user-id")
 
             assert result.status == ProxyStatus.WORKING
             assert result.consecutive_failures == 0
@@ -280,7 +280,7 @@ class TestUpdateProxyHealth:
     async def test_failure_increments_counter(self, sample_proxy: ProxyEntry) -> None:
         """Should increment failure counter on failure."""
         with patch("chatfilter.service.proxy_health.update_proxy") as mock_update:
-            result = await update_proxy_health(sample_proxy, success=False)
+            result = await update_proxy_health(sample_proxy, success=False, user_id="test-user-id")
 
             assert result.consecutive_failures == 1
             mock_update.assert_called_once()
@@ -297,7 +297,7 @@ class TestUpdateProxyHealth:
         )
 
         with patch("chatfilter.service.proxy_health.update_proxy"):
-            result = await update_proxy_health(proxy, success=False)
+            result = await update_proxy_health(proxy, success=False, user_id="test-user-id")
 
             assert result.status == ProxyStatus.NO_PING
 
@@ -312,7 +312,7 @@ class TestUpdateProxyHealth:
 
             # Exception should propagate (not caught silently)
             with pytest.raises(StorageError):
-                await update_proxy_health(sample_proxy, success=True)
+                await update_proxy_health(sample_proxy, success=True, user_id="test-user-id")
 
 
 class TestCheckSingleProxy:
