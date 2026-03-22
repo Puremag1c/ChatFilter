@@ -42,9 +42,14 @@ def reset_global_state() -> None:
 
 @pytest.fixture
 def client() -> TestClient:
-    """Create test client."""
+    """Create authenticated test client with user_id in session."""
+    from chatfilter.web.session import SESSION_COOKIE_NAME, get_session_store
+
     app = create_app()
-    return TestClient(app)
+    store = get_session_store()
+    session = store.create_session()
+    session.set("user_id", "test_user")
+    return TestClient(app, cookies={SESSION_COOKIE_NAME: session.session_id})
 
 
 class TestChatsPage:
@@ -98,7 +103,7 @@ class TestChatsAPI:
 
         # Verify the service was called correctly with pagination params
         mock_service.get_chats_paginated.assert_awaited_once_with(
-            "test_session", offset=0, limit=100
+            "test_session", "test_user", offset=0, limit=100
         )
 
     def test_get_chats_with_pagination(self, client: TestClient) -> None:
@@ -127,7 +132,7 @@ class TestChatsAPI:
 
         # Verify the service was called with custom pagination params
         mock_service.get_chats_paginated.assert_awaited_once_with(
-            "test_session", offset=150, limit=50
+            "test_session", "test_user", offset=150, limit=50
         )
 
     def test_get_chats_last_page(self, client: TestClient) -> None:
@@ -323,7 +328,7 @@ class TestChatsAPI:
 
         # Verify service was called with high limit to fetch all chats
         mock_service.get_chats_paginated.assert_awaited_once_with(
-            "test_session", offset=0, limit=10000
+            "test_session", "test_user", offset=0, limit=10000
         )
 
     def test_get_chats_json_session_invalid_error(self, client: TestClient) -> None:
@@ -396,7 +401,7 @@ class TestAccountInfoAPI:
             assert response.status_code == 200
             # Check for account info fields in response
             assert "testuser" in response.text or "Test" in response.text
-            mock_service.get_account_info.assert_awaited_once_with("test_session")
+            mock_service.get_account_info.assert_awaited_once_with("test_session", "test_user")
 
     def test_get_account_info_session_not_found(self, client: TestClient) -> None:
         """Test account info endpoint with non-existent session."""
@@ -681,7 +686,7 @@ class TestPaginationEdgeCases:
             response = client.get("/api/chats?session_select=test&offset=0&limit=10")
 
             assert response.status_code == 200
-            mock_service.get_chats_paginated.assert_awaited_once_with("test", offset=0, limit=10)
+            mock_service.get_chats_paginated.assert_awaited_once_with("test", "test_user", offset=0, limit=10)
 
     def test_get_chats_with_max_limit(self, client: TestClient) -> None:
         """Test pagination with maximum allowed limit."""
@@ -697,7 +702,7 @@ class TestPaginationEdgeCases:
             response = client.get("/api/chats?session_select=test&offset=0&limit=500")
 
             assert response.status_code == 200
-            mock_service.get_chats_paginated.assert_awaited_once_with("test", offset=0, limit=500)
+            mock_service.get_chats_paginated.assert_awaited_once_with("test", "test_user", offset=0, limit=500)
 
     def test_get_chats_empty_result(self, client: TestClient) -> None:
         """Test getting chats when result is empty."""

@@ -166,11 +166,12 @@ async def get_chats(
     web_session.set("selected_telegram_session", session_id)
 
     service = get_chat_analysis_service()
+    user_id: str = web_session.get("user_id", "")
 
     try:
         # Fetch paginated chats and total count
         chats, total_count = await service.get_chats_paginated(
-            session_id, offset=offset, limit=limit
+            session_id, user_id, offset=offset, limit=limit
         )
 
         # Calculate if there are more chats to load
@@ -313,10 +314,11 @@ async def get_chats_json(
     web_session.set("selected_telegram_session", session_id)
 
     service = get_chat_analysis_service()
+    user_id: str = web_session.get("user_id", "")
 
     try:
         # Fetch all chats (use a high limit to get everything)
-        chats, total_count = await service.get_chats_paginated(session_id, offset=0, limit=10000)
+        chats, total_count = await service.get_chats_paginated(session_id, user_id, offset=0, limit=10000)
 
         # Convert chats to response format
         chats_data = [
@@ -389,9 +391,10 @@ async def get_account_info_endpoint(
         )
 
     service = get_chat_analysis_service()
+    user_id: str = web_session.get("user_id", "")
 
     try:
-        account_info = await service.get_account_info(session_id)
+        account_info = await service.get_account_info(session_id, user_id)
 
         return templates.TemplateResponse(
             request=request,
@@ -437,9 +440,10 @@ async def get_account_info_json(
         return AccountInfoJsonResponse(error=_("No session selected"))
 
     service = get_chat_analysis_service()
+    user_id: str = web_session.get("user_id", "")
 
     try:
-        info = await service.get_account_info(session_id)
+        info = await service.get_account_info(session_id, user_id)
 
         return AccountInfoJsonResponse(
             user_id=info.user_id,

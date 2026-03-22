@@ -30,6 +30,9 @@ def service(mock_session_manager, tmp_path):
     )
 
 
+TEST_USER_ID = "test_user"
+
+
 class TestChatIdValidation:
     """Tests for validate_chat_ids method."""
 
@@ -43,13 +46,13 @@ class TestChatIdValidation:
             Chat(id=789, title="Chat 3", chat_type=ChatType.GROUP),
         ]
 
-        async def mock_get_chats(session_id):
+        async def mock_get_chats(session_id, user_id):
             return mock_chats
 
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
         # Validate chat IDs that all exist
-        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", [123, 456, 789])
+        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", TEST_USER_ID, [123, 456, 789])
 
         assert valid_ids == [123, 456, 789]
         assert invalid_ids == []
@@ -63,14 +66,14 @@ class TestChatIdValidation:
             Chat(id=456, title="Chat 2", chat_type=ChatType.GROUP),
         ]
 
-        async def mock_get_chats(session_id):
+        async def mock_get_chats(session_id, user_id):
             return mock_chats
 
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
         # Validate chat IDs where 789 and 999 don't exist (were deleted)
         valid_ids, invalid_ids = await service.validate_chat_ids(
-            "test_session", [123, 456, 789, 999]
+            "test_session", TEST_USER_ID, [123, 456, 789, 999]
         )
 
         assert valid_ids == [123, 456]
@@ -85,13 +88,13 @@ class TestChatIdValidation:
             Chat(id=456, title="Chat 2", chat_type=ChatType.GROUP),
         ]
 
-        async def mock_get_chats(session_id):
+        async def mock_get_chats(session_id, user_id):
             return mock_chats
 
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
         # Validate chat IDs that don't exist at all
-        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", [789, 999, 111])
+        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", TEST_USER_ID, [789, 999, 111])
 
         assert valid_ids == []
         assert invalid_ids == [789, 999, 111]
@@ -100,7 +103,7 @@ class TestChatIdValidation:
     async def test_validate_clears_cache(self, service, monkeypatch):
         """Test that validation clears cache to fetch fresh data."""
         # Pre-populate cache with stale data
-        service._chat_cache["test_session"] = {
+        service._chat_cache[(TEST_USER_ID, "test_session")] = {
             999: Chat(id=999, title="Deleted Chat", chat_type=ChatType.GROUP)
         }
 
@@ -112,7 +115,7 @@ class TestChatIdValidation:
 
         call_count = 0
 
-        async def mock_get_chats(session_id):
+        async def mock_get_chats(session_id, user_id):
             nonlocal call_count
             call_count += 1
             return mock_chats
@@ -120,7 +123,7 @@ class TestChatIdValidation:
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
         # Validate - should clear cache and fetch fresh data
-        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", [123, 999])
+        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", TEST_USER_ID, [123, 999])
 
         # 999 should be invalid because it's not in the fresh fetch
         assert valid_ids == [123]
@@ -136,12 +139,12 @@ class TestChatIdValidation:
             Chat(id=123, title="Chat 1", chat_type=ChatType.GROUP),
         ]
 
-        async def mock_get_chats(session_id):
+        async def mock_get_chats(session_id, user_id):
             return mock_chats
 
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
-        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", [])
+        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", TEST_USER_ID, [])
 
         assert valid_ids == []
         assert invalid_ids == []

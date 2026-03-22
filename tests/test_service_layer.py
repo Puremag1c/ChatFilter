@@ -13,6 +13,9 @@ from chatfilter.service.chat_analysis import ChatAnalysisService, SessionNotFoun
 from chatfilter.telegram.session import SessionManager
 
 
+TEST_USER_ID = "test_user"
+
+
 @pytest.fixture
 def mock_session_manager() -> SessionManager:
     """Provide a mock session manager."""
@@ -69,12 +72,12 @@ class TestGetSessionPaths:
     ) -> None:
         """Test getting session paths for valid session."""
         # Create a test session directory
-        session_dir = test_data_dir / "test_session"
-        session_dir.mkdir()
+        session_dir = test_data_dir / TEST_USER_ID / "test_session"
+        session_dir.mkdir(parents=True)
         (session_dir / "session.session").touch()
         (session_dir / "config.json").touch()
 
-        session_path, config_path = service._get_session_paths("test_session")
+        session_path, config_path = service._get_session_paths("test_session", TEST_USER_ID)
 
         assert session_path == session_dir / "session.session"
         assert config_path == session_dir / "config.json"
@@ -85,7 +88,7 @@ class TestGetSessionPaths:
     ) -> None:
         """Test getting paths for non-existent session raises error."""
         with pytest.raises(SessionNotFoundError) as exc_info:
-            service._get_session_paths("nonexistent")
+            service._get_session_paths("nonexistent", TEST_USER_ID)
 
         assert "not found" in str(exc_info.value).lower()
 
@@ -96,11 +99,11 @@ class TestGetSessionPaths:
     ) -> None:
         """Test getting paths for incomplete session raises error."""
         # Create session dir but missing files
-        session_dir = test_data_dir / "incomplete"
-        session_dir.mkdir()
+        session_dir = test_data_dir / TEST_USER_ID / "incomplete"
+        session_dir.mkdir(parents=True)
 
         with pytest.raises(SessionNotFoundError) as exc_info:
-            service._get_session_paths("incomplete")
+            service._get_session_paths("incomplete", TEST_USER_ID)
 
         assert "incomplete" in str(exc_info.value).lower()
 
@@ -117,8 +120,8 @@ class TestGetChats:
     ) -> None:
         """Test getting chats successfully."""
         # Setup test session
-        session_dir = test_data_dir / "test_session"
-        session_dir.mkdir()
+        session_dir = test_data_dir / TEST_USER_ID / "test_session"
+        session_dir.mkdir(parents=True)
         (session_dir / "session.session").touch()
         (session_dir / "config.json").write_text('{"api_id": 123, "api_hash": "abc"}')
 
@@ -144,12 +147,13 @@ class TestGetChats:
 
             mock_get_dialogs.return_value = mock_chats
 
-            result = await service.get_chats("test_session")
+            result = await service.get_chats("test_session", TEST_USER_ID)
 
+        cache_key = (TEST_USER_ID, "test_session")
         assert result == mock_chats
-        assert "test_session" in service._chat_cache
-        assert service._chat_cache["test_session"][1] == mock_chats[0]
-        assert service._chat_cache["test_session"][2] == mock_chats[1]
+        assert cache_key in service._chat_cache
+        assert service._chat_cache[cache_key][1] == mock_chats[0]
+        assert service._chat_cache[cache_key][2] == mock_chats[1]
 
 
 class TestGetChatInfo:
@@ -163,9 +167,9 @@ class TestGetChatInfo:
         """Test getting cached chat info."""
         # Pre-populate cache
         test_chat = Chat(id=123, title="Cached Chat", chat_type=ChatType.GROUP)
-        service._chat_cache["session1"] = {123: test_chat}
+        service._chat_cache[(TEST_USER_ID, "session1")] = {123: test_chat}
 
-        result = await service.get_chat_info("session1", 123)
+        result = await service.get_chat_info("session1", TEST_USER_ID, 123)
 
         assert result == test_chat
 
@@ -175,7 +179,7 @@ class TestGetChatInfo:
         service: ChatAnalysisService,
     ) -> None:
         """Test getting chat info returns None if not cached."""
-        result = await service.get_chat_info("session1", 999)
+        result = await service.get_chat_info("session1", TEST_USER_ID, 999)
 
         assert result is None
 
@@ -191,15 +195,15 @@ class TestAnalyzeChat:
         mock_session_manager: SessionManager,
     ) -> None:
         """Test analyzing a chat successfully."""
-        # Setup test session
-        session_dir = test_data_dir / "test_session"
-        session_dir.mkdir()
+        # Setup test session under user-scoped directory
+        session_dir = test_data_dir / TEST_USER_ID / "test_session"
+        session_dir.mkdir(parents=True)
         (session_dir / "session.session").touch()
         (session_dir / "config.json").write_text('{"api_id": 123, "api_hash": "abc"}')
 
         # Pre-cache chat info
         cached_chat = Chat(id=456, title="Test Chat", chat_type=ChatType.SUPERGROUP)
-        service._chat_cache["test_session"] = {456: cached_chat}
+        service._chat_cache[(TEST_USER_ID, "test_session")] = {456: cached_chat}
 
         # Mock messages
         mock_messages = [
@@ -245,7 +249,7 @@ class TestAnalyzeChat:
             )
             mock_compute_metrics.return_value = mock_metrics
 
-            result = await service.analyze_chat("test_session", 456, message_limit=1000)
+            result = await service.analyze_chat("test_session", TEST_USER_ID, 456, message_limit=1000)
 
         assert result.chat == cached_chat
         # Check metrics fields (excluding duration_seconds which is dynamically measured)
@@ -271,8 +275,8 @@ class TestAnalyzeChat:
     ) -> None:
         """Test analyzing chat creates minimal chat info if not cached."""
         # Setup test session
-        session_dir = test_data_dir / "test_session"
-        session_dir.mkdir()
+        session_dir = test_data_dir / TEST_USER_ID / "test_session"
+        session_dir.mkdir(parents=True)
         (session_dir / "session.session").touch()
         (session_dir / "config.json").write_text('{"api_id": 123, "api_hash": "abc"}')
 
@@ -300,7 +304,7 @@ class TestAnalyzeChat:
                 last_message_at=datetime.now(UTC),
             )
 
-            result = await service.analyze_chat("test_session", 789)
+            result = await service.analyze_chat("test_session", TEST_USER_ID, 789)
 
         # Should create minimal chat info
         assert result.chat.id == 789
@@ -319,8 +323,8 @@ class TestValidateSession:
     ) -> None:
         """Test validating a valid session."""
         # Setup test session
-        session_dir = test_data_dir / "valid_session"
-        session_dir.mkdir()
+        session_dir = test_data_dir / TEST_USER_ID / "valid_session"
+        session_dir.mkdir(parents=True)
         (session_dir / "session.session").touch()
         (session_dir / "config.json").write_text('{"api_id": 123, "api_hash": "abc"}')
 
@@ -328,7 +332,7 @@ class TestValidateSession:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.return_value = None
 
-            result = await service.validate_session("valid_session")
+            result = await service.validate_session("valid_session", TEST_USER_ID)
 
         assert result is True
 
@@ -338,7 +342,7 @@ class TestValidateSession:
         service: ChatAnalysisService,
     ) -> None:
         """Test validating non-existent session returns False."""
-        result = await service.validate_session("nonexistent")
+        result = await service.validate_session("nonexistent", TEST_USER_ID)
 
         assert result is False
 
@@ -350,8 +354,8 @@ class TestValidateSession:
     ) -> None:
         """Test validating session with validation error returns False."""
         # Setup test session
-        session_dir = test_data_dir / "invalid_session"
-        session_dir.mkdir()
+        session_dir = test_data_dir / TEST_USER_ID / "invalid_session"
+        session_dir.mkdir(parents=True)
         (session_dir / "session.session").touch()
         (session_dir / "config.json").write_text('{"api_id": 123, "api_hash": "abc"}')
 
@@ -359,6 +363,6 @@ class TestValidateSession:
             mock_loader = mock_loader_cls.return_value
             mock_loader.validate.side_effect = ValueError("Invalid config")
 
-            result = await service.validate_session("invalid_session")
+            result = await service.validate_session("invalid_session", TEST_USER_ID)
 
         assert result is False

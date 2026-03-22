@@ -73,14 +73,15 @@ class ChatAnalysisService:
         """
         self._session_manager = session_manager
         self._data_dir = data_dir
-        self._loaders: dict[str, TelegramClientLoader] = {}
-        self._chat_cache: dict[str, dict[int, Chat]] = {}
+        self._loaders: dict[tuple[str, str], TelegramClientLoader] = {}
+        self._chat_cache: dict[tuple[str, str], dict[int, Chat]] = {}
 
-    def _get_session_paths(self, session_id: str) -> tuple[Path, Path]:
+    def _get_session_paths(self, session_id: str, user_id: str) -> tuple[Path, Path]:
         """Get session and config file paths for a session ID.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID (sessions are stored per-user)
 
         Returns:
             Tuple of (session_path, config_path)
@@ -88,7 +89,7 @@ class ChatAnalysisService:
         Raises:
             SessionNotFoundError: If session not found or incomplete
         """
-        session_dir = self._data_dir / session_id
+        session_dir = self._data_dir / user_id / session_id
 
         if not session_dir.exists():
             raise SessionNotFoundError(f"Session '{session_id}' not found")
@@ -101,27 +102,30 @@ class ChatAnalysisService:
 
         return session_path, config_path
 
-    def _ensure_loader(self, session_id: str) -> None:
+    def _ensure_loader(self, session_id: str, user_id: str) -> None:
         """Ensure loader is registered for session.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID
 
         Raises:
             SessionNotFoundError: If session not found
         """
-        if session_id not in self._loaders:
-            session_path, config_path = self._get_session_paths(session_id)
+        loader_key = (user_id, session_id)
+        if loader_key not in self._loaders:
+            session_path, config_path = self._get_session_paths(session_id, user_id)
             loader = TelegramClientLoader(session_path, config_path)
             loader.validate()
             self._session_manager.register(session_id, loader)
-            self._loaders[session_id] = loader
+            self._loaders[loader_key] = loader
 
-    async def get_chats(self, session_id: str) -> list[Chat]:
+    async def get_chats(self, session_id: str, user_id: str) -> list[Chat]:
         """Get list of chats from a Telegram session.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID (used to resolve per-user session path)
 
         Returns:
             List of Chat objects
@@ -130,22 +134,23 @@ class ChatAnalysisService:
             SessionNotFoundError: If session not found
             Exception: If connection or fetch fails
         """
-        self._ensure_loader(session_id)
+        self._ensure_loader(session_id, user_id)
 
+        cache_key = (user_id, session_id)
         async with self._session_manager.session(session_id) as client:
             chats = await get_dialogs(client)
 
             # Cache chat info for later use
-            if session_id not in self._chat_cache:
-                self._chat_cache[session_id] = {}
+            if cache_key not in self._chat_cache:
+                self._chat_cache[cache_key] = {}
             for chat in chats:
-                self._chat_cache[session_id][chat.id] = chat
+                self._chat_cache[cache_key][chat.id] = chat
 
             logger.info(f"Fetched {len(chats)} chats from session '{session_id}'")
             return chats
 
     async def get_chats_paginated(
-        self, session_id: str, offset: int = 0, limit: int = 100
+        self, session_id: str, user_id: str, offset: int = 0, limit: int = 100
     ) -> tuple[list[Chat], int]:
         """Get paginated list of chats from a Telegram session.
 
@@ -154,6 +159,7 @@ class ChatAnalysisService:
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID (used to resolve per-user session path)
             offset: Number of chats to skip (default: 0)
             limit: Maximum number of chats to return (default: 100)
 
@@ -165,7 +171,7 @@ class ChatAnalysisService:
             Exception: If connection or fetch fails
         """
         # Get all chats (will be cached after first call)
-        all_chats = await self.get_chats(session_id)
+        all_chats = await self.get_chats(session_id, user_id)
         total_count = len(all_chats)
 
         # Return paginated slice
@@ -182,24 +188,28 @@ class ChatAnalysisService:
     async def get_chat_info(
         self,
         session_id: str,
+        user_id: str,
         chat_id: int,
     ) -> Chat | None:
         """Get cached chat info.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID
             chat_id: Chat ID
 
         Returns:
             Chat object if found in cache, None otherwise
         """
-        if session_id in self._chat_cache and chat_id in self._chat_cache[session_id]:
-            return self._chat_cache[session_id][chat_id]
+        cache_key = (user_id, session_id)
+        if cache_key in self._chat_cache and chat_id in self._chat_cache[cache_key]:
+            return self._chat_cache[cache_key][chat_id]
         return None
 
     async def validate_chat_ids(
         self,
         session_id: str,
+        user_id: str,
         chat_ids: list[int],
     ) -> tuple[list[int], list[int]]:
         """Validate that chat IDs are still accessible in the Telegram session.
@@ -210,6 +220,7 @@ class ChatAnalysisService:
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID
             chat_ids: List of chat IDs to validate
 
         Returns:
@@ -223,11 +234,12 @@ class ChatAnalysisService:
         """
         # Force fresh fetch from Telegram (bypass cache)
         # Clear cache for this session to ensure we get current state
-        if session_id in self._chat_cache:
-            del self._chat_cache[session_id]
+        cache_key = (user_id, session_id)
+        if cache_key in self._chat_cache:
+            del self._chat_cache[cache_key]
 
         # Fetch current chat list from Telegram
-        current_chats = await self.get_chats(session_id)
+        current_chats = await self.get_chats(session_id, user_id)
         current_chat_ids = {chat.id for chat in current_chats}
 
         # Separate valid and invalid chat IDs
@@ -244,6 +256,7 @@ class ChatAnalysisService:
     async def analyze_chat(
         self,
         session_id: str,
+        user_id: str,
         chat_id: int,
         message_limit: int = 1000,
         batch_size: int = 1000,
@@ -279,7 +292,7 @@ class ChatAnalysisService:
 
         start_time = time.perf_counter()
 
-        self._ensure_loader(session_id)
+        self._ensure_loader(session_id, user_id)
 
         # Auto-detect streaming mode for large chats
         if use_streaming is None:
@@ -383,7 +396,7 @@ class ChatAnalysisService:
                 metrics = compute_metrics(messages)
 
             # Get chat info from cache
-            chat = await self.get_chat_info(session_id, chat_id)
+            chat = await self.get_chat_info(session_id, user_id, chat_id)
             if chat is None:
                 # Create minimal chat info
                 chat = Chat(
@@ -426,23 +439,24 @@ class ChatAnalysisService:
                 analyzed_at=datetime.now(UTC),
             )
 
-    async def validate_session(self, session_id: str) -> bool:
+    async def validate_session(self, session_id: str, user_id: str) -> bool:
         """Validate that a session exists and can be loaded.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID
 
         Returns:
             True if session is valid, False otherwise
         """
         try:
-            self._ensure_loader(session_id)
+            self._ensure_loader(session_id, user_id)
             return True
         except (SessionNotFoundError, Exception) as e:
             logger.debug(f"Session validation failed for '{session_id}': {e}")
             return False
 
-    def clear_cache(self, session_id: str | None = None) -> None:
+    def clear_cache(self, session_id: str | None = None, user_id: str | None = None) -> None:
         """Clear cached data for a session or all sessions.
 
         This method removes cached chat data and loaders to free memory.
@@ -451,16 +465,18 @@ class ChatAnalysisService:
 
         Args:
             session_id: Session ID to clear cache for. If None, clears all caches.
+            user_id: Application user ID. Required when session_id is provided.
         """
-        if session_id:
+        if session_id and user_id:
+            cache_key = (user_id, session_id)
             # Clear cache for specific session
-            if session_id in self._chat_cache:
-                count = len(self._chat_cache[session_id])
-                del self._chat_cache[session_id]
+            if cache_key in self._chat_cache:
+                count = len(self._chat_cache[cache_key])
+                del self._chat_cache[cache_key]
                 logger.info(f"Cleared {count} cached chats for session '{session_id}'")
 
-            if session_id in self._loaders:
-                del self._loaders[session_id]
+            if cache_key in self._loaders:
+                del self._loaders[cache_key]
                 logger.info(f"Cleared loader for session '{session_id}'")
         else:
             # Clear all caches
@@ -487,11 +503,12 @@ class ChatAnalysisService:
             "total_loaders": len(self._loaders),
         }
 
-    async def get_account_info(self, session_id: str) -> AccountInfo:
+    async def get_account_info(self, session_id: str, user_id: str) -> AccountInfo:
         """Get account information including Premium status and subscription limits.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID (used to resolve per-user session path)
 
         Returns:
             AccountInfo with Premium status, chat count, and computed limits
@@ -500,7 +517,7 @@ class ChatAnalysisService:
             SessionNotFoundError: If session not found
             Exception: If connection or fetch fails
         """
-        self._ensure_loader(session_id)
+        self._ensure_loader(session_id, user_id)
 
         async with self._session_manager.session(session_id) as client:
             info = await get_account_info(client)
@@ -514,12 +531,14 @@ class ChatAnalysisService:
     async def leave_chat(
         self,
         session_id: str,
+        user_id: str,
         chat_id: int,
     ) -> bool:
         """Leave a chat to free up a subscription slot.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID
             chat_id: Chat ID to leave
 
         Returns:
@@ -529,14 +548,15 @@ class ChatAnalysisService:
             SessionNotFoundError: If session not found
             LeaveChatError: If leaving fails
         """
-        self._ensure_loader(session_id)
+        self._ensure_loader(session_id, user_id)
 
+        cache_key = (user_id, session_id)
         async with self._session_manager.session(session_id) as client:
             result = await leave_chat(client, chat_id)
 
             # Invalidate chat cache since we left a chat
-            if session_id in self._chat_cache and chat_id in self._chat_cache[session_id]:
-                del self._chat_cache[session_id][chat_id]
+            if cache_key in self._chat_cache and chat_id in self._chat_cache[cache_key]:
+                del self._chat_cache[cache_key][chat_id]
                 logger.info(f"Removed chat {chat_id} from cache after leaving")
 
             return result
@@ -544,12 +564,14 @@ class ChatAnalysisService:
     async def join_chat(
         self,
         session_id: str,
+        user_id: str,
         chat_ref: str,
     ) -> Chat:
         """Join a chat by username or invite link.
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID
             chat_ref: Chat reference (username or link)
 
         Returns:
@@ -559,15 +581,16 @@ class ChatAnalysisService:
             SessionNotFoundError: If session not found
             JoinChatError: If joining fails
         """
-        self._ensure_loader(session_id)
+        self._ensure_loader(session_id, user_id)
 
+        cache_key = (user_id, session_id)
         async with self._session_manager.session(session_id) as client:
             chat = await join_chat(client, chat_ref)
 
             # Add to cache
-            if session_id not in self._chat_cache:
-                self._chat_cache[session_id] = {}
-            self._chat_cache[session_id][chat.id] = chat
+            if cache_key not in self._chat_cache:
+                self._chat_cache[cache_key] = {}
+            self._chat_cache[cache_key][chat.id] = chat
 
             logger.info(f"Joined chat {chat.title} ({chat.id}) for session '{session_id}'")
             return chat
@@ -575,6 +598,7 @@ class ChatAnalysisService:
     async def join_chat_with_rotation(
         self,
         session_id: str,
+        user_id: str,
         chat_ref: str,
         chats_to_leave: list[int] | None = None,
     ) -> tuple[Chat, list[int]]:
@@ -585,6 +609,7 @@ class ChatAnalysisService:
 
         Args:
             session_id: Session identifier
+            user_id: Application user ID
             chat_ref: Chat reference to join (username or link)
             chats_to_leave: Optional list of chat IDs to leave if at limit.
                            If None and at limit, raises JoinChatError.
@@ -596,21 +621,22 @@ class ChatAnalysisService:
             SessionNotFoundError: If session not found
             JoinChatError: If joining fails or at limit with no chats to leave
         """
-        self._ensure_loader(session_id)
+        self._ensure_loader(session_id, user_id)
 
+        cache_key = (user_id, session_id)
         async with self._session_manager.session(session_id) as client:
             chat, left_ids = await join_chat_with_rotation(client, chat_ref, chats_to_leave)
 
             # Update cache - remove left chats
-            if session_id in self._chat_cache:
+            if cache_key in self._chat_cache:
                 for left_id in left_ids:
-                    if left_id in self._chat_cache[session_id]:
-                        del self._chat_cache[session_id][left_id]
+                    if left_id in self._chat_cache[cache_key]:
+                        del self._chat_cache[cache_key][left_id]
 
             # Add joined chat to cache
-            if session_id not in self._chat_cache:
-                self._chat_cache[session_id] = {}
-            self._chat_cache[session_id][chat.id] = chat
+            if cache_key not in self._chat_cache:
+                self._chat_cache[cache_key] = {}
+            self._chat_cache[cache_key][chat.id] = chat
 
             logger.info(
                 f"Joined chat {chat.title} ({chat.id}) for session '{session_id}', "
