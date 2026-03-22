@@ -367,13 +367,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
     Exempt paths (no auth required):
     - /login - Login page
     - /health - Health check
+    - /ready - Readiness probe for Kubernetes/container orchestration
     - /favicon.ico - Favicon
 
     Exempt prefixes:
     - /static - Static files
     """
 
-    EXEMPT_PATHS = {"/login", "/health", "/favicon.ico"}
+    EXEMPT_PATHS = {"/login", "/health", "/ready", "/favicon.ico"}
     EXEMPT_PREFIXES = ("/static",)
 
     def _is_exempt(self, path: str) -> bool:
