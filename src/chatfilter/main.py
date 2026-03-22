@@ -123,8 +123,67 @@ def setup_logging(
         logging.info("Verbose logging enabled")
 
 
+def _handle_reset_password() -> None:
+    """Handle reset-password subcommand."""
+    import argparse
+    import sqlite3
+
+    from chatfilter.config import get_settings
+    from chatfilter.storage.user_database import UserDatabase
+
+    parser = argparse.ArgumentParser(
+        prog="chatfilter reset-password",
+        description="Reset a user's password",
+    )
+    parser.add_argument("username", help="Username to reset password for")
+    parser.add_argument("password", help="New password (min 8 characters)")
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help="Data directory path (default: from settings/env)",
+    )
+
+    args = parser.parse_args(sys.argv[2:])
+
+    if len(args.password) < 8:
+        print(f"Error: Password must be at least 8 characters long", file=sys.stderr)
+        sys.exit(1)
+
+    if args.data_dir:
+        from pathlib import Path
+        data_dir = Path(args.data_dir)
+    else:
+        settings = get_settings()
+        data_dir = settings.data_dir
+
+    try:
+        db = UserDatabase(data_dir / "users.db")
+        user = db.get_user_by_username(args.username)
+        if user is None:
+            print(f"Error: User '{args.username}' not found", file=sys.stderr)
+            sys.exit(1)
+        db.update_password(user["id"], args.password)
+        print(f"Password for '{args.username}' has been reset successfully")
+        sys.exit(0)
+    except sqlite3.OperationalError as e:
+        if "database is locked" in str(e):
+            print(
+                "Error: Database is locked (the app may be running). "
+                "Stop the app first before resetting a password.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"Error: Database error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main() -> None:
     """Run ChatFilter web application."""
+    if len(sys.argv) > 1 and sys.argv[1] == "reset-password":
+        _handle_reset_password()
+        return
+
     import argparse
 
     import uvicorn
