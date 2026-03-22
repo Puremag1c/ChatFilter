@@ -461,6 +461,9 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         # If not in header, try form data
         if not csrf_token:
             try:
+                # Cache body first so route handlers can re-read it after this middleware
+                # consumes the stream (Starlette _CachedRequest requires _body to be set)
+                await request.body()
                 form_data = await request.form()
                 token_value = form_data.get(CSRF_FORM_FIELD)
                 # Ensure we only accept string tokens, not file uploads
