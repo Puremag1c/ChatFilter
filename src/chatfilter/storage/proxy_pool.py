@@ -287,5 +287,5 @@ def update_proxy(proxy_id: str, updated_proxy: ProxyEntry, user_id: str) -> Prox
         raise StorageNotFoundError(f"Proxy not found: {proxy_id}")
 
     save_proxy_pool(proxies, user_id)
-    logger.info(f"Updated proxy in pool: {updated_proxy.name} ({proxy_id})")
+    logger.debug(f"Updated proxy in pool: {updated_proxy.name} ({proxy_id})")
     return updated_proxy
