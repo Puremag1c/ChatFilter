@@ -328,10 +328,10 @@ class TestCheckSingleProxy:
                 expected_result = sample_proxy.with_health_update(success=True)
                 mock_update.return_value = expected_result
 
-                await check_single_proxy(sample_proxy)
+                await check_single_proxy(sample_proxy, user_id='test-user-id')
 
                 mock_check.assert_called_once_with(sample_proxy)
-                mock_update.assert_called_once_with(sample_proxy, True)
+                mock_update.assert_called_once_with(sample_proxy, True, 'test-user-id')
 
 
 class TestCheckAllProxies:
@@ -345,19 +345,34 @@ class TestCheckAllProxies:
             ProxyEntry(name="Proxy2", type=ProxyType.HTTP, host="2.2.2.2", port=8080),
         ]
 
-        with patch("chatfilter.service.proxy_health.load_proxy_pool") as mock_load:
-            mock_load.return_value = proxies
+        with patch("chatfilter.config.get_settings") as mock_settings:
+            from pathlib import Path
+            from unittest.mock import MagicMock
 
-            with patch("chatfilter.service.proxy_health.check_single_proxy") as mock_check:
-                mock_check.side_effect = [
-                    proxies[0].with_health_update(success=True),
-                    proxies[1].with_health_update(success=False),
+            mock_config = MagicMock()
+            mock_config.config_dir.glob.return_value = [
+                Path("proxies_user1.json"),
+                Path("proxies_user2.json"),
+            ]
+            mock_settings.return_value = mock_config
+
+            with patch("chatfilter.service.proxy_health.load_proxy_pool") as mock_load:
+                # Return one proxy per user
+                mock_load.side_effect = [
+                    [proxies[0]],  # user1 gets proxy1
+                    [proxies[1]],  # user2 gets proxy2
                 ]
 
-                result = await check_all_proxies()
+                with patch("chatfilter.service.proxy_health.check_single_proxy") as mock_check:
+                    mock_check.side_effect = [
+                        proxies[0].with_health_update(success=True),
+                        proxies[1].with_health_update(success=False),
+                    ]
 
-                assert len(result) == 2
-                assert mock_check.call_count == 2
+                    result = await check_all_proxies()
+
+                    assert len(result) == 2
+                    assert mock_check.call_count == 2
 
     @pytest.mark.asyncio
     async def test_empty_pool(self) -> None:
@@ -386,7 +401,7 @@ class TestRetestProxy:
                 expected = sample_proxy.with_health_update(success=True)
                 mock_check.return_value = expected
 
-                result = await retest_proxy(sample_proxy.id)
+                result = await retest_proxy(sample_proxy.id, user_id='test-user-id')
 
                 assert result is not None
                 mock_check.assert_called_once()
@@ -399,7 +414,7 @@ class TestRetestProxy:
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get:
             mock_get.side_effect = StorageNotFoundError("Not found")
 
-            result = await retest_proxy("nonexistent-id")
+            result = await retest_proxy("nonexistent-id", user_id='test-user-id')
 
             assert result is None
 
@@ -422,7 +437,7 @@ class TestRetestProxy:
             ):
                 mock_tunnel.return_value = True
 
-                result = await retest_proxy(socks5_proxy.id)
+                result = await retest_proxy(socks5_proxy.id, user_id='test-user-id')
 
                 # Should have called socks5_tunnel_check
                 mock_tunnel.assert_called_once()
@@ -451,7 +466,7 @@ class TestRetestProxy:
                 # Health check fails
                 mock_check.return_value = False
 
-                result = await retest_proxy(proxy.id)
+                result = await retest_proxy(proxy.id, user_id='test-user-id')
 
                 assert result is not None
                 # After 1 failed retest, status should be NO_PING (not UNTESTED)
@@ -480,7 +495,7 @@ class TestRetestProxy:
                 # Health check succeeds
                 mock_check.return_value = True
 
-                result = await retest_proxy(proxy.id)
+                result = await retest_proxy(proxy.id, user_id='test-user-id')
 
                 assert result is not None
                 assert result.status == ProxyStatus.WORKING
@@ -507,7 +522,7 @@ class TestRetestProxy:
 
                 # Exception should propagate (not silently caught)
                 with pytest.raises(TimeoutError):
-                    await retest_proxy(proxy.id)
+                    await retest_proxy(proxy.id, user_id='test-user-id')
 
 
 class TestProxyHealthMonitor:
