@@ -431,6 +431,12 @@ async def _send_verification_code_and_create_auth(
             )
             await asyncio.wait_for(client.connect(), timeout=15.0)
 
+            # Register client in user registry (user_id derived from path structure:
+            # sessions_dir / user_id / session_name / session.session)
+            user_id_str = session_path.parent.parent.name
+            from chatfilter.web.routers.sessions.client_registry import register_client
+            register_client(user_id_str, client)
+
             result = await asyncio.wait_for(
                 client.send_code_request(phone),
                 timeout=15.0,

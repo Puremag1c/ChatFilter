@@ -298,6 +298,9 @@ async def connect_session(
         else:
             # Create ManagedSession with a client from the factory
             client = loader.create_client()
+            from .client_registry import register_client
+            if user_id is not None:
+                register_client(str(user_id), client)
             session_manager._sessions[safe_name] = ManagedSession(
                 client=client, state=SessionState.CONNECTING
             )
@@ -417,10 +420,21 @@ async def disconnect_session(
         # Session is already disconnected or disconnecting — DOM already correct
         return HTMLResponse(content="", headers={"HX-Reswap": "none"})
 
+    # Capture client reference before disconnect so we can unregister it
+    managed = session_manager._sessions.get(safe_name)
+    client_to_unregister = managed.client if managed else None
+
     try:
         # Disconnect — this publishes "disconnected" via SSE event bus
         # (session_manager.py:440), which triggers an OOB swap that updates the <tr> in the DOM.
         await session_manager.disconnect(safe_name)
+
+        # Unregister from client registry after successful disconnect
+        if client_to_unregister is not None:
+            user_id = get_session(request).get("user_id")
+            if user_id is not None:
+                from .client_registry import unregister_client
+                unregister_client(str(user_id), client_to_unregister)
 
         # Return empty response with HX-Reswap:none so HTMX doesn't also try to swap the row,
         # which would race with SSE and cause htmx:swapError on the detached element.

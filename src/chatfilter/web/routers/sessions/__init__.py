@@ -215,6 +215,13 @@ from .auth_reconnect_helpers import (  # noqa: F401
     _finalize_reconnect_auth,
 )
 
+# Client registry: disconnect all active Telethon clients for a user before file deletion
+from .client_registry import (  # noqa: F401
+    disconnect_user_clients,
+    register_client,
+    unregister_client,
+)
+
 # Re-export connect/background functions for backwards compatibility (used by tests)
 from .background import (  # noqa: F401
     _do_connect_in_background_v2,
