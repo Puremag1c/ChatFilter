@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="{{ locale }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatFilter — Вход</title>
+    <link rel="icon" type="image/x-icon" href="/static/images/logo.ico">
+    <link rel="stylesheet" href="/static/css/style.css?v={{ css_version }}">
+    <style>
+        .login-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .login-card {
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border-color, #ddd);
+            border-radius: 8px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .login-card h1 {
+            margin: 0 0 1.5rem;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        .login-card .logo {
+            display: block;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            color: inherit;
+            text-decoration: none;
+        }
+        .login-card .subtitle {
+            text-align: center;
+            color: var(--text-muted, #666);
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--border-color, #ccc);
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            background: var(--input-bg, #fff);
+            color: var(--text-color, #000);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 0.7rem;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .login-error {
+            background: var(--error-bg, #fff0f0);
+            border: 1px solid var(--error-border, #f5c6cb);
+            color: var(--error-color, #721c24);
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <a href="/" class="logo">ChatFilter</a>
+            <p class="subtitle">Telegram Chat Analysis</p>
+
+            {% if error %}
+            <div class="login-error" role="alert">{{ error }}</div>
+            {% endif %}
+
+            <form method="post" action="/login">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <div class="form-group">
+                    <label for="username">Имя пользователя</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        value="{{ login_username or '' }}"
+                        autocomplete="username"
+                        autofocus
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary login-btn">Войти</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

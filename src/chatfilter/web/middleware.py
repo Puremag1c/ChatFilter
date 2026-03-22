@@ -358,6 +358,43 @@ class NetworkStatusMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Middleware that enforces authentication for all non-exempt routes.
+
+    Checks for user_id in session and redirects to /login if missing.
+
+    Exempt paths (no auth required):
+    - /login - Login page
+    - /health - Health check
+    - /favicon.ico - Favicon
+
+    Exempt prefixes:
+    - /static - Static files
+    """
+
+    EXEMPT_PATHS = {"/login", "/health", "/favicon.ico"}
+    EXEMPT_PREFIXES = ("/static",)
+
+    def _is_exempt(self, path: str) -> bool:
+        if path in self.EXEMPT_PATHS:
+            return True
+        return any(path.startswith(prefix) for prefix in self.EXEMPT_PREFIXES)
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        if self._is_exempt(request.url.path):
+            return await call_next(request)
+
+        session = get_session(request)
+        if not session.get("user_id"):
+            from starlette.responses import RedirectResponse
+
+            return RedirectResponse(url="/login", status_code=302)
+
+        return await call_next(request)
+
+
 class CSRFProtectionMiddleware(BaseHTTPMiddleware):
     """Middleware for CSRF protection on state-changing requests.
 

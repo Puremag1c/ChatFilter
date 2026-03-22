@@ -15,6 +15,7 @@ from chatfilter.config import Settings, get_settings
 from chatfilter.utils.paths import get_base_path
 from chatfilter.web.exception_handlers import register_exception_handlers
 from chatfilter.web.middleware import (
+    AuthMiddleware,
     CSRFProtectionMiddleware,
     GracefulShutdownMiddleware,
     RequestIDMiddleware,
@@ -22,6 +23,7 @@ from chatfilter.web.middleware import (
     SecurityHeadersMiddleware,
     SessionMiddleware,
 )
+from chatfilter.web.routers.auth import router as auth_router
 from chatfilter.web.routers.chatlist import router as chatlist_router
 from chatfilter.web.routers.chats import router as chats_router
 from chatfilter.web.routers.export import router as export_router
@@ -327,6 +329,7 @@ def create_app(
     # Enable body logging in verbose mode (sanitized for security)
     app.add_middleware(RequestLoggingMiddleware, log_bodies=settings.verbose)
     app.add_middleware(LocaleMiddleware)
+    app.add_middleware(AuthMiddleware)
     app.add_middleware(SessionMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(GracefulShutdownMiddleware)
@@ -352,6 +355,7 @@ def create_app(
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     # Include routers
+    app.include_router(auth_router)
     app.include_router(health_router)
     app.include_router(export_router)
     app.include_router(sessions_router)

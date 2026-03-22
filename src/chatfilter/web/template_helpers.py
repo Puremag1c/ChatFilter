@@ -78,5 +78,7 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "ngettext": translations.ngettext,
         "css_version": css_version,  # CSS file hash for cache-busting
         "js_translations_json": _js_translations_json(locale),
+        "current_username": session.get("username"),
+        "current_is_admin": session.get("is_admin", False),
         **kwargs,
     }
