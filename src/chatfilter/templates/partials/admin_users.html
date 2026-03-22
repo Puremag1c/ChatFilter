@@ -37,7 +37,7 @@
                         hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
                         hx-target="#user-row-{{ user.id }}"
                         hx-swap="outerHTML"
-                        hx-confirm="Delete user '{{ user.username }}'? This cannot be undone.">
+                        hx-confirm="Удалить пользователя {{ user.username }} и все его данные? Это действие необратимо.">
                     Delete
                 </button>
             </td>

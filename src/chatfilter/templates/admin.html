@@ -8,11 +8,18 @@
     <p class="subtitle">User management</p>
 </div>
 
+<div id="flash-container">
 {% if error %}
 <div class="alert alert-error" role="alert">
-    <strong>Error:</strong> {{ error }}
+    <strong>Ошибка:</strong> {{ error }}
 </div>
 {% endif %}
+{% if flash %}
+<div class="alert alert-{{ flash_type|default('success') }}" role="alert">
+    {{ flash }}
+</div>
+{% endif %}
+</div>
 
 <section class="card">
     <div class="card-header">
