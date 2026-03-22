@@ -23,7 +23,7 @@
                       style="display:inline-flex;gap:0.5rem;align-items:center;margin-right:0.5rem">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <input type="password" name="password" required
-                           class="form-input" placeholder="new password"
+                           class="form-input" placeholder="{{ _("new password") }}"
                            autocomplete="new-password"
                            style="font-size:0.8rem;padding:0.25rem 0.5rem;width:130px">
                     <button type="submit" class="btn btn-secondary"

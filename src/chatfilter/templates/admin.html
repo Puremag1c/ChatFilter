@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Admin — ChatFilter{% endblock %}
+{% block title %}{{ _("Admin") }} — ChatFilter{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -30,12 +30,12 @@
         <div>
             <label for="new-username" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Username") }}</label>
             <input type="text" id="new-username" name="username" required
-                   class="form-input" placeholder="username" autocomplete="off">
+                   class="form-input" placeholder="{{ _("username") }}" autocomplete="off">
         </div>
         <div>
             <label for="new-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Password") }}</label>
             <input type="password" id="new-password" name="password" required
-                   class="form-input" placeholder="password" autocomplete="new-password">
+                   class="form-input" placeholder="{{ _("password") }}" autocomplete="new-password">
         </div>
         <button type="submit" class="btn btn-primary">{{ _("Create") }}</button>
     </form>

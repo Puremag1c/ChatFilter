@@ -2852,6 +2852,18 @@ msgstr "{minutes}м {seconds}с"
 msgid "{hours}h {minutes}m"
 msgstr "{hours}ч {minutes}м"
 
+#: src/chatfilter/templates/admin.html:33
+msgid "username"
+msgstr "имя пользователя"
+
+#: src/chatfilter/templates/admin.html:38
+msgid "password"
+msgstr "пароль"
+
+#: src/chatfilter/templates/partials/admin_users.html:26
+msgid "new password"
+msgstr "новый пароль"
+
 #~ msgid "2FA password accepted successfully"
 #~ msgstr "Пароль 2FA успешно принят"
 
