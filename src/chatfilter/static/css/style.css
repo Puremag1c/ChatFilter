@@ -3854,4 +3854,19 @@ body:has(.update-notification.show) {
         order: 3;
     }
 }
+
+/* base_minimal.html layout */
+.minimal-controls {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 100;
+}
+
+.minimal-logo {
+    text-align: center;
+    padding: 2rem 0 1rem;
+}
 /* ========== End SSE Status Banner Styles ==========*/

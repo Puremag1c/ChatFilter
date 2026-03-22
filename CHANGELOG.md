@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-03-22
+
+### Added
+- Система аутентификации: логин-форма, сессионная кука, middleware проверки на всех роутах
+- Таблица `users` в SQLite (id, username, password_hash, is_admin, created_at)
+- Изоляция данных: все сессии, прокси и группы привязаны к user_id
+- Админ-панель: управление пользователями (создание, удаление, смена пароля)
+- Автоматическое создание админа из переменных окружения (`CHATFILTER_ADMIN_LOGIN`, `CHATFILTER_ADMIN_PASSWORD`)
+- Генерация случайного пароля при первом запуске без переменных окружения
+- Активный реестр Telethon-клиентов для безопасного удаления пользователя
+- Fail-fast при ошибке инициализации users.db или создания админа
+- Минимальная длина пароля при создании/смене пароля
+- Регенерация session ID при логине и уничтожение при логауте
+
+### Fixed
+- Админ-таблица пользователей переполнялась на мобильном viewport (375px)
+- SSE stream ошибка в test_new_group_auto_discovered_after_sse_connection
+- mock_get_proxy_by_id() несовпадение сигнатуры
+- resume_group_analysis: отсутствующий аргумент group_id
+- test_proxy_retest_escapes_malicious_name возвращал 500 вместо 200
+- load_proxy_pool() без аргумента user_id (legacy migration)
+- remove_proxy вызывался с неожиданным 'default' user_id
+- TestCheckSingleProxy/TestRetestProxy: отсутствующий аргумент user_id
+- /api/version/check-updates возвращал 302 вместо 200
+- TestUpdateProxyHealth: отсутствующий аргумент user_id
+- /ready endpoint возвращал 302 вместо 200
+- 114 тестов сломаны — CSRF fixture без аутентификации после добавления auth middleware
+- test_verify_code_2fa_auto_fails_shows_manual_modal падал после добавления auth
+
+### Changed
+- ChatAnalysisService принимает user_id для per-user session paths
+
 ## [0.25.1] - 2026-03-21
 
 ### Added
