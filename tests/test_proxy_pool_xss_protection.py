@@ -76,7 +76,7 @@ def test_proxy_retest_escapes_malicious_name(
     )
 
     # Mock retest_proxy function from service layer
-    async def mock_retest(pid: str):
+    async def mock_retest(pid: str, uid: str = "default"):
         return updated_proxy if pid == proxy_id else None
 
     with patch("chatfilter.service.proxy_health.retest_proxy", side_effect=mock_retest):
