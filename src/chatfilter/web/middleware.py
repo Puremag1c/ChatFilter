@@ -420,12 +420,8 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
     """
 
     # Paths exempt from CSRF validation
-    # /login is exempt because: (1) login form is protected by same-origin policy
-    # and SameSite=lax cookie, (2) session _csrf_token is lost between GET and POST
-    # due to BaseHTTPMiddleware state propagation, matching Django/Rails defaults
     EXEMPT_PATHS = {
         "/health",
-        "/login",
     }
 
     # Path prefixes exempt from CSRF validation
