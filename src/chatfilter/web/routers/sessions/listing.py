@@ -95,8 +95,9 @@ def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
     from chatfilter.storage.errors import StorageNotFoundError
     from chatfilter.storage.proxy_pool import get_proxy_by_id
 
+    web_user_id = config.get("web_user_id", "default")
     try:
-        get_proxy_by_id(proxy_id)
+        get_proxy_by_id(proxy_id, web_user_id)
     except StorageNotFoundError:
         return ("needs_config", "Proxy not found in pool")
 

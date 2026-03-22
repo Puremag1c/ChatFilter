@@ -25,9 +25,11 @@ async def index(request: Request) -> HTMLResponse:
     from chatfilter import __version__
     from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
+    from chatfilter.web.session import get_session
 
     templates = get_templates()
-    proxies = load_proxy_pool()
+    user_id = get_session(request).get("user_id", "default")
+    proxies = load_proxy_pool(user_id)
 
     return templates.TemplateResponse(
         request=request,

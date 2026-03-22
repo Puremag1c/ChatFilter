@@ -256,6 +256,8 @@ async def upload_session(
             # source is 'file' because config was uploaded
             # Use json_account_info if provided, otherwise use account_info from session
             final_account_info = json_account_info if json_account_info else account_info
+            from chatfilter.web.session import get_session as get_web_session
+            _web_user_id = get_web_session(request).get("user_id", "default")
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,
@@ -264,6 +266,7 @@ async def upload_session(
                 proxy_id=None,
                 account_info=final_account_info,
                 source="file",
+                web_user_id=_web_user_id,
             )
 
         except DiskSpaceError:
@@ -547,9 +550,11 @@ async def save_import_session(
         # Validate proxy exists
         from chatfilter.storage.errors import StorageNotFoundError
         from chatfilter.storage.proxy_pool import get_proxy_by_id
+        from chatfilter.web.session import get_session as get_web_session
 
+        web_user_id = get_web_session(request).get("user_id", "default")
         try:
-            get_proxy_by_id(proxy_id)
+            get_proxy_by_id(proxy_id, web_user_id)
         except StorageNotFoundError:
             return templates.TemplateResponse(
                 request=request,
@@ -634,6 +639,7 @@ async def save_import_session(
                 proxy_id=proxy_id,
                 account_info=account_info,
                 source="file",
+                web_user_id=web_user_id,
             )
 
             # Encrypt and save 2FA password if provided in JSON

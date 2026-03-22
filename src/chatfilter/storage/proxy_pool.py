@@ -19,20 +19,20 @@ from chatfilter.utils.paths import get_application_path
 
 logger = logging.getLogger(__name__)
 
-PROXIES_FILENAME = "proxies.json"
+LEGACY_PROXIES_FILENAME = "proxies.json"
 LEGACY_PROXY_FILENAME = "proxy.json"
 
 
-def _get_proxies_path() -> Path:
-    """Get the path to the proxies.json file.
+def _get_proxies_path(user_id: str) -> Path:
+    """Get the path to the per-user proxies file.
+
+    Args:
+        user_id: Web application user ID for data isolation.
 
     Returns:
-        Path to proxies.json in user's config directory.
-        On macOS: ~/Library/Application Support/ChatFilter/config/proxies.json
-        On Windows: %APPDATA%/ChatFilter/config/proxies.json
-        On Linux: ~/.local/share/chatfilter/config/proxies.json
+        Path to proxies_{user_id}.json in user's config directory.
     """
-    return get_settings().config_dir / PROXIES_FILENAME
+    return get_settings().config_dir / f"proxies_{user_id}.json"
 
 
 def _get_legacy_proxy_path() -> Path:
@@ -51,19 +51,39 @@ def _get_legacy_proxy_path() -> Path:
     return get_settings().config_dir / LEGACY_PROXY_FILENAME
 
 
-def _migrate_legacy_proxy() -> None:
-    """Migrate legacy proxy.json to proxies.json format.
+def _migrate_legacy_proxy(user_id: str) -> None:
+    """Migrate legacy proxy.json to per-user proxies file.
 
-    If proxy.json exists but proxies.json does not, creates a new proxy pool
+    If proxy.json exists but per-user proxies file does not, creates a new proxy pool
     with a single entry from the legacy config, named "Default".
+
+    Also migrates from shared proxies.json to per-user file if needed.
 
     This runs automatically on first load_proxy_pool() call.
     """
-    proxies_path = _get_proxies_path()
+    proxies_path = _get_proxies_path(user_id)
+
+    # If per-user file already exists, no migration needed
+    if proxies_path.exists():
+        return
+
+    # Try to migrate from shared proxies.json first
+    shared_path = get_settings().config_dir / LEGACY_PROXIES_FILENAME
+    if shared_path.exists():
+        try:
+            data = load_json(shared_path)
+            if isinstance(data, list):
+                proxies_path.parent.mkdir(parents=True, exist_ok=True)
+                save_json(proxies_path, data)
+                logger.info(f"Migrated shared proxies.json to {proxies_path.name}")
+                return
+        except Exception as e:
+            logger.warning(f"Failed to migrate shared proxies.json: {e}")
+
     legacy_path = _get_legacy_proxy_path()
 
-    # Only migrate if legacy exists and new doesn't
-    if not legacy_path.exists() or proxies_path.exists():
+    # Only migrate if legacy exists
+    if not legacy_path.exists():
         return
 
     try:
@@ -105,10 +125,13 @@ def _migrate_legacy_proxy() -> None:
     logger.info(f"Migrated legacy proxy.json to proxies.json: {proxy.name} ({proxy.id})")
 
 
-def load_proxy_pool() -> list[ProxyEntry]:
-    """Load all proxies from the pool.
+def load_proxy_pool(user_id: str) -> list[ProxyEntry]:
+    """Load all proxies from the pool for a specific user.
 
     Automatically migrates legacy proxy.json on first call if needed.
+
+    Args:
+        user_id: Web application user ID for data isolation.
 
     Returns:
         List of ProxyEntry objects. Empty list if file doesn't exist.
@@ -118,9 +141,9 @@ def load_proxy_pool() -> list[ProxyEntry]:
         pydantic.ValidationError: If proxy data is invalid.
     """
     # Migrate legacy config if needed
-    _migrate_legacy_proxy()
+    _migrate_legacy_proxy(user_id)
 
-    path = _get_proxies_path()
+    path = _get_proxies_path(user_id)
 
     if not path.exists():
         return []
@@ -136,19 +159,20 @@ def load_proxy_pool() -> list[ProxyEntry]:
     return proxies
 
 
-def save_proxy_pool(proxies: list[ProxyEntry]) -> None:
-    """Save all proxies to the pool.
+def save_proxy_pool(proxies: list[ProxyEntry], user_id: str) -> None:
+    """Save all proxies to the pool for a specific user.
 
     Uses atomic write to prevent data corruption.
 
     Args:
         proxies: List of ProxyEntry objects to save.
+        user_id: Web application user ID for data isolation.
 
     Raises:
         StorageValidationError: If data cannot be serialized.
         StoragePermissionError: If write permission denied.
     """
-    path = _get_proxies_path()
+    path = _get_proxies_path(user_id)
 
     # Ensure directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -161,11 +185,12 @@ def save_proxy_pool(proxies: list[ProxyEntry]) -> None:
     logger.debug(f"Saved {len(proxies)} proxies to pool")
 
 
-def get_proxy_by_id(proxy_id: str) -> ProxyEntry:
+def get_proxy_by_id(proxy_id: str, user_id: str) -> ProxyEntry:
     """Get a proxy by its ID.
 
     Args:
         proxy_id: UUID of the proxy to find.
+        user_id: Web application user ID for data isolation.
 
     Returns:
         ProxyEntry with matching ID.
@@ -173,7 +198,7 @@ def get_proxy_by_id(proxy_id: str) -> ProxyEntry:
     Raises:
         StorageNotFoundError: If proxy not found.
     """
-    proxies = load_proxy_pool()
+    proxies = load_proxy_pool(user_id)
 
     for proxy in proxies:
         if proxy.id == proxy_id:
@@ -182,11 +207,12 @@ def get_proxy_by_id(proxy_id: str) -> ProxyEntry:
     raise StorageNotFoundError(f"Proxy not found: {proxy_id}")
 
 
-def add_proxy(proxy: ProxyEntry) -> ProxyEntry:
+def add_proxy(proxy: ProxyEntry, user_id: str) -> ProxyEntry:
     """Add a new proxy to the pool.
 
     Args:
         proxy: ProxyEntry to add.
+        user_id: Web application user ID for data isolation.
 
     Returns:
         The added proxy.
@@ -194,7 +220,7 @@ def add_proxy(proxy: ProxyEntry) -> ProxyEntry:
     Raises:
         ValueError: If proxy with same ID already exists.
     """
-    proxies = load_proxy_pool()
+    proxies = load_proxy_pool(user_id)
 
     # Check for duplicate ID
     for existing in proxies:
@@ -202,22 +228,23 @@ def add_proxy(proxy: ProxyEntry) -> ProxyEntry:
             raise ValueError(f"Proxy with ID {proxy.id} already exists")
 
     proxies.append(proxy)
-    save_proxy_pool(proxies)
+    save_proxy_pool(proxies, user_id)
 
     logger.info(f"Added proxy to pool: {proxy.name} ({proxy.id})")
     return proxy
 
 
-def remove_proxy(proxy_id: str) -> None:
+def remove_proxy(proxy_id: str, user_id: str) -> None:
     """Remove a proxy from the pool.
 
     Args:
         proxy_id: UUID of the proxy to remove.
+        user_id: Web application user ID for data isolation.
 
     Raises:
         StorageNotFoundError: If proxy not found.
     """
-    proxies = load_proxy_pool()
+    proxies = load_proxy_pool(user_id)
     original_count = len(proxies)
 
     proxies = [p for p in proxies if p.id != proxy_id]
@@ -225,16 +252,17 @@ def remove_proxy(proxy_id: str) -> None:
     if len(proxies) == original_count:
         raise StorageNotFoundError(f"Proxy not found: {proxy_id}")
 
-    save_proxy_pool(proxies)
+    save_proxy_pool(proxies, user_id)
     logger.info(f"Removed proxy from pool: {proxy_id}")
 
 
-def update_proxy(proxy_id: str, updated_proxy: ProxyEntry) -> ProxyEntry:
+def update_proxy(proxy_id: str, updated_proxy: ProxyEntry, user_id: str) -> ProxyEntry:
     """Update an existing proxy in the pool.
 
     Args:
         proxy_id: UUID of the proxy to update.
         updated_proxy: New ProxyEntry data (must have same ID).
+        user_id: Web application user ID for data isolation.
 
     Returns:
         The updated proxy entry.
@@ -246,7 +274,7 @@ def update_proxy(proxy_id: str, updated_proxy: ProxyEntry) -> ProxyEntry:
     if proxy_id != updated_proxy.id:
         raise ValueError("proxy_id must match updated_proxy.id")
 
-    proxies = load_proxy_pool()
+    proxies = load_proxy_pool(user_id)
     found = False
 
     for i, proxy in enumerate(proxies):
@@ -258,6 +286,6 @@ def update_proxy(proxy_id: str, updated_proxy: ProxyEntry) -> ProxyEntry:
     if not found:
         raise StorageNotFoundError(f"Proxy not found: {proxy_id}")
 
-    save_proxy_pool(proxies)
+    save_proxy_pool(proxies, user_id)
     logger.info(f"Updated proxy in pool: {updated_proxy.name} ({proxy_id})")
     return updated_proxy

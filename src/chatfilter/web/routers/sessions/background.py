@@ -143,7 +143,16 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 from chatfilter.service.proxy_health import socks5_tunnel_check
 
                 try:
-                    proxy_entry = proxy_pool.get_proxy_by_id(proxy_id)
+                    # Read web_user_id from config for per-user proxy isolation
+                    _web_user_id = "default"
+                    if config_path and config_path.exists():
+                        try:
+                            with config_path.open("r") as _f:
+                                _cfg = json.load(_f)
+                                _web_user_id = _cfg.get("web_user_id", "default")
+                        except Exception:
+                            pass
+                    proxy_entry = proxy_pool.get_proxy_by_id(proxy_id, _web_user_id)
                     # Only check SOCKS5 proxies (HTTP proxies use different protocol)
                     if proxy_entry.type == ProxyType.SOCKS5:
                         logger.debug(f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}")
@@ -391,6 +400,7 @@ async def _send_verification_code_and_create_auth(
         api_id = config["api_id"]
         api_hash = config["api_hash"]
         proxy_id = config["proxy_id"]
+        web_user_id = config.get("web_user_id", "default")
     except Exception as e:
         logger.exception(f"Failed to load config for session '{session_id}'")
         error_message = get_user_friendly_message(e)
@@ -404,7 +414,7 @@ async def _send_verification_code_and_create_auth(
 
     # Get proxy once (no retry needed)
     try:
-        proxy_info = proxy_pool.get_proxy_by_id(proxy_id)
+        proxy_info = proxy_pool.get_proxy_by_id(proxy_id, web_user_id)
     except StorageNotFoundError:
         # Security: sanitize error message before publishing to client
         error_message = f"Proxy '{proxy_id}' not found in pool"

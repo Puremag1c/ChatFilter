@@ -73,6 +73,7 @@ class TelegramClientLoader:
         self._use_secure_storage = use_secure_storage
         self._config: TelegramConfig | None = None
         self._proxy_id: str | None = None
+        self._web_user_id: str = "default"
 
     @property
     def session_path(self) -> Path:
@@ -119,6 +120,16 @@ class TelegramClientLoader:
                 api_id, api_hash, proxy_id = manager.retrieve_credentials(session_id)
                 self._config = TelegramConfig(api_id=api_id, api_hash=api_hash)
                 self._proxy_id = proxy_id
+                # Load web_user_id from session config for per-user proxy isolation
+                config_json_path = self._session_path.parent / "config.json"
+                if config_json_path.exists():
+                    try:
+                        import json
+                        with config_json_path.open("r") as f:
+                            cfg = json.load(f)
+                            self._web_user_id = cfg.get("web_user_id", "default")
+                    except Exception:
+                        pass
                 logger.debug(f"Loaded credentials from secure storage for: {session_id}")
             except CredentialNotFoundError as e:
                 # If secure storage fails and we have a config_path, try plaintext
@@ -186,7 +197,7 @@ class TelegramClientLoader:
         from chatfilter.storage.proxy_pool import get_proxy_by_id
 
         try:
-            get_proxy_by_id(self._proxy_id)
+            get_proxy_by_id(self._proxy_id, self._web_user_id)
         except StorageNotFoundError as e:
             raise SessionBlockedError(
                 gettext(
@@ -284,7 +295,7 @@ class TelegramClientLoader:
             from chatfilter.storage.proxy_pool import get_proxy_by_id
 
             try:
-                proxy_entry = get_proxy_by_id(self._proxy_id)
+                proxy_entry = get_proxy_by_id(self._proxy_id, self._web_user_id)
                 telethon_proxy = proxy_entry.to_telethon_proxy()
                 logger.debug(f"Using proxy from pool: {proxy_entry.name} ({proxy_entry.id})")
             except StorageNotFoundError as e:

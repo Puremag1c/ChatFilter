@@ -194,11 +194,14 @@ async def start_auth_flow(
             logger.info(f"Session '{safe_name}' saved without credentials (will need config later)")
 
         # Create config.json so session is visible in list_stored_sessions
+        from chatfilter.web.session import get_session as get_web_session
+        _web_user_id = get_web_session(request).get("user_id", "default")
         session_config: dict[str, int | str | None] = {
             "api_id": api_id,
             "api_hash": api_hash,
             "proxy_id": proxy_id,
             "source": "phone",
+            "web_user_id": _web_user_id,
         }
         config_path = session_dir / "config.json"
         config_content = json.dumps(session_config, indent=2).encode("utf-8")
@@ -593,11 +596,14 @@ async def _complete_auth_flow(
 
         # Create per-session config.json
         # source is 'phone' because credentials came from auth flow
+        from chatfilter.web.session import get_session as get_web_session
+        _web_user_id = get_web_session(request).get("user_id", "default")
         session_config: dict[str, int | str | None] = {
             "api_id": api_id,
             "api_hash": api_hash,
             "proxy_id": proxy_id,
             "source": "phone",
+            "web_user_id": _web_user_id,
         }
         session_config_path = session_dir / "config.json"
         session_config_content = json.dumps(session_config, indent=2).encode("utf-8")
