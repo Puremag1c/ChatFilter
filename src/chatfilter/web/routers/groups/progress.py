@@ -15,6 +15,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
 from chatfilter.models.group import GroupStatus
+from chatfilter.web.dependencies import WebSession
+from chatfilter.web.session import get_session
 
 from .helpers import _get_group_service, _get_progress_tracker
 
@@ -70,6 +72,7 @@ def _sanitize_error_message(error: str | None) -> str:
 
 async def _generate_unified_sse_events(
     request: Request,
+    user_id: str = "",
 ) -> AsyncGenerator[str, None]:
     """Generate multiplexed SSE events for ALL active group analyses.
 
@@ -82,6 +85,7 @@ async def _generate_unified_sse_events(
 
     Args:
         request: FastAPI request for disconnect detection
+        user_id: Current user's ID for scoping groups
 
     Yields:
         SSE formatted event strings with group_id in data
@@ -90,8 +94,8 @@ async def _generate_unified_sse_events(
         service = _get_group_service()
         tracker = _get_progress_tracker()
 
-        # Find all groups with status=in_progress
-        all_groups = service.list_groups()
+        # Find all groups with status=in_progress (scoped to current user)
+        all_groups = service.list_groups(user_id=user_id or None)
         active_groups = [
             g for g in all_groups
             if g.status in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS)
@@ -153,7 +157,7 @@ async def _generate_unified_sse_events(
                 # Discover new active groups every 3s
                 if now - last_discovery >= DISCOVERY_INTERVAL:
                     try:
-                        current_groups = service.list_groups()
+                        current_groups = service.list_groups(user_id=user_id or None)
                         for g in current_groups:
                             if g.status in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS):
                                 if g.id not in subscriptions:
@@ -260,6 +264,7 @@ async def _generate_unified_sse_events(
 @router.get("/api/groups/events")
 async def get_unified_group_events(
     request: Request,
+    web_session: WebSession,
 ) -> StreamingResponse:
     """Unified SSE endpoint for streaming progress from ALL active groups.
 
@@ -276,8 +281,9 @@ async def get_unified_group_events(
         - ping: Heartbeat (every 15s)
         - error: Error message (includes group_id)
     """
+    user_id: str = web_session.get("user_id", "")
     return StreamingResponse(
-        _generate_unified_sse_events(request),
+        _generate_unified_sse_events(request, user_id=user_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

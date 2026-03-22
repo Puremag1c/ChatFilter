@@ -16,6 +16,7 @@ class GroupsMixin:
         status: str,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
+        user_id: str = "",
     ) -> None:
         """Save or update a chat group.
 
@@ -26,6 +27,7 @@ class GroupsMixin:
             status: Group status (pending/in_progress/paused/completed)
             created_at: Creation timestamp (default: now)
             updated_at: Last update timestamp (default: now)
+            user_id: Owner user identifier (default: empty string)
         """
         now = datetime.now(UTC)
         created = created_at or now
@@ -34,8 +36,8 @@ class GroupsMixin:
         with self._connection() as conn:
             conn.execute(
                 """
-                INSERT INTO chat_groups (id, name, settings, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO chat_groups (id, name, settings, status, created_at, updated_at, user_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     settings = excluded.settings,
@@ -49,23 +51,31 @@ class GroupsMixin:
                     status,
                     self._datetime_to_str(created),
                     self._datetime_to_str(updated),
+                    user_id,
                 ),
             )
 
-    def load_group(self, group_id: str) -> dict[str, Any] | None:
+    def load_group(self, group_id: str, user_id: str | None = None) -> dict[str, Any] | None:
         """Load a chat group by ID.
 
         Args:
             group_id: Group identifier
+            user_id: If provided, only return the group if it belongs to this user
 
         Returns:
             Group data as dict or None if not found
         """
         with self._connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM chat_groups WHERE id = ?",
-                (group_id,),
-            )
+            if user_id is not None:
+                cursor = conn.execute(
+                    "SELECT * FROM chat_groups WHERE id = ? AND user_id = ?",
+                    (group_id, user_id),
+                )
+            else:
+                cursor = conn.execute(
+                    "SELECT * FROM chat_groups WHERE id = ?",
+                    (group_id,),
+                )
             row = cursor.fetchone()
 
             if not row:
@@ -79,10 +89,11 @@ class GroupsMixin:
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
                 "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
+                "user_id": row["user_id"],
             }
 
     def load_all_groups(self) -> list[dict[str, Any]]:
-        """Load all chat groups.
+        """Load all chat groups (all users, for internal/engine use).
 
         Returns:
             List of group data dicts, sorted by creation time (newest first)
@@ -102,6 +113,7 @@ class GroupsMixin:
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
                 "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
+                "user_id": row["user_id"],
             }
             for row in rows
         ]
@@ -150,16 +162,23 @@ class GroupsMixin:
 
             return self._str_to_datetime(row["analysis_started_at"])
 
-    def delete_group(self, group_id: str) -> None:
+    def delete_group(self, group_id: str, user_id: str | None = None) -> None:
         """Delete a chat group and all associated data.
 
         Removes the group and all related chats and results via CASCADE.
 
         Args:
             group_id: Group identifier
+            user_id: If provided, only delete the group if it belongs to this user
         """
         with self._connection() as conn:
-            conn.execute("DELETE FROM chat_groups WHERE id = ?", (group_id,))
+            if user_id is not None:
+                conn.execute(
+                    "DELETE FROM chat_groups WHERE id = ? AND user_id = ?",
+                    (group_id, user_id),
+                )
+            else:
+                conn.execute("DELETE FROM chat_groups WHERE id = ?", (group_id,))
 
     def update_status_atomic(
         self,

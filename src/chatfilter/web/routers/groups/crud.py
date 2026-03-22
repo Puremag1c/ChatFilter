@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
 from chatfilter.models.group import GroupSettings
+from chatfilter.web.dependencies import WebSession
 from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import (
@@ -31,6 +32,7 @@ router = APIRouter()
 @router.post("/api/groups", response_class=HTMLResponse)
 async def create_group(
     request: Request,
+    web_session: WebSession,
     name: Annotated[str, Form()],
     source_type: Annotated[str, Form()],  # 'file_upload' | 'google_sheets' | 'file_url'
     file_upload: Annotated[UploadFile | None, File()] = None,
@@ -209,7 +211,8 @@ async def create_group(
         # Create group via GroupService
         service = _get_group_service()
         chat_refs = [entry.value for entry in chat_entries]
-        group = service.create_group(name.strip(), chat_refs)
+        user_id: str = web_session.get("user_id", "")
+        group = service.create_group(name.strip(), chat_refs, user_id=user_id)
 
         # Get group stats for card rendering
         stats = service.get_group_stats(group.id)
@@ -231,13 +234,14 @@ async def create_group(
 
 
 @router.get("/api/groups", response_class=HTMLResponse)
-async def list_groups(request: Request) -> HTMLResponse:
+async def list_groups(request: Request, web_session: WebSession) -> HTMLResponse:
     """List all chat groups.
 
     Returns HTML partial with list of group cards for HTMX swap.
 
     Args:
         request: FastAPI request object
+        web_session: User's web session
 
     Returns:
         HTML partial with groups list
@@ -248,7 +252,8 @@ async def list_groups(request: Request) -> HTMLResponse:
 
     try:
         service = _get_group_service()
-        groups = service.list_groups()
+        user_id: str = web_session.get("user_id", "")
+        groups = service.list_groups(user_id=user_id)
 
         # Get stats for each group
         groups_with_stats = []
@@ -271,11 +276,12 @@ async def list_groups(request: Request) -> HTMLResponse:
 
 
 @router.get("/api/groups/{group_id}", response_class=HTMLResponse)
-async def get_group(request: Request, group_id: str) -> HTMLResponse:
+async def get_group(request: Request, web_session: WebSession, group_id: str) -> HTMLResponse:
     """Get group details.
 
     Args:
         request: FastAPI request object
+        web_session: User's web session
         group_id: Group identifier
 
     Returns:
@@ -287,7 +293,8 @@ async def get_group(request: Request, group_id: str) -> HTMLResponse:
 
     try:
         service = _get_group_service()
-        group = service.get_group(group_id)
+        user_id: str = web_session.get("user_id", "")
+        group = service.get_group(group_id, user_id=user_id)
 
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
@@ -313,6 +320,7 @@ async def get_group(request: Request, group_id: str) -> HTMLResponse:
 @router.patch("/api/groups/{group_id}", response_class=HTMLResponse)
 async def update_group(
     request: Request,
+    web_session: WebSession,
     group_id: str,
     name: Annotated[str, Form()],
 ) -> HTMLResponse:
@@ -322,6 +330,7 @@ async def update_group(
 
     Args:
         request: FastAPI request object
+        web_session: User's web session
         group_id: Group identifier
         name: New group name
 
@@ -366,10 +375,11 @@ async def update_group(
 
 
 @router.delete("/api/groups/{group_id}", response_class=HTMLResponse)
-async def delete_group(group_id: str) -> HTMLResponse:
+async def delete_group(web_session: WebSession, group_id: str) -> HTMLResponse:
     """Delete a chat group.
 
     Args:
+        web_session: User's web session
         group_id: Group identifier
 
     Returns:
@@ -377,7 +387,8 @@ async def delete_group(group_id: str) -> HTMLResponse:
     """
     try:
         service = _get_group_service()
-        service.delete_group(group_id)
+        user_id: str = web_session.get("user_id", "")
+        service.delete_group(group_id, user_id=user_id)
 
         # Return empty response with HX-Trigger header to refresh the container
         return HTMLResponse(content="", status_code=200, headers={'HX-Trigger': 'refreshGroups'})
@@ -392,6 +403,7 @@ async def delete_group(group_id: str) -> HTMLResponse:
 @router.put("/api/groups/{group_id}/settings", response_class=HTMLResponse)
 async def update_group_settings(
     request: Request,
+    web_session: WebSession,
     group_id: str,
     detect_chat_type: Annotated[bool, Form()] = False,
     detect_subscribers: Annotated[bool, Form()] = False,

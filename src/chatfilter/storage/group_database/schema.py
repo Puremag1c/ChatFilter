@@ -110,6 +110,11 @@ class SchemaMixin:
             self._migrate_to_v5_refactor(conn)
             conn.execute("PRAGMA user_version = 5")
 
+        # Migration 6: Add user_id column to chat_groups for per-user data isolation
+        if current_version < 6:
+            self._migrate_to_v6_add_user_id(conn)
+            conn.execute("PRAGMA user_version = 6")
+
         # CLEANUP: Drop group_results table if it still exists (for databases that were
         # migrated to v5 before the DROP TABLE logic was added to _migrate_to_v5_refactor)
         cursor = conn.execute(
@@ -398,3 +403,22 @@ class SchemaMixin:
         cursor = conn.execute("SELECT COUNT(*) as count FROM group_chats")
         chats_count = cursor.fetchone()[0]
         logger.info(f"Migration v5 complete: {chats_count} chats in group_chats table")
+
+    def _migrate_to_v6_add_user_id(self, conn: Any) -> None:
+        """Migration v6: Add user_id column to chat_groups for per-user data isolation.
+
+        Existing groups get user_id = '' (empty string), meaning they belong to no
+        specific user. New groups will have user_id set to the creating user's ID.
+
+        Args:
+            conn: Active database connection
+        """
+        cursor = conn.execute("PRAGMA table_info(chat_groups)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if "user_id" not in columns:
+            conn.execute("ALTER TABLE chat_groups ADD COLUMN user_id TEXT NOT NULL DEFAULT ''")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_chat_groups_user_id ON chat_groups (user_id)"
+            )
+            logger.info("Migration v6: added user_id column to chat_groups")

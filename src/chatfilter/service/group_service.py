@@ -57,6 +57,7 @@ class GroupService:
         name: str,
         chat_refs: list[str],
         settings: GroupSettings | None = None,
+        user_id: str = "",
     ) -> ChatGroup:
         """Create a new chat group.
 
@@ -102,6 +103,7 @@ class GroupService:
             status=GroupStatus.PENDING.value,
             created_at=now,
             updated_at=now,
+            user_id=user_id,
         )
 
         # Parse and save chat references
@@ -128,11 +130,12 @@ class GroupService:
             updated_at=now,
         )
 
-    def get_group(self, group_id: str) -> ChatGroup | None:
+    def get_group(self, group_id: str, user_id: str | None = None) -> ChatGroup | None:
         """Get a chat group by ID.
 
         Args:
             group_id: Group identifier.
+            user_id: If provided, only return the group if it belongs to this user.
 
         Returns:
             ChatGroup instance or None if not found.
@@ -142,7 +145,7 @@ class GroupService:
             >>> if group:
             ...     print(group.name)
         """
-        group_data = self._db.load_group(group_id)
+        group_data = self._db.load_group(group_id, user_id=user_id)
         if not group_data:
             return None
 
@@ -174,8 +177,11 @@ class GroupService:
             updated_at=group_data["updated_at"],
         )
 
-    def list_groups(self) -> list[ChatGroup]:
-        """List all chat groups.
+    def list_groups(self, user_id: str | None = None) -> list[ChatGroup]:
+        """List chat groups.
+
+        Args:
+            user_id: If provided, only return groups belonging to this user.
 
         Returns:
             List of ChatGroup instances, sorted by creation time (newest first).
@@ -186,7 +192,7 @@ class GroupService:
             ...     print(f"{group.name}: {group.chat_count} chats")
         """
         # Use optimized query that fetches groups with counts in single DB roundtrip
-        groups_data = self._db.load_all_groups_with_stats()
+        groups_data = self._db.load_all_groups_with_stats(user_id=user_id)
 
         groups = []
         for group_data in groups_data:
@@ -250,6 +256,7 @@ class GroupService:
             status=group_data["status"],
             created_at=group_data["created_at"],
             updated_at=datetime.now(UTC),
+            user_id=group_data.get("user_id", ""),
         )
 
         return settings
@@ -307,7 +314,11 @@ class GroupService:
             >>> group.name
             'New Name'
         """
-        # Load existing group
+        # Load raw data to preserve user_id
+        raw = self._db.load_group(group_id)
+        if not raw:
+            return None
+
         group = self.get_group(group_id)
         if not group:
             return None
@@ -320,6 +331,7 @@ class GroupService:
             status=group.status.value,
             created_at=group.created_at,
             updated_at=datetime.now(UTC),
+            user_id=raw.get("user_id", ""),
         )
 
         # Reload and return updated group
@@ -340,7 +352,11 @@ class GroupService:
             >>> group.status
             <GroupStatus.IN_PROGRESS: 'in_progress'>
         """
-        # Load existing group
+        # Load raw data to preserve user_id
+        raw = self._db.load_group(group_id)
+        if not raw:
+            return None
+
         group = self.get_group(group_id)
         if not group:
             return None
@@ -353,23 +369,25 @@ class GroupService:
             status=new_status.value,
             created_at=group.created_at,
             updated_at=datetime.now(UTC),
+            user_id=raw.get("user_id", ""),
         )
 
         # Reload and return updated group
         return self.get_group(group_id)
 
-    def delete_group(self, group_id: str) -> None:
+    def delete_group(self, group_id: str, user_id: str | None = None) -> None:
         """Delete a chat group.
 
         Removes group and all associated chats and results (CASCADE).
 
         Args:
             group_id: Group identifier.
+            user_id: If provided, only delete the group if it belongs to this user.
 
         Example:
             >>> service.delete_group("group-123")
         """
-        self._db.delete_group(group_id)
+        self._db.delete_group(group_id, user_id=user_id)
 
     def start_analysis(self, group_id: str) -> None:
         """Start group analysis in background.
@@ -400,6 +418,7 @@ class GroupService:
                 status=GroupStatus.PENDING.value,
                 created_at=group_data["created_at"],
                 updated_at=datetime.now(UTC),
+                user_id=group_data.get("user_id", ""),
             )
 
         self.update_status(group_id, GroupStatus.IN_PROGRESS)

@@ -8,6 +8,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from chatfilter.web.dependencies import WebSession
+
 from .helpers import _get_group_service
 
 router = APIRouter()
@@ -35,7 +37,7 @@ async def get_create_group_modal(request: Request) -> HTMLResponse:
 
 
 @router.get("/api/groups/modal/settings/{group_id}", response_class=HTMLResponse)
-async def get_settings_modal(request: Request, group_id: str) -> HTMLResponse:
+async def get_settings_modal(request: Request, web_session: WebSession, group_id: str) -> HTMLResponse:
     """Get group settings modal HTML.
 
     Args:
@@ -54,7 +56,8 @@ async def get_settings_modal(request: Request, group_id: str) -> HTMLResponse:
 
     try:
         service = _get_group_service()
-        group = service.get_group(group_id)
+        user_id: str = web_session.get("user_id", "")
+        group = service.get_group(group_id, user_id=user_id)
 
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
@@ -76,7 +79,7 @@ async def get_settings_modal(request: Request, group_id: str) -> HTMLResponse:
 
 
 @router.get("/api/groups/modal/reanalyze-confirm/{group_id}", response_class=HTMLResponse)
-async def get_reanalyze_confirm_modal(request: Request, group_id: str) -> HTMLResponse:
+async def get_reanalyze_confirm_modal(request: Request, web_session: WebSession, group_id: str) -> HTMLResponse:
     """Get re-analysis confirmation modal HTML.
 
     Args:
@@ -95,7 +98,8 @@ async def get_reanalyze_confirm_modal(request: Request, group_id: str) -> HTMLRe
 
     try:
         service = _get_group_service()
-        group = service.get_group(group_id)
+        user_id: str = web_session.get("user_id", "")
+        group = service.get_group(group_id, user_id=user_id)
 
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
@@ -117,7 +121,7 @@ async def get_reanalyze_confirm_modal(request: Request, group_id: str) -> HTMLRe
 
 
 @router.get("/api/groups/{group_id}/export/modal", response_class=HTMLResponse)
-async def get_export_modal(request: Request, group_id: str) -> HTMLResponse:
+async def get_export_modal(request: Request, web_session: WebSession, group_id: str) -> HTMLResponse:
     """Get export filter modal HTML.
 
     Args:
@@ -136,7 +140,8 @@ async def get_export_modal(request: Request, group_id: str) -> HTMLResponse:
 
     try:
         service = _get_group_service()
-        group = service.get_group(group_id)
+        user_id: str = web_session.get("user_id", "")
+        group = service.get_group(group_id, user_id=user_id)
 
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")

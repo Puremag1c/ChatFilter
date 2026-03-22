@@ -16,6 +16,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
 
 from chatfilter.exporter.csv import export_group_results_to_csv
+from chatfilter.web.dependencies import WebSession
 
 from .helpers import (
     _get_group_service,
@@ -143,6 +144,7 @@ def _apply_export_filters(
 
 @router.get("/api/groups/{group_id}/export/preview", response_class=HTMLResponse)
 async def preview_export_count(
+    web_session: WebSession,
     group_id: str,
     chat_types: list[str] | None = Query(None),
     subscribers_min: str | None = None,
@@ -185,9 +187,10 @@ async def preview_export_count(
     parsed_authors_min = parse_optional_float(authors_min)
     parsed_authors_max = parse_optional_float(authors_max)
 
-    # Verify group exists
+    # Verify group exists and belongs to this user
     service = _get_group_service()
-    group = service.get_group(group_id)
+    user_id: str = web_session.get("user_id", "")
+    group = service.get_group(group_id, user_id=user_id)
 
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -224,6 +227,7 @@ async def preview_export_count(
 
 @router.get("/api/groups/{group_id}/export")
 async def export_group_results(
+    web_session: WebSession,
     group_id: str,
     chat_types: list[str] | None = Query(None),
     subscribers_min: str | None = None,
@@ -268,7 +272,8 @@ async def export_group_results(
 
     # Verify group exists and load settings
     service = _get_group_service()
-    group = service.get_group(group_id)
+    user_id: str = web_session.get("user_id", "")
+    group = service.get_group(group_id, user_id=user_id)
 
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")

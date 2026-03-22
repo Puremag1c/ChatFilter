@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 
 from chatfilter.models.group import AnalysisMode, GroupStatus
 from chatfilter.telegram.session.models import SessionState
+from chatfilter.web.dependencies import WebSession
 from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import _get_group_service
@@ -22,6 +23,7 @@ router = APIRouter()
 @router.post("/api/groups/{group_id}/start", response_class=HTMLResponse)
 async def start_group_analysis(
     request: Request,
+    web_session: WebSession,
     group_id: str,
 ) -> HTMLResponse:
     """Start group analysis.
@@ -46,9 +48,10 @@ async def start_group_analysis(
     try:
         service = _get_group_service(request)
         session_mgr = request.app.state.app_state.session_manager
+        user_id: str = web_session.get("user_id", "")
 
-        # Verify group exists
-        group = service.get_group(group_id)
+        # Verify group exists and belongs to this user
+        group = service.get_group(group_id, user_id=user_id)
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
@@ -100,6 +103,7 @@ async def start_group_analysis(
 @router.post("/api/groups/{group_id}/reanalyze", response_class=HTMLResponse)
 async def reanalyze_group(
     request: Request,
+    web_session: WebSession,
     group_id: str,
     mode: str = Query(..., pattern="^(increment|overwrite)$"),
 ) -> HTMLResponse:
@@ -129,9 +133,10 @@ async def reanalyze_group(
     try:
         service = _get_group_service(request)
         session_mgr = request.app.state.app_state.session_manager
+        user_id: str = web_session.get("user_id", "")
 
-        # Verify group exists and check status
-        group = service.get_group(group_id)
+        # Verify group exists and belongs to this user
+        group = service.get_group(group_id, user_id=user_id)
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
@@ -192,6 +197,7 @@ async def reanalyze_group(
 @router.post("/api/groups/{group_id}/stop", response_class=HTMLResponse)
 async def stop_group_analysis(
     request: Request,
+    web_session: WebSession,
     group_id: str,
 ) -> HTMLResponse:
     """Stop group analysis.
@@ -214,6 +220,12 @@ async def stop_group_analysis(
 
     try:
         service = _get_group_service(request)
+        user_id: str = web_session.get("user_id", "")
+
+        # Verify group exists and belongs to this user
+        group = service.get_group(group_id, user_id=user_id)
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
 
         # Stop analysis via service (cancels task, updates status)
         service.stop_analysis(group_id)
@@ -234,6 +246,7 @@ async def stop_group_analysis(
 @router.post("/api/groups/{group_id}/resume", response_class=HTMLResponse)
 async def resume_group_analysis(
     request: Request,
+    web_session: WebSession,
     group_id: str,
 ) -> HTMLResponse:
     """Resume paused group analysis.
@@ -260,9 +273,10 @@ async def resume_group_analysis(
     try:
         service = _get_group_service(request)
         session_mgr = request.app.state.app_state.session_manager
+        user_id: str = web_session.get("user_id", "")
 
-        # Verify group exists
-        group = service.get_group(group_id)
+        # Verify group exists and belongs to this user
+        group = service.get_group(group_id, user_id=user_id)
         if not group:
             trigger_data = json.dumps({
                 "refreshGroups": None,

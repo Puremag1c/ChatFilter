@@ -120,31 +120,57 @@ class StatsMixin:
             "skipped_moderation": skipped_moderation,
         }
 
-    def load_all_groups_with_stats(self) -> list[dict[str, Any]]:
-        """Load all chat groups with their chat counts in a single query.
+    def load_all_groups_with_stats(self, user_id: str | None = None) -> list[dict[str, Any]]:
+        """Load chat groups with their chat counts in a single query.
 
         Optimized version of load_all_groups that avoids N+1 queries by
         joining with group_chats to get counts in a single database roundtrip.
+
+        Args:
+            user_id: If provided, only return groups belonging to this user
 
         Returns:
             List of group data dicts with 'chat_count' field, sorted by creation time (newest first)
         """
         with self._connection() as conn:
-            cursor = conn.execute("""
-                SELECT
-                    g.id,
-                    g.name,
-                    g.settings,
-                    g.status,
-                    g.created_at,
-                    g.updated_at,
-                    g.analysis_started_at,
-                    COUNT(gc.id) as chat_count
-                FROM chat_groups g
-                LEFT JOIN group_chats gc ON g.id = gc.group_id
-                GROUP BY g.id
-                ORDER BY g.created_at DESC
-            """)
+            if user_id is not None:
+                cursor = conn.execute(
+                    """
+                    SELECT
+                        g.id,
+                        g.name,
+                        g.settings,
+                        g.status,
+                        g.created_at,
+                        g.updated_at,
+                        g.analysis_started_at,
+                        g.user_id,
+                        COUNT(gc.id) as chat_count
+                    FROM chat_groups g
+                    LEFT JOIN group_chats gc ON g.id = gc.group_id
+                    WHERE g.user_id = ?
+                    GROUP BY g.id
+                    ORDER BY g.created_at DESC
+                    """,
+                    (user_id,),
+                )
+            else:
+                cursor = conn.execute("""
+                    SELECT
+                        g.id,
+                        g.name,
+                        g.settings,
+                        g.status,
+                        g.created_at,
+                        g.updated_at,
+                        g.analysis_started_at,
+                        g.user_id,
+                        COUNT(gc.id) as chat_count
+                    FROM chat_groups g
+                    LEFT JOIN group_chats gc ON g.id = gc.group_id
+                    GROUP BY g.id
+                    ORDER BY g.created_at DESC
+                """)
             rows = cursor.fetchall()
 
         return [
@@ -157,6 +183,7 @@ class StatsMixin:
                 "updated_at": self._str_to_datetime(row["updated_at"]),
                 "chat_count": row["chat_count"],
                 "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
+                "user_id": row["user_id"],
             }
             for row in rows
         ]

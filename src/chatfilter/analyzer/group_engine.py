@@ -131,6 +131,7 @@ class GroupAnalysisEngine:
                 status=GroupStatus.PAUSED.value,
                 created_at=group["created_at"],
                 updated_at=datetime.now(UTC),
+                user_id=group.get("user_id", ""),
             )
             logger.info(f"Recovered stale group '{group['name']}' ({gid}) → paused")
 
@@ -231,6 +232,7 @@ class GroupAnalysisEngine:
                     status=GroupStatus.WAITING_FOR_ACCOUNTS.value,
                     created_at=group_data["created_at"],
                     updated_at=datetime.now(UTC),
+                    user_id=group_data.get("user_id", ""),
                 )
 
             event = GroupProgressEvent(
