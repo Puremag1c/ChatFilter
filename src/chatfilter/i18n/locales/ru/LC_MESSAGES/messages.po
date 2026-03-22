@@ -2288,6 +2288,47 @@ msgstr "Ожидание"
 msgid "waiting_for_accounts"
 msgstr "Ожидание аккаунтов"
 
+#: src/chatfilter/templates/admin.html:7
+msgid "Admin Panel"
+msgstr "Панель администратора"
+
+#: src/chatfilter/templates/admin.html:8
+msgid "User management"
+msgstr "Управление пользователями"
+
+#: src/chatfilter/templates/admin.html:26
+msgid "Create User"
+msgstr "Создать пользователя"
+
+#: src/chatfilter/templates/admin.html:31
+#: src/chatfilter/templates/partials/admin_users.html:5
+msgid "Username"
+msgstr "Имя пользователя"
+
+#: src/chatfilter/templates/admin.html:40
+msgid "Create"
+msgstr "Создать"
+
+#: src/chatfilter/templates/admin.html:46
+msgid "Users"
+msgstr "Пользователи"
+
+#: src/chatfilter/templates/partials/admin_users.html:6
+msgid "Admin"
+msgstr "Администратор"
+
+#: src/chatfilter/templates/partials/admin_users.html:7
+msgid "Created"
+msgstr "Создан"
+
+#: src/chatfilter/templates/partials/admin_users.html:30
+msgid "Change Password"
+msgstr "Изменить пароль"
+
+#: src/chatfilter/templates/partials/admin_users.html:49
+msgid "No users found."
+msgstr "Пользователей не найдено."
+
 #. JS translation
 msgid "Success"
 msgstr "Успешно"
