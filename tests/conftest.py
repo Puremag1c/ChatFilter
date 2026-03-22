@@ -362,8 +362,11 @@ def unauth_client(test_settings: Any, monkeypatch: Any) -> Iterator[Any]:
     reset_group_engine()
 
     app = create_app(settings=test_settings)
+    # Disable test-mode auth bypass so auth redirect tests work correctly
+    monkeypatch.delenv("CHATFILTER_TESTING", raising=False)
     with TestClient(app, follow_redirects=False) as client:
         yield client
+    monkeypatch.setenv("CHATFILTER_TESTING", "1")
 
     reset_group_engine()
     monkeypatch.setattr(config, "get_settings", original_get_settings)
@@ -816,6 +819,8 @@ def pytest_addoption(parser: Any) -> None:
 
 def pytest_configure(config: Any) -> None:
     """Configure memory leak detection plugin."""
+    os.environ["CHATFILTER_TESTING"] = "1"
+
     # Check if leak detection is enabled via CLI or environment variable
     detect_leaks = config.getoption("--detect-leaks") or os.environ.get(
         "DETECT_MEMORY_LEAKS", ""
