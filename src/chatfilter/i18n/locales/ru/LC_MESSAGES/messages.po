@@ -203,7 +203,7 @@ msgstr "Перейти к основному содержимому"
 
 #: src/chatfilter/templates/base.html:34
 msgid "Main navigation"
-msgstr "загрузка конфигурации"
+msgstr "Основная навигация"
 
 #: src/chatfilter/templates/base.html:37
 #: src/chatfilter/templates/proxies.html:8
