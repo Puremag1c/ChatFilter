@@ -255,26 +255,54 @@ def test_settings(tmp_path: Any) -> Any:
     return Settings(data_dir=tmp_path / "test_data")
 
 
+def _setup_auth_session(test_settings: Any, username: str, is_admin: bool = False) -> tuple[str, str]:
+    """Create a user in the test DB and inject an authenticated session.
+
+    Returns (user_id, session_id) so the session cookie can be attached to
+    a TestClient.  Uses the global session store directly, which avoids the
+    CSRF-protected login flow.
+    """
+    from chatfilter.storage.user_database import get_user_db
+    from chatfilter.web.session import get_session_store
+
+    test_settings.data_dir.mkdir(parents=True, exist_ok=True)
+    db = get_user_db(test_settings.data_dir)
+
+    existing = db.get_user_by_username(username)
+    if existing:
+        user_id = existing["id"]
+    else:
+        user_id = db.create_user(username, "testpassword123", is_admin=is_admin)
+
+    store = get_session_store()
+    session = store.create_session()
+    session.set("user_id", user_id)
+    session.set("username", username)
+    session.set("is_admin", is_admin)
+    return user_id, session.session_id
+
+
 @pytest.fixture
 def fastapi_test_client(test_settings: Any, monkeypatch: Any) -> Iterator[Any]:
-    """Provide a FastAPI TestClient for web application tests with isolated DB.
+    """Provide an authenticated FastAPI TestClient for web application tests.
 
-    This fixture ensures tests use a temporary database instead of production DB.
-    The test_settings fixture provides data_dir override to tmp_path, and we
-    monkeypatch get_settings() to return test_settings for any code that calls it.
+    Creates an isolated test database and injects a regular-user session so
+    that routes protected by AuthMiddleware work without going through the
+    login flow.
 
     Args:
         test_settings: Test settings with isolated data_dir
         monkeypatch: pytest monkeypatch fixture
 
     Yields:
-        TestClient instance for the ChatFilter app
+        TestClient instance logged in as a regular (non-admin) user
     """
     from fastapi.testclient import TestClient
 
     from chatfilter import config
     from chatfilter.web.app import create_app
     from chatfilter.web.dependencies import reset_group_engine
+    from chatfilter.web.session import SESSION_COOKIE_NAME
 
     # Save original get_settings for restoration
     original_get_settings = config.get_settings
@@ -292,14 +320,90 @@ def fastapi_test_client(test_settings: Any, monkeypatch: Any) -> Iterator[Any]:
     # Reset any cached group engine from previous tests
     reset_group_engine()
 
+    _user_id, session_id = _setup_auth_session(test_settings, "testuser")
+
     app = create_app(settings=test_settings)
-    with TestClient(app) as client:
+    with TestClient(app, cookies={SESSION_COOKIE_NAME: session_id}) as client:
         yield client
 
     # Clean up after test
     reset_group_engine()
 
     # Restore original get_settings and clear cache
+    monkeypatch.setattr(config, "get_settings", original_get_settings)
+    if hasattr(original_get_settings, "cache_clear"):
+        original_get_settings.cache_clear()
+
+
+@pytest.fixture
+def unauth_client(test_settings: Any, monkeypatch: Any) -> Iterator[Any]:
+    """Provide an unauthenticated FastAPI TestClient.
+
+    Used for testing login page rendering, redirect-to-login behaviour,
+    and auth-failure responses.  No session cookie is attached.
+
+    Yields:
+        TestClient instance with no user credentials
+    """
+    from fastapi.testclient import TestClient
+
+    from chatfilter import config
+    from chatfilter.web.app import create_app
+    from chatfilter.web.dependencies import reset_group_engine
+
+    original_get_settings = config.get_settings
+    if hasattr(original_get_settings, "cache_clear"):
+        original_get_settings.cache_clear()
+
+    def mock_get_settings():
+        return test_settings
+
+    monkeypatch.setattr(config, "get_settings", mock_get_settings)
+    reset_group_engine()
+
+    app = create_app(settings=test_settings)
+    with TestClient(app, follow_redirects=False) as client:
+        yield client
+
+    reset_group_engine()
+    monkeypatch.setattr(config, "get_settings", original_get_settings)
+    if hasattr(original_get_settings, "cache_clear"):
+        original_get_settings.cache_clear()
+
+
+@pytest.fixture
+def admin_client(test_settings: Any, monkeypatch: Any) -> Iterator[Any]:
+    """Provide an admin-authenticated FastAPI TestClient.
+
+    Creates an admin user in the test database and injects an admin session.
+
+    Yields:
+        TestClient instance logged in as an admin user
+    """
+    from fastapi.testclient import TestClient
+
+    from chatfilter import config
+    from chatfilter.web.app import create_app
+    from chatfilter.web.dependencies import reset_group_engine
+    from chatfilter.web.session import SESSION_COOKIE_NAME
+
+    original_get_settings = config.get_settings
+    if hasattr(original_get_settings, "cache_clear"):
+        original_get_settings.cache_clear()
+
+    def mock_get_settings():
+        return test_settings
+
+    monkeypatch.setattr(config, "get_settings", mock_get_settings)
+    reset_group_engine()
+
+    _user_id, session_id = _setup_auth_session(test_settings, "adminuser", is_admin=True)
+
+    app = create_app(settings=test_settings)
+    with TestClient(app, cookies={SESSION_COOKIE_NAME: session_id}) as client:
+        yield client
+
+    reset_group_engine()
     monkeypatch.setattr(config, "get_settings", original_get_settings)
     if hasattr(original_get_settings, "cache_clear"):
         original_get_settings.cache_clear()
