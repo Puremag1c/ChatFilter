@@ -53,6 +53,22 @@ async def create_user(
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
+    if len(password) < 8:
+        db = _get_user_db(request)
+        users = db.list_users()
+        templates = get_templates()
+        return templates.TemplateResponse(
+            request=request,
+            name="admin.html",
+            context=get_template_context(
+                request,
+                version=__version__,
+                users=users,
+                error="Пароль должен содержать минимум 8 символов",
+            ),
+            status_code=422,
+        )
+
     db = _get_user_db(request)
 
     existing = db.get_user_by_username(username)
@@ -93,6 +109,9 @@ async def change_password(
 ) -> RedirectResponse | Response:
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
+
+    if len(password) < 8:
+        return Response(status_code=422, content="Пароль должен содержать минимум 8 символов")
 
     db = _get_user_db(request)
     db.update_password(user_id, password)
