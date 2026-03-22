@@ -244,12 +244,15 @@ async def check_proxy_health(proxy: ProxyEntry, timeout: float = HEALTH_CHECK_TI
         return False
 
 
-async def update_proxy_health(proxy: ProxyEntry, success: bool) -> ProxyEntry:
+async def update_proxy_health(
+    proxy: ProxyEntry, success: bool, user_id: str | None = None
+) -> ProxyEntry:
     """Update proxy health status in storage.
 
     Args:
         proxy: The proxy to update.
         success: Whether the health check was successful.
+        user_id: If provided, saves to per-user pool proxies_{user_id}.json.
 
     Returns:
         Updated ProxyEntry instance.
@@ -268,7 +271,7 @@ async def update_proxy_health(proxy: ProxyEntry, success: bool) -> ProxyEntry:
             logger.info(f"Proxy now working: {proxy.name} ({proxy.host}:{proxy.port})")
 
     # Save to storage (let errors propagate)
-    update_proxy(proxy.id, updated_proxy)
+    update_proxy(proxy.id, updated_proxy, user_id)
     return updated_proxy
 
 
@@ -324,7 +327,7 @@ async def check_all_proxies() -> dict[str, ProxyEntry]:
     return updated_proxies
 
 
-async def retest_proxy(proxy_id: str) -> ProxyEntry | None:
+async def retest_proxy(proxy_id: str, user_id: str | None = None) -> ProxyEntry | None:
     """Reset and retest a specific proxy.
 
     Resets the failure counter in-memory and performs a health check.
@@ -335,6 +338,7 @@ async def retest_proxy(proxy_id: str) -> ProxyEntry | None:
 
     Args:
         proxy_id: ID of the proxy to retest.
+        user_id: If provided, loads/saves from per-user pool proxies_{user_id}.json.
 
     Returns:
         Updated ProxyEntry, or None if proxy not found.
@@ -343,7 +347,7 @@ async def retest_proxy(proxy_id: str) -> ProxyEntry | None:
     from chatfilter.storage.proxy_pool import get_proxy_by_id
 
     try:
-        proxy = get_proxy_by_id(proxy_id)
+        proxy = get_proxy_by_id(proxy_id, user_id)
     except StorageNotFoundError:
         logger.warning(f"Proxy not found for retest: {proxy_id}")
         return None
@@ -351,9 +355,10 @@ async def retest_proxy(proxy_id: str) -> ProxyEntry | None:
     # Reset consecutive_failures in-memory only (don't save UNTESTED)
     reset_proxy = proxy.with_status_reset()
 
-    # Perform health check - this will save WORKING or NO_PING directly
+    # Perform health check and save result
     logger.info(f"Retesting proxy: {proxy.name} ({proxy.host}:{proxy.port})")
-    return await check_single_proxy(reset_proxy)
+    success = await check_proxy_health(reset_proxy)
+    return await update_proxy_health(reset_proxy, success, user_id)
 
 
 class ProxyHealthMonitor:

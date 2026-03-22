@@ -28,6 +28,7 @@ from chatfilter.storage.proxy_pool import (
     remove_proxy,
     update_proxy,
 )
+from chatfilter.web.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -161,14 +162,15 @@ def _get_sessions_using_proxy(proxy_id: str) -> list[str]:
 
 
 @router.get("/api/proxies", response_model=ProxyListResponse)
-async def list_proxies() -> ProxyListResponse:
+async def list_proxies(request: Request) -> ProxyListResponse:
     """List all proxies in the pool.
 
     Returns:
         ProxyListResponse with all proxies and count.
     """
+    user_id = get_session(request).get("user_id")
     try:
-        proxies = load_proxy_pool()
+        proxies = load_proxy_pool(user_id)
         proxy_responses = [_proxy_to_response(p) for p in proxies]
 
         return ProxyListResponse(
@@ -184,15 +186,17 @@ async def list_proxies() -> ProxyListResponse:
 
 
 @router.post("/api/proxies", response_model=ProxyCreateResponse)
-async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
+async def create_proxy(http_request: Request, request: ProxyCreateRequest) -> ProxyCreateResponse:
     """Create a new proxy in the pool.
 
     Args:
+        http_request: FastAPI request object (for session/user_id).
         request: Proxy creation request with name, type, host, port, and optional auth.
 
     Returns:
         ProxyCreateResponse with created proxy or error.
     """
+    user_id = get_session(http_request).get("user_id")
     try:
         # Validate proxy type
         try:
@@ -214,7 +218,7 @@ async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
         )
 
         # Add to pool
-        added_proxy = add_proxy(proxy)
+        added_proxy = add_proxy(proxy, user_id)
 
         logger.info(f"Created new proxy: {added_proxy.name} ({added_proxy.id})")
 
@@ -238,6 +242,7 @@ async def create_proxy(request: ProxyCreateRequest) -> ProxyCreateResponse:
 
 @router.put("/api/proxies/{proxy_id}", response_model=ProxyCreateResponse)
 async def update_proxy_endpoint(
+    http_request: Request,
     proxy_id: Annotated[
         str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
     ],
@@ -246,12 +251,14 @@ async def update_proxy_endpoint(
     """Update an existing proxy in the pool.
 
     Args:
+        http_request: FastAPI request object (for session/user_id).
         proxy_id: UUID of the proxy to update.
         request: Proxy update request with name, type, host, port, and optional auth.
 
     Returns:
         ProxyCreateResponse with updated proxy or error.
     """
+    user_id = get_session(http_request).get("user_id")
     try:
         # Validate proxy type
         try:
@@ -263,7 +270,7 @@ async def update_proxy_endpoint(
             )
 
         # Get existing proxy to preserve password if not provided
-        existing_proxy = get_proxy_by_id(proxy_id)
+        existing_proxy = get_proxy_by_id(proxy_id, user_id)
 
         # Use existing password if new one not provided
         password = request.password if request.password is not None else existing_proxy.password
@@ -280,7 +287,7 @@ async def update_proxy_endpoint(
         )
 
         # Update in pool
-        result = update_proxy(proxy_id, updated_proxy)
+        result = update_proxy(proxy_id, updated_proxy, user_id)
 
         logger.info(f"Updated proxy: {result.name} ({result.id})")
 
@@ -309,6 +316,7 @@ async def update_proxy_endpoint(
 
 @router.delete("/api/proxies/{proxy_id}", response_model=ProxyDeleteResponse)
 async def delete_proxy(
+    http_request: Request,
     proxy_id: Annotated[
         str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
     ],
@@ -319,11 +327,13 @@ async def delete_proxy(
     The frontend should warn the user before deletion if sessions are affected.
 
     Args:
+        http_request: FastAPI request object (for session/user_id).
         proxy_id: UUID of the proxy to delete.
 
     Returns:
         ProxyDeleteResponse with success status or error.
     """
+    user_id = get_session(http_request).get("user_id")
     try:
         # Log if proxy is in use (sessions will be affected)
         sessions_using = _get_sessions_using_proxy(proxy_id)
@@ -333,7 +343,7 @@ async def delete_proxy(
             )
 
         # Remove from pool
-        remove_proxy(proxy_id)
+        remove_proxy(proxy_id, user_id)
 
         logger.info(f"Deleted proxy: {proxy_id}")
 
@@ -379,7 +389,8 @@ async def retest_proxy_endpoint(
     from chatfilter.web.template_helpers import get_template_context
 
     try:
-        updated_proxy = await retest_proxy(proxy_id)
+        user_id = get_session(request).get("user_id")
+        updated_proxy = await retest_proxy(proxy_id, user_id)
 
         if updated_proxy is None:
             raise HTTPException(
@@ -448,8 +459,9 @@ async def list_proxies_html(request: Request) -> HTMLResponse:
     from chatfilter.web.app import get_templates
     from chatfilter.web.template_helpers import get_template_context
 
+    user_id = get_session(request).get("user_id")
     try:
-        proxies = load_proxy_pool()
+        proxies = load_proxy_pool(user_id)
 
         # Build response with usage count and health status for each proxy
         proxies_with_usage = []

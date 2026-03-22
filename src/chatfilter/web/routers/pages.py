@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
 from chatfilter.utils.paths import get_base_path
+from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 router = APIRouter(tags=["pages"])
@@ -26,8 +27,9 @@ async def index(request: Request) -> HTMLResponse:
     from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
 
+    user_id: str = get_session(request).get("user_id", "")
     templates = get_templates()
-    proxies = load_proxy_pool()
+    proxies = load_proxy_pool(user_id or None)
 
     return templates.TemplateResponse(
         request=request,

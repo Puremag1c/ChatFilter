@@ -14,6 +14,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.flood_tracker import get_flood_tracker
+from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import SessionListItem, _get_flood_wait_until
@@ -119,6 +120,7 @@ async def get_session_config(
     from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
 
+    user_id: str = get_session(request).get("user_id", "")
     templates = get_templates()
 
     try:
@@ -149,7 +151,7 @@ async def get_session_config(
             logger.warning(f"Failed to read config for session {safe_name}: {e}")
 
     # Load proxy pool
-    proxies = load_proxy_pool()
+    proxies = load_proxy_pool(user_id or None)
 
     return templates.TemplateResponse(
         request=request,
@@ -178,6 +180,7 @@ async def update_session_config(
     Updates api_id, api_hash, and proxy_id for a session.
     All fields are required.
     """
+    user_id: str = get_session(request).get("user_id", "")
     try:
         safe_name = sanitize_session_name(session_id)
     except ValueError as e:
@@ -221,7 +224,7 @@ async def update_session_config(
     from chatfilter.storage.proxy_pool import get_proxy_by_id
 
     try:
-        get_proxy_by_id(proxy_id)
+        get_proxy_by_id(proxy_id, user_id or None)
     except StorageNotFoundError:
         return HTMLResponse(
             content='<div class="alert alert-error">Selected proxy not found in pool</div>',
@@ -250,7 +253,7 @@ async def update_session_config(
 
         # Get proxy for validation
         try:
-            proxy_entry = get_proxy_by_id(proxy_id)
+            proxy_entry = get_proxy_by_id(proxy_id, user_id or None)
         except StorageNotFoundError:
             return HTMLResponse(
                 content='<div class="alert alert-error">Selected proxy not found</div>',
@@ -356,6 +359,7 @@ async def update_session_credentials(
     Updates api_id and api_hash for a session that was created without credentials
     (e.g., from phone auth flow). Does not change proxy_id or other fields.
     """
+    user_id: str = get_session(request).get("user_id", "")
     try:
         safe_name = sanitize_session_name(session_id)
     except ValueError as e:
@@ -418,7 +422,7 @@ async def update_session_credentials(
             )
 
         try:
-            proxy_entry = get_proxy_by_id(proxy_id)
+            proxy_entry = get_proxy_by_id(proxy_id, user_id or None)
         except StorageNotFoundError:
             return HTMLResponse(
                 content='<div class="alert alert-error">Session proxy not found in pool</div>',
@@ -548,8 +552,9 @@ async def get_auth_form(request: Request) -> HTMLResponse:
     from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
 
+    user_id: str = get_session(request).get("user_id", "")
     templates = get_templates()
-    proxies = load_proxy_pool()
+    proxies = load_proxy_pool(user_id or None)
 
     return templates.TemplateResponse(
         request=request,
