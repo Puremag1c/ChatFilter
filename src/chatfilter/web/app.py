@@ -23,6 +23,7 @@ from chatfilter.web.middleware import (
     SecurityHeadersMiddleware,
     SessionMiddleware,
 )
+from chatfilter.web.routers.admin import router as admin_router
 from chatfilter.web.routers.auth import router as auth_router
 from chatfilter.web.routers.chatlist import router as chatlist_router
 from chatfilter.web.routers.chats import router as chats_router
@@ -355,6 +356,7 @@ def create_app(
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     # Include routers
+    app.include_router(admin_router)
     app.include_router(auth_router)
     app.include_router(health_router)
     app.include_router(export_router)
