@@ -55,7 +55,7 @@ class TestSaveNotConnect:
         # Mock ensure_data_dir to use tmp_path
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         # Mock TelegramClient to verify it's NOT called
@@ -108,7 +108,7 @@ class TestSaveNotConnect:
         """
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         # Save minimal session
@@ -139,7 +139,7 @@ class TestSaveNotConnect:
         """
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         # Mock TelegramClient to verify it's NOT called
@@ -190,7 +190,7 @@ class TestSaveNotConnect:
         """
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         # Mock all Telegram-related modules
@@ -241,7 +241,7 @@ class TestSaveNotConnect:
         """
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         # Mock TelegramClient to verify it's NOT called

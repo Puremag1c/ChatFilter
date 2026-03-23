@@ -40,7 +40,7 @@ class TestStartAuthFlowValidation:
         # Mock ensure_data_dir to use tmp_path
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -60,7 +60,7 @@ class TestStartAuthFlowValidation:
         """Test that empty api_id and api_hash are accepted (SPEC allows this)."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -79,7 +79,7 @@ class TestStartAuthFlowValidation:
         """Test that api_id without api_hash is rejected."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -99,7 +99,7 @@ class TestStartAuthFlowValidation:
         """Test that api_hash without api_id is rejected."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -119,7 +119,7 @@ class TestStartAuthFlowValidation:
         """Test that api_id <= 0 is rejected."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -139,7 +139,7 @@ class TestStartAuthFlowValidation:
         """Test that negative api_id is rejected."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -159,7 +159,7 @@ class TestStartAuthFlowValidation:
         """Test that invalid api_hash format is rejected."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -179,7 +179,7 @@ class TestStartAuthFlowValidation:
         """Test that api_hash shorter than 32 chars is rejected."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
@@ -199,7 +199,7 @@ class TestStartAuthFlowValidation:
         """Test that api_hash with non-hex characters is rejected."""
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
-            lambda: tmp_path,
+            lambda user_id: tmp_path,
         )
 
         response = client.post(
