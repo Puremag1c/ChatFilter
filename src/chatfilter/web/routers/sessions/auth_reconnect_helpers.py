@@ -52,7 +52,7 @@ async def _finalize_reconnect_auth(
     Raises:
         FileNotFoundError: If session directory doesn't exist
     """
-    session_dir = _sessions_pkg.ensure_data_dir() / safe_name
+    session_dir = _sessions_pkg.ensure_data_dir(auth_state.web_user_id) / safe_name
     if not session_dir.exists():
         await auth_manager.remove_auth_state(auth_state.auth_id)
         raise FileNotFoundError(f"Session directory not found for '{safe_name}'")
@@ -250,7 +250,7 @@ async def _attempt_auto_2fa_login(
 
     from .auth_device import _check_device_confirmation, _handle_needs_confirmation
 
-    session_dir = _sessions_pkg.ensure_data_dir() / safe_name
+    session_dir = _sessions_pkg.ensure_data_dir(auth_state.web_user_id) / safe_name
     session_path = session_dir / "session.session"
     manager = SecureCredentialManager(session_dir)
 

@@ -255,7 +255,7 @@ async def verify_code(
 
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
         # Proxy connection failure
-        session_dir = ensure_data_dir() / safe_name
+        session_dir = ensure_data_dir(auth_state.web_user_id) / safe_name
         account_info = load_account_info(session_dir) or {}
         account_info["status"] = "needs_config"
         account_info[
@@ -281,7 +281,7 @@ async def verify_code(
 
     except TimeoutError:
         # Update session state to needs_config for timeout
-        session_dir = ensure_data_dir() / safe_name
+        session_dir = ensure_data_dir(auth_state.web_user_id) / safe_name
         account_info = load_account_info(session_dir) or {}
         account_info["status"] = "needs_config"
         account_info["error_message"] = "Proxy connection timeout during code verification"
@@ -555,7 +555,7 @@ async def verify_2fa(
 
     except (OSError, ConnectionError, ConnectionRefusedError) as e:
         # Proxy connection failure
-        session_dir = ensure_data_dir() / safe_name
+        session_dir = ensure_data_dir(auth_state.web_user_id) / safe_name
         account_info = load_account_info(session_dir) or {}
         account_info["status"] = "needs_config"
         account_info[
@@ -581,7 +581,7 @@ async def verify_2fa(
 
     except TimeoutError:
         # Update session state to needs_config for timeout
-        session_dir = ensure_data_dir() / safe_name
+        session_dir = ensure_data_dir(auth_state.web_user_id) / safe_name
         account_info = load_account_info(session_dir) or {}
         account_info["status"] = "needs_config"
         account_info["error_message"] = "Proxy connection timeout during 2FA verification"
