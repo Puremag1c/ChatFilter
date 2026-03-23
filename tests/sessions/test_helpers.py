@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
+    ensure_data_dir,
     read_upload_with_size_limit,
     sanitize_session_name,
     validate_account_info_json,
@@ -197,7 +198,7 @@ class TestDeleteSessionClearsFloodWait:
         session_name = "test_flood_session"
 
         # Setup: create session directory so delete doesn't 404
-        session_dir = clean_data_dir / session_name
+        session_dir = clean_data_dir / "default" / session_name
         session_dir.mkdir(parents=True)
         (session_dir / "session.session").write_bytes(b"fake")
 
@@ -233,7 +234,7 @@ class TestDeleteSessionClearsFloodWait:
         session_name = "test_no_flood_session"
 
         # Setup: create session directory
-        session_dir = clean_data_dir / session_name
+        session_dir = clean_data_dir / "default" / session_name
         session_dir.mkdir(parents=True)
         (session_dir / "session.session").write_bytes(b"fake")
 
@@ -251,4 +252,46 @@ class TestDeleteSessionClearsFloodWait:
         )
 
         assert response.status_code == 200
+
+
+class TestEnsureDataDirPathTraversal:
+    """Tests that ensure_data_dir rejects path traversal user_id values."""
+
+    def test_rejects_dot_dot(self, tmp_path: Path) -> None:
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock:
+            mock.return_value.sessions_dir = tmp_path
+            with pytest.raises(ValueError):
+                ensure_data_dir("..")
+
+    def test_rejects_slash(self, tmp_path: Path) -> None:
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock:
+            mock.return_value.sessions_dir = tmp_path
+            with pytest.raises(ValueError):
+                ensure_data_dir("user/../../etc/passwd")
+
+    def test_rejects_backslash(self, tmp_path: Path) -> None:
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock:
+            mock.return_value.sessions_dir = tmp_path
+            with pytest.raises(ValueError):
+                ensure_data_dir("user\\evil")
+
+    def test_rejects_empty(self, tmp_path: Path) -> None:
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock:
+            mock.return_value.sessions_dir = tmp_path
+            with pytest.raises(ValueError):
+                ensure_data_dir("")
+
+    def test_valid_user_id_creates_dir(self, tmp_path: Path) -> None:
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock:
+            mock.return_value.sessions_dir = tmp_path
+            result = ensure_data_dir("user-123_abc")
+            assert result == tmp_path / "user-123_abc"
+            assert result.is_dir()
+
+    def test_valid_int_user_id(self, tmp_path: Path) -> None:
+        with patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock:
+            mock.return_value.sessions_dir = tmp_path
+            result = ensure_data_dir(42)
+            assert result == tmp_path / "42"
+            assert result.is_dir()
 

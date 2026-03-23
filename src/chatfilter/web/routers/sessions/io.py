@@ -34,18 +34,13 @@ MAX_CONFIG_SIZE = 1024  # 1 KB
 READ_CHUNK_SIZE = 8192  # 8 KB chunks
 
 
-def ensure_data_dir(user_id: str | int | None = None) -> Path:
-    """Ensure sessions directory exists with proper permissions.
-
-    Args:
-        user_id: If provided, returns user-scoped directory (sessions_dir / user_id).
-                 If None, returns base sessions_dir (for migrations only).
-    """
+def ensure_data_dir(user_id: str | int) -> Path:
+    """Ensure user-scoped sessions directory exists with proper permissions."""
+    uid = str(user_id)
+    if not uid or "/" in uid or "\\" in uid or ".." in uid:
+        raise ValueError(f"Invalid user_id: {uid!r}")
     sessions_dir = helpers.get_settings().sessions_dir
-    if user_id is not None:
-        target_dir = sessions_dir / str(user_id)
-    else:
-        target_dir = sessions_dir
+    target_dir = sessions_dir / uid
     target_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     return target_dir
 
