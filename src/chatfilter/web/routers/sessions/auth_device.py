@@ -229,7 +229,7 @@ async def _handle_needs_confirmation(
         logger.debug(f"Polling task already running for session '{safe_name}', skipping duplicate launch")
 
     # Return needs_confirmation session_row
-    session_path = ensure_data_dir() / safe_name / "session.session"
+    session_path = ensure_data_dir(auth_state.web_user_id) / safe_name / "session.session"
     session_data = SessionListItem(
         session_id=safe_name,
         state="needs_confirmation",
