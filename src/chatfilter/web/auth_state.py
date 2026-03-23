@@ -73,6 +73,9 @@ class AuthState:
     failed_attempts: int = 0
     locked_until: float = 0.0  # Timestamp when lock expires
 
+    # Web user who initiated this auth flow
+    web_user_id: str = "default"
+
     # Timestamps
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
@@ -136,6 +139,7 @@ class AuthStateManager:
         phone: str,
         phone_code_hash: str,
         client: TelegramClient,
+        web_user_id: str = "default",
     ) -> AuthState:
         """Create a new auth state for a phone that has received a code.
 
@@ -147,6 +151,7 @@ class AuthStateManager:
             phone: Phone number
             phone_code_hash: Hash returned by send_code_request
             client: Telethon client instance to keep alive
+            web_user_id: Web user who initiated this auth flow
 
         Returns:
             The created AuthState
@@ -166,6 +171,7 @@ class AuthStateManager:
                 step=AuthStep.PHONE_SENT,
                 phone_code_hash=phone_code_hash,
                 client=client,
+                web_user_id=web_user_id,
             )
             self._states[auth_id] = state
             logger.info(f"Created auth state {auth_id} for session '{session_name}'")

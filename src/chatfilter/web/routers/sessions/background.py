@@ -454,6 +454,8 @@ async def _send_verification_code_and_create_auth(
 
             # Success - create auth state and publish
             auth_manager = get_auth_state_manager()
+            # Derive web_user_id from path structure: sessions_dir / user_id / session_name / session.session
+            web_user_id = session_path.parent.parent.name
             await auth_manager.create_auth_state(
                 session_name=session_id,
                 api_id=api_id,
@@ -462,6 +464,7 @@ async def _send_verification_code_and_create_auth(
                 phone=phone,
                 phone_code_hash=result.phone_code_hash,
                 client=client,
+                web_user_id=web_user_id,
             )
 
             await get_event_bus().publish(session_id, "needs_code")
