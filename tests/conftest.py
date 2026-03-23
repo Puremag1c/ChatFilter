@@ -841,6 +841,37 @@ def pytest_unconfigure(config: Any) -> None:
         tracemalloc.stop()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_data_dir(tmp_path: Path, monkeypatch: Any) -> Generator[None, None, None]:
+    """Redirect all settings.data_dir to a tmpdir so tests never write to production.
+
+    Patches both chatfilter.config.get_settings and the helpers wrapper used by
+    session routers (ensure_data_dir reads settings via helpers.get_settings).
+    """
+    import chatfilter.config
+    from chatfilter.config import Settings
+    from chatfilter.web.routers.sessions import helpers as session_helpers
+
+    isolated_settings = Settings(data_dir=tmp_path / "isolated_data")
+    isolated_settings.data_dir.mkdir(parents=True, exist_ok=True)
+
+    original_get_settings = chatfilter.config.get_settings
+
+    # Preserve cache_clear/cache_info for code that calls reset_settings()
+    def _mock_get_settings():
+        return isolated_settings
+
+    _mock_get_settings.cache_clear = lambda: None  # type: ignore[attr-defined]
+    _mock_get_settings.cache_info = getattr(  # type: ignore[attr-defined]
+        original_get_settings, "cache_info", lambda: None
+    )
+
+    monkeypatch.setattr(chatfilter.config, "get_settings", _mock_get_settings)
+    monkeypatch.setattr(session_helpers, "get_settings", _mock_get_settings)
+
+    yield
+
+
 @pytest.fixture(autouse=True, scope="function")
 def _cleanup_proxy_health_executor() -> Generator[None, None, None]:
     """Clean up the proxy health ThreadPoolExecutor before and after each test.
