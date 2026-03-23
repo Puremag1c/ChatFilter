@@ -46,7 +46,7 @@ class TestSessionConnectDisconnectAPI:
         """Create a fully configured session directory."""
         import uuid
 
-        session_dir = clean_data_dir / "test_session"
+        session_dir = clean_data_dir / "None" / "test_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file
@@ -73,7 +73,7 @@ class TestSessionConnectDisconnectAPI:
     @pytest.fixture
     def unconfigured_session(self, clean_data_dir: Path) -> Path:
         """Create a session without proxy configured."""
-        session_dir = clean_data_dir / "unconfigured_session"
+        session_dir = clean_data_dir / "None" / "unconfigured_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file

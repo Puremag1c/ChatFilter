@@ -198,7 +198,7 @@ class TestDeleteSessionClearsFloodWait:
         session_name = "test_flood_session"
 
         # Setup: create session directory so delete doesn't 404
-        session_dir = clean_data_dir / "default" / session_name
+        session_dir = clean_data_dir / "None" / session_name
         session_dir.mkdir(parents=True)
         (session_dir / "session.session").write_bytes(b"fake")
 
@@ -234,7 +234,7 @@ class TestDeleteSessionClearsFloodWait:
         session_name = "test_no_flood_session"
 
         # Setup: create session directory
-        session_dir = clean_data_dir / "default" / session_name
+        session_dir = clean_data_dir / "None" / session_name
         session_dir.mkdir(parents=True)
         (session_dir / "session.session").write_bytes(b"fake")
 

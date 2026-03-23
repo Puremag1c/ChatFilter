@@ -44,7 +44,7 @@ class TestSessionConfigAPI:
     @pytest.fixture
     def session_with_config(self, clean_data_dir: Path) -> Path:
         """Create a session directory with config file."""
-        session_dir = clean_data_dir / "test_session"
+        session_dir = clean_data_dir / "None" / "test_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file
