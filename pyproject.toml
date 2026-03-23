@@ -94,7 +94,7 @@ known-first-party = ["chatfilter"]
 python_version = "3.11"
 strict = true
 warn_return_any = true
-warn_unused_ignores = true
+warn_unused_ignores = false  # starlette API differs between versions
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
