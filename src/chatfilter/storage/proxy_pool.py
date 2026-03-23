@@ -19,9 +19,6 @@ from chatfilter.utils.paths import get_application_path
 
 logger = logging.getLogger(__name__)
 
-LEGACY_PROXIES_FILENAME = "proxies.json"
-LEGACY_PROXY_FILENAME = "proxy.json"
-
 
 def _get_proxies_path(user_id: str) -> Path:
     """Get the path to the per-user proxies file.
@@ -34,95 +31,6 @@ def _get_proxies_path(user_id: str) -> Path:
     """
     return get_settings().config_dir / f"proxies_{user_id}.json"
 
-
-def _get_legacy_proxy_path() -> Path:
-    """Get the path to the legacy proxy.json file (for migration only).
-
-    Checks both old location (app bundle) and new location (user config dir).
-
-    Returns:
-        Path to legacy proxy.json if found, otherwise path in config_dir.
-    """
-    # First check old location (app bundle) for migration
-    old_path = get_application_path() / "data" / "config" / LEGACY_PROXY_FILENAME
-    if old_path.exists():
-        return old_path
-    # Fallback to config_dir
-    return get_settings().config_dir / LEGACY_PROXY_FILENAME
-
-
-def _migrate_legacy_proxy(user_id: str) -> None:
-    """Migrate legacy proxy.json to per-user proxies file.
-
-    If proxy.json exists but per-user proxies file does not, creates a new proxy pool
-    with a single entry from the legacy config, named "Default".
-
-    Also migrates from shared proxies.json to per-user file if needed.
-
-    This runs automatically on first load_proxy_pool() call.
-    """
-    proxies_path = _get_proxies_path(user_id)
-
-    # If per-user file already exists, no migration needed
-    if proxies_path.exists():
-        return
-
-    # Try to migrate from shared proxies.json first
-    shared_path = get_settings().config_dir / LEGACY_PROXIES_FILENAME
-    if shared_path.exists():
-        try:
-            data = load_json(shared_path)
-            if isinstance(data, list):
-                proxies_path.parent.mkdir(parents=True, exist_ok=True)
-                save_json(proxies_path, data)
-                logger.info(f"Migrated shared proxies.json to {proxies_path.name}")
-                return
-        except Exception as e:
-            logger.warning(f"Failed to migrate shared proxies.json: {e}")
-
-    legacy_path = _get_legacy_proxy_path()
-
-    # Only migrate if legacy exists
-    if not legacy_path.exists():
-        return
-
-    try:
-        legacy_data = load_json(legacy_path)
-    except Exception as e:
-        logger.warning(f"Failed to read legacy proxy.json during migration: {e}")
-        return
-
-    if not isinstance(legacy_data, dict):
-        logger.warning("Invalid legacy proxy.json format (expected dict), skipping migration")
-        return
-
-    # Map legacy proxy_type to ProxyType enum
-    proxy_type_str = legacy_data.get("proxy_type", "socks5")
-    try:
-        proxy_type = ProxyType(proxy_type_str)
-    except ValueError:
-        logger.warning(f"Unknown proxy type '{proxy_type_str}', defaulting to socks5")
-        proxy_type = ProxyType.SOCKS5
-
-    # Create ProxyEntry from legacy data
-    try:
-        proxy = ProxyEntry(
-            name="Default",
-            type=proxy_type,
-            host=legacy_data.get("host", "127.0.0.1"),
-            port=legacy_data.get("port", 1080),
-            username=legacy_data.get("username", ""),
-            password=legacy_data.get("password", ""),
-        )
-    except Exception as e:
-        logger.warning(f"Failed to create ProxyEntry from legacy config: {e}")
-        return
-
-    # Save to new format
-    proxies_path.parent.mkdir(parents=True, exist_ok=True)
-    save_json(proxies_path, [proxy.model_dump(mode="json")])
-
-    logger.info(f"Migrated legacy proxy.json to proxies.json: {proxy.name} ({proxy.id})")
 
 
 def load_proxy_pool(user_id: str) -> list[ProxyEntry]:
@@ -140,9 +48,6 @@ def load_proxy_pool(user_id: str) -> list[ProxyEntry]:
         StorageCorruptedError: If JSON is invalid.
         pydantic.ValidationError: If proxy data is invalid.
     """
-    # Migrate legacy config if needed
-    _migrate_legacy_proxy(user_id)
-
     path = _get_proxies_path(user_id)
 
     if not path.exists():
