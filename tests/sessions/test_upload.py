@@ -495,8 +495,8 @@ class TestSessionImport:
 
             assert response.status_code == 200
 
-            # Verify session was created
-            session_dir = clean_data_dir / "test_import"
+            # Verify session was created (under "None" user_id — unauthenticated TestClient)
+            session_dir = clean_data_dir / "None" / "test_import"
             assert session_dir.exists()
 
             # Verify account_info.json contains phone
@@ -515,9 +515,9 @@ class TestSessionImport:
         """Test that duplicate session name is rejected."""
         from unittest.mock import MagicMock, patch
 
-        # Create existing session
-        existing_dir = clean_data_dir / "duplicate_test"
-        existing_dir.mkdir()
+        # Create existing session (under "None" user_id — unauthenticated TestClient)
+        existing_dir = clean_data_dir / "None" / "duplicate_test"
+        existing_dir.mkdir(parents=True, exist_ok=True)
 
         # Create valid session file
         session_content = self._create_valid_session_file()

@@ -343,8 +343,8 @@ class TestSessionsAPIEndpoints:
         assert response.status_code == 200
         assert "success" in response.text.lower()
 
-        # Verify session directory was created
-        session_dir = clean_data_dir / "test_session_json"
+        # Verify session directory was created (under "None" user_id — unauthenticated TestClient)
+        session_dir = clean_data_dir / "None" / "test_session_json"
         assert session_dir.exists()
 
         # Verify account_info.json was created with phone and names from JSON (should override session info)
@@ -494,8 +494,8 @@ class TestSessionsAPIEndpoints:
         assert response.status_code == 200
         assert "success" in response.text.lower()
 
-        # Verify session directory was created
-        session_dir = clean_data_dir / "test_session_with_2fa"
+        # Verify session directory was created (under "None" user_id — unauthenticated TestClient)
+        session_dir = clean_data_dir / "None" / "test_session_with_2fa"
         assert session_dir.exists()
 
         # Verify account_info.json was created with phone and names from JSON (should override session info)

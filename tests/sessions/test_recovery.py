@@ -46,7 +46,11 @@ class TestDeadSessionRecoveryUX:
         """Create a fully configured session directory."""
         import uuid
 
-        session_dir = clean_data_dir / "dead_session"
+        # Code uses ensure_data_dir(user_id) where user_id=None for unauthenticated requests
+        # str(None) == "None", so sessions live at sessions_dir / "None" / session_name
+        user_dir = clean_data_dir / "None"
+        user_dir.mkdir(parents=True, exist_ok=True)
+        session_dir = user_dir / "dead_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file
@@ -384,7 +388,11 @@ class TestAPICredentialReValidation:
         """Create a fully configured session directory."""
         import uuid
 
-        session_dir = clean_data_dir / "test_session"
+        # Code uses ensure_data_dir(user_id) where user_id=None for unauthenticated requests
+        # str(None) == "None", so sessions live at sessions_dir / "None" / session_name
+        user_dir = clean_data_dir / "None"
+        user_dir.mkdir(parents=True, exist_ok=True)
+        session_dir = user_dir / "test_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file
