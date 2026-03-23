@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-03-23
+
+### Fixed
+- 28 session test fixtures создавали директории без user_id scope
+- Tests создавали MagicMock и None директории в production sessions/
+- ensure_data_dir в auth_reconnect.py и auth_reconnect_helpers.py без user_id
+- ensure_data_dir в auth_device.py без user_id
+
+### Changed
+- [Security] ensure_data_dir(user_id) теперь обязательный параметр (убран default None)
+- [Security] Санитизация user_id в ensure_data_dir() для предотвращения path traversal
+- [Security] Проверка ownership auth_id против session user_id в auth endpoints
+- user_id добавлен в AuthState и проброшен в background tasks auth_initial
+- [UX] Ошибки background auth flow теперь показываются пользователю
+- [UX] Пустое состояние для списка прокси — новые пользователи начинают без прокси
+
+### Removed
+- Мониторинг (мёртвая фича): роутер, сервис, модели, database class
+- migrate_legacy_sessions() и все вызовы
+- Legacy proxy migration code (_migrate_legacy_proxy, _get_legacy_proxy_path, константы)
+- Тест-файлы мониторинга (устранён pytest ImportError blocker)
+
 ## [0.27.0] - 2026-03-22
 
 ### Added
