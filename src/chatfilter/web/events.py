@@ -31,6 +31,7 @@ import asyncio
 import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 
 class SessionEventBus:
@@ -56,7 +57,7 @@ class SessionEventBus:
         Args:
             max_events_per_second: Maximum events per session per second (default: 10)
         """
-        self._subscribers: list[Callable[[str, str, dict | None], Awaitable[None]]] = []
+        self._subscribers: list[Callable[[str, str, dict[str, Any] | None], Awaitable[None]]] = []
         self._max_events_per_second = max_events_per_second
 
         # Deduplication: track last status per session
@@ -65,7 +66,9 @@ class SessionEventBus:
         # Rate limiting: track event timestamps per session
         self._event_times: dict[str, list[float]] = defaultdict(list)
 
-    def subscribe(self, callback: Callable[[str, str, dict | None], Awaitable[None]]) -> None:
+    def subscribe(
+        self, callback: Callable[[str, str, dict[str, Any] | None], Awaitable[None]]
+    ) -> None:
         """Subscribe to session status change events.
 
         Duplicate subscriptions are automatically prevented. If the same callback
@@ -78,7 +81,9 @@ class SessionEventBus:
         if callback not in self._subscribers:
             self._subscribers.append(callback)
 
-    def unsubscribe(self, callback: Callable[[str, str, dict | None], Awaitable[None]]) -> None:
+    def unsubscribe(
+        self, callback: Callable[[str, str, dict[str, Any] | None], Awaitable[None]]
+    ) -> None:
         """Unsubscribe from session status change events.
 
         Args:
@@ -107,7 +112,9 @@ class SessionEventBus:
         # Check rate limit
         return len(event_times) >= self._max_events_per_second
 
-    async def publish(self, session_id: str, new_status: str, data: dict | None = None) -> None:
+    async def publish(
+        self, session_id: str, new_status: str, data: dict[str, Any] | None = None
+    ) -> None:
         """Publish a session status change event to all subscribers.
 
         Events are throttled to prevent flooding:

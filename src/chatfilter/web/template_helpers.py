@@ -35,7 +35,7 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         apply the standard three replacements used by Jinja2's tojson /
         Flask's htmlsafe_json_dumps, making the guarantee explicit in Python.
         """
-        data: dict
+        data: dict[str, Any]
         try:
             data = get_js_translations(locale)
         except Exception:

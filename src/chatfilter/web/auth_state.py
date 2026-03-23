@@ -11,9 +11,10 @@ import contextlib
 import logging
 import secrets
 import time
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
@@ -67,7 +68,7 @@ class AuthState:
     client: TelegramClient | None = None
 
     # Background polling task (for device confirmation)
-    polling_task: asyncio.Task | None = None
+    polling_task: asyncio.Task[Any] | None = None
 
     # Flag to prevent race between polling completion and timeout
     finalizing: bool = False
@@ -402,7 +403,7 @@ class AuthStateManager:
                 )
 
     @contextlib.asynccontextmanager
-    async def track_operation(self, session_id: str, operation: str):
+    async def track_operation(self, session_id: str, operation: str) -> AsyncGenerator[None, None]:
         """Context manager to track and prevent duplicate auth operations.
 
         Args:

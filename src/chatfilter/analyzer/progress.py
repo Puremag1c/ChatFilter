@@ -11,7 +11,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from chatfilter.models.group import GroupStatus
@@ -61,9 +61,9 @@ class ProgressTracker:
             db: GroupDatabase instance for querying stats
         """
         self._db = db
-        self._subscribers: dict[str, list[asyncio.Queue[GroupProgressEvent]]] = {}
+        self._subscribers: dict[str, list[asyncio.Queue[GroupProgressEvent | None]]] = {}
 
-    def subscribe(self, group_id: str) -> asyncio.Queue[GroupProgressEvent]:
+    def subscribe(self, group_id: str) -> asyncio.Queue[GroupProgressEvent | None]:
         """Subscribe to progress events for a group analysis.
 
         Args:
@@ -72,7 +72,7 @@ class ProgressTracker:
         Returns:
             Queue that will receive progress events.
         """
-        queue: asyncio.Queue[GroupProgressEvent] = asyncio.Queue()
+        queue: asyncio.Queue[GroupProgressEvent | None] = asyncio.Queue()
         self._subscribers.setdefault(group_id, []).append(queue)
         return queue
 
@@ -113,8 +113,8 @@ class ProgressTracker:
 
         # Get detailed stats for badge breakdown
         stats_dict = self._db.get_group_stats(group_id)
-        by_status = stats_dict.get("by_status", {})
-        by_type = stats_dict.get("by_type", {})
+        by_status: dict[str, int] = cast(dict[str, int], stats_dict.get("by_status", {}))
+        by_type: dict[str, int] = cast(dict[str, int], stats_dict.get("by_type", {}))
 
         # Build breakdown for SSE (matches GroupStats structure used in templates)
         breakdown = {

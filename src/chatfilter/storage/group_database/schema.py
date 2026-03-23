@@ -6,10 +6,12 @@ import shutil
 import sqlite3
 from typing import Any
 
+from ._base import DatabaseMixinBase
+
 logger = logging.getLogger(__name__)
 
 
-class SchemaMixin:
+class SchemaMixin(DatabaseMixinBase):
     """Mixin providing database schema initialization and migrations."""
 
     def _initialize_schema(self) -> None:

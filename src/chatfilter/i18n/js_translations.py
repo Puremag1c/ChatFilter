@@ -7,6 +7,7 @@ which returns a nested dict of translated values for a given locale.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Any
 
 from chatfilter.i18n.translations import get_translations
 
@@ -257,7 +258,7 @@ JS_KEYS: dict[str, str] = {
 }
 
 
-def _set_nested(d: dict, dotted_key: str, value: str) -> None:
+def _set_nested(d: dict[str, Any], dotted_key: str, value: str) -> None:
     """Set a value in a nested dict using a dotted key path."""
     parts = dotted_key.split(".")
     node = d
@@ -267,7 +268,7 @@ def _set_nested(d: dict, dotted_key: str, value: str) -> None:
 
 
 @lru_cache(maxsize=8)
-def get_js_translations(locale: str) -> dict:
+def get_js_translations(locale: str) -> dict[str, Any]:
     """Return nested translation dict for the given locale.
 
     Uses the gettext catalog for translations. Falls back to English msgid
@@ -280,7 +281,7 @@ def get_js_translations(locale: str) -> dict:
         Nested dict matching the JS key structure with translated values
     """
     catalog = get_translations(locale)
-    result: dict = {}
+    result: dict[str, Any] = {}
     for dotted_key, english_text in JS_KEYS.items():
         translated = catalog.gettext(english_text)
         _set_nested(result, dotted_key, translated)

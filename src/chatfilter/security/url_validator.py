@@ -92,7 +92,7 @@ def resolve_hostname(hostname: str) -> list[str]:
         addr_info = socket.getaddrinfo(hostname, None)
         # Extract unique IPs (addr_info returns tuples)
         ips = {info[4][0] for info in addr_info}
-        return list(ips)
+        return [str(ip) for ip in ips]
     except (socket.gaierror, OSError) as e:
         raise URLValidationError(f"DNS resolution failed for {hostname}: {e}") from e
 

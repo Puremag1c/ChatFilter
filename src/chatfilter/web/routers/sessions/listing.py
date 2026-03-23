@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from chatfilter.storage.helpers import atomic_write
 
@@ -108,7 +108,7 @@ def list_stored_sessions(
     session_manager: SessionManager | None = None,
     auth_manager: AuthStateManager | None = None,
     user_id: str | int | None = None,
-) -> list:
+) -> list[Any]:
     """List all stored sessions with runtime state when available.
 
     Each session is validated for configuration status:
@@ -140,7 +140,7 @@ def list_stored_sessions(
     from .io import ensure_data_dir
 
     sessions = []
-    data_dir = ensure_data_dir(user_id)
+    data_dir = ensure_data_dir(user_id if user_id is not None else "default")
     get_flood_tracker()
 
     for session_dir in data_dir.iterdir():

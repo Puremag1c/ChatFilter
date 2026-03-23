@@ -187,7 +187,7 @@ async def _poll_device_confirmation(
 
             # Exponential backoff (5s -> 10s)
             await asyncio.sleep(poll_interval)
-            poll_interval = min(poll_interval * 1.5, max_poll_interval)
+            poll_interval = int(min(poll_interval * 1.5, max_poll_interval))
 
     except asyncio.CancelledError:
         # Task cancelled (e.g., app shutdown)
@@ -245,6 +245,7 @@ async def _handle_needs_confirmation(
         )
 
     # Return needs_confirmation session_row
+    assert auth_state is not None, "auth_state must exist after update_auth_state"
     session_path = ensure_data_dir(auth_state.web_user_id) / safe_name / "session.session"
     session_data = SessionListItem(
         session_id=safe_name,

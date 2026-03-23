@@ -15,12 +15,12 @@ from .io import ensure_data_dir, load_account_info, save_account_info
 from .validation import sanitize_session_name
 
 if TYPE_CHECKING:
-    pass
+    from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)
 
 
-def _get_router():
+def _get_router() -> APIRouter:
     """Get router instance (lazy import to avoid circular dependency)."""
     from chatfilter.web.routers.sessions import router
 
@@ -429,17 +429,19 @@ async def verify_2fa(
             status_code=502,
         )
 
+    # Widen type to allow clearing password after use
+    password_val: str | None = password
     try:
         # Try to sign in with 2FA password
         # Separate try-except to prevent password leakage in traceback
         try:
             await asyncio.wait_for(
-                client.sign_in(password=password),
+                client.sign_in(password=password_val),
                 timeout=30.0,
             )
-            password = None  # Clear immediately after success
+            password_val = None  # Clear immediately after success
         except Exception:
-            password = None  # Clear before re-raising
+            password_val = None  # Clear before re-raising
             raise
 
         # Check if session requires device confirmation

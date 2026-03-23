@@ -4,8 +4,10 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from ._base import DatabaseMixinBase
 
-class TasksMixin:
+
+class TasksMixin(DatabaseMixinBase):
     """Mixin providing group analysis task management."""
 
     def create_task(

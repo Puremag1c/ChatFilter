@@ -156,7 +156,7 @@ class SessionManager:
             # authenticate but fail on GetDialogsRequest
             # Using iter_dialogs with limit=1 is a lightweight check
 
-            async def check_dialogs():
+            async def check_dialogs() -> None:
                 async for _ in client.iter_dialogs(limit=1):
                     break  # Just need to verify we can access dialogs
 

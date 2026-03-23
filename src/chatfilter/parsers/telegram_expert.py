@@ -2,6 +2,7 @@
 
 import contextlib
 import re
+from typing import Any
 
 
 def validate_account_info_json(json_data: object) -> str | None:
@@ -44,7 +45,7 @@ def validate_account_info_json(json_data: object) -> str | None:
     return None
 
 
-def extract_api_credentials(json_data: dict) -> tuple[int | None, str | None]:
+def extract_api_credentials(json_data: dict[str, Any]) -> tuple[int | None, str | None]:
     """Extract Telegram API credentials from TelegramExpert JSON.
 
     Supports both field name variants:
@@ -74,7 +75,7 @@ def extract_api_credentials(json_data: dict) -> tuple[int | None, str | None]:
 
 
 def parse_telegram_expert_json(
-    json_content: bytes, json_data: dict
+    json_content: bytes, json_data: dict[str, Any]
 ) -> tuple[dict[str, str], str | None]:
     """Parse TelegramExpert JSON format and extract account info.
 

@@ -468,7 +468,7 @@ def get_actionable_error_info(error: Exception) -> dict[str, str | bool | int | 
     }
 
 
-def get_user_friendly_message(error: Exception) -> str:
+def get_user_friendly_message(error: BaseException) -> str:
     """Convert a Telegram API exception to a user-friendly message.
 
     Args:

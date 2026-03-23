@@ -176,6 +176,17 @@ from .validation import (
 
 router = APIRouter(tags=["sessions"])
 
+__all__ = [
+    "router",
+    "ensure_data_dir",
+    "list_stored_sessions",
+    "secure_delete_file",
+    "get_event_bus",
+    "_finalize_reconnect_auth",
+    "TelegramClientLoader",
+    "time",
+]
+
 # Register SSE routes
 from .sse import register_sse_routes, session_events  # noqa: F401
 

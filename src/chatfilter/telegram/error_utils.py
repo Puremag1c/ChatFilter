@@ -36,7 +36,7 @@ def _format_duration(seconds: int) -> str:
         return ngettext("%(num)d hour", "%(num)d hours", hours) % {"num": hours}
 
 
-def _extract_wait_time(error: Exception) -> int | None:
+def _extract_wait_time(error: BaseException) -> int | None:
     """Extract wait time from FloodWaitError.
 
     Args:

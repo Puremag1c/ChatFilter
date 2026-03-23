@@ -3,8 +3,10 @@
 import json
 from typing import Any
 
+from ._base import DatabaseMixinBase
 
-class StatsMixin:
+
+class StatsMixin(DatabaseMixinBase):
     """Mixin providing group statistics and aggregation operations."""
 
     def compute_group_status(self, group_id: str) -> str:
@@ -55,7 +57,7 @@ class StatsMixin:
             # Mixed → IN_PROGRESS
             return GroupStatus.IN_PROGRESS.value
 
-    def get_group_stats(self, group_id: str) -> dict[str, int]:
+    def get_group_stats(self, group_id: str) -> dict[str, Any]:
         """Get statistics for a group's chats.
 
         Args:

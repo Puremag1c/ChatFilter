@@ -23,6 +23,7 @@ from .io import save_account_info, secure_file_permissions
 from .listing import list_stored_sessions  # noqa: F401 — patched by tests
 
 if TYPE_CHECKING:
+    from starlette.templating import Jinja2Templates
     from telethon import TelegramClient
 
     from chatfilter.web.auth_state import AuthState, AuthStateManager
@@ -159,7 +160,7 @@ async def _finalize_reconnect_auth(
 
 async def _finalize_and_return_session_row(
     request: Request,
-    templates,
+    templates: Jinja2Templates,
     client: TelegramClient,
     auth_state: AuthState,
     auth_manager: AuthStateManager,
@@ -228,19 +229,19 @@ async def _finalize_and_return_session_row(
 
 async def _attempt_auto_2fa_login(
     request: Request,
-    templates,
+    templates: Jinja2Templates,
     client: TelegramClient,
     auth_state: AuthState,
     auth_manager: AuthStateManager,
     safe_name: str,
     session_id: str,
     auth_id: str,
-) -> HTMLResponse | None:
+) -> HTMLResponse:
     """Attempt automatic 2FA login with stored password.
 
     Returns:
-    - HTMLResponse if 2FA is handled (either success or needs manual input)
-    - None if no stored password exists (caller should handle manually)
+    - HTMLResponse with needs_2fa row if no stored password or wrong password
+    - HTMLResponse with session_row on successful auto-login
     """
     from telethon.errors import PasswordHashInvalidError
 

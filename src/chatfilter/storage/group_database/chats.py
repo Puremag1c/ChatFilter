@@ -3,11 +3,13 @@
 import json
 from typing import Any
 
+from ._base import DatabaseMixinBase
+
 # Sentinel value to distinguish "not provided" from None
-_UNSET = object()
+_UNSET: Any = object()
 
 
-class ChatsMixin:
+class ChatsMixin(DatabaseMixinBase):
     """Mixin providing chat CRUD operations within groups."""
 
     def save_chat(
@@ -60,7 +62,7 @@ class ChatsMixin:
                         tried_accounts_json,
                     ),
                 )
-                return cursor.lastrowid
+                return cursor.lastrowid or 0
             else:
                 # Update existing chat
                 conn.execute(

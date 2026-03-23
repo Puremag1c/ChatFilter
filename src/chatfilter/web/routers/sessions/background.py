@@ -193,7 +193,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
             # CASE 4: Check if session.session file exists (first time auth)
             # If missing → trigger send_code flow
-            if not session_path.exists():
+            if session_path is None or not session_path.exists():
                 logger.info(f"Session '{session_id}' has no session file, triggering send_code")
                 # Load account_info for phone number
                 account_info = load_account_info(session_dir)
@@ -214,6 +214,8 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
                 phone = str(account_info["phone"])
                 # Trigger send_code flow (with timeout protection)
+                assert session_path is not None
+                assert config_path is not None
                 await _send_verification_code_with_timeout(
                     session_id,
                     session_path,

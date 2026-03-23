@@ -10,6 +10,7 @@ import json
 import logging
 import re
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
@@ -102,7 +103,7 @@ async def _generate_unified_sse_events(
         ]
 
         # Track subscriptions for cleanup
-        subscriptions: dict[str, asyncio.Queue] = {}
+        subscriptions: dict[str, asyncio.Queue[Any]] = {}
 
         # Subscribe to each active group and send init events
         for group in active_groups:

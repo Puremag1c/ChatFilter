@@ -14,7 +14,7 @@ import csv
 import io
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from chatfilter.storage.helpers import atomic_write
 
@@ -70,7 +70,7 @@ def _format_datetime(dt: object) -> str:
 
 
 def to_csv_rows_dynamic(
-    results_data: list[dict],
+    results_data: list[dict[str, Any]],
     settings: GroupSettings | None = None,
 ) -> Iterator[list[str]]:
     """Convert group analysis results to CSV rows with dynamic columns.
@@ -238,7 +238,7 @@ def to_csv_rows(results: list[AnalysisResult]) -> Iterator[list[str]]:
 
 
 def export_group_results_to_csv(
-    results_data: list[dict],
+    results_data: list[dict[str, Any]],
     settings: GroupSettings | None = None,
     output: Path | None = None,
     *,

@@ -156,14 +156,14 @@ async def get_export_modal(
         results_data = service.get_results(group_id)
 
         # Extract unique chat types from results
-        available_chat_types = set()
+        available_chat_types_set: set[str] = set()
         for result in results_data:
             chat_type = result.get("chat_type")
             if chat_type:
-                available_chat_types.add(chat_type)
+                available_chat_types_set.add(chat_type)
 
         # Convert to sorted list for consistent ordering
-        available_chat_types = sorted(available_chat_types)
+        available_chat_types = sorted(available_chat_types_set)
 
         return templates.TemplateResponse(
             request=request,

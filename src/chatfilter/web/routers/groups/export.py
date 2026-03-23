@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from datetime import datetime
+from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query
@@ -25,7 +26,7 @@ from .helpers import (
 router = APIRouter()
 
 
-def _convert_results_for_exporter(results: list[dict]) -> list[dict]:
+def _convert_results_for_exporter(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Convert flat results structure to exporter-compatible format.
 
     Converts service.get_results() flat structure to old nested structure
@@ -60,7 +61,7 @@ def _convert_results_for_exporter(results: list[dict]) -> list[dict]:
 
 
 def _apply_export_filters(
-    results_data: list[dict],
+    results_data: list[dict[str, Any]],
     *,
     chat_types: str | None = None,
     subscribers_min: int | None = None,
@@ -71,7 +72,7 @@ def _apply_export_filters(
     authors_max: float | None = None,
     moderation: str = "all",
     captcha: str = "all",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Apply export filters to results data.
 
     Accepts results from service.get_results() which has flat structure.

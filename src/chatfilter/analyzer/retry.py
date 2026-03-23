@@ -123,8 +123,8 @@ def should_retry_floodwait(
 
 
 async def try_with_retry(
-    fn: Callable[[str, dict], Awaitable[T]],
-    chat: dict,
+    fn: Callable[[str, dict[str, Any]], Awaitable[T]],
+    chat: dict[str, Any],
     accounts: list[str],
     policy: RetryPolicy | None = None,
     progress_callback: Callable[[float], Awaitable[None]] | None = None,

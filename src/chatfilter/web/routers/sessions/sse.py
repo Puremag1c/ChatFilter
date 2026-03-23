@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Any
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-async def session_events(request: Request):
+async def session_events(request: Request) -> StreamingResponse:
     """SSE endpoint for real-time session status updates.
 
     This endpoint provides Server-Sent Events (SSE) for session status changes.
@@ -50,7 +51,7 @@ async def session_events(request: Request):
     # Queue for this client's events
     event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
 
-    async def event_generator():
+    async def event_generator() -> AsyncGenerator[str, None]:
         """Generate SSE events from the queue."""
         # Set locale explicitly — ContextVar may not propagate through BaseHTTPMiddleware
         # into the SSE async generator context.
@@ -111,7 +112,9 @@ async def session_events(request: Request):
             get_event_bus().unsubscribe(event_handler)
             logger.debug("SSE client unsubscribed from event bus")
 
-    async def event_handler(session_id: str, new_status: str, data: dict | None = None):
+    async def event_handler(
+        session_id: str, new_status: str, data: dict[str, Any] | None = None
+    ) -> None:
         """Handler for event bus messages."""
         try:
             await event_queue.put((session_id, new_status))

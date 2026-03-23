@@ -11,7 +11,7 @@ import asyncio
 import logging
 import random
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from chatfilter.analyzer.progress import GroupProgressEvent, ProgressTracker
 from chatfilter.analyzer.retry import RetryPolicy, try_with_retry
@@ -68,7 +68,7 @@ class AccountHealthTracker:
         """Check if account should stop processing due to too many consecutive failures."""
         return self.consecutive_errors.get(account_id, 0) >= self.max_consecutive_errors
 
-    def get_stats(self, account_id: str) -> dict:
+    def get_stats(self, account_id: str) -> dict[str, Any]:
         """Get health statistics for an account."""
         return {
             "consecutive_errors": self.consecutive_errors.get(account_id, 0),
@@ -103,7 +103,7 @@ class GroupAnalysisEngine:
     ) -> None:
         self._db = db
         self._session_mgr = session_manager
-        self._active_tasks: dict[str, list[asyncio.Task]] = {}
+        self._active_tasks: dict[str, list[asyncio.Task[Any]]] = {}
         self._stop_events: dict[str, asyncio.Event] = {}
         self._progress = progress if progress is not None else ProgressTracker(db)
 
@@ -215,8 +215,8 @@ class GroupAnalysisEngine:
             # Publish waiting status with flood_wait_until
             processed, total = self._db.count_processed_chats(group_id)
             stats_dict = self._db.get_group_stats(group_id)
-            by_status = stats_dict.get("by_status", {})
-            by_type = stats_dict.get("by_type", {})
+            by_status: dict[str, int] = cast(dict[str, int], stats_dict.get("by_status", {}))
+            by_type: dict[str, int] = cast(dict[str, int], stats_dict.get("by_type", {}))
 
             breakdown = {
                 "done": by_status.get("done", 0),
@@ -338,8 +338,8 @@ class GroupAnalysisEngine:
         pending = self._db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
 
         if not pending:
-            pending = self._handle_no_pending(group_id, mode)
-            if pending is None:
+            pending = self._handle_no_pending(group_id, mode) or []
+            if not pending:
                 return
 
         task_id = self._db.create_task(
@@ -445,7 +445,7 @@ class GroupAnalysisEngine:
 
         await self._finalize_group(group_id, retry_done=_error_retry)
 
-    def _handle_no_pending(self, group_id: str, mode: AnalysisMode) -> list[dict] | None:
+    def _handle_no_pending(self, group_id: str, mode: AnalysisMode) -> list[dict[str, Any]] | None:
         """Handle case when no PENDING chats. Returns new pending list or None."""
         all_chats = self._db.load_chats(group_id=group_id)
         errors = [c for c in all_chats if c["status"] == GroupChatStatus.ERROR.value]
@@ -554,7 +554,7 @@ class GroupAnalysisEngine:
     async def _process_single_chat(
         self,
         group_id: str,
-        chat: dict,
+        chat: dict[str, Any],
         client: TelegramClient,
         account_id: str,
         settings: GroupSettings,
@@ -572,7 +572,7 @@ class GroupAnalysisEngine:
                 health_tracker.record_success(account_id)
                 return
 
-        async def _do_process(acct_id: str, chat_dict: dict) -> ChatResult:
+        async def _do_process(acct_id: str, chat_dict: dict[str, Any]) -> ChatResult:
             c = client if acct_id == account_id else await self._session_mgr.connect(acct_id)
             return await process_chat(chat_dict, c, acct_id, settings)
 
@@ -583,8 +583,8 @@ class GroupAnalysisEngine:
 
             # Get detailed stats for breakdown
             stats_dict = self._db.get_group_stats(group_id)
-            by_status = stats_dict.get("by_status", {})
-            by_type = stats_dict.get("by_type", {})
+            by_status: dict[str, int] = cast(dict[str, int], stats_dict.get("by_status", {}))
+            by_type: dict[str, int] = cast(dict[str, int], stats_dict.get("by_type", {}))
 
             breakdown = {
                 "done": by_status.get("done", 0),
@@ -684,7 +684,7 @@ class GroupAnalysisEngine:
 
     # -- Save helpers ------------------------------------------------------
 
-    def _save_chat_result(self, chat: dict, result: ChatResult, account_id: str) -> None:
+    def _save_chat_result(self, chat: dict[str, Any], result: ChatResult, account_id: str) -> None:
         """Save worker result to DB."""
         is_error = result.status in ("dead", "banned", "error")
         db_status = GroupChatStatus.ERROR.value if is_error else GroupChatStatus.DONE.value
@@ -747,7 +747,7 @@ class GroupAnalysisEngine:
             logger.info(f"[INCREMENT] Marked {count}/{len(done)} DONE chats as PENDING")
         return count
 
-    def _chat_needs_reanalysis(self, metrics: dict, settings: GroupSettings) -> bool:
+    def _chat_needs_reanalysis(self, metrics: dict[str, Any], settings: GroupSettings) -> bool:
         """Check if chat metrics are incomplete for current settings."""
         if metrics.get("chat_type") is None:
             return True
@@ -763,7 +763,7 @@ class GroupAnalysisEngine:
         for enabled, key in checks:
             if enabled and metrics.get(key) is None:
                 return True
-        return metrics.get("metrics_version", 0) < METRICS_VERSION
+        return bool(metrics.get("metrics_version", 0) < METRICS_VERSION)
 
     # -- Completion --------------------------------------------------------
 
@@ -871,6 +871,6 @@ class GroupAnalysisEngine:
             )
         await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
 
-    def subscribe(self, group_id: str) -> asyncio.Queue[GroupProgressEvent]:
+    def subscribe(self, group_id: str) -> asyncio.Queue[GroupProgressEvent | None]:
         """Subscribe to progress events for a group analysis."""
         return self._progress.subscribe(group_id)

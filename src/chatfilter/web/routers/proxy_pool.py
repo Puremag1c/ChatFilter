@@ -110,7 +110,7 @@ class ProxyRetestResponse(BaseModel):
 def _get_user_id(request: Request) -> str:
     """Extract user_id from session."""
     session = get_session(request)
-    return session.get("user_id", "default")
+    return str(session.get("user_id", "default"))
 
 
 def _proxy_to_response(proxy: ProxyEntry) -> ProxyResponse:

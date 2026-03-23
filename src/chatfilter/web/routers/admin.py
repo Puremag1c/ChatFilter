@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, Query, Request
@@ -11,10 +12,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
+if TYPE_CHECKING:
+    from chatfilter.storage.user_database import UserDatabase
+
 router = APIRouter(tags=["admin"])
 
 
-def _get_user_db(request: Request):
+def _get_user_db(request: Request) -> UserDatabase:
     from chatfilter.storage.user_database import get_user_db
 
     return get_user_db(request.app.state.settings.data_dir)

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import shutil
+import sqlite3
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import bcrypt
 
@@ -52,21 +54,21 @@ class UserDatabase(SQLiteDatabase):
             )
         return uid
 
-    def get_user_by_username(self, username: str) -> dict | None:
+    def get_user_by_username(self, username: str) -> dict[str, Any] | None:
         """Return user dict or None if not found."""
         with self._connection() as conn:
             cursor = conn.execute("SELECT * FROM users WHERE username = ?", (username,))
             row = cursor.fetchone()
         return self._row_to_dict(row) if row else None
 
-    def get_user_by_id(self, user_id: str) -> dict | None:
+    def get_user_by_id(self, user_id: str) -> dict[str, Any] | None:
         """Return user dict or None if not found."""
         with self._connection() as conn:
             cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
         return self._row_to_dict(row) if row else None
 
-    def list_users(self) -> list[dict]:
+    def list_users(self) -> list[dict[str, Any]]:
         """Return all users ordered by created_at."""
         with self._connection() as conn:
             cursor = conn.execute("SELECT * FROM users ORDER BY created_at ASC")
@@ -106,11 +108,11 @@ class UserDatabase(SQLiteDatabase):
         existing = self.get_user_by_username(username)
         if existing:
             self.update_password(existing["id"], password)
-            return existing["id"]
+            return str(existing["id"])
         return self.create_user(username, password, is_admin=is_admin)
 
     @staticmethod
-    def _row_to_dict(row: object) -> dict:
+    def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         return {
             "id": row["id"],
             "username": row["username"],

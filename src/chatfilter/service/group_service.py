@@ -6,6 +6,7 @@ import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 from chatfilter.analyzer.progress import compute_group_status
@@ -452,11 +453,14 @@ class GroupService:
         If the engine raises an unhandled exception, group status is reset to
         ERROR so the UI does not get stuck in IN_PROGRESS.
         """
+        if self._engine is None:
+            logger.error("No analysis engine configured for group %s", group_id)
+            return
         try:
             await self._engine.start_analysis(group_id, mode=mode)
         except Exception:
             logger.exception("Background analysis task failed for group %s", group_id)
-            self.update_status(group_id, GroupStatus.ERROR)
+            self.update_status(group_id, GroupStatus.FAILED)
 
     def reanalyze(self, group_id: str, mode: AnalysisMode) -> None:
         """Reanalyze group with specified mode in background.
@@ -497,7 +501,7 @@ class GroupService:
         """
         return compute_group_status(self._db, group_id)
 
-    def get_results(self, group_id: str) -> list[dict]:
+    def get_results(self, group_id: str) -> list[dict[str, Any]]:
         """Get analysis results for group.
 
         Reads metrics from group_chats columns (no separate group_results table).

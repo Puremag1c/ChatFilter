@@ -200,7 +200,7 @@ async def fetch_file_from_url(url: str, max_size: int, timeout: float = 30.0) ->
         chunks = []
         total_size = 0
 
-        async for chunk in response.iter_bytes():
+        async for chunk in response.aiter_bytes():
             total_size += len(chunk)
             if total_size > max_size:
                 raise ValueError(

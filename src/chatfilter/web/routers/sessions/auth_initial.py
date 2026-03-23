@@ -23,6 +23,7 @@ from .io import find_duplicate_accounts, save_account_info, secure_file_permissi
 from .validation import sanitize_session_name, validate_phone_number
 
 if TYPE_CHECKING:
+    from fastapi import APIRouter
     from starlette.templating import Jinja2Templates
 
     from chatfilter.web.auth_state import AuthState, AuthStateManager
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _get_router():
+def _get_router() -> APIRouter:
     """Get router instance (lazy import to avoid circular dependency)."""
     from chatfilter.web.routers.sessions import router
 
@@ -79,10 +80,11 @@ async def start_auth_flow(
             context={"success": False, "error": str(e)},
         )
 
-    # Normalize empty strings to None
+    # Normalize empty strings to None; parse api_id to int
+    api_id_int: int | None = None
     if api_id is not None:
         api_id_str = str(api_id).strip()
-        api_id = None if api_id_str == "" else int(api_id_str)
+        api_id_int = None if api_id_str == "" else int(api_id_str)
 
     if api_hash is not None:
         api_hash = api_hash.strip()
@@ -93,7 +95,7 @@ async def start_auth_flow(
         proxy_id = None if proxy_id == "" else proxy_id
 
     # Validate api_id and api_hash consistency
-    has_api_id = api_id is not None
+    has_api_id = api_id_int is not None
     has_api_hash = api_hash is not None
 
     if has_api_id != has_api_hash:
@@ -107,7 +109,7 @@ async def start_auth_flow(
         )
 
     # Validate api_id format (if provided)
-    if has_api_id and api_id <= 0:
+    if has_api_id and api_id_int is not None and api_id_int <= 0:
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
@@ -118,8 +120,10 @@ async def start_auth_flow(
         )
 
     # Validate api_hash format (if provided)
-    if has_api_hash and (
-        len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash)
+    if (
+        has_api_hash
+        and api_hash is not None
+        and (len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash))
     ):
         return templates.TemplateResponse(
             request=request,
@@ -179,7 +183,7 @@ async def start_auth_flow(
 
     try:
         # Save account info with disconnected status
-        account_info = {
+        account_info: dict[str, int | str] = {
             "phone": phone,
             "status": "disconnected",
         }
@@ -187,10 +191,12 @@ async def start_auth_flow(
 
         # Store credentials if provided
         if has_api_id and has_api_hash:
+            assert api_id_int is not None
+            assert api_hash is not None
             cred_manager = SecureCredentialManager(_sessions_pkg.ensure_data_dir(_web_user_id))
             cred_manager.store_credentials(
                 session_id=safe_name,
-                api_id=api_id,
+                api_id=api_id_int,
                 api_hash=api_hash,
                 proxy_id=proxy_id,
             )
@@ -200,7 +206,7 @@ async def start_auth_flow(
 
         # Create config.json so session is visible in list_stored_sessions
         session_config: dict[str, int | str | None] = {
-            "api_id": api_id,
+            "api_id": api_id_int,
             "api_hash": api_hash,
             "proxy_id": proxy_id,
             "source": "phone",
@@ -490,17 +496,19 @@ async def submit_auth_2fa(
             },
         )
 
+    # Widen type to allow clearing password after use
+    password_val: str | None = password
     try:
         # Try to sign in with 2FA password
         # Separate try-except to prevent password leakage in traceback
         try:
             await asyncio.wait_for(
-                client.sign_in(password=password),
+                client.sign_in(password=password_val),
                 timeout=30.0,
             )
-            password = None  # Clear immediately after success
+            password_val = None  # Clear immediately after success
         except Exception:
-            password = None  # Clear before re-raising
+            password_val = None  # Clear before re-raising
             raise
 
         # Success! Save the session

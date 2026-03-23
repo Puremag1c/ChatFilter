@@ -121,30 +121,6 @@ class TestI18nCompleteness:
             empty[:20]
         )
 
-    def test_js_locale_en_no_empty_values(self, project_root: Path) -> None:
-        """en.json JS locale has been removed (translations now server-rendered).
-
-        This test is deprecated: static JSON locale files are no longer used.
-        Translations are now inline server-rendered in the template context.
-        """
-        pytest.skip("Static JSON locale files removed; translations now server-rendered")
-
-    def test_js_locale_ru_no_empty_values(self, project_root: Path) -> None:
-        """ru.json JS locale has been removed (translations now server-rendered).
-
-        This test is deprecated: static JSON locale files are no longer used.
-        Translations are now inline server-rendered in the template context.
-        """
-        pytest.skip("Static JSON locale files removed; translations now server-rendered")
-
-    def test_en_json_and_ru_json_have_same_keys(self, project_root: Path) -> None:
-        """en.json and ru.json have been removed (translations now server-rendered).
-
-        This test is deprecated: static JSON locale files are no longer used.
-        Translations are now inline server-rendered in the template context.
-        """
-        pytest.skip("Static JSON locale files removed; translations now server-rendered")
-
 
 # ---------------------------------------------------------------------------
 # #2  Instant card feedback

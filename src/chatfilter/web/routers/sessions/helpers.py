@@ -8,8 +8,12 @@ import re
 import shutil
 from datetime import UTC
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from chatfilter.config import Settings
 
 from chatfilter.storage.file import secure_delete_file
 
@@ -25,7 +29,7 @@ from .validation import (
 logger = logging.getLogger(__name__)
 
 
-def get_settings():
+def get_settings() -> Settings:
     """Get settings — patchable wrapper for tests.
 
     Tests patch chatfilter.web.routers.sessions.helpers.get_settings
@@ -116,7 +120,7 @@ def classify_error_state(error_message: str | None, exception: Exception | None 
             return "needs_config"
 
         # For wrapper exceptions (SessionConnectError, etc.), check the cause
-        if exception.__cause__ is not None:
+        if exception.__cause__ is not None and isinstance(exception.__cause__, Exception):
             cause_result = classify_error_state(error_message, exception.__cause__)
             if cause_result != "error":
                 return cause_result

@@ -11,7 +11,7 @@ import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from telethon import errors
 from telethon.tl.functions.channels import GetFullChannelRequest
@@ -62,7 +62,7 @@ class ChatResult:
     status: str = "done"
     error: str | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "chat_type": self.chat_type,
             "title": self.title,
@@ -77,23 +77,27 @@ class ChatResult:
         }
 
 
-def _result_from_resolved(resolved: _ResolvedChat, **overrides) -> ChatResult:
+def _result_from_resolved(resolved: _ResolvedChat, **overrides: Any) -> ChatResult:
     """Build ChatResult from _ResolvedChat, applying overrides."""
-    base = {
-        "chat_ref": resolved.chat_ref,
-        "chat_type": resolved.chat_type,
-        "title": resolved.title,
-        "subscribers": resolved.subscribers,
-        "moderation": resolved.moderation,
-        "numeric_id": resolved.numeric_id,
-        "linked_chat_id": resolved.linked_chat_id,
-    }
-    base.update(overrides)
-    return ChatResult(**base)
+    return ChatResult(
+        chat_ref=overrides.get("chat_ref", resolved.chat_ref),
+        chat_type=overrides.get("chat_type", resolved.chat_type),
+        title=overrides.get("title", resolved.title),
+        subscribers=overrides.get("subscribers", resolved.subscribers),
+        moderation=overrides.get("moderation", resolved.moderation),
+        numeric_id=overrides.get("numeric_id", resolved.numeric_id),
+        linked_chat_id=overrides.get("linked_chat_id", resolved.linked_chat_id),
+        messages_per_hour=overrides.get("messages_per_hour"),
+        unique_authors_per_hour=overrides.get("unique_authors_per_hour"),
+        captcha=overrides.get("captcha"),
+        partial_data=overrides.get("partial_data", False),
+        status=overrides.get("status", resolved.status),
+        error=overrides.get("error", resolved.error),
+    )
 
 
 async def process_chat(
-    chat: dict,
+    chat: dict[str, Any],
     client: TelegramClient,
     account_id: str,
     settings: GroupSettings,
@@ -155,7 +159,7 @@ class _ResolvedChat:
     error: str | None = None
 
 
-def _dead_chat(chat_ref: str, *, status: str = "dead", **kw) -> _ResolvedChat:
+def _dead_chat(chat_ref: str, *, status: str = "dead", **kw: Any) -> _ResolvedChat:
     """Shorthand for a dead/banned/failed _ResolvedChat."""
     return _ResolvedChat(
         chat_ref=chat_ref,
@@ -171,7 +175,7 @@ def _dead_chat(chat_ref: str, *, status: str = "dead", **kw) -> _ResolvedChat:
 
 async def _resolve_chat(
     client: TelegramClient,
-    chat: dict,
+    chat: dict[str, Any],
     account_id: str,
 ) -> _ResolvedChat:
     """Resolve chat metadata without joining."""
@@ -348,7 +352,7 @@ async def _analyze_chat_activity(
     resolved: _ResolvedChat,
     account_id: str,
     settings: GroupSettings,
-) -> dict:
+) -> dict[str, Any]:
     """Join chat, analyze activity, always leave."""
     chat_ref = resolved.chat_ref
     numeric_id = None
@@ -364,7 +368,7 @@ async def _analyze_chat_activity(
         messages = []
         has_timeout = False
 
-        async def _fetch_messages():
+        async def _fetch_messages() -> None:
             nonlocal msg_count, authors, messages
             await rate_limiter.wait_if_needed("get_messages")
             async for msg in client.iter_messages(numeric_id, limit=5000):
@@ -405,7 +409,7 @@ async def _analyze_chat_activity(
 async def _detect_captcha(
     client: TelegramClient,
     chat_id: int,
-    messages: list,
+    messages: list[Any],
 ) -> bool:
     """Detect captcha bots in messages."""
     rate_limiter = get_rate_limiter()

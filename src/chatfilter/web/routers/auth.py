@@ -2,24 +2,29 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from chatfilter.i18n import _
 from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
+if TYPE_CHECKING:
+    from chatfilter.storage.user_database import UserDatabase
+
 router = APIRouter(tags=["auth"])
 
 
-def _get_user_db(request: Request):
+def _get_user_db(request: Request) -> UserDatabase:
     from chatfilter.storage.user_database import get_user_db
 
     return get_user_db(request.app.state.settings.data_dir)
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request) -> HTMLResponse:
+async def login_page(request: Request) -> Response:
     from chatfilter import __version__
     from chatfilter.web.app import get_templates
 

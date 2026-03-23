@@ -566,4 +566,6 @@ __all__ = [
     "ProxyConfig",
     "ensure_config_dir",
     "get_user_log_dir",
+    "_get_default_data_dir",
+    "_is_path_in_readonly_location",
 ]

@@ -137,7 +137,7 @@ async def upload_session(
             )
 
         # Parse JSON file if provided (TelegramExpert format)
-        json_account_info = None
+        json_account_info: dict[str, int | str] | None = None
         twofa_password = None
         json_api_id = None
         json_api_hash = None
@@ -318,6 +318,8 @@ async def upload_session(
             try:
                 from chatfilter.security import SecureCredentialManager
 
+                assert api_id is not None
+                assert api_hash is not None
                 storage_dir = session_dir
                 manager = SecureCredentialManager(storage_dir)
                 manager.store_credentials(safe_name, api_id, api_hash)
@@ -586,7 +588,8 @@ async def save_import_session(
             json_data = json.loads(json_content)
 
             # Parse and validate JSON using dedicated parser module
-            account_info, twofa_password = parse_telegram_expert_json(json_content, json_data)
+            _account_info_str, twofa_password = parse_telegram_expert_json(json_content, json_data)
+            account_info: dict[str, int | str] = dict(_account_info_str)
 
         except ValueError as e:
             # Validation error from parser
@@ -624,7 +627,7 @@ async def save_import_session(
 
             # Add user_id to account_info if available from session
             if session_account_info and "user_id" in session_account_info:
-                account_info["user_id"] = session_account_info["user_id"]
+                account_info["user_id"] = str(session_account_info["user_id"])
 
                 # Check for duplicate accounts only if we have user_id
                 user_id = session_account_info["user_id"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -108,7 +109,7 @@ class GroupSettings(BaseModel):
         return self.detect_activity or self.detect_unique_authors or self.detect_captcha
 
     @classmethod
-    def from_dict(cls, data: dict) -> GroupSettings:
+    def from_dict(cls, data: dict[str, Any]) -> GroupSettings:
         """Create GroupSettings from dict, handling legacy format.
 
         Migrates old settings format (message_limit, leave_after_analysis) to new format.

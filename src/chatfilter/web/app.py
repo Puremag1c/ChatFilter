@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -58,7 +59,9 @@ class AppState:
         self.active_connections = 0
         self.session_manager: SessionManager | None = None  # Will be set during startup
         self.proxy_health_monitor: ProxyHealthMonitor | None = None  # Will be set during startup
-        self.analysis_tasks: dict[str, asyncio.Task] = {}  # Background analysis tasks by group_id
+        self.analysis_tasks: dict[
+            str, asyncio.Task[Any]
+        ] = {}  # Background analysis tasks by group_id
         self.css_version: str = ""  # CSS file hash for cache-busting
 
 

@@ -37,7 +37,7 @@ from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 if TYPE_CHECKING:
-    pass
+    from fastapi import APIRouter
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 # Import router at module end to avoid circular import
 # This works because Python executes imports in order, and by the time
 # __init__.py imports connect.py, the router is already defined in __init__.py
-def _get_router():
+def _get_router() -> APIRouter:
     """Get router instance (lazy import to avoid circular dependency)."""
     from chatfilter.web.routers.sessions import router
 
@@ -284,11 +284,14 @@ async def connect_session(
         if session:
             if session.state in (SessionState.CONNECTED, SessionState.CONNECTING):
                 # Another request beat us to it — return current state
-                session_data = {
-                    "session_id": safe_name,
-                    "state": session.state.value,
-                    "error_message": None,
-                }
+                session_data = SessionListItem(
+                    session_id=safe_name,
+                    state=session.state.value,
+                    error_message=None,
+                    has_session_file=session_path.exists(),
+                    retry_available=None,
+                    flood_wait_until=_get_flood_wait_until(safe_name),
+                )
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/session_row.html",
@@ -314,11 +317,14 @@ async def connect_session(
     )
 
     # Return immediately with 'connecting' state (template shows spinner)
-    session_data = {
-        "session_id": safe_name,
-        "state": "connecting",
-        "error_message": None,
-    }
+    session_data = SessionListItem(
+        session_id=safe_name,
+        state="connecting",
+        error_message=None,
+        has_session_file=session_path.exists(),
+        retry_available=None,
+        flood_wait_until=_get_flood_wait_until(safe_name),
+    )
 
     return templates.TemplateResponse(
         request=request,
@@ -385,11 +391,14 @@ async def reconnect_session_start(
     )
 
     # Return connecting state
-    session_data = {
-        "session_id": safe_name,
-        "state": "connecting",
-        "error_message": None,
-    }
+    session_data = SessionListItem(
+        session_id=safe_name,
+        state="connecting",
+        error_message=None,
+        has_session_file=session_path.exists(),
+        retry_available=None,
+        flood_wait_until=_get_flood_wait_until(safe_name),
+    )
     return templates.TemplateResponse(
         request=request,
         name="partials/session_row.html",

@@ -290,7 +290,7 @@ def find_duplicate_accounts(
 ) -> list[str]:
     """Find all sessions that belong to the same Telegram account (by user_id)."""
     duplicates = []
-    data_dir = ensure_data_dir(web_user_id)
+    data_dir = ensure_data_dir(web_user_id if web_user_id is not None else "default")
 
     for session_dir in data_dir.iterdir():
         if not session_dir.is_dir():

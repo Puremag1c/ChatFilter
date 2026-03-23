@@ -2,8 +2,10 @@
 
 from typing import Any
 
+from ._base import DatabaseMixinBase
 
-class MetricsMixin:
+
+class MetricsMixin(DatabaseMixinBase):
     """Mixin providing chat metrics CRUD operations."""
 
     def save_chat_metrics(
