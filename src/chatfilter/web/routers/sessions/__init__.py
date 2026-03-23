@@ -153,7 +153,6 @@ from .io import (
     find_duplicate_accounts,
     get_account_info_from_session,
     load_account_info,
-    migrate_legacy_sessions,
     read_upload_with_size_limit,
     save_account_info,
     secure_file_permissions,

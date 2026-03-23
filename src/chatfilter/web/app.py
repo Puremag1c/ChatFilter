@@ -114,13 +114,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         session_cleanup_days=settings.session_cleanup_days,
     )
 
-    # Migrate legacy sessions (v0.4 -> v0.5 per-session config)
-    from chatfilter.web.routers.sessions import migrate_legacy_sessions
-
-    migrated_sessions = migrate_legacy_sessions()
-    if migrated_sessions:
-        logger.info(f"Migrated {len(migrated_sessions)} legacy sessions to new config format")
-
     # Recover stale in_progress groups after server restart
     from chatfilter.web.dependencies import get_group_engine
 

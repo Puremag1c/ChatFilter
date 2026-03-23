@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-03-22
+
+### Added
+- CLI-команда `chatfilter reset-password <user> <password>` для сброса пароля из терминала
+- Регрессионный тест CSRF на POST /login (form-field token)
+- Тесты для CLI reset-password команды
+
+### Fixed
+- CSRF блокирует логин — POST /login возвращал 403 Forbidden (токен не находился в сессии)
+- Светлая тема на странице логина отображалась некорректно
+- /login убран из CSRF exempt paths (устранена login CSRF уязвимость)
+
+### Changed
+- [Security] Минимальная длина пароля в CLI reset-password
+- [Security] Пароль не отображается в списке процессов при reset-password
+- [Reliability] Обработка блокировки SQLite при reset-password когда приложение запущено
+- [UX] Понятное сообщение об ошибке при неверных учётных данных на странице логина
+
 ## [0.26.1] - 2026-03-22
 
 ### Fixed

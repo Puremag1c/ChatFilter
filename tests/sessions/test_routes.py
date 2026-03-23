@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
-    migrate_legacy_sessions,
     read_upload_with_size_limit,
     sanitize_session_name,
     validate_account_info_json,
