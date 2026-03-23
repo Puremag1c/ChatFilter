@@ -12,14 +12,6 @@ This module provides:
 
 from __future__ import annotations
 
-# Import from sanitizer module
-from .sanitizer import (
-    SENSITIVE_PATTERNS,
-    LogSanitizer,
-    SanitizingFormatter,
-    sanitize_text,
-)
-
 # Import from context module
 from .context import (
     ChatContextFilter,
@@ -41,6 +33,14 @@ from .formatting import (
     TimingContext,
     configure_module_levels,
     set_module_log_level,
+)
+
+# Import from sanitizer module
+from .sanitizer import (
+    SENSITIVE_PATTERNS,
+    LogSanitizer,
+    SanitizingFormatter,
+    sanitize_text,
 )
 
 # Re-export all public names for backward compatibility

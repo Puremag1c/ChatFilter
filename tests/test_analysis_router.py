@@ -22,10 +22,12 @@ from fastapi.testclient import TestClient
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 from chatfilter.web.app import create_app
 
+
 # Old imports - no longer used (task_queue removed)
 # Stubs for old tests to at least load
 class TaskStatus:
     """Stub for removed TaskStatus."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -33,15 +35,19 @@ class TaskStatus:
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
 
+
 class QueueFullError(Exception):
     """Stub for removed QueueFullError."""
+
     def __init__(self, message, current=0, limit=0):
         super().__init__(message)
         self.current = current
         self.limit = limit
 
+
 def get_task_queue():
     """Stub for removed get_task_queue."""
+
     class FakeQueue:
         def create_task(self, *args, **kwargs):
             class FakeTask:
@@ -52,10 +58,14 @@ def get_task_queue():
                 results = []
                 error = None
                 completed_at = None
+
             return FakeTask()
+
         def get_task(self, task_id):
             return None
+
     return FakeQueue()
+
 
 def reset_task_queue():
     """Stub for removed reset_task_queue."""

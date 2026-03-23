@@ -34,7 +34,7 @@ class TestCreateUser:
 
     def test_duplicate_username_raises(self, user_db: UserDatabase) -> None:
         user_db.create_user("alice", "password123")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             user_db.create_user("alice", "other_password")
 
     def test_is_admin_flag(self, user_db: UserDatabase) -> None:

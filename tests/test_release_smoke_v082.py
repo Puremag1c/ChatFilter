@@ -112,9 +112,7 @@ def test_bug3_russian_translations_exist():
             if f'msgid "{msgid}"' in line and i + 1 < len(lines):
                 msgstr_line = lines[i + 1]
                 assert "msgstr" in msgstr_line, f"No msgstr for '{msgid}'"
-                assert any(
-                    ord(c) > 1000 for c in msgstr_line
-                ), f"Not localized: '{msgid}'"
+                assert any(ord(c) > 1000 for c in msgstr_line), f"Not localized: '{msgid}'"
 
     # ru.json has been removed (translations now server-rendered inline)
     # Skip JSON-based translation check since files are no longer maintained

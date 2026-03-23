@@ -30,6 +30,16 @@ router.include_router(analysis.router, tags=["groups"])
 router.include_router(modals.router, tags=["groups"])
 
 # Re-export functions for backward compatibility with tests
+from .analysis import (
+    reanalyze_group,
+    resume_group_analysis,
+    start_group_analysis,
+    stop_group_analysis,
+)
+from .export import (
+    _apply_export_filters,
+    _convert_results_for_exporter,
+)
 from .helpers import (
     ALLOWED_EXTENSIONS,
     ALLOWED_MIME_TYPES,
@@ -43,19 +53,9 @@ from .helpers import (
     parse_optional_int,
     read_upload_with_size_limit,
 )
-from .export import (
-    _apply_export_filters,
-    _convert_results_for_exporter,
-)
 from .progress import (
     _generate_unified_sse_events,
     get_unified_group_events,
-)
-from .analysis import (
-    start_group_analysis,
-    stop_group_analysis,
-    reanalyze_group,
-    resume_group_analysis,
 )
 
 __all__ = [

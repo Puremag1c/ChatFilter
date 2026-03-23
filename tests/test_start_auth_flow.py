@@ -1,8 +1,9 @@
 """Tests for start_auth_flow validation."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock
 
 from chatfilter.web.app import create_app
 

@@ -397,7 +397,9 @@ class AuthStateManager:
         async with self._lock:
             if session_id in self._in_progress:
                 operation = self._in_progress.pop(session_id)
-                logger.info(f"Cleared session '{session_id}' operation '{operation}' from in progress")
+                logger.info(
+                    f"Cleared session '{session_id}' operation '{operation}' from in progress"
+                )
 
     @contextlib.asynccontextmanager
     async def track_operation(self, session_id: str, operation: str):

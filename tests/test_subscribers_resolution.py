@@ -10,13 +10,11 @@ Bug: https://github.com/.../issues/ChatFilter-o91yq
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from telethon import errors
-from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.types import Channel, ChatInviteAlready, ChatInvitePeek
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
@@ -26,7 +24,7 @@ from chatfilter.analyzer.worker import (
     _ResolvedChat,
 )
 from chatfilter.exporter.csv import to_csv_rows_dynamic
-from chatfilter.models.group import AnalysisMode, ChatTypeEnum, GroupSettings
+from chatfilter.models.group import ChatTypeEnum, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
 
 if TYPE_CHECKING:
@@ -55,9 +53,7 @@ def mock_session_manager() -> MagicMock:
 
 
 @pytest.fixture
-def engine(
-    group_db: GroupDatabase, mock_session_manager: MagicMock
-) -> GroupAnalysisEngine:
+def engine(group_db: GroupDatabase, mock_session_manager: MagicMock) -> GroupAnalysisEngine:
     """Create a GroupAnalysisEngine instance for testing."""
     return GroupAnalysisEngine(db=group_db, session_manager=mock_session_manager)
 
@@ -94,18 +90,14 @@ class TestResolveByUsernameSubscribers:
     """Tests for _resolve_by_username returning numeric subscribers."""
 
     @pytest.mark.asyncio
-    async def test_get_entity_has_participants_count(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_get_entity_has_participants_count(self, engine: GroupAnalysisEngine) -> None:
         """When get_entity returns participants_count, use it directly."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=5000)
         mock_client.get_entity = AsyncMock(return_value=channel)
 
         chat_ref = "@testchannel"
-        resolved = await _resolve_by_username(
-            mock_client, chat_ref, "testchannel", "account1"
-        )
+        resolved = await _resolve_by_username(mock_client, chat_ref, "testchannel", "account1")
 
         assert resolved.subscribers == 5000
         assert resolved.status == "done"
@@ -127,18 +119,14 @@ class TestResolveByUsernameSubscribers:
         mock_client.return_value = full_result
 
         chat_ref = "@testchannel"
-        resolved = await _resolve_by_username(
-            mock_client, chat_ref, "testchannel", "account1"
-        )
+        resolved = await _resolve_by_username(mock_client, chat_ref, "testchannel", "account1")
 
         assert resolved.subscribers == 12345
         assert resolved.status == "done"
         assert resolved.chat_type == ChatTypeEnum.GROUP.value
 
     @pytest.mark.asyncio
-    async def test_full_channel_request_fails_gracefully(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_full_channel_request_fails_gracefully(self, engine: GroupAnalysisEngine) -> None:
         """When GetFullChannelRequest fails, subscribers remains None."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=None)
@@ -147,18 +135,14 @@ class TestResolveByUsernameSubscribers:
         mock_client.side_effect = Exception("API error")
 
         chat_ref = "@testchannel"
-        resolved = await _resolve_by_username(
-            mock_client, chat_ref, "testchannel", "account1"
-        )
+        resolved = await _resolve_by_username(mock_client, chat_ref, "testchannel", "account1")
 
         # Should still resolve but with None subscribers
         assert resolved.subscribers is None
         assert resolved.status == "done"
 
     @pytest.mark.asyncio
-    async def test_full_channel_flood_wait_propagates(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_full_channel_flood_wait_propagates(self, engine: GroupAnalysisEngine) -> None:
         """FloodWaitError from GetFullChannelRequest is re-raised."""
         mock_client = AsyncMock()
         channel = _make_channel(participants_count=None)
@@ -171,9 +155,7 @@ class TestResolveByUsernameSubscribers:
 
         chat_ref = "@testchannel"
         with pytest.raises(errors.FloodWaitError):
-            await _resolve_by_username(
-                mock_client, chat_ref, "testchannel", "account1"
-            )
+            await _resolve_by_username(mock_client, chat_ref, "testchannel", "account1")
 
     @pytest.mark.asyncio
     async def test_get_entity_zero_participants_no_full_channel_call(
@@ -185,9 +167,7 @@ class TestResolveByUsernameSubscribers:
         mock_client.get_entity = AsyncMock(return_value=channel)
 
         chat_ref = "@emptychannel"
-        resolved = await _resolve_by_username(
-            mock_client, chat_ref, "emptychannel", "account1"
-        )
+        resolved = await _resolve_by_username(mock_client, chat_ref, "emptychannel", "account1")
 
         assert resolved.subscribers == 0
         assert resolved.status == "done"
@@ -213,9 +193,7 @@ class TestResolveByInviteSubscribers:
         mock_client.side_effect = [invite_already, full_result]
 
         chat_ref = "https://t.me/+abc123"
-        resolved = await _resolve_by_invite(
-            mock_client, chat_ref, "abc123", "account1"
-        )
+        resolved = await _resolve_by_invite(mock_client, chat_ref, "abc123", "account1")
 
         assert resolved.subscribers == 9999
         assert resolved.status == "done"
@@ -226,7 +204,7 @@ class TestResolveByInviteSubscribers:
     ) -> None:
         """ChatInvitePeek with Channel that has no participants_count."""
         mock_client = AsyncMock()
-        
+
         invite_peek = MagicMock(spec=ChatInvitePeek)
         invite_peek.title = "Peek Channel"
         invite_peek.participants_count = None  # Will trigger GetFullChannelRequest
@@ -239,7 +217,7 @@ class TestResolveByInviteSubscribers:
         # and participants_count is taken from the result itself (line 285 in worker.py),
         # this test scenario is actually not possible. ChatInvitePeek never calls
         # GetFullChannelRequest because it doesn't have an entity to query.
-        # 
+        #
         # The test should be for ChatInviteAlready.chat with participants_count=None,
         # which already exists in test_invite_already_channel_no_participants_calls_full.
         # So we'll adjust this test to verify ChatInvitePeek with participants_count set.
@@ -248,9 +226,7 @@ class TestResolveByInviteSubscribers:
         mock_client.side_effect = [invite_peek]
 
         chat_ref = "https://t.me/+xyz789"
-        resolved = await _resolve_by_invite(
-            mock_client, chat_ref, "xyz789", "account1"
-        )
+        resolved = await _resolve_by_invite(mock_client, chat_ref, "xyz789", "account1")
 
         assert resolved.subscribers == 7777
         assert resolved.status == "done"

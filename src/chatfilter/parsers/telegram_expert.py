@@ -1,8 +1,7 @@
 """Parser for TelegramExpert JSON format account info."""
 
-import json
+import contextlib
 import re
-from typing import Optional
 
 
 def validate_account_info_json(json_data: object) -> str | None:
@@ -45,7 +44,7 @@ def validate_account_info_json(json_data: object) -> str | None:
     return None
 
 
-def extract_api_credentials(json_data: dict) -> tuple[Optional[int], Optional[str]]:
+def extract_api_credentials(json_data: dict) -> tuple[int | None, str | None]:
     """Extract Telegram API credentials from TelegramExpert JSON.
 
     Supports both field name variants:
@@ -62,10 +61,8 @@ def extract_api_credentials(json_data: dict) -> tuple[Optional[int], Optional[st
     api_id_value = json_data.get("app_id") or json_data.get("api_id")
     api_id = None
     if api_id_value is not None:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             api_id = int(api_id_value)
-        except (ValueError, TypeError):
-            pass
 
     # Extract api_hash (try both app_hash and api_hash)
     api_hash_value = json_data.get("app_hash") or json_data.get("api_hash")
@@ -78,7 +75,7 @@ def extract_api_credentials(json_data: dict) -> tuple[Optional[int], Optional[st
 
 def parse_telegram_expert_json(
     json_content: bytes, json_data: dict
-) -> tuple[dict[str, str], Optional[str]]:
+) -> tuple[dict[str, str], str | None]:
     """Parse TelegramExpert JSON format and extract account info.
 
     Args:
@@ -113,7 +110,7 @@ def parse_telegram_expert_json(
 
     # Security: Zero plaintext JSON after parsing to prevent memory dumps
     if json_content:
-        json_content = b'\x00' * len(json_content)
+        json_content = b"\x00" * len(json_content)
         del json_content
 
     return json_account_info, twofa_password

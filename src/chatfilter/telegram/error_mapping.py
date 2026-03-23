@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from typing import TypedDict
 
-from chatfilter.i18n import _, ngettext
+from chatfilter.i18n import _
 from chatfilter.telegram.error_utils import _extract_wait_time, _format_duration
 
 

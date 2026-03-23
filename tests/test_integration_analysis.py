@@ -40,10 +40,10 @@ from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.web.routers.groups import _apply_export_filters, _convert_results_for_exporter
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def db(tmp_path: Path) -> GroupDatabase:
@@ -111,18 +111,18 @@ def _setup_group(
 
 def _make_chat_result(chat_ref: str, **overrides) -> ChatResult:
     """Build a successful ChatResult with sensible defaults."""
-    defaults = dict(
-        chat_ref=chat_ref,
-        chat_type=ChatTypeEnum.GROUP.value,
-        title=f"Title of {chat_ref}",
-        subscribers=100,
-        moderation=False,
-        messages_per_hour=5.0,
-        unique_authors_per_hour=2.5,
-        captcha=False,
-        partial_data=False,
-        status="done",
-    )
+    defaults = {
+        "chat_ref": chat_ref,
+        "chat_type": ChatTypeEnum.GROUP.value,
+        "title": f"Title of {chat_ref}",
+        "subscribers": 100,
+        "moderation": False,
+        "messages_per_hour": 5.0,
+        "unique_authors_per_hour": 2.5,
+        "captcha": False,
+        "partial_data": False,
+        "status": "done",
+    }
     defaults.update(overrides)
     return ChatResult(**defaults)
 
@@ -131,11 +131,14 @@ def _make_chat_result(chat_ref: str, **overrides) -> ChatResult:
 # 1. Full analysis: create → start → progress monotonic → all Done
 # ---------------------------------------------------------------------------
 
-class TestFullAnalysisFlow:
 
+class TestFullAnalysisFlow:
     @pytest.mark.asyncio
     async def test_create_start_progress_all_done(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
+        session_manager: MagicMock,
     ) -> None:
         """Create group → start analysis → progress monotonically increases → all chats Done."""
         refs = ["@ch1", "@ch2", "@ch3", "@ch4", "@ch5"]
@@ -186,11 +189,14 @@ class TestFullAnalysisFlow:
 # 2. Stop mid-analysis → resume → completes
 # ---------------------------------------------------------------------------
 
-class TestStopResumeFlow:
 
+class TestStopResumeFlow:
     @pytest.mark.asyncio
     async def test_stop_and_resume_completes(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
+        session_manager: MagicMock,
     ) -> None:
         """Simulate stop by manually pausing, then resume → all complete."""
         refs = ["@s1", "@s2", "@s3", "@s4", "@s5"]
@@ -208,7 +214,9 @@ class TestStopResumeFlow:
             return _make_chat_result(chat["chat_ref"])
 
         with (
-            patch("chatfilter.analyzer.group_engine.process_chat", side_effect=mock_process_partial),
+            patch(
+                "chatfilter.analyzer.group_engine.process_chat", side_effect=mock_process_partial
+            ),
             patch("chatfilter.analyzer.group_engine.asyncio.sleep", new_callable=AsyncMock),
         ):
             await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
@@ -229,6 +237,7 @@ class TestStopResumeFlow:
 
         # Sleep to avoid task ID collision (timestamp-based)
         import time
+
         time.sleep(1.1)
 
         # Phase 2: Resume — should reset errors to pending and complete remaining
@@ -244,27 +253,29 @@ class TestStopResumeFlow:
         # All chats should now be DONE
         all_chats = db.load_chats(group_id=group_id)
         done_or_error = [
-            c for c in all_chats
+            c
+            for c in all_chats
             if c["status"] in (GroupChatStatus.DONE.value, GroupChatStatus.ERROR.value)
         ]
         assert len(done_or_error) == 5, f"Expected 5 done/error, got {len(done_or_error)}"
 
         # Group should be COMPLETED or FAILED (all processed)
         computed_status = db.compute_group_status(group_id)
-        assert computed_status in (
-            GroupStatus.COMPLETED.value, GroupStatus.FAILED.value
-        )
+        assert computed_status in (GroupStatus.COMPLETED.value, GroupStatus.FAILED.value)
 
 
 # ---------------------------------------------------------------------------
 # 3. INCREMENT: add missing metrics → new task → Pending → Done
 # ---------------------------------------------------------------------------
 
-class TestIncrementMode:
 
+class TestIncrementMode:
     @pytest.mark.asyncio
     async def test_increment_reanalyzes_incomplete_chats(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
+        session_manager: MagicMock,
     ) -> None:
         """After initial analysis with partial settings, INCREMENT fills missing metrics."""
         refs = ["@inc1", "@inc2", "@inc3"]
@@ -308,6 +319,7 @@ class TestIncrementMode:
 
         # Sleep to avoid task ID collision (timestamp-based)
         import time
+
         time.sleep(1.1)
 
         # Second pass: INCREMENT should only process chats missing metrics
@@ -337,11 +349,14 @@ class TestIncrementMode:
 # 4. OVERWRITE: clear + reanalyze → all Pending → Done
 # ---------------------------------------------------------------------------
 
-class TestOverwriteMode:
 
+class TestOverwriteMode:
     @pytest.mark.asyncio
     async def test_overwrite_resets_all_and_reanalyzes(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
+        session_manager: MagicMock,
     ) -> None:
         """OVERWRITE resets all chats to PENDING and reanalyzes from scratch."""
         refs = ["@ow1", "@ow2", "@ow3"]
@@ -364,6 +379,7 @@ class TestOverwriteMode:
 
         # Sleep to avoid task ID collision (timestamp-based)
         import time
+
         time.sleep(1.1)
 
         # OVERWRITE: should reset all chats and reanalyze
@@ -392,11 +408,14 @@ class TestOverwriteMode:
 # 5. Dead chat → ERROR status with chat_type=dead
 # ---------------------------------------------------------------------------
 
-class TestDeadChat:
 
+class TestDeadChat:
     @pytest.mark.asyncio
     async def test_dead_chat_saved_as_error_with_dead_type(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
+        session_manager: MagicMock,
     ) -> None:
         """Dead/banned chat gets status=ERROR and chat_type=dead."""
         refs = ["@alive", "@dead_chat"]
@@ -439,11 +458,14 @@ class TestDeadChat:
 # 6. Moderated chat → Done, activity N/A
 # ---------------------------------------------------------------------------
 
-class TestModeratedChat:
 
+class TestModeratedChat:
     @pytest.mark.asyncio
     async def test_moderated_chat_done_activity_null(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
+        session_manager: MagicMock,
     ) -> None:
         """Moderated chat (join approval required) → Done with N/A activity metrics."""
         refs = ["@moderated", "@normal"]
@@ -487,11 +509,13 @@ class TestModeratedChat:
 # 7. All accounts banned → Error
 # ---------------------------------------------------------------------------
 
-class TestAllAccountsBanned:
 
+class TestAllAccountsBanned:
     @pytest.mark.asyncio
     async def test_no_accounts_raises_error(
-        self, db: GroupDatabase, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        session_manager: MagicMock,
     ) -> None:
         """When no healthy accounts available, start_analysis raises NoConnectedAccountsError."""
         # No healthy accounts
@@ -506,7 +530,10 @@ class TestAllAccountsBanned:
 
     @pytest.mark.asyncio
     async def test_all_chats_error_when_worker_fails(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
+        session_manager: MagicMock,
     ) -> None:
         """When all accounts fail for all chats, group ends as FAILED."""
         refs = ["@fail1", "@fail2"]
@@ -540,8 +567,8 @@ class TestAllAccountsBanned:
 # 8. CSV export with new columns
 # ---------------------------------------------------------------------------
 
-class TestCsvExport:
 
+class TestCsvExport:
     def test_csv_export_with_new_columns(self, db: GroupDatabase) -> None:
         """CSV export reads metrics from group_chats columns and produces correct output."""
         group_id = _setup_group(db, chat_refs=["@exp1", "@exp2", "@exp3"])
@@ -551,28 +578,40 @@ class TestCsvExport:
         chats = db.load_chats(group_id=group_id)
         test_data = [
             {"type": "group", "subs": 500, "mph": 10.5, "uaph": 4.2, "mod": False, "cap": False},
-            {"type": "channel_no_comments", "subs": 2000, "mph": None, "uaph": None, "mod": False, "cap": False},
+            {
+                "type": "channel_no_comments",
+                "subs": 2000,
+                "mph": None,
+                "uaph": None,
+                "mod": False,
+                "cap": False,
+            },
             {"type": "dead", "subs": None, "mph": None, "uaph": None, "mod": None, "cap": None},
         ]
 
-        for chat, data in zip(chats, test_data):
+        for chat, data in zip(chats, test_data, strict=False):
             db.save_chat(
                 group_id=group_id,
                 chat_ref=chat["chat_ref"],
                 chat_type=data["type"],
-                status=GroupChatStatus.DONE.value if data["type"] != "dead" else GroupChatStatus.ERROR.value,
+                status=GroupChatStatus.DONE.value
+                if data["type"] != "dead"
+                else GroupChatStatus.ERROR.value,
                 chat_id=chat["id"],
                 subscribers=data["subs"],
             )
-            db.save_chat_metrics(chat["id"], {
-                "title": f"Title {chat['chat_ref']}",
-                "moderation": data["mod"],
-                "messages_per_hour": data["mph"],
-                "unique_authors_per_hour": data["uaph"],
-                "captcha": data["cap"],
-                "partial_data": False,
-                "metrics_version": METRICS_VERSION,
-            })
+            db.save_chat_metrics(
+                chat["id"],
+                {
+                    "title": f"Title {chat['chat_ref']}",
+                    "moderation": data["mod"],
+                    "messages_per_hour": data["mph"],
+                    "unique_authors_per_hour": data["uaph"],
+                    "captcha": data["cap"],
+                    "partial_data": False,
+                    "metrics_version": METRICS_VERSION,
+                },
+            )
 
         # Use GroupService.get_results() — same as router uses
         svc = GroupService(db=db)
@@ -609,15 +648,33 @@ class TestCsvExport:
     def test_export_filters_on_flat_results(self, db: GroupDatabase) -> None:
         """Export filters work on flat service.get_results() structure."""
         results = [
-            {"chat_ref": "@a", "chat_type": "group", "subscribers": 500,
-             "messages_per_hour": 10.0, "moderation": False, "captcha": False,
-             "status": "done"},
-            {"chat_ref": "@b", "chat_type": "dead", "subscribers": None,
-             "messages_per_hour": None, "moderation": None, "captcha": None,
-             "status": "error"},
-            {"chat_ref": "@c", "chat_type": "group", "subscribers": 100,
-             "messages_per_hour": 2.0, "moderation": True, "captcha": True,
-             "status": "done"},
+            {
+                "chat_ref": "@a",
+                "chat_type": "group",
+                "subscribers": 500,
+                "messages_per_hour": 10.0,
+                "moderation": False,
+                "captcha": False,
+                "status": "done",
+            },
+            {
+                "chat_ref": "@b",
+                "chat_type": "dead",
+                "subscribers": None,
+                "messages_per_hour": None,
+                "moderation": None,
+                "captcha": None,
+                "status": "error",
+            },
+            {
+                "chat_ref": "@c",
+                "chat_type": "group",
+                "subscribers": 100,
+                "messages_per_hour": 2.0,
+                "moderation": True,
+                "captcha": True,
+                "status": "done",
+            },
         ]
 
         # Filter out dead
@@ -669,11 +726,13 @@ class TestCsvExport:
 # Cross-cutting: service layer orchestration
 # ---------------------------------------------------------------------------
 
-class TestServiceLayer:
 
+class TestServiceLayer:
     @pytest.mark.asyncio
     async def test_service_start_analysis_delegates_to_engine(
-        self, db: GroupDatabase, engine: GroupAnalysisEngine,
+        self,
+        db: GroupDatabase,
+        engine: GroupAnalysisEngine,
         session_manager: MagicMock,
     ) -> None:
         """GroupService.start_analysis() creates group and delegates to engine."""
@@ -706,20 +765,25 @@ class TestServiceLayer:
         chats = db.load_chats(group_id=group_id)
         chat = chats[0]
         db.save_chat(
-            group_id=group_id, chat_ref=chat["chat_ref"],
+            group_id=group_id,
+            chat_ref=chat["chat_ref"],
             chat_type=ChatTypeEnum.GROUP.value,
             status=GroupChatStatus.DONE.value,
-            chat_id=chat["id"], subscribers=300,
+            chat_id=chat["id"],
+            subscribers=300,
         )
-        db.save_chat_metrics(chat["id"], {
-            "title": "Result Chat",
-            "moderation": False,
-            "messages_per_hour": 7.5,
-            "unique_authors_per_hour": 3.0,
-            "captcha": True,
-            "partial_data": False,
-            "metrics_version": METRICS_VERSION,
-        })
+        db.save_chat_metrics(
+            chat["id"],
+            {
+                "title": "Result Chat",
+                "moderation": False,
+                "messages_per_hour": 7.5,
+                "unique_authors_per_hour": 3.0,
+                "captcha": True,
+                "partial_data": False,
+                "metrics_version": METRICS_VERSION,
+            },
+        )
 
         results = svc.get_results(group_id)
         assert len(results) == 1
@@ -736,10 +800,12 @@ class TestServiceLayer:
 # Crash recovery
 # ---------------------------------------------------------------------------
 
-class TestCrashRecovery:
 
+class TestCrashRecovery:
     def test_recover_stale_analysis_sets_paused(
-        self, db: GroupDatabase, session_manager: MagicMock,
+        self,
+        db: GroupDatabase,
+        session_manager: MagicMock,
     ) -> None:
         """Groups stuck in IN_PROGRESS after crash get set to PAUSED."""
         group_id = _setup_group(db, status=GroupStatus.IN_PROGRESS.value)

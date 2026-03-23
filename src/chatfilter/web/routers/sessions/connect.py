@@ -8,19 +8,23 @@ from typing import TYPE_CHECKING
 from fastapi import BackgroundTasks, Request, status
 from fastapi.responses import HTMLResponse
 
+import chatfilter.web.dependencies as _web_deps
 from chatfilter.i18n import _
 from chatfilter.telegram.error_mapping import get_user_friendly_message
 from chatfilter.telegram.session import (
     ManagedSession,
     SessionState,
 )
-import chatfilter.web.dependencies as _web_deps
 from chatfilter.web.events import get_event_bus
+from chatfilter.web.routers.sessions.background import (
+    _do_connect_in_background_v2,
+    _send_verification_code_with_timeout,
+)
 from chatfilter.web.routers.sessions.helpers import (
-    _get_session_lock,
-    _get_flood_wait_until,
-    sanitize_session_name,
     SessionListItem,
+    _get_flood_wait_until,
+    _get_session_lock,
+    sanitize_session_name,
 )
 from chatfilter.web.routers.sessions.io import (
     ensure_data_dir,
@@ -28,10 +32,6 @@ from chatfilter.web.routers.sessions.io import (
 )
 from chatfilter.web.routers.sessions.listing import (
     get_session_config_status,
-)
-from chatfilter.web.routers.sessions.background import (
-    _do_connect_in_background_v2,
-    _send_verification_code_with_timeout,
 )
 from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 def _get_router():
     """Get router instance (lazy import to avoid circular dependency)."""
     from chatfilter.web.routers.sessions import router
+
     return router
 
 
@@ -299,6 +300,7 @@ async def connect_session(
             # Create ManagedSession with a client from the factory
             client = loader.create_client()
             from .client_registry import register_client
+
             if user_id is not None:
                 register_client(str(user_id), client)
             session_manager._sessions[safe_name] = ManagedSession(
@@ -434,6 +436,7 @@ async def disconnect_session(
             user_id = get_session(request).get("user_id")
             if user_id is not None:
                 from .client_registry import unregister_client
+
                 unregister_client(str(user_id), client_to_unregister)
 
         # Return empty response with HX-Reswap:none so HTMX doesn't also try to swap the row,

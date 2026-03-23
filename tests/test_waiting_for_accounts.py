@@ -12,18 +12,15 @@ Scenarios:
 
 from __future__ import annotations
 
-import asyncio
-import time
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 from chatfilter.analyzer.progress import GroupProgressEvent, ProgressTracker
-from chatfilter.analyzer.worker import ChatResult
 from chatfilter.models.group import (
     AnalysisMode,
     GroupChatStatus,
@@ -33,10 +30,10 @@ from chatfilter.models.group import (
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.flood_tracker import FloodWaitTracker
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def test_db(tmp_path: Path) -> GroupDatabase:
@@ -116,6 +113,7 @@ def _setup_group_with_chats(
 # Test: FloodWait expires → auto-resume → COMPLETED
 # ---------------------------------------------------------------------------
 
+
 class TestAutoResume:
     """Test that WAITING_FOR_ACCOUNTS auto-resumes when FloodWait expires."""
 
@@ -151,7 +149,6 @@ class TestAutoResume:
 
         # Track how many times _wait loop runs
         wait_call_count = 0
-        original_wait_for = asyncio.wait_for
 
         async def mock_wait_for(coro, *, timeout=None):
             nonlocal wait_call_count
@@ -160,7 +157,7 @@ class TestAutoResume:
             if wait_call_count == 1:
                 flood_tracker.clear_all()
             # Always timeout immediately to avoid actual waiting
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         # Track start_analysis calls to handle INCREMENT resume
         original_start = engine.start_analysis
@@ -176,7 +173,9 @@ class TestAutoResume:
                         chat_id=chat["id"],
                         status=GroupChatStatus.DONE.value,
                     )
-                    test_db.save_chat_metrics(chat["id"], {"title": chat["chat_ref"], "metrics_version": 2})
+                    test_db.save_chat_metrics(
+                        chat["id"], {"title": chat["chat_ref"], "metrics_version": 2}
+                    )
                 # Finalize
                 await engine._finalize_group(gid)
             else:
@@ -213,13 +212,9 @@ class TestAutoResume:
                 events.append(ev)
 
         # Must have at least one WAITING_FOR_ACCOUNTS event
-        waiting_events = [
-            e for e in events
-            if e.status == GroupStatus.WAITING_FOR_ACCOUNTS.value
-        ]
+        waiting_events = [e for e in events if e.status == GroupStatus.WAITING_FOR_ACCOUNTS.value]
         assert len(waiting_events) >= 1, (
-            f"Expected WAITING_FOR_ACCOUNTS SSE event, got statuses: "
-            f"{[e.status for e in events]}"
+            f"Expected WAITING_FOR_ACCOUNTS SSE event, got statuses: {[e.status for e in events]}"
         )
 
         # WAITING event must have flood_wait_until timestamp
@@ -232,19 +227,16 @@ class TestAutoResume:
             )
 
         # Check for COMPLETED event (from _finalize_group)
-        completed_events = [
-            e for e in events
-            if e.status == GroupStatus.COMPLETED.value
-        ]
+        completed_events = [e for e in events if e.status == GroupStatus.COMPLETED.value]
         assert len(completed_events) >= 1, (
-            f"Expected COMPLETED SSE event after resume, got statuses: "
-            f"{[e.status for e in events]}"
+            f"Expected COMPLETED SSE event after resume, got statuses: {[e.status for e in events]}"
         )
 
 
 # ---------------------------------------------------------------------------
 # Test: New account added during wait → detects and resumes
 # ---------------------------------------------------------------------------
+
 
 class TestNewAccountDetection:
     """Test that a new account added during WAITING_FOR_ACCOUNTS triggers resume."""
@@ -318,7 +310,7 @@ class TestNewAccountDetection:
             # Clear flood so acct1 is no longer blocked, simulating account deletion
             flood_tracker.clear_all()
             # Always timeout to continue loop iteration
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         with (
             patch.object(engine, "start_analysis", side_effect=patched_start),
@@ -343,6 +335,7 @@ class TestNewAccountDetection:
 # ---------------------------------------------------------------------------
 # Test: SSE events contain correct fields during waiting
 # ---------------------------------------------------------------------------
+
 
 class TestSSEEvents:
     """Test SSE event content during WAITING_FOR_ACCOUNTS status."""
@@ -383,7 +376,7 @@ class TestSSEEvents:
             # Unblock after first poll so engine resumes
             flood_tracker.clear_all()
             # Always timeout to continue loop iteration
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         async def patched_start(gid: str, mode: AnalysisMode = AnalysisMode.FRESH) -> None:
             # Mark remaining pending as DONE
@@ -407,12 +400,9 @@ class TestSSEEvents:
                 events.append(ev)
 
         # Find WAITING_FOR_ACCOUNTS events
-        waiting_events = [
-            e for e in events if e.status == GroupStatus.WAITING_FOR_ACCOUNTS.value
-        ]
+        waiting_events = [e for e in events if e.status == GroupStatus.WAITING_FOR_ACCOUNTS.value]
         assert len(waiting_events) >= 1, (
-            f"Expected at least 1 WAITING_FOR_ACCOUNTS event, "
-            f"got: {[e.status for e in events]}"
+            f"Expected at least 1 WAITING_FOR_ACCOUNTS event, got: {[e.status for e in events]}"
         )
 
         ev = waiting_events[0]
@@ -468,7 +458,7 @@ class TestSSEEvents:
             # Unblock
             flood_tracker.clear_all()
             # Always timeout to continue loop iteration
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
 
         async def patched_start(gid: str, mode: AnalysisMode = AnalysisMode.FRESH) -> None:
             for c in test_db.load_chats(group_id=gid, status=GroupChatStatus.PENDING.value):
@@ -493,6 +483,7 @@ class TestSSEEvents:
 # ---------------------------------------------------------------------------
 # Test: Full lifecycle via start_analysis entry point
 # ---------------------------------------------------------------------------
+
 
 class TestFullLifecycle:
     """Test the complete path: start_analysis → workers → wait → resume → complete."""
@@ -570,7 +561,8 @@ class TestFullLifecycle:
             pending = test_db.load_chats(group_id=gid, status=GroupChatStatus.PENDING.value)
             for chat in pending:
                 test_db.update_chat_status(
-                    chat_id=chat["id"], status=GroupChatStatus.DONE.value,
+                    chat_id=chat["id"],
+                    status=GroupChatStatus.DONE.value,
                 )
                 test_db.save_chat_metrics(
                     chat["id"], {"title": chat["chat_ref"], "metrics_version": 2}
@@ -588,8 +580,7 @@ class TestFullLifecycle:
 
         # Verify: _wait_for_accounts_and_resume was called
         assert len(wait_calls) == 1, (
-            f"Expected _wait_for_accounts_and_resume to be called once, "
-            f"got {len(wait_calls)} calls"
+            f"Expected _wait_for_accounts_and_resume to be called once, got {len(wait_calls)} calls"
         )
         assert wait_calls[0] == group_id
 
@@ -614,13 +605,9 @@ class TestFullLifecycle:
 
         # WAITING must come before COMPLETED
         waiting_idx = next(
-            i for i, s in enumerate(statuses)
-            if s == GroupStatus.WAITING_FOR_ACCOUNTS.value
+            i for i, s in enumerate(statuses) if s == GroupStatus.WAITING_FOR_ACCOUNTS.value
         )
-        completed_idx = next(
-            i for i, s in enumerate(statuses)
-            if s == GroupStatus.COMPLETED.value
-        )
+        completed_idx = next(i for i, s in enumerate(statuses) if s == GroupStatus.COMPLETED.value)
         assert waiting_idx < completed_idx, (
             f"WAITING_FOR_ACCOUNTS (idx={waiting_idx}) should precede "
             f"COMPLETED (idx={completed_idx})"
@@ -673,7 +660,8 @@ class TestFullLifecycle:
             )
             for chat in chats:
                 test_db.update_chat_status(
-                    chat_id=chat["id"], status=GroupChatStatus.DONE.value,
+                    chat_id=chat["id"],
+                    status=GroupChatStatus.DONE.value,
                 )
 
         with (

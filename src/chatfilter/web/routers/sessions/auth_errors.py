@@ -3,7 +3,7 @@
 Extracts common error response patterns from auth_reconnect.py to reduce duplication.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
@@ -78,7 +78,7 @@ def auth_success_response(
     request: Request,
     templates: Any,
     message: str,
-    next_url: Optional[str] = None,
+    next_url: str | None = None,
 ) -> HTMLResponse:
     """Return auth success partial."""
     context: dict[str, Any] = {"success": True, "message": message}

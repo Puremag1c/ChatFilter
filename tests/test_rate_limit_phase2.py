@@ -32,6 +32,7 @@ def mock_session_manager():
     # Mock is_healthy as async
     async def mock_is_healthy(session_id):
         return True
+
     mgr.is_healthy = mock_is_healthy
 
     return mgr

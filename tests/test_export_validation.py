@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import UTC, datetime
 
 import pytest
-from fastapi.testclient import TestClient
 
 from chatfilter.models.group import GroupSettings
 from chatfilter.service.group_service import GroupService
@@ -63,10 +61,12 @@ def _convert_results_for_exporter(results: list[dict]) -> list[dict]:
             "captcha": captcha,
             "status": csv_status,
         }
-        converted.append({
-            "chat_ref": result["chat_ref"],
-            "metrics_data": metrics_data,
-        })
+        converted.append(
+            {
+                "chat_ref": result["chat_ref"],
+                "metrics_data": metrics_data,
+            }
+        )
     return converted
 
 
@@ -165,7 +165,7 @@ def parse_csv(csv_content: str) -> tuple[list[str], list[dict[str, str]]]:
         Tuple of (headers, rows) where rows is list of dicts
     """
     # Strip BOM if present
-    if csv_content.startswith('\ufeff'):
+    if csv_content.startswith("\ufeff"):
         csv_content = csv_content[1:]
 
     reader = csv.DictReader(io.StringIO(csv_content))

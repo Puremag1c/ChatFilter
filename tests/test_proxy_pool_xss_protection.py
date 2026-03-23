@@ -7,7 +7,6 @@ HTML-escaped when rendered in HTML responses to prevent XSS attacks.
 from __future__ import annotations
 
 import re
-import tempfile
 import uuid
 from pathlib import Path
 from unittest.mock import patch
@@ -15,7 +14,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from chatfilter.config_proxy import ProxyConfig, ProxyType
+from chatfilter.config_proxy import ProxyType
 from chatfilter.web.app import create_app
 
 
@@ -79,13 +78,15 @@ def test_proxy_retest_escapes_malicious_name(
     async def mock_retest(pid: str, uid: str = "default"):
         return updated_proxy if pid == proxy_id else None
 
-    with patch("chatfilter.service.proxy_health.retest_proxy", side_effect=mock_retest):
-        with patch("chatfilter.web.routers.proxy_pool._get_sessions_using_proxy", return_value=[]):
-            # Call retest endpoint (returns HTML <tr>)
-            response = client.post(
-                f"/api/proxies/{proxy_id}/retest",
-                headers={"X-CSRF-Token": csrf_token},
-            )
+    with (
+        patch("chatfilter.service.proxy_health.retest_proxy", side_effect=mock_retest),
+        patch("chatfilter.web.routers.proxy_pool._get_sessions_using_proxy", return_value=[]),
+    ):
+        # Call retest endpoint (returns HTML <tr>)
+        response = client.post(
+            f"/api/proxies/{proxy_id}/retest",
+            headers={"X-CSRF-Token": csrf_token},
+        )
 
     assert response.status_code == 200
     html = response.text
@@ -122,10 +123,12 @@ def test_proxy_list_escapes_malicious_fields(
     )
 
     # Mock load_proxy_pool to return malicious proxy
-    with patch("chatfilter.web.routers.proxy_pool.load_proxy_pool", return_value=[malicious_proxy]):
-        with patch("chatfilter.web.routers.proxy_pool._get_sessions_using_proxy", return_value=[]):
-            # Call list endpoint
-            response = client.get("/api/proxies/list")
+    with (
+        patch("chatfilter.web.routers.proxy_pool.load_proxy_pool", return_value=[malicious_proxy]),
+        patch("chatfilter.web.routers.proxy_pool._get_sessions_using_proxy", return_value=[]),
+    ):
+        # Call list endpoint
+        response = client.get("/api/proxies/list")
 
     assert response.status_code == 200
     html = response.text
@@ -147,14 +150,14 @@ def test_proxy_row_macro_uses_auto_escaping() -> None:
     Static analysis test - checks that template doesn't use '| safe' filter
     which would disable auto-escaping.
     """
-    from pathlib import Path
 
     template_path = Path("src/chatfilter/templates/partials/proxy_pool_list.html")
     template_content = template_path.read_text()
 
     # Verify no unsafe rendering
-    assert "| safe" not in template_content, \
+    assert "| safe" not in template_content, (
         "Template uses '| safe' filter which disables XSS protection"
+    )
 
     # Verify user-controlled fields use standard {{ }} (auto-escaped)
     assert "{{ proxy.name }}" in template_content
@@ -214,8 +217,9 @@ def test_html_endpoint_exception_escaping(
 
     # Verify XSS payload is escaped in HTML error message
     assert "<img src=x" not in html, "Raw <img> tag in HTML error - XSS vulnerability!"
-    assert "&lt;img" in html or "onerror=" not in html, \
+    assert "&lt;img" in html or "onerror=" not in html, (
         "Exception message in HTML response not properly escaped"
+    )
 
 
 def test_create_proxy_uses_generic_errors(

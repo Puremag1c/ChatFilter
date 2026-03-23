@@ -10,13 +10,11 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
-import json
-from typing import AsyncIterator
-from unittest.mock import AsyncMock, patch
+import contextlib
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx import AsyncClient
 
 from chatfilter.web.app import create_app
 from chatfilter.web.events import SessionEventBus, get_event_bus, reset_event_bus
@@ -42,16 +40,18 @@ class TestSSEIntegration:
         """SSE endpoint should be defined and routable."""
         app = create_app()
         routes = [route.path for route in app.routes]
-        assert any("/api/sessions/events" in route for route in routes), \
+        assert any("/api/sessions/events" in route for route in routes), (
             f"SSE endpoint not found. Available routes: {routes}"
+        )
 
     def test_sse_endpoint_route_exists(self) -> None:
         """SSE endpoint /api/sessions/events should be registered."""
         from chatfilter.web.routers.sessions import router
 
         routes = [route.path for route in router.routes]
-        assert any("/events" in route for route in routes), \
+        assert any("/events" in route for route in routes), (
             f"Events endpoint not found in sessions router. Routes: {routes}"
+        )
 
     @pytest.mark.asyncio
     async def test_sse_event_bus_integration(self) -> None:
@@ -59,7 +59,9 @@ class TestSSEIntegration:
         bus = get_event_bus()
         received_events = []
 
-        async def capture_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
+        async def capture_handler(
+            session_id: str, new_status: str, data: dict | None = None
+        ) -> None:
             received_events.append((session_id, new_status))
 
         bus.subscribe(capture_handler)
@@ -102,10 +104,7 @@ class TestSSEIntegration:
         received_events = []
 
         async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
-            received_events.append({
-                "session_id": session_id,
-                "status": new_status
-            })
+            received_events.append({"session_id": session_id, "status": new_status})
 
         bus.subscribe(handler)
 
@@ -173,19 +172,20 @@ class TestSSEIntegration:
             for i in range(5):
                 await bus.publish("session-1", f"status-{i}")
 
-            assert len(received_events) <= 2, \
+            assert len(received_events) <= 2, (
                 f"Rate limit not enforced: received {len(received_events)} events"
+            )
         finally:
             bus.unsubscribe(handler)
 
     @pytest.mark.asyncio
     async def test_sse_handler_in_router(self) -> None:
         """SSE endpoint handler should properly integrate with router."""
-        from chatfilter.web.routers.sessions import session_events
         from inspect import iscoroutinefunction
 
-        assert iscoroutinefunction(session_events), \
-            "session_events should be an async function"
+        from chatfilter.web.routers.sessions import session_events
+
+        assert iscoroutinefunction(session_events), "session_events should be an async function"
 
     @pytest.mark.asyncio
     async def test_sse_stream_format(self) -> None:
@@ -194,10 +194,7 @@ class TestSSEIntegration:
         received_sse_lines = []
 
         async def handler(session_id: str, new_status: str, data: dict | None = None) -> None:
-            received_sse_lines.append({
-                "session_id": session_id,
-                "status": new_status
-            })
+            received_sse_lines.append({"session_id": session_id, "status": new_status})
 
         bus.subscribe(handler)
 
@@ -294,14 +291,12 @@ class TestSSEIntegration:
             # Get the initial connection message
             first_event = await asyncio.wait_for(iterator.__anext__(), timeout=2.0)
             assert first_event  # Should get connected message
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
         # Close the generator by raising GeneratorExit
-        try:
+        with contextlib.suppress(StopAsyncIteration, GeneratorExit):
             await iterator.aclose()
-        except (StopAsyncIteration, GeneratorExit):
-            pass
 
         # Give event loop a chance to run the finally block
         await asyncio.sleep(0.01)
@@ -328,8 +323,9 @@ class TestSSEIntegration:
                 await asyncio.sleep(0.001)  # Small delay to simulate real timing
 
             # All events should be received without drops
-            assert len(received_events) >= event_count * 0.9, \
+            assert len(received_events) >= event_count * 0.9, (
                 f"Connection dropped events: expected ~{event_count}, got {len(received_events)}"
+            )
         finally:
             bus.unsubscribe(handler)
 
@@ -353,17 +349,13 @@ class TestSSEIntegration:
         iterator_1 = response_1.body_iterator
 
         # Get initial event from first connection
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(iterator_1.__anext__(), timeout=2.0)
-        except asyncio.TimeoutError:
-            pass
 
         # Close first connection
         disconnected_1 = True
-        try:
+        with contextlib.suppress(StopAsyncIteration, GeneratorExit):
             await iterator_1.aclose()
-        except (StopAsyncIteration, GeneratorExit):
-            pass
 
         await asyncio.sleep(0.05)  # Give time for cleanup
 
@@ -383,21 +375,20 @@ class TestSSEIntegration:
         try:
             event = await asyncio.wait_for(iterator_2.__anext__(), timeout=2.0)
             assert event  # Connection successful
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pytest.fail("Reconnection failed - timeout waiting for event")
         finally:
             disconnected_2 = True
-            try:
+            with contextlib.suppress(StopAsyncIteration, GeneratorExit):
                 await iterator_2.aclose()
-            except (StopAsyncIteration, GeneratorExit):
-                pass
 
             await asyncio.sleep(0.05)
 
         # Verify cleanup happened - subscriber count should be reasonable
         # (not checking exact count to avoid flakiness, just verifying no runaway growth)
-        assert bus.subscriber_count < 5, \
+        assert bus.subscriber_count < 5, (
             f"Too many subscribers after reconnection test: {bus.subscriber_count}"
+        )
 
     @pytest.mark.asyncio
     async def test_sse_connection_stability_no_memory_leak(self) -> None:
@@ -430,20 +421,20 @@ class TestSSEIntegration:
 
             # Check subscriber count hasn't grown unexpectedly
             # Should be initial + 1 (our active connection)
-            assert bus.subscriber_count <= initial_subscribers + 2, \
+            assert bus.subscriber_count <= initial_subscribers + 2, (
                 f"Memory leak detected: subscribers grew from {initial_subscribers} to {bus.subscriber_count}"
+            )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
         finally:
             disconnected = True
-            try:
+            with contextlib.suppress(StopAsyncIteration, GeneratorExit):
                 await iterator.aclose()
-            except (StopAsyncIteration, GeneratorExit):
-                pass
 
             await asyncio.sleep(0.01)
 
         # After disconnect, subscriber count should return to initial
-        assert bus.subscriber_count == initial_subscribers, \
+        assert bus.subscriber_count == initial_subscribers, (
             f"Memory leak: subscribers not cleaned up ({bus.subscriber_count} vs {initial_subscribers})"
+        )

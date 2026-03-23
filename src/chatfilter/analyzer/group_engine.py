@@ -10,13 +10,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from chatfilter.analyzer.progress import GroupProgressEvent, ProgressTracker
 from chatfilter.analyzer.retry import RetryPolicy, try_with_retry
 from chatfilter.analyzer.worker import ChatResult, process_chat
-from chatfilter.telegram.flood_tracker import get_flood_tracker
 from chatfilter.models.group import (
     AnalysisMode,
     ChatTypeEnum,
@@ -25,6 +24,7 @@ from chatfilter.models.group import (
     GroupStatus,
 )
 from chatfilter.storage.group_database import GroupDatabase
+from chatfilter.telegram.flood_tracker import get_flood_tracker
 from chatfilter.telegram.session import SessionInvalidError, SessionManager
 from chatfilter.utils.network import detect_network_error
 
@@ -112,8 +112,10 @@ class GroupAnalysisEngine:
     def recover_stale_analysis(self) -> None:
         """Reset groups stuck in in_progress or waiting_for_accounts after server restart."""
         stale = [
-            g for g in self._db.load_all_groups()
-            if g["status"] in (GroupStatus.IN_PROGRESS.value, GroupStatus.WAITING_FOR_ACCOUNTS.value)
+            g
+            for g in self._db.load_all_groups()
+            if g["status"]
+            in (GroupStatus.IN_PROGRESS.value, GroupStatus.WAITING_FOR_ACCOUNTS.value)
         ]
         if not stale:
             logger.info("No stale in_progress/waiting_for_accounts groups — recovery skipped")
@@ -180,7 +182,7 @@ class GroupAnalysisEngine:
                 return
 
             group_data = self._db.load_group(group_id)
-            if group_data and group_data['status'] == GroupStatus.PAUSED.value:
+            if group_data and group_data["status"] == GroupStatus.PAUSED.value:
                 logger.info(f"Group '{group_id}' is paused, skipping auto-resume")
                 return
             # Get earliest available account
@@ -188,13 +190,14 @@ class GroupAnalysisEngine:
             if earliest_expiry is None:
                 # No blocked accounts - check for new accounts
                 accounts = [
-                    s for s in self._session_mgr.list_sessions()
+                    s
+                    for s in self._session_mgr.list_sessions()
                     if await self._session_mgr.is_healthy(s)
                 ]
                 if accounts:
                     # Check status before resuming - user may have clicked STOP
                     group_data = self._db.load_group(group_id)
-                    if group_data and group_data['status'] == GroupStatus.PAUSED.value:
+                    if group_data and group_data["status"] == GroupStatus.PAUSED.value:
                         logger.info(f"Group '{group_id}' is paused, skipping auto-resume")
                         return
 
@@ -252,22 +255,22 @@ class GroupAnalysisEngine:
                 # If we get here, stop_event was set — exit immediately
                 logger.info(f"Group '{group_id}' STOP detected during wait, exiting")
                 return
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Timeout after 30s — normal flow, continue to next check
                 pass
 
             # Check if FloodWait expired or new accounts available
             blocked = flood_tracker.get_blocked_accounts()
             healthy_accounts = [
-                s for s in self._session_mgr.list_sessions()
-                if await self._session_mgr.is_healthy(s)
-                and s not in blocked
+                s
+                for s in self._session_mgr.list_sessions()
+                if await self._session_mgr.is_healthy(s) and s not in blocked
             ]
 
             if healthy_accounts:
                 # Check status before resuming - user may have clicked STOP during wait
                 group_data = self._db.load_group(group_id)
-                if group_data and group_data['status'] == GroupStatus.PAUSED.value:
+                if group_data and group_data["status"] == GroupStatus.PAUSED.value:
                     logger.info(f"Group '{group_id}' is paused, skipping auto-resume")
                     return
 
@@ -280,7 +283,9 @@ class GroupAnalysisEngine:
     # -- Main entry: start_analysis ----------------------------------------
 
     async def start_analysis(
-        self, group_id: str, mode: AnalysisMode = AnalysisMode.FRESH,
+        self,
+        group_id: str,
+        mode: AnalysisMode = AnalysisMode.FRESH,
         _error_retry: bool = False,
     ) -> None:
         """Start analysis: create task, distribute chats, run workers."""
@@ -290,8 +295,7 @@ class GroupAnalysisEngine:
 
         settings = GroupSettings.from_dict(group_data["settings"])
         accounts = [
-            s for s in self._session_mgr.list_sessions()
-            if await self._session_mgr.is_healthy(s)
+            s for s in self._session_mgr.list_sessions() if await self._session_mgr.is_healthy(s)
         ]
         if not accounts:
             raise NoConnectedAccountsError(
@@ -346,7 +350,8 @@ class GroupAnalysisEngine:
 
         for idx, chat in enumerate(pending):
             self._db.update_chat_status(
-                chat_id=chat["id"], status=GroupChatStatus.PENDING.value,
+                chat_id=chat["id"],
+                status=GroupChatStatus.PENDING.value,
                 assigned_account=accounts[idx % len(accounts)],
             )
 
@@ -354,7 +359,8 @@ class GroupAnalysisEngine:
         started_at = self._db.get_analysis_started_at(group_id)
         is_resume = (
             group_data["status"] == GroupStatus.IN_PROGRESS.value
-            and started_at is not None and mode == AnalysisMode.INCREMENT
+            and started_at is not None
+            and mode == AnalysisMode.INCREMENT
         )
         if not is_resume:
             self._db.set_analysis_started_at(group_id, datetime.now(UTC))
@@ -378,10 +384,11 @@ class GroupAnalysisEngine:
         self._active_tasks[group_id] = tasks
         try:
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            for acct, res in zip(accounts, results):
+            for acct, res in zip(accounts, results, strict=False):
                 if isinstance(res, Exception):
                     # Check if this is FloodWait-related error
                     from telethon import errors as tl_errors
+
                     if isinstance(res, tl_errors.FloodWaitError):
                         wait_seconds = getattr(res, "seconds", 0)
                         logger.warning(f"Account '{acct}' worker: FloodWait {wait_seconds}s")
@@ -393,17 +400,21 @@ class GroupAnalysisEngine:
         self._db.complete_task(task_id)
 
         # Check if there are still PENDING chats after all workers complete
-        remaining_pending = self._db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
+        remaining_pending = self._db.load_chats(
+            group_id=group_id, status=GroupChatStatus.PENDING.value
+        )
         if remaining_pending:
-            logger.info(f"Group '{group_id}': {len(remaining_pending)} chats still PENDING after workers completed")
+            logger.info(
+                f"Group '{group_id}': {len(remaining_pending)} chats still PENDING after workers completed"
+            )
 
             # Check if all accounts are blocked by FloodWait
             flood_tracker = get_flood_tracker()
             blocked = flood_tracker.get_blocked_accounts()
             healthy_accounts = [
-                s for s in self._session_mgr.list_sessions()
-                if await self._session_mgr.is_healthy(s)
-                and s not in blocked
+                s
+                for s in self._session_mgr.list_sessions()
+                if await self._session_mgr.is_healthy(s) and s not in blocked
             ]
 
             if not healthy_accounts:
@@ -441,11 +452,15 @@ class GroupAnalysisEngine:
 
         if errors:
             for chat in errors:
-                self._db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None)
+                self._db.update_chat_status(
+                    chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None
+                )
             return self._db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
 
         if all_chats and all(c["status"] == GroupChatStatus.DONE.value for c in all_chats):
-            self._signal_completion(group_id, GroupStatus.COMPLETED.value, "Analysis already completed")
+            self._signal_completion(
+                group_id, GroupStatus.COMPLETED.value, "Analysis already completed"
+            )
             return None
 
         logger.warning(f"No pending chats for group '{group_id}', nothing to do")
@@ -454,12 +469,18 @@ class GroupAnalysisEngine:
     # -- Per-account worker loop -------------------------------------------
 
     async def _run_account_worker(
-        self, group_id: str, account_id: str, settings: GroupSettings,
-        all_accounts: list[str], mode: AnalysisMode, health_tracker: AccountHealthTracker,
+        self,
+        group_id: str,
+        account_id: str,
+        settings: GroupSettings,
+        all_accounts: list[str],
+        mode: AnalysisMode,
+        health_tracker: AccountHealthTracker,
     ) -> None:
         """Process all chats assigned to this account."""
         chats = self._db.load_chats(
-            group_id=group_id, assigned_account=account_id,
+            group_id=group_id,
+            assigned_account=account_id,
             status=GroupChatStatus.PENDING.value,
         )
         if not chats:
@@ -483,13 +504,19 @@ class GroupAnalysisEngine:
                     # Check if account is in FloodWait before processing
                     if flood_tracker.is_blocked(account_id):
                         logger.warning(
-                            f"Account '{account_id}' is in FloodWait. "
-                            f"Remaining chats left PENDING."
+                            f"Account '{account_id}' is in FloodWait. Remaining chats left PENDING."
                         )
                         break
 
                     await self._process_single_chat(
-                        group_id, chat, client, account_id, settings, all_accounts, mode, health_tracker,
+                        group_id,
+                        chat,
+                        client,
+                        account_id,
+                        settings,
+                        all_accounts,
+                        mode,
+                        health_tracker,
                     )
                     await asyncio.sleep(random.uniform(5, 10))
         except asyncio.CancelledError:
@@ -497,10 +524,13 @@ class GroupAnalysisEngine:
             raise
         except Exception as e:
             from telethon import errors as tl_errors
+
             # Check for FloodWait first (should not happen here, but defensive)
             if isinstance(e, tl_errors.FloodWaitError):
                 wait_seconds = getattr(e, "seconds", 0)
-                logger.warning(f"Account '{account_id}': FloodWait {wait_seconds}s (unexpected at worker level)")
+                logger.warning(
+                    f"Account '{account_id}': FloodWait {wait_seconds}s (unexpected at worker level)"
+                )
                 # Don't mark chats as error — they stay PENDING
             # Distinguish network errors from actual failures
             elif detect_network_error(e):
@@ -514,16 +544,23 @@ class GroupAnalysisEngine:
                 # Actual error: mark remaining chats as failed
                 logger.error(f"Account '{account_id}' worker error: {e}", exc_info=True)
                 for chat in self._db.load_chats(
-                    group_id=group_id, assigned_account=account_id,
+                    group_id=group_id,
+                    assigned_account=account_id,
                     status=GroupChatStatus.PENDING.value,
                 ):
                     self._save_chat_error(chat["id"], f"Account error: {e}")
                     self._progress.publish_from_db(group_id, chat["chat_ref"], error=str(e))
 
     async def _process_single_chat(
-        self, group_id: str, chat: dict, client: TelegramClient,
-        account_id: str, settings: GroupSettings,
-        all_accounts: list[str], mode: AnalysisMode, health_tracker: AccountHealthTracker,
+        self,
+        group_id: str,
+        chat: dict,
+        client: TelegramClient,
+        account_id: str,
+        settings: GroupSettings,
+        all_accounts: list[str],
+        mode: AnalysisMode,
+        health_tracker: AccountHealthTracker,
     ) -> None:
         """Process a single chat using worker + retry."""
         chat_ref = chat["chat_ref"]
@@ -562,7 +599,7 @@ class GroupAnalysisEngine:
                 current=processed,
                 total=total,
                 chat_title=chat_ref,
-                message=f"FloodWait: all accounts rate-limited, waiting...",
+                message="FloodWait: all accounts rate-limited, waiting...",
                 breakdown=breakdown,
                 flood_wait_until=expiry_dt,
             )
@@ -588,8 +625,7 @@ class GroupAnalysisEngine:
             # 1. Primary classification: check if worker marked chat as DEAD
             # Worker sets chat_type=DEAD for InviteHashExpired, ChatForbidden, etc.
             is_dead_chat = (
-                result.value is not None
-                and result.value.chat_type == ChatTypeEnum.DEAD.value
+                result.value is not None and result.value.chat_type == ChatTypeEnum.DEAD.value
             )
 
             # 2. FloodWait exhaustion (temporary, account not broken)
@@ -641,7 +677,8 @@ class GroupAnalysisEngine:
 
         title = (result.value.title or chat_ref) if result.success and result.value else chat_ref
         self._progress.publish_from_db(
-            group_id=group_id, chat_title=title,
+            group_id=group_id,
+            chat_title=title,
             error=result.error if not result.success else None,
         )
 
@@ -653,10 +690,14 @@ class GroupAnalysisEngine:
         db_status = GroupChatStatus.ERROR.value if is_error else GroupChatStatus.DONE.value
 
         self._db.save_chat(
-            group_id=chat["group_id"], chat_ref=chat["chat_ref"],
-            chat_type=result.chat_type, status=db_status,
-            assigned_account=account_id, error=result.error if is_error else None,
-            chat_id=chat["id"], subscribers=result.subscribers,
+            group_id=chat["group_id"],
+            chat_ref=chat["chat_ref"],
+            chat_type=result.chat_type,
+            status=db_status,
+            assigned_account=account_id,
+            error=result.error if is_error else None,
+            chat_id=chat["id"],
+            subscribers=result.subscribers,
         )
         metrics = result.to_dict()
         metrics["metrics_version"] = METRICS_VERSION
@@ -664,22 +705,30 @@ class GroupAnalysisEngine:
 
     def _save_chat_error(self, chat_id: int, error: str) -> None:
         """Mark chat as ERROR."""
-        self._db.update_chat_status(chat_id=chat_id, status=GroupChatStatus.ERROR.value, error=error)
+        self._db.update_chat_status(
+            chat_id=chat_id, status=GroupChatStatus.ERROR.value, error=error
+        )
 
     # -- Mode preparation --------------------------------------------------
 
-    def _prepare_chats_for_mode(self, group_id: str, settings: GroupSettings, mode: AnalysisMode) -> None:
+    def _prepare_chats_for_mode(
+        self, group_id: str, settings: GroupSettings, mode: AnalysisMode
+    ) -> None:
         """Prepare chat statuses based on analysis mode."""
         if mode == AnalysisMode.OVERWRITE:
             chats = self._db.load_chats(group_id=group_id)
             for chat in chats:
-                self._db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None)
+                self._db.update_chat_status(
+                    chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None
+                )
             logger.info(f"[OVERWRITE] Reset {len(chats)} chats to PENDING")
         elif mode == AnalysisMode.INCREMENT:
             self._prepare_increment(group_id, settings)
             errors = self._db.load_chats(group_id=group_id, status=GroupChatStatus.ERROR.value)
             for chat in errors:
-                self._db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None)
+                self._db.update_chat_status(
+                    chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None
+                )
             if errors:
                 logger.info(f"[INCREMENT] Reset {len(errors)} ERROR chats to PENDING")
 
@@ -690,7 +739,9 @@ class GroupAnalysisEngine:
         for chat in done:
             metrics = self._db.get_chat_metrics(chat["id"])
             if not metrics or self._chat_needs_reanalysis(metrics, settings):
-                self._db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None)
+                self._db.update_chat_status(
+                    chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None
+                )
                 count += 1
         if count:
             logger.info(f"[INCREMENT] Marked {count}/{len(done)} DONE chats as PENDING")
@@ -712,9 +763,7 @@ class GroupAnalysisEngine:
         for enabled, key in checks:
             if enabled and metrics.get(key) is None:
                 return True
-        if metrics.get("metrics_version", 0) < METRICS_VERSION:
-            return True
-        return False
+        return metrics.get("metrics_version", 0) < METRICS_VERSION
 
     # -- Completion --------------------------------------------------------
 
@@ -734,7 +783,8 @@ class GroupAnalysisEngine:
         # Auto-retry ERROR chats once after main queue completes.
         # Exclude dead chats — they are permanently inaccessible and retrying is pointless.
         retriable = [
-            c for c in all_chats
+            c
+            for c in all_chats
             if c["status"] == GroupChatStatus.ERROR.value
             and c.get("chat_type") != ChatTypeEnum.DEAD.value
         ]
@@ -744,13 +794,15 @@ class GroupAnalysisEngine:
                 f"starting auto-retry pass (INCREMENT mode)"
             )
             processed, _ = self._db.count_processed_chats(group_id)
-            self._progress.publish(GroupProgressEvent(
-                group_id=group_id,
-                status=GroupStatus.IN_PROGRESS.value,
-                current=processed,
-                total=total,
-                message=f"Retrying {len(retriable)} error chat(s)...",
-            ))
+            self._progress.publish(
+                GroupProgressEvent(
+                    group_id=group_id,
+                    status=GroupStatus.IN_PROGRESS.value,
+                    current=processed,
+                    total=total,
+                    message=f"Retrying {len(retriable)} error chat(s)...",
+                )
+            )
             await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT, _error_retry=True)
             return
 
@@ -759,18 +811,30 @@ class GroupAnalysisEngine:
             msg = "Analysis failed: all chats failed" if errors == total else "Analysis completed"
             # Status is computed from chat statuses, no manual update needed
             self._signal_completion(group_id, status, msg, done + errors, total)
-            logger.info(f"Group '{group_id}': {done + errors}/{total} ({done} done, {errors} error) → {status}")
+            logger.info(
+                f"Group '{group_id}': {done + errors}/{total} ({done} done, {errors} error) → {status}"
+            )
 
     def _signal_completion(
-        self, group_id: str, status: str, message: str,
-        current: int | None = None, total: int | None = None,
+        self,
+        group_id: str,
+        status: str,
+        message: str,
+        current: int | None = None,
+        total: int | None = None,
     ) -> None:
         """Send completion event and sentinel."""
         if current is None or total is None:
             current, total = self._db.count_processed_chats(group_id)
-        self._progress.publish(GroupProgressEvent(
-            group_id=group_id, status=status, current=current, total=total, message=message,
-        ))
+        self._progress.publish(
+            GroupProgressEvent(
+                group_id=group_id,
+                status=status,
+                current=current,
+                total=total,
+                message=message,
+            )
+        )
         self._progress.signal_completion(group_id)
 
     # -- Lifecycle ---------------------------------------------------------
@@ -802,7 +866,9 @@ class GroupAnalysisEngine:
             raise GroupNotFoundError(f"Group not found: {group_id}")
         logger.info(f"Resuming analysis for group '{group_id}'")
         for chat in self._db.load_chats(group_id=group_id, status=GroupChatStatus.ERROR.value):
-            self._db.update_chat_status(chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None)
+            self._db.update_chat_status(
+                chat_id=chat["id"], status=GroupChatStatus.PENDING.value, error=None
+            )
         await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
 
     def subscribe(self, group_id: str) -> asyncio.Queue[GroupProgressEvent]:

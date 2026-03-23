@@ -239,7 +239,7 @@ async def create_proxy(request: Request, body: ProxyCreateRequest) -> ProxyCreat
             success=False,
             error=str(e),
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to create proxy")
         return ProxyCreateResponse(
             success=False,
@@ -314,7 +314,7 @@ async def update_proxy_endpoint(
             success=False,
             error=str(e),
         )
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to update proxy {proxy_id}")
         return ProxyCreateResponse(
             success=False,
@@ -365,7 +365,7 @@ async def delete_proxy(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Proxy not found: {proxy_id}",
         ) from None
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to delete proxy {proxy_id}")
         return ProxyDeleteResponse(
             success=False,
@@ -439,17 +439,19 @@ async def retest_proxy_endpoint(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to retest proxy {proxy_id}")
         # Return HTTP 500 with HX-Trigger for toast notification
         # Frontend will show error toast via showToast event listener
-        trigger_data = json.dumps({
-            "showToast": {
-                "type": "error",
-                "title": "Test Failed",
-                "message": "An error occurred while testing the proxy. Please try again.",
+        trigger_data = json.dumps(
+            {
+                "showToast": {
+                    "type": "error",
+                    "title": "Test Failed",
+                    "message": "An error occurred while testing the proxy. Please try again.",
+                }
             }
-        })
+        )
         return HTMLResponse(
             content="",
             status_code=500,

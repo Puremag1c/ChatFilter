@@ -15,7 +15,7 @@ from chatfilter.analyzer.group_engine import (
     GroupAnalysisEngine,
     NoConnectedAccountsError,
 )
-from chatfilter.analyzer.retry import RetryPolicy, RetryResult, try_with_retry
+from chatfilter.analyzer.retry import RetryPolicy, try_with_retry
 from chatfilter.models.group import GroupChatStatus, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.flood_tracker import get_flood_tracker
@@ -580,7 +580,7 @@ async def test_stop_immediately_cancels_waiting_loop() -> None:
         # Waiting task should finish IMMEDIATELY, not after 30s
         try:
             await asyncio.wait_for(waiting_task, timeout=3)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pytest.fail("Waiting loop did not exit within 3s after STOP")
 
         elapsed = time.time() - start_time
@@ -869,6 +869,7 @@ async def test_auto_retry_error_chats_after_main_queue() -> None:
     call_kwargs = engine.start_analysis.call_args
     assert call_kwargs.kwargs.get("_error_retry") is True
     from chatfilter.models.group import AnalysisMode
+
     assert call_kwargs.kwargs.get("mode") == AnalysisMode.INCREMENT
 
     # Verify a progress event was published

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -57,16 +57,12 @@ class TestLoginPageDarkThemeAndControls:
         """Login page must display a logo/brand element."""
         resp = unauth_client.get("/login", follow_redirects=True)
         assert resp.status_code == 200
-        assert "ChatFilter" in resp.text, (
-            "Login page missing ChatFilter brand/logo"
-        )
+        assert "ChatFilter" in resp.text, "Login page missing ChatFilter brand/logo"
         assert "minimal-logo" in resp.text or "logo" in resp.text, (
             "Login page missing logo container element"
         )
 
-    def test_login_page_uses_css_variables_not_hardcoded_colors(
-        self, unauth_client: Any
-    ) -> None:
+    def test_login_page_uses_css_variables_not_hardcoded_colors(self, unauth_client: Any) -> None:
         """Login card must use CSS variables so dark theme applies correctly."""
         resp = unauth_client.get("/login", follow_redirects=True)
         assert resp.status_code == 200
@@ -112,9 +108,7 @@ class TestProxyPoolLogLevel:
         ):
             pool_module.update_proxy(proxy.id, proxy, user_id="test-user")
 
-        update_records = [
-            r for r in caplog.records if "Updated proxy in pool" in r.message
-        ]
+        update_records = [r for r in caplog.records if "Updated proxy in pool" in r.message]
         assert update_records, "Expected 'Updated proxy in pool' log message not found"
 
         for record in update_records:

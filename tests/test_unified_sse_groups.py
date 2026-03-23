@@ -7,14 +7,14 @@ from all active groups into a single SSE stream.
 from __future__ import annotations
 
 import asyncio
-import json
+import contextlib
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from chatfilter.analyzer.progress import GroupProgressEvent
-from chatfilter.models.group import GroupSettings, GroupStats, GroupStatus
+from chatfilter.models.group import GroupStatus
 
 
 class TestUnifiedSSEEndpoint:
@@ -71,24 +71,28 @@ class TestUnifiedSSEEndpoint:
         queue2 = asyncio.Queue()
 
         # Prepopulate events for both groups
-        queue1.put_nowait(GroupProgressEvent(
-            group_id="group-1",
-            status="analyzing",
-            current=1,
-            total=5,
-            chat_title="Chat A",
-            message="Analyzing...",
-        ))
+        queue1.put_nowait(
+            GroupProgressEvent(
+                group_id="group-1",
+                status="analyzing",
+                current=1,
+                total=5,
+                chat_title="Chat A",
+                message="Analyzing...",
+            )
+        )
         queue1.put_nowait(None)  # Completion sentinel
 
-        queue2.put_nowait(GroupProgressEvent(
-            group_id="group-2",
-            status="analyzing",
-            current=1,
-            total=3,
-            chat_title="Chat B",
-            message="Analyzing...",
-        ))
+        queue2.put_nowait(
+            GroupProgressEvent(
+                group_id="group-2",
+                status="analyzing",
+                current=1,
+                total=3,
+                chat_title="Chat B",
+                message="Analyzing...",
+            )
+        )
         queue2.put_nowait(None)  # Completion sentinel
 
         def mock_subscribe(group_id: str):
@@ -148,14 +152,16 @@ class TestUnifiedSSEEndpoint:
         mock_group_service.list_groups = dynamic_list_groups
 
         queue2 = asyncio.Queue()
-        queue2.put_nowait(GroupProgressEvent(
-            group_id="group-2",
-            status="analyzing",
-            current=1,
-            total=3,
-            chat_title="Discovered Chat",
-            message="Analyzing...",
-        ))
+        queue2.put_nowait(
+            GroupProgressEvent(
+                group_id="group-2",
+                status="analyzing",
+                current=1,
+                total=3,
+                chat_title="Discovered Chat",
+                message="Analyzing...",
+            )
+        )
         queue2.put_nowait(None)  # Completion sentinel
 
         mock_progress_tracker.subscribe = lambda gid: queue2
@@ -163,9 +169,12 @@ class TestUnifiedSSEEndpoint:
         from chatfilter.web.routers.groups.progress import _generate_unified_sse_events
 
         # Temporarily shorten discovery interval for test speed
-        original_interval = progress_module._DISCOVERY_INTERVAL if hasattr(progress_module, '_DISCOVERY_INTERVAL') else None
+        progress_module._DISCOVERY_INTERVAL if hasattr(
+            progress_module, "_DISCOVERY_INTERVAL"
+        ) else None
 
         events = []
+
         async def collect():
             async for event in _generate_unified_sse_events(mock_request):
                 events.append(event)
@@ -226,11 +235,8 @@ class TestUnifiedSSEEndpoint:
         # Setup: no active groups
         mock_group_service.list_groups.return_value = []
 
-        from chatfilter.web.routers.groups.progress import _generate_unified_sse_events
-
         # Override heartbeat interval for testing
-        import chatfilter.web.routers.groups.progress as progress_module
-        original_interval = 15.0
+        from chatfilter.web.routers.groups.progress import _generate_unified_sse_events
 
         events = []
 
@@ -243,10 +249,8 @@ class TestUnifiedSSEEndpoint:
                     break
 
         # Run with timeout
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(collect_events(), timeout=2.0)
-        except asyncio.TimeoutError:
-            pass
 
         # Verify: ping event format
         full_output = "".join(events)
@@ -267,15 +271,17 @@ class TestUnifiedSSEEndpoint:
         mock_group_service.list_groups.return_value = [group1]
 
         queue1 = asyncio.Queue()
-        queue1.put_nowait(GroupProgressEvent(
-            group_id="group-1",
-            status="analyzing",
-            current=1,
-            total=5,
-            chat_title="Chat 1",
-            message="Analyzing...",
-            error="DatabaseError: /var/lib/postgres/data.db failed with code 500",  # Sensitive data
-        ))
+        queue1.put_nowait(
+            GroupProgressEvent(
+                group_id="group-1",
+                status="analyzing",
+                current=1,
+                total=5,
+                chat_title="Chat 1",
+                message="Analyzing...",
+                error="DatabaseError: /var/lib/postgres/data.db failed with code 500",  # Sensitive data
+            )
+        )
         queue1.put_nowait(None)
 
         mock_progress_tracker.subscribe = lambda gid: queue1
@@ -295,9 +301,7 @@ class TestUnifiedSSEEndpoint:
         assert "event: error" in full_output, "Error event missing"
 
     @pytest.mark.asyncio
-    async def test_client_disconnect_stops_stream(
-        self, mock_group_service, mock_progress_tracker
-    ):
+    async def test_client_disconnect_stops_stream(self, mock_group_service, mock_progress_tracker):
         """Test: SSE stream stops when client disconnects."""
         # Setup: long-running group
         group1 = MagicMock()
@@ -309,14 +313,16 @@ class TestUnifiedSSEEndpoint:
         queue1 = asyncio.Queue()
         # Add many events (won't finish quickly)
         for i in range(100):
-            queue1.put_nowait(GroupProgressEvent(
-                group_id="group-1",
-                status="analyzing",
-                current=i,
-                total=100,
-                chat_title=f"Chat {i}",
-                message="Analyzing...",
-            ))
+            queue1.put_nowait(
+                GroupProgressEvent(
+                    group_id="group-1",
+                    status="analyzing",
+                    current=i,
+                    total=100,
+                    chat_title=f"Chat {i}",
+                    message="Analyzing...",
+                )
+            )
 
         mock_progress_tracker.subscribe = lambda gid: queue1
 
@@ -369,8 +375,9 @@ class TestResumeButtonCardUpdate:
         POST resume returns updated group_card.html with in_progress state
         and HTMX swaps the card.
         """
-        from chatfilter.web.app import create_app
         from httpx import ASGITransport, AsyncClient
+
+        from chatfilter.web.app import create_app
 
         app = create_app()
 
@@ -389,7 +396,9 @@ class TestResumeButtonCardUpdate:
             service.resume_group_analysis = mock_resume
             mock_svc.return_value = service
 
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
                 response = await client.post(
                     "/api/groups/test-group-123/resume",
                     headers={"X-CSRF-Token": "test-token"},
@@ -426,8 +435,9 @@ class TestOldEndpointsRemoved:
 
     def test_old_analysis_status_endpoint_404(self):
         """Test: old /api/analysis/{task_id}/status returns 404."""
-        from chatfilter.web.app import create_app
         from fastapi.testclient import TestClient
+
+        from chatfilter.web.app import create_app
 
         app = create_app()
         client = TestClient(app)
@@ -437,8 +447,9 @@ class TestOldEndpointsRemoved:
 
     def test_old_analysis_results_endpoint_404(self):
         """Test: old /api/analysis/{task_id}/results returns 404."""
-        from chatfilter.web.app import create_app
         from fastapi.testclient import TestClient
+
+        from chatfilter.web.app import create_app
 
         app = create_app()
         client = TestClient(app)
@@ -448,8 +459,9 @@ class TestOldEndpointsRemoved:
 
     def test_old_analysis_progress_sse_endpoint_404(self):
         """Test: old /api/analysis/{task_id}/progress returns 404."""
-        from chatfilter.web.app import create_app
         from fastapi.testclient import TestClient
+
+        from chatfilter.web.app import create_app
 
         app = create_app()
         client = TestClient(app)
@@ -459,12 +471,15 @@ class TestOldEndpointsRemoved:
 
     def test_old_analysis_start_endpoint_404(self):
         """Test: old POST /api/analysis/start returns 404 or 403."""
-        from chatfilter.web.app import create_app
         from fastapi.testclient import TestClient
+
+        from chatfilter.web.app import create_app
 
         app = create_app()
         client = TestClient(app)
 
         response = client.post("/api/analysis/start", data={})
         # May return 404 (removed) or 403 (CSRF check before route lookup)
-        assert response.status_code in [403, 404], f"Expected 403 or 404, got {response.status_code}"
+        assert response.status_code in [403, 404], (
+            f"Expected 403 or 404, got {response.status_code}"
+        )

@@ -4,25 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shutil
-from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse
 
 from chatfilter.i18n import _
-from chatfilter.web.template_helpers import get_template_context
 
-from .helpers import SessionListItem, _get_flood_wait_until, secure_delete_dir
-from .io import ensure_data_dir, load_account_info, save_account_info, secure_file_permissions
-from .listing import list_stored_sessions
+from .io import ensure_data_dir, load_account_info, save_account_info
 from .validation import sanitize_session_name
 
 if TYPE_CHECKING:
-    from telethon import TelegramClient
-
-    from chatfilter.web.auth_state import AuthState, AuthStateManager
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +23,7 @@ logger = logging.getLogger(__name__)
 def _get_router():
     """Get router instance (lazy import to avoid circular dependency)."""
     from chatfilter.web.routers.sessions import router
+
     return router
 
 
@@ -258,9 +252,9 @@ async def verify_code(
         session_dir = ensure_data_dir(auth_state.web_user_id) / safe_name
         account_info = load_account_info(session_dir) or {}
         account_info["status"] = "needs_config"
-        account_info[
-            "error_message"
-        ] = f"Proxy connection failed during code verification: {type(e).__name__}"
+        account_info["error_message"] = (
+            f"Proxy connection failed during code verification: {type(e).__name__}"
+        )
         save_account_info(session_dir, account_info)
         await get_event_bus().publish(safe_name, "needs_config")
 
@@ -337,7 +331,6 @@ async def verify_code(
             _("Code accepted. Connection failed — please try Connect again."),
             status_code=500,
         )
-
 
 
 @router.post("/api/sessions/{session_id}/verify-2fa", response_class=HTMLResponse)
@@ -558,9 +551,9 @@ async def verify_2fa(
         session_dir = ensure_data_dir(auth_state.web_user_id) / safe_name
         account_info = load_account_info(session_dir) or {}
         account_info["status"] = "needs_config"
-        account_info[
-            "error_message"
-        ] = f"Proxy connection failed during 2FA verification: {type(e).__name__}"
+        account_info["error_message"] = (
+            f"Proxy connection failed during 2FA verification: {type(e).__name__}"
+        )
         save_account_info(session_dir, account_info)
         await get_event_bus().publish(safe_name, "needs_config")
 

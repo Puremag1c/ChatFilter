@@ -12,15 +12,13 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import Form, Request
 from fastapi.responses import HTMLResponse
 
-from chatfilter.i18n import _
-from chatfilter.storage.helpers import atomic_write
-from chatfilter.web.events import get_event_bus
-from chatfilter.web.template_helpers import get_template_context
 # Access ensure_data_dir via module attribute so tests can mock at
 # chatfilter.web.routers.sessions.ensure_data_dir
 import chatfilter.web.routers.sessions as _sessions_pkg
+from chatfilter.i18n import _
+from chatfilter.storage.helpers import atomic_write
 
-from .helpers import SessionListItem, _get_flood_wait_until, secure_delete_dir
+from .helpers import secure_delete_dir
 from .io import find_duplicate_accounts, save_account_info, secure_file_permissions
 from .validation import sanitize_session_name, validate_phone_number
 
@@ -35,6 +33,7 @@ logger = logging.getLogger(__name__)
 def _get_router():
     """Get router instance (lazy import to avoid circular dependency)."""
     from chatfilter.web.routers.sessions import router
+
     return router
 
 
@@ -119,16 +118,17 @@ async def start_auth_flow(
         )
 
     # Validate api_hash format (if provided)
-    if has_api_hash:
-        if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
-            return templates.TemplateResponse(
-                request=request,
-                name="partials/auth_result.html",
-                context={
-                    "success": False,
-                    "error": _("Invalid API hash format. Must be a 32-character hexadecimal string."),
-                },
-            )
+    if has_api_hash and (
+        len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash)
+    ):
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/auth_result.html",
+            context={
+                "success": False,
+                "error": _("Invalid API hash format. Must be a 32-character hexadecimal string."),
+            },
+        )
 
     # Validate and sanitize phone format
     phone = phone.strip()
@@ -146,6 +146,7 @@ async def start_auth_flow(
 
     # Get web user_id for data directory scoping
     from chatfilter.web.session import get_session as get_web_session
+
     _web_user_id = get_web_session(request).get("user_id", "default")
 
     # Check if session already exists (AFTER credential validation)
@@ -216,7 +217,9 @@ async def start_auth_flow(
             name="partials/auth_result.html",
             context={
                 "success": True,
-                "message": _("Session '{name}' saved successfully. It will appear as 'disconnected' in the list.").format(name=safe_name),
+                "message": _(
+                    "Session '{name}' saved successfully. It will appear as 'disconnected' in the list."
+                ).format(name=safe_name),
             },
         )
 
@@ -437,7 +440,10 @@ async def submit_auth_2fa(
         return templates.TemplateResponse(
             request=request,
             name="partials/auth_result.html",
-            context={"success": False, "error": _("Invalid password: must be at most 256 characters.")},
+            context={
+                "success": False,
+                "error": _("Invalid password: must be at most 256 characters."),
+            },
         )
 
     # Get auth state
@@ -619,6 +625,7 @@ async def _complete_auth_flow(
         # Create per-session config.json
         # source is 'phone' because credentials came from auth flow
         from chatfilter.web.session import get_session as get_web_session
+
         _web_user_id = get_web_session(request).get("user_id", "default")
         session_config: dict[str, int | str | None] = {
             "api_id": api_id,

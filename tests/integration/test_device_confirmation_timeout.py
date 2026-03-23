@@ -12,7 +12,6 @@ Test Coverage:
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -190,8 +189,9 @@ class TestDeviceConfirmationTimeout:
         AuthKeyUnregisteredError = session dead. Polling should NOT continue —
         it should immediately cleanup and publish 'error' (not 'disconnected').
         """
-        from chatfilter.web.routers.sessions import _poll_device_confirmation
         from telethon.errors import AuthKeyUnregisteredError
+
+        from chatfilter.web.routers.sessions import _poll_device_confirmation
 
         auth_state = _make_auth_state_with_client()
 
@@ -219,8 +219,9 @@ class TestDeviceConfirmationTimeout:
     @pytest.mark.asyncio
     async def test_polling_task_cleanup_on_rpc_error(self) -> None:
         """Polling task should cleanup and publish error on Telegram RPC errors."""
-        from chatfilter.web.routers.sessions import _poll_device_confirmation
         from telethon.errors import RPCError
+
+        from chatfilter.web.routers.sessions import _poll_device_confirmation
 
         auth_state = _make_auth_state_with_client()
 

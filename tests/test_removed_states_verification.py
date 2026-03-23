@@ -11,10 +11,9 @@ Risk: These states regressed before (session_expired reappeared in v0.8.5 after
 removal in v0.8.1). These tests prevent future regressions.
 """
 
-import pytest
 from pathlib import Path
-import re
 
+import pytest
 
 # Forbidden state strings that must NOT appear in codebase
 REMOVED_STATES = ["session_expired", "corrupted_session"]
@@ -45,18 +44,18 @@ def test_removed_states_not_in_templates(project_root):
         for state in REMOVED_STATES:
             # Check for state string in various contexts
             patterns = [
-                f'"{state}"',           # Exact string in quotes
-                f"'{state}'",           # Single quotes
-                f"status == {state}",   # Condition
-                f"status-{state}",      # CSS class pattern
-                f"state-{state}",       # Alternative class pattern
-                state,                  # Plain occurrence
+                f'"{state}"',  # Exact string in quotes
+                f"'{state}'",  # Single quotes
+                f"status == {state}",  # Condition
+                f"status-{state}",  # CSS class pattern
+                f"state-{state}",  # Alternative class pattern
+                state,  # Plain occurrence
             ]
 
             for pattern in patterns:
                 if pattern in content:
                     # Get line number for better debugging
-                    lines = content.split('\n')
+                    lines = content.split("\n")
                     for i, line in enumerate(lines, 1):
                         if pattern in line:
                             violations.append(
@@ -65,8 +64,8 @@ def test_removed_states_not_in_templates(project_root):
                             )
 
     assert not violations, (
-        f"Found {len(violations)} occurrences of removed states in templates:\n" +
-        "\n".join(violations)
+        f"Found {len(violations)} occurrences of removed states in templates:\n"
+        + "\n".join(violations)
     )
 
 
@@ -89,8 +88,8 @@ def test_removed_states_not_in_css(project_root):
         for state in REMOVED_STATES:
             # Check for CSS class selectors
             patterns = [
-                f".status-{state}",      # Class selector
-                f".state-{state}",       # Alternative pattern
+                f".status-{state}",  # Class selector
+                f".state-{state}",  # Alternative pattern
                 f"[data-status='{state}']",  # Attribute selector
                 f'[data-status="{state}"]',
                 f"[data-state='{state}']",
@@ -99,7 +98,7 @@ def test_removed_states_not_in_css(project_root):
 
             for pattern in patterns:
                 if pattern in content:
-                    lines = content.split('\n')
+                    lines = content.split("\n")
                     for i, line in enumerate(lines, 1):
                         if pattern in line:
                             violations.append(
@@ -107,9 +106,8 @@ def test_removed_states_not_in_css(project_root):
                                 f"contains CSS for '{state}': {line.strip()[:80]}"
                             )
 
-    assert not violations, (
-        f"Found {len(violations)} CSS rules for removed states:\n" +
-        "\n".join(violations)
+    assert not violations, f"Found {len(violations)} CSS rules for removed states:\n" + "\n".join(
+        violations
     )
 
 
@@ -133,15 +131,15 @@ def test_removed_states_not_in_translations(project_root):
         for state in REMOVED_STATES:
             # Check for msgid/msgstr in .po or keys in .json
             patterns = [
-                f'msgid "{state}"',     # .po message ID
-                f'msgstr "{state}"',    # .po message string
-                f'"{state}"',           # JSON key or value
-                state,                  # Plain occurrence
+                f'msgid "{state}"',  # .po message ID
+                f'msgstr "{state}"',  # .po message string
+                f'"{state}"',  # JSON key or value
+                state,  # Plain occurrence
             ]
 
             for pattern in patterns:
                 if pattern in content:
-                    lines = content.split('\n')
+                    lines = content.split("\n")
                     for i, line in enumerate(lines, 1):
                         if pattern in line:
                             violations.append(
@@ -150,8 +148,7 @@ def test_removed_states_not_in_translations(project_root):
                             )
 
     assert not violations, (
-        f"Found {len(violations)} occurrences in translation files:\n" +
-        "\n".join(violations)
+        f"Found {len(violations)} occurrences in translation files:\n" + "\n".join(violations)
     )
 
 
@@ -208,8 +205,7 @@ def test_classify_error_state_never_returns_removed():
             )
 
     assert not violations, (
-        f"classify_error_state returned forbidden or unexpected states:\n" +
-        "\n".join(violations)
+        "classify_error_state returned forbidden or unexpected states:\n" + "\n".join(violations)
     )
 
 
@@ -249,6 +245,5 @@ def test_classify_error_state_exception_types():
             )
 
     assert not violations, (
-        f"classify_error_state with exceptions returned forbidden states:\n" +
-        "\n".join(violations)
+        "classify_error_state with exceptions returned forbidden states:\n" + "\n".join(violations)
     )

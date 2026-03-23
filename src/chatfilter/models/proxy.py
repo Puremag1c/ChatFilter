@@ -217,9 +217,7 @@ class ProxyEntry(BaseModel):
             new_failures = self.consecutive_failures + 1
             # Auto-disable after 3 consecutive failures
             # Special case: if proxy was UNTESTED (from retest), 1 failure = NO_PING
-            if self.status == ProxyStatus.UNTESTED:
-                new_status = ProxyStatus.NO_PING
-            elif new_failures >= 3:
+            if self.status == ProxyStatus.UNTESTED or new_failures >= 3:
                 new_status = ProxyStatus.NO_PING
             else:
                 new_status = self.status  # Keep WORKING if less than 3 failures

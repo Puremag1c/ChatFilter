@@ -6,12 +6,11 @@ Supports layered configuration with priority: CLI args > ENV vars > .env file > 
 from __future__ import annotations
 
 import logging
-from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from chatfilter.config_filesystem import (
@@ -554,10 +553,9 @@ def reset_settings() -> None:
 
 
 # Re-export proxy configuration for backward compatibility
-from chatfilter.config_proxy import ProxyConfig, ProxyStatus, ProxyType  # noqa: E402, F401
-
 # Re-export filesystem utilities for backward compatibility
 from chatfilter.config_filesystem import ensure_config_dir  # noqa: E402, F401
+from chatfilter.config_proxy import ProxyConfig, ProxyStatus, ProxyType  # noqa: E402, F401
 
 __all__ = [
     "Settings",

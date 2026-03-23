@@ -1,7 +1,6 @@
 """Tests for sessions router."""
 
 import json
-import re
 import shutil
 import sqlite3
 from collections.abc import Iterator
@@ -12,13 +11,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
-from chatfilter.web.routers.sessions import (
-    read_upload_with_size_limit,
-    sanitize_session_name,
-    validate_account_info_json,
-    validate_config_file_format,
-    validate_session_file_format,
-)
 
 from .conftest import extract_csrf_token
 
@@ -72,13 +64,15 @@ class TestSessionConfigAPI:
         self, client: TestClient, clean_data_dir: Path, session_with_config: Path
     ) -> None:
         """Test getting session configuration form."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch("chatfilter.storage.proxy_pool.load_proxy_pool", return_value=[]),
         ):
             response = client.get("/api/sessions/test_session/config")
@@ -92,31 +86,39 @@ class TestSessionConfigAPI:
         Edit button should always return config form, even if files are missing.
         This allows users to fix configuration issues via the Edit form.
         """
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.get("/api/sessions/nonexistent/config")
 
         # Returns 200 OK with config form (not an error)
         assert response.status_code == 200
         # Config form should be present
-        assert "session_config" in response.text or "api_id" in response.text or "api_hash" in response.text
+        assert (
+            "session_config" in response.text
+            or "api_id" in response.text
+            or "api_hash" in response.text
+        )
 
     def test_get_session_config_invalid_name(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test getting config with invalid session name."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
         # Use URL-encoded invalid characters that won't break URL parsing
         # After sanitization, "..." becomes empty, which raises ValueError
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.get("/api/sessions/.../config")
 
         # Returns 200 OK with HTML error to prevent HTMX from destroying session list
@@ -128,7 +130,7 @@ class TestSessionConfigAPI:
     ) -> None:
         """Test updating session proxy configuration."""
         import uuid
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -157,7 +159,9 @@ class TestSessionConfigAPI:
         mock_client.is_connected.return_value = True
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -190,7 +194,7 @@ class TestSessionConfigAPI:
         self, client: TestClient, clean_data_dir: Path, session_with_config: Path
     ) -> None:
         """Test that proxy selection is required."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Get CSRF token
         home_response = client.get("/")
@@ -200,7 +204,9 @@ class TestSessionConfigAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.put(
                 "/api/sessions/test_session/config",
                 data={
@@ -221,7 +227,7 @@ class TestSessionConfigAPI:
         self, client: TestClient, clean_data_dir: Path, session_with_config: Path
     ) -> None:
         """Test updating with non-existent proxy ID."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from chatfilter.storage.errors import StorageNotFoundError
 
@@ -234,7 +240,9 @@ class TestSessionConfigAPI:
         mock_settings.sessions_dir = clean_data_dir
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 side_effect=StorageNotFoundError("Not found"),
@@ -258,7 +266,7 @@ class TestSessionConfigAPI:
     ) -> None:
         """Test updating config for non-existent session."""
         import uuid
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Get CSRF token
         home_response = client.get("/")
@@ -270,7 +278,9 @@ class TestSessionConfigAPI:
 
         test_proxy_id = str(uuid.uuid4())
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.put(
                 "/api/sessions/nonexistent/config",
                 data={
@@ -282,5 +292,3 @@ class TestSessionConfigAPI:
             )
 
         assert response.status_code == 404
-
-

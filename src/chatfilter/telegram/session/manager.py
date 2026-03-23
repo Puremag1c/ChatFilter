@@ -12,11 +12,11 @@ from telethon import errors
 from chatfilter.telegram.retry import with_retry_for_reads
 
 from .models import (
-    ClientFactory,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_DISCONNECT_TIMEOUT,
     DEFAULT_HEALTH_CHECK_TIMEOUT,
     DEFAULT_OPERATION_TIMEOUT,
+    ClientFactory,
     ManagedSession,
     SessionBusyError,
     SessionConnectError,
@@ -217,6 +217,7 @@ class SessionManager:
                 logger.info(f"Session '{session_id}' connected")
                 # Emit event for status change (lazy import to avoid circular dependency)
                 from chatfilter.web.events import get_event_bus
+
                 await get_event_bus().publish(session_id, "connected")
                 return session.client
 
@@ -225,6 +226,7 @@ class SessionManager:
                 session.error_message = "Connection timeout"
                 # Emit event for status change (lazy import to avoid circular dependency)
                 from chatfilter.web.events import get_event_bus
+
                 await get_event_bus().publish(session_id, "error")
                 raise SessionTimeoutError(f"Connection timeout for session '{session_id}'") from e
             except (
@@ -249,6 +251,7 @@ class SessionManager:
                     )
                     # Emit event for status change (lazy import to avoid circular dependency)
                     from chatfilter.web.events import get_event_bus
+
                     await get_event_bus().publish(session_id, "error")
                     raise SessionInvalidError(
                         f"Session '{session_id}' cannot be used: {error_type}. "
@@ -257,9 +260,7 @@ class SessionManager:
                         "session file from a different, active Telegram account."
                     ) from e
                 else:
-                    session.error_message = (
-                        f"Session authentication expired ({error_type}). Attempting automatic recovery..."
-                    )
+                    session.error_message = f"Session authentication expired ({error_type}). Attempting automatic recovery..."
                     # Don't emit 'error' SSE event for recoverable session invalid errors
                     # (_handle_session_recovery will publish the appropriate event: 'needs_code')
                     # This prevents error flash during auto-recovery (connecting → error → needs_code)
@@ -282,6 +283,7 @@ class SessionManager:
                     )
                     # Emit event for status change (lazy import to avoid circular dependency)
                     from chatfilter.web.events import get_event_bus
+
                     await get_event_bus().publish(session_id, "error")
                     raise SessionReauthRequiredError(
                         f"Session '{session_id}' requires 2FA password. "
@@ -293,6 +295,7 @@ class SessionManager:
                     session.error_message = "Session has expired. Re-authorization required."
                     # Emit event for status change (lazy import to avoid circular dependency)
                     from chatfilter.web.events import get_event_bus
+
                     await get_event_bus().publish(session_id, "error")
                     raise SessionReauthRequiredError(
                         f"Session '{session_id}' has expired: {error_type}. "
@@ -304,6 +307,7 @@ class SessionManager:
                 session.error_message = str(e)
                 # Emit event for status change (lazy import to avoid circular dependency)
                 from chatfilter.web.events import get_event_bus
+
                 await get_event_bus().publish(session_id, "error")
                 raise SessionConnectError(f"Failed to connect session '{session_id}': {e}") from e
 
@@ -370,6 +374,7 @@ class SessionManager:
 
             # Publish SSE 'connected' event
             from chatfilter.web.events import get_event_bus
+
             await get_event_bus().publish(session_id, "connected")
 
     async def disconnect(self, session_id: str) -> None:
@@ -407,6 +412,7 @@ class SessionManager:
             logger.info(f"Session '{session_id}' disconnected")
             # Emit event for status change (lazy import to avoid circular dependency)
             from chatfilter.web.events import get_event_bus
+
             await get_event_bus().publish(session_id, "disconnected")
 
     async def is_healthy(self, session_id: str) -> bool:

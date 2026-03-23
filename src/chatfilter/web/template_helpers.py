@@ -41,12 +41,7 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         except Exception:
             data = {}
         serialized = json.dumps(data, ensure_ascii=False)
-        return (
-            serialized
-            .replace("&", r"\u0026")
-            .replace("<", r"\u003c")
-            .replace(">", r"\u003e")
-        )
+        return serialized.replace("&", r"\u0026").replace("<", r"\u003c").replace(">", r"\u003e")
 
     session = get_session(request)
     csrf_token = get_csrf_token(session)

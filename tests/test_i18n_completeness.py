@@ -71,9 +71,7 @@ def test_no_empty_translations(locale: str) -> None:
     po = _load_po(locale)
 
     empty = [
-        entry.msgid
-        for entry in po
-        if entry.msgid and not entry.msgstr and not entry.msgid_plural
+        entry.msgid for entry in po if entry.msgid and not entry.msgstr and not entry.msgid_plural
     ]
 
     assert not empty, (
@@ -172,7 +170,6 @@ def test_js_keys_match_en_po_msgstr() -> None:
                 f"    en.po msgstr:  {catalog_msgstr!r}"
             )
 
-    assert not mismatches, (
-        f"{len(mismatches)} JS_KEYS/en.po inconsistency(ies):\n"
-        + "\n".join(mismatches[:10])
+    assert not mismatches, f"{len(mismatches)} JS_KEYS/en.po inconsistency(ies):\n" + "\n".join(
+        mismatches[:10]
     )

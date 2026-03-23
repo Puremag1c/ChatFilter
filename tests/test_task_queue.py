@@ -16,6 +16,8 @@ from uuid import UUID
 
 import pytest
 
+from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
+
 # Old imports - no longer available (task_queue removed)
 # from chatfilter.analyzer.task_queue import (
 #     ProgressEvent,
@@ -26,13 +28,17 @@ import pytest
 #     reset_task_queue,
 # )
 
+
 # Stub imports for tests to at least load
 class TaskQueue:
     """Stub for removed TaskQueue."""
+
     pass
+
 
 class TaskStatus:
     """Stub for removed TaskStatus."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -40,26 +46,30 @@ class TaskStatus:
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
 
+
 class QueueFullError(Exception):
     """Stub for removed QueueFullError."""
+
     def __init__(self, message, current=0, limit=0):
         super().__init__(message)
         self.current = current
         self.limit = limit
 
+
 class ProgressEvent:
     """Stub for removed ProgressEvent."""
+
     pass
+
 
 def get_task_queue():
     """Stub for removed get_task_queue."""
     return TaskQueue()
 
+
 def reset_task_queue():
     """Stub for removed reset_task_queue."""
     pass
-
-from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 
 
 class MockExecutor:

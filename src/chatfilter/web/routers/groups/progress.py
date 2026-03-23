@@ -16,7 +16,6 @@ from fastapi.responses import StreamingResponse
 
 from chatfilter.models.group import GroupStatus
 from chatfilter.web.dependencies import WebSession
-from chatfilter.web.session import get_session
 
 from .helpers import _get_group_service, _get_progress_tracker
 
@@ -97,7 +96,8 @@ async def _generate_unified_sse_events(
         # Find all groups with status=in_progress (scoped to current user)
         all_groups = service.list_groups(user_id=user_id or None)
         active_groups = [
-            g for g in all_groups
+            g
+            for g in all_groups
             if g.status in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS)
         ]
 
@@ -159,24 +159,27 @@ async def _generate_unified_sse_events(
                     try:
                         current_groups = service.list_groups(user_id=user_id or None)
                         for g in current_groups:
-                            if g.status in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS):
-                                if g.id not in subscriptions:
-                                    # New active group — subscribe and send init
-                                    group_id = g.id
-                                    started_at = service._db.get_analysis_started_at(group_id)
-                                    processed, total = service._db.count_processed_chats(group_id)
-                                    init_data = {
-                                        "group_id": group_id,
-                                        "started_at": started_at.isoformat() if started_at else None,
-                                        "processed": processed,
-                                        "total": total,
-                                        "status": g.status.value,
-                                    }
-                                    yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
-                                    subscriptions[group_id] = tracker.subscribe(group_id)
-                                    new_task = asyncio.create_task(subscriptions[group_id].get())
-                                    pending_tasks[new_task] = group_id
-                                    logger.debug(f"SSE: discovered new active group {group_id}")
+                            if (
+                                g.status
+                                in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS)
+                                and g.id not in subscriptions
+                            ):
+                                # New active group — subscribe and send init
+                                group_id = g.id
+                                started_at = service._db.get_analysis_started_at(group_id)
+                                processed, total = service._db.count_processed_chats(group_id)
+                                init_data = {
+                                    "group_id": group_id,
+                                    "started_at": started_at.isoformat() if started_at else None,
+                                    "processed": processed,
+                                    "total": total,
+                                    "status": g.status.value,
+                                }
+                                yield f"event: init\ndata: {json.dumps(init_data)}\n\n"
+                                subscriptions[group_id] = tracker.subscribe(group_id)
+                                new_task = asyncio.create_task(subscriptions[group_id].get())
+                                pending_tasks[new_task] = group_id
+                                logger.debug(f"SSE: discovered new active group {group_id}")
                     except Exception:
                         logger.debug("SSE: error during group discovery", exc_info=True)
                     last_discovery = now
@@ -196,7 +199,9 @@ async def _generate_unified_sse_events(
 
                         if event is None:
                             # Completion sentinel - send complete event and unsubscribe
-                            final_processed, final_total = service._db.count_processed_chats(group_id)
+                            final_processed, final_total = service._db.count_processed_chats(
+                                group_id
+                            )
                             complete_data = {
                                 "group_id": group_id,
                                 "processed": final_processed,
@@ -223,7 +228,9 @@ async def _generate_unified_sse_events(
                                 progress_data["breakdown"] = event.breakdown
                             # Include FloodWait expiry timestamp if present
                             if event.flood_wait_until:
-                                progress_data["flood_wait_until"] = event.flood_wait_until.isoformat()
+                                progress_data["flood_wait_until"] = (
+                                    event.flood_wait_until.isoformat()
+                                )
 
                             yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
 
@@ -251,10 +258,10 @@ async def _generate_unified_sse_events(
 
         finally:
             # Cleanup: cancel pending tasks
-            for task in pending_tasks.keys():
+            for task in pending_tasks:
                 task.cancel()
 
-    except Exception as e:
+    except Exception:
         # Log full exception server-side
         logger.exception("Unhandled exception in unified SSE stream")
         # Send generic error to client (no stack trace, no internal details)

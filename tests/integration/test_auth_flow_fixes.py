@@ -132,8 +132,12 @@ class TestVerifyCodeNeeds2FA:
         html = response.text
 
         # Must be a <tr> element (session row), not a <div>
-        assert "<tr" in html, f"Response must contain a <tr> element (session row), got: {html[:500]}"
-        assert "status-needs_2fa" in html, f"Row must have needs_2fa status class, got: {html[:500]}"
+        assert "<tr" in html, (
+            f"Response must contain a <tr> element (session row), got: {html[:500]}"
+        )
+        assert "status-needs_2fa" in html, (
+            f"Row must have needs_2fa status class, got: {html[:500]}"
+        )
 
         # Must contain 2FA button
         assert "session-2fa-modal-btn" in html, "Row must contain 2FA modal button"
@@ -203,8 +207,12 @@ class TestVerify2FASuccess:
         html = response.text
 
         # Must be a <tr> element (session row), not a <div>
-        assert "<tr" in html, f"Response must contain a <tr> element (session row), got: {html[:500]}"
-        assert "status-connected" in html, f"Row must have connected status class, got: {html[:500]}"
+        assert "<tr" in html, (
+            f"Response must contain a <tr> element (session row), got: {html[:500]}"
+        )
+        assert "status-connected" in html, (
+            f"Row must have connected status class, got: {html[:500]}"
+        )
 
         # Connected row should have Disconnect button
         assert "Disconnect" in html or "session-disconnect-btn" in html
@@ -255,9 +263,7 @@ class TestFullAuthFlowNoRefresh:
     Both responses are <tr> elements that can replace each other via HTMX outerHTML.
     """
 
-    def test_code_to_2fa_to_connected_flow(
-        self, client: TestClient, tmp_path: Path
-    ) -> None:
+    def test_code_to_2fa_to_connected_flow(self, client: TestClient, tmp_path: Path) -> None:
         """Full auth flow: verify-code returns needs_2fa row, then verify-2fa returns connected row."""
         from telethon.errors import SessionPasswordNeededError
 
@@ -380,8 +386,8 @@ class TestAdoptClientFailureHandling:
     @pytest.mark.asyncio
     async def test_adopt_client_failure_cleanup(self, tmp_path: Path) -> None:
         """When adopt_client fails, finalize_reconnect_auth should cleanup and raise."""
-        from chatfilter.web.routers.sessions import _finalize_reconnect_auth
         from chatfilter.web.auth_state import AuthStateManager
+        from chatfilter.web.routers.sessions import _finalize_reconnect_auth
 
         # Create mock client
         mock_client = MagicMock()
@@ -437,16 +443,16 @@ class TestAdoptClientFailureHandling:
                 "chatfilter.web.routers.sessions.save_account_info",
                 MagicMock(),
             ),
+            pytest.raises(RuntimeError, match="EventBus is down!"),
         ):
             # Call _finalize_reconnect_auth — should raise
-            with pytest.raises(RuntimeError, match="EventBus is down!"):
-                await _finalize_reconnect_auth(
-                    client=mock_client,
-                    auth_state=auth_state,
-                    auth_manager=mock_auth_manager,
-                    safe_name="testsession",
-                    log_context="test",
-                )
+            await _finalize_reconnect_auth(
+                client=mock_client,
+                auth_state=auth_state,
+                auth_manager=mock_auth_manager,
+                safe_name="testsession",
+                log_context="test",
+            )
 
         # Verify cleanup happened BEFORE re-raising
         # 1. Client was disconnected
@@ -462,9 +468,7 @@ class TestAdoptClientFailureHandling:
 class TestVerifyCodeHTTPStatusCodes:
     """Test HTTP status codes for verify_code error responses (Fix 2)."""
 
-    def test_verify_code_invalid_code_returns_422(
-        self, client: TestClient, tmp_path: Path
-    ) -> None:
+    def test_verify_code_invalid_code_returns_422(self, client: TestClient, tmp_path: Path) -> None:
         """verify-code with invalid code returns HTTP 422."""
         from telethon.errors import PhoneCodeInvalidError
 
@@ -493,9 +497,7 @@ class TestVerifyCodeHTTPStatusCodes:
         assert response.status_code == 422
         assert "Invalid code" in response.text or "invalid" in response.text.lower()
 
-    def test_verify_code_expired_code_returns_422(
-        self, client: TestClient, tmp_path: Path
-    ) -> None:
+    def test_verify_code_expired_code_returns_422(self, client: TestClient, tmp_path: Path) -> None:
         """verify-code with expired code returns HTTP 422."""
         from telethon.errors import PhoneCodeExpiredError
 
@@ -523,9 +525,7 @@ class TestVerifyCodeHTTPStatusCodes:
         assert response.status_code == 422
         assert "expired" in response.text.lower()
 
-    def test_verify_code_flood_wait_returns_429(
-        self, client: TestClient, tmp_path: Path
-    ) -> None:
+    def test_verify_code_flood_wait_returns_429(self, client: TestClient, tmp_path: Path) -> None:
         """verify-code with flood wait returns HTTP 429."""
         from telethon.errors import FloodWaitError
 
@@ -597,9 +597,7 @@ class TestVerifyCodeHTTPStatusCodes:
         assert response.status_code == 502
         assert "proxy" in response.text.lower() or "connection" in response.text.lower()
 
-    def test_verify_code_timeout_returns_502(
-        self, client: TestClient, tmp_path: Path
-    ) -> None:
+    def test_verify_code_timeout_returns_502(self, client: TestClient, tmp_path: Path) -> None:
         """verify-code with timeout returns HTTP 502 (TimeoutError caught as OSError)."""
         auth_state = _make_auth_state()
         auth_state.client.sign_in = AsyncMock(side_effect=TimeoutError())
@@ -702,7 +700,9 @@ class TestVerifyCodeHTTPStatusCodes:
         # Generic exception after finalize should return 500
         assert response.status_code == 500
         # Verify message says "Code accepted" not "Failed to verify code"
-        assert "code accepted" in response.text.lower() or "connection failed" in response.text.lower()
+        assert (
+            "code accepted" in response.text.lower() or "connection failed" in response.text.lower()
+        )
 
         # Verify auth_state was cleaned
         mock_auth_manager.remove_auth_state.assert_awaited_once_with("auth-test-123")
@@ -744,9 +744,7 @@ class TestVerify2FAHTTPStatusCodes:
         assert response.status_code == 422
         assert "incorrect" in response.text.lower() or "invalid" in response.text.lower()
 
-    def test_verify_2fa_flood_wait_returns_429(
-        self, client: TestClient, tmp_path: Path
-    ) -> None:
+    def test_verify_2fa_flood_wait_returns_429(self, client: TestClient, tmp_path: Path) -> None:
         """verify-2fa with flood wait returns HTTP 429."""
         from telethon.errors import FloodWaitError
 
@@ -847,9 +845,7 @@ class TestVerify2FAHTTPStatusCodes:
         assert response.status_code == 502
         assert "proxy" in response.text.lower() or "connection" in response.text.lower()
 
-    def test_verify_2fa_timeout_returns_502(
-        self, client: TestClient, tmp_path: Path
-    ) -> None:
+    def test_verify_2fa_timeout_returns_502(self, client: TestClient, tmp_path: Path) -> None:
         """verify-2fa with timeout returns HTTP 502 (TimeoutError caught as OSError)."""
         auth_state = _make_auth_state(step=AuthStep.NEED_2FA)
         auth_state.client.sign_in = AsyncMock(side_effect=TimeoutError())
@@ -952,7 +948,10 @@ class TestVerify2FAHTTPStatusCodes:
         # Generic exception after finalize should return 500
         assert response.status_code == 500
         # Verify message says "Password accepted" not "Failed to verify password"
-        assert "password accepted" in response.text.lower() or "connection failed" in response.text.lower()
+        assert (
+            "password accepted" in response.text.lower()
+            or "connection failed" in response.text.lower()
+        )
 
         # Verify auth_state was cleaned
         mock_auth_manager.remove_auth_state.assert_awaited_once_with("auth-test-123")

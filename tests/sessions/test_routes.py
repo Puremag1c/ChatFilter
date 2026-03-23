@@ -1,7 +1,6 @@
 """Tests for sessions router."""
 
 import json
-import re
 import shutil
 import sqlite3
 from collections.abc import Iterator
@@ -12,13 +11,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
-from chatfilter.web.routers.sessions import (
-    read_upload_with_size_limit,
-    sanitize_session_name,
-    validate_account_info_json,
-    validate_config_file_format,
-    validate_session_file_format,
-)
 
 from .conftest import extract_csrf_token
 
@@ -44,7 +36,9 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = test_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             yield test_data_dir
 
         # Cleanup
@@ -58,7 +52,9 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.get("/api/sessions")
 
         assert response.status_code == 200
@@ -107,7 +103,9 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -147,7 +145,9 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -174,7 +174,9 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.delete(
                 "/api/sessions/nonexistent", headers={"X-CSRF-Token": csrf_token}
             )
@@ -221,7 +223,9 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -252,7 +256,9 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/upload",
                 data={"session_name": "test_session"},
@@ -315,10 +321,19 @@ class TestSessionsAPIEndpoints:
                 account_info["user_id"] = 0  # Use 0 as placeholder for JSON-only uploads
             return original_save_account_info(session_dir, account_info)
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings), \
-             patch("chatfilter.web.routers.sessions.get_account_info_from_session") as mock_get_account, \
-             patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader, \
-             patch("chatfilter.web.routers.sessions.save_account_info", side_effect=patched_save_account_info):
+        with (
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_account_info_from_session"
+            ) as mock_get_account,
+            patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader,
+            patch(
+                "chatfilter.web.routers.sessions.save_account_info",
+                side_effect=patched_save_account_info,
+            ),
+        ):
             # Return account info with user_id
             mock_get_account.return_value = {
                 "user_id": 123456789,
@@ -392,8 +407,12 @@ class TestSessionsAPIEndpoints:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings), \
-             patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader:
+        with (
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
+            patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader,
+        ):
             # Mock TelegramClientLoader to avoid validation errors
             mock_loader_instance = MagicMock()
             mock_loader.return_value = mock_loader_instance
@@ -413,7 +432,7 @@ class TestSessionsAPIEndpoints:
 
         # Note: session directory IS created before JSON validation, but files are not saved
         # So directory exists but is empty or only has partial content
-        session_dir = clean_data_dir / "test_session_invalid_json"
+        clean_data_dir / "test_session_invalid_json"
         # Directory was created but should be cleaned up by error handler
         # Actually, checking the code, the directory is only cleaned up after _save_session_to_disk fails
         # Since JSON validation happens before save, the directory stays
@@ -466,10 +485,19 @@ class TestSessionsAPIEndpoints:
                 account_info["user_id"] = 0  # Use 0 as placeholder for JSON-only uploads
             return original_save_account_info(session_dir, account_info)
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings), \
-             patch("chatfilter.web.routers.sessions.get_account_info_from_session") as mock_get_account, \
-             patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader, \
-             patch("chatfilter.web.routers.sessions.save_account_info", side_effect=patched_save_account_info):
+        with (
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.get_account_info_from_session"
+            ) as mock_get_account,
+            patch("chatfilter.web.routers.sessions.TelegramClientLoader") as mock_loader,
+            patch(
+                "chatfilter.web.routers.sessions.save_account_info",
+                side_effect=patched_save_account_info,
+            ),
+        ):
             # Return account info with user_id
             mock_get_account.return_value = {
                 "user_id": 987654321,
@@ -516,5 +544,3 @@ class TestSessionsAPIEndpoints:
         assert account_info["phone"] == "+14385515736"
         assert account_info["first_name"] == "John"
         assert account_info["last_name"] == "Doe"
-
-

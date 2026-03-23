@@ -4,10 +4,9 @@ Tests that _finalize_reconnect_auth() uses adopt_client() instead of
 disconnect + connect pattern, preventing AuthKeyUnregisteredError.
 """
 
-import asyncio
 import sqlite3
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -28,7 +27,9 @@ class MockSessionFile:
         self.temp_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.temp_path)
         cursor = conn.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)"
+        )
         cursor.execute("INSERT OR REPLACE INTO sessions VALUES (1, X'deadbeef')")
         conn.commit()
         conn.close()
@@ -83,9 +84,7 @@ class TestFinalizeReconnectAuth:
     def mock_ensure_data_dir(self, isolated_tmp_dir: Path, monkeypatch):
         """Mock ensure_data_dir to return isolated tmp dir."""
         mock_dir = MagicMock(return_value=isolated_tmp_dir)
-        monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.ensure_data_dir", mock_dir
-        )
+        monkeypatch.setattr("chatfilter.web.routers.sessions.ensure_data_dir", mock_dir)
         return isolated_tmp_dir
 
     @pytest.fixture
@@ -132,12 +131,14 @@ class TestFinalizeReconnectAuth:
         auth_state.temp_dir = str(temp_dir)
 
         # Mock get_session_manager to return our mock
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
-                # Call _finalize_reconnect_auth
-                await _finalize_reconnect_auth(
-                    client, auth_state, auth_manager, safe_name, "test context"
-                )
+        with (
+            patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager),
+            patch("chatfilter.telegram.client.loader.TelegramClientLoader"),
+        ):
+            # Call _finalize_reconnect_auth
+            await _finalize_reconnect_auth(
+                client, auth_state, auth_manager, safe_name, "test context"
+            )
 
         # Verify session_manager.connect() was NOT called
         session_manager.connect.assert_not_called()
@@ -173,12 +174,14 @@ class TestFinalizeReconnectAuth:
         auth_state.temp_dir = str(temp_dir)
 
         # Mock get_session_manager to return our mock
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
-                # Call _finalize_reconnect_auth
-                await _finalize_reconnect_auth(
-                    client, auth_state, auth_manager, safe_name, "test context"
-                )
+        with (
+            patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager),
+            patch("chatfilter.telegram.client.loader.TelegramClientLoader"),
+        ):
+            # Call _finalize_reconnect_auth
+            await _finalize_reconnect_auth(
+                client, auth_state, auth_manager, safe_name, "test context"
+            )
 
         # Verify client.disconnect() was NOT called
         assert client.disconnect_calls == 0
@@ -214,12 +217,14 @@ class TestFinalizeReconnectAuth:
         auth_state.temp_dir = str(temp_dir)
 
         # Mock get_session_manager to return our mock
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
-                # Call _finalize_reconnect_auth
-                await _finalize_reconnect_auth(
-                    client, auth_state, auth_manager, safe_name, "test context"
-                )
+        with (
+            patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager),
+            patch("chatfilter.telegram.client.loader.TelegramClientLoader"),
+        ):
+            # Call _finalize_reconnect_auth
+            await _finalize_reconnect_auth(
+                client, auth_state, auth_manager, safe_name, "test context"
+            )
 
         # Verify client.session.save() was called
         assert client.session.save_calls == 1
@@ -256,12 +261,14 @@ class TestFinalizeReconnectAuth:
         auth_state.temp_dir = str(temp_dir)
 
         # Mock get_session_manager to return our mock
-        with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-            with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
-                # Call _finalize_reconnect_auth
-                await _finalize_reconnect_auth(
-                    client, auth_state, auth_manager, safe_name, "test context"
-                )
+        with (
+            patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager),
+            patch("chatfilter.telegram.client.loader.TelegramClientLoader"),
+        ):
+            # Call _finalize_reconnect_auth
+            await _finalize_reconnect_auth(
+                client, auth_state, auth_manager, safe_name, "test context"
+            )
 
         # Verify adopt_client was called with exact arguments
         session_manager.adopt_client.assert_called_once_with(safe_name, client)
@@ -270,8 +277,8 @@ class TestFinalizeReconnectAuth:
         self, mock_ensure_data_dir: Path, auth_manager
     ) -> None:
         """Test full cycle: finalize → adopt → connected (no AuthKeyUnregisteredError)."""
-        from chatfilter.web.routers.sessions import _finalize_reconnect_auth
         from chatfilter.telegram.session import SessionManager
+        from chatfilter.web.routers.sessions import _finalize_reconnect_auth
 
         # Setup real SessionManager (not mocked)
         session_manager = SessionManager()
@@ -297,18 +304,20 @@ class TestFinalizeReconnectAuth:
         auth_state.temp_dir = str(temp_dir)
 
         # Mock event bus to avoid SSE publishing
-        with patch("chatfilter.web.events.get_event_bus") as mock_event_bus:
+        with (
+            patch("chatfilter.web.events.get_event_bus") as mock_event_bus,
+            patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager),
+            patch("chatfilter.telegram.client.loader.TelegramClientLoader"),
+        ):
             mock_bus = AsyncMock()
             mock_event_bus.return_value = mock_bus
 
             # Mock get_session_manager to return real SessionManager
-            with patch("chatfilter.web.dependencies.get_session_manager", return_value=session_manager):
-                with patch("chatfilter.telegram.client.loader.TelegramClientLoader"):
-                    # Call _finalize_reconnect_auth
-                    # Should NOT raise AuthKeyUnregisteredError
-                    await _finalize_reconnect_auth(
-                        client, auth_state, auth_manager, safe_name, "test context"
-                    )
+            # Call _finalize_reconnect_auth
+            # Should NOT raise AuthKeyUnregisteredError
+            await _finalize_reconnect_auth(
+                client, auth_state, auth_manager, safe_name, "test context"
+            )
 
         # Verify session is CONNECTED in SessionManager
         from chatfilter.telegram.session import SessionState
@@ -328,8 +337,8 @@ class TestPollingUsesSameClient:
 
     async def test_poll_device_confirmation_uses_same_client(self) -> None:
         """Test _poll_device_confirmation calls _finalize_reconnect_auth with SAME client."""
-        from chatfilter.web.routers.sessions import _poll_device_confirmation
         from chatfilter.web.auth_state import AuthStateManager
+        from chatfilter.web.routers.sessions import _poll_device_confirmation
 
         # Create auth manager and auth state
         auth_manager = AuthStateManager()
@@ -371,15 +380,15 @@ class TestPollingUsesSameClient:
             nonlocal finalize_client
             finalize_client = client
 
-        with patch("chatfilter.web.routers.sessions._finalize_reconnect_auth", new=mock_finalize):
-            with patch("chatfilter.web.events.get_event_bus") as mock_event_bus:
-                mock_bus = AsyncMock()
-                mock_event_bus.return_value = mock_bus
+        with (
+            patch("chatfilter.web.routers.sessions._finalize_reconnect_auth", new=mock_finalize),
+            patch("chatfilter.web.events.get_event_bus") as mock_event_bus,
+        ):
+            mock_bus = AsyncMock()
+            mock_event_bus.return_value = mock_bus
 
-                # Run polling (should detect confirmation immediately)
-                await _poll_device_confirmation(
-                    "test_session", "test_auth", auth_manager
-                )
+            # Run polling (should detect confirmation immediately)
+            await _poll_device_confirmation("test_session", "test_auth", auth_manager)
 
         # Verify _finalize_reconnect_auth was called with the SAME client instance
         assert finalize_client is original_client
@@ -393,8 +402,8 @@ class TestPollingUsesSameClient:
         This is verified by checking that the client stored in auth_state remains
         the same instance throughout the polling process.
         """
-        from chatfilter.web.routers.sessions import _poll_device_confirmation
         from chatfilter.web.auth_state import AuthStateManager
+        from chatfilter.web.routers.sessions import _poll_device_confirmation
 
         # Create auth manager and auth state
         auth_manager = AuthStateManager()
@@ -431,14 +440,14 @@ class TestPollingUsesSameClient:
         # Store original client id for comparison
         original_client_id = id(original_client)
 
-        with patch("chatfilter.web.routers.sessions._finalize_reconnect_auth", new=AsyncMock()):
-            with patch("chatfilter.web.events.get_event_bus") as mock_event_bus:
-                mock_bus = AsyncMock()
-                mock_event_bus.return_value = mock_bus
+        with (
+            patch("chatfilter.web.routers.sessions._finalize_reconnect_auth", new=AsyncMock()),
+            patch("chatfilter.web.events.get_event_bus") as mock_event_bus,
+        ):
+            mock_bus = AsyncMock()
+            mock_event_bus.return_value = mock_bus
 
-                await _poll_device_confirmation(
-                    "test_session", "test_auth", auth_manager
-                )
+            await _poll_device_confirmation("test_session", "test_auth", auth_manager)
 
         # Verify the client in auth_state is still the same instance
         # (no new client was created to replace it)

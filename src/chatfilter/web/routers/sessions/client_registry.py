@@ -6,6 +6,7 @@ can cleanly stop all sessions before file deletion (e.g., admin user delete flow
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import TYPE_CHECKING
 
@@ -32,10 +33,8 @@ def unregister_client(user_id: str, client: TelegramClient) -> None:
     uid = str(user_id)
     clients = _registry.get(uid)
     if clients:
-        try:
+        with contextlib.suppress(ValueError):
             clients.remove(client)
-        except ValueError:
-            pass
         if not clients:
             del _registry[uid]
 

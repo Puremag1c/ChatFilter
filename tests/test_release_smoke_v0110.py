@@ -14,11 +14,8 @@ Run with: pytest tests/test_release_smoke_v0110.py -v
 
 from __future__ import annotations
 
-import io
-import json
-from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -94,7 +91,7 @@ def test_start_returns_204_immediately(smoke_settings: Settings):
         "/start endpoint should delegate to service.start_analysis (creates background task internally)"
     )
     # Should return 204 No Content
-    assert 'status_code=204' in source or 'status_code = 204' in source, (
+    assert "status_code=204" in source or "status_code = 204" in source, (
         "/start endpoint should return 204 status code"
     )
 
@@ -113,15 +110,15 @@ def test_reanalyze_returns_204_immediately(smoke_settings: Settings):
 
     # Bug 2 fix (v0.12.0): Should use non-blocking pattern (create_task OR service delegation)
     has_async_pattern = (
-        "asyncio.create_task" in source or
-        "service.start_analysis" in source or
-        "service.reanalyze" in source
+        "asyncio.create_task" in source
+        or "service.start_analysis" in source
+        or "service.reanalyze" in source
     )
     assert has_async_pattern, (
         "/reanalyze endpoint should use non-blocking pattern (asyncio.create_task or service delegation)"
     )
     # Should return 204 No Content
-    assert 'status_code=204' in source or 'status_code = 204' in source, (
+    assert "status_code=204" in source or "status_code = 204" in source, (
         "/reanalyze endpoint should return 204 status code"
     )
 
@@ -169,9 +166,7 @@ def test_increment_no_duplicates(smoke_settings: Settings):
 
     # Verify final count matches number of unique chats
     chats = db.load_chats(group_id=group_id)
-    assert len(chats) == 2, (
-        f"Expected 2 chats (no duplicates), got {len(chats)}"
-    )
+    assert len(chats) == 2, f"Expected 2 chats (no duplicates), got {len(chats)}"
 
     # Verify uniqueness of chat_refs
     chat_refs = [c["chat_ref"] for c in chats]
@@ -237,8 +232,8 @@ def test_upsert_uses_on_conflict(smoke_settings: Settings):
 
 def test_export_after_increment(smoke_settings: Settings):
     """Bug 5: Export uniqueness guaranteed by v5 schema (no duplicates possible)."""
-    from chatfilter.storage.group_database import GroupDatabase
     from chatfilter.service.group_service import GroupService
+    from chatfilter.storage.group_database import GroupDatabase
 
     db = GroupDatabase(smoke_settings.data_dir / "groups.db")
 
@@ -257,8 +252,8 @@ def test_export_after_increment(smoke_settings: Settings):
     )
 
     # Add 2 chats
-    chat1_id = db.save_chat(group_id=group_id, chat_ref="https://t.me/chat1", chat_type="group")
-    chat2_id = db.save_chat(group_id=group_id, chat_ref="https://t.me/chat2", chat_type="channel")
+    db.save_chat(group_id=group_id, chat_ref="https://t.me/chat1", chat_type="group")
+    db.save_chat(group_id=group_id, chat_ref="https://t.me/chat2", chat_type="channel")
 
     # Get results via service (same method used by export endpoint)
     service = GroupService(db)

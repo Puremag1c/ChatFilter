@@ -17,13 +17,11 @@ import pytest
 def ru_translations():
     """Load Russian translations from compiled .mo file."""
     project_root = Path(__file__).parent.parent
-    mo_path = (
-        project_root
-        / "src/chatfilter/i18n/locales/ru/LC_MESSAGES/messages.mo"
-    )
+    mo_path = project_root / "src/chatfilter/i18n/locales/ru/LC_MESSAGES/messages.mo"
     assert mo_path.exists(), f"Russian .mo file not found: {mo_path}"
 
-    translation = gettext.GNUTranslations(open(mo_path, "rb"))
+    with open(mo_path, "rb") as f:
+        translation = gettext.GNUTranslations(f)
     return translation
 
 
@@ -75,9 +73,7 @@ class TestGroupCardRuTranslations:
 
     def test_no_updates_stuck(self, ru_translations):
         """Stuck analysis warning should be in Russian."""
-        result = ru_translations.gettext(
-            "No updates for 60 seconds. Analysis may be stuck."
-        )
+        result = ru_translations.gettext("No updates for 60 seconds. Analysis may be stuck.")
         assert result == "Нет обновлений 60 секунд. Анализ мог зависнуть.", (
             f"Expected Russian stuck warning, got {result!r}"
         )
@@ -125,27 +121,19 @@ class TestGroupCardRuTranslations:
     def test_stop_analysis_button(self, ru_translations):
         """'Stop analysis' should be 'Остановить анализ'."""
         result = ru_translations.gettext("Stop analysis")
-        assert result == "Остановить анализ", (
-            f"Expected 'Остановить анализ', got {result!r}"
-        )
+        assert result == "Остановить анализ", f"Expected 'Остановить анализ', got {result!r}"
 
     def test_resume_analysis_button(self, ru_translations):
         """'Resume analysis' should be 'Возобновить анализ'."""
         result = ru_translations.gettext("Resume analysis")
-        assert result == "Возобновить анализ", (
-            f"Expected 'Возобновить анализ', got {result!r}"
-        )
+        assert result == "Возобновить анализ", f"Expected 'Возобновить анализ', got {result!r}"
 
     def test_restart_analysis_button(self, ru_translations):
         """'Restart analysis' should be 'Перезапустить анализ'."""
         result = ru_translations.gettext("Restart analysis")
-        assert result == "Перезапустить анализ", (
-            f"Expected 'Перезапустить анализ', got {result!r}"
-        )
+        assert result == "Перезапустить анализ", f"Expected 'Перезапустить анализ', got {result!r}"
 
     def test_download_results_button(self, ru_translations):
         """'Download results' should be 'Скачать результаты'."""
         result = ru_translations.gettext("Download results")
-        assert result == "Скачать результаты", (
-            f"Expected 'Скачать результаты', got {result!r}"
-        )
+        assert result == "Скачать результаты", f"Expected 'Скачать результаты', got {result!r}"

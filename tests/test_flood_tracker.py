@@ -6,8 +6,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
-import pytest
-
 from chatfilter.telegram.flood_tracker import FloodWaitTracker
 
 

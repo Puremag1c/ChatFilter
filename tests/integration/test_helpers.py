@@ -124,22 +124,24 @@ def load_test_results(db: GroupDatabase, group_id: str) -> list[dict]:
 
         status = "dead" if chat["status"] == GroupChatStatus.ERROR.value else "done"
 
-        results.append({
-            "chat_ref": chat["chat_ref"],
-            "analyzed_at": datetime.now(UTC),
-            "metrics_data": {
+        results.append(
+            {
                 "chat_ref": chat["chat_ref"],
-                "chat_type": metrics.get("chat_type") or chat["chat_type"],
-                "title": metrics.get("title"),
-                "subscribers": metrics.get("subscribers") or chat.get("subscribers"),
-                "moderation": metrics.get("moderation"),
-                "messages_per_hour": metrics.get("messages_per_hour"),
-                "unique_authors_per_hour": metrics.get("unique_authors_per_hour"),
-                "captcha": metrics.get("captcha"),
-                "status": status,
-                "error_reason": chat.get("error") if status == "dead" else None,
-            },
-        })
+                "analyzed_at": datetime.now(UTC),
+                "metrics_data": {
+                    "chat_ref": chat["chat_ref"],
+                    "chat_type": metrics.get("chat_type") or chat["chat_type"],
+                    "title": metrics.get("title"),
+                    "subscribers": metrics.get("subscribers") or chat.get("subscribers"),
+                    "moderation": metrics.get("moderation"),
+                    "messages_per_hour": metrics.get("messages_per_hour"),
+                    "unique_authors_per_hour": metrics.get("unique_authors_per_hour"),
+                    "captcha": metrics.get("captcha"),
+                    "status": status,
+                    "error_reason": chat.get("error") if status == "dead" else None,
+                },
+            }
+        )
 
     return results
 
@@ -167,21 +169,43 @@ def upsert_test_result(db: GroupDatabase, group_id: str, chat_ref: str, metrics:
 
     # Merge: new value if not None, else keep existing
     merged_metrics = {
-        "title": metrics.get("title") if metrics.get("title") is not None else existing_metrics.get("title"),
-        "moderation": metrics.get("moderation") if metrics.get("moderation") is not None else existing_metrics.get("moderation"),
-        "messages_per_hour": metrics.get("messages_per_hour") if metrics.get("messages_per_hour") is not None else existing_metrics.get("messages_per_hour"),
-        "unique_authors_per_hour": metrics.get("unique_authors_per_hour") if metrics.get("unique_authors_per_hour") is not None else existing_metrics.get("unique_authors_per_hour"),
-        "captcha": metrics.get("captcha") if metrics.get("captcha") is not None else existing_metrics.get("captcha"),
-        "partial_data": metrics.get("partial_data") if metrics.get("partial_data") is not None else existing_metrics.get("partial_data"),
-        "metrics_version": metrics.get("metrics_version") if metrics.get("metrics_version") is not None else existing_metrics.get("metrics_version"),
+        "title": metrics.get("title")
+        if metrics.get("title") is not None
+        else existing_metrics.get("title"),
+        "moderation": metrics.get("moderation")
+        if metrics.get("moderation") is not None
+        else existing_metrics.get("moderation"),
+        "messages_per_hour": metrics.get("messages_per_hour")
+        if metrics.get("messages_per_hour") is not None
+        else existing_metrics.get("messages_per_hour"),
+        "unique_authors_per_hour": metrics.get("unique_authors_per_hour")
+        if metrics.get("unique_authors_per_hour") is not None
+        else existing_metrics.get("unique_authors_per_hour"),
+        "captcha": metrics.get("captcha")
+        if metrics.get("captcha") is not None
+        else existing_metrics.get("captcha"),
+        "partial_data": metrics.get("partial_data")
+        if metrics.get("partial_data") is not None
+        else existing_metrics.get("partial_data"),
+        "metrics_version": metrics.get("metrics_version")
+        if metrics.get("metrics_version") is not None
+        else existing_metrics.get("metrics_version"),
     }
 
     # Save merged metrics
     db.save_chat_metrics(chat_id, merged_metrics)
 
     # Update chat_type and subscribers if provided
-    chat_type = metrics.get("chat_type") if metrics.get("chat_type") is not None else existing_metrics.get("chat_type")
-    subscribers = metrics.get("subscribers") if metrics.get("subscribers") is not None else (existing_metrics.get("subscribers") or chat.get("subscribers"))
+    chat_type = (
+        metrics.get("chat_type")
+        if metrics.get("chat_type") is not None
+        else existing_metrics.get("chat_type")
+    )
+    subscribers = (
+        metrics.get("subscribers")
+        if metrics.get("subscribers") is not None
+        else (existing_metrics.get("subscribers") or chat.get("subscribers"))
+    )
 
     with db._connection() as conn:
         conn.execute(

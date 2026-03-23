@@ -329,7 +329,7 @@ class TestDynamicCsvExport:
 
     def test_all_metrics_enabled(self) -> None:
         """Test CSV export with all metrics enabled (default)."""
-        from chatfilter.exporter.csv import export_group_results_to_csv, to_csv_rows_dynamic
+        from chatfilter.exporter.csv import to_csv_rows_dynamic
         from chatfilter.models.group import GroupSettings
 
         settings = GroupSettings()  # All True by default

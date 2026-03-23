@@ -12,9 +12,9 @@ SPEC Requirement:
 """
 
 import json
+from unittest.mock import MagicMock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
@@ -87,13 +87,13 @@ class TestSaveNotConnect:
         assert not (tmp_path / ".credentials.enc").exists()
 
         # Verify account_info contains phone and disconnected status
-        with open(session_dir / ".account_info.json", "r") as f:
+        with open(session_dir / ".account_info.json") as f:
             account_info = json.load(f)
             assert account_info["phone"] == "+1234567890"
             assert account_info["status"] == "disconnected"
 
         # Verify config.json has null api_id/api_hash/proxy_id
-        with open(session_dir / "config.json", "r") as f:
+        with open(session_dir / "config.json") as f:
             config = json.load(f)
             assert config["api_id"] is None
             assert config["api_hash"] is None
@@ -129,7 +129,9 @@ class TestSaveNotConnect:
         status, message = get_session_config_status(session_dir)
         assert status == "needs_config"
         # Message contains "API credentials required" or similar
-        assert "api" in message.lower() and ("credentials" in message.lower() or "id" in message.lower())
+        assert "api" in message.lower() and (
+            "credentials" in message.lower() or "id" in message.lower()
+        )
 
     def test_save_validates_credentials_before_connect(self, client, tmp_path, monkeypatch):
         """Test that Save validates credentials but does NOT connect.
@@ -178,7 +180,7 @@ class TestSaveNotConnect:
         # Verify valid session was saved
         session_dir = tmp_path / "valid_creds"
         assert session_dir.exists()
-        with open(session_dir / ".account_info.json", "r") as f:
+        with open(session_dir / ".account_info.json") as f:
             account_info = json.load(f)
             assert account_info["status"] == "disconnected"
 
@@ -198,10 +200,13 @@ class TestSaveNotConnect:
         mock_client_loader = MagicMock()
         mock_session_manager = MagicMock()
 
-        with patch("telethon.TelegramClient", mock_telethon_client), \
-             patch("chatfilter.telegram.client.loader.TelegramClientLoader", mock_client_loader), \
-             patch("chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager):
-
+        with (
+            patch("telethon.TelegramClient", mock_telethon_client),
+            patch("chatfilter.telegram.client.loader.TelegramClientLoader", mock_client_loader),
+            patch(
+                "chatfilter.web.dependencies.get_session_manager", return_value=mock_session_manager
+            ),
+        ):
             response = client.post(
                 "/api/sessions/auth/start",
                 data={
@@ -229,7 +234,7 @@ class TestSaveNotConnect:
 
         # Verify session exists and has disconnected status
         session_dir = tmp_path / "no_telethon_session"
-        with open(session_dir / ".account_info.json", "r") as f:
+        with open(session_dir / ".account_info.json") as f:
             account_info = json.load(f)
             assert account_info["status"] == "disconnected"
 
@@ -270,7 +275,7 @@ class TestSaveNotConnect:
         session_dir = tmp_path / "full_creds_session"
         assert (session_dir / "config.json").exists()
 
-        with open(session_dir / "config.json", "r") as f:
+        with open(session_dir / "config.json") as f:
             config = json.load(f)
             assert config["api_id"] == 123456
             assert config["api_hash"] == "0123456789abcdef0123456789abcdef"
@@ -281,6 +286,6 @@ class TestSaveNotConnect:
         assert (tmp_path / ".credentials.enc").exists()
 
         # Verify status is still disconnected
-        with open(session_dir / ".account_info.json", "r") as f:
+        with open(session_dir / ".account_info.json") as f:
             account_info = json.load(f)
             assert account_info["status"] == "disconnected"

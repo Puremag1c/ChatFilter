@@ -182,7 +182,9 @@ class StatsMixin:
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
                 "chat_count": row["chat_count"],
-                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
+                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"])
+                if row["analysis_started_at"]
+                else None,
                 "user_id": row["user_id"],
             }
             for row in rows

@@ -19,9 +19,7 @@ This approach tests the same functionality without relying on httpx internals.
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
-from typing import AsyncIterator
 
 import pytest
 from fastapi import FastAPI
@@ -178,23 +176,27 @@ def test_template_has_sse_htmx_integration() -> None:
     template_content = template_path.read_text()
 
     # Verify HTMX SSE extension is enabled
-    assert 'hx-ext="sse"' in template_content, \
+    assert 'hx-ext="sse"' in template_content, (
         "Template must have hx-ext='sse' to enable SSE extension"
+    )
 
     # Verify SSE connection is configured
-    assert 'sse-connect="/api/sessions/events"' in template_content, \
+    assert 'sse-connect="/api/sessions/events"' in template_content, (
         "Template must connect to /api/sessions/events SSE endpoint"
+    )
 
     # Verify SSE swap is configured
-    assert 'sse-swap="message"' in template_content, \
+    assert 'sse-swap="message"' in template_content, (
         "Template must have sse-swap='message' to handle SSE events"
+    )
 
     # Verify SSE error handler exists (moved to extracted JS file)
     js_path = Path("src/chatfilter/static/js/sessions-list.js")
     assert js_path.exists(), f"JS file not found: {js_path}"
     js_content = js_path.read_text()
-    assert "htmx:sseError" in js_content, \
+    assert "htmx:sseError" in js_content, (
         "sessions-list.js must have htmx:sseError event handler for connection errors"
+    )
 
 
 @pytest.mark.asyncio

@@ -26,8 +26,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -36,9 +35,7 @@ class TestConnectFlowConfigValidation:
     """Tests for config validation during connect flow."""
 
     @pytest.mark.asyncio
-    async def test_disconnected_to_needs_config_no_api_id(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_disconnected_to_needs_config_no_api_id(self, tmp_path: Path) -> None:
         """Test: disconnected → connect → needs_config (missing api_id/api_hash)."""
         from chatfilter.web.routers.sessions import _do_connect_in_background_v2
 
@@ -80,9 +77,7 @@ class TestConnectFlowConfigValidation:
             await _do_connect_in_background_v2(session_id)
 
             # Verify: SSE event 'needs_config' published (via classify_error_state)
-            assert any(
-                call[0][1] == "needs_config" for call in mock_publish.call_args_list
-            )
+            assert any(call[0][1] == "needs_config" for call in mock_publish.call_args_list)
 
     @pytest.mark.asyncio
     async def test_disconnected_to_needs_config_no_proxy(self, tmp_path: Path) -> None:
@@ -133,9 +128,7 @@ class TestConnectFlowConfigValidation:
             await _do_connect_in_background_v2(session_id)
 
             # Verify: SSE event 'needs_config' published (via classify_error_state)
-            assert any(
-                call[0][1] == "needs_config" for call in mock_publish.call_args_list
-            )
+            assert any(call[0][1] == "needs_config" for call in mock_publish.call_args_list)
 
 
 class TestConnectFlowFirstTimeAuth:
@@ -187,7 +180,10 @@ class TestConnectFlowFirstTimeAuth:
             mock_manager._factories = {session_id: mock_factory}
             # Simulate first-time connect (no session file) - raises AuthKeyUnregisteredError
             from telethon.errors import AuthKeyUnregisteredError
-            mock_manager.connect = AsyncMock(side_effect=AuthKeyUnregisteredError("No session file"))
+
+            mock_manager.connect = AsyncMock(
+                side_effect=AuthKeyUnregisteredError("No session file")
+            )
             mock_manager._sessions = {}  # Empty sessions dict
             mock_manager_getter.return_value = mock_manager
 
@@ -238,32 +234,39 @@ class TestConnectFlowCodeVerification:
         # NOTE: ensure_data_dir must be patched on the package (chatfilter.web.routers.sessions)
         # because _finalize_reconnect_auth accesses it via _sessions_pkg.ensure_data_dir()
         with (
-            patch(
-                "chatfilter.web.auth_state.get_auth_state_manager"
-            ) as mock_auth_manager_getter,
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_auth_manager_getter,
             patch("chatfilter.web.routers.sessions.get_event_bus") as mock_bus_getter,
-            patch(
-                "chatfilter.web.dependencies.get_session_manager"
-            ) as mock_manager_getter,
+            patch("chatfilter.web.dependencies.get_session_manager") as mock_manager_getter,
             patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info"
+            ) as mock_save_info,
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions"
+            ) as mock_secure_perms,
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir"
+            ) as mock_secure_delete,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
-            patch("chatfilter.web.routers.sessions.auth_device._check_device_confirmation", new_callable=AsyncMock, return_value=False),
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.list_stored_sessions") as mock_list_sessions,
+            patch(
+                "chatfilter.web.routers.sessions.auth_device._check_device_confirmation",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.list_stored_sessions"
+            ) as mock_list_sessions,
         ):
             # Setup mocks
             mock_client = AsyncMock()
             mock_client.is_user_authorized = AsyncMock(return_value=True)
             mock_client.sign_in = AsyncMock()  # Success, no 2FA needed
             mock_client.is_connected = MagicMock(return_value=True)  # Not async
-            mock_client.get_me = AsyncMock(return_value=MagicMock(
-                id=123456,
-                phone="+1234567890",
-                first_name="Test",
-                last_name="User"
-            ))
+            mock_client.get_me = AsyncMock(
+                return_value=MagicMock(
+                    id=123456, phone="+1234567890", first_name="Test", last_name="User"
+                )
+            )
             mock_client.disconnect = AsyncMock()
             mock_client.session = MagicMock()  # For client.session.save()
 
@@ -320,9 +323,7 @@ class TestConnectFlowCodeVerification:
             await verify_code(mock_request, session_id, auth_id, code)
 
             # Verify: SSE event 'connected' published
-            assert any(
-                call[0][1] == "connected" for call in mock_publish.call_args_list
-            )
+            assert any(call[0][1] == "connected" for call in mock_publish.call_args_list)
 
     @pytest.mark.asyncio
     async def test_needs_code_to_needs_2fa(self, tmp_path: Path) -> None:
@@ -342,19 +343,17 @@ class TestConnectFlowCodeVerification:
 
         # Mock dependencies
         with (
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_auth_manager_getter,
             patch(
-                "chatfilter.web.auth_state.get_auth_state_manager"
-            ) as mock_auth_manager_getter,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_bus_getter,
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus"
+            ) as mock_bus_getter,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
             patch("chatfilter.security.SecureCredentialManager") as mock_cred_manager,
         ):
             # Setup mocks
             mock_client = AsyncMock()
             # sign_in raises SessionPasswordNeededError (2FA required)
-            mock_client.sign_in = AsyncMock(
-                side_effect=SessionPasswordNeededError("2FA required")
-            )
+            mock_client.sign_in = AsyncMock(side_effect=SessionPasswordNeededError("2FA required"))
             mock_client.is_connected = MagicMock(return_value=True)  # Not async
 
             mock_auth_state = MagicMock(spec=AuthState)
@@ -391,9 +390,7 @@ class TestConnectFlowCodeVerification:
             await verify_code(mock_request, session_id, auth_id, code)
 
             # Verify: SSE event 'needs_2fa' published
-            assert any(
-                call[0][1] == "needs_2fa" for call in mock_publish.call_args_list
-            )
+            assert any(call[0][1] == "needs_2fa" for call in mock_publish.call_args_list)
 
 
 class TestConnectFlow2FA:
@@ -418,32 +415,39 @@ class TestConnectFlow2FA:
         # NOTE: ensure_data_dir must be patched on the package (chatfilter.web.routers.sessions)
         # because _finalize_reconnect_auth accesses it via _sessions_pkg.ensure_data_dir()
         with (
-            patch(
-                "chatfilter.web.auth_state.get_auth_state_manager"
-            ) as mock_auth_manager_getter,
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_auth_manager_getter,
             patch("chatfilter.web.routers.sessions.get_event_bus") as mock_bus_getter,
-            patch(
-                "chatfilter.web.dependencies.get_session_manager"
-            ) as mock_manager_getter,
+            patch("chatfilter.web.dependencies.get_session_manager") as mock_manager_getter,
             patch("chatfilter.web.routers.sessions.ensure_data_dir") as mock_ensure_dir,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info") as mock_save_info,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions") as mock_secure_perms,
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir") as mock_secure_delete,
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.save_account_info"
+            ) as mock_save_info,
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_file_permissions"
+            ) as mock_secure_perms,
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.secure_delete_dir"
+            ) as mock_secure_delete,
             patch("chatfilter.web.app.get_templates") as mock_get_templates,
-            patch("chatfilter.web.routers.sessions.auth_device._check_device_confirmation", new_callable=AsyncMock, return_value=False),
-            patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.list_stored_sessions") as mock_list_sessions,
+            patch(
+                "chatfilter.web.routers.sessions.auth_device._check_device_confirmation",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.list_stored_sessions"
+            ) as mock_list_sessions,
         ):
             # Setup mocks
             mock_client = AsyncMock()
             mock_client.is_user_authorized = AsyncMock(return_value=True)
             mock_client.sign_in = AsyncMock()  # Success
             mock_client.is_connected = MagicMock(return_value=True)  # Not async
-            mock_client.get_me = AsyncMock(return_value=MagicMock(
-                id=123456,
-                phone="+1234567890",
-                first_name="Test",
-                last_name="User"
-            ))
+            mock_client.get_me = AsyncMock(
+                return_value=MagicMock(
+                    id=123456, phone="+1234567890", first_name="Test", last_name="User"
+                )
+            )
             mock_client.disconnect = AsyncMock()
             mock_client.session = MagicMock()  # For client.session.save()
 
@@ -500,9 +504,7 @@ class TestConnectFlow2FA:
             await verify_2fa(mock_request, session_id, auth_id, password)
 
             # Verify: SSE event 'connected' published
-            assert any(
-                call[0][1] == "connected" for call in mock_publish.call_args_list
-            )
+            assert any(call[0][1] == "connected" for call in mock_publish.call_args_list)
 
 
 class TestConnectFlowErrorRecovery:
@@ -552,7 +554,7 @@ class TestConnectFlowErrorRecovery:
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
-                    raise asyncio.TimeoutError("Network timeout")
+                    raise TimeoutError("Network timeout")
                 # Success on retry (no exception)
 
             mock_manager.connect = mock_connect
@@ -575,9 +577,7 @@ class TestConnectFlowErrorRecovery:
             # In real flow, orchestrator would retry
             assert call_count == 1
             # Verify error event was published (not raised)
-            assert any(
-                call[0][1] == "error" for call in mock_publish.call_args_list
-            )
+            assert any(call[0][1] == "error" for call in mock_publish.call_args_list)
 
     @pytest.mark.asyncio
     async def test_banned_terminal_state(self, tmp_path: Path) -> None:
@@ -644,9 +644,7 @@ class TestConnectFlowErrorRecovery:
             await _do_connect_in_background_v2(session_id)
 
             # Verify: SSE event 'banned' published
-            assert any(
-                call[0][1] == "banned" for call in mock_publish.call_args_list
-            )
+            assert any(call[0][1] == "banned" for call in mock_publish.call_args_list)
 
 
 class TestConnectFlowIntermediateStates:
@@ -654,8 +652,9 @@ class TestConnectFlowIntermediateStates:
 
     def test_connecting_state_shows_spinner(self) -> None:
         """Test: connecting state shows spinner in UI (intermediate state)."""
-        from jinja2 import Environment, FileSystemLoader
         from pathlib import Path
+
+        from jinja2 import Environment, FileSystemLoader
 
         template_dir = Path("src/chatfilter/templates")
         env = Environment(loader=FileSystemLoader(str(template_dir)))

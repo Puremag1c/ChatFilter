@@ -48,7 +48,7 @@ class TestGetMemoryUsage:
 
     def test_returns_memory_stats(self) -> None:
         """Should return MemoryStats with current usage."""
-        pytest.importorskip('psutil')
+        pytest.importorskip("psutil")
         # Test with real psutil since it's available
         result = get_memory_usage()
 
@@ -61,7 +61,7 @@ class TestGetMemoryUsage:
 
     def test_memory_values_consistent(self) -> None:
         """Memory values should be consistent (bytes = mb * 1024 * 1024)."""
-        pytest.importorskip('psutil')
+        pytest.importorskip("psutil")
         result = get_memory_usage()
 
         # Check that MB values are derived from bytes correctly

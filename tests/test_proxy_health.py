@@ -74,21 +74,23 @@ class TestCheckProxyHealth:
     async def test_tcp_works_but_socks5_fails(self, sample_proxy: ProxyEntry) -> None:
         """Should return False when TCP works but SOCKS5 tunnel fails (done_when test)."""
         # SOCKS5 tunnel check fails
-        with patch("chatfilter.service.proxy_health.socks5_tunnel_check", return_value=False):
+        with (
+            patch("chatfilter.service.proxy_health.socks5_tunnel_check", return_value=False),
+            patch("asyncio.open_connection") as mock_open,
+        ):
             # TCP connection succeeds (for diagnostic logging)
-            with patch("asyncio.open_connection") as mock_open:
-                mock_reader = MagicMock()
-                mock_writer = MagicMock()
-                mock_writer.close = MagicMock()
-                mock_writer.wait_closed = AsyncMock()
-                mock_open.return_value = (mock_reader, mock_writer)
+            mock_reader = MagicMock()
+            mock_writer = MagicMock()
+            mock_writer.close = MagicMock()
+            mock_writer.wait_closed = AsyncMock()
+            mock_open.return_value = (mock_reader, mock_writer)
 
-                result = await check_proxy_health(sample_proxy)
+            result = await check_proxy_health(sample_proxy)
 
-                # Should return False despite TCP success
-                assert result is False
-                # Should have tried TCP for diagnostics
-                mock_open.assert_called_once()
+            # Should return False despite TCP success
+            assert result is False
+            # Should have tried TCP for diagnostics
+            mock_open.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_http_proxy_uses_tcp_check(self) -> None:
@@ -101,23 +103,25 @@ class TestCheckProxyHealth:
         )
 
         # Should NOT call socks5_tunnel_check for HTTP proxy
-        with patch("chatfilter.service.proxy_health.socks5_tunnel_check") as mock_tunnel:
+        with (
+            patch("chatfilter.service.proxy_health.socks5_tunnel_check") as mock_tunnel,
+            patch("asyncio.open_connection") as mock_open,
+        ):
             # TCP connection succeeds
-            with patch("asyncio.open_connection") as mock_open:
-                mock_reader = MagicMock()
-                mock_writer = MagicMock()
-                mock_writer.close = MagicMock()
-                mock_writer.wait_closed = AsyncMock()
-                mock_open.return_value = (mock_reader, mock_writer)
+            mock_reader = MagicMock()
+            mock_writer = MagicMock()
+            mock_writer.close = MagicMock()
+            mock_writer.wait_closed = AsyncMock()
+            mock_open.return_value = (mock_reader, mock_writer)
 
-                result = await check_proxy_health(http_proxy)
+            result = await check_proxy_health(http_proxy)
 
-                # Should return True via TCP check
-                assert result is True
-                # Should NOT have called SOCKS5 tunnel check
-                mock_tunnel.assert_not_called()
-                # Should have used TCP check
-                mock_open.assert_called_once()
+            # Should return True via TCP check
+            assert result is True
+            # Should NOT have called SOCKS5 tunnel check
+            mock_tunnel.assert_not_called()
+            # Should have used TCP check
+            mock_open.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_socks5_auth_error_no_credential_leak(self) -> None:
@@ -188,7 +192,7 @@ class TestSocks5TunnelCheck:
 
         # Mock _socks5_connect_sync to raise timeout
         with patch("chatfilter.service.proxy_health._socks5_connect_sync") as mock_connect:
-            mock_connect.side_effect = asyncio.TimeoutError("Timeout")
+            mock_connect.side_effect = TimeoutError("Timeout")
 
             result = await socks5_tunnel_check(proxy, timeout=1.0)
 
@@ -328,10 +332,10 @@ class TestCheckSingleProxy:
                 expected_result = sample_proxy.with_health_update(success=True)
                 mock_update.return_value = expected_result
 
-                await check_single_proxy(sample_proxy, user_id='test-user-id')
+                await check_single_proxy(sample_proxy, user_id="test-user-id")
 
                 mock_check.assert_called_once_with(sample_proxy)
-                mock_update.assert_called_once_with(sample_proxy, True, 'test-user-id')
+                mock_update.assert_called_once_with(sample_proxy, True, "test-user-id")
 
 
 class TestCheckAllProxies:
@@ -401,7 +405,7 @@ class TestRetestProxy:
                 expected = sample_proxy.with_health_update(success=True)
                 mock_check.return_value = expected
 
-                result = await retest_proxy(sample_proxy.id, user_id='test-user-id')
+                result = await retest_proxy(sample_proxy.id, user_id="test-user-id")
 
                 assert result is not None
                 mock_check.assert_called_once()
@@ -414,7 +418,7 @@ class TestRetestProxy:
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get:
             mock_get.side_effect = StorageNotFoundError("Not found")
 
-            result = await retest_proxy("nonexistent-id", user_id='test-user-id')
+            result = await retest_proxy("nonexistent-id", user_id="test-user-id")
 
             assert result is None
 
@@ -437,7 +441,7 @@ class TestRetestProxy:
             ):
                 mock_tunnel.return_value = True
 
-                result = await retest_proxy(socks5_proxy.id, user_id='test-user-id')
+                result = await retest_proxy(socks5_proxy.id, user_id="test-user-id")
 
                 # Should have called socks5_tunnel_check
                 mock_tunnel.assert_called_once()
@@ -461,12 +465,12 @@ class TestRetestProxy:
 
             with (
                 patch("chatfilter.service.proxy_health.check_proxy_health") as mock_check,
-                patch("chatfilter.service.proxy_health.update_proxy") as mock_update,
+                patch("chatfilter.service.proxy_health.update_proxy"),
             ):
                 # Health check fails
                 mock_check.return_value = False
 
-                result = await retest_proxy(proxy.id, user_id='test-user-id')
+                result = await retest_proxy(proxy.id, user_id="test-user-id")
 
                 assert result is not None
                 # After 1 failed retest, status should be NO_PING (not UNTESTED)
@@ -490,12 +494,12 @@ class TestRetestProxy:
 
             with (
                 patch("chatfilter.service.proxy_health.check_proxy_health") as mock_check,
-                patch("chatfilter.service.proxy_health.update_proxy") as mock_update,
+                patch("chatfilter.service.proxy_health.update_proxy"),
             ):
                 # Health check succeeds
                 mock_check.return_value = True
 
-                result = await retest_proxy(proxy.id, user_id='test-user-id')
+                result = await retest_proxy(proxy.id, user_id="test-user-id")
 
                 assert result is not None
                 assert result.status == ProxyStatus.WORKING
@@ -522,7 +526,7 @@ class TestRetestProxy:
 
                 # Exception should propagate (not silently caught)
                 with pytest.raises(TimeoutError):
-                    await retest_proxy(proxy.id, user_id='test-user-id')
+                    await retest_proxy(proxy.id, user_id="test-user-id")
 
 
 class TestProxyHealthMonitor:

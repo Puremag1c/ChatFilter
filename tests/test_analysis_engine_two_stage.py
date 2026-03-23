@@ -8,16 +8,13 @@ Tests the core business logic from SPEC.md v0.11.0 Must Have #2:
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from telethon import errors
 from telethon.tl.functions.messages import CheckChatInviteRequest
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-from chatfilter.analyzer.worker import _ResolvedChat
 from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupSettings, GroupStatus
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.telegram.session import SessionManager
@@ -39,6 +36,7 @@ def mock_session_manager():
     # Mock is_healthy as async
     async def mock_is_healthy(session_id):
         return True
+
     mgr.is_healthy = mock_is_healthy
 
     return mgr
@@ -167,11 +165,13 @@ class TestStage1ResolveWithoutJoin:
         assert metrics["chat_type"] == ChatTypeEnum.CHANNEL_NO_COMMENTS.value
         assert metrics["title"] == "Test Channel"
         assert metrics["subscribers"] == 5000
-        assert metrics["moderation"] == False
+        assert not metrics["moderation"]
         assert metrics["messages_per_hour"] is None  # Activity not requested
 
     @pytest.mark.asyncio
-    async def test_resolve_invite_link_via_check_chat_invite(self, engine, mock_db, mock_session_manager):
+    async def test_resolve_invite_link_via_check_chat_invite(
+        self, engine, mock_db, mock_session_manager
+    ):
         """Test Stage 1: Resolve invite link using CheckChatInviteRequest."""
         # Setup: Create group with one invite link
         group_id = "test-group"
@@ -241,7 +241,7 @@ class TestStage1ResolveWithoutJoin:
         assert metrics["chat_type"] == ChatTypeEnum.GROUP.value
         assert metrics["title"] == "Private Group"
         assert metrics["subscribers"] == 250
-        assert metrics["moderation"] == True  # request_needed=True
+        assert metrics["moderation"]  # request_needed=True
 
     @pytest.mark.asyncio
     async def test_stage1_extracts_all_required_fields(self, engine, mock_db, mock_session_manager):
@@ -308,7 +308,7 @@ class TestStage1ResolveWithoutJoin:
         assert metrics["subscribers"] == 1500
 
         # moderation: join_request flag
-        assert metrics["moderation"] == True
+        assert metrics["moderation"]
 
 
 class TestStage2JoinOnlyWhenNeeded:
@@ -432,20 +432,24 @@ class TestStage2JoinOnlyWhenNeeded:
                 # Return empty list (no messages in time window)
                 for _ in []:
                     yield _
+
             return _iter()
 
         mock_client.iter_messages = mock_iter_messages
 
         # Mock join/leave
-        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.worker.leave_chat") as mock_leave:
-
+        with (
+            patch("chatfilter.analyzer.worker.join_chat") as mock_join,
+            patch("chatfilter.analyzer.worker.leave_chat") as mock_leave,
+        ):
             mock_joined = MagicMock()
             mock_joined.id = 456
             mock_join.return_value = mock_joined
 
             mock_session_manager.session = MagicMock()
-            mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_session_manager.session.return_value.__aenter__ = AsyncMock(
+                return_value=mock_client
+            )
             mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Execute
@@ -520,7 +524,7 @@ class TestStage2JoinOnlyWhenNeeded:
         assert len(chats) == 1
         chat_id = chats[0]["id"]
         metrics = mock_db.get_chat_metrics(chat_id)
-        assert metrics["moderation"] == True
+        assert metrics["moderation"]
         assert metrics["messages_per_hour"] == "N/A"
         assert metrics["unique_authors_per_hour"] == "N/A"
 
@@ -581,15 +585,18 @@ class TestHybridTimeWindowLogic:
 
         mock_client.iter_messages = mock_iter_messages
 
-        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.worker.leave_chat"):
-
+        with (
+            patch("chatfilter.analyzer.worker.join_chat") as mock_join,
+            patch("chatfilter.analyzer.worker.leave_chat"),
+        ):
             mock_joined = MagicMock()
             mock_joined.id = 111
             mock_join.return_value = mock_joined
 
             mock_session_manager.session = MagicMock()
-            mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_session_manager.session.return_value.__aenter__ = AsyncMock(
+                return_value=mock_client
+            )
             mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Execute
@@ -603,7 +610,9 @@ class TestHybridTimeWindowLogic:
             assert "offset_date" not in iter_messages_kwargs
 
     @pytest.mark.asyncio
-    async def test_metrics_based_on_actual_time_covered(self, engine, mock_db, mock_session_manager):
+    async def test_metrics_based_on_actual_time_covered(
+        self, engine, mock_db, mock_session_manager
+    ):
         """Test: Metrics calculated from actual message timestamps, not full window."""
         # Setup
         group_id = "test-group"
@@ -640,6 +649,7 @@ class TestHybridTimeWindowLogic:
 
         # Mock messages: Only 2 messages in last 2 hours (not 24)
         from chatfilter.models.message import Message
+
         now = datetime.now(UTC)
 
         mock_msg1 = MagicMock()
@@ -660,10 +670,11 @@ class TestHybridTimeWindowLogic:
 
         mock_client.iter_messages = mock_iter_messages
 
-        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.worker.leave_chat"), \
-             patch("chatfilter.analyzer.worker._telethon_message_to_model") as mock_convert:
-
+        with (
+            patch("chatfilter.analyzer.worker.join_chat") as mock_join,
+            patch("chatfilter.analyzer.worker.leave_chat"),
+            patch("chatfilter.analyzer.worker._telethon_message_to_model") as mock_convert,
+        ):
             mock_joined = MagicMock()
             mock_joined.id = 222
             mock_join.return_value = mock_joined
@@ -691,7 +702,9 @@ class TestHybridTimeWindowLogic:
             mock_convert.side_effect = convert_msg
 
             mock_session_manager.session = MagicMock()
-            mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_session_manager.session.return_value.__aenter__ = AsyncMock(
+                return_value=mock_client
+            )
             mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Execute
@@ -748,6 +761,7 @@ class TestHybridTimeWindowLogic:
 
         # Mock: Only 3 messages total
         from chatfilter.models.message import Message
+
         now = datetime.now(UTC)
 
         messages = []
@@ -765,10 +779,11 @@ class TestHybridTimeWindowLogic:
 
         mock_client.iter_messages = mock_iter_messages
 
-        with patch("chatfilter.analyzer.worker.join_chat") as mock_join, \
-             patch("chatfilter.analyzer.worker.leave_chat"), \
-             patch("chatfilter.analyzer.worker._telethon_message_to_model") as mock_convert:
-
+        with (
+            patch("chatfilter.analyzer.worker.join_chat") as mock_join,
+            patch("chatfilter.analyzer.worker.leave_chat"),
+            patch("chatfilter.analyzer.worker._telethon_message_to_model") as mock_convert,
+        ):
             mock_joined = MagicMock()
             mock_joined.id = 333
             mock_join.return_value = mock_joined
@@ -785,7 +800,9 @@ class TestHybridTimeWindowLogic:
             mock_convert.side_effect = convert_msg
 
             mock_session_manager.session = MagicMock()
-            mock_session_manager.session.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_session_manager.session.return_value.__aenter__ = AsyncMock(
+                return_value=mock_client
+            )
             mock_session_manager.session.return_value.__aexit__ = AsyncMock(return_value=None)
 
             # Execute

@@ -49,7 +49,16 @@ class ChatsMixin:
                     (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers, tried_accounts)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (group_id, chat_ref, chat_type, status, assigned_account, error, subscribers, tried_accounts_json),
+                    (
+                        group_id,
+                        chat_ref,
+                        chat_type,
+                        status,
+                        assigned_account,
+                        error,
+                        subscribers,
+                        tried_accounts_json,
+                    ),
                 )
                 return cursor.lastrowid
             else:
@@ -69,7 +78,17 @@ class ChatsMixin:
                         subscribers = excluded.subscribers,
                         tried_accounts = excluded.tried_accounts
                     """,
-                    (chat_id, group_id, chat_ref, chat_type, status, assigned_account, error, subscribers, tried_accounts_json),
+                    (
+                        chat_id,
+                        group_id,
+                        chat_ref,
+                        chat_type,
+                        status,
+                        assigned_account,
+                        error,
+                        subscribers,
+                        tried_accounts_json,
+                    ),
                 )
                 return chat_id
 
@@ -162,7 +181,9 @@ class ChatsMixin:
                 "assigned_account": row["assigned_account"],
                 "error": row["error"],
                 "subscribers": row["subscribers"],
-                "tried_accounts": json.loads(row["tried_accounts"]) if row["tried_accounts"] else [],
+                "tried_accounts": json.loads(row["tried_accounts"])
+                if row["tried_accounts"]
+                else [],
             }
             for row in rows
         ]

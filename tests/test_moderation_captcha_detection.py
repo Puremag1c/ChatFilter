@@ -10,28 +10,22 @@ Tests cover:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from telethon import errors
 from telethon.tl.types import (
     Channel,
     ChatInvite,
-    ChatInviteAlready,
-    Message as TelethonMessage,
-    PeerUser,
     User,
 )
 
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
-from chatfilter.analyzer.worker import CAPTCHA_BOTS, _ResolvedChat, _detect_captcha
+from chatfilter.analyzer.worker import CAPTCHA_BOTS, _detect_captcha
 from chatfilter.models.group import (
     ChatTypeEnum,
-    GroupChatStatus,
     GroupSettings,
-    GroupStatus,
 )
 from chatfilter.storage.group_database import GroupDatabase
 
@@ -150,7 +144,7 @@ class TestModerationDetectionLogic:
             "chat_type": ChatTypeEnum.GROUP.value,
         }
 
-        settings = GroupSettings(
+        GroupSettings(
             detect_moderation=True,
             detect_activity=True,
             detect_unique_authors=True,
@@ -172,12 +166,9 @@ class TestCaptchaDetectionFromBotScanning:
     """Tests for captcha detection by scanning for known captcha bots."""
 
     @pytest.mark.asyncio
-    async def test_detect_captcha_from_missrose_bot(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_detect_captcha_from_missrose_bot(self, engine: GroupAnalysisEngine) -> None:
         """Test that @MissRose_bot is detected as captcha."""
         mock_client = AsyncMock()
-        messages = []
 
         # Create a message from MissRose_bot
         mock_bot = User(
@@ -197,6 +188,7 @@ class TestCaptchaDetectionFromBotScanning:
 
         # Create mock message from the bot
         from chatfilter.models import Message
+
         msg = Message(
             id=1,
             chat_id=999,
@@ -273,9 +265,7 @@ class TestCaptchaDetectionFromBotScanning:
         assert has_captcha is True
 
     @pytest.mark.asyncio
-    async def test_no_captcha_when_only_regular_users(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_no_captcha_when_only_regular_users(self, engine: GroupAnalysisEngine) -> None:
         """Test that regular users don't trigger captcha detection."""
         from chatfilter.models import Message
 
@@ -304,9 +294,7 @@ class TestCaptchaDetectionFromBotScanning:
         assert has_captcha is False
 
     @pytest.mark.asyncio
-    async def test_captcha_detection_case_insensitive(
-        self, engine: GroupAnalysisEngine
-    ) -> None:
+    async def test_captcha_detection_case_insensitive(self, engine: GroupAnalysisEngine) -> None:
         """Test that captcha bot detection is case-insensitive."""
         from chatfilter.models import Message
 
@@ -336,8 +324,6 @@ class TestCaptchaDetectionFromBotScanning:
         assert has_captcha is True
 
 
-
-
 class TestCaptchaBotsConstant:
     """Tests to ensure CAPTCHA_BOTS constant is correctly defined."""
 
@@ -351,7 +337,7 @@ class TestCaptchaBotsConstant:
             "combot",
         }
 
-        assert CAPTCHA_BOTS == expected
+        assert expected == CAPTCHA_BOTS
 
     def test_captcha_bots_all_lowercase(self) -> None:
         """Verify all bot usernames in CAPTCHA_BOTS are lowercase."""

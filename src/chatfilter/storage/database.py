@@ -1,11 +1,10 @@
 """Database module for persistent monitoring state."""
 
-import json
 import sqlite3
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 
@@ -68,4 +67,3 @@ class SQLiteDatabase(ABC):
             raise
         finally:
             conn.close()
-

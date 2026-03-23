@@ -1,8 +1,6 @@
 """Tests for sessions router."""
 
 import json
-import re
-import shutil
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
@@ -14,8 +12,6 @@ from fastapi.testclient import TestClient
 from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
     read_upload_with_size_limit,
-    sanitize_session_name,
-    validate_account_info_json,
     validate_config_file_format,
     validate_session_file_format,
 )
@@ -319,7 +315,6 @@ class TestSessionImport:
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
         """Create clean data directory for tests."""
-        from unittest.mock import patch
 
         data_dir = tmp_path / "data"
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -452,11 +447,9 @@ class TestSessionImport:
         assert 'data-api-id="12345678"' in response.text
         assert 'data-api-hash="0123456789abcdef0123456789abcdef"' in response.text
 
-    def test_save_import_session_success(
-        self, client: TestClient, clean_data_dir: Path
-    ) -> None:
+    def test_save_import_session_success(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test successful session import with JSON account info."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Create valid session file
         session_content = self._create_valid_session_file()
@@ -513,7 +506,7 @@ class TestSessionImport:
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test that duplicate session name is rejected."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Create existing session (under "None" user_id — unauthenticated TestClient)
         existing_dir = clean_data_dir / "None" / "duplicate_test"
@@ -549,5 +542,3 @@ class TestSessionImport:
 
             assert response.status_code == 200
             assert "already exists" in response.text.lower() or "exist" in response.text.lower()
-
-

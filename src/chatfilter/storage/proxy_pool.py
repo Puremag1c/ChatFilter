@@ -11,11 +11,9 @@ import logging
 from pathlib import Path
 
 from chatfilter.config import get_settings
-from chatfilter.config_proxy import ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.helpers import load_json, save_json
-from chatfilter.utils.paths import get_application_path
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +28,6 @@ def _get_proxies_path(user_id: str) -> Path:
         Path to proxies_{user_id}.json in user's config directory.
     """
     return get_settings().config_dir / f"proxies_{user_id}.json"
-
 
 
 def load_proxy_pool(user_id: str) -> list[ProxyEntry]:

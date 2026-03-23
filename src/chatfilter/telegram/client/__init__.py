@@ -11,6 +11,8 @@ Only public APIs used by telegram/__init__.py are re-exported here.
 """
 
 # Re-export config module
+# Re-export chats module
+from .chats import get_dialogs
 from .config import (
     SessionFileError,
     TelegramConfig,
@@ -20,18 +22,6 @@ from .config import (
 # Re-export loader module
 from .loader import TelegramClientLoader
 
-# Re-export chats module
-from .chats import get_dialogs
-
-# Re-export messages module
-from .messages import (
-    ChatAccessDeniedError,
-    MessageFetchError,
-    get_messages,
-    get_messages_since,
-    get_messages_streaming,
-)
-
 # Re-export membership module
 from .membership import (
     JoinChatError,
@@ -40,6 +30,15 @@ from .membership import (
     join_chat,
     join_chat_with_rotation,
     leave_chat,
+)
+
+# Re-export messages module
+from .messages import (
+    ChatAccessDeniedError,
+    MessageFetchError,
+    get_messages,
+    get_messages_since,
+    get_messages_streaming,
 )
 
 __all__ = [

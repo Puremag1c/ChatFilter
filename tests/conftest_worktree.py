@@ -1,4 +1,5 @@
 """Worktree conftest: ensure imports come from worktree, not parent repo."""
+
 import sys
 from pathlib import Path
 

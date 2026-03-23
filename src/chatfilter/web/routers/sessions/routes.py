@@ -17,11 +17,11 @@ from chatfilter.telegram.flood_tracker import get_flood_tracker
 from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
+from . import router
 from .helpers import SessionListItem, _get_flood_wait_until
 from .io import ensure_data_dir, secure_file_permissions
 from .listing import get_session_config_status, list_stored_sessions
 from .validation import sanitize_session_name, validate_telegram_credentials_with_retry
-from . import router
 
 logger = logging.getLogger(__name__)
 
@@ -335,7 +335,7 @@ async def update_session_config(
     if credentials_changed:
         # Return success message with auto-trigger for reconnect
         return HTMLResponse(
-            content=f'''
+            content=f"""
                 <div class="alert alert-success">
                     Credentials updated. Re-authorization required...
                 </div>
@@ -344,7 +344,7 @@ async def update_session_config(
                       hx-swap="innerHTML"
                       hx-trigger="load">
                 </form>
-            ''',
+            """,
             headers={"HX-Trigger": "refreshSessions"},
         )
 
@@ -480,9 +480,7 @@ async def update_session_credentials(
         config_content = json.dumps(config, indent=2).encode("utf-8")
         atomic_write(config_file, config_content)
         secure_file_permissions(config_file)
-        logger.info(
-            f"Updated credentials for session '{safe_name}': api_id={api_id}"
-        )
+        logger.info(f"Updated credentials for session '{safe_name}': api_id={api_id}")
     except Exception:
         logger.exception(f"Failed to save config for session {safe_name}")
         return HTMLResponse(
@@ -517,7 +515,7 @@ async def update_session_credentials(
 
         # Return success message with auto-trigger for reconnect
         return HTMLResponse(
-            content=f'''
+            content=f"""
                 <div class="alert alert-success">
                     Credentials updated. Re-authorization required...
                 </div>
@@ -526,7 +524,7 @@ async def update_session_credentials(
                       hx-swap="innerHTML"
                       hx-trigger="load">
                 </form>
-            ''',
+            """,
             headers={"HX-Trigger": "refreshSessions"},
         )
 

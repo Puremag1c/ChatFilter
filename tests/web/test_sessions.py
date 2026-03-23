@@ -42,10 +42,13 @@ class TestGetSessionConfigStatus:
         mock_manager.has_credentials.return_value = True
 
         # Mock imports that happen inside the function
-        with patch(
-            "chatfilter.security.SecureCredentialManager",
-            return_value=mock_manager,
-        ), patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
+        with (
+            patch(
+                "chatfilter.security.SecureCredentialManager",
+                return_value=mock_manager,
+            ),
+            patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
+        ):
             mock_get_proxy.return_value = {"id": "proxy-123", "host": "127.0.0.1"}
 
             status, reason = get_session_config_status(session_dir)
@@ -244,10 +247,13 @@ class TestGetSessionConfigStatus:
         mock_manager = MagicMock()
         mock_manager.has_credentials.return_value = True
 
-        with patch(
-            "chatfilter.security.SecureCredentialManager",
-            return_value=mock_manager,
-        ), patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
+        with (
+            patch(
+                "chatfilter.security.SecureCredentialManager",
+                return_value=mock_manager,
+            ),
+            patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
+        ):
             mock_get_proxy.return_value = {"id": "proxy-222"}
 
             status, reason = get_session_config_status(session_dir)
@@ -277,10 +283,13 @@ class TestGetSessionConfigStatus:
         mock_manager = MagicMock()
         mock_manager.has_credentials.return_value = True
 
-        with patch(
-            "chatfilter.security.SecureCredentialManager",
-            return_value=mock_manager,
-        ), patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
+        with (
+            patch(
+                "chatfilter.security.SecureCredentialManager",
+                return_value=mock_manager,
+            ),
+            patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
+        ):
             mock_get_proxy.return_value = {"id": "proxy-333"}
 
             status, reason = get_session_config_status(session_dir)
@@ -354,9 +363,17 @@ class TestConnectSessionErrorHandling:
 
         mock_client.send_code_request = mock_send_code_request
 
-        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy), patch(
-            "chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus
-        ), patch("chatfilter.web.routers.sessions.background.TelegramClient", return_value=mock_client):
+        with (
+            patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy),
+            patch(
+                "chatfilter.web.routers.sessions.background.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.background.TelegramClient",
+                return_value=mock_client,
+            ),
+        ):
             await _send_verification_code_and_create_auth(
                 session_id=session_id,
                 session_path=session_path,
@@ -385,9 +402,8 @@ class TestConnectSessionErrorHandling:
         Scenario: User clicks Connect but proxy_id references non-existent proxy.
         Expected: SSE event published with 'needs_config' state and error saved to config.json.
         """
-        import asyncio
-        from chatfilter.web.routers.sessions import _send_verification_code_and_create_auth
         from chatfilter.storage.errors import StorageNotFoundError
+        from chatfilter.web.routers.sessions import _send_verification_code_and_create_auth
 
         session_id = "test_proxy_needs_config"
         session_dir = tmp_path / session_id
@@ -412,8 +428,12 @@ class TestConnectSessionErrorHandling:
         mock_event_bus.publish = mock_publish
 
         # Mock proxy lookup to fail with StorageNotFoundError
-        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy, patch(
-            "chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus
+        with (
+            patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
+            patch(
+                "chatfilter.web.routers.sessions.background.get_event_bus",
+                return_value=mock_event_bus,
+            ),
         ):
             mock_get_proxy.side_effect = StorageNotFoundError("Proxy not found")
 
@@ -434,7 +454,10 @@ class TestConnectSessionErrorHandling:
         with config_path.open("r") as f:
             saved_config = json.load(f)
         assert "error_message" in saved_config
-        assert "Proxy" in saved_config["error_message"] or "proxy" in saved_config["error_message"].lower()
+        assert (
+            "Proxy" in saved_config["error_message"]
+            or "proxy" in saved_config["error_message"].lower()
+        )
         assert saved_config["retry_available"] is False
 
     @pytest.mark.asyncio
@@ -444,7 +467,6 @@ class TestConnectSessionErrorHandling:
         Scenario: User clicks Connect but network is unavailable (ConnectionError on all retries).
         Expected: SSE event published with 'error' state, error_message saved with retry_available=True.
         """
-        import asyncio
         from chatfilter.web.routers.sessions import _send_verification_code_and_create_auth
 
         session_id = "test_network_error"
@@ -481,9 +503,14 @@ class TestConnectSessionErrorHandling:
 
         mock_client.connect = mock_connect
 
-        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy), patch(
-            "chatfilter.web.routers.sessions.background.get_event_bus", return_value=mock_event_bus
-        ), patch("telethon.TelegramClient", return_value=mock_client):
+        with (
+            patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy),
+            patch(
+                "chatfilter.web.routers.sessions.background.get_event_bus",
+                return_value=mock_event_bus,
+            ),
+            patch("telethon.TelegramClient", return_value=mock_client),
+        ):
             await _send_verification_code_and_create_auth(
                 session_id=session_id,
                 session_path=session_path,

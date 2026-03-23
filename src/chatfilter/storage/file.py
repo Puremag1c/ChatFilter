@@ -163,8 +163,7 @@ def robust_delete_session_file(session_file: Path) -> bool:
         try:
             session_file.rename(backup_path)
             logger.warning(
-                f"Failed to delete session file (error: {e}), "
-                f"renamed to backup: {backup_path}"
+                f"Failed to delete session file (error: {e}), renamed to backup: {backup_path}"
             )
             return False
         except (PermissionError, OSError) as rename_error:

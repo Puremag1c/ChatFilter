@@ -7,6 +7,7 @@ returns all metrics in a single dict. Used by GroupAnalysisEngine.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -32,10 +33,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-CAPTCHA_BOTS = frozenset({
-    "missrose_bot", "shieldy_bot", "join_captcha_bot",
-    "grouphelpbot", "combot",
-})
+CAPTCHA_BOTS = frozenset(
+    {
+        "missrose_bot",
+        "shieldy_bot",
+        "join_captcha_bot",
+        "grouphelpbot",
+        "combot",
+    }
+)
 
 
 @dataclass
@@ -109,7 +115,8 @@ async def process_chat(
     needs_join = settings.needs_join()
     if resolved.moderation is True:
         return _result_from_resolved(
-            resolved, moderation=True,
+            resolved,
+            moderation=True,
             messages_per_hour="N/A" if needs_join else None,
             unique_authors_per_hour="N/A" if needs_join else None,
             captcha="N/A" if needs_join and settings.detect_captcha else None,
@@ -151,9 +158,14 @@ class _ResolvedChat:
 def _dead_chat(chat_ref: str, *, status: str = "dead", **kw) -> _ResolvedChat:
     """Shorthand for a dead/banned/failed _ResolvedChat."""
     return _ResolvedChat(
-        chat_ref=chat_ref, chat_type=ChatTypeEnum.DEAD.value,
-        title=kw.get("title"), subscribers=None, moderation=None,
-        numeric_id=kw.get("numeric_id"), status=status, error=kw.get("error"),
+        chat_ref=chat_ref,
+        chat_type=ChatTypeEnum.DEAD.value,
+        title=kw.get("title"),
+        subscribers=None,
+        moderation=None,
+        numeric_id=kw.get("numeric_id"),
+        status=status,
+        error=kw.get("error"),
     )
 
 
@@ -216,26 +228,32 @@ async def _resolve_by_username(
             linked_chat_id = None
         else:
             return _dead_chat(
-                chat_ref, title=getattr(entity, "first_name", None),
+                chat_ref,
+                title=getattr(entity, "first_name", None),
                 numeric_id=abs(entity.id) if hasattr(entity, "id") else None,
             )
 
         logger.info(
-            f"Account '{account_id}': resolved '{chat_ref}' "
-            f"(type={chat_type}, subs={subscribers})"
+            f"Account '{account_id}': resolved '{chat_ref}' (type={chat_type}, subs={subscribers})"
         )
         return _ResolvedChat(
-            chat_ref=chat_ref, chat_type=chat_type, title=title,
-            subscribers=subscribers, moderation=moderation,
-            numeric_id=numeric_id, linked_chat_id=linked_chat_id,
+            chat_ref=chat_ref,
+            chat_type=chat_type,
+            title=title,
+            subscribers=subscribers,
+            moderation=moderation,
+            numeric_id=numeric_id,
+            linked_chat_id=linked_chat_id,
         )
 
     except errors.FloodWaitError:
         raise
 
     except (
-        errors.ChatForbiddenError, errors.ChannelPrivateError,
-        errors.ChatRestrictedError, errors.ChannelBannedError,
+        errors.ChatForbiddenError,
+        errors.ChannelPrivateError,
+        errors.ChatRestrictedError,
+        errors.ChannelBannedError,
         errors.UserBannedInChannelError,
     ) as e:
         logger.info(f"Account '{account_id}': '{chat_ref}' inaccessible ({type(e).__name__})")
@@ -282,8 +300,12 @@ async def _resolve_by_invite(
                 numeric_id = abs(entity.id) if hasattr(entity, "id") else None
 
             return _ResolvedChat(
-                chat_ref=chat_ref, chat_type=chat_type, title=title,
-                subscribers=subscribers, moderation=moderation, numeric_id=numeric_id,
+                chat_ref=chat_ref,
+                chat_type=chat_type,
+                title=title,
+                subscribers=subscribers,
+                moderation=moderation,
+                numeric_id=numeric_id,
             )
 
         elif isinstance(result, (ChatInvite, ChatInvitePeek)):
@@ -297,8 +319,12 @@ async def _resolve_by_invite(
                 chat_type = ChatTypeEnum.GROUP.value
             moderation = getattr(result, "request_needed", False)
             return _ResolvedChat(
-                chat_ref=chat_ref, chat_type=chat_type, title=title,
-                subscribers=subscribers, moderation=moderation, numeric_id=None,
+                chat_ref=chat_ref,
+                chat_type=chat_type,
+                title=title,
+                subscribers=subscribers,
+                moderation=moderation,
+                numeric_id=None,
             )
 
         else:
@@ -311,7 +337,9 @@ async def _resolve_by_invite(
         return _dead_chat(chat_ref, error=str(e))
 
     except Exception as e:
-        logger.error(f"Account '{account_id}': failed to resolve invite '{chat_ref}': {e}", exc_info=True)
+        logger.error(
+            f"Account '{account_id}': failed to resolve invite '{chat_ref}': {e}", exc_info=True
+        )
         return _dead_chat(chat_ref, error=str(e))
 
 
@@ -351,7 +379,7 @@ async def _analyze_chat_activity(
 
         try:
             await asyncio.wait_for(_fetch_messages(), timeout=60)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             has_timeout = True
 
         hours = settings.time_window
@@ -370,10 +398,8 @@ async def _analyze_chat_activity(
 
     finally:
         if numeric_id is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await leave_chat(client, numeric_id)
-            except Exception:
-                pass
 
 
 async def _detect_captcha(
@@ -402,5 +428,13 @@ async def _detect_captcha(
 def _channel_to_chat_type(entity: Channel, linked_chat_id: int | None = None) -> str:
     """Map Channel to ChatTypeEnum."""
     if getattr(entity, "megagroup", False):
-        return ChatTypeEnum.FORUM.value if getattr(entity, "forum", False) else ChatTypeEnum.GROUP.value
-    return ChatTypeEnum.CHANNEL_COMMENTS.value if linked_chat_id is not None else ChatTypeEnum.CHANNEL_NO_COMMENTS.value
+        return (
+            ChatTypeEnum.FORUM.value
+            if getattr(entity, "forum", False)
+            else ChatTypeEnum.GROUP.value
+        )
+    return (
+        ChatTypeEnum.CHANNEL_COMMENTS.value
+        if linked_chat_id is not None
+        else ChatTypeEnum.CHANNEL_NO_COMMENTS.value
+    )

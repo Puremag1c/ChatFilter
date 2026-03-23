@@ -686,7 +686,9 @@ class TestPaginationEdgeCases:
             response = client.get("/api/chats?session_select=test&offset=0&limit=10")
 
             assert response.status_code == 200
-            mock_service.get_chats_paginated.assert_awaited_once_with("test", "test_user", offset=0, limit=10)
+            mock_service.get_chats_paginated.assert_awaited_once_with(
+                "test", "test_user", offset=0, limit=10
+            )
 
     def test_get_chats_with_max_limit(self, client: TestClient) -> None:
         """Test pagination with maximum allowed limit."""
@@ -702,7 +704,9 @@ class TestPaginationEdgeCases:
             response = client.get("/api/chats?session_select=test&offset=0&limit=500")
 
             assert response.status_code == 200
-            mock_service.get_chats_paginated.assert_awaited_once_with("test", "test_user", offset=0, limit=500)
+            mock_service.get_chats_paginated.assert_awaited_once_with(
+                "test", "test_user", offset=0, limit=500
+            )
 
     def test_get_chats_empty_result(self, client: TestClient) -> None:
         """Test getting chats when result is empty."""

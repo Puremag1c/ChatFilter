@@ -255,7 +255,9 @@ def test_settings(tmp_path: Any) -> Any:
     return Settings(data_dir=tmp_path / "test_data")
 
 
-def _setup_auth_session(test_settings: Any, username: str, is_admin: bool = False) -> tuple[str, str]:
+def _setup_auth_session(
+    test_settings: Any, username: str, is_admin: bool = False
+) -> tuple[str, str]:
     """Create a user in the test DB and inject an authenticated session.
 
     Returns (user_id, session_id) so the session cookie can be attached to

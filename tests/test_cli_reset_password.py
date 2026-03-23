@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
+from io import StringIO
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
-from io import StringIO
 
 import pytest
 
@@ -35,14 +36,24 @@ class TestResetPasswordCLI:
             raise SystemExit(code)
 
         try:
-            with patch("sys.argv", ["chatfilter", "reset-password", username, password, "--data-dir", str(data_dir)]), \
-                 patch("sys.stdout", stdout_capture), \
-                 patch("sys.stderr", stderr_capture), \
-                 patch("sys.exit", mock_exit):
-                try:
-                    _handle_reset_password()
-                except SystemExit:
-                    pass
+            with (
+                patch(
+                    "sys.argv",
+                    [
+                        "chatfilter",
+                        "reset-password",
+                        username,
+                        password,
+                        "--data-dir",
+                        str(data_dir),
+                    ],
+                ),
+                patch("sys.stdout", stdout_capture),
+                patch("sys.stderr", stderr_capture),
+                patch("sys.exit", mock_exit),
+                contextlib.suppress(SystemExit),
+            ):
+                _handle_reset_password()
         finally:
             sys.argv = original_argv
             sys.exit = original_exit
@@ -57,7 +68,7 @@ class TestResetPasswordCLI:
         db = get_user_db(test_settings.data_dir)
 
         # Create a user
-        user_id = db.create_user("testuser", "oldpassword123")
+        db.create_user("testuser", "oldpassword123")
 
         # Verify old password works
         assert db.verify_password("testuser", "oldpassword123") is True
@@ -126,14 +137,17 @@ class TestResetPasswordCLI:
             raise SystemExit(code)
 
         try:
-            with patch("sys.argv", ["chatfilter", "reset-password", "--data-dir", str(test_settings.data_dir)]), \
-                 patch("sys.stdout", stdout_capture), \
-                 patch("sys.stderr", stderr_capture), \
-                 patch("sys.exit", mock_exit):
-                try:
-                    _handle_reset_password()
-                except SystemExit:
-                    pass
+            with (
+                patch(
+                    "sys.argv",
+                    ["chatfilter", "reset-password", "--data-dir", str(test_settings.data_dir)],
+                ),
+                patch("sys.stdout", stdout_capture),
+                patch("sys.stderr", stderr_capture),
+                patch("sys.exit", mock_exit),
+                contextlib.suppress(SystemExit),
+            ):
+                _handle_reset_password()
         finally:
             sys.argv = original_argv
 
@@ -244,7 +258,9 @@ class TestResetPasswordCLI:
         assert exit_code == 1
         assert "8 characters" in stderr.lower()
 
-    def test_database_locked_shows_clear_error(self, test_settings: Any, monkeypatch: Any, capsys: Any) -> None:
+    def test_database_locked_shows_clear_error(
+        self, test_settings: Any, monkeypatch: Any, capsys: Any
+    ) -> None:
         """Test that locked database shows clear error message and exits with code 1."""
         import sqlite3
         import sys
@@ -253,10 +269,18 @@ class TestResetPasswordCLI:
         from chatfilter.main import _handle_reset_password
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        monkeypatch.setattr(sys, "argv", [
-            "chatfilter", "reset-password", "testuser", "newpassword456",
-            "--data-dir", str(test_settings.data_dir),
-        ])
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "chatfilter",
+                "reset-password",
+                "testuser",
+                "newpassword456",
+                "--data-dir",
+                str(test_settings.data_dir),
+            ],
+        )
 
         with patch("chatfilter.storage.user_database.UserDatabase") as mock_db_class:
             mock_db = MagicMock()
@@ -284,9 +308,7 @@ class TestResetPasswordCLI:
         db.create_user("user2", "password2")
 
         # Reset user1's password
-        exit_code, _, _ = self._run_reset_password(
-            test_settings.data_dir, "user1", "newpassword1"
-        )
+        exit_code, _, _ = self._run_reset_password(test_settings.data_dir, "user1", "newpassword1")
         assert exit_code == 0
 
         # Verify user1 has new password

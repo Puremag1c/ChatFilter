@@ -318,7 +318,9 @@ async def get_chats_json(
 
     try:
         # Fetch all chats (use a high limit to get everything)
-        chats, total_count = await service.get_chats_paginated(session_id, user_id, offset=0, limit=10000)
+        chats, total_count = await service.get_chats_paginated(
+            session_id, user_id, offset=0, limit=10000
+        )
 
         # Convert chats to response format
         chats_data = [

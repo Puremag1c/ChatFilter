@@ -43,7 +43,7 @@ async def start_group_analysis(
     """
     from chatfilter.web.app import get_templates
 
-    templates = get_templates()
+    get_templates()
 
     try:
         service = _get_group_service(request)
@@ -58,36 +58,39 @@ async def start_group_analysis(
         # Guard against duplicate analysis (e.g. double-click)
         if group.status == GroupStatus.IN_PROGRESS:
             return HTMLResponse(
-                content='',
+                content="",
                 status_code=409,
-                headers={'HX-Trigger': json.dumps({'showToast': {'message': 'Analysis already running', 'type': 'warning'}})}
+                headers={
+                    "HX-Trigger": json.dumps(
+                        {"showToast": {"message": "Analysis already running", "type": "warning"}}
+                    )
+                },
             )
 
         # Validate connected accounts BEFORE starting (instant in-memory check)
         connected_accounts = [
-            sid for sid in session_mgr.list_sessions()
+            sid
+            for sid in session_mgr.list_sessions()
             if (info := session_mgr.get_info(sid)) and info.state == SessionState.CONNECTED
         ]
 
         if not connected_accounts:
             # Return error toast via HX-Trigger
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "No connected Telegram accounts. Please connect at least one account.",
-                    "type": "error"
+            trigger_data = json.dumps(
+                {
+                    "refreshGroups": None,
+                    "showToast": {
+                        "message": "No connected Telegram accounts. Please connect at least one account.",
+                        "type": "error",
+                    },
                 }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=200,
-                headers={'HX-Trigger': trigger_data}
             )
+            return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
 
         service.start_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
+        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": "refreshGroups"})
 
     except HTTPException:
         raise
@@ -95,9 +98,7 @@ async def start_group_analysis(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to start analysis: {e}",
-        )
-
-
+        ) from e
 
 
 @router.post("/api/groups/{group_id}/reanalyze", response_class=HTMLResponse)
@@ -143,7 +144,8 @@ async def reanalyze_group(
         # Validate status == COMPLETED (prevents concurrent analysis and incomplete groups)
         if group.status != GroupStatus.COMPLETED:
             error_msg = (
-                "Analysis already running" if group.status == GroupStatus.IN_PROGRESS
+                "Analysis already running"
+                if group.status == GroupStatus.IN_PROGRESS
                 else "Re-analysis is only available for completed groups"
             )
             return templates.TemplateResponse(
@@ -158,29 +160,28 @@ async def reanalyze_group(
 
         # Validate connected accounts BEFORE starting (instant in-memory check)
         connected_accounts = [
-            sid for sid in session_mgr.list_sessions()
+            sid
+            for sid in session_mgr.list_sessions()
             if (info := session_mgr.get_info(sid)) and info.state == SessionState.CONNECTED
         ]
 
         if not connected_accounts:
             # Return error toast via HX-Trigger
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "No connected Telegram accounts. Please connect at least one account.",
-                    "type": "error"
+            trigger_data = json.dumps(
+                {
+                    "refreshGroups": None,
+                    "showToast": {
+                        "message": "No connected Telegram accounts. Please connect at least one account.",
+                        "type": "error",
+                    },
                 }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=200,
-                headers={'HX-Trigger': trigger_data}
             )
+            return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
 
         service.reanalyze(group_id, mode=analysis_mode)
 
         # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
+        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": "refreshGroups"})
 
     except HTTPException:
         raise
@@ -189,9 +190,7 @@ async def reanalyze_group(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to start {mode_description} analysis: {e}",
-        )
-
-
+        ) from e
 
 
 @router.post("/api/groups/{group_id}/stop", response_class=HTMLResponse)
@@ -231,7 +230,7 @@ async def stop_group_analysis(
         service.stop_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content='', status_code=204, headers={'HX-Trigger': 'refreshGroups'})
+        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": "refreshGroups"})
 
     except HTTPException:
         raise
@@ -278,48 +277,33 @@ async def resume_group_analysis(
         # Verify group exists and belongs to this user
         group = service.get_group(group_id, user_id=user_id)
         if not group:
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "Group not found",
-                    "type": "error"
+            trigger_data = json.dumps(
+                {
+                    "refreshGroups": None,
+                    "showToast": {"message": "Group not found", "type": "error"},
                 }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=404,
-                headers={'HX-Trigger': trigger_data}
             )
+            return HTMLResponse(content="", status_code=404, headers={"HX-Trigger": trigger_data})
 
         # Validate status == PAUSED or handle concurrent resume
         if group.status == GroupStatus.IN_PROGRESS:
             # Concurrent resume attempt — return 409 (idempotent retry)
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "Another operation in progress",
-                    "type": "error"
+            trigger_data = json.dumps(
+                {
+                    "refreshGroups": None,
+                    "showToast": {"message": "Another operation in progress", "type": "error"},
                 }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=409,
-                headers={'HX-Trigger': trigger_data}
             )
+            return HTMLResponse(content="", status_code=409, headers={"HX-Trigger": trigger_data})
         elif group.status != GroupStatus.PAUSED:
             # Invalid state (completed, failed, pending) — return 400
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "Can only resume paused groups",
-                    "type": "error"
+            trigger_data = json.dumps(
+                {
+                    "refreshGroups": None,
+                    "showToast": {"message": "Can only resume paused groups", "type": "error"},
                 }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=400,
-                headers={'HX-Trigger': trigger_data}
             )
+            return HTMLResponse(content="", status_code=400, headers={"HX-Trigger": trigger_data})
 
         # Check if there are chats to analyze (pending + failed)
         stats = service.get_group_stats(group_id)
@@ -328,39 +312,33 @@ async def resume_group_analysis(
 
         if pending_count + failed_count == 0:
             # No chats to analyze — return error
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "No chats to analyze",
-                    "type": "error"
+            trigger_data = json.dumps(
+                {
+                    "refreshGroups": None,
+                    "showToast": {"message": "No chats to analyze", "type": "error"},
                 }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=400,
-                headers={'HX-Trigger': trigger_data}
             )
+            return HTMLResponse(content="", status_code=400, headers={"HX-Trigger": trigger_data})
 
         # Validate connected accounts BEFORE starting (instant in-memory check)
         connected_accounts = [
-            sid for sid in session_mgr.list_sessions()
+            sid
+            for sid in session_mgr.list_sessions()
             if (info := session_mgr.get_info(sid)) and info.state == SessionState.CONNECTED
         ]
 
         if not connected_accounts:
             # Return error toast via HX-Trigger
-            trigger_data = json.dumps({
-                "refreshGroups": None,
-                "showToast": {
-                    "message": "No connected Telegram accounts. Please connect at least one account.",
-                    "type": "error"
+            trigger_data = json.dumps(
+                {
+                    "refreshGroups": None,
+                    "showToast": {
+                        "message": "No connected Telegram accounts. Please connect at least one account.",
+                        "type": "error",
+                    },
                 }
-            })
-            return HTMLResponse(
-                content='',
-                status_code=200,
-                headers={'HX-Trigger': trigger_data}
             )
+            return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
 
         service.start_analysis(group_id)
 
@@ -380,4 +358,4 @@ async def resume_group_analysis(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to resume analysis: {e}",
-        )
+        ) from e

@@ -800,8 +800,10 @@ class TestDeadSessionRecoveryFlow:
         # Permanent error should mention automatic recovery
         assert "automatic recovery" in perm_info.error_message.lower()
         # Temporary error should mention connection failure
-        assert ("connection" in temp_info.error_message.lower() or
-                "connect" in temp_info.error_message.lower())
+        assert (
+            "connection" in temp_info.error_message.lower()
+            or "connect" in temp_info.error_message.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_session_recovery_preserves_session_id(self) -> None:
@@ -845,7 +847,10 @@ class TestDeadSessionRecoveryFlow:
         # Error message should not say "new session needed"
         assert "new session" not in info.error_message.lower()
         # But should indicate re-auth is needed
-        assert "reauthentication" in info.error_message.lower() or "expired" in info.error_message.lower()
+        assert (
+            "reauthentication" in info.error_message.lower()
+            or "expired" in info.error_message.lower()
+        )
 
     @pytest.mark.asyncio
     async def test_reconnect_flow_same_session_id(self) -> None:
@@ -951,7 +956,9 @@ class TestAuthKeyUnregisteredAutoRecovery:
         """
         manager = SessionManager()
         mock_request = MagicMock()
-        invalid_client = MockClient(auth_error=errors.AuthKeyUnregisteredError(request=mock_request))
+        invalid_client = MockClient(
+            auth_error=errors.AuthKeyUnregisteredError(request=mock_request)
+        )
         manager.register("recovering_session", MockFactory(invalid_client))
 
         # First connect fails with AuthKeyUnregistered

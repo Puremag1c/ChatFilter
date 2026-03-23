@@ -172,7 +172,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             print(f"Admin user created: admin / {password}")  # noqa: T201
             print(f"{'=' * 60}\n")  # noqa: T201
             logger.warning(f"Admin user created: admin / {password}")
-            logger.warning("No users found — created admin user with generated password (printed to console and log)")
+            logger.warning(
+                "No users found — created admin user with generated password (printed to console and log)"
+            )
     except Exception as e:
         logger.error(f"Failed to initialize admin user: {e}")
         raise SystemExit(1) from e
@@ -209,7 +211,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # 3. Cancel background analysis tasks
     if app.state.app_state.analysis_tasks:
-        logger.info(f"Cancelling {len(app.state.app_state.analysis_tasks)} background analysis tasks")
+        logger.info(
+            f"Cancelling {len(app.state.app_state.analysis_tasks)} background analysis tasks"
+        )
         for group_id, task in app.state.app_state.analysis_tasks.items():
             if not task.done():
                 task.cancel()
@@ -221,11 +225,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if pending_tasks:
             try:
                 await asyncio.wait_for(
-                    asyncio.gather(*pending_tasks, return_exceptions=True),
-                    timeout=cancel_timeout
+                    asyncio.gather(*pending_tasks, return_exceptions=True), timeout=cancel_timeout
                 )
                 logger.info("All analysis tasks cancelled successfully")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(f"Timeout cancelling analysis tasks after {cancel_timeout}s")
             except Exception as e:
                 logger.error(f"Error cancelling analysis tasks: {e}")

@@ -6,21 +6,21 @@ import asyncio
 import logging
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
-from chatfilter.i18n import _
-from chatfilter.web.events import get_event_bus
-from chatfilter.web.template_helpers import get_template_context
 # Access ensure_data_dir via module attribute so tests can mock at
 # chatfilter.web.routers.sessions.ensure_data_dir
 import chatfilter.web.routers.sessions as _sessions_pkg
+from chatfilter.i18n import _
+from chatfilter.web.events import get_event_bus
+from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import SessionListItem, _get_flood_wait_until, secure_delete_dir
-from .io import load_account_info, save_account_info, secure_file_permissions
-from .listing import list_stored_sessions
+from .io import save_account_info, secure_file_permissions
+from .listing import list_stored_sessions  # noqa: F401 — patched by tests
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
@@ -185,9 +185,7 @@ async def _finalize_and_return_session_row(
     from . import _finalize_reconnect_auth as finalize_func
 
     try:
-        await finalize_func(
-            client, auth_state, auth_manager, safe_name, log_msg
-        )
+        await finalize_func(client, auth_state, auth_manager, safe_name, log_msg)
     except FileNotFoundError:
         await auth_manager.remove_auth_state(auth_id)
         return templates.TemplateResponse(
@@ -199,6 +197,7 @@ async def _finalize_and_return_session_row(
 
     # Get updated session data after reconnect
     from chatfilter.web.dependencies import get_session_manager
+
     # Import from sessions module to allow test patching
     from . import list_stored_sessions as _list_stored_sessions
 
@@ -236,7 +235,7 @@ async def _attempt_auto_2fa_login(
     safe_name: str,
     session_id: str,
     auth_id: str,
-) -> Optional[HTMLResponse]:
+) -> HTMLResponse | None:
     """Attempt automatic 2FA login with stored password.
 
     Returns:
@@ -281,9 +280,7 @@ async def _attempt_auto_2fa_login(
         )
 
     # Stored password exists - attempt auto-login
-    logger.info(
-        f"Found stored 2FA password for session '{safe_name}', attempting auto-login"
-    )
+    logger.info(f"Found stored 2FA password for session '{safe_name}', attempting auto-login")
 
     try:
         await asyncio.wait_for(

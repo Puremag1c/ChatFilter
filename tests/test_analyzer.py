@@ -491,8 +491,9 @@ class TestGetFullChannelRequestFallback:
     async def test_uses_full_channel_when_participants_count_none(self):
         """Test that GetFullChannelRequest is called when participants_count is None."""
         from unittest.mock import AsyncMock, MagicMock
-        from telethon.tl.types import Channel
+
         from telethon.tl.functions.channels import GetFullChannelRequest
+        from telethon.tl.types import Channel
 
         # Mock channel with participants_count=None
         mock_channel = MagicMock(spec=Channel)
@@ -510,7 +511,9 @@ class TestGetFullChannelRequestFallback:
 
         # Mock client
         mock_client = AsyncMock()
-        mock_client.return_value = mock_full_channel  # When called as function (for GetFullChannelRequest)
+        mock_client.return_value = (
+            mock_full_channel  # When called as function (for GetFullChannelRequest)
+        )
 
         # Simulate the code path in _resolve_by_username
         # This is the actual code being tested (from group_engine.py:400-412):
@@ -531,6 +534,7 @@ class TestGetFullChannelRequestFallback:
     async def test_skips_full_channel_when_participants_count_present(self):
         """Test that GetFullChannelRequest is NOT called when participants_count is present."""
         from unittest.mock import AsyncMock, MagicMock
+
         from telethon.tl.types import Channel
 
         # Mock channel with participants_count already set
@@ -571,6 +575,7 @@ class TestDeadChatStatusOnException:
     async def test_generic_exception_returns_dead_status(self):
         """Test that generic exception in resolution sets status='dead' and chat_type=DEAD."""
         from unittest.mock import AsyncMock
+
         from chatfilter.models.group import ChatTypeEnum
 
         # Mock client that raises generic exception
@@ -598,6 +603,7 @@ class TestDeadChatStatusOnException:
     async def test_value_error_returns_dead_status(self):
         """Test that ValueError in resolution sets status='dead'."""
         from unittest.mock import AsyncMock
+
         from chatfilter.models.group import ChatTypeEnum
 
         mock_client = AsyncMock()
@@ -621,6 +627,7 @@ class TestDeadChatStatusOnException:
     async def test_runtime_error_returns_dead_status(self):
         """Test that RuntimeError in resolution sets status='dead'."""
         from unittest.mock import AsyncMock
+
         from chatfilter.analyzer.group_engine import ChatTypeEnum
 
         mock_client = AsyncMock()
@@ -644,7 +651,9 @@ class TestDeadChatStatusOnException:
     async def test_successful_resolution_not_dead(self):
         """Test that successful resolution does NOT set status='dead'."""
         from unittest.mock import AsyncMock, MagicMock
+
         from telethon.tl.types import Channel
+
         from chatfilter.models.group import ChatTypeEnum
 
         # Mock successful channel resolution
@@ -661,10 +670,10 @@ class TestDeadChatStatusOnException:
         result_status = "dead"  # Default to dead
         result_chat_type = ChatTypeEnum.DEAD.value
         try:
-            entity = await mock_client.get_entity("@activechannel")
+            await mock_client.get_entity("@activechannel")
             result_status = "ok"
             result_chat_type = ChatTypeEnum.CHANNEL_COMMENTS.value
-        except Exception as e:
+        except Exception:
             # Should not reach here
             pass
 

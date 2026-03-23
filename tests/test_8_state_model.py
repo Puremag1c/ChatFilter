@@ -29,7 +29,6 @@ from pathlib import Path
 
 import pytest
 
-
 # SPEC requirement #5: Final 8-state model
 ALLOWED_STATES = {
     "disconnected",
@@ -85,8 +84,13 @@ def test_only_8_states_in_python_code():
 
                     # Skip if this is in an error message dictionary (SAFE_MESSAGES, ERROR_MESSAGES, etc.)
                     # These are legacy dead code and not actual state assignments
-                    if '"' in line_content and ":" in line_content and any(
-                        pattern in line_content for pattern in ["error", "message", "SAFE_", "ERROR_"]
+                    if (
+                        '"' in line_content
+                        and ":" in line_content
+                        and any(
+                            pattern in line_content
+                            for pattern in ["error", "message", "SAFE_", "ERROR_"]
+                        )
                     ):
                         continue
 
@@ -153,7 +157,7 @@ def test_only_8_states_in_templates():
                     state_pattern = re.compile(
                         rf"(?<![a-zA-Z0-9_\-])"  # Not preceded by letter, digit, underscore, or hyphen
                         rf"{re.escape(removed_state)}"
-                        rf"(?![a-zA-Z0-9_\-])"   # Not followed by letter, digit, underscore, or hyphen
+                        rf"(?![a-zA-Z0-9_\-])"  # Not followed by letter, digit, underscore, or hyphen
                     )
 
                     for line_num, line in enumerate(lines, start=1):
@@ -245,7 +249,9 @@ def test_only_8_states_documented():
     # This test verifies that the 8-state model is correctly documented
     # by checking this test file itself contains the correct states
 
-    assert len(ALLOWED_STATES) == 8, f"ALLOWED_STATES must have exactly 8 states, found {len(ALLOWED_STATES)}"
+    assert len(ALLOWED_STATES) == 8, (
+        f"ALLOWED_STATES must have exactly 8 states, found {len(ALLOWED_STATES)}"
+    )
 
     # Verify the exact states
     expected = {
@@ -259,7 +265,7 @@ def test_only_8_states_documented():
         "error",
     }
 
-    assert ALLOWED_STATES == expected, f"ALLOWED_STATES mismatch: {ALLOWED_STATES} vs {expected}"
+    assert expected == ALLOWED_STATES, f"ALLOWED_STATES mismatch: {ALLOWED_STATES} vs {expected}"
 
 
 def test_no_state_creep_in_recent_commits():
@@ -317,7 +323,9 @@ def test_no_state_creep_in_recent_commits():
                                 "<!-- ",  # HTML comments
                                 "changelog",
                                 "migration",
-                                '"' + removed_state + '":',  # Error message dict entries like "proxy_error": "msg"
+                                '"'
+                                + removed_state
+                                + '":',  # Error message dict entries like "proxy_error": "msg"
                                 "'" + removed_state + "':",  # Error message dict entries
                                 "message",  # Error message contexts
                                 "safe_",  # SAFE_MESSAGES dict
@@ -327,7 +335,10 @@ def test_no_state_creep_in_recent_commits():
                             continue
 
                         # Only flag actual state assignments: state="removed_state"
-                        if f'state="{removed_state}"' not in line and f"state='{removed_state}'" not in line:
+                        if (
+                            f'state="{removed_state}"' not in line
+                            and f"state='{removed_state}'" not in line
+                        ):
                             continue
 
                         violations.append(line)

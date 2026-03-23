@@ -88,7 +88,9 @@ class GroupsMixin:
                 "status": row["status"],
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
-                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
+                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"])
+                if row["analysis_started_at"]
+                else None,
                 "user_id": row["user_id"],
             }
 
@@ -99,9 +101,7 @@ class GroupsMixin:
             List of group data dicts, sorted by creation time (newest first)
         """
         with self._connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM chat_groups ORDER BY created_at DESC"
-            )
+            cursor = conn.execute("SELECT * FROM chat_groups ORDER BY created_at DESC")
             rows = cursor.fetchall()
 
         return [
@@ -112,7 +112,9 @@ class GroupsMixin:
                 "status": row["status"],
                 "created_at": self._str_to_datetime(row["created_at"]),
                 "updated_at": self._str_to_datetime(row["updated_at"]),
-                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"]) if row["analysis_started_at"] else None,
+                "analysis_started_at": self._str_to_datetime(row["analysis_started_at"])
+                if row["analysis_started_at"]
+                else None,
                 "user_id": row["user_id"],
             }
             for row in rows
@@ -138,7 +140,11 @@ class GroupsMixin:
                 SET analysis_started_at = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (self._datetime_to_str(timestamp), self._datetime_to_str(datetime.now(UTC)), group_id),
+                (
+                    self._datetime_to_str(timestamp),
+                    self._datetime_to_str(datetime.now(UTC)),
+                    group_id,
+                ),
             )
 
     def get_analysis_started_at(self, group_id: str) -> datetime | None:

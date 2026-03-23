@@ -483,9 +483,7 @@ class TestAuthStateManager:
         assert reset_state.is_locked() is False
 
     @pytest.mark.asyncio
-    async def test_reset_failed_attempts_missing_state(
-        self, manager: AuthStateManager
-    ) -> None:
+    async def test_reset_failed_attempts_missing_state(self, manager: AuthStateManager) -> None:
         """reset_failed_attempts should return None for missing state."""
         result = await manager.reset_failed_attempts("nonexistent-id")
 

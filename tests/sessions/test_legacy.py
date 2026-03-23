@@ -1,9 +1,6 @@
 """Tests for sessions router."""
 
 import json
-import re
-import shutil
-import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
@@ -12,15 +9,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
-from chatfilter.web.routers.sessions import (
-    read_upload_with_size_limit,
-    sanitize_session_name,
-    validate_account_info_json,
-    validate_config_file_format,
-    validate_session_file_format,
-)
-
-from .conftest import extract_csrf_token
 
 
 class TestBackwardCompatibilityLegacySessions:
@@ -52,7 +40,6 @@ class TestBackwardCompatibilityLegacySessions:
         )
         yield tmp_path
 
-
     def test_list_stored_sessions_without_session_file(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
@@ -67,7 +54,6 @@ class TestBackwardCompatibilityLegacySessions:
         - User uploaded config but hasn't connected yet
         - Session file was deleted/corrupted but metadata exists
         """
-        from unittest.mock import patch
 
         from chatfilter.web.routers.sessions import list_stored_sessions
 
@@ -95,11 +81,11 @@ class TestBackwardCompatibilityLegacySessions:
         mock_proxy = type(
             "MockProxy",
             (),
-            dict(
-                id="mock-proxy-id",
-                addr="127.0.0.1",
-                port=1080,
-            ),
+            {
+                "id": "mock-proxy-id",
+                "addr": "127.0.0.1",
+                "port": 1080,
+            },
         )
 
         with patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy):
@@ -113,9 +99,7 @@ class TestBackwardCompatibilityLegacySessions:
             )
 
             # Find the session
-            session = next(
-                (s for s in sessions if s.session_id == "no_session_file"), None
-            )
+            session = next((s for s in sessions if s.session_id == "no_session_file"), None)
             assert session is not None
 
             # Verify state is 'disconnected' (ready to connect/authorize)
@@ -127,5 +111,3 @@ class TestBackwardCompatibilityLegacySessions:
             assert session.has_session_file is False, (
                 "Session without session.session should have has_session_file=False"
             )
-
-

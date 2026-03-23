@@ -58,9 +58,7 @@ class TestLoginPost:
         assert resp.status_code == 303
         assert resp.headers["location"] == "/"
 
-    def test_wrong_password_returns_401(
-        self, unauth_client: Any, test_settings: Any
-    ) -> None:
+    def test_wrong_password_returns_401(self, unauth_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -74,9 +72,7 @@ class TestLoginPost:
         resp = self._login(unauth_client, "nosuchuser", "password123")
         assert resp.status_code == 401
 
-    def test_missing_csrf_returns_403(
-        self, unauth_client: Any, test_settings: Any
-    ) -> None:
+    def test_missing_csrf_returns_403(self, unauth_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -258,9 +254,7 @@ class TestAdminUserManagement:
         assert resp.status_code == 303
         assert db.verify_password("pwduser", "newpassword456") is True
 
-    def test_change_password_short_returns_422(
-        self, admin_client: Any, test_settings: Any
-    ) -> None:
+    def test_change_password_short_returns_422(self, admin_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
         db = get_user_db(test_settings.data_dir)

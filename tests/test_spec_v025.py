@@ -9,7 +9,6 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -46,9 +45,8 @@ class TestI18nCompleteness:
                     rel = html_file.relative_to(project_root)
                     violations.append(f"{rel}: {m.group(0)!r}")
 
-        assert not violations, (
-            f"Found Russian msgids in templates (must be English):\n"
-            + "\n".join(violations)
+        assert not violations, "Found Russian msgids in templates (must be English):\n" + "\n".join(
+            violations
         )
 
     def test_no_russian_msgids_in_python_sources(self, project_root: Path) -> None:
@@ -68,16 +66,12 @@ class TestI18nCompleteness:
                     violations.append(f"{rel}: {m.group(0)!r}")
 
         assert not violations, (
-            f"Found Russian msgids in Python sources (must be English):\n"
-            + "\n".join(violations)
+            "Found Russian msgids in Python sources (must be English):\n" + "\n".join(violations)
         )
 
     def test_en_po_no_empty_msgstr(self, project_root: Path) -> None:
         """English .po file must have translations for every msgid."""
-        po_path = (
-            project_root
-            / "src/chatfilter/i18n/locales/en/LC_MESSAGES/messages.po"
-        )
+        po_path = project_root / "src/chatfilter/i18n/locales/en/LC_MESSAGES/messages.po"
         assert po_path.exists(), f"en/messages.po not found: {po_path}"
 
         content = po_path.read_text(encoding="utf-8")
@@ -95,20 +89,16 @@ class TestI18nCompleteness:
             # Check msgstr is truly empty (not a multi-line PO continuation)
             # In PO format: msgstr ""\n"..." is non-empty (multi-line string)
             msgstr_empty = re.search(r'^msgstr ""\s*$', entry, re.MULTILINE)
-            if msgstr_empty and not re.match(r'\s*"', entry[msgstr_empty.end():]):
+            if msgstr_empty and not re.match(r'\s*"', entry[msgstr_empty.end() :]):
                 empty.append(repr(msgid_m.group(1)))
 
-        assert not empty, (
-            f"English .po has {len(empty)} empty msgstr entries:\n"
-            + "\n".join(empty[:20])
+        assert not empty, f"English .po has {len(empty)} empty msgstr entries:\n" + "\n".join(
+            empty[:20]
         )
 
     def test_ru_po_no_empty_msgstr(self, project_root: Path) -> None:
         """Russian .po file must have translations for every msgid."""
-        po_path = (
-            project_root
-            / "src/chatfilter/i18n/locales/ru/LC_MESSAGES/messages.po"
-        )
+        po_path = project_root / "src/chatfilter/i18n/locales/ru/LC_MESSAGES/messages.po"
         assert po_path.exists(), f"ru/messages.po not found: {po_path}"
 
         content = po_path.read_text(encoding="utf-8")
@@ -124,12 +114,11 @@ class TestI18nCompleteness:
             # Check msgstr is truly empty (not a multi-line PO continuation)
             # In PO format: msgstr ""\n"..." is non-empty (multi-line string)
             msgstr_empty = re.search(r'^msgstr ""\s*$', entry, re.MULTILINE)
-            if msgstr_empty and not re.match(r'\s*"', entry[msgstr_empty.end():]):
+            if msgstr_empty and not re.match(r'\s*"', entry[msgstr_empty.end() :]):
                 empty.append(repr(msgid_m.group(1)))
 
-        assert not empty, (
-            f"Russian .po has {len(empty)} empty msgstr entries:\n"
-            + "\n".join(empty[:20])
+        assert not empty, f"Russian .po has {len(empty)} empty msgstr entries:\n" + "\n".join(
+            empty[:20]
         )
 
     def test_js_locale_en_no_empty_values(self, project_root: Path) -> None:
@@ -165,9 +154,7 @@ class TestI18nCompleteness:
 class TestInstantCardFeedback:
     """Verify card-loading overlay is applied on Start/Resume/Reanalyze."""
 
-    def test_chats_page_js_adds_card_loading_on_start(
-        self, project_root: Path
-    ) -> None:
+    def test_chats_page_js_adds_card_loading_on_start(self, project_root: Path) -> None:
         """chats-page.js must add card-loading class when Start button is clicked."""
         js_path = project_root / "src/chatfilter/static/js/chats-page.js"
         assert js_path.exists(), f"chats-page.js not found: {js_path}"
@@ -181,9 +168,7 @@ class TestInstantCardFeedback:
             "chats-page.js must handle /start endpoint for loading state"
         )
 
-    def test_chats_page_js_handles_resume_and_reanalyze(
-        self, project_root: Path
-    ) -> None:
+    def test_chats_page_js_handles_resume_and_reanalyze(self, project_root: Path) -> None:
         """chats-page.js must add card-loading for Resume and Reanalyze buttons."""
         js_path = project_root / "src/chatfilter/static/js/chats-page.js"
         content = js_path.read_text(encoding="utf-8")
@@ -216,9 +201,7 @@ class TestInstantCardFeedback:
         content = js_path.read_text(encoding="utf-8")
 
         # Must remove the loading class in error handling
-        remove_pattern = re.compile(
-            r"classList\.remove\(['\"]card-loading['\"]", re.MULTILINE
-        )
+        remove_pattern = re.compile(r"classList\.remove\(['\"]card-loading['\"]", re.MULTILINE)
         assert remove_pattern.search(content), (
             "chats-page.js must remove 'card-loading' class on request failure"
         )
@@ -234,48 +217,38 @@ class TestBadgeSimplification:
 
     def test_no_pending_badge_in_group_card(self, project_root: Path) -> None:
         """group_card.html must not render a Pending count badge."""
-        card_path = (
-            project_root / "src/chatfilter/templates/partials/group_card.html"
-        )
+        card_path = project_root / "src/chatfilter/templates/partials/group_card.html"
         assert card_path.exists()
         content = card_path.read_text(encoding="utf-8")
 
         # The Pending status badge (e.g. "Pending: N" as a standalone badge span)
         # should not exist. A status-badge showing the overall group status is ok.
         # We look for badge spans with "Pending" as a label.
-        assert not re.search(
-            r'class="[^"]*badge[^"]*"[^>]*>\s*.*[Pp]ending.*:\s*\d', content
-        ), "group_card.html must not render a Pending count badge (SPEC #3)"
+        assert not re.search(r'class="[^"]*badge[^"]*"[^>]*>\s*.*[Pp]ending.*:\s*\d', content), (
+            "group_card.html must not render a Pending count badge (SPEC #3)"
+        )
 
     def test_no_done_count_badge_in_group_card(self, project_root: Path) -> None:
         """group_card.html must not render a Done count badge."""
-        card_path = (
-            project_root / "src/chatfilter/templates/partials/group_card.html"
-        )
+        card_path = project_root / "src/chatfilter/templates/partials/group_card.html"
         content = card_path.read_text(encoding="utf-8")
 
-        assert not re.search(
-            r'class="[^"]*badge[^"]*"[^>]*>\s*.*[Dd]one.*:\s*\d', content
-        ), "group_card.html must not render a Done count badge (SPEC #3)"
+        assert not re.search(r'class="[^"]*badge[^"]*"[^>]*>\s*.*[Dd]one.*:\s*\d', content), (
+            "group_card.html must not render a Done count badge (SPEC #3)"
+        )
 
     def test_no_skipped_badge_in_group_card(self, project_root: Path) -> None:
         """group_card.html must not render a Skipped badge."""
-        card_path = (
-            project_root / "src/chatfilter/templates/partials/group_card.html"
-        )
+        card_path = project_root / "src/chatfilter/templates/partials/group_card.html"
         content = card_path.read_text(encoding="utf-8")
 
-        assert not re.search(
-            r'class="[^"]*badge[^"]*"[^>]*>\s*.*[Ss]kipped', content
-        ), "group_card.html must not render a Skipped badge (SPEC #3)"
-
-    def test_chat_type_badges_present_in_group_card(
-        self, project_root: Path
-    ) -> None:
-        """group_card.html must show chat-type badges: Groups, Forums, Channels+, Channels, Dead."""
-        card_path = (
-            project_root / "src/chatfilter/templates/partials/group_card.html"
+        assert not re.search(r'class="[^"]*badge[^"]*"[^>]*>\s*.*[Ss]kipped', content), (
+            "group_card.html must not render a Skipped badge (SPEC #3)"
         )
+
+    def test_chat_type_badges_present_in_group_card(self, project_root: Path) -> None:
+        """group_card.html must show chat-type badges: Groups, Forums, Channels+, Channels, Dead."""
+        card_path = project_root / "src/chatfilter/templates/partials/group_card.html"
         content = card_path.read_text(encoding="utf-8")
 
         required_types = ["Groups", "Forums", "Channels+", "Channels", "Dead"]

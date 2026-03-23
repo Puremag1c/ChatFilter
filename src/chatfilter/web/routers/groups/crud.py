@@ -99,9 +99,7 @@ async def create_group(
 
             # Read file with size limit
             try:
-                file_content = await read_upload_with_size_limit(
-                    file_upload, MAX_FILE_SIZE, "file"
-                )
+                file_content = await read_upload_with_size_limit(file_upload, MAX_FILE_SIZE, "file")
             except ValueError as e:
                 return templates.TemplateResponse(
                     request=request,
@@ -391,13 +389,10 @@ async def delete_group(web_session: WebSession, group_id: str) -> HTMLResponse:
         service.delete_group(group_id, user_id=user_id)
 
         # Return empty response with HX-Trigger header to refresh the container
-        return HTMLResponse(content="", status_code=200, headers={'HX-Trigger': 'refreshGroups'})
+        return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": "refreshGroups"})
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to delete group: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"Failed to delete group: {str(e)}") from e
 
 
 @router.put("/api/groups/{group_id}/settings", response_class=HTMLResponse)

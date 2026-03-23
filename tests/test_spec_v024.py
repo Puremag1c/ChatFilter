@@ -13,15 +13,14 @@ import io
 import os
 import re
 from pathlib import Path
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_csrf(client: TestClient) -> str:
     resp = client.get("/chats")
@@ -51,8 +50,11 @@ def _create_group(client: TestClient, tmp_path: Path) -> str:
     )
     assert create_resp.status_code == 200, f"Group creation failed: {create_resp.text[:300]}"
 
-    for pattern in [r'id="group-([^"]+)"', r'data-group-id="([^"]+)"',
-                    r'/api/groups/([^/"]+)/start']:
+    for pattern in [
+        r'id="group-([^"]+)"',
+        r'data-group-id="([^"]+)"',
+        r'/api/groups/([^/"]+)/start',
+    ]:
         m = re.search(pattern, create_resp.text)
         if m:
             return m.group(1)
@@ -63,6 +65,7 @@ def _create_group(client: TestClient, tmp_path: Path) -> str:
 # ---------------------------------------------------------------------------
 # Must Have #3: No elapsed timer
 # ---------------------------------------------------------------------------
+
 
 class TestNoElapsedTimer:
     """Verify elapsed timer elements removed from group_card.html (SPEC Must Have #3)."""
@@ -116,6 +119,7 @@ class TestNoElapsedTimer:
 # Must Have #4: No network-status indicator
 # ---------------------------------------------------------------------------
 
+
 class TestNoNetworkStatusIndicator:
     """Verify network-status indicator removed from base.html (SPEC Must Have #4)."""
 
@@ -144,13 +148,9 @@ class TestNoNetworkStatusIndicator:
     def test_network_status_js_file_deleted(self) -> None:
         """network-status.js must be deleted from static/js/."""
         js_path = Path("src/chatfilter/static/js/network-status.js")
-        assert not js_path.exists(), (
-            "network-status.js still exists — must be deleted (SPEC #4)"
-        )
+        assert not js_path.exists(), "network-status.js still exists — must be deleted (SPEC #4)"
 
-    def test_rendered_chats_page_no_network_status(
-        self, fastapi_test_client: TestClient
-    ) -> None:
+    def test_rendered_chats_page_no_network_status(self, fastapi_test_client: TestClient) -> None:
         """Rendered /chats page must not contain network-status elements."""
         resp = fastapi_test_client.get("/chats")
         assert resp.status_code == 200
@@ -166,6 +166,7 @@ class TestNoNetworkStatusIndicator:
 # ---------------------------------------------------------------------------
 # Must Have #1: Non-blocking analysis endpoints
 # ---------------------------------------------------------------------------
+
 
 class TestNonBlockingAnalysisEndpoints:
     """Verify start/reanalyze/resume use background tasks (SPEC Must Have #1)."""

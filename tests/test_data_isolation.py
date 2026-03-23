@@ -86,6 +86,7 @@ class TestGroupIsolation:
     def _save(self, db, name: str, user_id: str) -> str:
         """Helper: save a group and return its ID."""
         import uuid
+
         from chatfilter.models.group import GroupStatus
 
         gid = str(uuid.uuid4())
@@ -139,12 +140,15 @@ class TestGroupIsolation:
     ) -> None:
         """GET /api/groups returns only the current user's groups."""
         import uuid
-        from chatfilter.storage.group_database import GroupDatabase
+
         from chatfilter.models.group import GroupStatus
+        from chatfilter.storage.group_database import GroupDatabase
 
         db = GroupDatabase(test_settings.data_dir / "groups.db")
         gid = str(uuid.uuid4())
-        db.save_group(gid, "Other User Group", {}, GroupStatus.PENDING.value, user_id="some-other-user-id")
+        db.save_group(
+            gid, "Other User Group", {}, GroupStatus.PENDING.value, user_id="some-other-user-id"
+        )
 
         resp = fastapi_test_client.get("/api/groups")
         assert resp.status_code == 200
@@ -192,9 +196,7 @@ class TestProxyIsolation:
             "last_success_at": None,
             "consecutive_failures": 0,
         }
-        (fake_settings.config_dir / "proxies_user-alice.json").write_text(
-            json.dumps([alice_proxy])
-        )
+        (fake_settings.config_dir / "proxies_user-alice.json").write_text(json.dumps([alice_proxy]))
         (fake_settings.config_dir / "proxies_user-bob.json").write_text(json.dumps([]))
 
         # Patch get_settings at the proxy_pool module level (where it was imported)

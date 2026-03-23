@@ -88,8 +88,7 @@ class ProgressTracker:
                 queue.put_nowait(event)
             except asyncio.QueueFull:
                 logger.warning(
-                    f"Subscriber queue full for group '{event.group_id}', "
-                    f"dropping event"
+                    f"Subscriber queue full for group '{event.group_id}', dropping event"
                 )
 
     def publish_from_db(
@@ -149,8 +148,7 @@ class ProgressTracker:
                 queue.put_nowait(None)
             except asyncio.QueueFull:
                 logger.warning(
-                    f"Subscriber queue full for group '{group_id}', "
-                    f"dropping completion sentinel"
+                    f"Subscriber queue full for group '{group_id}', dropping completion sentinel"
                 )
 
 

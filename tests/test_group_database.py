@@ -66,9 +66,7 @@ def sample_result_data():
 def test_database_initialization(temp_db):
     """Test that database initializes with correct schema."""
     with temp_db._connection() as conn:
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [row[0] for row in cursor.fetchall()]
 
     assert "chat_groups" in tables
@@ -420,7 +418,7 @@ def test_foreign_key_constraint(temp_db):
     """Test that foreign key constraint is enforced."""
     # Try to save a chat without creating the group first
     # This should fail because we enable PRAGMA foreign_keys = ON
-    with pytest.raises(Exception):  # sqlite3.IntegrityError
+    with pytest.raises(Exception):  # sqlite3.IntegrityError  # noqa: B017
         temp_db.save_chat(
             group_id="nonexistent_group",
             chat_ref="@test",

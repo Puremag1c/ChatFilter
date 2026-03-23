@@ -1,7 +1,6 @@
 """Tests for sessions router."""
 
 import json
-import re
 import shutil
 import sqlite3
 from collections.abc import Iterator
@@ -12,13 +11,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
-from chatfilter.web.routers.sessions import (
-    read_upload_with_size_limit,
-    sanitize_session_name,
-    validate_account_info_json,
-    validate_config_file_format,
-    validate_session_file_format,
-)
 
 from .conftest import extract_csrf_token
 
@@ -99,7 +91,7 @@ class TestSessionConnectDisconnectAPI:
 
     def test_connect_session_not_found(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test connecting non-existent session returns 404."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Get CSRF token
         home_response = client.get("/")
@@ -109,7 +101,9 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/nonexistent/connect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -119,7 +113,7 @@ class TestSessionConnectDisconnectAPI:
 
     def test_connect_session_invalid_name(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test connecting with invalid session name returns 200 with error state."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Get CSRF token
         home_response = client.get("/")
@@ -129,7 +123,9 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/.../connect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -141,7 +137,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, unconfigured_session: Path
     ) -> None:
         """Test connecting unconfigured session returns needs_config state."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Get CSRF token
         home_response = client.get("/")
@@ -151,7 +147,9 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/unconfigured_session/connect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -165,7 +163,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test connecting session with missing proxy returns needs_config."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from chatfilter.storage.errors import StorageNotFoundError
 
@@ -178,7 +176,9 @@ class TestSessionConnectDisconnectAPI:
         mock_settings.sessions_dir = clean_data_dir
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 side_effect=StorageNotFoundError("Not found"),
@@ -197,7 +197,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test session connection - returns immediately with 'connecting' state."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -231,7 +231,9 @@ class TestSessionConnectDisconnectAPI:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -259,7 +261,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test session connection failure - HTTP returns 'connecting', error via SSE."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
         from chatfilter.telegram.session import SessionConnectError
@@ -295,7 +297,9 @@ class TestSessionConnectDisconnectAPI:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -323,7 +327,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test concurrent connection request returns 'connecting' - error via SSE."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
         from chatfilter.telegram.session import SessionBusyError
@@ -361,7 +365,9 @@ class TestSessionConnectDisconnectAPI:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -389,8 +395,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test session connection timeout - HTTP returns 'connecting', error via SSE."""
-        import asyncio
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -418,14 +423,16 @@ class TestSessionConnectDisconnectAPI:
         # Mock session manager connect to raise TimeoutError
         # Now handled in background task, not HTTP handler
         mock_session_manager = MagicMock()
-        mock_session_manager.connect = AsyncMock(side_effect=asyncio.TimeoutError())
+        mock_session_manager.connect = AsyncMock(side_effect=TimeoutError())
         mock_session_manager.get_info.return_value = None  # No existing session
 
         # Mock loader
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -457,7 +464,7 @@ class TestSessionConnectDisconnectAPI:
         Scenario: Session exists with config.json but NO session.session file
         Expected: HTTP 200 with 'connecting' state, background task triggers send_code → 'needs_code' via SSE
         """
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -496,7 +503,9 @@ class TestSessionConnectDisconnectAPI:
         mock_loader.validate.return_value = None
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -512,7 +521,7 @@ class TestSessionConnectDisconnectAPI:
             patch(
                 "chatfilter.web.routers.sessions._send_verification_code_and_create_auth",
                 new_callable=AsyncMock,
-            ) as mock_send_code,
+            ),
         ):
             response = client.post(
                 "/api/sessions/test_session/connect",
@@ -536,10 +545,11 @@ class TestSessionConnectDisconnectAPI:
                   deletes file, triggers send_code → 'needs_code' via SSE
                   (no removed legacy status shown - now 'disconnected')
         """
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
+
+        from telethon.errors import AuthKeyUnregisteredError
 
         from chatfilter.models.proxy import ProxyEntry
-        from telethon.errors import AuthKeyUnregisteredError
 
         # Get CSRF token
         home_response = client.get("/")
@@ -574,7 +584,9 @@ class TestSessionConnectDisconnectAPI:
         mock_loader.validate.return_value = None
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -590,11 +602,11 @@ class TestSessionConnectDisconnectAPI:
             patch(
                 "chatfilter.web.routers.sessions._send_verification_code_and_create_auth",
                 new_callable=AsyncMock,
-            ) as mock_send_code,
+            ),
             patch(
                 "chatfilter.web.routers.sessions.background.secure_delete_file",
                 return_value=None,
-            ) as mock_delete,
+            ),
             patch(
                 "chatfilter.web.routers.sessions.load_account_info",
                 return_value={"phone": "1234567890"},
@@ -619,7 +631,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test disconnecting with invalid session name returns 400."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         # Get CSRF token
         home_response = client.get("/")
@@ -629,7 +641,9 @@ class TestSessionConnectDisconnectAPI:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = clean_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             response = client.post(
                 "/api/sessions/.../disconnect",
                 headers={"X-CSRF-Token": csrf_token},
@@ -641,7 +655,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test successful session disconnection."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -671,7 +685,9 @@ class TestSessionConnectDisconnectAPI:
         mock_session_manager.disconnect = AsyncMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -696,7 +712,7 @@ class TestSessionConnectDisconnectAPI:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test disconnecting session that's not connected still succeeds."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -726,7 +742,9 @@ class TestSessionConnectDisconnectAPI:
         mock_session_manager.disconnect = AsyncMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -745,5 +763,3 @@ class TestSessionConnectDisconnectAPI:
         assert response.status_code == 200
         # v0.8.5: endpoint returns empty body, relies on SSE OOB swaps
         assert response.text == ""
-
-

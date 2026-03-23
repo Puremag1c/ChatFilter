@@ -49,7 +49,9 @@ async def _poll_device_confirmation(
     max_poll_interval = 10  # Max 10 seconds
     start_time = time.time()
 
-    logger.info(f"Starting device confirmation polling for session '{safe_name}' (timeout: {timeout_seconds}s)")
+    logger.info(
+        f"Starting device confirmation polling for session '{safe_name}' (timeout: {timeout_seconds}s)"
+    )
 
     try:
         while True:
@@ -59,10 +61,14 @@ async def _poll_device_confirmation(
                 # Check if finalization is already in progress (race condition guard)
                 auth_state = await auth_manager.get_auth_state(auth_id)
                 if auth_state and auth_state.finalizing:
-                    logger.info(f"Device confirmation timeout for '{safe_name}' but finalization already in progress, skipping cleanup")
+                    logger.info(
+                        f"Device confirmation timeout for '{safe_name}' but finalization already in progress, skipping cleanup"
+                    )
                     return
 
-                logger.warning(f"Device confirmation timeout for session '{safe_name}' after {timeout_seconds}s")
+                logger.warning(
+                    f"Device confirmation timeout for session '{safe_name}' after {timeout_seconds}s"
+                )
 
                 # Cleanup: disconnect client, remove state
                 if auth_state and auth_state.client:
@@ -91,24 +97,24 @@ async def _poll_device_confirmation(
             # Poll GetAuthorizationsRequest
             try:
                 authorizations = await asyncio.wait_for(
-                    client(GetAuthorizationsRequest()),
-                    timeout=10.0
+                    client(GetAuthorizationsRequest()), timeout=10.0
                 )
 
                 # Find current session
                 current_session = next(
-                    (auth for auth in authorizations.authorizations if auth.current),
-                    None
+                    (auth for auth in authorizations.authorizations if auth.current), None
                 )
 
                 # Check if still unconfirmed
-                if current_session and getattr(current_session, 'unconfirmed', False):
+                if current_session and getattr(current_session, "unconfirmed", False):
                     # Still waiting for confirmation
                     logger.debug(f"Session '{safe_name}' still unconfirmed, continuing to poll")
                 else:
                     # Confirmed! Set finalizing flag to prevent timeout race
                     auth_state.finalizing = True
-                    logger.info(f"Device confirmation detected for session '{safe_name}', finalizing auth")
+                    logger.info(
+                        f"Device confirmation detected for session '{safe_name}', finalizing auth"
+                    )
 
                     try:
                         await _finalize_reconnect_auth(
@@ -146,14 +152,18 @@ async def _poll_device_confirmation(
                 logger.warning(f"Timeout polling device confirmation for '{safe_name}', will retry")
             except RPCError as e:
                 # Telegram API error — could be serious
-                logger.error(f"Telegram API error polling device confirmation for '{safe_name}': {e}")
+                logger.error(
+                    f"Telegram API error polling device confirmation for '{safe_name}': {e}"
+                )
 
                 # Disconnect client
                 if client and client.is_connected():
                     try:
                         await asyncio.wait_for(client.disconnect(), timeout=10.0)
                     except Exception as disconnect_err:
-                        logger.error(f"Error disconnecting client during fatal error cleanup: {disconnect_err}")
+                        logger.error(
+                            f"Error disconnecting client during fatal error cleanup: {disconnect_err}"
+                        )
 
                 await auth_manager.remove_auth_state(auth_id)
                 await get_event_bus().publish(safe_name, "error")
@@ -167,7 +177,9 @@ async def _poll_device_confirmation(
                     try:
                         await asyncio.wait_for(client.disconnect(), timeout=10.0)
                     except Exception as disconnect_err:
-                        logger.error(f"Error disconnecting client during fatal error cleanup: {disconnect_err}")
+                        logger.error(
+                            f"Error disconnecting client during fatal error cleanup: {disconnect_err}"
+                        )
 
                 await auth_manager.remove_auth_state(auth_id)
                 await get_event_bus().publish(safe_name, "error")
@@ -222,11 +234,15 @@ async def _handle_needs_confirmation(
     # Launch background polling task only if not already running (deduplication)
     auth_state = await auth_manager.get_auth_state(auth_id)
     if auth_state and (auth_state.polling_task is None or auth_state.polling_task.done()):
-        polling_task = asyncio.create_task(_poll_device_confirmation(safe_name, auth_id, auth_manager))
+        polling_task = asyncio.create_task(
+            _poll_device_confirmation(safe_name, auth_id, auth_manager)
+        )
         auth_state.polling_task = polling_task
         logger.info(f"Launched device confirmation polling task for session '{safe_name}'")
     else:
-        logger.debug(f"Polling task already running for session '{safe_name}', skipping duplicate launch")
+        logger.debug(
+            f"Polling task already running for session '{safe_name}', skipping duplicate launch"
+        )
 
     # Return needs_confirmation session_row
     session_path = ensure_data_dir(auth_state.web_user_id) / safe_name / "session.session"
@@ -268,33 +284,30 @@ async def _check_device_confirmation(client: TelegramClient) -> bool:
 
     try:
         # Get all authorizations for this account
-        authorizations = await asyncio.wait_for(
-            client(GetAuthorizationsRequest()),
-            timeout=10.0
-        )
+        authorizations = await asyncio.wait_for(client(GetAuthorizationsRequest()), timeout=10.0)
 
         # Find current session (the one we just logged into)
         current_session = next(
-            (auth for auth in authorizations.authorizations if auth.current),
-            None
+            (auth for auth in authorizations.authorizations if auth.current), None
         )
 
         # Check if current session is unconfirmed
         # unconfirmed flag indicates "Is this you?" pending
-        if current_session and getattr(current_session, 'unconfirmed', False):
-            return True
-
-        return False
+        return bool(current_session and getattr(current_session, "unconfirmed", False))
 
     except TimeoutError:
         # Timeout checking confirmation status — log but don't fail auth
         # Better to proceed than block on edge case
-        logger.warning("Timeout checking device confirmation status - assuming no confirmation needed")
+        logger.warning(
+            "Timeout checking device confirmation status - assuming no confirmation needed"
+        )
         return False
     except AuthKeyUnregisteredError:
         # AuthKeyUnregisteredError after successful sign_in() indicates a problem,
         # NOT device confirmation. Device confirmation is detected via 'unconfirmed' flag only.
-        logger.warning("Unexpected AuthKeyUnregisteredError after successful sign_in - this indicates an issue, not device confirmation")
+        logger.warning(
+            "Unexpected AuthKeyUnregisteredError after successful sign_in - this indicates an issue, not device confirmation"
+        )
         return False
     except RPCError as e:
         # Telegram API error — this could be a real problem, re-raise

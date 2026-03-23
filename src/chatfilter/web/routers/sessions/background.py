@@ -27,13 +27,13 @@ from telethon.errors import (
 )
 
 from chatfilter.i18n import _
+from chatfilter.storage import proxy_pool
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
-from chatfilter.storage import proxy_pool
+from chatfilter.telegram.client.config import SessionFileError
 from chatfilter.telegram.error_mapping import get_user_friendly_message
 from chatfilter.telegram.retry import calculate_backoff_delay
-from chatfilter.telegram.client.config import SessionFileError
 from chatfilter.telegram.session import (
     SessionBusyError,
     SessionConnectError,
@@ -111,12 +111,14 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             # register() stores in _factories; _sessions entry is only created by connect().
             factory = session_manager._factories.get(session_id)
             if not factory:
-                logger.error(f"Session '{session_id}' factory not found in _do_connect_in_background_v2")
+                logger.error(
+                    f"Session '{session_id}' factory not found in _do_connect_in_background_v2"
+                )
                 await get_event_bus().publish(session_id, "error")
                 return
 
             # Extract paths from the factory (TelegramClientLoader has session_path/config_path)
-            if hasattr(factory, 'session_path'):
+            if hasattr(factory, "session_path"):
                 session_path = factory.session_path
                 config_path = session_path.parent / "config.json"
                 session_dir = session_path.parent
@@ -128,7 +130,9 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 # Missing credentials or proxy → needs_config
                 logger.warning(f"Session '{session_id}' has config issue: {config_reason}")
                 error_message = config_reason or "Configuration incomplete"
-                safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+                safe_error_message = sanitize_error_message_for_client(
+                    error_message, "needs_config"
+                )
                 if config_path:
                     _save_error_to_config(config_path, safe_error_message, retry_available=False)
                 await get_event_bus().publish(session_id, "needs_config")
@@ -136,7 +140,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
             # PRE-CONNECT DIAGNOSTIC: Check SOCKS5 proxy health before wasting 30s on timeout
             # SECURITY: Don't include proxy.name in SSE messages (may contain credentials)
-            proxy_id = getattr(factory, '_proxy_id', None)
+            proxy_id = getattr(factory, "_proxy_id", None)
             proxy_entry = None
             if proxy_id:
                 from chatfilter.config_proxy import ProxyType
@@ -155,22 +159,32 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                     proxy_entry = proxy_pool.get_proxy_by_id(proxy_id, _web_user_id)
                     # Only check SOCKS5 proxies (HTTP proxies use different protocol)
                     if proxy_entry.type == ProxyType.SOCKS5:
-                        logger.debug(f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}")
+                        logger.debug(
+                            f"Running pre-connect proxy diagnostic for proxy ID: {proxy_id}"
+                        )
                         proxy_ok = await socks5_tunnel_check(proxy_entry)
                         if not proxy_ok:
                             # Proxy is broken → early return with generic error
                             # SECURITY: Don't include proxy.name in logs (may contain credentials)
-                            logger.warning(f"Pre-connect diagnostic failed: proxy ID {proxy_id} not responding")
+                            logger.warning(
+                                f"Pre-connect diagnostic failed: proxy ID {proxy_id} not responding"
+                            )
                             error_message = (
                                 "The proxy is not responding. "
                                 "Please check proxy settings or switch to another proxy."
                             )
-                            safe_error_message = sanitize_error_message_for_client(error_message, "proxy_error")
+                            safe_error_message = sanitize_error_message_for_client(
+                                error_message, "proxy_error"
+                            )
                             if session_id in session_manager._sessions:
                                 session_manager._sessions[session_id].state = SessionState.ERROR
-                                session_manager._sessions[session_id].error_message = safe_error_message
+                                session_manager._sessions[
+                                    session_id
+                                ].error_message = safe_error_message
                             if config_path:
-                                _save_error_to_config(config_path, safe_error_message, retry_available=True)
+                                _save_error_to_config(
+                                    config_path, safe_error_message, retry_available=True
+                                )
                             await get_event_bus().publish(session_id, "error")
                             return
                 except StorageNotFoundError:
@@ -184,11 +198,17 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 # Load account_info for phone number
                 account_info = load_account_info(session_dir)
                 if not account_info or "phone" not in account_info:
-                    logger.error(f"Cannot send code for session '{session_id}': phone number unknown")
+                    logger.error(
+                        f"Cannot send code for session '{session_id}': phone number unknown"
+                    )
                     error_message = "Phone number required"
-                    safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
+                    safe_error_message = sanitize_error_message_for_client(
+                        error_message, "needs_config"
+                    )
                     if config_path:
-                        _save_error_to_config(config_path, safe_error_message, retry_available=False)
+                        _save_error_to_config(
+                            config_path, safe_error_message, retry_available=False
+                        )
                     await get_event_bus().publish(session_id, "needs_config")
                     return
 
@@ -204,10 +224,7 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
 
             # CASE 7: Attempt connection with timeout (30 seconds)
             # session_manager.connect() creates _sessions entry and publishes SSE events
-            await asyncio.wait_for(
-                session_manager.connect(session_id),
-                timeout=30.0
-            )
+            await asyncio.wait_for(session_manager.connect(session_id), timeout=30.0)
             # Success - SSE "connected" event already published by session_manager
 
         except ApiIdInvalidError as e:
@@ -239,7 +256,10 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
             elif isinstance(cause, _SESSION_INVALID_CAUSES):
                 # CASE 5 & 6: Session expired/revoked/corrupted → auto-delete + send_code
                 await _handle_session_recovery(
-                    session_id, session_path, config_path, cause,
+                    session_id,
+                    session_path,
+                    config_path,
+                    cause,
                 )
 
             else:
@@ -252,7 +272,9 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                     # Network errors (ConnectionError, OSError) are retryable even if classified as needs_config
                     is_network_error = isinstance(e, (ConnectionError, OSError))
                     retry_available = error_state == "error" or is_network_error
-                    _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
+                    _save_error_to_config(
+                        config_path, safe_error_message, retry_available=retry_available
+                    )
                 await get_event_bus().publish(session_id, error_state)
 
         except TimeoutError:
@@ -291,7 +313,9 @@ async def _do_connect_in_background_v2(session_id: str) -> None:
                 # Network errors (ConnectionError, OSError) are retryable even if classified as needs_config
                 is_network_error = isinstance(e, (ConnectionError, OSError))
                 retry_available = error_state == "error" or is_network_error
-                _save_error_to_config(config_path, safe_error_message, retry_available=retry_available)
+                _save_error_to_config(
+                    config_path, safe_error_message, retry_available=retry_available
+                )
             await get_event_bus().publish(session_id, error_state)
 
 
@@ -305,7 +329,9 @@ async def _handle_session_recovery(
 
     Handles CASE 5 (expired/revoked) and CASE 6 (corrupted) from the SPEC.
     """
-    logger.info(f"Session '{session_id}' has invalid/corrupted session ({type(cause).__name__}), triggering reauth")
+    logger.info(
+        f"Session '{session_id}' has invalid/corrupted session ({type(cause).__name__}), triggering reauth"
+    )
 
     if not session_path or not config_path:
         logger.error(f"Cannot reauth session '{session_id}': paths not available")
@@ -319,7 +345,9 @@ async def _handle_session_recovery(
     session_dir = session_path.parent
     account_info = load_account_info(session_dir)
     if not account_info or "phone" not in account_info:
-        logger.error(f"Cannot reauth session '{session_id}': phone number unknown or corrupted account info")
+        logger.error(
+            f"Cannot reauth session '{session_id}': phone number unknown or corrupted account info"
+        )
         error_message = _("Phone number required")
         safe_error_message = sanitize_error_message_for_client(error_message, "needs_config")
         if config_path:
@@ -349,9 +377,7 @@ async def _send_verification_code_with_timeout(
     """
     try:
         await asyncio.wait_for(
-            _send_verification_code_and_create_auth(
-                session_id, session_path, config_path, phone
-            ),
+            _send_verification_code_and_create_auth(session_id, session_path, config_path, phone),
             timeout=30.0,
         )
     except TimeoutError:
@@ -429,7 +455,6 @@ async def _send_verification_code_and_create_auth(
     non_retryable_exceptions = (AuthKeyUnregisteredError, PhoneNumberInvalidError)
 
     # Retry loop for network operations
-    last_exception: Exception | None = None
     for attempt in range(max_attempts):
         try:
             # Create client, send code
@@ -445,6 +470,7 @@ async def _send_verification_code_and_create_auth(
             # sessions_dir / user_id / session_name / session.session)
             user_id_str = session_path.parent.parent.name
             from chatfilter.web.routers.sessions.client_registry import register_client
+
             register_client(user_id_str, client)
 
             result = await asyncio.wait_for(
@@ -480,7 +506,6 @@ async def _send_verification_code_and_create_auth(
             return
 
         except retryable_exceptions as e:
-            last_exception = e
             is_final_attempt = attempt == max_attempts - 1
 
             if is_final_attempt:

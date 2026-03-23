@@ -12,17 +12,15 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from chatfilter.exporter.csv import export_group_results_to_csv, to_csv_rows_dynamic
+from chatfilter.exporter.csv import export_group_results_to_csv
 from chatfilter.models.group import GroupSettings
 from chatfilter.service.group_service import GroupService
 from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.web.routers.groups import _apply_export_filters, _convert_results_for_exporter
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -263,7 +261,9 @@ class TestCsvExportIntegration:
         assert "moderation" not in headers
         assert "captcha" not in headers
 
-    def test_convert_results_for_exporter_bridge(self, db: GroupDatabase, service: GroupService) -> None:
+    def test_convert_results_for_exporter_bridge(
+        self, db: GroupDatabase, service: GroupService
+    ) -> None:
         """Test _convert_results_for_exporter correctly bridges flat results to exporter format."""
         # Arrange: Create group with chat
         settings = GroupSettings()
@@ -548,7 +548,9 @@ class TestCyrillicAndEncoding:
         assert rows[1][1] == "Русский Чат"  # Title preserved
         assert rows[2][1] == "Український Чат"
 
-    def test_excel_bom_encoding(self, db: GroupDatabase, service: GroupService, tmp_path: Path) -> None:
+    def test_excel_bom_encoding(
+        self, db: GroupDatabase, service: GroupService, tmp_path: Path
+    ) -> None:
         """Test CSV has UTF-8 BOM for Excel compatibility."""
         # Arrange
         settings = GroupSettings()

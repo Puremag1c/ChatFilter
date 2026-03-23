@@ -360,13 +360,13 @@ class TestFetchGoogleSheet:
         """Test that timeout exception is caught and wrapped."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
 
-        mock_client_class = _create_mock_stream_error(
-            httpx.TimeoutException("Request timed out")
-        )
+        mock_client_class = _create_mock_stream_error(httpx.TimeoutException("Request timed out"))
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
-            with pytest.raises(GoogleSheetsError, match="Request timed out"):
-                await fetch_google_sheet(url)
+        with (
+            patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class),
+            pytest.raises(GoogleSheetsError, match="Request timed out"),
+        ):
+            await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
     async def test_404_error(self) -> None:
@@ -384,9 +384,11 @@ class TestFetchGoogleSheet:
             )
         )
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
-            with pytest.raises(GoogleSheetsError, match="Spreadsheet not found"):
-                await fetch_google_sheet(url)
+        with (
+            patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class),
+            pytest.raises(GoogleSheetsError, match="Spreadsheet not found"),
+        ):
+            await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
     async def test_403_error(self) -> None:
@@ -404,9 +406,11 @@ class TestFetchGoogleSheet:
             )
         )
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
-            with pytest.raises(GoogleSheetsError, match="Access denied"):
-                await fetch_google_sheet(url)
+        with (
+            patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class),
+            pytest.raises(GoogleSheetsError, match="Access denied"),
+        ):
+            await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
     async def test_500_error(self) -> None:
@@ -424,22 +428,24 @@ class TestFetchGoogleSheet:
             )
         )
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
-            with pytest.raises(GoogleSheetsError, match="HTTP error"):
-                await fetch_google_sheet(url)
+        with (
+            patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class),
+            pytest.raises(GoogleSheetsError, match="HTTP error"),
+        ):
+            await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
     async def test_request_error(self) -> None:
         """Test that general request error is caught and wrapped."""
         url = "https://docs.google.com/spreadsheets/d/abc123/edit"
 
-        mock_client_class = _create_mock_stream_error(
-            httpx.RequestError("Connection failed")
-        )
+        mock_client_class = _create_mock_stream_error(httpx.RequestError("Connection failed"))
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
-            with pytest.raises(GoogleSheetsError, match="Request failed"):
-                await fetch_google_sheet(url)
+        with (
+            patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class),
+            pytest.raises(GoogleSheetsError, match="Request failed"),
+        ):
+            await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
     async def test_html_response_error(self) -> None:
@@ -448,12 +454,14 @@ class TestFetchGoogleSheet:
 
         mock_client_class, _ = _create_mock_stream_response(
             "<html><body>Login required</body></html>",
-            headers={"content-type": "text/html; charset=utf-8"}
+            headers={"content-type": "text/html; charset=utf-8"},
         )
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
-            with pytest.raises(GoogleSheetsError, match="Received HTML instead of CSV"):
-                await fetch_google_sheet(url)
+        with (
+            patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class),
+            pytest.raises(GoogleSheetsError, match="Received HTML instead of CSV"),
+        ):
+            await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
     async def test_parse_error_wrapped(self) -> None:
@@ -462,12 +470,13 @@ class TestFetchGoogleSheet:
 
         mock_client_class, _ = _create_mock_stream_response("invalid csv content")
 
-        with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
-            with patch("chatfilter.importer.google_sheets.parse_csv") as mock_parse:
-                mock_parse.side_effect = ParseError("Parse failed")
-
-                with pytest.raises(GoogleSheetsError, match="Failed to parse sheet data"):
-                    await fetch_google_sheet(url)
+        with (
+            patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class),
+            patch("chatfilter.importer.google_sheets.parse_csv") as mock_parse,
+            pytest.raises(GoogleSheetsError, match="Failed to parse sheet data"),
+        ):
+            mock_parse.side_effect = ParseError("Parse failed")
+            await fetch_google_sheet(url)
 
     @pytest.mark.asyncio
     async def test_empty_sheet(self) -> None:
@@ -577,8 +586,7 @@ class TestFetchGoogleSheet:
         csv_content = "username\n@test"
 
         mock_client_class, _ = _create_mock_stream_response(
-            csv_content,
-            headers={"content-type": "text/csv; charset=utf-8"}
+            csv_content, headers={"content-type": "text/csv; charset=utf-8"}
         )
 
         with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):
@@ -594,7 +602,7 @@ class TestFetchGoogleSheet:
 
         mock_client_class, _ = _create_mock_stream_response(
             csv_content,
-            headers={}  # No content-type header
+            headers={},  # No content-type header
         )
 
         with patch("chatfilter.importer.google_sheets.httpx.AsyncClient", mock_client_class):

@@ -21,9 +21,9 @@ from chatfilter.parsers.telegram_expert import (
 )
 from chatfilter.telegram.client.config import TelegramConfigError
 from chatfilter.utils.disk import DiskSpaceError
-
 from chatfilter.web.session import get_session
 
+from . import router
 from .io import (
     MAX_CONFIG_SIZE,
     MAX_JSON_SIZE,
@@ -41,7 +41,6 @@ from .validation import (
     validate_config_file_format,
     validate_session_file_format,
 )
-from . import router
 
 if TYPE_CHECKING:
     pass
@@ -145,9 +144,7 @@ async def upload_session(
         if json_file:
             try:
                 # Read JSON with size limit (10KB max)
-                json_content = await read_upload_with_size_limit(
-                    json_file, MAX_JSON_SIZE, "JSON"
-                )
+                json_content = await read_upload_with_size_limit(json_file, MAX_JSON_SIZE, "JSON")
             except ValueError as e:
                 return templates.TemplateResponse(
                     request=request,
@@ -158,13 +155,16 @@ async def upload_session(
             try:
                 json_data = json.loads(json_content)
                 # Security: Zero plaintext JSON after parsing to prevent memory dumps
-                json_content = b'\x00' * len(json_content)
+                json_content = b"\x00" * len(json_content)
                 del json_content
             except json.JSONDecodeError as e:
                 return templates.TemplateResponse(
                     request=request,
                     name="partials/upload_result.html",
-                    context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+                    context={
+                        "success": False,
+                        "error": _("Invalid JSON format: {error}").format(error=str(e)),
+                    },
                 )
 
             # Validate JSON structure, fields, and phone format
@@ -219,17 +219,13 @@ async def upload_session(
 
             # Fallback to JSON credentials if config doesn't have them
             config_has_credentials = api_id is not None and api_hash is not None
-            json_has_credentials = (
-                json_api_id is not None and json_api_hash is not None
-            )
+            json_has_credentials = json_api_id is not None and json_api_hash is not None
 
             if not config_has_credentials and json_has_credentials:
                 # Use credentials from JSON
                 api_id = json_api_id
                 api_hash = json_api_hash
-                logger.info(
-                    f"Using API credentials from JSON file for session: {safe_name}"
-                )
+                logger.info(f"Using API credentials from JSON file for session: {safe_name}")
 
             # Try to get account info from the session only if both api_id and api_hash are available
             account_info = None
@@ -242,7 +238,9 @@ async def upload_session(
                 # Check for duplicate accounts
                 user_id = account_info["user_id"]
                 if isinstance(user_id, int):
-                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name, web_user_id=web_user_id)
+                    duplicate_sessions = find_duplicate_accounts(
+                        user_id, exclude_session=safe_name, web_user_id=web_user_id
+                    )
         finally:
             # Clean up temporary session file
             with contextlib.suppress(Exception):
@@ -257,6 +255,7 @@ async def upload_session(
             # Use json_account_info if provided, otherwise use account_info from session
             final_account_info = json_account_info if json_account_info else account_info
             from chatfilter.web.session import get_session as get_web_session
+
             _web_user_id = get_web_session(request).get("user_id", "default")
             _save_session_to_disk(
                 session_dir=session_dir,
@@ -277,7 +276,10 @@ async def upload_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
+                context={
+                    "success": False,
+                    "error": _("Insufficient disk space. Please free up disk space and try again."),
+                },
             )
         except TelegramConfigError:
             # temp_dir cleanup already done by _save_session_to_disk()
@@ -289,7 +291,9 @@ async def upload_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": _("Configuration error. Please check your session file and credentials."),
+                    "error": _(
+                        "Configuration error. Please check your session file and credentials."
+                    ),
                 },
             )
         except Exception:
@@ -411,9 +415,7 @@ async def validate_import_session(
 
         # Validate JSON file
         try:
-            json_content = await read_upload_with_size_limit(
-                json_file, MAX_JSON_SIZE, "JSON"
-            )
+            json_content = await read_upload_with_size_limit(json_file, MAX_JSON_SIZE, "JSON")
         except ValueError as e:
             return templates.TemplateResponse(
                 request=request,
@@ -437,7 +439,10 @@ async def validate_import_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/import_validation_result.html",
-                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+                context={
+                    "success": False,
+                    "error": _("Invalid JSON format: {error}").format(error=str(e)),
+                },
             )
 
         # Validation successful - extract API credentials if present
@@ -569,9 +574,7 @@ async def save_import_session(
         twofa_password = None
 
         try:
-            json_content = await read_upload_with_size_limit(
-                json_file, MAX_JSON_SIZE, "JSON"
-            )
+            json_content = await read_upload_with_size_limit(json_file, MAX_JSON_SIZE, "JSON")
         except ValueError as e:
             return templates.TemplateResponse(
                 request=request,
@@ -596,7 +599,10 @@ async def save_import_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": _("Invalid JSON format: {error}").format(error=str(e))},
+                context={
+                    "success": False,
+                    "error": _("Invalid JSON format: {error}").format(error=str(e)),
+                },
             )
 
         # Try to get user_id from session for duplicate check
@@ -612,7 +618,9 @@ async def save_import_session(
 
         try:
             # Try to get user_id from session (best effort)
-            session_account_info = await get_account_info_from_session(tmp_session_path, api_id, api_hash)
+            session_account_info = await get_account_info_from_session(
+                tmp_session_path, api_id, api_hash
+            )
 
             # Add user_id to account_info if available from session
             if session_account_info and "user_id" in session_account_info:
@@ -621,7 +629,9 @@ async def save_import_session(
                 # Check for duplicate accounts only if we have user_id
                 user_id = session_account_info["user_id"]
                 if isinstance(user_id, int):
-                    duplicate_sessions = find_duplicate_accounts(user_id, exclude_session=safe_name, web_user_id=web_user_id)
+                    duplicate_sessions = find_duplicate_accounts(
+                        user_id, exclude_session=safe_name, web_user_id=web_user_id
+                    )
 
         finally:
             # Clean up temporary session file
@@ -662,7 +672,10 @@ async def save_import_session(
             return templates.TemplateResponse(
                 request=request,
                 name="partials/upload_result.html",
-                context={"success": False, "error": _("Insufficient disk space. Please free up disk space and try again.")},
+                context={
+                    "success": False,
+                    "error": _("Insufficient disk space. Please free up disk space and try again."),
+                },
             )
         except TelegramConfigError:
             # temp_dir cleanup already done by _save_session_to_disk()
@@ -674,7 +687,9 @@ async def save_import_session(
                 name="partials/upload_result.html",
                 context={
                     "success": False,
-                    "error": _("Configuration error. Please check your session file and credentials."),
+                    "error": _(
+                        "Configuration error. Please check your session file and credentials."
+                    ),
                 },
             )
         except Exception:

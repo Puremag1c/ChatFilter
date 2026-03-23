@@ -1688,7 +1688,6 @@ class TestGetMessages:
         """Test fetching messages from a forum chat with multiple topics."""
         from telethon.tl.types import Channel
 
-        import chatfilter.telegram.client as client_module
         from chatfilter.telegram.client import messages as messages_module
 
         # Create mock messages for different topics
@@ -2325,7 +2324,6 @@ class TestGetMessagesSince:
         """Test fetching new messages from a forum chat."""
         from telethon.tl.types import Channel
 
-        import chatfilter.telegram.client as client_module
         from chatfilter.telegram.client import messages as messages_module
 
         messages = [

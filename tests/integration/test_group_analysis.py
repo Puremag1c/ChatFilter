@@ -10,8 +10,6 @@ Test Scenarios:
 
 from __future__ import annotations
 
-import asyncio
-from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,7 +17,6 @@ import pytest
 from telethon.errors import FloodWaitError
 
 from chatfilter.analyzer.group_engine import AccountHealthTracker
-from chatfilter.analyzer.retry import RetryPolicy, RetryResult
 from chatfilter.analyzer.worker import ChatResult
 from chatfilter.models.group import AnalysisMode, GroupChatStatus, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
@@ -97,14 +94,16 @@ def _load_all_results(db: GroupDatabase, group_id: str) -> list[dict]:
             "error": chat.get("error"),
         }
         if m:
-            result.update({
-                "title": m.get("title"),
-                "moderation": m.get("moderation"),
-                "messages_per_hour": m.get("messages_per_hour"),
-                "unique_authors_per_hour": m.get("unique_authors_per_hour"),
-                "captcha": m.get("captcha"),
-                "metrics_version": m.get("metrics_version"),
-            })
+            result.update(
+                {
+                    "title": m.get("title"),
+                    "moderation": m.get("moderation"),
+                    "messages_per_hour": m.get("messages_per_hour"),
+                    "unique_authors_per_hour": m.get("unique_authors_per_hour"),
+                    "captcha": m.get("captcha"),
+                    "metrics_version": m.get("metrics_version"),
+                }
+            )
         results.append(result)
     return results
 
@@ -123,14 +122,16 @@ def _load_result_for_chat(db: GroupDatabase, group_id: str, chat_ref: str) -> di
                 "error": chat.get("error"),
             }
             if m:
-                result.update({
-                    "title": m.get("title"),
-                    "moderation": m.get("moderation"),
-                    "messages_per_hour": m.get("messages_per_hour"),
-                    "unique_authors_per_hour": m.get("unique_authors_per_hour"),
-                    "captcha": m.get("captcha"),
-                    "metrics_version": m.get("metrics_version"),
-                })
+                result.update(
+                    {
+                        "title": m.get("title"),
+                        "moderation": m.get("moderation"),
+                        "messages_per_hour": m.get("messages_per_hour"),
+                        "unique_authors_per_hour": m.get("unique_authors_per_hour"),
+                        "captcha": m.get("captcha"),
+                        "metrics_version": m.get("metrics_version"),
+                    }
+                )
             return result
     return None
 
@@ -263,12 +264,15 @@ class TestIncrementalAnalysisDatabase:
             status=GroupChatStatus.DONE.value,
             subscribers=500,
         )
-        test_db.save_chat_metrics(chat_id, {
-            "title": "Test Chat",
-            "moderation": False,
-            "captcha": False,
-            "metrics_version": 1,
-        })
+        test_db.save_chat_metrics(
+            chat_id,
+            {
+                "title": "Test Chat",
+                "moderation": False,
+                "captcha": False,
+                "metrics_version": 1,
+            },
+        )
 
         # Verify initial metrics
         initial_metrics = test_db.get_chat_metrics(chat_id)
@@ -277,17 +281,21 @@ class TestIncrementalAnalysisDatabase:
         assert initial_metrics["messages_per_hour"] is None
 
         import time
+
         time.sleep(0.1)
 
         # Phase 2: Update with activity metrics (save_chat_metrics overwrites columns)
-        test_db.save_chat_metrics(chat_id, {
-            "title": "Test Chat",
-            "messages_per_hour": 15.5,
-            "unique_authors_per_hour": 8.3,
-            "moderation": False,
-            "captcha": False,
-            "metrics_version": 2,
-        })
+        test_db.save_chat_metrics(
+            chat_id,
+            {
+                "title": "Test Chat",
+                "messages_per_hour": 15.5,
+                "unique_authors_per_hour": 8.3,
+                "moderation": False,
+                "captcha": False,
+                "metrics_version": 2,
+            },
+        )
 
         # Verify: activity metrics added
         final_metrics = test_db.get_chat_metrics(chat_id)
@@ -322,7 +330,9 @@ class TestFullReanalysisDatabase:
         for i in range(3):
             chat_ref = f"https://t.me/chat{i}"
             _save_chat_with_metrics(
-                test_db, group_id, chat_ref,
+                test_db,
+                group_id,
+                chat_ref,
                 chat_type="group",
                 status=GroupChatStatus.DONE.value,
                 subscribers=100 * (i + 1),
@@ -340,6 +350,7 @@ class TestFullReanalysisDatabase:
 
         # OVERWRITE mode: Reset all chats to PENDING
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine
+
         engine = GroupAnalysisEngine(db=test_db, session_manager=MagicMock())
         engine._prepare_chats_for_mode(group_id, GroupSettings(), AnalysisMode.OVERWRITE)
 
@@ -360,14 +371,17 @@ class TestFullReanalysisDatabase:
                 subscribers=500 * (int(chat["chat_ref"][-1]) + 1),
                 chat_id=chat["id"],
             )
-            test_db.save_chat_metrics(chat["id"], {
-                "title": f"New Chat {chat['chat_ref'][-1]}",
-                "moderation": True,
-                "captcha": True,
-                "messages_per_hour": 20.0,
-                "unique_authors_per_hour": 10.0,
-                "metrics_version": 2,
-            })
+            test_db.save_chat_metrics(
+                chat["id"],
+                {
+                    "title": f"New Chat {chat['chat_ref'][-1]}",
+                    "moderation": True,
+                    "captcha": True,
+                    "messages_per_hour": 20.0,
+                    "unique_authors_per_hour": 10.0,
+                    "metrics_version": 2,
+                },
+            )
 
         # Verify: New results are completely fresh (not merged)
         results = _load_all_results(test_db, group_id)
@@ -400,7 +414,9 @@ class TestAllChatsGetResults:
         for i in range(8):
             chat_ref = f"https://t.me/chat{i}"
             _save_chat_with_metrics(
-                test_db, group_id, chat_ref,
+                test_db,
+                group_id,
+                chat_ref,
                 chat_type="group",
                 status=GroupChatStatus.DONE.value,
                 subscribers=100 * (i + 1),
@@ -416,7 +432,9 @@ class TestAllChatsGetResults:
         for i in [8, 9]:
             chat_ref = f"https://t.me/chat{i}"
             _save_chat_with_metrics(
-                test_db, group_id, chat_ref,
+                test_db,
+                group_id,
+                chat_ref,
                 chat_type="dead",
                 status=GroupChatStatus.ERROR.value,
                 error="ChannelPrivateError: Channel is private",
@@ -509,7 +527,9 @@ class TestExportFiltersWithoutExcludeDead:
             results_data,
             chat_types="group,channel_no_comments,forum",  # No 'dead'
         )
-        assert len(filtered_without_dead) == 3, "Should exclude dead chats when 'dead' not in chat_types"
+        assert len(filtered_without_dead) == 3, (
+            "Should exclude dead chats when 'dead' not in chat_types"
+        )
 
         # Verify only non-dead chats remain
         for result in filtered_without_dead:
@@ -590,6 +610,7 @@ class TestAllChatsGetResultsGuarantee:
     def clear_flood_tracker(self):
         """Clear global FloodWaitTracker state before each test to prevent cross-test interference."""
         from chatfilter.telegram.flood_tracker import get_flood_tracker
+
         tracker = get_flood_tracker()
         tracker.clear_all()
         yield
@@ -725,11 +746,15 @@ class TestAllChatsGetResultsGuarantee:
         # Verify all done chats have metrics
         for chat in done_chats:
             metrics = test_db.get_chat_metrics(chat["id"])
-            assert metrics.get("chat_type") is not None, f"Done chat missing chat_type: {chat['chat_ref']}"
+            assert metrics.get("chat_type") is not None, (
+                f"Done chat missing chat_type: {chat['chat_ref']}"
+            )
 
         # Verify dead chats have type=dead
         for chat in error_chats:
-            assert chat["chat_type"] == "dead", f"Dead chat should have type=dead: {chat['chat_ref']}"
+            assert chat["chat_type"] == "dead", (
+                f"Dead chat should have type=dead: {chat['chat_ref']}"
+            )
 
         # Verify process_chat was called 143 times (no skips)
         assert call_count == 143, f"Expected 143 process_chat calls, got {call_count}"
@@ -827,7 +852,9 @@ class TestAllChatsGetResultsGuarantee:
         with (
             patch("chatfilter.analyzer.group_engine.process_chat", side_effect=mock_process_chat),
             patch("chatfilter.analyzer.group_engine.asyncio.sleep", new_callable=AsyncMock),
-            patch("chatfilter.analyzer.retry.asyncio.sleep", new_callable=AsyncMock) as mock_retry_sleep,
+            patch(
+                "chatfilter.analyzer.retry.asyncio.sleep", new_callable=AsyncMock
+            ) as mock_retry_sleep,
         ):
             # Run worker
             await engine._run_account_worker(
@@ -954,8 +981,7 @@ class TestAllChatsGetResultsGuarantee:
         # CRITICAL ASSERTION: Result exists (dead chat NOT skipped)
         result = _load_result_for_chat(test_db, group_id, chat_ref)
         assert result is not None, (
-            "SPEC VIOLATION: Dead chat missing from results! "
-            "All chats MUST have results."
+            "SPEC VIOLATION: Dead chat missing from results! All chats MUST have results."
         )
 
         # Verify error status
@@ -1070,15 +1096,15 @@ class TestAllChatsGetResultsGuarantee:
             events.append(await event_queue.get())
 
         # Verify: At least one progress event exists (for the processed chat)
-        assert len(events) >= 1, (
-            f"Expected at least 1 progress event, got {len(events)}"
-        )
+        assert len(events) >= 1, f"Expected at least 1 progress event, got {len(events)}"
 
         # Verify success after account rotation
         assert retry_count == 3, f"Expected 3 attempts (2 failures + 1 success), got {retry_count}"
         result = _load_result_for_chat(test_db, group_id, chat_ref)
         assert result is not None, "Chat should have result after retry success"
-        assert result["status"] == GroupChatStatus.DONE.value, "Chat should succeed after account rotation"
+        assert result["status"] == GroupChatStatus.DONE.value, (
+            "Chat should succeed after account rotation"
+        )
 
 
 class TestAccountPreValidation:
@@ -1098,6 +1124,7 @@ class TestAccountPreValidation:
         - Verify: chats only assigned to valid account
         """
         import logging
+
         caplog.set_level(logging.DEBUG)
 
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine
@@ -1176,8 +1203,7 @@ class TestAccountPreValidation:
 
         # Verify: Pre-validation completed with 1 account
         assert any(
-            "Pre-validation: 1 accounts validated" in record.message
-            for record in caplog.records
+            "Pre-validation: 1 accounts validated" in record.message for record in caplog.records
         ), "Should log successful pre-validation with 1 account"
 
         # Verify: All chats assigned only to valid-account (not invalid-account)
@@ -1467,7 +1493,9 @@ class TestExceptionRecoveryPaths:
 
         # Verify dead chats have correct type
         for chat in error_chats:
-            assert chat["chat_type"] == "dead", f"Error chat should have type=dead: {chat['chat_ref']}"
+            assert chat["chat_type"] == "dead", (
+                f"Error chat should have type=dead: {chat['chat_ref']}"
+            )
 
         # Verify _finalize_group handles this correctly
         await engine._finalize_group(group_id)
@@ -1475,6 +1503,7 @@ class TestExceptionRecoveryPaths:
         # Group should be COMPLETED (not FAILED since some chats succeeded)
         # Use compute_group_status (status is now computed from chat statuses)
         from chatfilter.analyzer.progress import compute_group_status
+
         computed_status = compute_group_status(test_db, group_id)
         assert computed_status == "completed", (
             f"Expected group status 'completed', got {computed_status}"
@@ -1508,8 +1537,10 @@ class TestPrepareIncrement:
 
         # Chat 1: DONE with all metrics (complete)
         chat_ref_complete = "https://t.me/complete_chat"
-        chat_id_complete = _save_chat_with_metrics(
-            test_db, group_id, chat_ref_complete,
+        _save_chat_with_metrics(
+            test_db,
+            group_id,
+            chat_ref_complete,
             chat_type="group",
             status=GroupChatStatus.DONE.value,
             subscribers=500,
@@ -1523,8 +1554,10 @@ class TestPrepareIncrement:
 
         # Chat 2: DONE but missing activity metrics (incomplete)
         chat_ref_incomplete = "https://t.me/incomplete_chat"
-        chat_id_incomplete = _save_chat_with_metrics(
-            test_db, group_id, chat_ref_incomplete,
+        _save_chat_with_metrics(
+            test_db,
+            group_id,
+            chat_ref_incomplete,
             chat_type="group",
             status=GroupChatStatus.DONE.value,
             subscribers=300,
@@ -1592,7 +1625,9 @@ class TestPrepareIncrement:
 
         chat_ref = "https://t.me/all_done"
         _save_chat_with_metrics(
-            test_db, group_id, chat_ref,
+            test_db,
+            group_id,
+            chat_ref,
             chat_type="group",
             status=GroupChatStatus.DONE.value,
             subscribers=500,
@@ -1643,7 +1678,9 @@ class TestPrepareIncrement:
         for i in range(3):
             ref = f"https://t.me/complete{i}"
             _save_chat_with_metrics(
-                test_db, group_id, ref,
+                test_db,
+                group_id,
+                ref,
                 chat_type="group",
                 status=GroupChatStatus.DONE.value,
                 subscribers=100,
@@ -1658,7 +1695,9 @@ class TestPrepareIncrement:
         for i in range(2):
             ref = f"https://t.me/incomplete{i}"
             _save_chat_with_metrics(
-                test_db, group_id, ref,
+                test_db,
+                group_id,
+                ref,
                 chat_type="group",
                 status=GroupChatStatus.DONE.value,
                 subscribers=100,
@@ -1680,6 +1719,7 @@ class TestPrepareIncrement:
 
         async def mock_is_healthy(sid):
             return True
+
         mock_session_mgr.is_healthy = mock_is_healthy
 
         engine = GroupAnalysisEngine(
@@ -1694,6 +1734,7 @@ class TestPrepareIncrement:
         def capture_event(event):
             published_events.append(event)
             original_publish(event)
+
         engine._progress.publish = capture_event
 
         # Patch worker and finalize to avoid Telegram calls
@@ -1735,7 +1776,11 @@ class TestAccountHealthTracking:
         # Simulate 5 failures
         for i in range(5):
             tracker.record_failure("failing-account")
-            assert not tracker.should_stop("failing-account") if i < 4 else tracker.should_stop("failing-account")
+            assert (
+                not tracker.should_stop("failing-account")
+                if i < 4
+                else tracker.should_stop("failing-account")
+            )
 
         # Verify stats
         stats = tracker.get_stats("failing-account")

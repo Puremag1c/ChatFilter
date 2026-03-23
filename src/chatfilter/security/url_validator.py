@@ -129,9 +129,7 @@ def validate_url(
 
     # Validate scheme
     if parsed.scheme not in ("http", "https"):
-        raise URLValidationError(
-            f"Unsupported URL scheme: {parsed.scheme}. Only HTTP(S) allowed."
-        )
+        raise URLValidationError(f"Unsupported URL scheme: {parsed.scheme}. Only HTTP(S) allowed.")
 
     # Extract hostname
     hostname = parsed.hostname
@@ -139,11 +137,7 @@ def validate_url(
         raise URLValidationError("URL must have a hostname")
 
     # Check domain allowlist
-    if allowed_domains is None:
-        allowed_domains = get_allowed_domains()
-    else:
-        # Convert to set if needed
-        allowed_domains = set(allowed_domains)
+    allowed_domains = get_allowed_domains() if allowed_domains is None else set(allowed_domains)
 
     if allowed_domains and hostname not in allowed_domains:
         raise URLValidationError(
@@ -161,15 +155,11 @@ def validate_url(
 
         # Block cloud metadata endpoints
         if is_cloud_metadata_ip(ip_str):
-            raise URLValidationError(
-                f"Blocked cloud metadata endpoint: {ip_str}"
-            )
+            raise URLValidationError(f"Blocked cloud metadata endpoint: {ip_str}")
 
         # Block private IPs
         if is_private_ip(ip_str):
-            raise URLValidationError(
-                f"Private IP address not allowed: {ip_str}"
-            )
+            raise URLValidationError(f"Private IP address not allowed: {ip_str}")
 
         return
     except ValueError:

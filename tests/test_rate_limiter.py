@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import time
 from typing import get_args
-from unittest.mock import patch
 
 import pytest
 
@@ -325,9 +324,7 @@ class TestTelegramRateLimiter:
             start = time.monotonic()
             await limiter.wait_if_needed(op)
             elapsed = time.monotonic() - start
-            assert 0.15 <= elapsed <= 0.4, (
-                f"{op}: delay {elapsed:.3f}s not in expected range"
-            )
+            assert 0.15 <= elapsed <= 0.4, f"{op}: delay {elapsed:.3f}s not in expected range"
 
 
 class TestGlobalRateLimiter:

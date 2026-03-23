@@ -10,8 +10,7 @@ import asyncio
 import logging
 import threading
 import time
-from datetime import datetime, timezone
-from typing import Dict, Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ class FloodWaitTracker:
     """
 
     def __init__(self) -> None:
-        self._lockouts: Dict[str, float] = {}
+        self._lockouts: dict[str, float] = {}
         self._lock = threading.Lock()
 
     def record_flood_wait(self, account_id: str, seconds: int) -> None:
@@ -37,7 +36,9 @@ class FloodWaitTracker:
         expiry = time.time() + seconds
         with self._lock:
             self._lockouts[account_id] = expiry
-        logger.info(f"FloodWait recorded: account '{account_id}' blocked for {seconds}s (until {expiry})")
+        logger.info(
+            f"FloodWait recorded: account '{account_id}' blocked for {seconds}s (until {expiry})"
+        )
 
         # Publish flood_wait event via EventBus
         self._publish_flood_wait_event(account_id, expiry)
@@ -64,7 +65,7 @@ class FloodWaitTracker:
             self._publish_flood_wait_cleared_event(account_id)
         return False
 
-    def get_wait_until(self, account_id: str) -> Optional[float]:
+    def get_wait_until(self, account_id: str) -> float | None:
         """Get expiry timestamp for account's FloodWait.
 
         Args:
@@ -82,7 +83,7 @@ class FloodWaitTracker:
                 return None
             return expiry
 
-    def get_earliest_available(self) -> Optional[float]:
+    def get_earliest_available(self) -> float | None:
         """Get earliest expiry time across all blocked accounts.
 
         Returns:
@@ -93,7 +94,7 @@ class FloodWaitTracker:
                 return None
             return min(self._lockouts.values())
 
-    def get_blocked_accounts(self) -> Dict[str, float]:
+    def get_blocked_accounts(self) -> dict[str, float]:
         """Get all blocked accounts with their expiry times.
 
         Returns:
@@ -165,7 +166,7 @@ class FloodWaitTracker:
             from chatfilter.web.events import get_event_bus
 
             # Convert timestamp to ISO format
-            expiry_dt = datetime.fromtimestamp(expiry_timestamp, tz=timezone.utc)
+            expiry_dt = datetime.fromtimestamp(expiry_timestamp, tz=UTC)
             flood_wait_until = expiry_dt.isoformat()
 
             # Publish event in async context
@@ -192,7 +193,7 @@ class FloodWaitTracker:
 
 
 # Global singleton
-_global_tracker: Optional[FloodWaitTracker] = None
+_global_tracker: FloodWaitTracker | None = None
 _tracker_lock = threading.Lock()
 
 

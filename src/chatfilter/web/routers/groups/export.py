@@ -5,11 +5,9 @@ This module handles CSV export with filtering and dynamic columns.
 
 from __future__ import annotations
 
-import json
 import re
 import unicodedata
 from datetime import datetime
-from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query
@@ -52,10 +50,12 @@ def _convert_results_for_exporter(results: list[dict]) -> list[dict]:
             "captcha": result.get("captcha"),
             "status": result.get("status"),
         }
-        converted.append({
-            "chat_ref": result["chat_ref"],
-            "metrics_data": metrics_data,
-        })
+        converted.append(
+            {
+                "chat_ref": result["chat_ref"],
+                "metrics_data": metrics_data,
+            }
+        )
     return converted
 
 
@@ -78,22 +78,23 @@ def _apply_export_filters(
     """
     allowed_chat_types = None
     if chat_types:
-        allowed_chat_types = set(t.strip() for t in chat_types.split(",") if t.strip())
+        allowed_chat_types = {t.strip() for t in chat_types.split(",") if t.strip()}
 
     filtered = []
 
     for result in results_data:
         # New model: flat structure from service.get_results()
-        if allowed_chat_types:
-            if result.get("chat_type") not in allowed_chat_types:
-                continue
+        if allowed_chat_types and result.get("chat_type") not in allowed_chat_types:
+            continue
 
         if subscribers_min is not None or subscribers_max is not None:
             subscribers = result.get("subscribers")
             # When min=0, include chats with NULL subscribers (treat as "no lower bound")
             # Only exclude NULL if min > 0 or max is set (requires actual value for comparison)
             if subscribers is None:
-                if (subscribers_min is not None and subscribers_min > 0) or subscribers_max is not None:
+                if (
+                    subscribers_min is not None and subscribers_min > 0
+                ) or subscribers_max is not None:
                     continue
             else:
                 if subscribers_min is not None and subscribers < subscribers_min:
@@ -146,7 +147,7 @@ def _apply_export_filters(
 async def preview_export_count(
     web_session: WebSession,
     group_id: str,
-    chat_types: list[str] | None = Query(None),
+    chat_types: list[str] | None = Query(None),  # noqa: B008
     subscribers_min: str | None = None,
     subscribers_max: str | None = None,
     activity_min: str | None = None,
@@ -229,7 +230,7 @@ async def preview_export_count(
 async def export_group_results(
     web_session: WebSession,
     group_id: str,
-    chat_types: list[str] | None = Query(None),
+    chat_types: list[str] | None = Query(None),  # noqa: B008
     subscribers_min: str | None = None,
     subscribers_max: str | None = None,
     activity_min: str | None = None,
@@ -318,7 +319,7 @@ async def export_group_results(
     # Remove control characters (prevent HTTP Response Splitting)
     sanitized_name = re.sub(r"[\x00-\x1f\x7f]", "", sanitized_name)
     # Remove dangerous chars but PRESERVE non-ASCII (Cyrillic, etc.)
-    sanitized_name = re.sub(r'[^\w\s-]', '', sanitized_name)
+    sanitized_name = re.sub(r"[^\w\s-]", "", sanitized_name)
     # Replace spaces with underscores
     sanitized_name = sanitized_name.replace(" ", "_")
     # Limit length (filesystem limits)
@@ -330,7 +331,7 @@ async def export_group_results(
         sanitized_name = f"sanitized_export_{timestamp}"
 
     # Create ASCII fallback for old browsers (transliterate or timestamp)
-    ascii_fallback = sanitized_name.encode('ascii', 'ignore').decode('ascii')
+    ascii_fallback = sanitized_name.encode("ascii", "ignore").decode("ascii")
     if not ascii_fallback:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         ascii_fallback = f"export_{timestamp}"
@@ -338,12 +339,12 @@ async def export_group_results(
     # RFC 5987 encoding: filename for old browsers, filename* for modern ones
     filename_ascii = f"{ascii_fallback}.csv"
     filename_utf8 = f"{sanitized_name}.csv"
-    filename_encoded = quote(filename_utf8.encode('utf-8'))
+    filename_encoded = quote(filename_utf8.encode("utf-8"))
 
     return Response(
         content=csv_content,
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename_ascii}"; filename*=UTF-8\'\'{filename_encoded}',
+            "Content-Disposition": f"attachment; filename=\"{filename_ascii}\"; filename*=UTF-8''{filename_encoded}",
         },
     )

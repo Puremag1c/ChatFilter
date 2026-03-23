@@ -344,7 +344,9 @@ class GroupTask(BaseModel):
         return cls(
             id=id if id is not None else f"task-{random.randint(100000, 999999)}",
             group_id=group_id if group_id is not None else f"grp-{random.randint(100000, 999999)}",
-            requested_metrics=requested_metrics if requested_metrics is not None else GroupSettings.fake(),
+            requested_metrics=requested_metrics
+            if requested_metrics is not None
+            else GroupSettings.fake(),
             time_window=time_window if time_window is not None else 24,
             created_at=created_at if created_at is not None else now,
             status=status if status is not None else TaskStatus.RUNNING,
@@ -483,10 +485,19 @@ class GroupStats(BaseModel):
     skipped_moderation: int = 0
     status_pending: int = 0
 
-    @field_validator("total", "pending", "dead", "groups", "forums",
-                     "channels_with_comments", "channels_no_comments",
-                     "analyzed", "failed", "skipped_moderation",
-                     "status_pending")
+    @field_validator(
+        "total",
+        "pending",
+        "dead",
+        "groups",
+        "forums",
+        "channels_with_comments",
+        "channels_no_comments",
+        "analyzed",
+        "failed",
+        "skipped_moderation",
+        "status_pending",
+    )
     @classmethod
     def counts_must_be_non_negative(cls, v: int) -> int:
         """Validate that all counts are non-negative."""
@@ -550,7 +561,9 @@ class GroupStats(BaseModel):
             dead=dead if dead is not None else 1,
             groups=groups if groups is not None else 2,
             forums=forums if forums is not None else 1,
-            channels_with_comments=channels_with_comments if channels_with_comments is not None else 1,
+            channels_with_comments=channels_with_comments
+            if channels_with_comments is not None
+            else 1,
             channels_no_comments=channels_no_comments if channels_no_comments is not None else 2,
             analyzed=analyzed if analyzed is not None else 4,
             failed=failed if failed is not None else 1,

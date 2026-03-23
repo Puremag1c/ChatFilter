@@ -1,7 +1,6 @@
 """Tests for sessions router."""
 
 import json
-import re
 import shutil
 import sqlite3
 from collections.abc import Iterator
@@ -12,13 +11,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
-from chatfilter.web.routers.sessions import (
-    read_upload_with_size_limit,
-    sanitize_session_name,
-    validate_account_info_json,
-    validate_config_file_format,
-    validate_session_file_format,
-)
 
 from .conftest import extract_csrf_token
 
@@ -78,7 +70,7 @@ class TestDeadSessionRecoveryUX:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that dead session returns 'connecting' immediately - error via SSE."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
         from chatfilter.telegram.session import SessionReauthRequiredError
@@ -115,7 +107,9 @@ class TestDeadSessionRecoveryUX:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -143,7 +137,7 @@ class TestDeadSessionRecoveryUX:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that expired session connect returns 'connecting' - error via SSE."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
         from chatfilter.telegram.session import SessionReauthRequiredError
@@ -179,7 +173,9 @@ class TestDeadSessionRecoveryUX:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -207,7 +203,7 @@ class TestDeadSessionRecoveryUX:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that session recovery preserves session ID."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
         from chatfilter.telegram.session import SessionInfo, SessionState
@@ -243,7 +239,9 @@ class TestDeadSessionRecoveryUX:
         csrf_token = extract_csrf_token(home_response.text)
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -271,7 +269,7 @@ class TestDeadSessionRecoveryUX:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that UI distinguishes temporary errors from permanent session death."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
         from chatfilter.telegram.session import (
@@ -309,7 +307,9 @@ class TestDeadSessionRecoveryUX:
         mock_loader = MagicMock()
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -341,7 +341,9 @@ class TestDeadSessionRecoveryUX:
         mock_session_manager.get_info.return_value = None
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -420,7 +422,7 @@ class TestAPICredentialReValidation:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that changing API_ID on existing session triggers disconnect + re-auth flow."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -456,7 +458,9 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = True
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -481,7 +485,11 @@ class TestAPICredentialReValidation:
         assert response.status_code == 200
         # Should show success and reconnect flow
         response_text = response.text.lower()
-        assert "credential" in response_text or "reauth" in response_text or "reconnect" in response_text
+        assert (
+            "credential" in response_text
+            or "reauth" in response_text
+            or "reconnect" in response_text
+        )
 
         # Verify session was disconnected
         mock_session_manager.disconnect.assert_called_once_with("test_session")
@@ -496,7 +504,8 @@ class TestAPICredentialReValidation:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that invalid API_ID/API_HASH credentials are rejected and not saved."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
+
         from telethon.errors import ApiIdInvalidError
 
         from chatfilter.models.proxy import ProxyEntry
@@ -529,7 +538,9 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = False
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -561,7 +572,7 @@ class TestAPICredentialReValidation:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that valid but unauthenticated credentials trigger reconnect/code modal."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -597,7 +608,9 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = True
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -622,7 +635,9 @@ class TestAPICredentialReValidation:
         assert response.status_code == 200
         response_text = response.text.lower()
         # Should show credentials updated message and reconnect flow
-        assert "credential" in response_text or "reauth" in response_text or "updated" in response_text
+        assert (
+            "credential" in response_text or "reauth" in response_text or "updated" in response_text
+        )
 
         # Verify config was saved
         config_path = configured_session / "config.json"
@@ -633,7 +648,8 @@ class TestAPICredentialReValidation:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that only save credentials AFTER successful validation."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
+
         from telethon.errors import ApiIdInvalidError
 
         from chatfilter.models.proxy import ProxyEntry
@@ -666,7 +682,9 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = False
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -698,7 +716,7 @@ class TestAPICredentialReValidation:
         self, client: TestClient, clean_data_dir: Path, configured_session: Path
     ) -> None:
         """Test that network/proxy errors during validation show helpful message."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from chatfilter.models.proxy import ProxyEntry
 
@@ -729,7 +747,9 @@ class TestAPICredentialReValidation:
         mock_client.is_connected.return_value = False
 
         with (
-            patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings),
+            patch(
+                "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+            ),
             patch(
                 "chatfilter.storage.proxy_pool.get_proxy_by_id",
                 return_value=mock_proxy,
@@ -751,5 +771,3 @@ class TestAPICredentialReValidation:
         # Should mention network/proxy error
         response_text = response.text.lower()
         assert "network" in response_text or "proxy" in response_text or "failed" in response_text
-
-

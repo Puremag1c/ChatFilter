@@ -81,8 +81,7 @@ class TestLoginWithFormFieldCsrf:
         )
 
         # Step 4: Assert 303 redirect, not 403 CSRF error
-        assert (
-            post_resp.status_code == 303
-        ), f"Expected 303 redirect, got {post_resp.status_code}. Response: {post_resp.text}"
+        assert post_resp.status_code == 303, (
+            f"Expected 303 redirect, got {post_resp.status_code}. Response: {post_resp.text}"
+        )
         assert post_resp.headers["location"] == "/", "Redirect location should be /"
-

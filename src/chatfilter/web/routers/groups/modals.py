@@ -37,7 +37,9 @@ async def get_create_group_modal(request: Request) -> HTMLResponse:
 
 
 @router.get("/api/groups/modal/settings/{group_id}", response_class=HTMLResponse)
-async def get_settings_modal(request: Request, web_session: WebSession, group_id: str) -> HTMLResponse:
+async def get_settings_modal(
+    request: Request, web_session: WebSession, group_id: str
+) -> HTMLResponse:
     """Get group settings modal HTML.
 
     Args:
@@ -79,7 +81,9 @@ async def get_settings_modal(request: Request, web_session: WebSession, group_id
 
 
 @router.get("/api/groups/modal/reanalyze-confirm/{group_id}", response_class=HTMLResponse)
-async def get_reanalyze_confirm_modal(request: Request, web_session: WebSession, group_id: str) -> HTMLResponse:
+async def get_reanalyze_confirm_modal(
+    request: Request, web_session: WebSession, group_id: str
+) -> HTMLResponse:
     """Get re-analysis confirmation modal HTML.
 
     Args:
@@ -121,7 +125,9 @@ async def get_reanalyze_confirm_modal(request: Request, web_session: WebSession,
 
 
 @router.get("/api/groups/{group_id}/export/modal", response_class=HTMLResponse)
-async def get_export_modal(request: Request, web_session: WebSession, group_id: str) -> HTMLResponse:
+async def get_export_modal(
+    request: Request, web_session: WebSession, group_id: str
+) -> HTMLResponse:
     """Get export filter modal HTML.
 
     Args:

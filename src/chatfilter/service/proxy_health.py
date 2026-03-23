@@ -120,10 +120,8 @@ def _socks5_connect_sync(
 
     finally:
         if sock:
-            try:
+            with contextlib.suppress(Exception):
                 sock.close()
-            except Exception:
-                pass
 
 
 async def socks5_tunnel_check(
@@ -295,7 +293,6 @@ async def check_all_proxies() -> dict[str, ProxyEntry]:
     Returns:
         Dict mapping proxy ID to updated ProxyEntry.
     """
-    from pathlib import Path
 
     from chatfilter.config import get_settings
 

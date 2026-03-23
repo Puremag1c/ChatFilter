@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from chatfilter.i18n.translations import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, set_current_locale
 from chatfilter.web.events import get_event_bus
 from chatfilter.web.template_helpers import get_template_context
+
 from .listing import list_stored_sessions
 
 if TYPE_CHECKING:
@@ -74,10 +75,11 @@ async def session_events(request: Request):
                     session_id, new_status = event
 
                     # Get full session data for this session
-                    all_sessions = list_stored_sessions(session_manager, auth_manager, user_id=user_id)
+                    all_sessions = list_stored_sessions(
+                        session_manager, auth_manager, user_id=user_id
+                    )
                     session_data = next(
-                        (s for s in all_sessions if s.session_id == session_id),
-                        None
+                        (s for s in all_sessions if s.session_id == session_id), None
                     )
 
                     if session_data:
@@ -89,13 +91,13 @@ async def session_events(request: Request):
                         # The template renders two <tr> elements that need OOB swaps
                         html_with_oob = html.replace(
                             f'<tr id="session-{session_id}"',
-                            f'<tr id="session-{session_id}" hx-swap-oob="true"'
+                            f'<tr id="session-{session_id}" hx-swap-oob="true"',
                         ).replace(
                             f'<tr class="config-row" id="session-config-row-{session_id}"',
-                            f'<tr class="config-row" id="session-config-row-{session_id}" hx-swap-oob="true"'
+                            f'<tr class="config-row" id="session-config-row-{session_id}" hx-swap-oob="true"',
                         )
                         # Minify: remove newlines for SSE single-line data format
-                        html_compact = html_with_oob.replace('\n', ' ').replace('  ', ' ')
+                        html_compact = html_with_oob.replace("\n", " ").replace("  ", " ")
                         yield f"event: message\ndata: {html_compact}\n\n"
 
                 except TimeoutError:

@@ -30,7 +30,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import defaultdict
-from typing import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 
 
 class SessionEventBus:
@@ -105,10 +105,7 @@ class SessionEventBus:
         event_times[:] = [t for t in event_times if now - t < 1.0]
 
         # Check rate limit
-        if len(event_times) >= self._max_events_per_second:
-            return True
-
-        return False
+        return len(event_times) >= self._max_events_per_second
 
     async def publish(self, session_id: str, new_status: str, data: dict | None = None) -> None:
         """Publish a session status change event to all subscribers.
@@ -139,7 +136,7 @@ class SessionEventBus:
             ]
             await asyncio.gather(
                 *tasks,
-                return_exceptions=True  # Don't let one failing subscriber break others
+                return_exceptions=True,  # Don't let one failing subscriber break others
             )
 
     def reset_session_status(self, session_id: str) -> None:

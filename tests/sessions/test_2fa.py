@@ -1,8 +1,5 @@
 """Tests for sessions router."""
 
-import json
-import re
-import shutil
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
@@ -12,13 +9,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
-from chatfilter.web.routers.sessions import (
-    read_upload_with_size_limit,
-    sanitize_session_name,
-    validate_account_info_json,
-    validate_config_file_format,
-    validate_session_file_format,
-)
 
 from .conftest import extract_csrf_token
 
@@ -67,15 +57,16 @@ class TestVerify2FA:
 
         This verifies the recovery path when stored 2FA password is incorrect.
         """
-        from unittest.mock import AsyncMock, MagicMock, patch
-        from pathlib import Path
-        import tempfile
         import sqlite3
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import AsyncMock, MagicMock
 
-        from chatfilter.web.auth_state import AuthState, AuthStep
+        from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
+
         from chatfilter.security import SecureCredentialManager
+        from chatfilter.web.auth_state import AuthState, AuthStep
         from chatfilter.web.routers.sessions import save_account_info
-        from telethon.errors import SessionPasswordNeededError, PasswordHashInvalidError
 
         app = create_app(debug=True)
         client = TestClient(app)
@@ -89,13 +80,9 @@ class TestVerify2FA:
             session_path = session_dir / "session.session"
             conn = sqlite3.connect(session_path)
             cursor = conn.cursor()
-            cursor.execute(
-                "CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)"
-            )
+            cursor.execute("CREATE TABLE sessions (dc_id INTEGER PRIMARY KEY, auth_key BLOB)")
             cursor.execute("INSERT INTO sessions VALUES (1, X'1234')")
-            cursor.execute(
-                "CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)"
-            )
+            cursor.execute("CREATE TABLE entities (id INTEGER PRIMARY KEY, hash INTEGER NOT NULL)")
             conn.commit()
             conn.close()
 
@@ -143,11 +130,14 @@ class TestVerify2FA:
                 client=mock_client,
             )
 
-            with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr, \
-                 patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn, \
-                 patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock_settings_fn, \
-                 patch("chatfilter.web.routers.sessions.ensure_data_dir", return_value=Path(tmp_dir)):
-
+            with (
+                patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
+                patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
+                patch("chatfilter.web.routers.sessions.helpers.get_settings") as mock_settings_fn,
+                patch(
+                    "chatfilter.web.routers.sessions.ensure_data_dir", return_value=Path(tmp_dir)
+                ),
+            ):
                 mock_mgr = MagicMock()
                 mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
                 mock_mgr.update_auth_state = AsyncMock()
@@ -187,9 +177,7 @@ class TestVerify2FA:
                 # Either response contains 2FA form or needs_2fa event was published
                 response_text = response.text.lower()
                 has_2fa_form = (
-                    "2fa" in response_text
-                    or "password" in response_text
-                    or "form" in response_text
+                    "2fa" in response_text or "password" in response_text or "form" in response_text
                 )
                 # Check if needs_2fa event was published
                 calls = mock_event_bus.publish.call_args_list
@@ -213,6 +201,7 @@ class TestVerifyCode2FAAutoEntry:
     def clean_data_dir(self, tmp_path: Path, monkeypatch) -> Iterator[Path]:
         """Create temporary data directory."""
         from unittest.mock import MagicMock
+
         mock_ensure_data_dir = MagicMock(return_value=tmp_path)
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.helpers.ensure_data_dir", mock_ensure_data_dir
@@ -227,10 +216,12 @@ class TestVerifyCode2FAAutoEntry:
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test verify_code with auto 2FA success."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
+
         from telethon.errors import SessionPasswordNeededError
-        from chatfilter.web.auth_state import AuthState, AuthStep
+
         from chatfilter.security import SecureCredentialManager
+        from chatfilter.web.auth_state import AuthState, AuthStep
 
         session_dir = clean_data_dir / "test_auto_2fa_success"
         session_dir.mkdir(parents=True, exist_ok=True)
@@ -253,6 +244,7 @@ class TestVerifyCode2FAAutoEntry:
             "last_name": "User",
         }
         from chatfilter.web.routers.sessions import save_account_info
+
         save_account_info(session_dir, account_info)
 
         # Store 2FA password
@@ -300,8 +292,17 @@ class TestVerifyCode2FAAutoEntry:
             client=mock_client,
         )
 
-        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,              patch("chatfilter.web.dependencies.get_session_manager") as mock_session_mgr_fn,              patch("chatfilter.web.routers.sessions.ensure_data_dir", return_value=session_dir.parent),              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_event_bus_helpers_fn:
-
+        with (
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
+            patch("chatfilter.web.dependencies.get_session_manager") as mock_session_mgr_fn,
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir", return_value=session_dir.parent
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus"
+            ) as mock_event_bus_helpers_fn,
+        ):
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
             mock_mgr.get_auth_state_by_session = MagicMock(return_value=auth_state)
@@ -330,16 +331,22 @@ class TestVerifyCode2FAAutoEntry:
 
             # Either response is 200 (success) or 503 (template not found but success logic ran)
             # The important thing is that sign_in was called twice and we got past the 2FA check
-            assert response.status_code in (200, 503), f"Expected 200 or 503, got {response.status_code}"
-            assert sign_in_call_count[0] >= 2, f"Expected sign_in to be called at least twice, got {sign_in_call_count[0]}"
+            assert response.status_code in (200, 503), (
+                f"Expected 200 or 503, got {response.status_code}"
+            )
+            assert sign_in_call_count[0] >= 2, (
+                f"Expected sign_in to be called at least twice, got {sign_in_call_count[0]}"
+            )
 
     @pytest.mark.asyncio
     async def test_verify_code_auto_2fa_missing(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test verify_code with no stored 2FA shows modal."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
+
         from telethon.errors import SessionPasswordNeededError
+
         from chatfilter.web.auth_state import AuthState, AuthStep
         from chatfilter.web.routers.sessions import save_account_info
 
@@ -380,8 +387,10 @@ class TestVerifyCode2FAAutoEntry:
             client=mock_client,
         )
 
-        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn:
-
+        with (
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
+        ):
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
             mock_mgr.update_auth_state = AsyncMock()
@@ -401,21 +410,29 @@ class TestVerifyCode2FAAutoEntry:
                 headers={"X-CSRF-Token": csrf_token},
             )
 
-            # Either response is 200 or 503 (template not found), the important thing is 
+            # Either response is 200 or 503 (template not found), the important thing is
             # that the needs_2fa flow was triggered (no success response)
-            assert response.status_code in (200, 503), f"Expected 200 or 503, got {response.status_code}"
+            assert response.status_code in (200, 503), (
+                f"Expected 200 or 503, got {response.status_code}"
+            )
             # Verify that needs_2fa event was published or form shown
-            assert "auth_2fa_form_reconnect" in response.text or "2FA" in response.text or response.status_code == 503
+            assert (
+                "auth_2fa_form_reconnect" in response.text
+                or "2FA" in response.text
+                or response.status_code == 503
+            )
 
     @pytest.mark.asyncio
     async def test_verify_code_auto_2fa_wrong(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
         """Test verify_code with wrong 2FA password shows error."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-        from telethon.errors import SessionPasswordNeededError, PasswordHashInvalidError
-        from chatfilter.web.auth_state import AuthState, AuthStep
+        from unittest.mock import AsyncMock, MagicMock
+
+        from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
+
         from chatfilter.security import SecureCredentialManager
+        from chatfilter.web.auth_state import AuthState, AuthStep
         from chatfilter.web.routers.sessions import save_account_info
 
         session_dir = clean_data_dir / "test_auto_2fa_wrong"
@@ -468,8 +485,16 @@ class TestVerifyCode2FAAutoEntry:
             client=mock_client,
         )
 
-        with patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,              patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,              patch("chatfilter.web.routers.sessions.ensure_data_dir", return_value=session_dir.parent),              patch("chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus") as mock_event_bus_helpers_fn:
-
+        with (
+            patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
+            patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
+            patch(
+                "chatfilter.web.routers.sessions.ensure_data_dir", return_value=session_dir.parent
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.auth_reconnect_helpers.get_event_bus"
+            ) as mock_event_bus_helpers_fn,
+        ):
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
             mock_mgr.update_auth_state = AsyncMock()
@@ -493,10 +518,14 @@ class TestVerifyCode2FAAutoEntry:
 
             # Either response is 200 or 503 (template not found), the important thing is
             # that the needs_2fa flow was triggered (no success response)
-            assert response.status_code in (200, 503), f"Expected 200 or 503, got {response.status_code}"
+            assert response.status_code in (200, 503), (
+                f"Expected 200 or 503, got {response.status_code}"
+            )
             # Verify that needs_2fa event was published or form shown
-            assert "auth_2fa_form_reconnect" in response.text or "2FA" in response.text or response.status_code == 503
+            assert (
+                "auth_2fa_form_reconnect" in response.text
+                or "2FA" in response.text
+                or response.status_code == 503
+            )
             # Verify rate limiting was applied (increment_failed_attempts called)
             mock_mgr.increment_failed_attempts.assert_called_once_with("test_auth_id_wrong")
-
-

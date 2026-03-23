@@ -177,9 +177,7 @@ async def validation_exception_handler(
     )
 
 
-async def network_error_handler(
-    request: Request, exc: Exception
-) -> JSONResponse | HTMLResponse:
+async def network_error_handler(request: Request, exc: Exception) -> JSONResponse | HTMLResponse:
     """Handle network-related errors with user-friendly messages.
 
     This handler detects network connectivity issues and provides clear

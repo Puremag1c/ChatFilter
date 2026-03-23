@@ -140,7 +140,6 @@ class TestPollingTaskCleanupOnShutdown:
     @pytest.mark.asyncio
     async def test_shutdown_cancels_active_polling_task(self, tmp_path: Path) -> None:
         """Shutdown via lifespan exit must cancel active polling tasks cleanly."""
-        import warnings
 
         from chatfilter.config import Settings
         from chatfilter.web.app import lifespan
@@ -252,6 +251,7 @@ class TestPollingTaskCleanupOnShutdown:
         async with lifespan(app):
             # Create multiple auth states with active polling tasks
             for i in range(3):
+
                 async def _long_poll(idx: int = i) -> None:
                     try:
                         await asyncio.sleep(300)
@@ -277,8 +277,7 @@ class TestPollingTaskCleanupOnShutdown:
             gc.collect()
 
         task_destroyed_warnings = [
-            w for w in caught_warnings
-            if "Task was destroyed" in str(w.message)
+            w for w in caught_warnings if "Task was destroyed" in str(w.message)
         ]
         assert len(task_destroyed_warnings) == 0, (
             f"Got 'Task was destroyed' warnings: {[str(w.message) for w in task_destroyed_warnings]}"

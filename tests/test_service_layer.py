@@ -12,7 +12,6 @@ from chatfilter.models import Chat, ChatMetrics, ChatType, Message
 from chatfilter.service.chat_analysis import ChatAnalysisService, SessionNotFoundError
 from chatfilter.telegram.session import SessionManager
 
-
 TEST_USER_ID = "test_user"
 
 
@@ -249,7 +248,9 @@ class TestAnalyzeChat:
             )
             mock_compute_metrics.return_value = mock_metrics
 
-            result = await service.analyze_chat("test_session", TEST_USER_ID, 456, message_limit=1000)
+            result = await service.analyze_chat(
+                "test_session", TEST_USER_ID, 456, message_limit=1000
+            )
 
         assert result.chat == cached_chat
         # Check metrics fields (excluding duration_seconds which is dynamically measured)

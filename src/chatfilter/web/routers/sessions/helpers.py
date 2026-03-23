@@ -6,11 +6,21 @@ import asyncio
 import logging
 import re
 import shutil
+from datetime import UTC
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from chatfilter.storage.file import secure_delete_file
+
+from .io import ensure_data_dir
+from .validation import (
+    sanitize_session_name,
+    validate_config_file_format,
+    validate_phone_number,
+    validate_session_file_format,
+    validate_telegram_credentials_with_retry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +36,7 @@ def get_settings():
     via module lookup (not direct import) to respect test patches.
     """
     import chatfilter.config
+
     return chatfilter.config.get_settings()
 
 
@@ -60,7 +71,7 @@ async def _get_session_lock(session_id: str) -> asyncio.Lock:
 
 def _get_flood_wait_until(session_id: str) -> str | None:
     """Return ISO timestamp when FloodWait expires, or None if not blocked."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from chatfilter.telegram.flood_tracker import get_flood_tracker
 
@@ -68,7 +79,7 @@ def _get_flood_wait_until(session_id: str) -> str | None:
     wait_until_ts = flood_tracker.get_wait_until(session_id)
     if wait_until_ts:
         # Convert timestamp to ISO format
-        wait_until_dt = datetime.fromtimestamp(wait_until_ts, tz=timezone.utc)
+        wait_until_dt = datetime.fromtimestamp(wait_until_ts, tz=UTC)
         return wait_until_dt.isoformat()
     return None
 
@@ -187,19 +198,6 @@ def secure_delete_dir(dir_path: Path | str) -> None:
         logger.warning(f"Failed to securely delete directory, falling back to regular delete: {e}")
         # Fallback to regular deletion
         shutil.rmtree(dir_path, ignore_errors=True)
-
-
-# Re-export from io.py (for test mocking)
-from .io import ensure_data_dir
-
-# Re-export from validation.py (for backward compatibility)
-from .validation import (
-    sanitize_session_name,
-    validate_config_file_format,
-    validate_phone_number,
-    validate_session_file_format,
-    validate_telegram_credentials_with_retry,
-)
 
 
 # Ensure __all__ is defined for star imports

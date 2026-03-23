@@ -14,7 +14,6 @@ from chatfilter.i18n.translations import _ as gettext
 
 from .config import (
     SessionBlockedError,
-    SessionFileError,
     TelegramConfig,
     TelegramConfigError,
     validate_session_file,
@@ -125,6 +124,7 @@ class TelegramClientLoader:
                 if config_json_path.exists():
                     try:
                         import json
+
                         with config_json_path.open("r") as f:
                             cfg = json.load(f)
                             self._web_user_id = cfg.get("web_user_id", "default")

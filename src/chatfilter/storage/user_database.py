@@ -55,36 +55,28 @@ class UserDatabase(SQLiteDatabase):
     def get_user_by_username(self, username: str) -> dict | None:
         """Return user dict or None if not found."""
         with self._connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM users WHERE username = ?", (username,)
-            )
+            cursor = conn.execute("SELECT * FROM users WHERE username = ?", (username,))
             row = cursor.fetchone()
         return self._row_to_dict(row) if row else None
 
     def get_user_by_id(self, user_id: str) -> dict | None:
         """Return user dict or None if not found."""
         with self._connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM users WHERE id = ?", (user_id,)
-            )
+            cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
         return self._row_to_dict(row) if row else None
 
     def list_users(self) -> list[dict]:
         """Return all users ordered by created_at."""
         with self._connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM users ORDER BY created_at ASC"
-            )
+            cursor = conn.execute("SELECT * FROM users ORDER BY created_at ASC")
             rows = cursor.fetchall()
         return [self._row_to_dict(row) for row in rows]
 
     def delete_user(self, user_id: str) -> bool:
         """Delete user by id. Returns True if deleted."""
         with self._connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM users WHERE id = ?", (user_id,)
-            )
+            cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
             return cursor.rowcount > 0
 
     def update_password(self, user_id: str, new_password: str) -> bool:

@@ -18,9 +18,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 from jinja2 import Environment, FileSystemLoader
 
 
@@ -58,8 +56,9 @@ def _setup_template_env():
     Returns:
         Jinja2 Environment with proper filters and globals
     """
-    from jinja2 import Environment, FileSystemLoader
     from pathlib import Path
+
+    from jinja2 import Environment, FileSystemLoader
 
     template_dir = Path("src/chatfilter/templates")
     env = Environment(loader=FileSystemLoader(str(template_dir)))
@@ -260,7 +259,7 @@ class TestLoadingStateVerifyCode:
         html = template.render(session=session_data)
 
         # Verify the button class that triggers the code modal
-        assert 'session-code-modal-btn' in html
+        assert "session-code-modal-btn" in html
 
     def test_code_modal_button_accessible(self) -> None:
         """Code modal button should have proper accessibility attributes."""
@@ -276,8 +275,8 @@ class TestLoadingStateVerifyCode:
         html = template.render(session=session_data)
 
         # Verify accessibility label
-        assert 'aria-label=' in html
-        assert 'verification code' in html.lower() or 'code' in html.lower()
+        assert "aria-label=" in html
+        assert "verification code" in html.lower() or "code" in html.lower()
 
 
 class TestLoadingStateVerify2FA:
@@ -334,8 +333,8 @@ class TestLoadingStateVerify2FA:
         html = template.render(session=session_data)
 
         # Verify accessibility label
-        assert 'aria-label=' in html
-        assert '2fa' in html.lower() or 'password' in html.lower()
+        assert "aria-label=" in html
+        assert "2fa" in html.lower() or "password" in html.lower()
 
 
 class TestStatusCellSpinner:
@@ -484,5 +483,5 @@ class TestAllActionTypesComplete:
         loading_html = template.render(
             session={"session_id": "s2", "state": "connecting", "error_message": None}
         )
-        assert 'disabled' in loading_html
+        assert "disabled" in loading_html
         assert "Wait..." in loading_html

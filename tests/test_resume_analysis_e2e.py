@@ -113,7 +113,6 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
     from unittest.mock import patch
 
     with patch("chatfilter.web.routers.groups.analysis._get_group_service", return_value=service):
-
         # Call resume endpoint
         web_session = {"user_id": ""}
         response = await resume_group_analysis(mock_request, web_session, group_id)
@@ -130,6 +129,7 @@ async def test_resume_paused_group_analyzes_only_pending_and_failed(tmp_path: Pa
 
         # Verify start_analysis was called (with mode parameter)
         from chatfilter.analyzer.group_engine import AnalysisMode
+
         mock_engine.start_analysis.assert_called_once_with(group_id, mode=AnalysisMode.FRESH)
 
         # Wait for background task to complete
@@ -276,7 +276,6 @@ async def test_resume_concurrent_requests_return_409(tmp_path: Path) -> None:
     from unittest.mock import patch
 
     with patch("chatfilter.web.routers.groups.analysis._get_group_service", return_value=service):
-
         # First request succeeds (returns 200 with updated group card)
         web_session = {"user_id": ""}
         response1 = await resume_group_analysis(mock_request, web_session, group_id)

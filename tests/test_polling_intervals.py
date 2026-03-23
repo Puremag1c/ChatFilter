@@ -5,8 +5,6 @@ Tests verify that polling adapts interval based on:
 2. Active groups (analysis in progress vs idle)
 """
 
-import pytest
-
 
 class TestPollingIntervals:
     """Tests for schedulePoll logic in chats.html."""
@@ -20,13 +18,7 @@ class TestPollingIntervals:
         is_sse_connected = True  # body.classList does NOT contain 'sse-disconnected'
 
         # Logic from schedulePoll()
-        if has_active:
-            if is_sse_connected:
-                poll_interval = 60000
-            else:
-                poll_interval = 30000
-        else:
-            poll_interval = 10000
+        poll_interval = (60000 if is_sse_connected else 30000) if has_active else 10000
 
         assert poll_interval == 60000, "Active groups + SSE connected should use 60s polling"
 
@@ -38,13 +30,7 @@ class TestPollingIntervals:
         has_active = True
         is_sse_connected = False  # body.classList contains 'sse-disconnected'
 
-        if has_active:
-            if is_sse_connected:
-                poll_interval = 60000
-            else:
-                poll_interval = 30000
-        else:
-            poll_interval = 10000
+        poll_interval = (60000 if is_sse_connected else 30000) if has_active else 10000
 
         assert poll_interval == 30000, "Active groups + SSE disconnected should use 30s polling"
 
@@ -56,13 +42,7 @@ class TestPollingIntervals:
         has_active = False
         is_sse_connected = True  # Doesn't matter when idle
 
-        if has_active:
-            if is_sse_connected:
-                poll_interval = 60000
-            else:
-                poll_interval = 30000
-        else:
-            poll_interval = 10000
+        poll_interval = (60000 if is_sse_connected else 30000) if has_active else 10000
 
         assert poll_interval == 10000, "No active groups should use 10s polling (increased from 3s)"
 
@@ -73,13 +53,13 @@ class TestPollingIntervals:
         - 10s when idle: reasonable check for new groups
         """
         intervals = {
-            ('active', 'connected'): 60000,
-            ('active', 'disconnected'): 30000,
-            ('idle', 'connected'): 10000,
-            ('idle', 'disconnected'): 10000,
+            ("active", "connected"): 60000,
+            ("active", "disconnected"): 30000,
+            ("idle", "connected"): 10000,
+            ("idle", "disconnected"): 10000,
         }
 
         # done_when states these specific values
-        assert intervals[('active', 'connected')] == 60000
-        assert intervals[('active', 'disconnected')] == 30000
-        assert intervals[('idle', 'connected')] == 10000
+        assert intervals[("active", "connected")] == 60000
+        assert intervals[("active", "disconnected")] == 30000
+        assert intervals[("idle", "connected")] == 10000

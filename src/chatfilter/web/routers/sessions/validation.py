@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from chatfilter.i18n import _
-from chatfilter.storage.helpers import atomic_write
 
 if TYPE_CHECKING:
     from chatfilter.models.proxy import ProxyEntry
@@ -236,6 +235,7 @@ async def validate_telegram_credentials_with_retry(
     from telethon.errors import ApiIdInvalidError
 
     from chatfilter.telegram.retry import calculate_backoff_delay
+
     from .helpers import secure_delete_dir
 
     telethon_proxy = proxy_entry.to_telethon_proxy()

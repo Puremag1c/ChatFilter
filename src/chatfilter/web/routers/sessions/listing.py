@@ -136,12 +136,12 @@ def list_stored_sessions(
     from chatfilter.web.auth_state import AuthStep
 
     # Import from helpers to avoid duplication
-    from .helpers import SessionListItem, classify_error_state, _get_flood_wait_until
-    from .io import ensure_data_dir, load_account_info
+    from .helpers import SessionListItem, _get_flood_wait_until, classify_error_state
+    from .io import ensure_data_dir
 
     sessions = []
     data_dir = ensure_data_dir(user_id)
-    flood_tracker = get_flood_tracker()
+    get_flood_tracker()
 
     for session_dir in data_dir.iterdir():
         if session_dir.is_dir():
@@ -215,7 +215,10 @@ def list_stored_sessions(
                     if info:
                         if info.state == SessionState.CONNECTED:
                             state = "connected"
-                        elif info.state == SessionState.CONNECTING or info.state == SessionState.DISCONNECTING:
+                        elif (
+                            info.state == SessionState.CONNECTING
+                            or info.state == SessionState.DISCONNECTING
+                        ):
                             state = "connecting"
                         elif info.state == SessionState.ERROR:
                             error_message = info.error_message

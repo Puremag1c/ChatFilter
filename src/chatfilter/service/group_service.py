@@ -7,8 +7,6 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-logger = logging.getLogger(__name__)
-
 from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 from chatfilter.analyzer.progress import compute_group_status
 from chatfilter.importer.parser import _classify_entry
@@ -22,6 +20,8 @@ from chatfilter.models.group import (
     GroupStatus,
 )
 from chatfilter.storage.group_database import GroupDatabase
+
+logger = logging.getLogger(__name__)
 
 
 class GroupService:
@@ -283,7 +283,9 @@ class GroupService:
 
         # GroupStats.analyzed = chats with status DONE + ERROR (processed count)
         # (count_processed_chats includes DONE+FAILED+DEAD, which is used for SSE progress)
-        analyzed_count = by_status.get(GroupChatStatus.DONE.value, 0) + by_status.get(GroupChatStatus.ERROR.value, 0)
+        analyzed_count = by_status.get(GroupChatStatus.DONE.value, 0) + by_status.get(
+            GroupChatStatus.ERROR.value, 0
+        )
 
         return GroupStats(
             total=stats_data["total"],
@@ -524,13 +526,15 @@ class GroupService:
                 "error": chat.get("error"),
             }
             if metrics:
-                result.update({
-                    "title": metrics.get("title"),
-                    "moderation": metrics.get("moderation"),
-                    "messages_per_hour": metrics.get("messages_per_hour"),
-                    "unique_authors_per_hour": metrics.get("unique_authors_per_hour"),
-                    "captcha": metrics.get("captcha"),
-                })
+                result.update(
+                    {
+                        "title": metrics.get("title"),
+                        "moderation": metrics.get("moderation"),
+                        "messages_per_hour": metrics.get("messages_per_hour"),
+                        "unique_authors_per_hour": metrics.get("unique_authors_per_hour"),
+                        "captcha": metrics.get("captcha"),
+                    }
+                )
             results.append(result)
 
         return results

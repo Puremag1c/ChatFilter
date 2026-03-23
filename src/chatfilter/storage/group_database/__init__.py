@@ -2,7 +2,7 @@
 
 from chatfilter.storage.database import SQLiteDatabase
 
-from .chats import ChatsMixin
+from .chats import _UNSET, ChatsMixin
 from .groups import GroupsMixin
 from .metrics import MetricsMixin
 from .schema import SchemaMixin
@@ -37,8 +37,5 @@ class GroupDatabase(
 
     pass
 
-
-# Re-export the sentinel value from chats module for backwards compatibility
-from .chats import _UNSET
 
 __all__ = ["GroupDatabase", "_UNSET"]

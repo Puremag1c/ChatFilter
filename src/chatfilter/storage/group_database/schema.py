@@ -308,9 +308,7 @@ class SchemaMixin:
             logger.info(f"Migrating {results_count} rows from group_results")
 
             # Fetch all group_results data
-            cursor = conn.execute(
-                "SELECT group_id, chat_ref, metrics_data FROM group_results"
-            )
+            cursor = conn.execute("SELECT group_id, chat_ref, metrics_data FROM group_results")
             results = cursor.fetchall()
 
             for row in results:

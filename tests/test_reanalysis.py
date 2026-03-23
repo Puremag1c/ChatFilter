@@ -203,6 +203,7 @@ async def test_incremental_preserves_existing_metrics(
     ):
         # Sleep to avoid task ID collision (timestamp-based)
         import time
+
         time.sleep(1.1)
 
         await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
@@ -302,6 +303,7 @@ async def test_incremental_skips_collected_metrics(
     ):
         # Sleep to avoid task ID collision
         import time
+
         time.sleep(1.1)
 
         await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
@@ -383,6 +385,7 @@ async def test_incremental_does_not_call_clear_results(
     ):
         # Sleep to avoid task ID collision
         import time
+
         time.sleep(1.1)
 
         await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)
@@ -476,6 +479,7 @@ async def test_overwrite_clears_all_results(
     ):
         # Sleep to avoid task ID collision
         import time
+
         time.sleep(1.1)
 
         await engine.start_analysis(group_id, mode=AnalysisMode.OVERWRITE)
@@ -537,7 +541,9 @@ async def test_overwrite_resets_chat_statuses(
     done_chat_row = next(c for c in all_chats if c["chat_ref"] == "done_chat")
     failed_chat_row = next(c for c in all_chats if c["chat_ref"] == "failed_chat")
     test_db.update_chat_status(done_chat_row["id"], GroupChatStatus.DONE.value)
-    test_db.update_chat_status(failed_chat_row["id"], GroupChatStatus.ERROR.value, error="Simulated error")
+    test_db.update_chat_status(
+        failed_chat_row["id"], GroupChatStatus.ERROR.value, error="Simulated error"
+    )
 
     # Mark as completed (manually, since it failed)
     test_db.save_group(
@@ -559,6 +565,7 @@ async def test_overwrite_resets_chat_statuses(
     ):
         # Sleep to avoid task ID collision
         import time
+
         time.sleep(1.1)
 
         await engine.start_analysis(group_id, mode=AnalysisMode.OVERWRITE)
@@ -733,6 +740,7 @@ async def test_settings_change_plus_increment(
     ):
         # Sleep to avoid task ID collision
         import time
+
         time.sleep(1.1)
 
         await engine.start_analysis(group_id, mode=AnalysisMode.INCREMENT)

@@ -1,9 +1,6 @@
 """Tests for sessions router."""
 
-import json
-import re
 import shutil
-import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import patch
@@ -14,11 +11,8 @@ from fastapi.testclient import TestClient
 from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
     ensure_data_dir,
-    read_upload_with_size_limit,
     sanitize_session_name,
     validate_account_info_json,
-    validate_config_file_format,
-    validate_session_file_format,
 )
 
 from .conftest import extract_csrf_token
@@ -158,10 +152,6 @@ class TestValidateAccountInfoJson:
         assert "format" in error.lower() or "invalid" in error.lower()
 
 
-
-
-
-
 class TestDeleteSessionClearsFloodWait:
     """Test that deleting a session clears its FloodWait entry."""
 
@@ -182,7 +172,9 @@ class TestDeleteSessionClearsFloodWait:
         mock_settings = MagicMock()
         mock_settings.sessions_dir = test_data_dir
 
-        with patch("chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings):
+        with patch(
+            "chatfilter.web.routers.sessions.helpers.get_settings", return_value=mock_settings
+        ):
             yield test_data_dir
 
         if test_data_dir.exists():
@@ -294,4 +286,3 @@ class TestEnsureDataDirPathTraversal:
             result = ensure_data_dir(42)
             assert result == tmp_path / "42"
             assert result.is_dir()
-

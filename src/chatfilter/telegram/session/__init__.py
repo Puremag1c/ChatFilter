@@ -6,11 +6,11 @@ including connection lifecycle, health monitoring, and error handling.
 
 from .manager import SessionManager
 from .models import (
-    ClientFactory,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_DISCONNECT_TIMEOUT,
     DEFAULT_HEALTH_CHECK_TIMEOUT,
     DEFAULT_OPERATION_TIMEOUT,
+    ClientFactory,
     ManagedSession,
     SessionBusyError,
     SessionConnectError,

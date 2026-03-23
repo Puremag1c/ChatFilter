@@ -52,7 +52,9 @@ class TestChatIdValidation:
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
         # Validate chat IDs that all exist
-        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", TEST_USER_ID, [123, 456, 789])
+        valid_ids, invalid_ids = await service.validate_chat_ids(
+            "test_session", TEST_USER_ID, [123, 456, 789]
+        )
 
         assert valid_ids == [123, 456, 789]
         assert invalid_ids == []
@@ -94,7 +96,9 @@ class TestChatIdValidation:
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
         # Validate chat IDs that don't exist at all
-        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", TEST_USER_ID, [789, 999, 111])
+        valid_ids, invalid_ids = await service.validate_chat_ids(
+            "test_session", TEST_USER_ID, [789, 999, 111]
+        )
 
         assert valid_ids == []
         assert invalid_ids == [789, 999, 111]
@@ -123,7 +127,9 @@ class TestChatIdValidation:
         monkeypatch.setattr(service, "get_chats", mock_get_chats)
 
         # Validate - should clear cache and fetch fresh data
-        valid_ids, invalid_ids = await service.validate_chat_ids("test_session", TEST_USER_ID, [123, 999])
+        valid_ids, invalid_ids = await service.validate_chat_ids(
+            "test_session", TEST_USER_ID, [123, 999]
+        )
 
         # 999 should be invalid because it's not in the fresh fetch
         assert valid_ids == [123]

@@ -11,8 +11,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, TypeVar
 
 from telethon import errors
 
@@ -101,7 +102,10 @@ def should_retry_floodwait(
     """
     # Check if single FloodWait exceeds limit
     if wait_seconds > policy.max_floodwait_seconds:
-        return False, f"FloodWait too long: {wait_seconds}s (limit: {policy.max_floodwait_seconds}s)"
+        return (
+            False,
+            f"FloodWait too long: {wait_seconds}s (limit: {policy.max_floodwait_seconds}s)",
+        )
 
     # Calculate new cumulative wait with buffer
     buffer = int(wait_seconds * policy.backoff_buffer_percent)
@@ -110,7 +114,10 @@ def should_retry_floodwait(
 
     # Check if cumulative wait would exceed timeout
     if new_cumulative > policy.max_chat_timeout:
-        return False, f"Timeout exceeded: {int(cumulative_wait)}s cumulative (limit: {policy.max_chat_timeout}s)"
+        return (
+            False,
+            f"Timeout exceeded: {int(cumulative_wait)}s cumulative (limit: {policy.max_chat_timeout}s)",
+        )
 
     return True, None
 
@@ -172,7 +179,9 @@ async def try_with_retry(
         floodwait_expires: dict[str, float] = {}
         had_non_floodwait_error = False
         accounts_tried_this_round = 0
-        accounts_available_this_round = 0  # Track how many accounts were available (not pre-blocked)
+        accounts_available_this_round = (
+            0  # Track how many accounts were available (not pre-blocked)
+        )
 
         for account_id in accounts:
             # Skip accounts already tried in this round
@@ -221,7 +230,9 @@ async def try_with_retry(
 
                     # Check if we should retry this FloodWait
                     should_retry, skip_reason = should_retry_floodwait(
-                        wait_seconds, cumulative_wait, policy,
+                        wait_seconds,
+                        cumulative_wait,
+                        policy,
                     )
 
                     if not should_retry:
@@ -263,8 +274,7 @@ async def try_with_retry(
                     errors.UserBannedInChannelError,
                 ) as e:
                     logger.warning(
-                        f"Account '{account_id}' banned in '{chat_ref}': {e}. "
-                        f"Trying next account."
+                        f"Account '{account_id}' banned in '{chat_ref}': {e}. Trying next account."
                     )
                     had_non_floodwait_error = True
                     break  # Move to next account
@@ -308,7 +318,11 @@ async def try_with_retry(
             and accounts_available_this_round == 0  # No accounts were available to try
         )
 
-        if all_accounts_floodwait or (floodwait_expires and not had_non_floodwait_error and total_floodwait_accounts == accounts_tried_this_round):
+        if all_accounts_floodwait or (
+            floodwait_expires
+            and not had_non_floodwait_error
+            and total_floodwait_accounts == accounts_tried_this_round
+        ):
             # All accounts are rate-limited — wait for minimum FloodWait
             min_wait_account = min(floodwait_expires.items(), key=lambda x: x[1])
             account_id, expiry_time = min_wait_account

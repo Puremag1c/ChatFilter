@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -90,9 +89,7 @@ def test_create_group_endpoint_accepts_file(
     csrf_token = get_csrf_token(fastapi_test_client)
 
     # Create file upload
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Group",
         "source_type": "file_upload",
@@ -117,9 +114,7 @@ def test_create_group_without_csrf_fails(
 ) -> None:
     """Test that create group endpoint rejects requests without CSRF token."""
     # Create file upload
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Group",
         "source_type": "file_upload",
@@ -146,9 +141,7 @@ def test_empty_csv_file(
     csrf_token = get_csrf_token(fastapi_test_client)
 
     # Create file upload with truly empty content (no rows at all)
-    files = {
-        "file_upload": ("empty.csv", io.BytesIO(b""), "text/csv")
-    }
+    files = {"file_upload": ("empty.csv", io.BytesIO(b""), "text/csv")}
     data = {
         "name": "Empty Group",
         "source_type": "file_upload",
@@ -175,14 +168,13 @@ def test_start_analysis_endpoint(
     """Test start analysis endpoint with CSRF protection."""
     # Set up test data directory so groups persist
     import os
+
     os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
     # First create a group
     csrf_token = get_csrf_token(fastapi_test_client)
 
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Group for Analysis",
         "source_type": "file_upload",
@@ -198,6 +190,7 @@ def test_start_analysis_endpoint(
 
     # Extract group ID from response (simple approach - look for data-group-id or id attribute)
     import re
+
     # Try id="group-XXX" pattern first
     match = re.search(r'id="group-([^"]+)"', create_response.text)
     if not match:
@@ -207,7 +200,9 @@ def test_start_analysis_endpoint(
         # Try URL pattern
         match = re.search(r'/api/groups/([^/"]+)/start', create_response.text)
 
-    assert match, f"Could not find group ID in response. Response text: {create_response.text[:500]}"
+    assert match, (
+        f"Could not find group ID in response. Response text: {create_response.text[:500]}"
+    )
     group_id = match.group(1)
 
     # Get fresh CSRF token for start request
@@ -226,6 +221,7 @@ def test_start_analysis_endpoint(
     if response.status_code == 200:
         assert "HX-Trigger" in response.headers
         import json
+
         trigger = json.loads(response.headers["HX-Trigger"])
         assert "showToast" in trigger
         assert trigger["showToast"]["type"] == "error"
@@ -240,14 +236,13 @@ def test_stop_analysis_endpoint(
     """Test stop analysis endpoint with CSRF protection."""
     # Set up test data directory so groups persist
     import os
+
     os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
     # First create a group
     csrf_token = get_csrf_token(fastapi_test_client)
 
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Group for Stop",
         "source_type": "file_upload",
@@ -263,6 +258,7 @@ def test_stop_analysis_endpoint(
 
     # Extract group ID
     import re
+
     # Try id="group-XXX" pattern first
     match = re.search(r'id="group-([^"]+)"', create_response.text)
     if not match:
@@ -272,7 +268,9 @@ def test_stop_analysis_endpoint(
         # Try URL pattern
         match = re.search(r'/api/groups/([^/"]+)/stop', create_response.text)
 
-    assert match, f"Could not find group ID in response. Response text: {create_response.text[:500]}"
+    assert match, (
+        f"Could not find group ID in response. Response text: {create_response.text[:500]}"
+    )
     group_id = match.group(1)
 
     # Get fresh CSRF token for stop request
@@ -318,14 +316,13 @@ def test_update_group_settings(
     """Test updating group settings endpoint."""
     # Set up test data directory
     import os
+
     os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
     # First create a group
     csrf_token = get_csrf_token(fastapi_test_client)
 
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Group for Settings",
         "source_type": "file_upload",
@@ -341,13 +338,16 @@ def test_update_group_settings(
 
     # Extract group ID
     import re
+
     match = re.search(r'id="group-([^"]+)"', create_response.text)
     if not match:
         match = re.search(r'data-group-id="([^"]+)"', create_response.text)
     if not match:
         match = re.search(r'/api/groups/([^/"]+)/settings', create_response.text)
 
-    assert match, f"Could not find group ID in response. Response text: {create_response.text[:500]}"
+    assert match, (
+        f"Could not find group ID in response. Response text: {create_response.text[:500]}"
+    )
     group_id = match.group(1)
 
     # Get fresh CSRF token for update request
@@ -383,14 +383,13 @@ def test_update_settings_all_disabled(
 ) -> None:
     """Test updating settings with all metrics disabled."""
     import os
+
     os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
     # Create a group
     csrf_token = get_csrf_token(fastapi_test_client)
 
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Group All Disabled",
         "source_type": "file_upload",
@@ -406,6 +405,7 @@ def test_update_settings_all_disabled(
 
     # Extract group ID
     import re
+
     match = re.search(r'id="group-([^"]+)"', create_response.text)
     if not match:
         match = re.search(r'data-group-id="([^"]+)"', create_response.text)
@@ -434,14 +434,13 @@ def test_update_settings_invalid_time_window(
 ) -> None:
     """Test updating settings with invalid time_window value."""
     import os
+
     os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
     # Create a group
     csrf_token = get_csrf_token(fastapi_test_client)
 
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Group Invalid Time",
         "source_type": "file_upload",
@@ -457,6 +456,7 @@ def test_update_settings_invalid_time_window(
 
     # Extract group ID
     import re
+
     match = re.search(r'id="group-([^"]+)"', create_response.text)
     if not match:
         match = re.search(r'data-group-id="([^"]+)"', create_response.text)
@@ -487,14 +487,12 @@ def test_export_group_results_returns_csv(
     """Test that export endpoint returns CSV with correct Content-Disposition header."""
     # Create group
     csrf_token = get_csrf_token(fastapi_test_client)
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Export Test Group",
         "source_type": "file_upload",
     }
-    
+
     response = fastapi_test_client.post(
         "/api/groups",
         headers={"X-CSRF-Token": csrf_token},
@@ -502,9 +500,10 @@ def test_export_group_results_returns_csv(
         data=data,
     )
     assert response.status_code == 200
-    
+
     # Extract group_id from response
     import re
+
     match = re.search(r'id="group-([^"]+)"', response.text)
     if not match:
         match = re.search(r'data-group-id="([^"]+)"', response.text)
@@ -512,36 +511,36 @@ def test_export_group_results_returns_csv(
         match = re.search(r'/api/groups/([^/"]+)/export', response.text)
     assert match, f"Could not find group_id in response. Response text: {response.text[:500]}"
     group_id = match.group(1)
-    
+
     # Export results (empty results is OK - we test the endpoint)
     export_response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
-    
+
     # Should return 200 with CSV content-type
     assert export_response.status_code == 200
     assert export_response.headers["content-type"] == "text/csv; charset=utf-8"
-    
+
     # Check Content-Disposition header has filename
     content_disposition = export_response.headers.get("content-disposition", "")
     assert "attachment" in content_disposition
     assert "filename=" in content_disposition
     assert ".csv" in content_disposition
-    
+
     # Verify filename format: {group_name}.csv (sanitized)
     filename_match = re.search(r'filename="([^"]+)"', content_disposition)
     assert filename_match, "Filename not found in Content-Disposition"
     filename = filename_match.group(1)
     # Group name "Export Test Group" → "Export_Test_Group.csv"
     assert filename == "Export_Test_Group.csv"
-    
+
     # Check CSV content is valid (has headers)
     csv_text = export_response.text
     # Remove BOM if present
-    if csv_text.startswith('\ufeff'):
+    if csv_text.startswith("\ufeff"):
         csv_text = csv_text[1:]
-    
-    lines = csv_text.strip().split('\n')
+
+    lines = csv_text.strip().split("\n")
     assert len(lines) >= 1, "CSV should have at least header row"
-    
+
     # Check header row contains expected columns
     header = lines[0]
     assert "chat_ref" in header
@@ -573,9 +572,7 @@ def test_export_reads_metrics_from_group_chats_columns(
 
     # Create group
     csrf_token = get_csrf_token(fastapi_test_client)
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "Test Export Group",
         "source_type": "file_upload",
@@ -595,7 +592,7 @@ def test_export_reads_metrics_from_group_chats_columns(
         match = re.search(r'data-group-id="([^"]+)"', response.text)
     if not match:
         match = re.search(r'/api/groups/([^/"]+)/export', response.text)
-    assert match, f"Could not find group_id in response"
+    assert match, "Could not find group_id in response"
     group_id = match.group(1)
 
     # Simulate analysis: update group_chats with metrics in columns
@@ -640,10 +637,10 @@ def test_export_reads_metrics_from_group_chats_columns(
     assert export_response.headers["content-type"] == "text/csv; charset=utf-8"
 
     csv_text = export_response.text
-    if csv_text.startswith('\ufeff'):
+    if csv_text.startswith("\ufeff"):
         csv_text = csv_text[1:]
 
-    lines = csv_text.strip().split('\n')
+    lines = csv_text.strip().split("\n")
     assert len(lines) >= 2, (
         f"CSV should have header + at least 1 data row, got {len(lines)} lines: {lines}"
     )
@@ -658,9 +655,7 @@ def test_export_sanitizes_path_traversal_attack(
 
     # Create group with path traversal in name
     csrf_token = get_csrf_token(fastapi_test_client)
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "../../../etc/passwd",
         "source_type": "file_upload",
@@ -709,9 +704,7 @@ def test_export_sanitizes_http_response_splitting(
 
     # Create group with newline injection attempt
     csrf_token = get_csrf_token(fastapi_test_client)
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "test\\nLocation: evil.com",
         "source_type": "file_upload",
@@ -760,9 +753,7 @@ def test_export_empty_name_fallback(
 
     # Create group with only special chars that will all be stripped
     csrf_token = get_csrf_token(fastapi_test_client)
-    files = {
-        "file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")
-    }
+    files = {"file_upload": ("test_chats.csv", io.BytesIO(sample_csv_content), "text/csv")}
     data = {
         "name": "../../../",
         "source_type": "file_upload",
@@ -914,9 +905,7 @@ class TestRouterUsesNewServiceAPI:
 
         source = inspect.getsource(reanalyze_group)
 
-        assert "service.reanalyze(" in source, (
-            "reanalyze_group should call service.reanalyze()"
-        )
+        assert "service.reanalyze(" in source, "reanalyze_group should call service.reanalyze()"
         assert "mode=analysis_mode" in source, (
             "reanalyze_group should pass mode to service.reanalyze()"
         )
@@ -960,7 +949,9 @@ class TestRouterUsesNewServiceAPI:
             }
         ]
 
-        with patch("chatfilter.web.routers.groups.export._get_group_service", return_value=mock_service):
+        with patch(
+            "chatfilter.web.routers.groups.export._get_group_service", return_value=mock_service
+        ):
             response = fastapi_test_client.get(f"/api/groups/{group_id}/export")
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/csv; charset=utf-8"
@@ -970,9 +961,9 @@ class TestRouterUsesNewServiceAPI:
 
             # Verify CSV contains data from flat results
             csv_text = response.text
-            if csv_text.startswith('\ufeff'):
+            if csv_text.startswith("\ufeff"):
                 csv_text = csv_text[1:]
-            lines = csv_text.strip().split('\n')
+            lines = csv_text.strip().split("\n")
             assert len(lines) >= 2, "CSV should have header + data rows"
             assert "chat_ref" in lines[0]
             assert "@testchat" in lines[1]

@@ -115,8 +115,8 @@ from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.client.config import SessionFileError, TelegramConfigError
 from chatfilter.telegram.client.loader import TelegramClientLoader
-from chatfilter.telegram.session import SessionBusyError, SessionState
 from chatfilter.telegram.flood_tracker import get_flood_tracker
+from chatfilter.telegram.session import SessionBusyError, SessionState
 from chatfilter.web.events import get_event_bus
 from chatfilter.web.template_helpers import get_template_context
 
@@ -178,21 +178,26 @@ router = APIRouter(tags=["sessions"])
 
 # Register SSE routes
 from .sse import register_sse_routes, session_events  # noqa: F401
+
 register_sse_routes(router)
 
 # Import connect module to register routes (must be after router definition)
-from . import connect  # noqa: E402, F401
-
 # Import basic CRUD routes
-from . import routes  # noqa: F401
-
 # Import upload and import routes
-from . import upload  # noqa: F401
-
 # Import auth modules to register routes
-from . import auth_initial  # noqa: F401
-from . import auth_device  # noqa: F401
-from . import auth_reconnect  # noqa: F401
+from . import (
+    auth_device,  # noqa: F401
+    auth_initial,  # noqa: F401
+    auth_reconnect,  # noqa: F401
+    connect,  # noqa: E402, F401
+    routes,  # noqa: F401
+    upload,  # noqa: F401
+)
+from .auth_device import (  # noqa: F401
+    _check_device_confirmation,
+    _handle_needs_confirmation,
+    _poll_device_confirmation,
+)
 
 # Re-export auth functions for backwards compatibility (used by tests)
 from .auth_initial import (  # noqa: F401
@@ -200,11 +205,6 @@ from .auth_initial import (  # noqa: F401
     start_auth_flow,
     submit_auth_2fa,
     submit_auth_code,
-)
-from .auth_device import (  # noqa: F401
-    _check_device_confirmation,
-    _handle_needs_confirmation,
-    _poll_device_confirmation,
 )
 from .auth_reconnect import (  # noqa: F401
     verify_2fa,
@@ -214,13 +214,6 @@ from .auth_reconnect_helpers import (  # noqa: F401
     _finalize_reconnect_auth,
 )
 
-# Client registry: disconnect all active Telethon clients for a user before file deletion
-from .client_registry import (  # noqa: F401
-    disconnect_user_clients,
-    register_client,
-    unregister_client,
-)
-
 # Re-export connect/background functions for backwards compatibility (used by tests)
 from .background import (  # noqa: F401
     _do_connect_in_background_v2,
@@ -228,3 +221,9 @@ from .background import (  # noqa: F401
     _send_verification_code_with_timeout,
 )
 
+# Client registry: disconnect all active Telethon clients for a user before file deletion
+from .client_registry import (  # noqa: F401
+    disconnect_user_clients,
+    register_client,
+    unregister_client,
+)

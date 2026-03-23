@@ -34,17 +34,11 @@ class TestDeviceConfirmation:
 
         mock_dir = MagicMock(return_value=isolated_tmp_dir)
         # Patch the helpers module directly since list_stored_sessions calls it from there
-        monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.helpers.ensure_data_dir", mock_dir
-        )
+        monkeypatch.setattr("chatfilter.web.routers.sessions.helpers.ensure_data_dir", mock_dir)
         # Also patch the re-exported version for other functions
-        monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.ensure_data_dir", mock_dir
-        )
+        monkeypatch.setattr("chatfilter.web.routers.sessions.ensure_data_dir", mock_dir)
         # Patch the io module import that listing.py uses
-        monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.io.ensure_data_dir", mock_dir
-        )
+        monkeypatch.setattr("chatfilter.web.routers.sessions.io.ensure_data_dir", mock_dir)
         yield isolated_tmp_dir
 
     async def test_verify_code_needs_confirmation(
@@ -160,9 +154,7 @@ class TestDeviceConfirmation:
             # Should have updated auth state to NEED_CONFIRMATION
             mock_mgr.update_auth_state.assert_called()
             calls = mock_mgr.update_auth_state.call_args_list
-            assert any(
-                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
-            )
+            assert any(call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls)
 
             # Should have published needs_confirmation SSE event
             mock_event_bus.publish.assert_called_with(
@@ -282,9 +274,7 @@ class TestDeviceConfirmation:
             # Should have updated auth state to NEED_CONFIRMATION
             mock_mgr.update_auth_state.assert_called()
             calls = mock_mgr.update_auth_state.call_args_list
-            assert any(
-                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
-            )
+            assert any(call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls)
 
             # Should have published needs_confirmation SSE event
             mock_event_bus.publish.assert_called_with(
@@ -301,12 +291,15 @@ class TestDeviceConfirmation:
         session_dir = mock_ensure_data_dir / session_name
         session_dir.mkdir(parents=True, exist_ok=True)
 
-        save_account_info(session_dir, {
-            "user_id": 123456789,
-            "phone": "+14385515736",
-            "first_name": "Test",
-            "last_name": "User",
-        })
+        save_account_info(
+            session_dir,
+            {
+                "user_id": 123456789,
+                "phone": "+14385515736",
+                "first_name": "Test",
+                "last_name": "User",
+            },
+        )
 
         # Create config.json
         config = {"api_id": 12345, "api_hash": "abcdefghijklmnopqrstuvwxyzabcd"}
@@ -327,9 +320,7 @@ class TestDeviceConfirmation:
         mock_auth_manager = MagicMock()
         mock_auth_manager.get_auth_state_by_session.return_value = auth_state
 
-        sessions = list_stored_sessions(
-            session_manager=None, auth_manager=mock_auth_manager
-        )
+        sessions = list_stored_sessions(session_manager=None, auth_manager=mock_auth_manager)
 
         confirm_sessions = [s for s in sessions if s.session_id == session_name]
         assert len(confirm_sessions) == 1
@@ -337,8 +328,9 @@ class TestDeviceConfirmation:
 
     async def test_check_device_confirmation_auth_key_unregistered(self) -> None:
         """Test _check_device_confirmation returns False when AuthKeyUnregisteredError is raised."""
-        from chatfilter.web.routers.sessions import _check_device_confirmation
         from telethon.errors import AuthKeyUnregisteredError
+
+        from chatfilter.web.routers.sessions import _check_device_confirmation
 
         # Mock client that raises AuthKeyUnregisteredError when calling GetAuthorizationsRequest
         mock_client = AsyncMock()
@@ -381,6 +373,7 @@ class TestDeviceConfirmation:
             "last_name": "User",
         }
         from chatfilter.web.routers.sessions import save_account_info
+
         save_account_info(session_dir, account_info)
 
         mock_client = AsyncMock()
@@ -391,12 +384,14 @@ class TestDeviceConfirmation:
         # _check_device_confirmation catches this and returns False
         mock_client.side_effect = AuthKeyUnregisteredError("Auth key unregistered")
 
-        mock_client.get_me = AsyncMock(return_value=MagicMock(
-            id=123456789,
-            phone="+14385515736",
-            first_name="Test",
-            last_name="User",
-        ))
+        mock_client.get_me = AsyncMock(
+            return_value=MagicMock(
+                id=123456789,
+                phone="+14385515736",
+                first_name="Test",
+                last_name="User",
+            )
+        )
         mock_client.disconnect = AsyncMock()
 
         auth_state = AuthState(
@@ -419,7 +414,9 @@ class TestDeviceConfirmation:
             patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
             patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
             patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-            patch("chatfilter.web.routers.sessions._finalize_reconnect_auth", new_callable=AsyncMock) as mock_finalize,
+            patch(
+                "chatfilter.web.routers.sessions._finalize_reconnect_auth", new_callable=AsyncMock
+            ) as mock_finalize,
         ):
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
@@ -460,9 +457,7 @@ class TestDeviceConfirmation:
 
             # Should NOT have transitioned to NEED_CONFIRMATION step
             calls = mock_mgr.update_auth_state.call_args_list
-            assert not any(
-                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
-            )
+            assert not any(call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls)
 
     async def test_verify_code_auth_key_unregistered_goes_to_finalize(
         self, fastapi_test_client, mock_ensure_data_dir: Path
@@ -495,6 +490,7 @@ class TestDeviceConfirmation:
             "last_name": "User",
         }
         from chatfilter.web.routers.sessions import save_account_info
+
         save_account_info(session_dir, account_info)
 
         mock_client = AsyncMock()
@@ -505,12 +501,14 @@ class TestDeviceConfirmation:
         # _check_device_confirmation catches this and returns False
         mock_client.side_effect = AuthKeyUnregisteredError("Auth key unregistered")
 
-        mock_client.get_me = AsyncMock(return_value=MagicMock(
-            id=123456789,
-            phone="+14385515736",
-            first_name="Test",
-            last_name="User",
-        ))
+        mock_client.get_me = AsyncMock(
+            return_value=MagicMock(
+                id=123456789,
+                phone="+14385515736",
+                first_name="Test",
+                last_name="User",
+            )
+        )
         mock_client.disconnect = AsyncMock()
 
         auth_state = AuthState(
@@ -533,7 +531,9 @@ class TestDeviceConfirmation:
             patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
             patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
             patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-            patch("chatfilter.web.routers.sessions._finalize_reconnect_auth", new_callable=AsyncMock) as mock_finalize,
+            patch(
+                "chatfilter.web.routers.sessions._finalize_reconnect_auth", new_callable=AsyncMock
+            ) as mock_finalize,
         ):
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
@@ -574,9 +574,7 @@ class TestDeviceConfirmation:
 
             # Should NOT have transitioned to NEED_CONFIRMATION step
             calls = mock_mgr.update_auth_state.call_args_list
-            assert not any(
-                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
-            )
+            assert not any(call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls)
 
     async def test_auto_2fa_auth_key_unregistered_goes_to_finalize(
         self, fastapi_test_client, mock_ensure_data_dir: Path
@@ -586,7 +584,7 @@ class TestDeviceConfirmation:
         AuthKeyUnregisteredError = session dead, NOT device confirmation.
         _check_device_confirmation returns False → code proceeds to _finalize_reconnect_auth.
         """
-        from telethon.errors import SessionPasswordNeededError, AuthKeyUnregisteredError
+        from telethon.errors import AuthKeyUnregisteredError, SessionPasswordNeededError
 
         session_dir = mock_ensure_data_dir / "test_auto_2fa_key"
         session_dir.mkdir(parents=True, exist_ok=True)
@@ -609,10 +607,12 @@ class TestDeviceConfirmation:
             "last_name": "User",
         }
         from chatfilter.web.routers.sessions import save_account_info
+
         save_account_info(session_dir, account_info)
 
         # Store 2FA password for auto-login
         from chatfilter.security import SecureCredentialManager
+
         manager = SecureCredentialManager(session_dir)
         manager.store_2fa("test_auto_2fa_key", "stored_password")
 
@@ -622,6 +622,7 @@ class TestDeviceConfirmation:
         # First sign_in(code) raises SessionPasswordNeededError
         # Second sign_in(password) succeeds
         sign_in_call_count = [0]
+
         async def mock_sign_in(*args, **kwargs):
             sign_in_call_count[0] += 1
             if sign_in_call_count[0] == 1:
@@ -636,12 +637,14 @@ class TestDeviceConfirmation:
         # _check_device_confirmation catches this and returns False
         mock_client.side_effect = AuthKeyUnregisteredError("Auth key unregistered")
 
-        mock_client.get_me = AsyncMock(return_value=MagicMock(
-            id=123456789,
-            phone="+14385515736",
-            first_name="Test",
-            last_name="User",
-        ))
+        mock_client.get_me = AsyncMock(
+            return_value=MagicMock(
+                id=123456789,
+                phone="+14385515736",
+                first_name="Test",
+                last_name="User",
+            )
+        )
         mock_client.disconnect = AsyncMock()
 
         auth_state = AuthState(
@@ -664,7 +667,9 @@ class TestDeviceConfirmation:
             patch("chatfilter.web.auth_state.get_auth_state_manager") as mock_get_mgr,
             patch("chatfilter.web.routers.sessions.get_event_bus") as mock_event_bus_fn,
             patch("chatfilter.web.dependencies.get_session_manager") as mock_get_sm,
-            patch("chatfilter.web.routers.sessions._finalize_reconnect_auth", new_callable=AsyncMock) as mock_finalize,
+            patch(
+                "chatfilter.web.routers.sessions._finalize_reconnect_auth", new_callable=AsyncMock
+            ) as mock_finalize,
         ):
             mock_mgr = MagicMock()
             mock_mgr.get_auth_state = AsyncMock(return_value=auth_state)
@@ -705,9 +710,7 @@ class TestDeviceConfirmation:
 
             # Should NOT have transitioned to NEED_CONFIRMATION step
             calls = mock_mgr.update_auth_state.call_args_list
-            assert not any(
-                call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls
-            )
+            assert not any(call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls)
 
             # Verify sign_in was called twice (code, then password)
             assert sign_in_call_count[0] == 2

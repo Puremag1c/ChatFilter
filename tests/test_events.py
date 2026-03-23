@@ -11,6 +11,7 @@ Tests cover:
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 
 from chatfilter.web.events import (
@@ -124,10 +125,14 @@ class TestSessionEventBus:
         bus = SessionEventBus()
         received = []
 
-        async def failing_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
+        async def failing_handler(
+            session_id: str, new_status: str, data: dict | None = None
+        ) -> None:
             raise ValueError("Handler failure")
 
-        async def working_handler(session_id: str, new_status: str, data: dict | None = None) -> None:
+        async def working_handler(
+            session_id: str, new_status: str, data: dict | None = None
+        ) -> None:
             received.append((session_id, new_status))
 
         bus.subscribe(failing_handler)

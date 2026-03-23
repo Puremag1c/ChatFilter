@@ -61,6 +61,7 @@ class TestHXTriggerPattern:
     ) -> None:
         """Start endpoint must return HX-Trigger: refreshGroups, not card HTML."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         group_id = _create_group(fastapi_test_client)
@@ -90,6 +91,7 @@ class TestHXTriggerPattern:
     ) -> None:
         """Stop endpoint must return HX-Trigger: refreshGroups, not card HTML."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         group_id = _create_group(fastapi_test_client)
@@ -112,6 +114,7 @@ class TestHXTriggerPattern:
     ) -> None:
         """Delete endpoint must return HX-Trigger: refreshGroups header."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         group_id = _create_group(fastapi_test_client)
@@ -134,6 +137,7 @@ class TestGroupListNoDuplicates:
     ) -> None:
         """GET /api/groups must return exactly one card per group."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         # Create 3 groups
@@ -149,15 +153,14 @@ class TestGroupListNoDuplicates:
         # Each group ID should appear exactly once
         for gid in ids:
             count = resp.text.count(f'id="group-{gid}"')
-            assert count == 1, (
-                f"Group {gid} appears {count} times in response (expected 1)"
-            )
+            assert count == 1, f"Group {gid} appears {count} times in response (expected 1)"
 
     def test_repeated_list_calls_return_stable_count(
         self, fastapi_test_client: TestClient, tmp_path: Path
     ) -> None:
         """Multiple calls to /api/groups must return the same card count (no growth)."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         _create_group(fastapi_test_client, name="Polling Test Group")
@@ -183,6 +186,7 @@ class TestGroupCardTemplate:
     ) -> None:
         """Action buttons in group card must use hx-swap='none'."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         group_id = _create_group(fastapi_test_client)
@@ -192,9 +196,7 @@ class TestGroupCardTemplate:
         html = resp.text
 
         # Check start/stop button
-        start_match = re.search(
-            rf'hx-post="/api/groups/{re.escape(group_id)}/start"[^>]*>', html
-        )
+        start_match = re.search(rf'hx-post="/api/groups/{re.escape(group_id)}/start"[^>]*>', html)
         if start_match:
             button_html = start_match.group(0)
             assert 'hx-swap="none"' in button_html, (
@@ -205,9 +207,7 @@ class TestGroupCardTemplate:
             )
 
         # Check delete button
-        delete_match = re.search(
-            rf'hx-delete="/api/groups/{re.escape(group_id)}"[^>]*>', html
-        )
+        delete_match = re.search(rf'hx-delete="/api/groups/{re.escape(group_id)}"[^>]*>', html)
         if delete_match:
             button_html = delete_match.group(0)
             assert 'hx-swap="none"' in button_html, (
@@ -222,6 +222,7 @@ class TestGroupCardTemplate:
     ) -> None:
         """Group card must NOT contain inline handleExportDownload script."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         _create_group(fastapi_test_client)
@@ -241,6 +242,7 @@ class TestChatsPageNoDuplicatePolling:
     ) -> None:
         """#groups-container must NOT have hx-get or hx-trigger attributes."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         resp = fastapi_test_client.get("/chats")
@@ -261,11 +263,10 @@ class TestChatsPageNoDuplicatePolling:
     ) -> None:
         """Chats page must include vanilla JS fetch-based polling script."""
         import os
+
         os.environ["CHATFILTER_DATA_DIR"] = str(tmp_path / "data")
 
         resp = fastapi_test_client.get("/chats")
         assert resp.status_code == 200
 
-        assert "chats-page.js" in resp.text, (
-            "Chats page missing chats-page.js script include"
-        )
+        assert "chats-page.js" in resp.text, "Chats page missing chats-page.js script include"

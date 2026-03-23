@@ -37,7 +37,9 @@ class TestSanitizeErrorMessageForClient:
 
     def test_stack_trace_sanitized(self) -> None:
         """Test that stack traces are sanitized."""
-        error_message = 'Traceback (most recent call last):\n  File "sessions.py", line 123, in connect'
+        error_message = (
+            'Traceback (most recent call last):\n  File "sessions.py", line 123, in connect'
+        )
         result = sanitize_error_message_for_client(error_message, "error")
         assert result == "An error occurred. Please try again or contact support."
         assert "Traceback" not in result
@@ -91,7 +93,10 @@ class TestSanitizeErrorMessageForClient:
         assert result_needs_config == "Configuration error. Please check your proxy settings."
 
         result_network = sanitize_error_message_for_client(error_message, "network_error")
-        assert result_network == "Network connection error. Please check your internet connection and try again."
+        assert (
+            result_network
+            == "Network connection error. Please check your internet connection and try again."
+        )
 
         result_timeout = sanitize_error_message_for_client(error_message, "timeout")
         assert result_timeout == "Connection timeout. Please try again."
@@ -109,7 +114,10 @@ class TestSanitizeErrorMessageForClient:
         """Test message with multiple sensitive patterns."""
         error_message = "ConnectionError in /home/user/app.py line 123: session abc123 failed"
         result = sanitize_error_message_for_client(error_message, "network_error")
-        assert result == "Network connection error. Please check your internet connection and try again."
+        assert (
+            result
+            == "Network connection error. Please check your internet connection and try again."
+        )
         assert "/home/user" not in result
         assert "line 123" not in result
         assert "abc123" not in result

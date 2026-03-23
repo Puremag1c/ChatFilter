@@ -79,7 +79,7 @@ def test_app_startup_and_sessions_endpoint():
                 if stdout:
                     error_msg += f"\nSTDOUT:\n{stdout}"
                 pytest.fail(error_msg)
-            except:
+            except Exception:
                 pytest.fail(f"Server failed to start within {startup_timeout}s")
 
         # Verify server started successfully
@@ -93,6 +93,6 @@ def test_app_startup_and_sessions_endpoint():
         process.terminate()
         try:
             process.wait(timeout=5)
-        except:
+        except Exception:
             process.kill()
             process.wait()

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
 
-from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 
 # Import get_settings from helpers to support test mocking.
@@ -21,7 +20,7 @@ from chatfilter.storage.helpers import atomic_write
 from . import helpers
 
 if TYPE_CHECKING:
-    from telethon import TelegramClient
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -307,4 +306,3 @@ def find_duplicate_accounts(
             duplicates.append(session_dir.name)
 
     return duplicates
-

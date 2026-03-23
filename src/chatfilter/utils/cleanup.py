@@ -223,6 +223,7 @@ def cleanup_orphaned_resources(
     # 1b. Clean up backup session files (failed deletes)
     try:
         from chatfilter.storage.file import cleanup_backup_session_files
+
         backup_count = cleanup_backup_session_files(sessions_dir)
         if backup_count > 0:
             logger.info(f"✓ Cleaned {backup_count} backup session file(s)")
