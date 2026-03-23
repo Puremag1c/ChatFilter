@@ -65,17 +65,6 @@ class TestEnvironmentBackend:
 
         assert "CHATFILTER_ENCRYPTION_KEY_42" in os.environ
 
-    @pytest.mark.skip("base64.urlsafe_b64decode is too lenient to reliably test invalid input")
-    def test_invalid_base64_raises_error(self):
-        """Test that invalid base64 in env var raises error."""
-        # Note: urlsafe_b64decode is very lenient and will decode most strings
-        # without raising an exception, making this test unreliable
-        backend = EnvironmentBackend()
-        os.environ["CHATFILTER_ENCRYPTION_KEY_99"] = "invalid"
-
-        with pytest.raises(KeyManagerError, match="Invalid key"):
-            backend.get_key(99)
-
 
 class TestPasswordBackend:
     """Test password-derived key storage."""

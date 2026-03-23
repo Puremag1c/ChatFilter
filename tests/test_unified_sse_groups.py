@@ -350,20 +350,6 @@ class TestUnifiedSSEEndpoint:
         assert event_count < 100, f"Stream did not stop on disconnect (got {event_count} events)"
 
 
-class TestUnifiedSSEEndpointHTTP:
-    """HTTP integration tests for /api/groups/events endpoint."""
-
-    @pytest.mark.skip(reason="HTTP integration test - requires full app setup with DB")
-    async def test_endpoint_returns_sse_content_type(self):
-        """Test: endpoint returns text/event-stream content type.
-
-        Note: This test is skipped because it requires full application setup
-        including database initialization. The unified SSE functionality is
-        tested through unit tests above.
-        """
-        pass
-
-
 class TestResumeButtonCardUpdate:
     """Tests for resume button triggering card updates."""
 
