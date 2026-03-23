@@ -275,6 +275,16 @@ async def submit_auth_code(
             },
         )
 
+    # Verify ownership: auth_id must belong to the requesting user
+    _web_session = getattr(request.state, "session", None)
+    _session_user_id = _web_session.get("user_id") if _web_session is not None else None
+    if str(_session_user_id) != auth_state.web_user_id:
+        logger.warning(
+            f"Auth ownership mismatch for auth_id '{auth_id}': "
+            f"session user '{_session_user_id}' != auth owner '{auth_state.web_user_id}'"
+        )
+        return HTMLResponse("Forbidden", status_code=403)
+
     # Validate code format (digits only)
     code = code.strip().replace(" ", "").replace("-", "")
     if not code.isdigit() or len(code) < 5:
@@ -441,6 +451,16 @@ async def submit_auth_2fa(
                 "error": _("Auth session expired or not found. Please start over."),
             },
         )
+
+    # Verify ownership: auth_id must belong to the requesting user
+    _web_session = getattr(request.state, "session", None)
+    _session_user_id = _web_session.get("user_id") if _web_session is not None else None
+    if str(_session_user_id) != auth_state.web_user_id:
+        logger.warning(
+            f"Auth ownership mismatch for auth_id '{auth_id}': "
+            f"session user '{_session_user_id}' != auth owner '{auth_state.web_user_id}'"
+        )
+        return HTMLResponse("Forbidden", status_code=403)
 
     if auth_state.step != AuthStep.NEED_2FA:
         return templates.TemplateResponse(
