@@ -76,8 +76,9 @@ def _render_error_html(
         version=__version__,
     )
 
-    return templates.TemplateResponse(  # type: ignore[call-arg]
-        "error.html",
+    return templates.TemplateResponse(
+        request=request,
+        name="error.html",
         context=context,
         status_code=status_code,
     )
