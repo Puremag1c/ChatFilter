@@ -144,8 +144,12 @@ async def start_auth_flow(
             },
         )
 
+    # Get web user_id for data directory scoping
+    from chatfilter.web.session import get_session as get_web_session
+    _web_user_id = get_web_session(request).get("user_id", "default")
+
     # Check if session already exists (AFTER credential validation)
-    session_dir = _sessions_pkg.ensure_data_dir() / safe_name
+    session_dir = _sessions_pkg.ensure_data_dir(_web_user_id) / safe_name
     if session_dir.exists():
         return templates.TemplateResponse(
             request=request,
@@ -182,7 +186,7 @@ async def start_auth_flow(
 
         # Store credentials if provided
         if has_api_id and has_api_hash:
-            cred_manager = SecureCredentialManager(_sessions_pkg.ensure_data_dir())
+            cred_manager = SecureCredentialManager(_sessions_pkg.ensure_data_dir(_web_user_id))
             cred_manager.store_credentials(
                 session_id=safe_name,
                 api_id=api_id,
@@ -194,8 +198,6 @@ async def start_auth_flow(
             logger.info(f"Session '{safe_name}' saved without credentials (will need config later)")
 
         # Create config.json so session is visible in list_stored_sessions
-        from chatfilter.web.session import get_session as get_web_session
-        _web_user_id = get_web_session(request).get("user_id", "default")
         session_config: dict[str, int | str | None] = {
             "api_id": api_id,
             "api_hash": api_hash,
@@ -574,7 +576,7 @@ async def _complete_auth_flow(
             duplicate_sessions = find_duplicate_accounts(me.id, exclude_session=session_name)
 
         # Create session directory
-        session_dir = _sessions_pkg.ensure_data_dir() / session_name
+        session_dir = _sessions_pkg.ensure_data_dir(auth_state.web_user_id) / session_name
         session_dir.mkdir(parents=True, exist_ok=True)
         session_path = session_dir / "session.session"
 
@@ -645,7 +647,7 @@ async def _complete_auth_flow(
     except Exception:
         logger.exception(f"Failed to complete auth flow for '{session_name}'")
         # Clean up on failure
-        session_dir = _sessions_pkg.ensure_data_dir() / session_name
+        session_dir = _sessions_pkg.ensure_data_dir(auth_state.web_user_id) / session_name
         if session_dir.exists():
             shutil.rmtree(session_dir, ignore_errors=True)
         temp_dir = getattr(auth_state, "temp_dir", None)

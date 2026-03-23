@@ -454,7 +454,7 @@ async def _send_verification_code_and_create_auth(
 
             # Success - create auth state and publish
             auth_manager = get_auth_state_manager()
-            await auth_manager.create_auth_state(
+            auth_state = await auth_manager.create_auth_state(
                 session_name=session_id,
                 api_id=api_id,
                 api_hash=api_hash,
@@ -463,6 +463,7 @@ async def _send_verification_code_and_create_auth(
                 phone_code_hash=result.phone_code_hash,
                 client=client,
             )
+            auth_state.web_user_id = user_id_str
 
             await get_event_bus().publish(session_id, "needs_code")
             return  # Success, exit

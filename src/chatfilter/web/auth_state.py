@@ -55,6 +55,9 @@ class AuthState:
     proxy_id: str
     phone: str
 
+    # Web user who initiated this auth flow
+    web_user_id: str = "default"
+
     # Auth flow state
     step: AuthStep
     phone_code_hash: str = ""
