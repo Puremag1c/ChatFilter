@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import secrets
 from datetime import UTC, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request, status
@@ -16,7 +16,7 @@ from chatfilter.exporter import export_to_csv
 from chatfilter.models import AnalysisResult, Chat, ChatMetrics, ChatType
 
 
-class DiagnosticsFormat(str, Enum):
+class DiagnosticsFormat(StrEnum):
     """Supported formats for diagnostics export."""
 
     TEXT = "text"

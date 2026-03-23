@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ DEFAULT_DISCONNECT_TIMEOUT = 30.0
 DEFAULT_HEALTH_CHECK_TIMEOUT = 5.0
 
 
-class SessionState(str, Enum):
+class SessionState(StrEnum):
     """State machine for session lifecycle."""
 
     DISCONNECTED = "disconnected"

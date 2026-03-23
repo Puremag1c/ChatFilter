@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import random
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
-class ChatType(str, Enum):
+class ChatType(StrEnum):
     """Type of Telegram chat."""
 
     PRIVATE = "private"

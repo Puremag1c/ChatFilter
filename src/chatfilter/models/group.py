@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import random
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
-class GroupStatus(str, Enum):
+class GroupStatus(StrEnum):
     """Status of a chat group."""
 
     PENDING = "pending"
@@ -20,7 +20,7 @@ class GroupStatus(str, Enum):
     FAILED = "failed"
 
 
-class ChatTypeEnum(str, Enum):
+class ChatTypeEnum(StrEnum):
     """Type classification for group chat."""
 
     PENDING = "pending"
@@ -31,7 +31,7 @@ class ChatTypeEnum(str, Enum):
     DEAD = "dead"
 
 
-class GroupChatStatus(str, Enum):
+class GroupChatStatus(StrEnum):
     """Processing status for individual chat in group."""
 
     PENDING = "pending"
@@ -39,7 +39,7 @@ class GroupChatStatus(str, Enum):
     ERROR = "error"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     """Status of a group task."""
 
     RUNNING = "running"
@@ -47,7 +47,7 @@ class TaskStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class AnalysisMode(str, Enum):
+class AnalysisMode(StrEnum):
     """Re-analysis mode for group analysis."""
 
     FRESH = "fresh"  # Default: clear results + full analysis

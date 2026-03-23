@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class ProxyType(str, Enum):
+class ProxyType(StrEnum):
     """Supported proxy types."""
 
     SOCKS5 = "socks5"
     HTTP = "http"
 
 
-class ProxyStatus(str, Enum):
+class ProxyStatus(StrEnum):
     """Proxy health status."""
 
     WORKING = "working"  # Last ping successful

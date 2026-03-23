@@ -12,14 +12,14 @@ import asyncio
 import socket
 import tempfile
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 from .config import Settings
 
 
-class TestStatus(str, Enum):
+class TestStatus(StrEnum):
     """Test result status."""
 
     PASS = "PASS"  # nosec B105 - test status string, not a password

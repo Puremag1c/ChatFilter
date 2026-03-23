@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import re
-from enum import Enum
+from enum import StrEnum
 from typing import BinaryIO
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -15,7 +15,7 @@ class ParseError(Exception):
     """Error during chat list parsing."""
 
 
-class ChatListEntryType(str, Enum):
+class ChatListEntryType(StrEnum):
     """Type of chat list entry."""
 
     USERNAME = "username"  # @channel_name or just channel_name

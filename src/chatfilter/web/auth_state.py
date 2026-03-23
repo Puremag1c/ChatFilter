@@ -12,7 +12,7 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -30,7 +30,7 @@ MAX_AUTH_ATTEMPTS = 5
 AUTH_LOCK_DURATION_SECONDS = 900
 
 
-class AuthStep(str, Enum):
+class AuthStep(StrEnum):
     """Current step in the auth flow."""
 
     PHONE_SENT = "phone_sent"  # Code sent, waiting for user to enter code

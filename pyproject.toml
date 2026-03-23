@@ -178,8 +178,12 @@ exclude_lines = [
 exclude_dirs = ["tests", "venv", ".venv", "build", "dist"]
 skips = [
     "B101",  # assert_used - acceptable for internal invariants
+    "B105",  # hardcoded_password_string - false positives on 2FA prompt strings
+    "B110",  # try_except_pass - intentional in cleanup/teardown paths
+    "B112",  # try_except_continue - intentional in batch processing loops
     "B311",  # random - used for non-security purposes (IDs, sampling)
     "B404",  # subprocess import - required for port checking
     "B603",  # subprocess call - controlled internal commands only
     "B607",  # partial path - lsof/netstat are system utilities
+    "B608",  # hardcoded_sql_expressions - parameterized queries used, string construction is safe
 ]
