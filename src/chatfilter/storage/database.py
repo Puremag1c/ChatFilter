@@ -68,4 +68,3 @@ class SQLiteDatabase(ABC):
             raise
         finally:
             conn.close()
-

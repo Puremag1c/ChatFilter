@@ -98,7 +98,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Warn if debug mode is enabled (potential security risk)
     if settings.debug:
         logger.warning(
-            "⚠️  DEBUG MODE ENABLED - Not recommended for production! "
+            "\u26a0\ufe0f  DEBUG MODE ENABLED - Not recommended for production! "
             "This exposes detailed error messages including stack traces, "
             "exception types, and internal details. Set CHATFILTER_DEBUG=false "
             "for production deployments."
@@ -172,7 +172,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             print(f"Admin user created: admin / {password}")  # noqa: T201
             print(f"{'=' * 60}\n")  # noqa: T201
             logger.warning(f"Admin user created: admin / {password}")
-            logger.warning("No users found — created admin user with generated password (printed to console and log)")
+            logger.warning("No users found \u2014 created admin user with generated password (printed to console and log)")
     except Exception as e:
         logger.error(f"Failed to initialize admin user: {e}")
         raise SystemExit(1) from e
