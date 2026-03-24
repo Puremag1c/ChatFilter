@@ -1,6 +1,6 @@
 """Database module for chat group storage and analysis tracking."""
 
-from chatfilter.storage.database import SQLiteDatabase
+from chatfilter.storage.sqlite import SQLiteDatabase
 
 from .chats import _UNSET, ChatsMixin
 from .groups import GroupsMixin

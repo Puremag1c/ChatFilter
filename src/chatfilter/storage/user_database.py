@@ -11,7 +11,7 @@ from typing import Any
 
 import bcrypt
 
-from chatfilter.storage.database import SQLiteDatabase
+from chatfilter.storage.sqlite import SQLiteDatabase
 
 
 class UserDatabase(SQLiteDatabase):

@@ -1,69 +1,50 @@
-"""Database module for persistent monitoring state."""
+"""Abstract database base class.
 
-import sqlite3
+All storage modules inherit from Database. The concrete backend
+(SQLite, PostgreSQL, etc.) is selected by subclassing — see sqlite.py.
+SQL in the mixin layers (group_database/, user_database.py) is standard
+SQL and works with any backend.
+"""
+
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
+from typing import Any
 
 
-class SQLiteDatabase(ABC):
-    """Base class for SQLite database operations with common utilities."""
+class Database(ABC):
+    """Backend-agnostic base class for database operations.
 
-    def __init__(self, db_path: Path | str):
-        """Initialize database connection.
-
-        Args:
-            db_path: Path to SQLite database file
-        """
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize_schema()
+    Subclasses must implement:
+      - _connection() — context manager yielding a DB-API 2.0 connection
+      - _initialize_schema() — create tables / run migrations
+    """
 
     @abstractmethod
     def _initialize_schema(self) -> None:
-        """Create database tables if they don't exist. Must be implemented by subclasses."""
+        """Create database tables if they don't exist."""
+        ...
+
+    @abstractmethod
+    @contextmanager
+    def _connection(self) -> Generator[Any, None, None]:
+        """Context manager for database connections with automatic commit/rollback.
+
+        Must yield an object that supports:
+          - .execute(sql, params) → cursor
+          - cursor.fetchone() / cursor.fetchall() → dict-like rows
+        """
         ...
 
     @staticmethod
     def _datetime_to_str(dt: datetime | None) -> str | None:
-        """Convert datetime to ISO 8601 string for database storage.
-
-        Args:
-            dt: Datetime object to convert
-
-        Returns:
-            ISO 8601 string or None
-        """
+        """Convert datetime to ISO 8601 string for database storage."""
         return dt.isoformat() if dt is not None else None
 
     @staticmethod
     def _str_to_datetime(s: str | None) -> datetime | None:
-        """Convert ISO 8601 string from database to datetime.
-
-        Args:
-            s: ISO 8601 string to convert
-
-        Returns:
-            Datetime object or None
-        """
+        """Convert ISO 8601 string from database to datetime."""
         return datetime.fromisoformat(s) if s is not None else None
-
-    @contextmanager
-    def _connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Context manager for database connections with automatic commit/rollback."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        # Enable foreign key constraints (required for CASCADE DELETE)
-        conn.execute("PRAGMA foreign_keys = ON")
-        # Set busy timeout to prevent SQLITE_BUSY errors during concurrent operations
-        conn.execute("PRAGMA busy_timeout = 30000")  # 30 seconds
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()

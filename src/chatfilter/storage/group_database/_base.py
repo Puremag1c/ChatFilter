@@ -1,13 +1,12 @@
-"""Type stub base for mixin classes that compose with SQLiteDatabase."""
+"""Type stub base for mixin classes that compose with Database backends."""
 
 from __future__ import annotations
 
-import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
 
@@ -17,7 +16,7 @@ if TYPE_CHECKING:
         db_path: Path
 
         @contextmanager
-        def _connection(self) -> Generator[sqlite3.Connection, None, None]: ...
+        def _connection(self) -> Generator[Any, None, None]: ...
 
         @staticmethod
         def _datetime_to_str(dt: datetime | None) -> str | None: ...
@@ -26,6 +25,6 @@ if TYPE_CHECKING:
         def _str_to_datetime(s: str | None) -> datetime | None: ...
 
 else:
-    # At runtime, mixins don't need a base — SQLiteDatabase provides everything via MRO
+    # At runtime, the concrete backend (SQLiteDatabase etc.) provides everything via MRO
     class DatabaseMixinBase:
         pass

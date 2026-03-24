@@ -224,4 +224,4 @@ class GroupsMixin(DatabaseMixinBase):
             )
 
             # Check if any rows were affected
-            return cursor.rowcount > 0
+            return bool(cursor.rowcount > 0)
