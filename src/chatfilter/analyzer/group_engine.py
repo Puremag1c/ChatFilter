@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import random
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -101,12 +100,14 @@ class GroupAnalysisEngine:
         db: GroupDatabase,
         session_manager: SessionManager,
         progress: ProgressTracker | None = None,
+        inter_chat_delay: tuple[float, float] = (5.0, 10.0),
     ) -> None:
         self._db = db
         self._session_mgr = session_manager
         self._active_tasks: dict[str, list[asyncio.Task[Any]]] = {}
         self._stop_events: dict[str, asyncio.Event] = {}
         self._progress = progress if progress is not None else ProgressTracker(db)
+        self._inter_chat_delay = inter_chat_delay
 
     # -- Startup recovery --------------------------------------------------
 
@@ -519,8 +520,9 @@ class GroupAnalysisEngine:
                         mode,
                         health_tracker,
                     )
-                    if not os.environ.get("CHATFILTER_TESTING"):
-                        await asyncio.sleep(random.uniform(5, 10))
+                    lo, hi = self._inter_chat_delay
+                    if lo > 0:
+                        await asyncio.sleep(random.uniform(lo, hi))
         except asyncio.CancelledError:
             logger.info(f"Account '{account_id}' cancelled for '{group_id}'")
             raise

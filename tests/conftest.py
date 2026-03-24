@@ -921,6 +921,20 @@ def _disable_rate_limiter() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
+def _disable_inter_chat_delay(monkeypatch: Any) -> None:
+    """Skip anti-flood delay between chats in tests."""
+    from chatfilter.analyzer import group_engine
+
+    _original_init = group_engine.GroupAnalysisEngine.__init__
+
+    def _patched_init(self: Any, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("inter_chat_delay", (0.0, 0.0))
+        _original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(group_engine.GroupAnalysisEngine, "__init__", _patched_init)
+
+
+@pytest.fixture(autouse=True)
 def _detect_memory_leaks(request: Any) -> Generator[None, None, None]:
     """Fixture to detect memory leaks per test.
 
