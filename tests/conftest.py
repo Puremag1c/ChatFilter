@@ -907,6 +907,20 @@ def _cleanup_proxy_health_executor() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
+def _disable_rate_limiter() -> Generator[None, None, None]:
+    """Disable Telegram rate limiter in tests to avoid real asyncio.sleep delays."""
+    from chatfilter.telegram.rate_limiter import (
+        RateLimitConfig,
+        TelegramRateLimiter,
+        set_rate_limiter,
+    )
+
+    set_rate_limiter(TelegramRateLimiter(RateLimitConfig(enabled=False)))
+    yield
+    set_rate_limiter(None)
+
+
+@pytest.fixture(autouse=True)
 def _detect_memory_leaks(request: Any) -> Generator[None, None, None]:
     """Fixture to detect memory leaks per test.
 

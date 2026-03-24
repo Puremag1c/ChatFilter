@@ -706,8 +706,11 @@ class SessionManager:
                     f"Unexpected error in connection monitor: {e}",
                     exc_info=True,
                 )
-                # Continue monitoring despite errors
-                await asyncio.sleep(5.0)
+                # Continue monitoring despite errors, but respond to stop event
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self._monitor_stop_event.wait(), timeout=5.0)
+                if self._monitor_stop_event.is_set():
+                    break
 
         logger.debug("Connection monitor loop ended")
 

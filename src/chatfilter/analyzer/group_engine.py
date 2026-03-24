@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import random
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -518,7 +519,8 @@ class GroupAnalysisEngine:
                         mode,
                         health_tracker,
                     )
-                    await asyncio.sleep(random.uniform(5, 10))
+                    if not os.environ.get("CHATFILTER_TESTING"):
+                        await asyncio.sleep(random.uniform(5, 10))
         except asyncio.CancelledError:
             logger.info(f"Account '{account_id}' cancelled for '{group_id}'")
             raise
