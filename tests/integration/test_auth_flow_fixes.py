@@ -41,8 +41,6 @@ def _make_auth_state(
     return AuthState(
         auth_id=auth_id,
         session_name=session_name,
-        api_id=12345,
-        api_hash="testhash",
         proxy_id="",
         phone="+79001234567",
         step=step,
