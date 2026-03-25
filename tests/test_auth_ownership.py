@@ -22,8 +22,6 @@ def _make_auth_state(auth_id: str, web_user_id: str) -> AuthState:
     return AuthState(
         auth_id=auth_id,
         session_name="test_session",
-        api_id=12345,
-        api_hash="abcdef0123456789abcdef0123456789",
         proxy_id="proxy-1",
         phone="+1234567890",
         step=AuthStep.PHONE_SENT,

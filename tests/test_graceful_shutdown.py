@@ -169,8 +169,6 @@ class TestPollingTaskCleanupOnShutdown:
             state = AuthState(
                 auth_id="test-poll-cleanup",
                 session_name="test_session",
-                api_id=12345,
-                api_hash="abcdef",
                 proxy_id="proxy-1",
                 phone="+1234567890",
                 step=AuthStep.NEED_CONFIRMATION,
@@ -212,8 +210,6 @@ class TestPollingTaskCleanupOnShutdown:
             state = AuthState(
                 auth_id="test-done-task",
                 session_name="test_session2",
-                api_id=12345,
-                api_hash="abcdef",
                 proxy_id="proxy-1",
                 phone="+1234567890",
                 step=AuthStep.NEED_CONFIRMATION,
@@ -261,8 +257,6 @@ class TestPollingTaskCleanupOnShutdown:
                 state = AuthState(
                     auth_id=f"test-multi-{i}",
                     session_name=f"session_{i}",
-                    api_id=12345,
-                    api_hash="abcdef",
                     proxy_id="proxy-1",
                     phone=f"+123456789{i}",
                     step=AuthStep.NEED_CONFIRMATION,

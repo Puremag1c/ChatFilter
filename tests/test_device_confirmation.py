@@ -102,8 +102,6 @@ class TestDeviceConfirmation:
         auth_state = AuthState(
             auth_id="test_auth_id",
             session_name="test_needs_confirmation",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
@@ -222,8 +220,6 @@ class TestDeviceConfirmation:
         auth_state = AuthState(
             auth_id="test_auth_id_2fa",
             session_name="test_2fa_needs_confirmation",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
@@ -309,8 +305,6 @@ class TestDeviceConfirmation:
         auth_state = AuthState(
             auth_id="auth_list_confirm",
             session_name=session_name,
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
@@ -397,8 +391,6 @@ class TestDeviceConfirmation:
         auth_state = AuthState(
             auth_id="test_auth_2fa_key",
             session_name="test_2fa_auth_key",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
@@ -514,8 +506,6 @@ class TestDeviceConfirmation:
         auth_state = AuthState(
             auth_id="test_auth_code_key",
             session_name="test_code_auth_key",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
@@ -650,8 +640,6 @@ class TestDeviceConfirmation:
         auth_state = AuthState(
             auth_id="test_auth_auto_2fa",
             session_name="test_auto_2fa_key",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
