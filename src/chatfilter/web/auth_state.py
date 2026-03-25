@@ -51,8 +51,6 @@ class AuthState:
 
     # Session configuration
     session_name: str
-    api_id: int
-    api_hash: str
     proxy_id: str
     phone: str
 
@@ -134,8 +132,6 @@ class AuthStateManager:
     async def create_auth_state(
         self,
         session_name: str,
-        api_id: int,
-        api_hash: str,
         proxy_id: str,
         phone: str,
         phone_code_hash: str,
@@ -145,8 +141,6 @@ class AuthStateManager:
 
         Args:
             session_name: Name for the session being created
-            api_id: Telegram API ID
-            api_hash: Telegram API hash
             proxy_id: ID of proxy to use
             phone: Phone number
             phone_code_hash: Hash returned by send_code_request
@@ -163,8 +157,6 @@ class AuthStateManager:
             state = AuthState(
                 auth_id=auth_id,
                 session_name=session_name,
-                api_id=api_id,
-                api_hash=api_hash,
                 proxy_id=proxy_id,
                 phone=phone,
                 step=AuthStep.PHONE_SENT,
