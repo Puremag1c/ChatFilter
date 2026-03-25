@@ -421,12 +421,16 @@ async def _send_verification_code_and_create_auth(
         except Exception:
             logger.exception(f"Failed to save error metadata for session '{session_id}'")
 
+    # Load global api_id/api_hash from Settings/ENV (not from per-session config)
+    from chatfilter.config import get_settings
+    telegram_cfg = get_settings().telegram_config
+    api_id = telegram_cfg.api_id
+    api_hash = telegram_cfg.api_hash
+
     # Load config once (no retry needed for local file read)
     try:
         with config_path.open("r") as f:
             config = json.load(f)
-        api_id = config["api_id"]
-        api_hash = config["api_hash"]
         proxy_id = config["proxy_id"]
         web_user_id = config.get("web_user_id", "default")
     except Exception as e:

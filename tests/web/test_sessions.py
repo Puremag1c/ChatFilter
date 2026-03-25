@@ -363,7 +363,11 @@ class TestConnectSessionErrorHandling:
 
         mock_client.send_code_request = mock_send_code_request
 
+        mock_telegram_cfg = MagicMock(api_id=12345, api_hash="valid_hash")
+        mock_settings_obj = MagicMock(telegram_config=mock_telegram_cfg)
+
         with (
+            patch("chatfilter.config.get_settings", return_value=mock_settings_obj),
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy),
             patch(
                 "chatfilter.web.routers.sessions.background.get_event_bus",
@@ -427,8 +431,12 @@ class TestConnectSessionErrorHandling:
         mock_event_bus = MagicMock()
         mock_event_bus.publish = mock_publish
 
+        mock_telegram_cfg = MagicMock(api_id=12345, api_hash="valid_hash")
+        mock_settings_obj = MagicMock(telegram_config=mock_telegram_cfg)
+
         # Mock proxy lookup to fail with StorageNotFoundError
         with (
+            patch("chatfilter.config.get_settings", return_value=mock_settings_obj),
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
             patch(
                 "chatfilter.web.routers.sessions.background.get_event_bus",
@@ -503,7 +511,11 @@ class TestConnectSessionErrorHandling:
 
         mock_client.connect = mock_connect
 
+        mock_telegram_cfg = MagicMock(api_id=12345, api_hash="valid_hash")
+        mock_settings_obj = MagicMock(telegram_config=mock_telegram_cfg)
+
         with (
+            patch("chatfilter.config.get_settings", return_value=mock_settings_obj),
             patch("chatfilter.storage.proxy_pool.get_proxy_by_id", return_value=mock_proxy),
             patch(
                 "chatfilter.web.routers.sessions.background.get_event_bus",
