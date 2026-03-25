@@ -38,6 +38,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+# Set test Telegram API credentials early so modules can import without errors
+# This is needed because web/app.py calls get_settings() at import time
+os.environ.setdefault("CHATFILTER_API_ID", "123456")
+os.environ.setdefault("CHATFILTER_API_HASH", "test_hash_abcdef123456789")
+
 
 @pytest.fixture
 def isolated_tmp_dir(tmp_path: Path) -> Generator[Path, None, None]:

@@ -151,6 +151,89 @@ class TestConfigCheck:
         assert isinstance(warnings, list)
 
 
+class TestAPICredentials:
+    """Tests for Telegram API credentials fail-fast startup behavior."""
+
+    def test_missing_api_id_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Test that Settings fails without CHATFILTER_API_ID (fail-fast on startup)."""
+        from pydantic import ValidationError
+
+        # Clear the ENV var to ensure it's not inherited
+        monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
+        monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
+
+        # Settings should refuse to initialize without api_id
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(data_dir=tmp_path, port=9000, api_hash="dummy_hash")
+
+        # Ensure the error is about api_id, not some other validation error
+        assert "api_id" in str(exc_info.value).lower()
+
+    def test_missing_api_hash_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Test that Settings fails without CHATFILTER_API_HASH (fail-fast on startup)."""
+        from pydantic import ValidationError
+
+        # Clear the ENV var to ensure it's not inherited
+        monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
+        monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
+
+        # Settings should refuse to initialize without api_hash
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(data_dir=tmp_path, port=9001, api_id=123456)
+
+        # Ensure the error is about api_hash, not some other validation error
+        assert "api_hash" in str(exc_info.value).lower()
+
+    def test_missing_both_credentials_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Test that Settings fails without both CHATFILTER_API_ID and CHATFILTER_API_HASH."""
+        from pydantic import ValidationError
+
+        # Clear both ENV vars
+        monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
+        monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
+
+        # Settings should refuse to initialize without both credentials
+        with pytest.raises(ValidationError) as exc_info:
+            Settings(data_dir=tmp_path, port=9002)
+
+        error_text = str(exc_info.value).lower()
+        # Should have errors for both missing fields
+        assert "api_id" in error_text or "api_hash" in error_text
+
+    def test_valid_credentials_succeeds(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Test that Settings succeeds with both API credentials provided."""
+        # Clear any existing env vars
+        monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
+        monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
+
+        # Should initialize successfully with credentials
+        settings = Settings(
+            data_dir=tmp_path,
+            port=9003,
+            api_id=123456,
+            api_hash="abc123def456",
+        )
+
+        assert settings.api_id == 123456
+        assert settings.api_hash.get_secret_value() == "abc123def456"
+
+    def test_telegram_config_property(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Test that telegram_config property builds correctly from api_id/api_hash."""
+        monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
+        monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
+
+        settings = Settings(
+            data_dir=tmp_path,
+            port=9004,
+            api_id=123456,
+            api_hash="test_hash",
+        )
+
+        telegram_config = settings.telegram_config
+        assert telegram_config.api_id == 123456
+        assert telegram_config.api_hash == "test_hash"
+
+
 class TestLoggingConfig:
     """Tests for logging configuration settings."""
 
