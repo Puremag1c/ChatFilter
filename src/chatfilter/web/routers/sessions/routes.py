@@ -139,16 +139,12 @@ async def get_session_config(
 
     # Load current config (use empty values if missing/corrupted)
     # This allows users to fix configuration issues via the Edit form
-    current_api_id = None
-    current_api_hash = None
     current_proxy_id = None
 
     if config_file.exists():
         try:
             with config_file.open("r", encoding="utf-8") as f:
                 config = json.load(f)
-                current_api_id = config.get("api_id")
-                current_api_hash = config.get("api_hash")
                 current_proxy_id = config.get("proxy_id")
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to read config for session {safe_name}: {e}")
@@ -163,8 +159,6 @@ async def get_session_config(
         context=get_template_context(
             request,
             session_id=safe_name,
-            current_api_id=current_api_id,
-            current_api_hash=current_api_hash,
             current_proxy_id=current_proxy_id,
             proxies=proxies,
         ),
@@ -175,14 +169,11 @@ async def get_session_config(
 async def update_session_config(
     request: Request,
     session_id: str,
-    api_id: Annotated[int, Form()],
-    api_hash: Annotated[str, Form()],
     proxy_id: Annotated[str, Form()],
 ) -> HTMLResponse:
     """Update session configuration.
 
-    Updates api_id, api_hash, and proxy_id for a session.
-    All fields are required.
+    Updates proxy_id for a session.
     """
     try:
         safe_name = sanitize_session_name(session_id)
@@ -200,21 +191,6 @@ async def update_session_config(
         return HTMLResponse(
             content='<div class="alert alert-error">Session not found</div>',
             status_code=status.HTTP_404_NOT_FOUND,
-        )
-
-    # Validate api_id
-    if api_id < 1:
-        return HTMLResponse(
-            content='<div class="alert alert-error">API ID must be a positive number</div>',
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Validate api_hash format (32-char hex string)
-    api_hash = api_hash.strip()
-    if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
-        return HTMLResponse(
-            content='<div class="alert alert-error">API hash must be a 32-character hexadecimal string</div>',
-            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     # Validate proxy_id (required)
@@ -249,58 +225,7 @@ async def update_session_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    # Check if API credentials changed
-    old_api_id = config.get("api_id")
-    old_api_hash = config.get("api_hash")
-    credentials_changed = (old_api_id != api_id) or (old_api_hash != api_hash)
-
-    # If credentials changed, validate them with Telegram API
-    if credentials_changed:
-        from chatfilter.storage.proxy_pool import get_proxy_by_id
-
-        # Get proxy for validation
-        try:
-            proxy_entry = get_proxy_by_id(proxy_id, web_user_id)
-        except StorageNotFoundError:
-            return HTMLResponse(
-                content='<div class="alert alert-error">Selected proxy not found</div>',
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Validate credentials with retry logic
-        is_valid, error_message = await validate_telegram_credentials_with_retry(
-            api_id=api_id,
-            api_hash=api_hash,
-            proxy_entry=proxy_entry,
-            session_name=safe_name,
-        )
-
-        if not is_valid:
-            # Validation failed after retries
-            status_code = (
-                status.HTTP_400_BAD_REQUEST
-                if "Invalid API" in error_message
-                else status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-            return HTMLResponse(
-                content=f'<div class="alert alert-error">{error_message}</div>',
-                status_code=status_code,
-            )
-
-        # Credentials valid - disconnect current session if connected
-        from chatfilter.web.dependencies import get_session_manager
-
-        session_manager = get_session_manager()
-        try:
-            await session_manager.disconnect(safe_name)
-            logger.info(f"Disconnected session '{safe_name}' after credentials change")
-        except Exception as e:
-            logger.warning(f"Failed to disconnect session '{safe_name}': {e}")
-            # Non-fatal - continue with config update
-
-    # Update all config fields
-    config["api_id"] = api_id
-    config["api_hash"] = api_hash
+    # Update proxy_id
     config["proxy_id"] = proxy_id
     config["web_user_id"] = web_user_id
 
@@ -309,9 +234,7 @@ async def update_session_config(
         config_content = json.dumps(config, indent=2).encode("utf-8")
         atomic_write(config_file, config_content)
         secure_file_permissions(config_file)
-        logger.info(
-            f"Updated config for session '{safe_name}': api_id={api_id}, proxy_id={proxy_id}"
-        )
+        logger.info(f"Updated config for session '{safe_name}': proxy_id={proxy_id}")
     except Exception:
         logger.exception(f"Failed to save config for session {safe_name}")
         return HTMLResponse(
@@ -325,28 +248,11 @@ async def update_session_config(
 
         storage_dir = session_dir.parent
         manager = SecureCredentialManager(storage_dir)
-        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
-        logger.info(f"Updated credentials in secure storage for session: {safe_name}")
+        manager.store_session_config(safe_name, proxy_id)
+        logger.info(f"Updated session config in secure storage for session: {safe_name}")
     except Exception as e:
         logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
         # Non-fatal: config.json is the primary source
-
-    # If credentials changed, trigger reconnect flow
-    if credentials_changed:
-        # Return success message with auto-trigger for reconnect
-        return HTMLResponse(
-            content=f"""
-                <div class="alert alert-success">
-                    Credentials updated. Re-authorization required...
-                </div>
-                <form hx-post="/api/sessions/{safe_name}/reconnect/start"
-                      hx-target="#session-config-result-{safe_name}"
-                      hx-swap="innerHTML"
-                      hx-trigger="load">
-                </form>
-            """,
-            headers={"HX-Trigger": "refreshSessions"},
-        )
 
     # Return success message with HX-Trigger to refresh sessions list
     return HTMLResponse(
@@ -495,8 +401,8 @@ async def update_session_credentials(
 
         storage_dir = session_dir.parent
         manager = SecureCredentialManager(storage_dir)
-        manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
-        logger.info(f"Updated credentials in secure storage for session: {safe_name}")
+        manager.store_session_config(safe_name, proxy_id)
+        logger.info(f"Updated session config in secure storage for session: {safe_name}")
     except Exception as e:
         logger.warning(f"Failed to update secure storage for session {safe_name}: {e}")
         # Non-fatal: config.json is the primary source
