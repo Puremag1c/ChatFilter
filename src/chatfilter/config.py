@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from chatfilter.config_filesystem import (
@@ -173,7 +173,7 @@ class Settings(BaseSettings):
         description="Timeout for update check HTTP requests (seconds)",
     )
 
-    # Telegram API credentials (optional at startup; required when connecting sessions)
+    # Telegram API credentials (required — validated at startup)
     api_id: int | None = Field(
         default=None,
         description="Telegram API ID (CHATFILTER_API_ID). Get from https://my.telegram.org/apps",
@@ -320,6 +320,18 @@ class Settings(BaseSettings):
         if isinstance(v, list):
             return list(v)
         return []
+
+    @model_validator(mode="after")
+    def validate_api_credentials(self) -> "Settings":
+        """Fail fast if Telegram API credentials are missing."""
+        missing = []
+        if self.api_id is None:
+            missing.append("api_id (set CHATFILTER_API_ID env var)")
+        if self.api_hash is None:
+            missing.append("api_hash (set CHATFILTER_API_HASH env var)")
+        if missing:
+            raise ValueError(f"Required credentials missing: {', '.join(missing)}")
+        return self
 
     @property
     def config_dir(self) -> Path:
