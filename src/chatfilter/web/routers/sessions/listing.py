@@ -20,11 +20,9 @@ def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
     """Check session configuration status.
 
     Validates that the session has required configuration:
-    - api_id and api_hash can be null (source=phone means user will provide via auth)
-    - If api_id and api_hash are null, source must be 'phone'
-    - If api_id and api_hash are set, source can be 'file' or 'phone'
     - proxy_id must be set (sessions require proxy for operation)
     - If proxy_id is set, the proxy must exist in the pool
+    - api_id and api_hash are global (from ENV), not checked per-session
 
     Args:
         session_dir: Path to session directory
@@ -32,8 +30,8 @@ def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
     Returns:
         Tuple of (status, reason):
         - ("disconnected", None): Configuration is valid
-        - ("needs_config", reason): Missing credentials or proxy configuration
-          where reason is a specific message like "API credentials required"
+        - ("needs_config", reason): Missing proxy configuration
+          where reason is a specific message like "Proxy configuration required"
     """
     config_file = session_dir / "config.json"
 
@@ -47,45 +45,7 @@ def get_session_config_status(session_dir: Path) -> tuple[str, str | None]:
         logger.warning(f"Failed to read config for session {session_dir.name}: {e}")
         return ("needs_config", "Configuration file corrupted")
 
-    # Check fields
-    api_id = config.get("api_id")
-    api_hash = config.get("api_hash")
     proxy_id = config.get("proxy_id")
-
-    # If api_id or api_hash are null, check encrypted storage first
-    if api_id is None or api_hash is None:
-        # Bug 1 fix: Check if credentials exist in SecureCredentialManager (Pattern A)
-        try:
-            from chatfilter.security import SecureCredentialManager
-
-            storage_dir = session_dir.parent  # Pattern A: credentials stored at parent level
-
-            # Guard: storage_dir must exist (addresses ChatFilter-hv39r)
-            if not storage_dir.exists():
-                return ("needs_config", "API credentials required")
-
-            manager = SecureCredentialManager(storage_dir)
-            session_name = session_dir.name
-
-            # Check if encrypted credentials exist
-            if manager.has_credentials(session_name):
-                # Credentials exist in encrypted storage - continue to proxy check
-                logger.debug(
-                    f"Session '{session_name}' has credentials in encrypted storage, "
-                    "continuing to proxy check"
-                )
-            else:
-                # No credentials in encrypted storage or plaintext config
-                return ("needs_config", "API credentials required")
-        except Exception as e:
-            # Handle corrupted .credentials.enc gracefully (addresses ChatFilter-f540m)
-            # Treat as credentials absent
-            # Redact exception message to prevent credential leakage
-            logger.warning(
-                f"Failed to check encrypted credentials for session '{session_dir.name}': "
-                f"{type(e).__name__} [REDACTED]"
-            )
-            return ("needs_config", "API credentials required")
 
     # proxy_id is required for session to be connectable
     if not proxy_id:
