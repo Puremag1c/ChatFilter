@@ -121,8 +121,6 @@ class TestFinalizeReconnectAuth:
         auth_state = AuthState(
             auth_id="test_auth",
             session_name=safe_name,
-            api_id=12345,
-            api_hash="test_hash",
             proxy_id="",
             phone="+14385515736",
             step=AuthStep.PHONE_SENT,
@@ -164,8 +162,6 @@ class TestFinalizeReconnectAuth:
         auth_state = AuthState(
             auth_id="test_auth",
             session_name=safe_name,
-            api_id=12345,
-            api_hash="test_hash",
             proxy_id="",
             phone="+14385515736",
             step=AuthStep.PHONE_SENT,
@@ -207,8 +203,6 @@ class TestFinalizeReconnectAuth:
         auth_state = AuthState(
             auth_id="test_auth",
             session_name=safe_name,
-            api_id=12345,
-            api_hash="test_hash",
             proxy_id="",
             phone="+14385515736",
             step=AuthStep.PHONE_SENT,
@@ -251,8 +245,6 @@ class TestFinalizeReconnectAuth:
         auth_state = AuthState(
             auth_id="test_auth",
             session_name=safe_name,
-            api_id=12345,
-            api_hash="test_hash",
             proxy_id="",
             phone="+14385515736",
             step=AuthStep.PHONE_SENT,
@@ -294,8 +286,6 @@ class TestFinalizeReconnectAuth:
         auth_state = AuthState(
             auth_id="test_auth",
             session_name=safe_name,
-            api_id=12345,
-            api_hash="test_hash",
             proxy_id="",
             phone="+14385515736",
             step=AuthStep.PHONE_SENT,
@@ -351,8 +341,6 @@ class TestPollingUsesSameClient:
         auth_state = AuthState(
             auth_id="test_auth",
             session_name="test_session",
-            api_id=12345,
-            api_hash="test_hash",
             proxy_id="",
             phone="+14385515736",
             step=AuthStep.NEED_CONFIRMATION,
@@ -415,8 +403,6 @@ class TestPollingUsesSameClient:
         auth_state = AuthState(
             auth_id="test_auth",
             session_name="test_session",
-            api_id=12345,
-            api_hash="test_hash",
             proxy_id="",
             phone="+14385515736",
             step=AuthStep.NEED_CONFIRMATION,

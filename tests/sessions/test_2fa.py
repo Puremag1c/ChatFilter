@@ -121,8 +121,6 @@ class TestVerify2FA:
             auth_state = AuthState(
                 auth_id=auth_id,
                 session_name=session_id,
-                api_id=12345,
-                api_hash="abcdefghijklmnopqrstuvwxyzabcd",
                 proxy_id="proxy-1",
                 phone="+14385515736",
                 phone_code_hash="test_hash",
@@ -283,8 +281,6 @@ class TestVerifyCode2FAAutoEntry:
         auth_state = AuthState(
             auth_id="test_auth_id_success",
             session_name="test_auto_2fa_success",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
@@ -378,8 +374,6 @@ class TestVerifyCode2FAAutoEntry:
         auth_state = AuthState(
             auth_id="test_auth_id_missing",
             session_name="test_auto_2fa_missing",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
@@ -476,8 +470,6 @@ class TestVerifyCode2FAAutoEntry:
         auth_state = AuthState(
             auth_id="test_auth_id_wrong",
             session_name="test_auto_2fa_wrong",
-            api_id=12345,
-            api_hash="abcdefghijklmnopqrstuvwxyzabcd",
             proxy_id="proxy-1",
             phone="+14385515736",
             phone_code_hash="test_hash",
