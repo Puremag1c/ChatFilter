@@ -20,7 +20,7 @@ router = APIRouter(tags=["auth"])
 def _get_user_db(request: Request) -> UserDatabase:
     from chatfilter.storage.user_database import get_user_db
 
-    return get_user_db(request.app.state.settings.data_dir)
+    return get_user_db(request.app.state.settings.effective_database_url)
 
 
 @router.get("/login", response_class=HTMLResponse)

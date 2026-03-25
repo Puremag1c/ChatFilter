@@ -55,7 +55,7 @@ def two_user_clients(test_settings: Any, monkeypatch: Any):
     from chatfilter.web.session import get_session_store
 
     test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-    db = get_user_db(test_settings.data_dir)
+    db = get_user_db(test_settings.effective_database_url)
     user1_id = db.create_user("owner_user", "pass1234567", is_admin=False)
     user2_id = db.create_user("attacker_user", "pass1234567", is_admin=False)
 

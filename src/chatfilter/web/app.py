@@ -164,7 +164,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         from chatfilter.storage.user_database import get_user_db
 
-        user_db = get_user_db(settings.data_dir)
+        user_db = get_user_db(settings.effective_database_url)
         if settings.admin_login and settings.admin_password:
             user_db.upsert_user(settings.admin_login, settings.admin_password, is_admin=True)
             logger.info(f"Admin user '{settings.admin_login}' initialized from environment")

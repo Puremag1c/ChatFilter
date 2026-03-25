@@ -252,6 +252,40 @@ class EncryptedFileBackend(CredentialStorageBackend):
             self._save_credentials_file(credentials)
             logger.info(f"Deleted credentials from encrypted file for session: {session_id}")
 
+    def migrate_strip_api_credentials(self) -> int:
+        """Strip api_id and api_hash from all sessions in the encrypted file.
+
+        Reads the old format (api_id + api_hash + proxy_id) and rewrites each
+        session keeping only proxy_id and 2fa_password. This is a one-time
+        migration helper called during startup before the schema change takes
+        full effect.
+
+        Returns:
+            Number of sessions that were migrated (had api_id/api_hash removed)
+        """
+        credentials = self._load_credentials_file()
+        migrated = 0
+
+        for session_id, cred_data in credentials.items():
+            if "api_id" in cred_data or "api_hash" in cred_data:
+                # Keep only proxy_id and 2fa_password
+                new_cred: dict[str, str] = {}
+                if "proxy_id" in cred_data:
+                    new_cred["proxy_id"] = cred_data["proxy_id"]
+                if "2fa_password" in cred_data:
+                    new_cred["2fa_password"] = cred_data["2fa_password"]
+                credentials[session_id] = new_cred
+                migrated += 1
+                logger.info(
+                    f"Stripped api_id/api_hash from credentials for session: {session_id}"
+                )
+
+        if migrated > 0:
+            self._save_credentials_file(credentials)
+            logger.info(f"Credential migration complete: {migrated} session(s) updated")
+
+        return migrated
+
 
 class EnvironmentBackend(CredentialStorageBackend):
     """Environment variable backend for containerized deployments.
@@ -463,3 +497,15 @@ class SecureCredentialManager:
             del credentials[session_id]["2fa_password"]
             self._file_backend._save_credentials_file(credentials)
             logger.info(f"Deleted encrypted 2FA password for session: {session_id}")
+
+    def migrate_strip_api_credentials(self) -> int:
+        """Strip api_id and api_hash from the encrypted credentials file.
+
+        One-time migration helper: reads the old format that stored api_id and
+        api_hash in .credentials.enc, removes those fields, and rewrites the
+        file keeping only proxy_id and 2fa_password per session.
+
+        Returns:
+            Number of sessions that had api_id/api_hash removed
+        """
+        return self._file_backend.migrate_strip_api_credentials()

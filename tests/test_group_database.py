@@ -65,13 +65,15 @@ def sample_result_data():
 
 def test_database_initialization(temp_db):
     """Test that database initializes with correct schema."""
-    with temp_db._connection() as conn:
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        tables = [row[0] for row in cursor.fetchall()]
+    from sqlalchemy import inspect as sa_inspect
+
+    with temp_db._engine.connect() as conn:
+        tables = sa_inspect(conn).get_table_names()
 
     assert "chat_groups" in tables
     assert "group_chats" in tables
     assert "group_tasks" in tables
+    assert "users" in tables
 
 
 def test_save_and_load_group(temp_db, sample_group_data):
@@ -428,24 +430,15 @@ def test_foreign_key_constraint(temp_db):
 
 
 def test_schema_has_group_tasks_table(temp_db):
-    """Test that current schema has group_tasks table (verifies v5 migration completed)."""
-    with temp_db._connection() as conn:
-        # Check group_tasks table exists
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_tasks'"
-        )
-        assert cursor.fetchone() is not None
+    """Test that current schema has group_tasks table and Alembic version is set."""
+    from sqlalchemy import inspect as sa_inspect
 
-        # Check group_results table does NOT exist (removed in v5)
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='group_results'"
-        )
-        assert cursor.fetchone() is None
+    with temp_db._engine.connect() as conn:
+        tables = sa_inspect(conn).get_table_names()
 
-        # Check schema version is at least 5
-        cursor = conn.execute("PRAGMA user_version")
-        version = cursor.fetchone()[0]
-        assert version >= 5
+    assert "group_tasks" in tables
+    assert "group_results" not in tables
+    assert "alembic_version" in tables
 
 
 def test_timestamps(temp_db, sample_group_data):

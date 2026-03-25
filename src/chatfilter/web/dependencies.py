@@ -94,10 +94,9 @@ def get_group_engine() -> GroupAnalysisEngine:
         from chatfilter.storage.group_database import GroupDatabase
 
         settings = get_settings()
-        db_path = settings.data_dir / "groups.db"
         settings.data_dir.mkdir(parents=True, exist_ok=True)
 
-        db = GroupDatabase(db_path)
+        db = GroupDatabase(settings.effective_database_url)
         session_manager = get_session_manager()
 
         _group_engine = GroupAnalysisEngine(

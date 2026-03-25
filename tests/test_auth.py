@@ -51,7 +51,7 @@ class TestLoginPost:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         db.create_user("logintest", "securepass123")
 
         resp = self._login(unauth_client, "logintest", "securepass123")
@@ -62,7 +62,7 @@ class TestLoginPost:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         db.create_user("logintest", "securepass123")
 
         resp = self._login(unauth_client, "logintest", "wrongpassword")
@@ -76,7 +76,7 @@ class TestLoginPost:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         db.create_user("logintest", "securepass123")
 
         resp = unauth_client.post(
@@ -215,7 +215,7 @@ class TestAdminUserManagement:
     def test_delete_user(self, admin_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         uid = db.create_user("todelete", "password123")
 
         csrf = self._get_csrf(admin_client)
@@ -232,7 +232,7 @@ class TestAdminUserManagement:
     ) -> None:
         from chatfilter.storage.user_database import get_user_db
 
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         uid = db.create_user("todelete", "password123")
 
         resp = fastapi_test_client.request("DELETE", f"/admin/users/{uid}")
@@ -241,7 +241,7 @@ class TestAdminUserManagement:
     def test_change_password(self, admin_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         uid = db.create_user("pwduser", "oldpassword123")
 
         csrf = self._get_csrf(admin_client)
@@ -257,7 +257,7 @@ class TestAdminUserManagement:
     def test_change_password_short_returns_422(self, admin_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         uid = db.create_user("pwduser2", "oldpassword123")
 
         csrf = self._get_csrf(admin_client)

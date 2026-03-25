@@ -231,6 +231,24 @@ class Settings(BaseSettings):
         description="Days after which unused session files are auto-deleted (None=disabled)",
     )
 
+    # Database
+    database_url: str | None = Field(
+        default=None,
+        description="Database URL (sqlite:///path or postgresql://...). "
+        "Default: sqlite:///<data_dir>/chatfilter.db",
+    )
+
+    @property
+    def effective_database_url(self) -> str:
+        """Resolve the single database URL for all tables.
+
+        Priority: explicit database_url > default SQLite in data_dir.
+        """
+        if self.database_url:
+            return self.database_url
+        db_path = self.data_dir / "chatfilter.db"
+        return f"sqlite:///{db_path}"
+
     # Admin initialization (env-only, not stored)
     admin_login: str | None = Field(
         default=None,

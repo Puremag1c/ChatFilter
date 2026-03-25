@@ -58,7 +58,7 @@ class TestLoginWithFormFieldCsrf:
 
         # Setup: Create test user
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
         db.create_user("regressiontest", "testpass123")
 
         # Step 1: GET /login (no cookies) → assert 200

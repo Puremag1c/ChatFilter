@@ -240,9 +240,16 @@ def mock_http_server() -> Generator[MockHTTPServer, None, None]:
     thread.join(timeout=1)
 
 
+def _run_test_migrations(settings: Any) -> None:
+    """Run Alembic migrations on a test database."""
+    from chatfilter.storage.migrate import run_migrations
+
+    run_migrations(settings.effective_database_url)
+
+
 @pytest.fixture
 def test_settings(tmp_path: Any) -> Any:
-    """Provide test settings with isolated data directory.
+    """Provide test settings with isolated data directory and migrated database.
 
     Args:
         tmp_path: pytest tmp_path fixture for temporary directory
@@ -252,7 +259,10 @@ def test_settings(tmp_path: Any) -> Any:
     """
     from chatfilter.config import Settings
 
-    return Settings(data_dir=tmp_path / "test_data")
+    settings = Settings(data_dir=tmp_path / "test_data")
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    _run_test_migrations(settings)
+    return settings
 
 
 def _setup_auth_session(
@@ -268,7 +278,7 @@ def _setup_auth_session(
     from chatfilter.web.session import get_session_store
 
     test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-    db = get_user_db(test_settings.data_dir)
+    db = get_user_db(test_settings.effective_database_url)
 
     existing = db.get_user_by_username(username)
     if existing:
@@ -856,6 +866,7 @@ def _isolate_data_dir(tmp_path: Path, monkeypatch: Any) -> Generator[None, None,
 
     isolated_settings = Settings(data_dir=tmp_path / "isolated_data")
     isolated_settings.data_dir.mkdir(parents=True, exist_ok=True)
+    _run_test_migrations(isolated_settings)
 
     original_get_settings = chatfilter.config.get_settings
 

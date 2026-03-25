@@ -13,7 +13,7 @@ from chatfilter.storage.user_database import get_user_db
 @pytest.fixture
 def two_user_ids(tmp_path: Path) -> tuple[str, str]:
     """Create two distinct users in an isolated DB, return their IDs."""
-    db = get_user_db(tmp_path)
+    db = get_user_db(f"sqlite:///{tmp_path}/test.db")
     uid_a = db.create_user("alice", "password123")
     uid_b = db.create_user("bob", "password456")
     return uid_a, uid_b

@@ -65,7 +65,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create a user
         db.create_user("testuser", "oldpassword123")
@@ -104,7 +104,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create a user
         db.create_user("testuser", "password123")
@@ -162,7 +162,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create a user with old password
         old_pwd = "oldpassword123"
@@ -184,7 +184,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create a user
         db.create_user("testuser", "oldpassword123")
@@ -202,7 +202,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create a user
         db.create_user("testuser", "oldpassword123")
@@ -222,7 +222,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create a user
         db.create_user("testuser", "oldpassword123")
@@ -243,7 +243,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create a user
         db.create_user("testuser", "oldpassword123")
@@ -301,7 +301,7 @@ class TestResetPasswordCLI:
         from chatfilter.storage.user_database import get_user_db
 
         test_settings.data_dir.mkdir(parents=True, exist_ok=True)
-        db = get_user_db(test_settings.data_dir)
+        db = get_user_db(test_settings.effective_database_url)
 
         # Create two users
         db.create_user("user1", "password1")

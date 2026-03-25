@@ -6,6 +6,7 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Any
 
 
 def setup_logging(
@@ -128,6 +129,8 @@ def _handle_reset_password() -> None:
     import argparse
     import sqlite3
 
+    from sqlalchemy.exc import OperationalError as SAOperationalError
+
     from chatfilter.config import get_settings
     from chatfilter.storage.user_database import UserDatabase
 
@@ -150,14 +153,15 @@ def _handle_reset_password() -> None:
         print("Error: Password must be at least 8 characters long", file=sys.stderr)
         sys.exit(1)
 
+    settings = get_settings()
     if args.data_dir:
-        data_dir = Path(args.data_dir)
-    else:
-        settings = get_settings()
-        data_dir = settings.data_dir
+        from chatfilter.config import Settings, reset_settings
+
+        reset_settings()
+        settings = Settings(data_dir=Path(args.data_dir))
 
     try:
-        db = UserDatabase(data_dir / "users.db")
+        db = UserDatabase(settings.effective_database_url)
         user = db.get_user_by_username(args.username)
         if user is None:
             print(f"Error: User '{args.username}' not found", file=sys.stderr)
@@ -165,7 +169,7 @@ def _handle_reset_password() -> None:
         db.update_password(user["id"], args.password)
         print(f"Password for '{args.username}' has been reset successfully")
         sys.exit(0)
-    except sqlite3.OperationalError as e:
+    except (SAOperationalError, sqlite3.OperationalError) as e:
         if "database is locked" in str(e):
             print(
                 "Error: Database is locked (the app may be running). "
@@ -177,10 +181,134 @@ def _handle_reset_password() -> None:
         sys.exit(1)
 
 
+def _handle_migrate() -> None:
+    """Handle migrate subcommand — run Alembic migrations."""
+    import argparse
+
+    from alembic import command
+
+    from chatfilter.config import get_settings
+
+    parser = argparse.ArgumentParser(
+        prog="chatfilter migrate",
+        description="Run database migrations",
+    )
+    parser.add_argument(
+        "--revision",
+        default="head",
+        help="Target revision (default: head)",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help="Data directory path (default: from settings/env)",
+    )
+
+    args = parser.parse_args(sys.argv[2:])
+
+    settings = get_settings()
+    if args.data_dir:
+        from chatfilter.config import Settings, reset_settings
+
+        reset_settings()
+        settings = Settings(data_dir=Path(args.data_dir))
+
+    settings.ensure_data_dirs()
+
+    db_url = settings.effective_database_url
+    alembic_cfg = _get_alembic_config(db_url)
+
+    print(f"Running migrations on: {db_url}")
+    command.upgrade(alembic_cfg, args.revision)
+    print("Migrations complete.")
+
+    # Auto-import from legacy split databases (groups.db + users.db)
+    if db_url.startswith("sqlite:///"):
+        from chatfilter.storage.legacy_import import import_legacy_databases
+
+        db_path = Path(db_url.removeprefix("sqlite:///"))
+        import_legacy_databases(db_path)
+
+
+def _get_alembic_config(db_url: str) -> Any:
+    """Build Alembic config pointing to our migrations."""
+    from pathlib import Path as _Path
+
+    from alembic.config import Config
+
+    ini_path = _Path(__file__).resolve().parent.parent.parent / "alembic.ini"
+    if not ini_path.exists():
+        alembic_cfg = Config()
+        alembic_cfg.set_main_option(
+            "script_location",
+            str(_Path(__file__).resolve().parent / "migrations"),
+        )
+    else:
+        alembic_cfg = Config(str(ini_path))
+
+    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+    return alembic_cfg
+
+
+def _handle_db_check() -> None:
+    """Handle db-check subcommand — check if migration is needed."""
+    from alembic.script import ScriptDirectory
+
+    from chatfilter.config import get_settings
+    from chatfilter.storage.engine import create_db_engine
+
+    settings = get_settings()
+    db_url = settings.effective_database_url
+    alembic_cfg = _get_alembic_config(db_url)
+    script = ScriptDirectory.from_config(alembic_cfg)
+    head = script.get_current_head()
+
+    print(f"Database: {db_url}")
+
+    # Check current revision
+    engine = create_db_engine(db_url)
+    current: str | None = None
+    try:
+        with engine.connect() as conn:
+            from sqlalchemy import inspect as sa_inspect
+            from sqlalchemy import text
+
+            insp = sa_inspect(conn)
+            if "alembic_version" in insp.get_table_names():
+                row = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+                if row:
+                    current = row[0]
+    except Exception:
+        pass
+    finally:
+        engine.dispose()
+
+    if current is None:
+        print("Status: not initialized")
+        print("Run: chatfilter migrate")
+        sys.exit(1)
+    elif current == head:
+        print(f"Status: up to date (revision {current})")
+        sys.exit(0)
+    else:
+        print(f"Status: migration needed ({current} → {head})")
+        print("Run: chatfilter migrate")
+        sys.exit(1)
+
+
 def main() -> None:
     """Run ChatFilter web application."""
     if len(sys.argv) > 1 and sys.argv[1] == "reset-password":
         _handle_reset_password()
+        return
+
+    if len(sys.argv) > 1 and sys.argv[1] == "migrate":
+        _handle_migrate()
+        return
+
+    if len(sys.argv) > 1 and sys.argv[1] == "db-check":
+        _handle_db_check()
         return
 
     import argparse

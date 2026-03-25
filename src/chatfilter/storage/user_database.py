@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shutil
-import sqlite3
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,23 +14,13 @@ from chatfilter.storage.sqlite import SQLiteDatabase
 
 
 class UserDatabase(SQLiteDatabase):
-    """SQLite database for user management and authentication."""
+    """Database for user management and authentication.
+
+    Tables are managed by Alembic — run ``chatfilter migrate`` before first use.
+    """
 
     def _initialize_schema(self) -> None:
-        with self._connection() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id TEXT PRIMARY KEY,
-                    username TEXT UNIQUE NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    is_admin INTEGER NOT NULL DEFAULT 0,
-                    created_at TIMESTAMP NOT NULL
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_users_username
-                ON users (username)
-            """)
+        """No-op. Schema is managed by Alembic."""
 
     def create_user(
         self,
@@ -112,7 +101,7 @@ class UserDatabase(SQLiteDatabase):
         return self.create_user(username, password, is_admin=is_admin)
 
     @staticmethod
-    def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    def _row_to_dict(row: Any) -> dict[str, Any]:
         return {
             "id": row["id"],
             "username": row["username"],
@@ -122,9 +111,16 @@ class UserDatabase(SQLiteDatabase):
         }
 
 
-def get_user_db(data_dir: Path) -> UserDatabase:
-    """Return a UserDatabase instance for the given data directory."""
-    return UserDatabase(data_dir / "users.db")
+def get_user_db(url_or_path: str | Path) -> UserDatabase:
+    """Return a UserDatabase instance.
+
+    Args:
+        url_or_path: Database URL string (sqlite:///... or postgresql://...)
+            or a Path to data directory (legacy, uses <dir>/users.db).
+    """
+    if isinstance(url_or_path, Path) or "://" not in str(url_or_path):
+        return UserDatabase(Path(url_or_path) / "users.db")
+    return UserDatabase(url_or_path)
 
 
 def delete_user_files(user_id: str, sessions_dir: Path, config_dir: Path) -> None:

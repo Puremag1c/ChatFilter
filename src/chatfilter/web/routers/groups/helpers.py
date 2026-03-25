@@ -229,10 +229,9 @@ def _get_group_service(request: Request | None = None) -> GroupService:
     else:
         settings = get_settings()
 
-    db_path = settings.data_dir / "groups.db"
     settings.data_dir.mkdir(parents=True, exist_ok=True)
 
-    db = GroupDatabase(db_path)
+    db = GroupDatabase(settings.effective_database_url)
 
     # If request provided, wire up engine
     engine = None

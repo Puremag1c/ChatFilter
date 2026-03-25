@@ -5,15 +5,12 @@ from __future__ import annotations
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
 
     class DatabaseMixinBase:
         """Type stubs for mixins — only visible to mypy, not at runtime."""
-
-        db_path: Path
 
         @contextmanager
         def _connection(self) -> Generator[Any, None, None]: ...

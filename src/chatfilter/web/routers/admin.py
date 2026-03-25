@@ -21,7 +21,7 @@ router = APIRouter(tags=["admin"])
 def _get_user_db(request: Request) -> UserDatabase:
     from chatfilter.storage.user_database import get_user_db
 
-    return get_user_db(request.app.state.settings.data_dir)
+    return get_user_db(request.app.state.settings.effective_database_url)
 
 
 def _require_admin(request: Request) -> bool:
@@ -131,7 +131,7 @@ async def delete_user(request: Request, user_id: str) -> Response:
     delete_user_files(user_id, settings.sessions_dir, settings.config_dir)
 
     # 3. Delete user's groups from the database
-    group_db = GroupDatabase(settings.data_dir / "groups.db")
+    group_db = GroupDatabase(settings.effective_database_url)
     with group_db._connection() as conn:
         conn.execute("DELETE FROM chat_groups WHERE user_id = ?", (user_id,))
 

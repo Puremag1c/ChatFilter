@@ -12,7 +12,7 @@ from chatfilter.storage.user_database import UserDatabase, delete_user_files, ge
 @pytest.fixture
 def user_db(tmp_path: Path) -> UserDatabase:
     """Isolated UserDatabase instance backed by a temp directory."""
-    return get_user_db(tmp_path)
+    return get_user_db(f"sqlite:///{tmp_path}/test.db")
 
 
 class TestCreateUser:
