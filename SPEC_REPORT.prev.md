@@ -1,39 +1,38 @@
 # Отчёт по итерации
 
-**Версия:** 0.27.1
-**Дата:** 2026-03-23
+**Версия:** 0.27.2
+**Дата:** 2026-03-25
 
 ## Выполнено
 
-### Must Have 1: ensure_data_dir() без user_id — 12 мест в коде
-Реализовано. user_id добавлен в AuthState и проброшен во все background tasks (auth_initial, auth_device, auth_reconnect, auth_reconnect_helpers). Все 12 мест исправлены.
+### Must Have 1: ENV переменные CHATFILTER_API_ID и CHATFILTER_API_HASH
+Реализовано. Приложение не запускается без них — fail-fast валидация в Settings (pydantic). Один api_id/api_hash на все сессии.
 
-### Must Have 2: Удалить миграции прокси
-Реализовано. Удалены _migrate_legacy_proxy(), _get_legacy_proxy_path(), константы LEGACY_PROXIES_FILENAME, LEGACY_PROXY_FILENAME, вызов из load_proxy_pool().
+### Must Have 2: Убрать api_id/api_hash из UI форм
+Реализовано. Поля удалены из auth_start_form.html, session_import.html, session_config.html, import_validation_result.html.
 
-### Must Have 3: Удалить migrate_legacy_sessions()
-Реализовано. Функция и все вызовы удалены.
+### Must Have 3: Убрать api_id/api_hash из per-session хранения
+Реализовано. Удалены из config.json сессий. SecureCredentialManager: store_credentials/retrieve_credentials переименованы, хранит только proxy_id.
 
-### Must Have 4: Удалить мониторинг (мёртвая фича)
-Реализовано. Удалены роутер, сервис, модели, database class, include_router, тест-файлы.
+### Must Have 4: TelegramConfig и loader — из ENV
+Реализовано. loader.py берёт api_id/api_hash из глобального конфига. TelegramConfig создаётся из ENV. api_id/api_hash убраны из AuthState.
 
-### Must Have 5: ensure_data_dir(user_id) обязательный
-Реализовано. Default None убран, user_id теперь обязательный параметр.
+### Must Have 5: Почистить существующие данные
+Реализовано. api_id/api_hash убраны из config.json и encrypted storage.
+
+### Must Have 6: Убрать парсинг api_id/api_hash из импорта
+Реализовано. extract_api_credentials() в telegram_expert.py адаптирован. upload.py и validation.py больше не извлекают/валидируют api_id/api_hash.
 
 ## Дополнительно выполнено
 
-- [Security] Санитизация user_id для предотвращения path traversal
-- [Security] Проверка ownership auth_id против session user_id
-- [UX] Background auth ошибки теперь показываются пользователю
-- [UX] Пустое состояние для списка прокси у новых пользователей
-- 28 тестовых фикстур исправлены — создают сессии в правильном user-scoped пути
-- Устранено создание MagicMock и None директорий в production sessions/
+- 13 тестовых файлов обновлены для соответствия новой архитектуре (AuthState без api_id, переименованные методы credentials, удалённый TelegramConfig.from_json_file)
+- Все 2208 тестов проходят (1 skipped, 0 failures)
+- Визуальное тестирование: формы корректно отображаются на desktop и mobile
 
 ## Не выполнено
 
-- [Nice to Have] Regression test: создание сессии через auth flow попадает в sessions/{user_id}/ — не реализован (требует E2E с Telegram API)
-- [Nice to Have] Regression test: новый пользователь получает пустой список прокси — не реализован отдельным тестом
+- [Nice to Have] Показать в UI откуда берётся api_id — не реализовано
 
 ## Итог
 
-Полная изоляция данных между пользователями достигнута. Все 5 Must Have задач выполнены. Мёртвый код (мониторинг, legacy миграции) удалён. Добавлена защита от path traversal и проверка ownership. Тесты приведены в соответствие с новой per-user архитектурой.
+Все 6 Must Have задач выполнены. api_id/api_hash перенесены из per-session хранения в единый глобальный конфиг через ENV. UI формы очищены, тесты обновлены, fail-fast валидация работает. Приложение полностью функционально с новой архитектурой.

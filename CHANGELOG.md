@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.2] - 2026-03-25
+
+### Changed
+- api_id/api_hash перенесены из per-session хранения в глобальные ENV переменные (CHATFILTER_API_ID, CHATFILTER_API_HASH)
+- Приложение требует CHATFILTER_API_ID и CHATFILTER_API_HASH при старте (fail-fast)
+- TelegramConfig и loader берут api_id/api_hash из ENV, не из per-session данных
+- SecureCredentialManager: store_credentials/retrieve_credentials переименованы (хранит только proxy_id)
+- AuthState больше не содержит api_id/api_hash
+
+### Removed
+- Поля api_id/api_hash из UI форм (auth_start_form, session_import, session_config, import_validation_result)
+- api_id/api_hash из per-session config.json и encrypted storage
+- Парсинг api_id/api_hash из импорта (telegram_expert, upload, validation)
+- TelegramConfig.from_json_file
+
+### Fixed
+- Fail-fast валидация ENV переменных при старте приложения
+- 13 тестовых файлов обновлены для соответствия новой архитектуре
+
 ## [0.27.1] - 2026-03-23
 
 ### Fixed
