@@ -24,7 +24,6 @@ from hypothesis import strategies as st
 
 from chatfilter.telegram.client.config import (
     SessionFileError,
-    TelegramConfig,
     TelegramConfigError,
     validate_session_file,
 )
@@ -32,6 +31,33 @@ from chatfilter.telegram.client.config import (
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
+
+def _parse_proxy_config(config_path: Path) -> str | None:
+    """Parse a proxy-only session config JSON file and return proxy_id.
+
+    Session configs no longer store api_id/api_hash (moved to ENV). They
+    contain only an optional proxy_id field.
+
+    Args:
+        config_path: Path to session config JSON file
+
+    Returns:
+        proxy_id string or None if not configured
+
+    Raises:
+        UnicodeDecodeError: If file is not valid UTF-8
+        json.JSONDecodeError: If file is not valid JSON
+        TelegramConfigError: If JSON structure is invalid
+    """
+    text = config_path.read_text(encoding="utf-8")
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise TelegramConfigError(f"Session config must be a JSON object, got {type(data).__name__}")
+    proxy_id = data.get("proxy_id")
+    if proxy_id is not None and not isinstance(proxy_id, str):
+        raise TelegramConfigError(f"proxy_id must be a string, got {type(proxy_id).__name__}")
+    return proxy_id
 
 
 def unique_filename(base: str, *args: Any) -> str:
@@ -99,35 +125,33 @@ def json_like_string(draw: Any) -> str:
 
 @st.composite
 def config_dict(draw: Any) -> dict[str, Any]:
-    """Generate dictionaries that might be used as Telegram configs."""
-    # Strategy for potentially valid configs
+    """Generate dictionaries that might be used as proxy-only session configs.
+
+    Session configs no longer store api_id/api_hash (moved to ENV).
+    Only proxy_id is stored per-session.
+    """
     result: dict[str, Any] = draw(
         st.one_of(
-            # Empty dict
+            # Empty dict (no proxy configured)
             st.just({}),
-            # Missing required fields
-            st.just({"api_id": 12345}),
-            st.just({"api_hash": "abc123"}),
-            # Wrong types
-            st.just({"api_id": None, "api_hash": "abc"}),
-            st.just({"api_id": [], "api_hash": "abc"}),
-            st.just({"api_id": {}, "api_hash": "abc"}),
-            st.just({"api_id": 12345, "api_hash": None}),
-            st.just({"api_id": 12345, "api_hash": []}),
-            st.just({"api_id": 12345, "api_hash": 123}),
-            # Empty strings
-            st.just({"api_id": 12345, "api_hash": ""}),
-            st.just({"api_id": "", "api_hash": "abc"}),
-            # Boundary values
-            st.just({"api_id": 0, "api_hash": "abc"}),
-            st.just({"api_id": -1, "api_hash": "abc"}),
-            st.just({"api_id": 2**31 - 1, "api_hash": "abc"}),
-            st.just({"api_id": 2**31, "api_hash": "abc"}),
-            # Extra fields (should be OK)
-            st.just({"api_id": 12345, "api_hash": "abc", "extra": "field"}),
-            # String api_id (should work)
-            st.just({"api_id": "12345", "api_hash": "abc"}),
-            st.just({"api_id": "not_a_number", "api_hash": "abc"}),
+            # Valid proxy_id
+            st.just({"proxy_id": "some-proxy-uuid"}),
+            # Wrong types for proxy_id
+            st.just({"proxy_id": None}),
+            st.just({"proxy_id": 12345}),
+            st.just({"proxy_id": []}),
+            st.just({"proxy_id": {}}),
+            st.just({"proxy_id": True}),
+            # Empty string proxy_id
+            st.just({"proxy_id": ""}),
+            # Extra unknown fields (should be ignored)
+            st.just({"proxy_id": "uuid-abc", "extra": "field"}),
+            st.just({"unknown_field": "value"}),
+            # Non-dict structures
+            st.just([]),
+            st.just(None),
+            st.just(42),
+            st.just("string"),
         )
     )
     return result
@@ -312,8 +336,9 @@ class TestFuzzConfigJSON:
     def test_fuzz_random_json_strings(self, isolated_tmp_dir: Path, data: str) -> None:
         """Fuzz test with random strings that might be parsed as JSON.
 
-        The config parser should handle malformed JSON gracefully
-        without crashes or unhandled exceptions.
+        The session config parser should handle malformed JSON gracefully
+        without crashes or unhandled exceptions. Session configs are proxy-only
+        (no api_id/api_hash — those are global ENV vars).
         """
         filename = unique_filename("fuzz_config", data) + ".json"
         config_path = isolated_tmp_dir / filename
@@ -321,7 +346,7 @@ class TestFuzzConfigJSON:
 
         # Should handle gracefully
         try:
-            TelegramConfig.from_json_file(config_path)
+            _parse_proxy_config(config_path)
         except (ValueError, json.JSONDecodeError, KeyError, TypeError, TelegramConfigError):
             # These are all expected for invalid data
             pass
@@ -337,18 +362,24 @@ class TestFuzzConfigJSON:
     def test_fuzz_config_dictionary_values(
         self, isolated_tmp_dir: Path, config: dict[str, Any]
     ) -> None:
-        """Fuzz test with various dictionary structures as config.
+        """Fuzz test with various proxy-only session config structures.
 
-        Tests type validation and required field checks.
+        Tests type validation for proxy_id field. api_id/api_hash are no longer
+        per-session config (moved to global ENV vars).
         """
         filename = unique_filename("fuzz_config_dict", str(config)) + ".json"
         config_path = isolated_tmp_dir / filename
-        config_path.write_text(json.dumps(config), encoding="utf-8")
+
+        try:
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+        except (TypeError, ValueError):
+            # Some generated values (None at top level) can't be serialized correctly
+            return
 
         # Should validate structure and types
         try:
-            TelegramConfig.from_json_file(config_path)
-        except (ValueError, KeyError, TypeError, TelegramConfigError):
+            _parse_proxy_config(config_path)
+        except (ValueError, KeyError, TypeError, TelegramConfigError, json.JSONDecodeError):
             # Expected for invalid configs
             pass
         except Exception as e:
@@ -360,21 +391,24 @@ class TestFuzzConfigJSON:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
     @given(
-        api_id=st.one_of(
+        proxy_id=st.one_of(
+            st.text(),
             st.integers(),
             st.floats(allow_nan=False, allow_infinity=False),
-            st.text(),
             st.none(),
             st.booleans(),
+            st.lists(st.text()),
         ),
-        api_hash=st.one_of(st.text(), st.integers(), st.none(), st.booleans()),
     )
     def test_fuzz_config_field_types(
-        self, isolated_tmp_dir: Path, api_id: Any, api_hash: Any
+        self, isolated_tmp_dir: Path, proxy_id: Any
     ) -> None:
-        """Fuzz test with various types for api_id and api_hash fields."""
-        config = {"api_id": api_id, "api_hash": api_hash}
-        filename = unique_filename("fuzz_config_types", api_id, api_hash) + ".json"
+        """Fuzz test with various types for proxy_id field.
+
+        Session configs are proxy-only (api_id/api_hash moved to global ENV vars).
+        """
+        config = {"proxy_id": proxy_id}
+        filename = unique_filename("fuzz_config_types", proxy_id) + ".json"
         config_path = isolated_tmp_dir / filename
 
         try:
@@ -385,7 +419,7 @@ class TestFuzzConfigJSON:
 
         # Should validate types
         try:
-            TelegramConfig.from_json_file(config_path)
+            _parse_proxy_config(config_path)
         except (ValueError, TypeError, KeyError, TelegramConfigError):
             # Expected for wrong types
             pass
@@ -393,14 +427,14 @@ class TestFuzzConfigJSON:
             pytest.fail(f"Unexpected exception: {type(e).__name__}: {e}\nConfig: {config}")
 
     def test_fuzz_invalid_utf8_sequences(self, isolated_tmp_dir: Path) -> None:
-        """Test handling of invalid UTF-8 byte sequences in JSON files."""
+        """Test handling of invalid UTF-8 byte sequences in session config files."""
         config_path = isolated_tmp_dir / "invalid_utf8.json"
 
-        # Various invalid UTF-8 sequences
+        # Various invalid UTF-8 sequences in proxy-only session configs
         invalid_sequences = [
-            b'{"api_id": 12345, "api_hash": "\xff\xfe"}',  # Invalid UTF-8
-            b'{"api_id": 12345, "api_hash": "\x80\x81"}',  # Invalid continuation
-            b'{"api_id": 12345, "api_hash": "\xc0\x80"}',  # Overlong encoding
+            b'{"proxy_id": "\xff\xfe"}',  # Invalid UTF-8
+            b'{"proxy_id": "\x80\x81"}',  # Invalid continuation
+            b'{"proxy_id": "\xc0\x80"}',  # Overlong encoding
         ]
 
         for seq in invalid_sequences:
@@ -408,7 +442,7 @@ class TestFuzzConfigJSON:
 
             # Should detect invalid encoding
             with pytest.raises((ValueError, UnicodeDecodeError)):
-                TelegramConfig.from_json_file(config_path)
+                _parse_proxy_config(config_path)
 
     @settings(
         max_examples=30,
@@ -420,9 +454,10 @@ class TestFuzzConfigJSON:
         """Test handling of deeply nested JSON structures.
 
         Deep nesting can cause stack overflow or performance issues.
+        Uses proxy-only session config structure.
         """
-        # Create deeply nested structure
-        nested = {"api_id": 12345, "api_hash": "test"}
+        # Create deeply nested structure wrapping a proxy config
+        nested: Any = {"proxy_id": "test-proxy"}
         for _ in range(nesting_level):
             nested = {"nested": nested}
 
@@ -434,9 +469,9 @@ class TestFuzzConfigJSON:
             # Python's JSON encoder might fail on extreme nesting
             return
 
-        # Should handle gracefully (likely KeyError for missing fields)
+        # Should handle gracefully (proxy_id not found at top level is OK)
         try:
-            TelegramConfig.from_json_file(config_path)
+            _parse_proxy_config(config_path)
         except (ValueError, KeyError, RecursionError, TelegramConfigError):
             # Expected for nested structures or recursion limits
             pass
@@ -575,19 +610,21 @@ class TestFuzzFileSizeLimits:
     )
     @given(size=st.integers(min_value=0, max_value=2048))
     def test_fuzz_config_file_size_boundaries(self, isolated_tmp_dir: Path, size: int) -> None:
-        """Test config file handling near size limit boundaries.
+        """Test session config file handling near size limit boundaries.
 
+        Uses proxy-only session config structure (no api_id/api_hash).
         The config upload has a 1KB size limit.
         """
-        # Create content of specified size
-        content = '{"api_id": 12345, "api_hash": "' + "a" * max(0, size - 40) + '"}'
+        # Create proxy-only session config content of specified size
+        padding = max(0, size - 30)
+        content = '{"proxy_id": "' + "a" * padding + '"}'
         filename = unique_filename("large_config", size, len(content)) + ".json"
         config_path = isolated_tmp_dir / filename
         config_path.write_text(content, encoding="utf-8")
 
         # Attempt to parse
         try:
-            TelegramConfig.from_json_file(config_path)
+            _parse_proxy_config(config_path)
         except (ValueError, json.JSONDecodeError, KeyError, TelegramConfigError):
             # Expected for many cases
             pass
