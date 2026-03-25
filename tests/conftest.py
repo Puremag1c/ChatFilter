@@ -264,7 +264,7 @@ def test_settings(tmp_path: Any) -> Any:
     """
     from chatfilter.config import Settings
 
-    settings = Settings(data_dir=tmp_path / "test_data")
+    settings = Settings(data_dir=tmp_path / "test_data", api_id=12345, api_hash="testhash")
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     _run_test_migrations(settings)
     return settings
@@ -869,7 +869,7 @@ def _isolate_data_dir(tmp_path: Path, monkeypatch: Any) -> Generator[None, None,
     from chatfilter.config import Settings
     from chatfilter.web.routers.sessions import helpers as session_helpers
 
-    isolated_settings = Settings(data_dir=tmp_path / "isolated_data")
+    isolated_settings = Settings(data_dir=tmp_path / "isolated_data", api_id=12345, api_hash="testhash")
     isolated_settings.data_dir.mkdir(parents=True, exist_ok=True)
     _run_test_migrations(isolated_settings)
 

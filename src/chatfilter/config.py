@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from chatfilter.config_filesystem import (
@@ -182,6 +182,21 @@ class Settings(BaseSettings):
         default=None,
         description="Telegram API hash (CHATFILTER_API_HASH). Get from https://my.telegram.org/apps",
     )
+
+    @model_validator(mode="after")
+    def _require_api_credentials(self) -> Settings:
+        """Fail fast if Telegram API credentials are missing."""
+        missing = []
+        if self.api_id is None:
+            missing.append("CHATFILTER_API_ID (api_id)")
+        if self.api_hash is None:
+            missing.append("CHATFILTER_API_HASH (api_hash)")
+        if missing:
+            raise ValueError(
+                f"Missing required Telegram credentials: {', '.join(missing)}. "
+                "Get them at https://my.telegram.org/apps"
+            )
+        return self
 
     # Telegram settings
     max_messages_limit: int = Field(

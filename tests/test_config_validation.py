@@ -11,6 +11,9 @@ import pytest
 
 from chatfilter.config import Settings
 
+# Dummy credentials for tests that don't test API credential validation
+_CREDS: dict[str, Any] = {"api_id": 12345, "api_hash": "testhash"}
+
 
 class TestConfigValidation:
     """Tests for Settings.validate() method."""
@@ -22,7 +25,7 @@ class TestConfigValidation:
             s.bind(("", 0))
             port = s.getsockname()[1]
 
-        settings = Settings(data_dir=tmp_path, port=port)
+        settings = Settings(data_dir=tmp_path, port=port, **_CREDS)
         errors = settings.validate()
 
         assert errors == []
@@ -33,14 +36,14 @@ class TestConfigValidation:
 
         # Pydantic should catch this during Settings construction
         with pytest.raises(ValidationError, match="port"):
-            Settings(data_dir=tmp_path, port=0)
+            Settings(data_dir=tmp_path, port=0, **_CREDS)
 
     def test_data_dir_is_file(self, tmp_path: Path) -> None:
         """Test that data directory existing as file fails validation."""
         file_path = tmp_path / "not_a_directory"
         file_path.write_text("content")
 
-        settings = Settings(data_dir=file_path, port=8888)
+        settings = Settings(data_dir=file_path, port=8888, **_CREDS)
         errors = settings.validate()
 
         assert len(errors) > 0
@@ -58,7 +61,7 @@ class TestConfigValidation:
         readonly_dir.chmod(0o444)  # Read-only
 
         data_dir = readonly_dir / "data"
-        settings = Settings(data_dir=data_dir, port=8889)
+        settings = Settings(data_dir=data_dir, port=8889, **_CREDS)
 
         try:
             errors = settings.validate()
@@ -78,7 +81,7 @@ class TestConfigValidation:
         sock.listen(1)
 
         try:
-            settings = Settings(data_dir=tmp_path, port=port, host="127.0.0.1")
+            settings = Settings(data_dir=tmp_path, port=port, host="127.0.0.1", **_CREDS)
             errors = settings.validate()
 
             # Should detect port in use
@@ -98,7 +101,7 @@ class TestConfigValidation:
             s.bind(("", 0))
             port = s.getsockname()[1]
 
-        settings = Settings(data_dir=data_dir, port=port)
+        settings = Settings(data_dir=data_dir, port=port, **_CREDS)
         errors = settings.validate()
 
         assert errors == []
@@ -110,7 +113,7 @@ class TestConfigValidation:
         file_path = tmp_path / "not_a_dir"
         file_path.write_text("content")
 
-        settings = Settings(data_dir=file_path, port=8890)
+        settings = Settings(data_dir=file_path, port=8890, **_CREDS)
         errors = settings.validate()
 
         # All errors should have "Fix:" suggestions
@@ -129,6 +132,7 @@ class TestConfigCheck:
             debug=True,
             host="0.0.0.0",
             port=8891,
+            **_CREDS,
         )
 
         warnings = settings.check()
@@ -143,6 +147,7 @@ class TestConfigCheck:
             debug=False,
             host="127.0.0.1",
             port=8892,
+            **_CREDS,
         )
 
         warnings = settings.check()
@@ -239,7 +244,7 @@ class TestLoggingConfig:
 
     def test_default_logging_config(self, tmp_path: Path) -> None:
         """Test default logging configuration values."""
-        settings = Settings(data_dir=tmp_path, port=8893)
+        settings = Settings(data_dir=tmp_path, port=8893, **_CREDS)
 
         assert settings.log_level == "INFO"
         assert settings.log_to_file is True
@@ -248,7 +253,7 @@ class TestLoggingConfig:
 
     def test_custom_log_level(self, tmp_path: Path) -> None:
         """Test custom log level configuration."""
-        settings = Settings(data_dir=tmp_path, port=8894, log_level="DEBUG")
+        settings = Settings(data_dir=tmp_path, port=8894, log_level="DEBUG", **_CREDS)
 
         assert settings.log_level == "DEBUG"
 
@@ -257,11 +262,11 @@ class TestLoggingConfig:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError, match="log level"):
-            Settings(data_dir=tmp_path, port=8895, log_level="INVALID")
+            Settings(data_dir=tmp_path, port=8895, log_level="INVALID", **_CREDS)
 
     def test_log_file_disabled(self, tmp_path: Path) -> None:
         """Test disabling file logging."""
-        settings = Settings(data_dir=tmp_path, port=8896, log_to_file=False)
+        settings = Settings(data_dir=tmp_path, port=8896, log_to_file=False, **_CREDS)
 
         assert settings.log_to_file is False
 
@@ -272,6 +277,7 @@ class TestLoggingConfig:
             port=8897,
             log_file_max_bytes=5 * 1024 * 1024,  # 5 MB
             log_file_backup_count=10,
+            **_CREDS,
         )
 
         assert settings.log_file_max_bytes == 5 * 1024 * 1024
@@ -279,7 +285,7 @@ class TestLoggingConfig:
 
     def test_log_file_path_property(self, tmp_path: Path) -> None:
         """Test that log_file_path property returns correct path."""
-        settings = Settings(data_dir=tmp_path, port=8898)
+        settings = Settings(data_dir=tmp_path, port=8898, **_CREDS)
 
         log_path = settings.log_file_path
         assert log_path.name == "chatfilter.log"
@@ -287,7 +293,7 @@ class TestLoggingConfig:
 
     def test_log_dir_creation(self, tmp_path: Path) -> None:
         """Test that log directory is created when log_to_file is enabled."""
-        settings = Settings(data_dir=tmp_path, port=8899, log_to_file=True)
+        settings = Settings(data_dir=tmp_path, port=8899, log_to_file=True, **_CREDS)
         errors = settings.ensure_data_dirs()
         assert errors == []
 
@@ -296,7 +302,7 @@ class TestLoggingConfig:
 
     def test_log_dir_not_created_when_disabled(self, tmp_path: Path) -> None:
         """Test that log directory is not created when log_to_file is disabled."""
-        settings = Settings(data_dir=tmp_path, port=8900, log_to_file=False)
+        settings = Settings(data_dir=tmp_path, port=8900, log_to_file=False, **_CREDS)
 
         # Get log_dir but don't call ensure_data_dirs
         log_dir = settings.log_dir
@@ -307,7 +313,7 @@ class TestLoggingConfig:
 
     def test_log_config_in_print_config(self, tmp_path: Path, capsys: Any) -> None:
         """Test that print_config includes logging configuration."""
-        settings = Settings(data_dir=tmp_path, port=8901)
+        settings = Settings(data_dir=tmp_path, port=8901, **_CREDS)
         settings.print_config()
 
         captured = capsys.readouterr()
