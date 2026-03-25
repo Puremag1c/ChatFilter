@@ -199,17 +199,21 @@ class TestValidateConfigFileFormat:
         assert config["api_id"] == 12345
         assert config.get("api_hash") is None
 
-    def test_invalid_api_id_type(self) -> None:
-        """Test rejection of invalid api_id type."""
+    def test_invalid_api_id_type_now_allowed(self) -> None:
+        """Test that invalid api_id type is now allowed (no longer validated)."""
         content = json.dumps({"api_id": "not_a_number", "api_hash": "abc"}).encode()
-        with pytest.raises(ValueError, match="api_id must be an integer"):
-            validate_config_file_format(content)
+        config = validate_config_file_format(content)
+        # api_id type is no longer validated - accepts any value
+        assert config["api_id"] == "not_a_number"
+        assert config["api_hash"] == "abc"
 
-    def test_empty_api_hash(self) -> None:
-        """Test rejection of empty api_hash."""
+    def test_empty_api_hash_now_allowed(self) -> None:
+        """Test that empty api_hash is now allowed (no longer validated)."""
         content = json.dumps({"api_id": 12345, "api_hash": ""}).encode()
-        with pytest.raises(ValueError, match="non-empty string"):
-            validate_config_file_format(content)
+        config = validate_config_file_format(content)
+        # api_hash type/emptiness is no longer validated - accepts any value
+        assert config["api_id"] == 12345
+        assert config["api_hash"] == ""
 
     def test_empty_config_file(self) -> None:
         """Test rejection of empty config file."""

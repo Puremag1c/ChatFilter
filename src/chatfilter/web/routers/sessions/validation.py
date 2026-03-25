@@ -172,23 +172,6 @@ def validate_config_file_format(content: bytes) -> dict[str, str | int | None]:
     if not isinstance(config, dict):
         raise ValueError("Config must be a JSON object")
 
-    # api_id and api_hash are now optional (nullable)
-    # Validate api_id type if present
-    api_id = config.get("api_id")
-    if api_id is not None:
-        if isinstance(api_id, str):
-            try:
-                int(api_id)
-            except ValueError:
-                raise ValueError("api_id must be an integer or numeric string") from None
-        elif not isinstance(api_id, int):
-            raise ValueError("api_id must be an integer")
-
-    # Validate api_hash type if present
-    api_hash = config.get("api_hash")
-    if api_hash is not None and (not isinstance(api_hash, str) or not api_hash.strip()):
-        raise ValueError("api_hash must be a non-empty string")
-
     # Validate source field if present
     source = config.get("source")
     if source is not None and source not in ("file", "phone"):
