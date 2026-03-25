@@ -173,6 +173,14 @@ class Settings(BaseSettings):
         description="Timeout for update check HTTP requests (seconds)",
     )
 
+    # Telegram API credentials (required)
+    api_id: int = Field(
+        description="Telegram API ID (CHATFILTER_API_ID). Get from https://my.telegram.org/apps",
+    )
+    api_hash: str = Field(
+        description="Telegram API hash (CHATFILTER_API_HASH). Get from https://my.telegram.org/apps",
+    )
+
     # Telegram settings
     max_messages_limit: int = Field(
         default=10_000,
@@ -248,6 +256,13 @@ class Settings(BaseSettings):
             return self.database_url
         db_path = self.data_dir / "chatfilter.db"
         return f"sqlite:///{db_path}"
+
+    @property
+    def telegram_config(self) -> "TelegramConfig":
+        """Build TelegramConfig from global ENV credentials."""
+        from chatfilter.telegram.client.config import TelegramConfig
+
+        return TelegramConfig(api_id=self.api_id, api_hash=self.api_hash)
 
     # Admin initialization (env-only, not stored)
     admin_login: str | None = Field(
@@ -454,6 +469,18 @@ class Settings(BaseSettings):
         """
         errors = []
 
+        # 0. Telegram credentials (pydantic enforces presence, validate values)
+        if self.api_id <= 0:
+            errors.append(
+                "CHATFILTER_API_ID must be a positive integer. "
+                "Get it at https://my.telegram.org/apps"
+            )
+        if not self.api_hash:
+            errors.append(
+                "CHATFILTER_API_HASH must not be empty. "
+                "Get it at https://my.telegram.org/apps"
+            )
+
         # 1. Port validation (already done by pydantic, but double-check)
         if not (1 <= self.port <= 65535):
             errors.append(f"Invalid port number: {self.port} (must be 1-65535)")
@@ -519,6 +546,8 @@ class Settings(BaseSettings):
     def print_config(self) -> None:
         """Print current configuration to stdout."""
         print("ChatFilter Configuration:")
+        print(f"  Telegram API ID: {self.api_id}")
+        print("  Telegram API Hash: ***REDACTED***")
         print(f"  Host: {self.host}")
         print(f"  Port: {self.port}")
         print(f"  Debug: {self.debug}")
