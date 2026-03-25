@@ -140,12 +140,28 @@ chatfilter --host 0.0.0.0 --port 8080
 4. **Select chats** to analyze
 5. **Export results** to Excel or other formats
 
+### Getting Telegram API Credentials
+
+Before using ChatFilter, you need to obtain your Telegram API ID and Hash:
+
+1. Go to [https://my.telegram.org/apps](https://my.telegram.org/apps)
+2. Sign in with your Telegram account
+3. Create an application or use existing one
+4. Copy your **API ID** and **API Hash**
+5. Add them to your `.env` file:
+   ```bash
+   CHATFILTER_API_ID=your_api_id_here
+   CHATFILTER_API_HASH=your_api_hash_here
+   ```
+
+**Important:** These credentials are required for ChatFilter to connect to Telegram API. Without them, the application will fail to start.
+
 ### Getting a Telegram Session File
 
-To use ChatFilter, you need a Telegram session file:
+To use ChatFilter, you also need a Telegram session file:
 
 1. Install Telethon: `pip install telethon`
-2. Create a session using the [Telegram API](https://my.telegram.org/apps)
+2. Create a session using your API credentials
 3. Use the session file with ChatFilter
 
 See the web interface onboarding for detailed instructions.
