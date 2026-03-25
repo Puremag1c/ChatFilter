@@ -615,10 +615,10 @@ msgstr "Войдите по номеру телефона, чтобы созда
 
 #: src/chatfilter/templates/upload.html:72
 msgid ""
-"Already have a .session file? Upload it here with your API credentials."
+"Already have a .session file? Upload it here. API credentials are configured globally."
 msgstr ""
-"Уже есть файл .session? Загрузите его здесь вместе со своими API учётными "
-"данными."
+"Уже есть файл .session? Загрузите его здесь. API учётные данные настраиваются "
+"глобально."
 
 #: src/chatfilter/templates/upload.html:186
 #: src/chatfilter/templates/upload.html:187

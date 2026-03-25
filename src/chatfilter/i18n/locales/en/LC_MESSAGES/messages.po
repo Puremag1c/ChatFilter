@@ -603,9 +603,9 @@ msgstr "Authenticate with your phone number to create a new session."
 
 #: src/chatfilter/templates/upload.html:72
 msgid ""
-"Already have a .session file? Upload it here with your API credentials."
+"Already have a .session file? Upload it here. API credentials are configured globally."
 msgstr ""
-"Already have a .session file? Upload it here with your API credentials."
+"Already have a .session file? Upload it here. API credentials are configured globally."
 
 #: src/chatfilter/templates/upload.html:186
 #: src/chatfilter/templates/upload.html:187

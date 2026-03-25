@@ -580,7 +580,7 @@ msgid "Authenticate with your phone number to create a new session."
 msgstr ""
 
 #: src/chatfilter/templates/upload.html:72
-msgid "Already have a .session file? Upload it here with your API credentials."
+msgid "Already have a .session file? Upload it here. API credentials are configured globally."
 msgstr ""
 
 #: src/chatfilter/templates/upload.html:186
