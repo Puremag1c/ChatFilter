@@ -19,11 +19,11 @@ class TestGetSessionConfigStatus:
     """Tests for get_session_config_status() after Bug 1 fix."""
 
     def test_encrypted_credentials_with_proxy(self, tmp_path: Path):
-        """Test status with encrypted credentials and valid proxy.
+        """Test status with null api_id/api_hash and valid proxy.
 
-        Scenario: Session has NO plaintext api_id/api_hash in config.json,
-        but HAS encrypted credentials in SecureCredentialManager.
-        Expected: Should return "disconnected" (ready to connect).
+        Scenario: Session has NO plaintext api_id/api_hash in config.json
+        (api credentials come from ENV after migration).
+        Expected: Should return "disconnected" (ready to connect) if proxy is valid.
         """
         session_dir = tmp_path / "my_session"
         session_dir.mkdir(parents=True)
@@ -37,33 +37,23 @@ class TestGetSessionConfigStatus:
         config_file = session_dir / "config.json"
         config_file.write_text(json.dumps(config_data), encoding="utf-8")
 
-        # Mock SecureCredentialManager to return True for has_credentials
-        mock_manager = MagicMock()
-        mock_manager.has_credentials.return_value = True
-
-        # Mock imports that happen inside the function
-        with (
-            patch(
-                "chatfilter.security.SecureCredentialManager",
-                return_value=mock_manager,
-            ),
-            patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
-        ):
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
             mock_get_proxy.return_value = {"id": "proxy-123", "host": "127.0.0.1"}
 
             status, reason = get_session_config_status(session_dir)
 
         assert status == "disconnected"
         assert reason is None
-        mock_manager.has_credentials.assert_called_once_with("my_session")
 
     def test_encrypted_credentials_missing(self, tmp_path: Path):
-        """Test status when encrypted credentials don't exist.
+        """Test status when proxy doesn't exist in pool.
 
-        Scenario: Session has NO plaintext api_id/api_hash,
-        and NO encrypted credentials in SecureCredentialManager.
-        Expected: Should return "needs_config" with "API credentials required".
+        Scenario: Session has proxy_id set but proxy is not found in pool.
+        After ENV migration, api_id/api_hash are no longer checked per-session.
+        Expected: Should return "needs_config" with "Proxy not found in pool".
         """
+        from chatfilter.storage.errors import StorageNotFoundError
+
         session_dir = tmp_path / "empty_session"
         session_dir.mkdir(parents=True)
 
@@ -75,19 +65,13 @@ class TestGetSessionConfigStatus:
         config_file = session_dir / "config.json"
         config_file.write_text(json.dumps(config_data), encoding="utf-8")
 
-        # Mock SecureCredentialManager to return False for has_credentials
-        mock_manager = MagicMock()
-        mock_manager.has_credentials.return_value = False
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
+            mock_get_proxy.side_effect = StorageNotFoundError("Proxy not found")
 
-        with patch(
-            "chatfilter.security.SecureCredentialManager",
-            return_value=mock_manager,
-        ):
             status, reason = get_session_config_status(session_dir)
 
         assert status == "needs_config"
-        assert reason == "API credentials required"
-        mock_manager.has_credentials.assert_called_once_with("empty_session")
+        assert reason == "Proxy not found in pool"
 
     def test_plaintext_credentials_backward_compatibility(self, tmp_path: Path):
         """Test backward compatibility with plaintext config.json.
@@ -194,11 +178,12 @@ class TestGetSessionConfigStatus:
         assert reason == "Proxy not found in pool"
 
     def test_encrypted_credentials_check_error_handling(self, tmp_path: Path):
-        """Test graceful handling of SecureCredentialManager errors.
+        """Test status when session has no proxy_id configured.
 
-        Scenario: SecureCredentialManager.has_credentials() raises exception
-        (e.g., corrupted .credentials.enc file).
-        Expected: Should treat as credentials absent, return "needs_config" with "API credentials required".
+        Scenario: Session config has null proxy_id.
+        After ENV migration, api_id/api_hash are no longer checked per-session —
+        only proxy configuration is validated.
+        Expected: Should return "needs_config" with "Proxy configuration required".
         """
         session_dir = tmp_path / "corrupted_creds_session"
         session_dir.mkdir(parents=True)
@@ -206,32 +191,25 @@ class TestGetSessionConfigStatus:
         config_data = {
             "api_id": None,
             "api_hash": None,
-            "proxy_id": "proxy-999",
+            "proxy_id": None,
         }
         config_file = session_dir / "config.json"
         config_file.write_text(json.dumps(config_data), encoding="utf-8")
 
-        # Mock SecureCredentialManager to raise exception
-        mock_manager = MagicMock()
-        mock_manager.has_credentials.side_effect = Exception("Corrupted credentials file")
-
-        with patch(
-            "chatfilter.security.SecureCredentialManager",
-            return_value=mock_manager,
-        ):
-            status, reason = get_session_config_status(session_dir)
+        status, reason = get_session_config_status(session_dir)
 
         assert status == "needs_config"
-        assert reason == "API credentials required"
+        assert reason == "Proxy configuration required"
 
     # Note: test_storage_dir_does_not_exist removed - edge case covered by unit test,
     # difficult to simulate in integration test without complex mocking
 
     def test_encrypted_credentials_with_only_api_id_null(self, tmp_path: Path):
-        """Test encrypted check when only api_id is null (api_hash present).
+        """Test that api_id/api_hash values are not checked per-session.
 
-        Scenario: api_id is None, but api_hash has value in config.
-        Expected: Should check encrypted credentials (both must be present).
+        Scenario: api_id is None, api_hash has value in config.
+        After ENV migration, api credentials come from ENV — per-session values are ignored.
+        Expected: Should return "disconnected" if proxy is valid (api_id/api_hash not checked).
         """
         session_dir = tmp_path / "partial_session"
         session_dir.mkdir(parents=True)
@@ -244,30 +222,21 @@ class TestGetSessionConfigStatus:
         config_file = session_dir / "config.json"
         config_file.write_text(json.dumps(config_data), encoding="utf-8")
 
-        mock_manager = MagicMock()
-        mock_manager.has_credentials.return_value = True
-
-        with (
-            patch(
-                "chatfilter.security.SecureCredentialManager",
-                return_value=mock_manager,
-            ),
-            patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
-        ):
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
             mock_get_proxy.return_value = {"id": "proxy-222"}
 
             status, reason = get_session_config_status(session_dir)
 
-        # Should check encrypted credentials because api_id is None
+        # api_id/api_hash are not checked — only proxy matters
         assert status == "disconnected"
         assert reason is None
-        mock_manager.has_credentials.assert_called_once()
 
     def test_encrypted_credentials_with_only_api_hash_null(self, tmp_path: Path):
-        """Test encrypted check when only api_hash is null (api_id present).
+        """Test that api_hash value is not checked per-session.
 
-        Scenario: api_hash is None, but api_id has value in config.
-        Expected: Should check encrypted credentials (both must be present).
+        Scenario: api_hash is None, api_id has value in config.
+        After ENV migration, api credentials come from ENV — per-session values are ignored.
+        Expected: Should return "disconnected" if proxy is valid (api_hash not checked).
         """
         session_dir = tmp_path / "partial_hash_session"
         session_dir.mkdir(parents=True)
@@ -280,24 +249,14 @@ class TestGetSessionConfigStatus:
         config_file = session_dir / "config.json"
         config_file.write_text(json.dumps(config_data), encoding="utf-8")
 
-        mock_manager = MagicMock()
-        mock_manager.has_credentials.return_value = True
-
-        with (
-            patch(
-                "chatfilter.security.SecureCredentialManager",
-                return_value=mock_manager,
-            ),
-            patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy,
-        ):
+        with patch("chatfilter.storage.proxy_pool.get_proxy_by_id") as mock_get_proxy:
             mock_get_proxy.return_value = {"id": "proxy-333"}
 
             status, reason = get_session_config_status(session_dir)
 
-        # Should check encrypted credentials because api_hash is None
+        # api_id/api_hash are not checked — only proxy matters
         assert status == "disconnected"
         assert reason is None
-        mock_manager.has_credentials.assert_called_once()
 
 
 class TestConnectSessionErrorHandling:
