@@ -311,6 +311,7 @@ def _migrate_api_credentials(settings: Any) -> None:
 
     sessions_dir = settings.sessions_dir
     if not sessions_dir.exists():
+        logging.info("API credentials migration: no sessions directory, nothing to migrate")
         return
 
     migrated_count = 0
