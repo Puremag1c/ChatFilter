@@ -95,14 +95,12 @@ async def read_upload_with_size_limit(
 
 
 async def get_account_info_from_session(
-    session_path: Path, api_id: int, api_hash: str
+    session_path: Path,
 ) -> dict[str, int | str] | None:
     """Extract account info from a session by connecting to Telegram.
 
     Args:
         session_path: Path to the session file
-        api_id: Telegram API ID
-        api_hash: Telegram API hash
 
     Returns:
         Dict with user_id, phone, first_name, last_name if successful, None otherwise
@@ -110,8 +108,9 @@ async def get_account_info_from_session(
     from telethon import TelegramClient
 
     try:
+        config = helpers.get_settings().telegram_config
         # Create a temporary client to get account info
-        client = TelegramClient(str(session_path), api_id, api_hash)
+        client = TelegramClient(str(session_path), config.api_id, config.api_hash)
 
         # Connect with a timeout to avoid hanging
         await asyncio.wait_for(client.connect(), timeout=30.0)
@@ -164,8 +163,6 @@ def load_account_info(session_dir: Path) -> dict[str, int | str] | None:
 def _save_session_to_disk(
     session_dir: Path,
     session_content: bytes,
-    api_id: int | None,
-    api_hash: str | None,
     proxy_id: str | None,
     account_info: dict[str, int | str] | None,
     source: str = "file",
@@ -180,24 +177,21 @@ def _save_session_to_disk(
 
     Creates:
     - session.session file (atomic write, secure permissions)
-    - config.json with api_id, api_hash, proxy_id, source
+    - config.json with proxy_id, source
     - .secure_storage marker
     - .account_info.json if account_info provided
 
-    Also stores credentials in secure storage.
+    Also stores proxy_id in secure storage.
 
     Args:
         session_dir: Session directory path (must NOT exist)
         session_content: Session file content bytes
-        api_id: Telegram API ID (can be None for source=phone)
-        api_hash: Telegram API hash (can be None for source=phone)
         proxy_id: Proxy ID (can be None)
         account_info: Account info dict or None
         source: Source of credentials ('file' or 'phone')
 
     Raises:
         DiskSpaceError: If not enough disk space
-        TelegramConfigError: If validation fails
         Exception: On other failures (temp dir is cleaned up)
     """
     from chatfilter.security import SecureCredentialManager
@@ -227,20 +221,14 @@ def _save_session_to_disk(
         atomic_write(session_path, session_content)
         secure_file_permissions(session_path)
 
-        # Store credentials securely (NOT in plaintext)
-        # Only store if api_id and api_hash are provided
-        if api_id is not None and api_hash is not None:
-            storage_dir = session_dir.parent
-            manager = SecureCredentialManager(storage_dir)
-            manager.store_credentials(safe_name, api_id, api_hash, proxy_id)
-            logger.info(f"Stored credentials securely for session: {safe_name}")
-        else:
-            logger.info(f"Session {safe_name} created without api_id/api_hash (source=phone)")
+        # Store proxy_id securely (api_id/api_hash come from global ENV)
+        storage_dir = session_dir.parent
+        manager = SecureCredentialManager(storage_dir)
+        manager.store_session_config(safe_name, proxy_id)
+        logger.info(f"Stored session config securely for session: {safe_name}")
 
         # Create per-session config.json
-        session_config: dict[str, int | str | None] = {
-            "api_id": api_id,
-            "api_hash": api_hash,
+        session_config: dict[str, str | None] = {
             "proxy_id": proxy_id,
             "source": source,
             "web_user_id": str(web_user_id) if web_user_id is not None else None,

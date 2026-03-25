@@ -199,20 +199,8 @@ async def upload_session(
             tmp_session_path = Path(tmp_session.name)
 
         try:
-            # Extract credentials from config
-            api_id_value = config_data.get("api_id")
-            api_hash_value = config_data.get("api_hash")
-
-            # Convert to appropriate types, handling None
-            api_id = int(api_id_value) if api_id_value is not None else None
-            api_hash = str(api_hash_value) if api_hash_value is not None else None
-
-            # Try to get account info from the session only if both api_id and api_hash are available
-            account_info = None
-            if api_id is not None and api_hash is not None:
-                account_info = await get_account_info_from_session(
-                    tmp_session_path, api_id, api_hash
-                )
+            # Try to get account info from the session using global telegram config
+            account_info = await get_account_info_from_session(tmp_session_path)
 
             if account_info:
                 # Check for duplicate accounts
@@ -240,8 +228,6 @@ async def upload_session(
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,
-                api_id=api_id,
-                api_hash=api_hash,
                 proxy_id=None,
                 account_info=final_account_info,
                 source="file",
@@ -439,8 +425,6 @@ async def save_import_session(
     session_name: Annotated[str, Form()],
     session_file: Annotated[UploadFile, File()],
     json_file: Annotated[UploadFile, File()],
-    api_id: Annotated[int, Form()],
-    api_hash: Annotated[str, Form()],
     proxy_id: Annotated[str, Form()],
 ) -> HTMLResponse:
     """Save an imported session with configuration.
@@ -498,20 +482,6 @@ async def save_import_session(
                 request=request,
                 name="partials/upload_result.html",
                 context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
-            )
-
-        # Validate api_hash format (32-char hex string)
-        api_hash = api_hash.strip()
-        if len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash):
-            return templates.TemplateResponse(
-                request=request,
-                name="partials/upload_result.html",
-                context={
-                    "success": False,
-                    "error": _(
-                        "Invalid API hash format. Must be a 32-character hexadecimal string."
-                    ),
-                },
             )
 
         # Validate proxy exists
@@ -581,9 +551,7 @@ async def save_import_session(
 
         try:
             # Try to get user_id from session (best effort)
-            session_account_info = await get_account_info_from_session(
-                tmp_session_path, api_id, api_hash
-            )
+            session_account_info = await get_account_info_from_session(tmp_session_path)
 
             # Add user_id to account_info if available from session
             if session_account_info and "user_id" in session_account_info:
@@ -607,8 +575,6 @@ async def save_import_session(
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,
-                api_id=api_id,
-                api_hash=api_hash,
                 proxy_id=proxy_id,
                 account_info=account_info,
                 source="file",
