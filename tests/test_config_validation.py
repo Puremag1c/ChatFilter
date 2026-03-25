@@ -152,61 +152,44 @@ class TestConfigCheck:
 
 
 class TestAPICredentials:
-    """Tests for Telegram API credentials fail-fast startup behavior."""
+    """Tests for Telegram API credentials fail-fast startup behavior via validate()."""
 
     def test_missing_api_id_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
-        """Test that Settings fails without CHATFILTER_API_ID (fail-fast on startup)."""
-        from pydantic import ValidationError
-
-        # Clear the ENV var to ensure it's not inherited
+        """Test that validate() reports error without CHATFILTER_API_ID."""
         monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
         monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
 
-        # Settings should refuse to initialize without api_id
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(data_dir=tmp_path, port=9000, api_hash="dummy_hash")
+        settings = Settings(data_dir=tmp_path, port=9000, api_hash="dummy_hash")
+        errors = settings.validate()
 
-        # Ensure the error is about api_id, not some other validation error
-        assert "api_id" in str(exc_info.value).lower()
+        assert any("CHATFILTER_API_ID" in err for err in errors)
 
     def test_missing_api_hash_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
-        """Test that Settings fails without CHATFILTER_API_HASH (fail-fast on startup)."""
-        from pydantic import ValidationError
-
-        # Clear the ENV var to ensure it's not inherited
+        """Test that validate() reports error without CHATFILTER_API_HASH."""
         monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
         monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
 
-        # Settings should refuse to initialize without api_hash
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(data_dir=tmp_path, port=9001, api_id=123456)
+        settings = Settings(data_dir=tmp_path, port=9001, api_id=123456)
+        errors = settings.validate()
 
-        # Ensure the error is about api_hash, not some other validation error
-        assert "api_hash" in str(exc_info.value).lower()
+        assert any("CHATFILTER_API_HASH" in err for err in errors)
 
     def test_missing_both_credentials_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
-        """Test that Settings fails without both CHATFILTER_API_ID and CHATFILTER_API_HASH."""
-        from pydantic import ValidationError
-
-        # Clear both ENV vars
+        """Test that validate() reports errors for both missing credentials."""
         monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
         monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
 
-        # Settings should refuse to initialize without both credentials
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(data_dir=tmp_path, port=9002)
+        settings = Settings(data_dir=tmp_path, port=9002)
+        errors = settings.validate()
 
-        error_text = str(exc_info.value).lower()
-        # Should have errors for both missing fields
-        assert "api_id" in error_text or "api_hash" in error_text
+        assert any("CHATFILTER_API_ID" in err for err in errors)
+        assert any("CHATFILTER_API_HASH" in err for err in errors)
 
     def test_valid_credentials_succeeds(self, tmp_path: Path, monkeypatch: Any) -> None:
         """Test that Settings succeeds with both API credentials provided."""
-        # Clear any existing env vars
         monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
         monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
 
-        # Should initialize successfully with credentials
         settings = Settings(
             data_dir=tmp_path,
             port=9003,

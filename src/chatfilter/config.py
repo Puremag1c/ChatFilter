@@ -480,6 +480,20 @@ class Settings(BaseSettings):
         """
         errors = []
 
+        # 0. Required Telegram API credentials (fail-fast)
+        if self.api_id is None:
+            errors.append(
+                "Missing required Telegram API ID (CHATFILTER_API_ID)\n"
+                "  → Fix: Set CHATFILTER_API_ID environment variable\n"
+                "  → Get credentials at https://my.telegram.org/apps"
+            )
+        if self.api_hash is None:
+            errors.append(
+                "Missing required Telegram API hash (CHATFILTER_API_HASH)\n"
+                "  → Fix: Set CHATFILTER_API_HASH environment variable\n"
+                "  → Get credentials at https://my.telegram.org/apps"
+            )
+
         # 1. Port validation (already done by pydantic, but double-check)
         if not (1 <= self.port <= 65535):
             errors.append(f"Invalid port number: {self.port} (must be 1-65535)")
