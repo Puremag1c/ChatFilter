@@ -11,9 +11,6 @@ import pytest
 
 from chatfilter.config import Settings
 
-# Dummy credentials for tests that don't test API credential validation
-_CREDS: dict[str, Any] = {"api_id": 12345, "api_hash": "testhash"}
-
 
 class TestConfigValidation:
     """Tests for Settings.validate() method."""
@@ -25,7 +22,7 @@ class TestConfigValidation:
             s.bind(("", 0))
             port = s.getsockname()[1]
 
-        settings = Settings(data_dir=tmp_path, port=port, **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=port)
         errors = settings.validate()
 
         assert errors == []
@@ -36,14 +33,14 @@ class TestConfigValidation:
 
         # Pydantic should catch this during Settings construction
         with pytest.raises(ValidationError, match="port"):
-            Settings(data_dir=tmp_path, port=0, **_CREDS)
+            Settings(data_dir=tmp_path, port=0)
 
     def test_data_dir_is_file(self, tmp_path: Path) -> None:
         """Test that data directory existing as file fails validation."""
         file_path = tmp_path / "not_a_directory"
         file_path.write_text("content")
 
-        settings = Settings(data_dir=file_path, port=8888, **_CREDS)
+        settings = Settings(data_dir=file_path, port=8888)
         errors = settings.validate()
 
         assert len(errors) > 0
@@ -61,7 +58,7 @@ class TestConfigValidation:
         readonly_dir.chmod(0o444)  # Read-only
 
         data_dir = readonly_dir / "data"
-        settings = Settings(data_dir=data_dir, port=8889, **_CREDS)
+        settings = Settings(data_dir=data_dir, port=8889)
 
         try:
             errors = settings.validate()
@@ -81,7 +78,7 @@ class TestConfigValidation:
         sock.listen(1)
 
         try:
-            settings = Settings(data_dir=tmp_path, port=port, host="127.0.0.1", **_CREDS)
+            settings = Settings(data_dir=tmp_path, port=port, host="127.0.0.1")
             errors = settings.validate()
 
             # Should detect port in use
@@ -101,7 +98,7 @@ class TestConfigValidation:
             s.bind(("", 0))
             port = s.getsockname()[1]
 
-        settings = Settings(data_dir=data_dir, port=port, **_CREDS)
+        settings = Settings(data_dir=data_dir, port=port)
         errors = settings.validate()
 
         assert errors == []
@@ -113,7 +110,7 @@ class TestConfigValidation:
         file_path = tmp_path / "not_a_dir"
         file_path.write_text("content")
 
-        settings = Settings(data_dir=file_path, port=8890, **_CREDS)
+        settings = Settings(data_dir=file_path, port=8890)
         errors = settings.validate()
 
         # All errors should have "Fix:" suggestions
@@ -132,7 +129,7 @@ class TestConfigCheck:
             debug=True,
             host="0.0.0.0",
             port=8891,
-            **_CREDS,
+
         )
 
         warnings = settings.check()
@@ -147,7 +144,7 @@ class TestConfigCheck:
             debug=False,
             host="127.0.0.1",
             port=8892,
-            **_CREDS,
+
         )
 
         warnings = settings.check()
@@ -157,53 +154,17 @@ class TestConfigCheck:
 
 
 class TestAPICredentials:
-    """Tests for Telegram API credentials fail-fast startup behavior."""
+    """Tests for Telegram API credentials settings."""
 
-    def test_missing_api_id_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
-        """Test that Settings fails without CHATFILTER_API_ID (fail-fast on startup)."""
-        from pydantic import ValidationError
-
-        # Clear the ENV var to ensure it's not inherited
+    def test_settings_starts_without_credentials(self, tmp_path: Path, monkeypatch: Any) -> None:
+        """Test that Settings initializes successfully without API credentials."""
         monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
         monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
 
-        # Settings should refuse to initialize without api_id
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(data_dir=tmp_path, port=9000, api_hash="dummy_hash")
+        settings = Settings(data_dir=tmp_path, port=9002)
 
-        # Ensure the error is about api_id, not some other validation error
-        assert "api_id" in str(exc_info.value).lower()
-
-    def test_missing_api_hash_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
-        """Test that Settings fails without CHATFILTER_API_HASH (fail-fast on startup)."""
-        from pydantic import ValidationError
-
-        # Clear the ENV var to ensure it's not inherited
-        monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
-        monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
-
-        # Settings should refuse to initialize without api_hash
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(data_dir=tmp_path, port=9001, api_id=123456)
-
-        # Ensure the error is about api_hash, not some other validation error
-        assert "api_hash" in str(exc_info.value).lower()
-
-    def test_missing_both_credentials_fails_fast(self, tmp_path: Path, monkeypatch: Any) -> None:
-        """Test that Settings fails without both CHATFILTER_API_ID and CHATFILTER_API_HASH."""
-        from pydantic import ValidationError
-
-        # Clear both ENV vars
-        monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
-        monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
-
-        # Settings should refuse to initialize without both credentials
-        with pytest.raises(ValidationError) as exc_info:
-            Settings(data_dir=tmp_path, port=9002)
-
-        error_text = str(exc_info.value).lower()
-        # Should have errors for both missing fields
-        assert "api_id" in error_text or "api_hash" in error_text
+        assert settings.api_id is None
+        assert settings.api_hash is None
 
     def test_valid_credentials_succeeds(self, tmp_path: Path, monkeypatch: Any) -> None:
         """Test that Settings succeeds with both API credentials provided."""
@@ -244,7 +205,7 @@ class TestLoggingConfig:
 
     def test_default_logging_config(self, tmp_path: Path) -> None:
         """Test default logging configuration values."""
-        settings = Settings(data_dir=tmp_path, port=8893, **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=8893)
 
         assert settings.log_level == "INFO"
         assert settings.log_to_file is True
@@ -253,7 +214,7 @@ class TestLoggingConfig:
 
     def test_custom_log_level(self, tmp_path: Path) -> None:
         """Test custom log level configuration."""
-        settings = Settings(data_dir=tmp_path, port=8894, log_level="DEBUG", **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=8894, log_level="DEBUG")
 
         assert settings.log_level == "DEBUG"
 
@@ -262,11 +223,11 @@ class TestLoggingConfig:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError, match="log level"):
-            Settings(data_dir=tmp_path, port=8895, log_level="INVALID", **_CREDS)
+            Settings(data_dir=tmp_path, port=8895, log_level="INVALID")
 
     def test_log_file_disabled(self, tmp_path: Path) -> None:
         """Test disabling file logging."""
-        settings = Settings(data_dir=tmp_path, port=8896, log_to_file=False, **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=8896, log_to_file=False)
 
         assert settings.log_to_file is False
 
@@ -277,7 +238,7 @@ class TestLoggingConfig:
             port=8897,
             log_file_max_bytes=5 * 1024 * 1024,  # 5 MB
             log_file_backup_count=10,
-            **_CREDS,
+
         )
 
         assert settings.log_file_max_bytes == 5 * 1024 * 1024
@@ -285,7 +246,7 @@ class TestLoggingConfig:
 
     def test_log_file_path_property(self, tmp_path: Path) -> None:
         """Test that log_file_path property returns correct path."""
-        settings = Settings(data_dir=tmp_path, port=8898, **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=8898)
 
         log_path = settings.log_file_path
         assert log_path.name == "chatfilter.log"
@@ -293,7 +254,7 @@ class TestLoggingConfig:
 
     def test_log_dir_creation(self, tmp_path: Path) -> None:
         """Test that log directory is created when log_to_file is enabled."""
-        settings = Settings(data_dir=tmp_path, port=8899, log_to_file=True, **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=8899, log_to_file=True)
         errors = settings.ensure_data_dirs()
         assert errors == []
 
@@ -302,7 +263,7 @@ class TestLoggingConfig:
 
     def test_log_dir_not_created_when_disabled(self, tmp_path: Path) -> None:
         """Test that log directory is not created when log_to_file is disabled."""
-        settings = Settings(data_dir=tmp_path, port=8900, log_to_file=False, **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=8900, log_to_file=False)
 
         # Get log_dir but don't call ensure_data_dirs
         log_dir = settings.log_dir
@@ -313,7 +274,7 @@ class TestLoggingConfig:
 
     def test_log_config_in_print_config(self, tmp_path: Path, capsys: Any) -> None:
         """Test that print_config includes logging configuration."""
-        settings = Settings(data_dir=tmp_path, port=8901, **_CREDS)
+        settings = Settings(data_dir=tmp_path, port=8901)
         settings.print_config()
 
         captured = capsys.readouterr()
