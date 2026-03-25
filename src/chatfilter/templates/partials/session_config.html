@@ -6,6 +6,10 @@
       hx-swap="innerHTML"
       hx-indicator="#session-config-spinner-{{ session_id }}">
 
+    <div class="alert alert-info">
+        {{ _("API credentials are configured globally via environment variables.") }}
+    </div>
+
     <div class="form-group">
         <label for="session-proxy-{{ session_id }}"
                data-tooltip="{{ _('Select a proxy for this session') }}"
