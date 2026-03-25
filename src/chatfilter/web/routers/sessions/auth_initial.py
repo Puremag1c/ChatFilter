@@ -46,8 +46,6 @@ async def start_auth_flow(
     request: Request,
     session_name: Annotated[str, Form()],
     phone: Annotated[str, Form()],
-    api_id: Annotated[str | None, Form()] = None,
-    api_hash: Annotated[str | None, Form()] = None,
     proxy_id: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     """Save new session credentials to disk.
@@ -58,8 +56,6 @@ async def start_auth_flow(
     Args:
         session_name: Unique session identifier
         phone: Phone number with country code
-        api_id: Optional Telegram API ID
-        api_hash: Optional Telegram API hash (32-char hex)
         proxy_id: Optional proxy identifier
 
     Returns:
@@ -80,59 +76,9 @@ async def start_auth_flow(
             context={"success": False, "error": str(e)},
         )
 
-    # Normalize empty strings to None; parse api_id to int
-    api_id_int: int | None = None
-    if api_id is not None:
-        api_id_str = str(api_id).strip()
-        api_id_int = None if api_id_str == "" else int(api_id_str)
-
-    if api_hash is not None:
-        api_hash = api_hash.strip()
-        api_hash = None if api_hash == "" else api_hash
-
     if proxy_id is not None:
         proxy_id = proxy_id.strip()
         proxy_id = None if proxy_id == "" else proxy_id
-
-    # Validate api_id and api_hash consistency
-    has_api_id = api_id_int is not None
-    has_api_hash = api_hash is not None
-
-    if has_api_id != has_api_hash:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/auth_result.html",
-            context={
-                "success": False,
-                "error": _("Both API ID and API Hash are required if one is provided."),
-            },
-        )
-
-    # Validate api_id format (if provided)
-    if has_api_id and api_id_int is not None and api_id_int <= 0:
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/auth_result.html",
-            context={
-                "success": False,
-                "error": _("API ID must be a positive integer."),
-            },
-        )
-
-    # Validate api_hash format (if provided)
-    if (
-        has_api_hash
-        and api_hash is not None
-        and (len(api_hash) != 32 or not all(c in "0123456789abcdefABCDEF" for c in api_hash))
-    ):
-        return templates.TemplateResponse(
-            request=request,
-            name="partials/auth_result.html",
-            context={
-                "success": False,
-                "error": _("Invalid API hash format. Must be a 32-character hexadecimal string."),
-            },
-        )
 
     # Validate and sanitize phone format
     phone = phone.strip()
@@ -189,25 +135,14 @@ async def start_auth_flow(
         }
         save_account_info(session_dir, account_info)
 
-        # Store credentials if provided
-        if has_api_id and has_api_hash:
-            assert api_id_int is not None
-            assert api_hash is not None
+        # Store proxy config if provided
+        if proxy_id is not None:
             cred_manager = SecureCredentialManager(_sessions_pkg.ensure_data_dir(_web_user_id))
-            cred_manager.store_credentials(
-                session_id=safe_name,
-                api_id=api_id_int,
-                api_hash=api_hash,
-                proxy_id=proxy_id,
-            )
-            logger.info(f"Session '{safe_name}' saved with credentials")
-        else:
-            logger.info(f"Session '{safe_name}' saved without credentials (will need config later)")
+            cred_manager.store_session_config(session_id=safe_name, proxy_id=proxy_id)
+        logger.info(f"Session '{safe_name}' saved")
 
         # Create config.json so session is visible in list_stored_sessions
-        session_config: dict[str, int | str | None] = {
-            "api_id": api_id_int,
-            "api_hash": api_hash,
+        session_config: dict[str, str | None] = {
             "proxy_id": proxy_id,
             "source": "phone",
             "web_user_id": _web_user_id,
@@ -590,8 +525,6 @@ async def _complete_auth_flow(
         )
 
     session_name = auth_state.session_name
-    api_id = auth_state.api_id
-    api_hash = auth_state.api_hash
     proxy_id = auth_state.proxy_id
 
     try:
@@ -625,19 +558,17 @@ async def _complete_auth_flow(
                 shutil.copy2(temp_session_file, session_path)
                 secure_file_permissions(session_path)
 
-        # Store credentials securely
+        # Store proxy config securely
         storage_dir = session_dir.parent
         manager = SecureCredentialManager(storage_dir)
-        manager.store_credentials(session_name, api_id, api_hash)
+        manager.store_session_config(session_name, proxy_id)
 
         # Create per-session config.json
         # source is 'phone' because credentials came from auth flow
         from chatfilter.web.session import get_session as get_web_session
 
         _web_user_id = get_web_session(request).get("user_id", "default")
-        session_config: dict[str, int | str | None] = {
-            "api_id": api_id,
-            "api_hash": api_hash,
+        session_config: dict[str, str | None] = {
             "proxy_id": proxy_id,
             "source": "phone",
             "web_user_id": _web_user_id,
