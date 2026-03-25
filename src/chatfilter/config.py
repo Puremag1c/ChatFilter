@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from chatfilter.config_filesystem import (
@@ -173,7 +173,7 @@ class Settings(BaseSettings):
         description="Timeout for update check HTTP requests (seconds)",
     )
 
-    # Telegram API credentials (required — validated at startup)
+    # Telegram API credentials (optional — required only when connecting to Telegram)
     api_id: int | None = Field(
         default=None,
         description="Telegram API ID (CHATFILTER_API_ID). Get from https://my.telegram.org/apps",
@@ -182,15 +182,6 @@ class Settings(BaseSettings):
         default=None,
         description="Telegram API hash (CHATFILTER_API_HASH). Get from https://my.telegram.org/apps",
     )
-
-    @model_validator(mode='after')
-    def validate_api_credentials(self) -> 'Settings':
-        if self.api_id is None or self.api_hash is None:
-            raise ValueError(
-                'CHATFILTER_API_ID and CHATFILTER_API_HASH environment variables are required. '
-                'Get them at https://my.telegram.org/apps'
-            )
-        return self
 
     # Telegram settings
     max_messages_limit: int = Field(
