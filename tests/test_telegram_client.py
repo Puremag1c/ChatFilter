@@ -18,7 +18,6 @@ from chatfilter.telegram.client.config import (
     SessionFileError,
     TelegramConfig,
     TelegramConfigError,
-    _migrate_plaintext_to_secure,
     validate_session_file,
 )
 from chatfilter.telegram.client.loader import TelegramClientLoader
@@ -44,16 +43,6 @@ from chatfilter.telegram.client.messages import (
 class TestTelegramConfig:
     """Tests for TelegramConfig class."""
 
-    def test_from_json_file_valid(self, tmp_path: Path) -> None:
-        """Test loading valid config file."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": "abcdef123456"}))
-
-        config = TelegramConfig.from_json_file(config_path)
-
-        assert config.api_id == 12345
-        assert config.api_hash == "abcdef123456"
-
     def test_repr_redacts_api_hash(self) -> None:
         """Test that repr redacts api_hash for security."""
         config = TelegramConfig(api_id=12345, api_hash="secret_hash")
@@ -72,134 +61,6 @@ class TestTelegramConfig:
 
         assert "12345" in str_repr
         assert "secret_hash" not in str_repr
-
-    def test_from_secure_storage_success(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test loading config from secure storage."""
-
-        # Mock the SecureCredentialManager
-        class MockManager:
-            def __init__(self, storage_dir: Path) -> None:
-                pass
-
-            def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
-                return (99999, "secure_hash_from_keyring", "proxy-123")
-
-        monkeypatch.setattr(
-            "chatfilter.security.SecureCredentialManager",
-            MockManager,
-        )
-
-        config = TelegramConfig.from_secure_storage("test_session", tmp_path)
-
-        assert config.api_id == 99999
-        assert config.api_hash == "secure_hash_from_keyring"
-
-    def test_from_secure_storage_credential_not_found(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test error when credentials not found in secure storage."""
-        from chatfilter.security import CredentialNotFoundError
-
-        class MockManager:
-            def __init__(self, storage_dir: Path) -> None:
-                pass
-
-            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
-                raise CredentialNotFoundError("Credentials not found")
-
-        monkeypatch.setattr(
-            "chatfilter.security.SecureCredentialManager",
-            MockManager,
-        )
-
-        with pytest.raises(TelegramConfigError, match="Credentials not found in secure storage"):
-            TelegramConfig.from_secure_storage("test_session", tmp_path)
-
-    def test_from_secure_storage_general_error(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test error handling for general errors in secure storage."""
-
-        class MockManager:
-            def __init__(self, storage_dir: Path) -> None:
-                pass
-
-            def retrieve_credentials(self, session_id: str) -> tuple[int, str]:
-                raise RuntimeError("Keyring error")
-
-        monkeypatch.setattr(
-            "chatfilter.security.SecureCredentialManager",
-            MockManager,
-        )
-
-        with pytest.raises(TelegramConfigError, match="Failed to load credentials"):
-            TelegramConfig.from_secure_storage("test_session", tmp_path)
-
-    def test_from_json_file_api_id_as_string(self, tmp_path: Path) -> None:
-        """Test loading config with api_id as string (should convert)."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps({"api_id": "12345", "api_hash": "abcdef123456"}))
-
-        config = TelegramConfig.from_json_file(config_path)
-
-        assert config.api_id == 12345
-
-    def test_from_json_file_not_found(self, tmp_path: Path) -> None:
-        """Test error when config file doesn't exist."""
-        config_path = tmp_path / "nonexistent.json"
-
-        with pytest.raises(FileNotFoundError, match="Config file not found"):
-            TelegramConfig.from_json_file(config_path)
-
-    def test_from_json_file_invalid_json(self, tmp_path: Path) -> None:
-        """Test error when config file is not valid JSON."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text("not valid json {")
-
-        with pytest.raises(TelegramConfigError, match="Invalid JSON"):
-            TelegramConfig.from_json_file(config_path)
-
-    def test_from_json_file_missing_api_id(self, tmp_path: Path) -> None:
-        """Test error when api_id is missing."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps({"api_hash": "abcdef123456"}))
-
-        with pytest.raises(TelegramConfigError, match="Missing required fields.*api_id"):
-            TelegramConfig.from_json_file(config_path)
-
-    def test_from_json_file_missing_api_hash(self, tmp_path: Path) -> None:
-        """Test error when api_hash is missing."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps({"api_id": 12345}))
-
-        with pytest.raises(TelegramConfigError, match="Missing required fields.*api_hash"):
-            TelegramConfig.from_json_file(config_path)
-
-    def test_from_json_file_invalid_api_id_type(self, tmp_path: Path) -> None:
-        """Test error when api_id cannot be converted to int."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps({"api_id": "not_a_number", "api_hash": "abcdef"}))
-
-        with pytest.raises(TelegramConfigError, match="api_id must be an integer"):
-            TelegramConfig.from_json_file(config_path)
-
-    def test_from_json_file_invalid_api_hash_type(self, tmp_path: Path) -> None:
-        """Test error when api_hash is not a string."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": 123}))
-
-        with pytest.raises(TelegramConfigError, match="api_hash must be a string"):
-            TelegramConfig.from_json_file(config_path)
-
-    def test_from_json_file_empty_api_hash(self, tmp_path: Path) -> None:
-        """Test error when api_hash is empty."""
-        config_path = tmp_path / "config.json"
-        config_path.write_text(json.dumps({"api_id": 12345, "api_hash": ""}))
-
-        with pytest.raises(TelegramConfigError, match="api_hash cannot be empty"):
-            TelegramConfig.from_json_file(config_path)
 
 
 def create_valid_session(path: Path) -> None:
@@ -2147,52 +2008,6 @@ class TestSecureDeleteFile:
         _secure_delete_file(test_dir)
 
         assert test_dir.exists()  # Directory still exists
-
-
-class TestMigratePlaintextToSecure:
-    """Tests for _migrate_plaintext_to_secure function."""
-
-    def test_migrate_success(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test successful migration of plaintext config to secure storage."""
-        # Create directory structure: sessions/test_session/config.json
-        sessions_dir = tmp_path / "sessions"
-        session_dir = sessions_dir / "test_session"
-        session_dir.mkdir(parents=True)
-
-        config_file = session_dir / "config.json"
-        config_file.write_text(json.dumps({"api_id": 12345, "api_hash": "secret"}))
-
-        # Mock SecureCredentialManager
-        stored_credentials = {}
-
-        class MockManager:
-            def __init__(self, storage_dir: Path) -> None:
-                pass
-
-            def store_credentials(self, session_id: str, api_id: int, api_hash: str) -> None:
-                stored_credentials["session_id"] = session_id
-                stored_credentials["api_id"] = api_id
-                stored_credentials["api_hash"] = api_hash
-
-        monkeypatch.setattr(
-            "chatfilter.security.SecureCredentialManager",
-            MockManager,
-        )
-
-        _migrate_plaintext_to_secure(config_file, 12345, "secret")
-
-        # Config file should be deleted
-        assert not config_file.exists()
-
-        # Migration marker should exist
-        marker = session_dir / ".migrated"
-        assert marker.exists()
-        assert "migrated to secure storage" in marker.read_text().lower()
-
-        # Credentials should be stored
-        assert stored_credentials["session_id"] == "test_session"
-        assert stored_credentials["api_id"] == 12345
-        assert stored_credentials["api_hash"] == "secret"
 
 
 class TestGetChatSlowmode:
