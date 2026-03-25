@@ -297,6 +297,74 @@ def _handle_db_check() -> None:
         sys.exit(1)
 
 
+def _migrate_api_credentials(settings: Any) -> None:
+    """Strip api_id/api_hash from existing sessions at startup (one-time migration).
+
+    For each session directory under sessions_dir:
+    - Removes api_id/api_hash from config.json (keeps other fields)
+    - Removes api_id/api_hash from .credentials.enc (keeps proxy_id, 2fa)
+    - Writes .api_migrated marker to skip on subsequent starts
+    """
+    import json
+
+    from chatfilter.security.credentials import EncryptedFileBackend
+
+    sessions_dir = settings.sessions_dir
+    if not sessions_dir.exists():
+        return
+
+    migrated_count = 0
+    skipped_count = 0
+
+    # Structure: sessions_dir/user_id/session_name/
+    for user_dir in sessions_dir.iterdir():
+        if not user_dir.is_dir():
+            continue
+        for session_dir in user_dir.iterdir():
+            if not session_dir.is_dir():
+                continue
+            if not (session_dir / "config.json").exists():
+                continue
+
+            marker = session_dir / ".api_migrated"
+            if marker.exists():
+                skipped_count += 1
+                continue
+
+            session_id = f"{user_dir.name}/{session_dir.name}"
+            try:
+                # 1. Strip api_id/api_hash from config.json
+                config_path = session_dir / "config.json"
+                config_data = json.loads(config_path.read_text(encoding="utf-8"))
+                changed = False
+                for key in ("api_id", "api_hash"):
+                    if key in config_data:
+                        del config_data[key]
+                        changed = True
+                if changed:
+                    config_path.write_text(
+                        json.dumps(config_data, indent=2, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
+
+                # 2. Strip api_id/api_hash from .credentials.enc
+                backend = EncryptedFileBackend(session_dir)
+                backend.migrate_strip_api_credentials()
+
+                # 3. Write marker
+                marker.touch()
+                migrated_count += 1
+            except Exception as e:
+                logging.error(
+                    f"API credentials migration failed for session '{session_id}': {e}"
+                )
+
+    logging.info(
+        f"API credentials migration: {migrated_count} sessions migrated, "
+        f"{skipped_count} skipped (already migrated)"
+    )
+
+
 def main() -> None:
     """Run ChatFilter web application."""
     if len(sys.argv) > 1 and sys.argv[1] == "reset-password":
@@ -582,6 +650,9 @@ def main() -> None:
     # Mark first run as complete if directories were created successfully
     if is_first_run and not dir_errors:
         settings.mark_first_run_complete()
+
+    # One-time migration: strip api_id/api_hash from existing sessions
+    _migrate_api_credentials(settings)
 
     # Run uvicorn server (blocks until Ctrl+C)
     print(f"\nServer running at http://{settings.host}:{settings.port}")
