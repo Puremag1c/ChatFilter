@@ -92,11 +92,10 @@ class TestSaveNotConnect:
             assert account_info["phone"] == "+1234567890"
             assert account_info["status"] == "disconnected"
 
-        # Verify config.json has null api_id/api_hash/proxy_id
+        # Verify config.json has proxy_id=null and source=phone
+        # (api_id/api_hash are global ENV, not stored per-session)
         with open(session_dir / "config.json") as f:
             config = json.load(f)
-            assert config["api_id"] is None
-            assert config["api_hash"] is None
             assert config["proxy_id"] is None
             assert config["source"] == "phone"
 
@@ -122,22 +121,21 @@ class TestSaveNotConnect:
             )
             assert response.status_code == 200
 
-        # Verify session status is 'needs_config'
+        # Verify session status is 'needs_config' (no proxy configured)
         from chatfilter.web.routers.sessions import get_session_config_status
 
         session_dir = tmp_path / "check_status_session"
         status, message = get_session_config_status(session_dir)
         assert status == "needs_config"
-        # Message contains "API credentials required" or similar
-        assert "api" in message.lower() and (
-            "credentials" in message.lower() or "id" in message.lower()
-        )
+        # No proxy → "Proxy configuration required"
+        assert "proxy" in message.lower()
 
-    def test_save_validates_credentials_before_connect(self, client, tmp_path, monkeypatch):
-        """Test that Save validates credentials but does NOT connect.
+    def test_save_validates_phone_before_save(self, client, tmp_path, monkeypatch):
+        """Test that Save validates phone format but does NOT connect.
 
-        Verifies that credential validation happens during Save (api_id format check)
+        Verifies that phone validation happens during Save
         but no connection to Telegram is attempted.
+        api_id/api_hash are now global ENV vars, not per-session.
         """
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
@@ -148,37 +146,34 @@ class TestSaveNotConnect:
         mock_telethon_client = MagicMock()
 
         with patch("telethon.TelegramClient", mock_telethon_client):
-            # Test 1: Valid credentials should save without connecting
+            # Test 1: Valid phone should save without connecting
             response = client.post(
                 "/api/sessions/auth/start",
                 data={
-                    "session_name": "valid_creds",
+                    "session_name": "valid_phone",
                     "phone": "+1234567890",
-                    "api_id": "123456",
-                    "api_hash": "0123456789abcdef0123456789abcdef",
                 },
             )
             assert response.status_code == 200
             assert b"saved successfully" in response.content
             mock_telethon_client.assert_not_called()
 
-            # Test 2: Invalid api_hash should be rejected WITHOUT connecting
+            # Test 2: Invalid phone should be rejected WITHOUT connecting
             response2 = client.post(
                 "/api/sessions/auth/start",
                 data={
-                    "session_name": "invalid_hash",
-                    "phone": "+1234567890",
-                    "api_id": "123456",
-                    "api_hash": "not-a-valid-hash",
+                    "session_name": "invalid_phone",
+                    "phone": "not-a-phone",
                 },
             )
             assert response2.status_code == 200
-            assert b"Invalid API hash format" in response2.content
+            # Should get a validation error, not a success
+            assert b"saved successfully" not in response2.content
             # CRITICAL: Even validation errors should NOT trigger Telegram connection
             mock_telethon_client.assert_not_called()
 
         # Verify valid session was saved
-        session_dir = tmp_path / "valid_creds"
+        session_dir = tmp_path / "valid_phone"
         assert session_dir.exists()
         with open(session_dir / ".account_info.json") as f:
             account_info = json.load(f)
@@ -238,11 +233,11 @@ class TestSaveNotConnect:
             account_info = json.load(f)
             assert account_info["status"] == "disconnected"
 
-    def test_save_with_credentials_no_connect(self, client, tmp_path, monkeypatch):
-        """Test that Save with full credentials still doesn't connect.
+    def test_save_with_proxy_no_connect(self, client, tmp_path, monkeypatch):
+        """Test that Save with proxy_id still doesn't connect.
 
-        Even when user provides api_id, api_hash, and proxy_id, the Save
-        button should only save to disk without connecting.
+        Even when user provides proxy_id, the Save button should only
+        save to disk without connecting. api_id/api_hash are global ENV vars.
         """
         monkeypatch.setattr(
             "chatfilter.web.routers.sessions.ensure_data_dir",
@@ -256,10 +251,8 @@ class TestSaveNotConnect:
             response = client.post(
                 "/api/sessions/auth/start",
                 data={
-                    "session_name": "full_creds_session",
+                    "session_name": "proxy_session",
                     "phone": "+1234567890",
-                    "api_id": "123456",
-                    "api_hash": "0123456789abcdef0123456789abcdef",
                     "proxy_id": "my_proxy",
                 },
             )
@@ -268,22 +261,17 @@ class TestSaveNotConnect:
             assert response.status_code == 200
             assert b"saved successfully" in response.content
 
-            # CRITICAL: Even with full credentials, Save should NOT connect
+            # CRITICAL: Even with proxy_id, Save should NOT connect
             mock_telethon_client.assert_not_called()
 
-        # Verify credentials were saved
-        session_dir = tmp_path / "full_creds_session"
+        # Verify config was saved
+        session_dir = tmp_path / "proxy_session"
         assert (session_dir / "config.json").exists()
 
         with open(session_dir / "config.json") as f:
             config = json.load(f)
-            assert config["api_id"] == 123456
-            assert config["api_hash"] == "0123456789abcdef0123456789abcdef"
             assert config["proxy_id"] == "my_proxy"
-
-        # Verify .credentials.enc was created (credentials stored securely)
-        # Note: SecureCredentialManager creates .credentials.enc at data_dir level
-        assert (tmp_path / ".credentials.enc").exists()
+            assert config["source"] == "phone"
 
         # Verify status is still disconnected
         with open(session_dir / ".account_info.json") as f:
