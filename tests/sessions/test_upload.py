@@ -410,14 +410,14 @@ class TestSessionImport:
         assert response.status_code == 200
         assert "phone" in response.text.lower() or "must start with" in response.text.lower()
 
-    def test_validate_import_session_extracts_api_credentials(
+    def test_validate_import_session_with_json_format(
         self, client: TestClient, clean_data_dir: Path
     ) -> None:
-        """Test that api_id/api_hash are extracted from JSON and included in validation response."""
+        """Test that validation accepts JSON file in TelegramExpert format without extracting API credentials."""
         # Create valid session file (SQLite)
         session_content = self._create_valid_session_file()
 
-        # Create valid JSON file with api_id and api_hash (as app_id/app_hash per TelegramExpert format)
+        # Create valid JSON file with TelegramExpert format (api_id/api_hash in JSON are no longer extracted)
         json_data = {
             "phone": "+79001234567",
             "first_name": "John",
@@ -442,10 +442,8 @@ class TestSessionImport:
         )
 
         assert response.status_code == 200
+        # Verify that validation succeeds (API credentials no longer extracted from JSON)
         assert "success" in response.text.lower()
-        # Verify that data attributes are present in the response
-        assert 'data-api-id="12345678"' in response.text
-        assert 'data-api-hash="0123456789abcdef0123456789abcdef"' in response.text
 
     def test_save_import_session_success(self, client: TestClient, clean_data_dir: Path) -> None:
         """Test successful session import with JSON account info."""
