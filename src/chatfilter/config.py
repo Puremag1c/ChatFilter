@@ -10,7 +10,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from chatfilter.config_filesystem import (
@@ -177,7 +177,7 @@ class Settings(BaseSettings):
     api_id: int = Field(
         description="Telegram API ID (CHATFILTER_API_ID). Get from https://my.telegram.org/apps",
     )
-    api_hash: str = Field(
+    api_hash: SecretStr = Field(
         description="Telegram API hash (CHATFILTER_API_HASH). Get from https://my.telegram.org/apps",
     )
 
@@ -262,7 +262,7 @@ class Settings(BaseSettings):
         """Build TelegramConfig from global ENV credentials."""
         from chatfilter.telegram.client.config import TelegramConfig
 
-        return TelegramConfig(api_id=self.api_id, api_hash=self.api_hash)
+        return TelegramConfig(api_id=self.api_id, api_hash=self.api_hash.get_secret_value())
 
     # Admin initialization (env-only, not stored)
     admin_login: str | None = Field(
@@ -475,7 +475,7 @@ class Settings(BaseSettings):
                 "CHATFILTER_API_ID must be a positive integer. "
                 "Get it at https://my.telegram.org/apps"
             )
-        if not self.api_hash:
+        if not self.api_hash.get_secret_value():
             errors.append(
                 "CHATFILTER_API_HASH must not be empty. "
                 "Get it at https://my.telegram.org/apps"
