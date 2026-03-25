@@ -2876,6 +2876,11 @@ msgstr "Войти"
 msgid "Invalid username or password"
 msgstr "Неверный логин или пароль"
 
+#: src/chatfilter/templates/partials/auth_start_form.html:41
+#: src/chatfilter/templates/partials/session_config.html:10
+msgid "API credentials are configured globally via environment variables."
+msgstr "API учётные данные настраиваются глобально через переменные окружения."
+
 #~ msgid "2FA password accepted successfully"
 #~ msgstr "Пароль 2FA успешно принят"
 
