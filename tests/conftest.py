@@ -44,6 +44,17 @@ os.environ.setdefault("CHATFILTER_API_ID", "123456")
 os.environ.setdefault("CHATFILTER_API_HASH", "test_hash_abcdef123456789")
 
 
+@pytest.fixture(autouse=True)
+def _set_test_api_credentials(monkeypatch: Any) -> None:
+    """Ensure Telegram API credentials are always set in test environment.
+
+    This complements the module-level os.environ.setdefault above and ensures
+    credentials are restored even if a test clears them via monkeypatch.
+    """
+    monkeypatch.setenv("CHATFILTER_API_ID", "123456")
+    monkeypatch.setenv("CHATFILTER_API_HASH", "test_hash_abcdef123456789")
+
+
 @pytest.fixture
 def isolated_tmp_dir(tmp_path: Path) -> Generator[Path, None, None]:
     """Provide an isolated temporary directory that is auto-cleaned.
