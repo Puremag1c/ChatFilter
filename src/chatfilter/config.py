@@ -173,11 +173,13 @@ class Settings(BaseSettings):
         description="Timeout for update check HTTP requests (seconds)",
     )
 
-    # Telegram API credentials (required)
-    api_id: int = Field(
+    # Telegram API credentials (optional at startup; required when connecting sessions)
+    api_id: int | None = Field(
+        default=None,
         description="Telegram API ID (CHATFILTER_API_ID). Get from https://my.telegram.org/apps",
     )
-    api_hash: SecretStr = Field(
+    api_hash: SecretStr | None = Field(
+        default=None,
         description="Telegram API hash (CHATFILTER_API_HASH). Get from https://my.telegram.org/apps",
     )
 
@@ -259,7 +261,16 @@ class Settings(BaseSettings):
 
     @property
     def telegram_config(self) -> "TelegramConfig":
-        """Build TelegramConfig from global ENV credentials."""
+        """Build TelegramConfig from global ENV credentials.
+
+        Raises:
+            RuntimeError: If api_id or api_hash are not configured.
+        """
+        if self.api_id is None or self.api_hash is None:
+            raise RuntimeError(
+                "CHATFILTER_API_ID and CHATFILTER_API_HASH must be set to use Telegram. "
+                "Get them at https://my.telegram.org/apps"
+            )
         from chatfilter.telegram.client.config import TelegramConfig
 
         return TelegramConfig(api_id=self.api_id, api_hash=self.api_hash.get_secret_value())
@@ -469,18 +480,6 @@ class Settings(BaseSettings):
         """
         errors = []
 
-        # 0. Telegram credentials (pydantic enforces presence, validate values)
-        if self.api_id <= 0:
-            errors.append(
-                "CHATFILTER_API_ID must be a positive integer. "
-                "Get it at https://my.telegram.org/apps"
-            )
-        if not self.api_hash.get_secret_value():
-            errors.append(
-                "CHATFILTER_API_HASH must not be empty. "
-                "Get it at https://my.telegram.org/apps"
-            )
-
         # 1. Port validation (already done by pydantic, but double-check)
         if not (1 <= self.port <= 65535):
             errors.append(f"Invalid port number: {self.port} (must be 1-65535)")
@@ -546,8 +545,8 @@ class Settings(BaseSettings):
     def print_config(self) -> None:
         """Print current configuration to stdout."""
         print("ChatFilter Configuration:")
-        print(f"  Telegram API ID: {self.api_id}")
-        print("  Telegram API Hash: ***REDACTED***")
+        print(f"  Telegram API ID: {self.api_id if self.api_id is not None else '(not set)'}")
+        print(f"  Telegram API Hash: {'***REDACTED***' if self.api_hash is not None else '(not set)'}")
         print(f"  Host: {self.host}")
         print(f"  Port: {self.port}")
         print(f"  Debug: {self.debug}")
