@@ -534,21 +534,7 @@ class Settings(BaseSettings):
                     f"         chatfilter --data-dir ~/ChatFilter"
                 )
 
-        # 3. Telegram API credentials (required for operation)
-        if self.api_id is None:
-            errors.append(
-                "CHATFILTER_API_ID is not set.\n"
-                "  → Get your API credentials at https://my.telegram.org/apps\n"
-                "  → Set via environment variable or .env file"
-            )
-        if self.api_hash is None:
-            errors.append(
-                "CHATFILTER_API_HASH is not set.\n"
-                "  → Get your API credentials at https://my.telegram.org/apps\n"
-                "  → Set via environment variable or .env file"
-            )
-
-        # 4. Port availability check
+        # 3. Port availability check
         from chatfilter.utils.ports import format_port_conflict_message, is_port_available
 
         if not is_port_available(self.host, self.port):
