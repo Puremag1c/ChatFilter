@@ -387,7 +387,21 @@ def main() -> None:
     from chatfilter.config import Settings, get_settings, reset_settings
 
     # Load settings from env/.env first for defaults
-    env_settings = get_settings()
+    # Catch ValidationError here (before server starts) to show a human-readable message
+    # instead of a raw pydantic traceback when required ENV vars are missing.
+    from pydantic import ValidationError
+
+    try:
+        env_settings = get_settings()
+    except ValidationError:
+        print(
+            "ERROR: CHATFILTER_API_ID and CHATFILTER_API_HASH must be set.\n"
+            "Get them at https://my.telegram.org/apps\n"
+            "Example: export CHATFILTER_API_ID=12345 CHATFILTER_API_HASH=abc...\n"
+            "App will not start without these.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     parser = argparse.ArgumentParser(
         description="ChatFilter - Telegram chat filtering and analysis tool"
