@@ -1,4 +1,4 @@
-"""Secure storage for Telegram API credentials.
+"""Secure storage for Telegram session configuration (proxy).
 
 Implements layered security with multiple storage backends:
 1. Encrypted file (default) - Credentials encrypted with machine-specific key
@@ -12,6 +12,9 @@ Security features:
 
 NOTE: OS Keyring is NOT used because it causes repeated password prompts
 on macOS (Apple Keychain dialog appearing multiple times per operation).
+
+NOTE: api_id/api_hash are global settings (CHATFILTER_API_ID/API_HASH env vars)
+and are NOT stored per-session. Only proxy_id is stored per-session.
 """
 
 from __future__ import annotations
@@ -32,8 +35,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Environment variable names
-ENV_API_ID_PREFIX = "CHATFILTER_API_ID"
-ENV_API_HASH_PREFIX = "CHATFILTER_API_HASH"
 ENV_PROXY_ID_PREFIX = "CHATFILTER_PROXY_ID"
 
 
@@ -48,19 +49,15 @@ class CredentialNotFoundError(CredentialStorageError):
 class CredentialStorageBackend:
     """Base class for credential storage backends."""
 
-    def store_credentials(
+    def store_session_config(
         self,
         session_id: str,
-        api_id: int,
-        api_hash: str,
-        proxy_id: str | None = None,
+        proxy_id: str | None,
     ) -> None:
-        """Store API credentials securely.
+        """Store session configuration (proxy_id) securely.
 
         Args:
             session_id: Unique session identifier
-            api_id: Telegram API ID
-            api_hash: Telegram API hash
             proxy_id: Optional proxy identifier
 
         Raises:
@@ -68,17 +65,16 @@ class CredentialStorageBackend:
         """
         raise NotImplementedError
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
-        """Retrieve API credentials.
+    def retrieve_session_config(self, session_id: str) -> str | None:
+        """Retrieve session configuration (proxy_id).
 
         Args:
             session_id: Unique session identifier
 
         Returns:
-            Tuple of (api_id, api_hash, proxy_id)
+            proxy_id or None if not configured
 
         Raises:
-            CredentialNotFoundError: If credentials not found
             CredentialStorageError: If retrieval fails
         """
         raise NotImplementedError
@@ -106,7 +102,7 @@ class CredentialStorageBackend:
 class EncryptedFileBackend(CredentialStorageBackend):
     """Encrypted file backend for systems without keyring support.
 
-    Stores credentials in an encrypted file using Fernet (symmetric encryption).
+    Stores session config in an encrypted file using Fernet (symmetric encryption).
     The encryption key is derived from a machine-specific master key.
     """
 
@@ -204,44 +200,30 @@ class EncryptedFileBackend(CredentialStorageBackend):
         except Exception as e:
             raise CredentialStorageError(f"Failed to save encrypted credentials: {e}") from e
 
-    def store_credentials(
+    def store_session_config(
         self,
         session_id: str,
-        api_id: int,
-        api_hash: str,
-        proxy_id: str | None = None,
+        proxy_id: str | None,
     ) -> None:
-        """Store credentials in encrypted file."""
+        """Store session config (proxy_id) in encrypted file."""
         credentials = self._load_credentials_file()
-        cred_data: dict[str, str] = {
-            "api_id": str(api_id),
-            "api_hash": api_hash,
-        }
+        session_data = credentials.get(session_id, {})
+
+        # Update or remove proxy_id
         if proxy_id is not None:
-            cred_data["proxy_id"] = proxy_id
-        credentials[session_id] = cred_data
+            session_data["proxy_id"] = proxy_id
+        else:
+            session_data.pop("proxy_id", None)
+
+        credentials[session_id] = session_data
         self._save_credentials_file(credentials)
-        logger.info(f"Stored credentials in encrypted file for session: {session_id}")
+        logger.info(f"Stored session config in encrypted file for session: {session_id}")
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
-        """Retrieve credentials from encrypted file."""
+    def retrieve_session_config(self, session_id: str) -> str | None:
+        """Retrieve session config (proxy_id) from encrypted file."""
         credentials = self._load_credentials_file()
-
-        if session_id not in credentials:
-            raise CredentialNotFoundError(
-                f"Credentials not found in encrypted file for session: {session_id}"
-            )
-
-        session_creds = credentials[session_id]
-        try:
-            api_id = int(session_creds["api_id"])
-            api_hash = session_creds["api_hash"]
-            proxy_id = session_creds.get("proxy_id")  # May be missing in old credentials
-            return api_id, api_hash, proxy_id
-        except (KeyError, ValueError) as e:
-            raise CredentialStorageError(
-                f"Invalid credentials format for session: {session_id}"
-            ) from e
+        session_data = credentials.get(session_id, {})
+        return session_data.get("proxy_id")
 
     def delete_credentials(self, session_id: str) -> None:
         """Delete credentials from encrypted file."""
@@ -290,9 +272,7 @@ class EncryptedFileBackend(CredentialStorageBackend):
 class EnvironmentBackend(CredentialStorageBackend):
     """Environment variable backend for containerized deployments.
 
-    Reads credentials from environment variables:
-    - CHATFILTER_API_ID_{SESSION_ID}
-    - CHATFILTER_API_HASH_{SESSION_ID}
+    Reads proxy_id from environment variables:
     - CHATFILTER_PROXY_ID_{SESSION_ID} (optional)
 
     This backend is read-only and cannot store credentials.
@@ -302,42 +282,20 @@ class EnvironmentBackend(CredentialStorageBackend):
         """Environment backend is always available (read-only)."""
         return True
 
-    def store_credentials(
+    def store_session_config(
         self,
         session_id: str,
-        api_id: int,
-        api_hash: str,
-        proxy_id: str | None = None,
+        proxy_id: str | None,
     ) -> None:
         """Environment backend is read-only."""
         raise CredentialStorageError("Cannot store credentials in environment backend (read-only)")
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
-        """Retrieve credentials from environment variables."""
+    def retrieve_session_config(self, session_id: str) -> str | None:
+        """Retrieve proxy_id from environment variables."""
         # Normalize session_id for env var (replace hyphens with underscores, uppercase)
         env_suffix = session_id.replace("-", "_").upper()
-
-        api_id_env = f"{ENV_API_ID_PREFIX}_{env_suffix}"
-        api_hash_env = f"{ENV_API_HASH_PREFIX}_{env_suffix}"
         proxy_id_env = f"{ENV_PROXY_ID_PREFIX}_{env_suffix}"
-
-        api_id_str = os.getenv(api_id_env)
-        api_hash = os.getenv(api_hash_env)
-
-        if api_id_str is None or api_hash is None:
-            raise CredentialNotFoundError(
-                f"Credentials not found in environment for session: {session_id}"
-            )
-
-        try:
-            api_id = int(api_id_str)
-        except ValueError as e:
-            raise CredentialStorageError(f"Invalid api_id in environment: {api_id_str}") from e
-
-        # proxy_id is optional
-        proxy_id = os.getenv(proxy_id_env)
-
-        return api_id, api_hash, proxy_id
+        return os.getenv(proxy_id_env)
 
     def delete_credentials(self, session_id: str) -> None:
         """Environment backend is read-only."""
@@ -349,7 +307,10 @@ class EnvironmentBackend(CredentialStorageBackend):
 class SecureCredentialManager:
     """Manager for secure credential storage with multiple backends.
 
-    Attempts to use backends in order of preference:
+    Stores only proxy_id per session. api_id/api_hash are global settings
+    loaded from CHATFILTER_API_ID/CHATFILTER_API_HASH environment variables.
+
+    Backends in order of preference for retrieval:
     1. Environment variables (read-only, for containers)
     2. Encrypted file (default)
 
@@ -372,28 +333,24 @@ class SecureCredentialManager:
         self._storage_backend = self._file_backend
         logger.debug("Using encrypted file backend for credential storage")
 
-    def store_credentials(
+    def store_session_config(
         self,
         session_id: str,
-        api_id: int,
-        api_hash: str,
-        proxy_id: str | None = None,
+        proxy_id: str | None,
     ) -> None:
-        """Store API credentials securely.
+        """Store session configuration (proxy_id) securely.
 
         Args:
             session_id: Unique session identifier
-            api_id: Telegram API ID
-            api_hash: Telegram API hash
             proxy_id: Optional proxy identifier
 
         Raises:
             CredentialStorageError: If storage fails
         """
-        self._storage_backend.store_credentials(session_id, api_id, api_hash, proxy_id)
+        self._storage_backend.store_session_config(session_id, proxy_id)
 
-    def retrieve_credentials(self, session_id: str) -> tuple[int, str, str | None]:
-        """Retrieve API credentials.
+    def retrieve_session_config(self, session_id: str) -> str | None:
+        """Retrieve session configuration (proxy_id).
 
         Attempts backends in order: environment, encrypted file.
 
@@ -401,28 +358,15 @@ class SecureCredentialManager:
             session_id: Unique session identifier
 
         Returns:
-            Tuple of (api_id, api_hash, proxy_id)
-
-        Raises:
-            CredentialNotFoundError: If credentials not found in any backend
+            proxy_id or None if not configured
         """
         # Try environment first (for containers)
-        try:
-            return self._env_backend.retrieve_credentials(session_id)
-        except CredentialNotFoundError:
-            pass
+        proxy_id = self._env_backend.retrieve_session_config(session_id)
+        if proxy_id is not None:
+            return proxy_id
 
-        # Use encrypted file backend
-        try:
-            return self._file_backend.retrieve_credentials(session_id)
-        except CredentialNotFoundError:
-            pass
-
-        # No backend has the credentials
-        raise CredentialNotFoundError(
-            f"Credentials not found for session: {session_id}. "
-            f"Please ensure credentials are properly stored."
-        )
+        # Fall back to encrypted file
+        return self._file_backend.retrieve_session_config(session_id)
 
     def delete_credentials(self, session_id: str) -> None:
         """Delete stored credentials.
@@ -436,19 +380,15 @@ class SecureCredentialManager:
             logger.debug(f"Error deleting from encrypted file: {e}")
 
     def has_credentials(self, session_id: str) -> bool:
-        """Check if credentials exist for a session.
+        """Check if proxy_id is configured for a session.
 
         Args:
             session_id: Unique session identifier
 
         Returns:
-            True if credentials exist in any backend
+            True if proxy_id exists in any backend
         """
-        try:
-            self.retrieve_credentials(session_id)
-            return True
-        except CredentialNotFoundError:
-            return False
+        return self.retrieve_session_config(session_id) is not None
 
     def store_2fa(self, session_id: str, password: str) -> None:
         """Store encrypted 2FA password.
