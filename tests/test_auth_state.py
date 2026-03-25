@@ -32,8 +32,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test-123",
             session_name="my_session",
-            api_id=12345,
-            api_hash="abcdef",
             proxy_id="proxy-1",
             phone="+1234567890",
             step=AuthStep.PHONE_SENT,
@@ -41,7 +39,6 @@ class TestAuthState:
 
         assert state.auth_id == "test-123"
         assert state.session_name == "my_session"
-        assert state.api_id == 12345
         assert state.step == AuthStep.PHONE_SENT
         assert state.phone_code_hash == ""
         assert state.error_message == ""
@@ -54,8 +51,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -68,8 +63,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -83,8 +76,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -101,8 +92,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -115,8 +104,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -130,8 +117,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -145,8 +130,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -161,8 +144,6 @@ class TestAuthState:
         state = AuthState(
             auth_id="test",
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             step=AuthStep.PHONE_SENT,
@@ -208,8 +189,6 @@ class TestAuthStateManager:
         """create_auth_state should create and store state."""
         state = await manager.create_auth_state(
             session_name="test_session",
-            api_id=12345,
-            api_hash="hash123",
             proxy_id="proxy-1",
             phone="+1234567890",
             phone_code_hash="code_hash",
@@ -218,7 +197,6 @@ class TestAuthStateManager:
 
         assert state is not None
         assert state.session_name == "test_session"
-        assert state.api_id == 12345
         assert state.step == AuthStep.PHONE_SENT
         assert state.client is mock_client
         assert len(state.auth_id) > 0
@@ -228,8 +206,6 @@ class TestAuthStateManager:
         """get_auth_state should return existing state."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -255,8 +231,6 @@ class TestAuthStateManager:
         """get_auth_state should return None for expired state."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -276,8 +250,6 @@ class TestAuthStateManager:
         """update_auth_state should update state fields."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -311,8 +283,6 @@ class TestAuthStateManager:
         """remove_auth_state should remove state and disconnect client."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -329,8 +299,6 @@ class TestAuthStateManager:
         """cleanup_all should remove all states."""
         await manager.create_auth_state(
             session_name="session1",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -338,8 +306,6 @@ class TestAuthStateManager:
         )
         await manager.create_auth_state(
             session_name="session2",
-            api_id=2,
-            api_hash="hash2",
             proxy_id="proxy",
             phone="+2",
             phone_code_hash="code2",
@@ -358,8 +324,6 @@ class TestAuthStateManager:
         """increment_failed_attempts should increment counter."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -379,8 +343,6 @@ class TestAuthStateManager:
         """increment_failed_attempts should lock when reaching MAX_AUTH_ATTEMPTS."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -404,8 +366,6 @@ class TestAuthStateManager:
         """check_auth_lock should return False for unlocked state."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -424,8 +384,6 @@ class TestAuthStateManager:
         """check_auth_lock should return True for locked state."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
@@ -458,8 +416,6 @@ class TestAuthStateManager:
         """reset_failed_attempts should reset counter and unlock state."""
         created = await manager.create_auth_state(
             session_name="session",
-            api_id=1,
-            api_hash="hash",
             proxy_id="proxy",
             phone="+1",
             phone_code_hash="code",
