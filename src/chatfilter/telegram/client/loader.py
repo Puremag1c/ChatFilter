@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -26,50 +27,32 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramClientLoader:
-    """Loader for creating Telethon client from session and secure credentials.
+    """Loader for creating Telethon client from session and global config.
 
-    Supports both secure credential storage (preferred) and legacy plaintext
-    config files with auto-migration.
+    Uses global Settings for api_id/api_hash and SecureCredentialManager
+    for per-session proxy_id.
 
     Example:
         ```python
-        # Using secure storage (preferred)
         loader = TelegramClientLoader(
             session_path=Path("sessions/my_account/session.session"),
-            use_secure_storage=True,
         )
         async with loader.create_client() as client:
             me = await client.get_me()
             print(f"Logged in as {me.username}")
-
-        # Legacy mode with plaintext config (deprecated)
-        loader = TelegramClientLoader(
-            session_path=Path("my_account.session"),
-            config_path=Path("telegram_config.json"),
-        )
         ```
     """
 
     def __init__(
         self,
         session_path: Path,
-        config_path: Path | None = None,
-        *,
-        use_secure_storage: bool = True,
     ) -> None:
-        """Initialize loader with session and credential configuration.
+        """Initialize loader with session path.
 
         Args:
             session_path: Path to Telethon .session file
-            config_path: Path to JSON config file (legacy mode). If None,
-                uses secure storage based on session directory structure.
-            use_secure_storage: If True, prefer secure storage over plaintext.
-                When True and config_path exists, will auto-migrate to secure
-                storage.
         """
         self._session_path = session_path
-        self._config_path = config_path
-        self._use_secure_storage = use_secure_storage
         self._config: TelegramConfig | None = None
         self._proxy_id: str | None = None
         self._web_user_id: str = "default"
@@ -79,109 +62,56 @@ class TelegramClientLoader:
         """Path to session file."""
         return self._session_path
 
-    @property
-    def config_path(self) -> Path | None:
-        """Path to config file (legacy)."""
-        return self._config_path
-
     def validate(self) -> None:
         """Validate session file and load credentials.
 
         Call this before create_client() to get early validation errors.
         Validates all required fields for connecting:
         - Session file exists and is valid
-        - api_id is set
-        - api_hash is set
-        - proxy_id is set
+        - proxy_id is set (from SecureCredentialManager)
         - proxy exists in pool
+
+        api_id/api_hash come from global Settings and are guaranteed valid.
 
         Raises:
             FileNotFoundError: If session file doesn't exist
             SessionFileError: If session file is invalid
             TelegramConfigError: If credentials cannot be loaded
-            SessionBlockedError: If api_id, api_hash, or proxy_id is missing,
-                or if proxy_id references a non-existent proxy
+            SessionBlockedError: If proxy_id is missing or proxy not in pool
         """
         # Validate session file first
         validate_session_file(self._session_path)
 
         session_id = self._session_path.parent.name
 
-        # Load credentials based on configuration
-        if self._use_secure_storage:
-            # Try secure storage first
-            storage_dir = self._session_path.parent.parent
+        # Get api_id/api_hash from global settings (guaranteed valid)
+        from chatfilter.config import get_settings
 
+        settings = get_settings()
+        self._config = settings.telegram_config
+
+        # Load proxy_id from secure credential manager
+        storage_dir = self._session_path.parent.parent
+
+        try:
+            from chatfilter.security import SecureCredentialManager
+
+            manager = SecureCredentialManager(storage_dir)
+            self._proxy_id = manager.retrieve_session_config(session_id)
+        except Exception as e:
+            raise TelegramConfigError(f"Failed to load session config: {e}") from e
+
+        # Load web_user_id from session config for per-user proxy isolation
+        config_json_path = self._session_path.parent / "config.json"
+        if config_json_path.exists():
             try:
-                from chatfilter.security import CredentialNotFoundError, SecureCredentialManager
+                with config_json_path.open("r") as f:
+                    cfg = json.load(f)
+                    self._web_user_id = cfg.get("web_user_id", "default")
+            except Exception:
+                pass
 
-                manager = SecureCredentialManager(storage_dir)
-                api_id, api_hash, proxy_id = manager.retrieve_credentials(session_id)
-                self._config = TelegramConfig(api_id=api_id, api_hash=api_hash)
-                self._proxy_id = proxy_id
-                # Load web_user_id from session config for per-user proxy isolation
-                config_json_path = self._session_path.parent / "config.json"
-                if config_json_path.exists():
-                    try:
-                        import json
-
-                        with config_json_path.open("r") as f:
-                            cfg = json.load(f)
-                            self._web_user_id = cfg.get("web_user_id", "default")
-                    except Exception:
-                        pass
-                logger.debug(f"Loaded credentials from secure storage for: {session_id}")
-            except CredentialNotFoundError as e:
-                # If secure storage fails and we have a config_path, try plaintext
-                if self._config_path and self._config_path.exists():
-                    logger.warning(f"Secure storage failed ({e}), falling back to plaintext config")
-                    self._config = TelegramConfig.from_json_file(
-                        self._config_path,
-                        migrate_to_secure=True,  # Auto-migrate
-                    )
-                    self._proxy_id = None  # Legacy mode has no proxy_id
-                else:
-                    # No fallback available
-                    raise TelegramConfigError(
-                        f"Credentials not found in secure storage for session '{session_id}'. "
-                        f"Please ensure credentials are properly configured."
-                    ) from e
-            except Exception as e:
-                raise TelegramConfigError(f"Failed to load credentials: {e}") from e
-        else:
-            # Legacy mode: use plaintext config
-            if self._config_path is not None:
-                migrate = self._use_secure_storage  # Auto-migrate if secure storage enabled
-                self._config = TelegramConfig.from_json_file(
-                    self._config_path,
-                    migrate_to_secure=migrate,
-                )
-            else:
-                raise TelegramConfigError(
-                    "No config_path provided and secure storage is disabled. "
-                    "Either provide config_path or enable use_secure_storage=True."
-                )
-
-        # Validate required fields for connect
-        assert self._config is not None  # for type checker
-
-        # Check api_id is valid
-        if not self._config.api_id:
-            raise SessionBlockedError(
-                gettext(
-                    "Session '{session_id}' has no api_id configured. "
-                    "Please configure api_id before connecting."
-                ).format(session_id=session_id)
-            )
-
-        # Check api_hash is valid
-        if not self._config.api_hash or not self._config.api_hash.strip():
-            raise SessionBlockedError(
-                gettext(
-                    "Session '{session_id}' has no api_hash configured. "
-                    "Please configure api_hash before connecting."
-                ).format(session_id=session_id)
-            )
+        logger.debug(f"Loaded session config for: {session_id}")
 
         # Check proxy_id is set
         if not self._proxy_id:
@@ -225,20 +155,10 @@ class TelegramClientLoader:
         Validates files and configuration if not already validated via validate().
         The returned client should be used as an async context manager.
 
-        Sessions require all of the following to be configured:
-        - api_id: Telegram API ID
-        - api_hash: Telegram API hash
-        - proxy_id: Reference to a proxy in the proxy pool
-
-        If any required field is missing, SessionBlockedError will be raised
-        with a clear error message.
-
         Args:
             proxy: Explicit proxy configuration to use. If None, uses the
                 session's configured proxy_id from the proxy pool.
             timeout: Timeout in seconds for network operations (default: 30s).
-                Increased from Telethon default of 10s to handle slow connections
-                and MTProto handshake through proxies.
             connection_retries: Number of retries for connection attempts (default: 5).
             retry_delay: Delay in seconds between retry attempts (default: 1).
 
@@ -246,19 +166,10 @@ class TelegramClientLoader:
             TelegramClient instance (not connected yet)
 
         Raises:
-            FileNotFoundError: If session or config file doesn't exist
+            FileNotFoundError: If session file doesn't exist
             SessionFileError: If session file is invalid
             TelegramConfigError: If config file is invalid
-            SessionBlockedError: If api_id, api_hash, or proxy_id is missing,
-                or if proxy_id references a non-existent proxy
-
-        Example:
-            ```python
-            client = loader.create_client()
-            async with client:
-                # client is connected here
-                me = await client.get_me()
-            ```
+            SessionBlockedError: If proxy_id is missing or proxy not in pool
         """
         if self._config is None:
             self.validate()
@@ -273,7 +184,7 @@ class TelegramClientLoader:
         # Resolve proxy configuration
         telethon_proxy = None
 
-        # Priority: 1) explicit proxy arg, 2) session's proxy_id from pool, 3) global proxy config
+        # Priority: 1) explicit proxy arg, 2) session's proxy_id from pool, 3) no proxy
         if proxy is not None:
             # Explicit proxy passed - use it directly
             if proxy.enabled and proxy.host:
