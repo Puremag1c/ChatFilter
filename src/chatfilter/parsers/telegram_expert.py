@@ -1,6 +1,5 @@
 """Parser for TelegramExpert JSON format account info."""
 
-import contextlib
 import re
 from typing import Any
 

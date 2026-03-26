@@ -127,7 +127,7 @@ async def upload_session(
             )
 
         try:
-            config_data = validate_config_file_format(config_content)
+            validate_config_file_format(config_content)
         except ValueError as e:
             return templates.TemplateResponse(
                 request=request,

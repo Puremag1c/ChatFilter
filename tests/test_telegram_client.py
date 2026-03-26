@@ -1,6 +1,5 @@
 """Tests for TelegramClientLoader and related functionality."""
 
-import json
 import sqlite3
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta

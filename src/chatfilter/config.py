@@ -8,7 +8,10 @@ from __future__ import annotations
 import logging
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from chatfilter.telegram.client.config import TelegramConfig
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -184,7 +187,7 @@ class Settings(BaseSettings):
     )
 
     @model_validator(mode="after")
-    def validate_api_credentials(self) -> "Settings":
+    def validate_api_credentials(self) -> Settings:
         if self.api_id is None or self.api_hash is None:
             raise ValueError(
                 "CHATFILTER_API_ID and CHATFILTER_API_HASH environment variables are required. "
@@ -269,7 +272,7 @@ class Settings(BaseSettings):
         return f"sqlite:///{db_path}"
 
     @property
-    def telegram_config(self) -> "TelegramConfig":
+    def telegram_config(self) -> TelegramConfig:
         """Build TelegramConfig from global ENV credentials.
 
         Raises:
