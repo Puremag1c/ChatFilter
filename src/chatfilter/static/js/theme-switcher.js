@@ -102,15 +102,6 @@
                     }
                 });
             }
-            // Fallback for older browsers
-            else if (mediaQuery.addListener) {
-                mediaQuery.addListener(function(e) {
-                    if (!localStorage.getItem(THEME_KEY)) {
-                        const newTheme = e.matches ? THEME_DARK : THEME_LIGHT;
-                        applyTheme(newTheme);
-                    }
-                });
-            }
         }
 
         // Listen for theme changes from other tabs
