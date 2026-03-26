@@ -186,15 +186,6 @@ class Settings(BaseSettings):
         description="Telegram API hash (CHATFILTER_API_HASH). Get from https://my.telegram.org/apps",
     )
 
-    @model_validator(mode="after")
-    def validate_api_credentials(self) -> Settings:
-        if self.api_id is None or self.api_hash is None:
-            raise ValueError(
-                "CHATFILTER_API_ID and CHATFILTER_API_HASH environment variables are required. "
-                "Get them at https://my.telegram.org/apps"
-            )
-        return self
-
     # Telegram settings
     max_messages_limit: int = Field(
         default=10_000,
