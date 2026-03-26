@@ -1,4 +1,4 @@
-"""Generated tests for SPEC.md coverage gaps — ChatFilter v0.27.3+
+"""Generated tests for SPEC.md coverage gaps — ChatFilter v0.27+
 
 Covers requirements not explicitly tested by existing test suite:
 1. UserDatabase.set_admin unit test
@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import os
 import re
-import tempfile
 from pathlib import Path
 from typing import Any
 

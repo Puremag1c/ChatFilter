@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.4] - 2026-03-26
+
+### Fixed
+- CI: удалены неиспользованные импорты (model_validator, tempfile) — ruff lint pass
+
 ## [0.27.3] - 2026-03-26
 
 ### Added
