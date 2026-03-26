@@ -45,7 +45,7 @@
                 themeIcon.textContent = ICON_LIGHT; // Show sun when in dark mode
             }
         } else {
-            root.removeAttribute('data-theme');
+            root.setAttribute('data-theme', THEME_LIGHT);
             if (themeIcon) {
                 themeIcon.textContent = ICON_DARK; // Show moon when in light mode
             }

@@ -1,7 +1,7 @@
 /* ChatFilter base styles - v0.4.0 - Updated: 2026-01-24 - Apple Design */
 
 /* ========== CSS Variables for Theming ========== */
-:root {
+:root, [data-theme='light'] {
     /* Light mode colors (Apple-style) */
     --bg-body: #fafafa;
     --bg-card: #ffffff;
@@ -109,7 +109,7 @@
 
 /* Respect system preference if no theme set */
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) {
+    :root:not([data-theme='light']):not([data-theme='dark']) {
         --bg-body: #000000;
         --bg-card: #1c1c1e;
         --bg-card-hover: #2c2c2e;
