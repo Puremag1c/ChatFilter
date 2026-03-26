@@ -80,6 +80,15 @@ class UserDatabase(SQLiteDatabase):
             )
             return cursor.rowcount > 0
 
+    def set_admin(self, user_id: str, is_admin: bool) -> bool:
+        """Toggle admin status for a user. Returns True if updated."""
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET is_admin = ? WHERE id = ?",
+                (1 if is_admin else 0, user_id),
+            )
+            return cursor.rowcount > 0
+
     def verify_password(self, username: str, password: str) -> bool:
         """Return True if username exists and password matches."""
         user = self.get_user_by_username(username)
