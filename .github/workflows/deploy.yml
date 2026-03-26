@@ -77,7 +77,7 @@ jobs:
             chmod 600 "${APP_DIR}/.env"
 
             # Install/update dependencies
-            uv venv --python 3.12
+            uv venv --python 3.12 --clear
             uv pip install -e .
 
             # Run migrations
