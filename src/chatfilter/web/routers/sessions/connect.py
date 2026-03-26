@@ -189,7 +189,7 @@ async def connect_session(
         # chatfilter.web.routers.sessions.TelegramClientLoader
         import chatfilter.web.routers.sessions as _sessions_pkg
 
-        loader = _sessions_pkg.TelegramClientLoader(session_path, config_path)
+        loader = _sessions_pkg.TelegramClientLoader(session_path)
         loader.validate()
     except FileNotFoundError:
         # AC2: Session file doesn't exist - trigger send_code flow instead of error

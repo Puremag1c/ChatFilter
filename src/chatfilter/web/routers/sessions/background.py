@@ -489,8 +489,6 @@ async def _send_verification_code_and_create_auth(
             auth_manager = get_auth_state_manager()
             auth_state = await auth_manager.create_auth_state(
                 session_name=session_id,
-                api_id=api_id,
-                api_hash=api_hash,
                 proxy_id=proxy_id,
                 phone=phone,
                 phone_code_hash=result.phone_code_hash,

@@ -115,7 +115,7 @@ class ChatAnalysisService:
         loader_key = (user_id, session_id)
         if loader_key not in self._loaders:
             session_path, config_path = self._get_session_paths(session_id, user_id)
-            loader = TelegramClientLoader(session_path, config_path)
+            loader = TelegramClientLoader(session_path)
             loader.validate()
             self._session_manager.register(session_id, loader)
             self._loaders[loader_key] = loader
