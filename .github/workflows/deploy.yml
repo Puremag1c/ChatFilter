@@ -84,11 +84,11 @@ jobs:
             .venv/bin/chatfilter migrate --data-dir "${DATA_DIR}" 2>/dev/null || echo "migrate not available in this version, skipping"
 
             # Restart service
-            sudo /usr/bin/systemctl restart chatfilter
+            sudo -n /usr/bin/systemctl restart chatfilter
 
             # Verify it started
             sleep 3
-            sudo /usr/bin/systemctl status chatfilter --no-pager
+            sudo -n /usr/bin/systemctl status chatfilter --no-pager
 
             echo "=== Deploy complete ==="
 
