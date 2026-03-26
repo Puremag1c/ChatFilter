@@ -26,7 +26,12 @@ def _get_user_db(request: Request) -> UserDatabase:
 
 def _require_admin(request: Request) -> bool:
     session = get_session(request)
-    return bool(session.get("is_admin"))
+    user_id = session.get("user_id")
+    if not user_id:
+        return False
+    db = _get_user_db(request)
+    user = db.get_user_by_id(user_id)
+    return bool(user and user.get("is_admin"))
 
 
 @router.get("/admin", response_class=HTMLResponse, response_model=None)
