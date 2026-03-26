@@ -60,21 +60,20 @@ jobs:
             git pull origin ${{ github.event.inputs.ref }} 2>/dev/null || true
 
             # Generate .env from GitHub Secrets
-            cat > "${APP_DIR}/.env" <<'ENVEOF'
-            CHATFILTER_HOST=127.0.0.1
-            CHATFILTER_PORT=8000
-            CHATFILTER_DEBUG=false
-            CHATFILTER_DATA_DIR=/home/deploy/chatfilter-data
-            CHATFILTER_LOG_LEVEL=INFO
-            CHATFILTER_LOG_TO_FILE=true
-            CHATFILTER_CORS_ORIGINS=https://chats.xn--zn-wma.com
-            ENVEOF
-            # Append secrets (not in heredoc to avoid logging)
-            echo "CHATFILTER_API_ID=${CHATFILTER_API_ID}" >> "${APP_DIR}/.env"
-            echo "CHATFILTER_API_HASH=${CHATFILTER_API_HASH}" >> "${APP_DIR}/.env"
-            echo "CHATFILTER_ADMIN_LOGIN=${CHATFILTER_ADMIN_LOGIN}" >> "${APP_DIR}/.env"
-            echo "CHATFILTER_ADMIN_PASSWORD=${CHATFILTER_ADMIN_PASSWORD}" >> "${APP_DIR}/.env"
-            echo "CHATFILTER_DATABASE_URL=${CHATFILTER_DATABASE_URL}" >> "${APP_DIR}/.env"
+            printf '%s\n' \
+              "CHATFILTER_HOST=127.0.0.1" \
+              "CHATFILTER_PORT=8000" \
+              "CHATFILTER_DEBUG=false" \
+              "CHATFILTER_DATA_DIR=/home/deploy/chatfilter-data" \
+              "CHATFILTER_LOG_LEVEL=INFO" \
+              "CHATFILTER_LOG_TO_FILE=true" \
+              "CHATFILTER_CORS_ORIGINS=https://chats.xn--zn-wma.com" \
+              "CHATFILTER_API_ID=${CHATFILTER_API_ID}" \
+              "CHATFILTER_API_HASH=${CHATFILTER_API_HASH}" \
+              "CHATFILTER_ADMIN_LOGIN=${CHATFILTER_ADMIN_LOGIN}" \
+              "CHATFILTER_ADMIN_PASSWORD=${CHATFILTER_ADMIN_PASSWORD}" \
+              "CHATFILTER_DATABASE_URL=${CHATFILTER_DATABASE_URL}" \
+              > "${APP_DIR}/.env"
             chmod 600 "${APP_DIR}/.env"
 
             # Install/update dependencies
