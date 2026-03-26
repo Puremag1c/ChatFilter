@@ -67,7 +67,7 @@ jobs:
               "CHATFILTER_DATA_DIR=/home/deploy/chatfilter-data" \
               "CHATFILTER_LOG_LEVEL=INFO" \
               "CHATFILTER_LOG_TO_FILE=true" \
-              "CHATFILTER_CORS_ORIGINS=https://chats.xn--zn-wma.com" \
+              'CHATFILTER_CORS_ORIGINS=["https://chats.xn--zn-wma.com"]' \
               "CHATFILTER_API_ID=${CHATFILTER_API_ID}" \
               "CHATFILTER_API_HASH=${CHATFILTER_API_HASH}" \
               "CHATFILTER_ADMIN_LOGIN=${CHATFILTER_ADMIN_LOGIN}" \
