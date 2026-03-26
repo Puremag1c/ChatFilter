@@ -35,16 +35,16 @@
         <nav role="navigation" aria-label="{{ _("Main navigation") }}">
             <a href="/" class="logo">ChatFilter</a>
             <ul class="nav-links">
-                <li><a href="/proxies" data-tooltip="{{ _("Manage proxy servers for Telegram sessions") }}" data-tooltip-position="bottom">{{ _("Proxies") }}</a></li>
-                <li><a href="/" data-tooltip="{{ _("Manage your Telegram session files") }}" data-tooltip-position="bottom">{{ _("Sessions") }}</a></li>
-                <li><a href="/chats" data-tooltip="{{ _("Select chats to analyze from your Telegram account") }}" data-tooltip-position="bottom">{{ _("Chats") }}</a></li>
-                {% if current_is_admin %}<li><a href="/admin" data-tooltip="{{ _("User management") }}" data-tooltip-position="bottom">{{ _("Admin") }}</a></li>{% endif %}
+                <li><a href="/proxies">{{ _("Proxies") }}</a></li>
+                <li><a href="/">{{ _("Sessions") }}</a></li>
+                <li><a href="/chats">{{ _("Chats") }}</a></li>
+                {% if current_is_admin %}<li><a href="/admin">{{ _("Admin") }}</a></li>{% endif %}
             </ul>
             <div class="status-indicators">
-<button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}" data-tooltip="{{ _("Switch between light and dark theme") }}" data-tooltip-position="bottom">
+<button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}">
                     <span class="theme-icon" aria-hidden="true">🌙</span>
                 </button>
-                <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}" data-tooltip="{{ _("Switch between English and Russian") }}" data-tooltip-position="bottom">
+                <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}">
                     <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
                 </button>
                 {% if current_username %}
