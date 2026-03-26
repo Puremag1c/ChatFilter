@@ -356,9 +356,7 @@ def _migrate_api_credentials(settings: Any) -> None:
                 marker.touch()
                 migrated_count += 1
             except Exception as e:
-                logging.error(
-                    f"API credentials migration failed for session '{session_id}': {e}"
-                )
+                logging.error(f"API credentials migration failed for session '{session_id}': {e}")
 
     logging.info(
         f"API credentials migration: {migrated_count} sessions migrated, "

@@ -75,4 +75,3 @@ class TestStartAuthFlowValidation:
 
         assert response.status_code == 200
         assert b"saved successfully" in response.content or b"success" in response.content
-

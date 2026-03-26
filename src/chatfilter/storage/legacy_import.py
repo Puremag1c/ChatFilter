@@ -74,8 +74,16 @@ def _import_groups_db(conn: sqlite3.Connection, groups_db: Path) -> int:
             old_cols = {
                 r[1] for r in conn.execute("PRAGMA old_groups.table_info(chat_groups)").fetchall()
             }
-            new_cols = {"id", "name", "settings", "status", "created_at", "updated_at",
-                        "analysis_started_at", "user_id"}
+            new_cols = {
+                "id",
+                "name",
+                "settings",
+                "status",
+                "created_at",
+                "updated_at",
+                "analysis_started_at",
+                "user_id",
+            }
             cols = sorted(old_cols & new_cols)
             if cols:
                 col_list = ", ".join(cols)
@@ -89,11 +97,24 @@ def _import_groups_db(conn: sqlite3.Connection, groups_db: Path) -> int:
             old_cols = {
                 r[1] for r in conn.execute("PRAGMA old_groups.table_info(group_chats)").fetchall()
             }
-            new_cols = {"id", "group_id", "chat_ref", "chat_type", "status",
-                        "assigned_account", "error", "subscribers", "tried_accounts",
-                        "title", "moderation", "messages_per_hour",
-                        "unique_authors_per_hour", "captcha", "partial_data",
-                        "metrics_version"}
+            new_cols = {
+                "id",
+                "group_id",
+                "chat_ref",
+                "chat_type",
+                "status",
+                "assigned_account",
+                "error",
+                "subscribers",
+                "tried_accounts",
+                "title",
+                "moderation",
+                "messages_per_hour",
+                "unique_authors_per_hour",
+                "captcha",
+                "partial_data",
+                "metrics_version",
+            }
             cols = sorted(old_cols & new_cols)
             if cols:
                 col_list = ", ".join(cols)
@@ -107,8 +128,14 @@ def _import_groups_db(conn: sqlite3.Connection, groups_db: Path) -> int:
             old_cols = {
                 r[1] for r in conn.execute("PRAGMA old_groups.table_info(group_tasks)").fetchall()
             }
-            new_cols = {"id", "group_id", "requested_metrics", "time_window",
-                        "created_at", "status"}
+            new_cols = {
+                "id",
+                "group_id",
+                "requested_metrics",
+                "time_window",
+                "created_at",
+                "status",
+            }
             cols = sorted(old_cols & new_cols)
             if cols:
                 col_list = ", ".join(cols)
@@ -138,9 +165,7 @@ def _import_users_db(conn: sqlite3.Connection, users_db: Path) -> int:
         if "users" not in old_tables:
             return 0
 
-        old_cols = {
-            r[1] for r in conn.execute("PRAGMA old_users.table_info(users)").fetchall()
-        }
+        old_cols = {r[1] for r in conn.execute("PRAGMA old_users.table_info(users)").fetchall()}
         new_cols = {"id", "username", "password_hash", "is_admin", "created_at"}
         cols = sorted(old_cols & new_cols)
         if not cols:
@@ -148,8 +173,7 @@ def _import_users_db(conn: sqlite3.Connection, users_db: Path) -> int:
 
         col_list = ", ".join(cols)
         n = conn.execute(
-            f"INSERT OR IGNORE INTO users ({col_list}) "
-            f"SELECT {col_list} FROM old_users.users"
+            f"INSERT OR IGNORE INTO users ({col_list}) SELECT {col_list} FROM old_users.users"
         ).rowcount
         return n
 

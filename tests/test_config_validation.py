@@ -129,7 +129,6 @@ class TestConfigCheck:
             debug=True,
             host="0.0.0.0",
             port=8891,
-
         )
 
         warnings = settings.check()
@@ -144,7 +143,6 @@ class TestConfigCheck:
             debug=False,
             host="127.0.0.1",
             port=8892,
-
         )
 
         warnings = settings.check()
@@ -238,7 +236,6 @@ class TestLoggingConfig:
             port=8897,
             log_file_max_bytes=5 * 1024 * 1024,  # 5 MB
             log_file_backup_count=10,
-
         )
 
         assert settings.log_file_max_bytes == 5 * 1024 * 1024

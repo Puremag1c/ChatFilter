@@ -53,7 +53,9 @@ def _parse_proxy_config(config_path: Path) -> str | None:
     text = config_path.read_text(encoding="utf-8")
     data = json.loads(text)
     if not isinstance(data, dict):
-        raise TelegramConfigError(f"Session config must be a JSON object, got {type(data).__name__}")
+        raise TelegramConfigError(
+            f"Session config must be a JSON object, got {type(data).__name__}"
+        )
     proxy_id = data.get("proxy_id")
     if proxy_id is not None and not isinstance(proxy_id, str):
         raise TelegramConfigError(f"proxy_id must be a string, got {type(proxy_id).__name__}")
@@ -400,9 +402,7 @@ class TestFuzzConfigJSON:
             st.lists(st.text()),
         ),
     )
-    def test_fuzz_config_field_types(
-        self, isolated_tmp_dir: Path, proxy_id: Any
-    ) -> None:
+    def test_fuzz_config_field_types(self, isolated_tmp_dir: Path, proxy_id: Any) -> None:
         """Fuzz test with various types for proxy_id field.
 
         Session configs are proxy-only (api_id/api_hash moved to global ENV vars).

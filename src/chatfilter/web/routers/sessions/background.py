@@ -423,6 +423,7 @@ async def _send_verification_code_and_create_auth(
 
     # Load global api_id/api_hash from Settings/ENV (not from per-session config)
     from chatfilter.config import get_settings
+
     telegram_cfg = get_settings().telegram_config
     api_id = telegram_cfg.api_id
     api_hash = telegram_cfg.api_hash

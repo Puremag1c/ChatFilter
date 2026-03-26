@@ -365,4 +365,3 @@ class TestDeadSessionRecoveryUX:
         # HTTP returns 200 with 'connecting' - error delivered via SSE
         assert perm_response.status_code == 200
         assert "Connecting" in perm_response.text or "connecting" in perm_response.text.lower()
-

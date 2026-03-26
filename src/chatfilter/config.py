@@ -558,7 +558,9 @@ class Settings(BaseSettings):
         """Print current configuration to stdout."""
         print("ChatFilter Configuration:")
         print(f"  Telegram API ID: {self.api_id if self.api_id is not None else '(not set)'}")
-        print(f"  Telegram API Hash: {'***REDACTED***' if self.api_hash is not None else '(not set)'}")
+        print(
+            f"  Telegram API Hash: {'***REDACTED***' if self.api_hash is not None else '(not set)'}"
+        )
         print(f"  Host: {self.host}")
         print(f"  Port: {self.port}")
         print(f"  Debug: {self.debug}")

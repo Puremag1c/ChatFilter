@@ -258,9 +258,7 @@ class EncryptedFileBackend(CredentialStorageBackend):
                     new_cred["2fa_password"] = cred_data["2fa_password"]
                 credentials[session_id] = new_cred
                 migrated += 1
-                logger.info(
-                    f"Stripped api_id/api_hash from credentials for session: {session_id}"
-                )
+                logger.info(f"Stripped api_id/api_hash from credentials for session: {session_id}")
 
         if migrated > 0:
             self._save_credentials_file(credentials)
