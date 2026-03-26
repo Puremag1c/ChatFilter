@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.5] - 2026-03-26
+
+### Fixed
+- Переключение темы на мобильном: setAttribute('data-theme', 'light') вместо removeAttribute — теперь и иконка, и цвета меняются корректно
+
+### Changed
+- CSS: объединены дублирующиеся блоки тёмных переменных ([data-theme="dark"] + @media prefers-color-scheme) в один блок
+- JS: удалён deprecated fallback `mediaQuery.addListener` в theme-switcher.js
+
 ## [0.27.4] - 2026-03-26
 
 ### Fixed
