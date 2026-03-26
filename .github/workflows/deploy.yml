@@ -22,7 +22,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          VERSION=$(python3 -c "import re; print(re.search(r'__version__\s*=\s*\"(.+?)\"', open('src/chatfilter/__init__.py').read()).group(1))")
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Deploying version: ${VERSION} (ref: ${{ github.event.inputs.ref }})"
 
