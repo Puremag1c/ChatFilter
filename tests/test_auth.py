@@ -268,3 +268,139 @@ class TestAdminUserManagement:
             follow_redirects=False,
         )
         assert resp.status_code == 422
+
+
+class TestToggleAdmin:
+    def _get_csrf(self, client: Any) -> str:
+        resp = client.get("/admin")
+        assert resp.status_code == 200
+        m = re.search(r'<meta\s+name="csrf-token"\s+content="([^"]+)"', resp.text)
+        assert m, "No csrf-token meta tag found on admin page"
+        return m.group(1)
+
+    def test_toggle_admin_happy_path(self, admin_client: Any, test_settings: Any) -> None:
+        from chatfilter.storage.user_database import get_user_db
+
+        db = get_user_db(test_settings.effective_database_url)
+        uid = db.create_user("toggletarget", "password123", is_admin=False)
+
+        csrf = self._get_csrf(admin_client)
+        resp = admin_client.post(
+            f"/admin/users/{uid}/toggle-admin",
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.status_code == 200
+        updated = db.get_user_by_id(uid)
+        assert updated["is_admin"] is True
+
+    def test_toggle_admin_self_protection(self, admin_client: Any, test_settings: Any) -> None:
+        from chatfilter.storage.user_database import get_user_db
+
+        db = get_user_db(test_settings.effective_database_url)
+        admin = db.get_user_by_username("adminuser")
+        assert admin is not None
+
+        csrf = self._get_csrf(admin_client)
+        resp = admin_client.post(
+            f"/admin/users/{admin['id']}/toggle-admin",
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.status_code == 400
+
+    def test_toggle_admin_unauthorized(self, fastapi_test_client: Any, test_settings: Any) -> None:
+        from chatfilter.storage.user_database import get_user_db
+
+        db = get_user_db(test_settings.effective_database_url)
+        uid = db.create_user("toggletarget2", "password123", is_admin=False)
+
+        resp = fastapi_test_client.post(f"/admin/users/{uid}/toggle-admin")
+        assert resp.status_code == 403
+
+    def test_toggle_admin_invalid_user(self, admin_client: Any) -> None:
+        csrf = self._get_csrf(admin_client)
+        resp = admin_client.post(
+            "/admin/users/nonexistent-id-xyz/toggle-admin",
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert resp.status_code == 404
+
+
+class TestProfilePasswordChange:
+    def _get_csrf(self, client: Any) -> str:
+        resp = client.get("/profile")
+        assert resp.status_code == 200
+        m = re.search(r'<meta\s+name="csrf-token"\s+content="([^"]+)"', resp.text)
+        assert m, "No csrf-token meta tag found on profile page"
+        return m.group(1)
+
+    def test_change_password_success(self, fastapi_test_client: Any, test_settings: Any) -> None:
+        from chatfilter.storage.user_database import get_user_db
+
+        csrf = self._get_csrf(fastapi_test_client)
+        resp = fastapi_test_client.post(
+            "/profile/password",
+            data={
+                "old_password": "testpassword123",
+                "new_password": "newpassword456",
+                "confirm_password": "newpassword456",
+            },
+            headers={"X-CSRF-Token": csrf},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        db = get_user_db(test_settings.effective_database_url)
+        assert db.verify_password("testuser", "newpassword456") is True
+
+    def test_change_password_wrong_old(self, fastapi_test_client: Any) -> None:
+        csrf = self._get_csrf(fastapi_test_client)
+        resp = fastapi_test_client.post(
+            "/profile/password",
+            data={
+                "old_password": "wrongpassword",
+                "new_password": "newpassword456",
+                "confirm_password": "newpassword456",
+            },
+            headers={"X-CSRF-Token": csrf},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 400
+
+    def test_change_password_too_short(self, fastapi_test_client: Any) -> None:
+        csrf = self._get_csrf(fastapi_test_client)
+        resp = fastapi_test_client.post(
+            "/profile/password",
+            data={
+                "old_password": "testpassword123",
+                "new_password": "short",
+                "confirm_password": "short",
+            },
+            headers={"X-CSRF-Token": csrf},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 400
+
+    def test_change_password_confirm_mismatch(self, fastapi_test_client: Any) -> None:
+        csrf = self._get_csrf(fastapi_test_client)
+        resp = fastapi_test_client.post(
+            "/profile/password",
+            data={
+                "old_password": "testpassword123",
+                "new_password": "newpassword456",
+                "confirm_password": "differentpassword789",
+            },
+            headers={"X-CSRF-Token": csrf},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 400
+
+    def test_change_password_unauthenticated(self, unauth_client: Any) -> None:
+        resp = unauth_client.post(
+            "/profile/password",
+            data={
+                "old_password": "testpassword123",
+                "new_password": "newpassword456",
+                "confirm_password": "newpassword456",
+            },
+            follow_redirects=False,
+        )
+        assert resp.status_code == 302
