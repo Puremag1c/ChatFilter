@@ -26,6 +26,7 @@ os.environ.setdefault("CHATFILTER_API_HASH", "test_hash_abcdef123456789")
 # Fixtures (inline for standalone file)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def tmp_db_url(tmp_path: Path) -> str:
     db_path = tmp_path / "test_users.db"
@@ -35,6 +36,7 @@ def tmp_db_url(tmp_path: Path) -> str:
 @pytest.fixture
 def user_db(tmp_db_url: str) -> Any:
     from chatfilter.storage.user_database import UserDatabase
+
     db = UserDatabase(tmp_db_url)
     db._ensure_schema()
     return db
@@ -43,6 +45,7 @@ def user_db(tmp_db_url: str) -> Any:
 # ---------------------------------------------------------------------------
 # 1. UserDatabase.set_admin unit test
 # ---------------------------------------------------------------------------
+
 
 class TestSetAdminMethod:
     """SPEC req: toggle admin endpoint calls set_admin.
@@ -73,6 +76,7 @@ class TestSetAdminMethod:
 # ---------------------------------------------------------------------------
 # 2. Toggle admin OFF via endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestToggleAdminOff:
     """SPEC req: toggle is idempotent in both directions.
@@ -125,6 +129,7 @@ class TestToggleAdminOff:
 # 3. Profile page unauthenticated redirect
 # ---------------------------------------------------------------------------
 
+
 class TestProfilePageAccess:
     """SPEC req: /profile page exists and is protected."""
 
@@ -149,13 +154,15 @@ class TestProfilePageAccess:
         """SPEC req: CSRF protection on profile form."""
         resp = fastapi_test_client.get("/profile")
         assert resp.status_code == 200
-        assert 'name="csrf_token"' in resp.text or 'name="csrf-token"' in resp.text, \
+        assert 'name="csrf_token"' in resp.text or 'name="csrf-token"' in resp.text, (
             "CSRF token must be present in profile form"
+        )
 
 
 # ---------------------------------------------------------------------------
 # 4. CSRF required for /profile/password
 # ---------------------------------------------------------------------------
+
 
 class TestProfilePasswordCsrf:
     """SPEC req: CSRF protection on profile password change endpoint."""
@@ -172,13 +179,15 @@ class TestProfilePasswordCsrf:
             # No X-CSRF-Token header, no csrf_token in form
             follow_redirects=False,
         )
-        assert resp.status_code == 403, \
+        assert resp.status_code == 403, (
             "Missing CSRF token should return 403, not allow password change"
+        )
 
 
 # ---------------------------------------------------------------------------
 # 5. Navbar has no data-tooltip (SPEC req: remove tooltips from navbar)
 # ---------------------------------------------------------------------------
+
 
 class TestNavbarNoTooltips:
     """SPEC req: Remove data-tooltip from all navbar elements.
@@ -187,6 +196,7 @@ class TestNavbarNoTooltips:
     def test_base_template_navbar_has_no_data_tooltip(self) -> None:
         """base.html navbar elements must not have data-tooltip attributes."""
         import chatfilter
+
         package_dir = Path(chatfilter.__file__).parent
         base_html = package_dir / "templates" / "base.html"
         assert base_html.exists(), "base.html template must exist"
@@ -194,40 +204,43 @@ class TestNavbarNoTooltips:
         content = base_html.read_text(encoding="utf-8")
 
         # Extract just the <nav> section from the base template
-        nav_match = re.search(r'<nav\b.*?</nav>', content, re.DOTALL)
+        nav_match = re.search(r"<nav\b.*?</nav>", content, re.DOTALL)
         assert nav_match, "No <nav> element found in base.html"
 
         nav_content = nav_match.group(0)
-        assert 'data-tooltip' not in nav_content, (
-            "Navbar must not contain data-tooltip attributes "
-            "(they block mobile first tap)"
+        assert "data-tooltip" not in nav_content, (
+            "Navbar must not contain data-tooltip attributes (they block mobile first tap)"
         )
 
     def test_theme_toggle_no_tooltip(self) -> None:
         """Theme toggle button must not have data-tooltip."""
         import chatfilter
+
         package_dir = Path(chatfilter.__file__).parent
         base_html = package_dir / "templates" / "base.html"
         content = base_html.read_text(encoding="utf-8")
 
         # Find the theme-toggle-btn
         theme_btn_match = re.search(
-            r'<button[^>]*theme-toggle[^>]*>.*?</button>', content, re.DOTALL
+            r"<button[^>]*theme-toggle[^>]*>.*?</button>", content, re.DOTALL
         )
         if theme_btn_match:
-            assert 'data-tooltip' not in theme_btn_match.group(0), \
+            assert "data-tooltip" not in theme_btn_match.group(0), (
                 "Theme toggle button must not have data-tooltip"
+            )
 
     def test_language_toggle_no_tooltip(self) -> None:
         """Language toggle button must not have data-tooltip."""
         import chatfilter
+
         package_dir = Path(chatfilter.__file__).parent
         base_html = package_dir / "templates" / "base.html"
         content = base_html.read_text(encoding="utf-8")
 
         lang_btn_match = re.search(
-            r'<button[^>]*language-toggle[^>]*>.*?</button>', content, re.DOTALL
+            r"<button[^>]*language-toggle[^>]*>.*?</button>", content, re.DOTALL
         )
         if lang_btn_match:
-            assert 'data-tooltip' not in lang_btn_match.group(0), \
+            assert "data-tooltip" not in lang_btn_match.group(0), (
                 "Language toggle button must not have data-tooltip"
+            )
