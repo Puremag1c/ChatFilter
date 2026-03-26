@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _("Profile") }} — ChatFilter{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ _("Profile") }}</h1>
+</div>
+
+{% if flash %}
+<div class="alert alert-{{ flash_type|default('success') }}" role="alert">
+    {{ flash }}
+</div>
+{% endif %}
+
+<section class="card">
+    <div class="card-header">
+        <h2>{{ _("Account Info") }}</h2>
+    </div>
+    <div style="padding:1rem">
+        <p><strong>{{ _("Username") }}:</strong> {{ user.username }}
+        {% if user.is_admin %}
+        <span class="badge badge-admin" style="margin-left:0.5rem">{{ _("Admin") }}</span>
+        {% endif %}
+        </p>
+        <p><strong>{{ _("Member since") }}:</strong> {{ user.created_at }}</p>
+    </div>
+</section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>{{ _("Change Password") }}</h2>
+    </div>
+    <form method="post" action="/profile/password" style="display:flex;flex-direction:column;gap:0.75rem;padding:1rem;max-width:400px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div>
+            <label for="old-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Current Password") }}</label>
+            <input type="password" id="old-password" name="old_password" required
+                   class="form-input" autocomplete="current-password">
+        </div>
+        <div>
+            <label for="new-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("New Password") }}</label>
+            <input type="password" id="new-password" name="new_password" required
+                   class="form-input" autocomplete="new-password" minlength="8">
+        </div>
+        <div>
+            <label for="confirm-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Confirm New Password") }}</label>
+            <input type="password" id="confirm-password" name="confirm_password" required
+                   class="form-input" autocomplete="new-password" minlength="8">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">{{ _("Change Password") }}</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

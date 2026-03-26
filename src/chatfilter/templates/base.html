@@ -48,10 +48,11 @@
                     <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
                 </button>
                 {% if current_username %}
+                <a href="/profile" style="font-size:0.85rem;text-decoration:none">{{ current_username }}</a>
                 <form method="post" action="/logout" style="display:inline;margin:0">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button type="submit" class="btn btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.75rem" aria-label="{{ _("Log out") }}">
-                        {{ current_username }} &rarr; {{ _("Log out") }}
+                        &rarr; {{ _("Log out") }}
                     </button>
                 </form>
                 {% endif %}
