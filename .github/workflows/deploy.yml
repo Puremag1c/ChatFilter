@@ -83,13 +83,17 @@ jobs:
             # Run migrations (skip if version doesn't support it)
             .venv/bin/chatfilter migrate --data-dir "${DATA_DIR}" 2>/dev/null || echo "migrate not available in this version, skipping"
 
-            # Restart service
-            sudo -n /usr/bin/systemctl restart chatfilter
+            echo "=== Code deployed, restarting service ==="
 
-            # Verify it started
-            sleep 3
-            sudo -n /usr/bin/systemctl status chatfilter --no-pager
-
+      - name: Restart service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            touch ~/chatfilter/.restart-trigger
+            sleep 5
             echo "=== Deploy complete ==="
 
       - name: Health check
