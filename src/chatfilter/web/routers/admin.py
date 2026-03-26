@@ -43,6 +43,7 @@ async def admin_page(
 
     db = _get_user_db(request)
     users = db.list_users()
+    current_user_id = get_session(request).get("user_id")
 
     templates = get_templates()
     return templates.TemplateResponse(
@@ -54,6 +55,7 @@ async def admin_page(
             users=users,
             flash=flash,
             flash_type=flash_type or "success",
+            current_user_id=current_user_id,
         ),
     )
 
@@ -178,3 +180,34 @@ async def change_password(
     db.update_password(user_id, password)
     qs = urlencode({"flash": "Пароль изменён", "flash_type": "success"})
     return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+
+
+@router.post("/admin/users/{user_id}/toggle-admin", response_model=None)
+async def toggle_admin(request: Request, user_id: str) -> Response:
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    current_user_id = get_session(request).get("user_id")
+    if current_user_id == user_id:
+        return Response(status_code=400, content="Cannot remove own admin rights")
+
+    db = _get_user_db(request)
+    user = db.get_user_by_id(user_id)
+    if not user:
+        return Response(status_code=404, content="User not found")
+
+    db.set_admin(user_id, not user["is_admin"])
+    updated_user = db.get_user_by_id(user_id)
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/admin_user_row.html",
+        context=get_template_context(
+            request,
+            user=updated_user,
+            current_user_id=current_user_id,
+        ),
+    )

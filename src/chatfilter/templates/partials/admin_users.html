@@ -11,36 +11,7 @@
         </thead>
         <tbody>
             {% for user in users %}
-            <tr id="user-row-{{ user.id }}">
-                <td data-label="{{ _("Username") }}">
-                    <strong>{{ user.username }}</strong>
-                    {% if user.is_admin %}<span class="admin-badge">[admin]</span>{% endif %}
-                </td>
-                <td data-label="{{ _("Admin") }}">{{ _("Yes") if user.is_admin else _("No") }}</td>
-                <td data-label="{{ _("Created") }}">{{ user.created_at[:10] if user.created_at else "—" }}</td>
-                <td data-label="{{ _("Actions") }}">
-                    <div class="admin-user-actions">
-                        <!-- Change password form -->
-                        <form method="post" action="/admin/users/{{ user.id }}/password" class="admin-password-form">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <input type="password" name="password" required
-                                   class="form-input" placeholder="{{ _("new password") }}"
-                                   autocomplete="new-password">
-                            <button type="submit" class="btn btn-secondary">{{ _("Change Password") }}</button>
-                        </form>
-                        <!-- Delete button -->
-                        <button type="button"
-                                class="btn btn-danger"
-                                hx-delete="/admin/users/{{ user.id }}"
-                                hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
-                                hx-target="#user-row-{{ user.id }}"
-                                hx-swap="outerHTML"
-                                hx-confirm="Удалить пользователя {{ user.username }} и все его данные? Это действие необратимо.">
-                            {{ _("Delete") }}
-                        </button>
-                    </div>
-                </td>
-            </tr>
+            {% include "partials/admin_user_row.html" %}
             {% endfor %}
         </tbody>
     </table>
