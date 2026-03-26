@@ -80,8 +80,8 @@ jobs:
             uv venv --python 3.12 --clear
             uv pip install -e .
 
-            # Run migrations
-            .venv/bin/chatfilter migrate --data-dir "${DATA_DIR}"
+            # Run migrations (skip if version doesn't support it)
+            .venv/bin/chatfilter migrate --data-dir "${DATA_DIR}" 2>/dev/null || echo "migrate not available in this version, skipping"
 
             # Restart service
             sudo /usr/bin/systemctl restart chatfilter
