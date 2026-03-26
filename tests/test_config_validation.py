@@ -155,14 +155,13 @@ class TestAPICredentials:
     """Tests for Telegram API credentials settings."""
 
     def test_settings_requires_credentials(self, tmp_path: Path, monkeypatch: Any) -> None:
-        """Test that Settings raises ValidationError without API credentials."""
-        from pydantic import ValidationError
-
+        """Test that telegram_config raises RuntimeError without API credentials."""
         monkeypatch.delenv("CHATFILTER_API_ID", raising=False)
         monkeypatch.delenv("CHATFILTER_API_HASH", raising=False)
 
-        with pytest.raises(ValidationError, match="CHATFILTER_API_ID"):
-            Settings(data_dir=tmp_path, port=9002, api_id=None, api_hash=None)
+        settings = Settings(data_dir=tmp_path, port=9002, api_id=None, api_hash=None)
+        with pytest.raises(RuntimeError, match="CHATFILTER_API_ID"):
+            _ = settings.telegram_config
 
     def test_valid_credentials_succeeds(self, tmp_path: Path, monkeypatch: Any) -> None:
         """Test that Settings succeeds with both API credentials provided."""
