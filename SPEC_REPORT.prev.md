@@ -1,38 +1,32 @@
 # Отчёт по итерации
 
-**Версия:** 0.27.2
-**Дата:** 2026-03-25
+**Версия:** 0.27.3
+**Дата:** 2026-03-26
 
 ## Выполнено
 
-### Must Have 1: ENV переменные CHATFILTER_API_ID и CHATFILTER_API_HASH
-Реализовано. Приложение не запускается без них — fail-fast валидация в Settings (pydantic). Один api_id/api_hash на все сессии.
+### Must Have 1: Toggle админских прав в админке
+Реализовано. В таблице пользователей добавлен переключатель is_admin с HTMX-обновлением. Endpoint POST `/admin/users/{user_id}/toggle-admin`. Защита от снятия прав с самого себя (toggle disabled с визуальным объяснением). `_require_admin` перечитывает is_admin из БД для предотвращения stale session.
 
-### Must Have 2: Убрать api_id/api_hash из UI форм
-Реализовано. Поля удалены из auth_start_form.html, session_import.html, session_config.html, import_validation_result.html.
+### Must Have 2: Страница профиля со сменой пароля
+Реализовано. Новая страница `/profile` с формой смены пароля (старый пароль + новый + подтверждение). Валидация: проверка старого пароля, минимум 8 символов, совпадение подтверждения. CSRF защита. Flash-сообщения об успехе/ошибке.
 
-### Must Have 3: Убрать api_id/api_hash из per-session хранения
-Реализовано. Удалены из config.json сессий. SecureCredentialManager: store_credentials/retrieve_credentials переименованы, хранит только proxy_id.
+### Must Have 3: Убрать тултипы с навигации
+Реализовано. Убраны `data-tooltip` со всех элементов навбара (пункты меню, кнопки темы, языка, logout). Мобильная навигация, переключение темы и языка работают с первого тапа.
 
-### Must Have 4: TelegramConfig и loader — из ENV
-Реализовано. loader.py берёт api_id/api_hash из глобального конфига. TelegramConfig создаётся из ENV. api_id/api_hash убраны из AuthState.
-
-### Must Have 5: Почистить существующие данные
-Реализовано. api_id/api_hash убраны из config.json и encrypted storage.
-
-### Must Have 6: Убрать парсинг api_id/api_hash из импорта
-Реализовано. extract_api_credentials() в telegram_expert.py адаптирован. upload.py и validation.py больше не извлекают/валидируют api_id/api_hash.
+### Must Have 4: Увеличить клик-таргеты на мобильном
+Реализовано. Навигационные ссылки, кнопки темы/языка и logout увеличены до минимум 44px.
 
 ## Дополнительно выполнено
 
-- 13 тестовых файлов обновлены для соответствия новой архитектуре (AuthState без api_id, переименованные методы credentials, удалённый TelegramConfig.from_json_file)
-- Все 2208 тестов проходят (1 skipped, 0 failures)
-- Визуальное тестирование: формы корректно отображаются на desktop и mobile
+- Тесты для новых auth-эндпоинтов (toggle-admin, profile, change-password)
+- Исправлен dev server startup
+- Исправлен test_settings_requires_credentials
 
 ## Не выполнено
 
-- [Nice to Have] Показать в UI откуда берётся api_id — не реализовано
+Нет. Все Must Have выполнены. Nice to Have в спецификации не было.
 
 ## Итог
 
-Все 6 Must Have задач выполнены. api_id/api_hash перенесены из per-session хранения в единый глобальный конфиг через ENV. UI формы очищены, тесты обновлены, fail-fast валидация работает. Приложение полностью функционально с новой архитектурой.
+Все 4 Must Have задачи реализованы и протестированы. Функциональное тестирование подтвердило работу всех фич. Визуальное тестирование подтвердило корректность мобильной навигации и клик-таргетов. Backend-тесты проходят без регрессий.

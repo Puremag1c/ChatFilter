@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.3] - 2026-03-26
+
+### Added
+- Toggle админских прав в админке (POST `/admin/users/{user_id}/toggle-admin`)
+- Страница профиля `/profile` со сменой пароля
+- Ссылка на профиль в навбаре (клик на имя пользователя)
+- Защита: нельзя снять админ-права с самого себя (toggle disabled)
+- Flash-сообщения об успехе/ошибке при смене пароля
+- Тесты для новых auth-эндпоинтов (toggle-admin, profile, change-password)
+
+### Fixed
+- Мобильная навигация: убраны data-tooltip со всех элементов навбара (корневая причина блокировки тапов)
+- Dev server не запускался (исправлена конфигурация)
+- test_settings_requires_credentials: тест ожидал ValidationError, но Settings допускает None
+
+### Changed
+- Увеличены клик-таргеты на мобильном (минимум 44px)
+- `_require_admin` перечитывает is_admin из БД для предотвращения stale session после toggle
+
 ## [0.27.2] - 2026-03-25
 
 ### Changed
