@@ -103,7 +103,5 @@
         const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
         languageButton.setAttribute('aria-label', t('language.current_aria', { languageName, nextLanguageName }));
 
-        // Update tooltip
-        languageButton.setAttribute('data-tooltip', t('language.switch_to', { nextLanguageName }));
     }
 })();
