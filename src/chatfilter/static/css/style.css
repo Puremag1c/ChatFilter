@@ -2295,6 +2295,14 @@ tr.htmx-request .proxy-status-badge {
         padding: 0.5rem 0.75rem;
     }
 
+    /* Nav profile link — WCAG 2.5.5 44×44px touch target */
+    .status-indicators > a {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+    }
+
     .btn-sm {
         padding: 0.625rem 1rem;
         font-size: 0.875rem;
