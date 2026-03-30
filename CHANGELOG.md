@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-03-30
+
+### Added
+- SSE connection failure warning — предупреждение пользователю при проблемах с SSE-соединением
+- Pending-состояние после нажатия кнопок подключения сессии / запуска анализа группы (UX)
+
+### Fixed
+- SSE streaming через BaseHTTPMiddleware — события теперь доходят до клиента в реальном времени
+- Утечка мёртвых subscriber queues в ProgressTracker при отключении SSE-клиента
+- Незавершённые asyncio-задачи при SSE cleanup на странице групп
+- Верификация frontend SSE event handling после исправления
+
 ## [0.27.5] - 2026-03-26
 
 ### Fixed
