@@ -153,6 +153,13 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 					api.triggerEvent(elt, "htmx:sseMessage", event);
 				};
 
+				// Remove existing listener before adding new one to prevent duplicates
+				// (htmx.process may be called multiple times on the same elements, e.g. after morphdom)
+				var existingListener = api.getInternalData(child).sseEventListener;
+				if (existingListener) {
+					source.removeEventListener(sseEventName, existingListener);
+				}
+
 				// Register the new listener
 				api.getInternalData(child).sseEventListener = listener;
 				source.addEventListener(sseEventName, listener);
@@ -224,6 +231,15 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 	}
 
 	function ensureEventSource(elt, url, retryCount) {
+		// Prevent duplicate EventSource creation on re-process (e.g. morphdom + htmx.process)
+		var internalData = api.getInternalData(elt);
+		if (internalData.sseEventSource) {
+			var existingState = internalData.sseEventSource.readyState;
+			if (existingState === EventSource.OPEN || existingState === EventSource.CONNECTING) {
+				return; // Already connected — skip to prevent connection leak
+			}
+		}
+
 		var source = htmx.createEventSource(url);
 
 		source.onerror = function(err) {

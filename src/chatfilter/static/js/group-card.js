@@ -33,6 +33,14 @@
             return;
         }
 
+        // Guard: prevent double-initialization when group-card.js script re-executes
+        // (group_card.html embeds <script src="group-card.js"> per card; each new card
+        // insertion triggers the script which calls initAllGroupCards() for all cards)
+        if (cardEl.dataset.groupCardInitialized) {
+            return;
+        }
+        cardEl.dataset.groupCardInitialized = 'true';
+
         // AbortController for cleanup - abort() removes ALL listeners with this signal
         const abortController = new AbortController();
         const signal = abortController.signal;
