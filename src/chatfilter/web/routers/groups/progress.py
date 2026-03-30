@@ -258,9 +258,12 @@ async def _generate_unified_sse_events(
                     await asyncio.sleep(1.0)
 
         finally:
-            # Cleanup: cancel pending tasks
+            # Cleanup: cancel pending tasks and await them to prevent
+            # 'Task was destroyed but it is pending!' asyncio warnings
             for task in pending_tasks:
                 task.cancel()
+            if pending_tasks:
+                await asyncio.gather(*pending_tasks.keys(), return_exceptions=True)
 
     except Exception:
         # Log full exception server-side
