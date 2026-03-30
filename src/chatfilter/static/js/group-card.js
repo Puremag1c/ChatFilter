@@ -10,7 +10,8 @@
 
     const t = (key, params) => window.i18n ? window.i18n.t(key, params) : key;
 
-    const STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
+    const STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds (normal)
+    const STALE_THRESHOLD_NO_SSE_MS = 30 * 1000; // 30 seconds (when SSE disconnected)
     const STALE_CHECK_INTERVAL_MS = 5000; // 5 seconds
 
     /**
@@ -142,14 +143,18 @@
             }
         }
 
-        // Check for stale SSE connection (no events for >60s)
+        // Check for stale SSE connection (no events for >60s normally, >30s if SSE disconnected)
         function checkStaleConnection() {
+            const isSseDisconnected = document.body.classList && document.body.classList.contains('sse-disconnected');
+            const threshold = isSseDisconnected ? STALE_THRESHOLD_NO_SSE_MS : STALE_THRESHOLD_MS;
             const timeSinceLastEvent = Date.now() - lastEventTime;
-            if (timeSinceLastEvent > STALE_THRESHOLD_MS) {
+
+            if (timeSinceLastEvent > threshold) {
                 // Show stale warning
                 const els = getElements();
                 if (els.staleWarningEl) {
                     els.staleWarningEl.style.display = 'block';
+                    console.log('[Group Card] Stale warning shown for group ' + groupId + ' (SSE disconnected: ' + isSseDisconnected + ')');
                 }
             }
         }
@@ -174,6 +179,7 @@
             // Start stale check on first SSE event (prevents false positives before connection)
             if (!sseConnected) {
                 sseConnected = true;
+                console.log('[Group Card] SSE connected for group ' + groupId);
                 startStaleCheckTimer();
             }
 

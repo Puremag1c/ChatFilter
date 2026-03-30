@@ -10,6 +10,28 @@
     // --- SSE connection error handling with 5s debounce ---
     var disconnectTimer = null;
     var isDisconnected = false;
+    var sseHasConnected = false;
+    var connectionCheckTimer = null;
+    const SSE_CONNECTION_TIMEOUT = 10000; // 10 seconds
+
+    // Start 10-second SSE connection check
+    console.log('[SSE] Starting connection check (10s timeout)');
+    connectionCheckTimer = setTimeout(function() {
+        if (!sseHasConnected) {
+            console.error('[SSE] Connection failed - no connection within 10s');
+            document.body.classList.add('sse-disconnected');
+
+            if (typeof SSEStatusBanner !== 'undefined') {
+                SSEStatusBanner.show();
+            }
+
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.warning(t('sessions.messages.connection_lost_realtime_paused'), {
+                    duration: 4000
+                });
+            }
+        }
+    }, SSE_CONNECTION_TIMEOUT);
 
     document.body.addEventListener('htmx:sseError', function(evt) {
         console.warn('[SSE] Connection interrupted, waiting 5s before alerting...');
@@ -38,7 +60,17 @@
     });
 
     document.body.addEventListener('htmx:sseOpen', function() {
-        console.log('[SSE] Connection restored');
+        console.log('[SSE] Connection established - first event received');
+
+        // Mark SSE as connected for early failure detection
+        if (!sseHasConnected) {
+            sseHasConnected = true;
+            if (connectionCheckTimer) {
+                clearTimeout(connectionCheckTimer);
+                connectionCheckTimer = null;
+            }
+            console.log('[SSE] Connection verified (within timeout)');
+        }
 
         if (disconnectTimer) {
             clearTimeout(disconnectTimer);
