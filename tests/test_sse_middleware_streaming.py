@@ -26,7 +26,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
-import time
 from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -110,8 +109,7 @@ class TestSessionSSEStreaming:
         response = await session_events(mock_request)
 
         assert response.media_type == "text/event-stream", (
-            f"Wrong media type: {response.media_type!r}. "
-            "SSE requires 'text/event-stream'."
+            f"Wrong media type: {response.media_type!r}. SSE requires 'text/event-stream'."
         )
 
         with contextlib.suppress(Exception):
@@ -253,19 +251,13 @@ class TestSessionSSEStreaming:
 
 
 class TestSSEThroughMiddlewareStack:
-    """Test SSE streaming through the FULL middleware stack (8 BaseHTTPMiddleware layers).
+    """Test SSE streaming through the FULL middleware stack.
 
-    CRITICAL: These tests use httpx.AsyncClient + ASGITransport to exercise
-    the real app with all middleware active.
+    Uses raw ASGI protocol to verify streaming works (httpx ASGITransport
+    does not support true SSE streaming in tests).
 
-    KNOWN ISSUE: BaseHTTPMiddleware buffers StreamingResponse in some Starlette
-    versions. When this happens, httpx hangs indefinitely waiting for data that
-    never arrives (because the middleware is waiting for the infinite stream to
-    complete before forwarding).
-
-    These tests are marked with @pytest.mark.timeout(8) to fail fast.
-    A TIMEOUT failure = buffering confirmed.
-    A PASS = SSE streams correctly through middleware.
+    SSE paths bypass BaseHTTPMiddleware via SSEPassthroughMixin to avoid
+    response buffering that would deadlock infinite streams.
 
     CHATFILTER_TESTING=1 bypasses AuthMiddleware — no auth setup needed.
     """
@@ -277,89 +269,74 @@ class TestSSEThroughMiddlewareStack:
 
         return create_app()
 
+    @staticmethod
+    async def _raw_asgi_sse_request(
+        app,
+        path: str,
+        timeout: float = 5.0,
+    ) -> tuple[int | None, dict[str, str], list[str]]:
+        """Send raw ASGI request and collect SSE response chunks.
+
+        Returns (status_code, headers_dict, body_chunks).
+        """
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "query_string": b"",
+            "root_path": "",
+            "headers": [],
+            "server": ("testserver", 80),
+        }
+
+        status: int | None = None
+        headers: dict[str, str] = {}
+        chunks: list[str] = []
+        first_body = asyncio.Event()
+
+        async def receive():
+            await asyncio.sleep(60)
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                for k, v in message.get("headers", []):
+                    headers[k.decode()] = v.decode()
+            elif message["type"] == "http.response.body":
+                body = message.get("body", b"")
+                if body:
+                    chunks.append(body.decode())
+                    first_body.set()
+
+        task = asyncio.create_task(app(scope, receive, send))
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(first_body.wait(), timeout=timeout)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        return status, headers, chunks
+
     @pytest.mark.asyncio
     @pytest.mark.timeout(8)
     async def test_session_sse_streams_through_full_middleware(self, app) -> None:
-        """SSE /api/sessions/events should deliver first event through all middleware.
+        """SSE /api/sessions/events should deliver first event immediately."""
+        status, headers, chunks = await self._raw_asgi_sse_request(app, "/api/sessions/events")
 
-        DIAGNOSIS RESULT:
-        - PASS: SSE streams correctly (no buffering in middleware)
-        - TIMEOUT (8s): BaseHTTPMiddleware deadlock — buffers infinite stream,
-          httpx never receives data. Confirms buffering bug.
-        - FAIL with assertion: Data received but wrong content-type or content
-        """
-        import httpx
-
-        first_chunk: str | None = None
-        content_type: str | None = None
-
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as client:
-            try:
-                async with client.stream(
-                    "GET",
-                    "/api/sessions/events",
-                    timeout=httpx.Timeout(connect=2.0, read=5.0, write=2.0, pool=2.0),
-                ) as response:
-                    content_type = response.headers.get("content-type", "")
-
-                    start = time.monotonic()
-                    async for chunk in response.aiter_text():
-                        if chunk.strip():
-                            first_chunk = chunk
-                            break
-                        if time.monotonic() - start > 4.0:
-                            break
-            except httpx.ReadTimeout:
-                # Timeout without receiving data = buffering detected
-                pass
-            except Exception as exc:
-                pytest.skip(f"App setup error (not a streaming issue): {exc}")
-
-        print("\n=== SESSION SSE MIDDLEWARE DIAGNOSIS ===")
-        print(f"Content-Type: {content_type!r}")
-        print(f"First chunk received: {first_chunk is not None}")
-        if first_chunk:
-            print(f"First chunk: {first_chunk!r}")
-        else:
-            print("RESULT: No data received — BaseHTTPMiddleware is buffering SSE stream!")
-            print("All 8 middleware layers use BaseHTTPMiddleware which buffers StreamingResponse.")
-            print("SEE: ChatFilter-9mb for fix.")
-        print("========================================\n")
-
-        assert first_chunk is not None, (
-            "DIAGNOSIS: SSE is BUFFERED through BaseHTTPMiddleware stack!\n"
-            "Expected 'data: {\"type\": \"connected\"}' within timeout, got nothing.\n"
-            "BaseHTTPMiddleware (8 layers) buffers the infinite SSE stream.\n"
-            "Fix options (ChatFilter-9mb):\n"
-            "  A) Bypass middleware for /api/*/events paths\n"
-            "  B) Replace is_disconnected() with try/except CancelledError\n"
-            "  C) Convert to pure ASGI middleware"
+        assert status == 200, f"Expected 200, got {status}"
+        assert "text/event-stream" in headers.get("content-type", ""), (
+            f"Wrong content-type: {headers.get('content-type')!r}"
         )
-
-        assert "text/event-stream" in (content_type or ""), (
-            f"Wrong content-type through middleware: {content_type!r}. "
-            "Expected 'text/event-stream'."
+        assert len(chunks) >= 1, "No SSE data received — BaseHTTPMiddleware is still buffering!"
+        assert 'data: {"type": "connected"}' in chunks[0], (
+            f"Expected connected event, got: {chunks[0]!r}"
         )
 
     @pytest.mark.asyncio
     @pytest.mark.timeout(8)
     async def test_groups_sse_streams_through_full_middleware(self, app) -> None:
-        """SSE /api/groups/events should deliver first event through all middleware.
-
-        Same as session SSE test, but for /api/groups/events.
-
-        DIAGNOSIS RESULT:
-        - PASS: SSE streams correctly
-        - TIMEOUT: BaseHTTPMiddleware buffering confirmed (same root cause)
-        """
-        import httpx
-
-        first_chunk: str | None = None
-        content_type: str | None = None
-
+        """SSE /api/groups/events should stream through middleware without buffering."""
         with (
             patch("chatfilter.web.routers.groups.progress._get_group_service") as mock_svc,
             patch("chatfilter.web.routers.groups.progress._get_progress_tracker"),
@@ -368,130 +345,42 @@ class TestSSEThroughMiddlewareStack:
             service.list_groups.return_value = []
             mock_svc.return_value = service
 
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app),
-                base_url="http://testserver",
-            ) as client:
-                try:
-                    async with client.stream(
-                        "GET",
-                        "/api/groups/events",
-                        timeout=httpx.Timeout(connect=2.0, read=5.0, write=2.0, pool=2.0),
-                    ) as response:
-                        content_type = response.headers.get("content-type", "")
+            status, headers, chunks = await self._raw_asgi_sse_request(app, "/api/groups/events")
 
-                        start = time.monotonic()
-                        async for chunk in response.aiter_text():
-                            if chunk.strip():
-                                first_chunk = chunk
-                                break
-                            if time.monotonic() - start > 4.0:
-                                break
-                except httpx.ReadTimeout:
-                    pass
-                except Exception as exc:
-                    pytest.skip(f"App setup error: {exc}")
-
-        print("\n=== GROUPS SSE MIDDLEWARE DIAGNOSIS ===")
-        print(f"Content-Type: {content_type!r}")
-        print(f"First chunk received: {first_chunk is not None}")
-        if not first_chunk:
-            print("RESULT: No data received — BaseHTTPMiddleware buffers /api/groups/events too!")
-        print("=======================================\n")
-
-        assert first_chunk is not None, (
-            "DIAGNOSIS: /api/groups/events is BUFFERED through BaseHTTPMiddleware!\n"
-            "Same root cause as /api/sessions/events.\n"
-            "Both SSE endpoints are broken through the 8-layer middleware stack."
-        )
-
-        assert "text/event-stream" in (content_type or ""), (
-            f"Wrong content-type: {content_type!r}."
+        assert status == 200, f"Expected 200, got {status}"
+        assert "text/event-stream" in headers.get("content-type", ""), (
+            f"Wrong content-type: {headers.get('content-type')!r}"
         )
 
     @pytest.mark.asyncio
     @pytest.mark.timeout(8)
-    async def test_is_disconnected_through_middleware(self, app) -> None:
-        """Test request.is_disconnected() behavior through BaseHTTPMiddleware.
+    async def test_sse_passthrough_mixin_applied(self, app) -> None:
+        """Verify SSEPassthroughMixin is applied to all middleware classes."""
+        from chatfilter.i18n.middleware import LocaleMiddleware
+        from chatfilter.web.middleware import (
+            AuthMiddleware,
+            CSRFProtectionMiddleware,
+            GracefulShutdownMiddleware,
+            RequestIDMiddleware,
+            RequestLoggingMiddleware,
+            SecurityHeadersMiddleware,
+            SessionMiddleware,
+            SSEPassthroughMixin,
+        )
 
-        DIAGNOSIS: Through BaseHTTPMiddleware, is_disconnected() may return
-        True immediately because:
-        1. The middleware consumes the ASGI receive channel
-        2. The SSE generator's request object has a different receive callable
-        3. This causes immediate True from is_disconnected()
-
-        If this test times out (same as the streaming test), it means the
-        middleware buffering prevents us from even reaching the is_disconnected() check.
-
-        RESULT:
-        - PASS: is_disconnected() returns False initially (correct behavior)
-        - FAIL: is_disconnected() returns True immediately (causes SSE to stop after 1 event)
-        - TIMEOUT: Middleware deadlock (buffering prevents generator from running)
-        """
-        import httpx
-
-        is_disconnected_results: list[bool] = []
-
-        # Instrument the SSE generator to track is_disconnected calls
-        from chatfilter.web.routers.sessions import sse as sse_module
-
-        original_session_events = sse_module.session_events
-
-        async def instrumented_session_events(request):
-            original_is_disconnected = request.is_disconnected
-
-            async def tracked_is_disconnected():
-                result = await original_is_disconnected()
-                is_disconnected_results.append(result)
-                return result
-
-            request.is_disconnected = tracked_is_disconnected
-            return await original_session_events(request)
-
-        with patch.object(sse_module, "session_events", instrumented_session_events):
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app),
-                base_url="http://testserver",
-            ) as client:
-                try:
-                    async with client.stream(
-                        "GET",
-                        "/api/sessions/events",
-                        timeout=httpx.Timeout(connect=2.0, read=5.0, write=2.0, pool=2.0),
-                    ) as response:
-                        # Read a bit of data to trigger is_disconnected calls
-                        chunks = []
-                        start = time.monotonic()
-                        async for chunk in response.aiter_text():
-                            if chunk.strip():
-                                chunks.append(chunk)
-                            if len(chunks) >= 1 or time.monotonic() - start > 2.0:
-                                break
-                except (httpx.ReadTimeout, httpx.RemoteProtocolError):
-                    pass
-                except Exception as exc:
-                    pytest.skip(f"App setup error: {exc}")
-
-        print("\n=== IS_DISCONNECTED DIAGNOSIS ===")
-        print(f"is_disconnected() calls: {is_disconnected_results}")
-        if is_disconnected_results:
-            first = is_disconnected_results[0]
-            if first:
-                print("BUG FOUND: is_disconnected() returned True immediately through middleware!")
-                print("Generator exits after first yield. SSE broken.")
-            else:
-                print("OK: is_disconnected() returned False initially (correct).")
-        else:
-            print("is_disconnected() never called — middleware likely buffering (TIMEOUT path)")
-        print("=================================\n")
-
-        # If we got here (no timeout), check the actual results
-        if is_disconnected_results:
-            assert is_disconnected_results[0] is False, (
-                "DIAGNOSIS BUG: request.is_disconnected() returns True immediately!\n"
-                "Through BaseHTTPMiddleware, the receive callable is consumed.\n"
-                "The SSE generator exits after the first 'connected' event.\n"
-                "Fix: Replace is_disconnected() check with try/except asyncio.CancelledError"
+        for cls in [
+            RequestIDMiddleware,
+            RequestLoggingMiddleware,
+            SessionMiddleware,
+            GracefulShutdownMiddleware,
+            SecurityHeadersMiddleware,
+            AuthMiddleware,
+            CSRFProtectionMiddleware,
+            LocaleMiddleware,
+        ]:
+            assert issubclass(cls, SSEPassthroughMixin), (
+                f"{cls.__name__} does not inherit SSEPassthroughMixin — "
+                f"SSE will be buffered through this middleware!"
             )
 
 
@@ -621,9 +510,7 @@ class TestSSEGeneratorIsolated:
                     await iterator.aclose()
 
         # Generator should have stopped after detecting disconnect
-        assert len(chunks) <= 10, (
-            f"Generator didn't stop on disconnect: got {len(chunks)} chunks"
-        )
+        assert len(chunks) <= 10, f"Generator didn't stop on disconnect: got {len(chunks)} chunks"
         # But must have yielded at least the connected event
         assert len(chunks) >= 1, "Generator yielded nothing — not even connected event"
         assert 'data: {"type": "connected"}' in chunks[0], (

@@ -12,13 +12,38 @@ from contextvars import ContextVar
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from chatfilter.utils.network import get_network_monitor
 from chatfilter.web.csrf import CSRF_FORM_FIELD, CSRF_HEADER_NAME, validate_csrf_token
 from chatfilter.web.session import get_session, set_session_cookie
 
 logger = logging.getLogger(__name__)
+
+# SSE endpoints that must bypass BaseHTTPMiddleware to avoid response buffering.
+# BaseHTTPMiddleware reads the entire response body before forwarding, which
+# deadlocks on infinite SSE streams.
+_SSE_PATHS: frozenset[str] = frozenset({"/api/sessions/events", "/api/groups/events"})
+
+
+def _is_sse_request(scope: Scope) -> bool:
+    return scope.get("type") == "http" and scope.get("path", "") in _SSE_PATHS
+
+
+class SSEPassthroughMixin:
+    """Mixin that bypasses BaseHTTPMiddleware dispatch for SSE paths.
+
+    BaseHTTPMiddleware buffers the entire response body before sending,
+    which deadlocks infinite SSE streams. This mixin passes SSE requests
+    directly to the next ASGI app without wrapping.
+    """
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if _is_sse_request(scope):
+            await self.app(scope, receive, send)  # type: ignore[attr-defined]
+        else:
+            await super().__call__(scope, receive, send)  # type: ignore[misc]
+
 
 # Context variable for request ID (thread-safe)
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
@@ -29,7 +54,7 @@ def get_request_id() -> str | None:
     return request_id_var.get()
 
 
-class RequestIDMiddleware(BaseHTTPMiddleware):
+class RequestIDMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware that assigns a unique ID to each request.
 
     The request ID is:
@@ -69,7 +94,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             clear_correlation_id()
 
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
+class RequestLoggingMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware that logs request/response info with optional body logging.
 
     Logs:
@@ -147,7 +172,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class SessionMiddleware(BaseHTTPMiddleware):
+class SessionMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware for automatic session management.
 
     Features:
@@ -176,7 +201,7 @@ class SessionMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class GracefulShutdownMiddleware(BaseHTTPMiddleware):
+class GracefulShutdownMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware for graceful shutdown handling.
 
     Features:
@@ -234,7 +259,7 @@ class GracefulShutdownMiddleware(BaseHTTPMiddleware):
             app_state.active_connections -= 1
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware that adds security headers to all responses.
 
     Headers added:
@@ -280,7 +305,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class NetworkStatusMiddleware(BaseHTTPMiddleware):
+class NetworkStatusMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware for network status awareness and graceful degradation.
 
     Features:
@@ -359,7 +384,7 @@ class NetworkStatusMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class AuthMiddleware(BaseHTTPMiddleware):
+class AuthMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware that enforces authentication for all non-exempt routes.
 
     Checks for user_id in session and redirects to /login if missing.
@@ -400,7 +425,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-class CSRFProtectionMiddleware(BaseHTTPMiddleware):
+class CSRFProtectionMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware for CSRF protection on state-changing requests.
 
     Validates CSRF tokens on POST/DELETE requests to prevent Cross-Site

@@ -13,12 +13,13 @@ from chatfilter.i18n.translations import (
     SUPPORTED_LANGUAGES,
     set_current_locale,
 )
+from chatfilter.web.middleware import SSEPassthroughMixin
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
 
-class LocaleMiddleware(BaseHTTPMiddleware):
+class LocaleMiddleware(SSEPassthroughMixin, BaseHTTPMiddleware):
     """Middleware to detect and set the user's preferred language."""
 
     async def dispatch(
