@@ -211,8 +211,10 @@ async def _generate_unified_sse_events(
                             }
                             yield f"event: complete\ndata: {json.dumps(complete_data)}\n\n"
 
-                            # Remove subscription
-                            subscriptions.pop(group_id, None)
+                            # Remove subscription and unsubscribe from tracker
+                            removed_queue = subscriptions.pop(group_id, None)
+                            if removed_queue is not None:
+                                tracker.unsubscribe(group_id, removed_queue)
                         else:
                             # Progress event - send and create new task for next event
                             progress_data = {
@@ -264,6 +266,10 @@ async def _generate_unified_sse_events(
                 task.cancel()
             if pending_tasks:
                 await asyncio.gather(*pending_tasks.keys(), return_exceptions=True)
+            # Unsubscribe all remaining queues to prevent dead queue accumulation
+            for sub_group_id, sub_queue in subscriptions.items():
+                tracker.unsubscribe(sub_group_id, sub_queue)
+            subscriptions.clear()
 
     except Exception:
         # Log full exception server-side

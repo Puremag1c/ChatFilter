@@ -8,6 +8,7 @@ This module provides:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -75,6 +76,19 @@ class ProgressTracker:
         queue: asyncio.Queue[GroupProgressEvent | None] = asyncio.Queue()
         self._subscribers.setdefault(group_id, []).append(queue)
         return queue
+
+    def unsubscribe(self, group_id: str, queue: asyncio.Queue[GroupProgressEvent | None]) -> None:
+        """Remove a specific queue from group subscribers.
+
+        Args:
+            group_id: Group identifier.
+            queue: Queue to remove (previously returned by subscribe()).
+        """
+        subscribers = self._subscribers.get(group_id, [])
+        with contextlib.suppress(ValueError):
+            subscribers.remove(queue)
+        if not subscribers:
+            self._subscribers.pop(group_id, None)
 
     def publish(self, event: GroupProgressEvent) -> None:
         """Publish progress event to all subscribers of the group.
