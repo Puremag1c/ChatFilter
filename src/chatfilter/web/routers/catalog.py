@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Request
@@ -116,11 +117,11 @@ async def catalog_table(
 
     # Sorting
     valid_sort_fields = {
-        "title": lambda c: c.title.lower(),
-        "subscribers": lambda c: c.subscribers,
-        "activity": lambda c: c.messages_per_hour,
-        "authors": lambda c: c.unique_authors_per_hour,
-        "last_check": lambda c: c.last_check or "",
+        "title": lambda c: (c.title or "").lower(),
+        "subscribers": lambda c: c.subscribers or 0,
+        "activity": lambda c: c.messages_per_hour or 0,
+        "authors": lambda c: c.unique_authors_per_hour or 0,
+        "last_check": lambda c: c.last_check or datetime.min,
     }
     if sort_by and sort_by in valid_sort_fields:
         reverse = sort_dir == "desc"
