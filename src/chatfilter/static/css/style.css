@@ -3891,6 +3891,11 @@ body:has(.update-notification.show) {
 }
 
 /* Catalog table */
+#catalog-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .catalog-table .badge {
     display: inline-block;
     padding: 2px 8px;
