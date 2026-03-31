@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-03-31
+
+### Added
+- Персистентные сессии (SQLite SessionStore) — сессии переживают рестарт сервера
+- Каталог: название чата как кликабельная гиперссылка на Telegram
+- Каталог: компактные цветные бейджи типов чатов (group, chat, forum, channel, channel+)
+- Каталог: полная переработка дизайна таблицы (zebra striping, ellipsis, мобильный скролл)
+- Каталог: состояние ошибки для HTMX-запросов
+
+### Fixed
+- Каталог: сортировка теряла 700+ строк из-за None значений в sort key
+- Каталог: HTMX sort/filter терял строки при пустых параметрах
+- SessionStore: thread safety — переход с SingletonThreadPool на правильный engine
+- SessionStore: cleanup_expired() не удаляла сессии при мутации last_accessed
+- CI: Ruff formatter check на main
+
+### Security
+- SessionStore: сериализация через JSON вместо pickle
+- Session cookie: настраиваемый secure flag через переменную окружения
+
 ## [0.29.0] - 2026-03-31
 
 ### Added
