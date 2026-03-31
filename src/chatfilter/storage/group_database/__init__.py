@@ -2,6 +2,7 @@
 
 from chatfilter.storage.sqlite import SQLiteDatabase
 
+from .app_settings import AppSettingsMixin
 from .chats import _UNSET, ChatsMixin
 from .groups import GroupsMixin
 from .metrics import MetricsMixin
@@ -17,6 +18,7 @@ class GroupDatabase(
     TasksMixin,
     MetricsMixin,
     StatsMixin,
+    AppSettingsMixin,
     SQLiteDatabase,
 ):
     """SQLite database for persisting chat group data and analysis results.
@@ -33,9 +35,10 @@ class GroupDatabase(
         - TasksMixin: Task management
         - MetricsMixin: Metrics CRUD operations
         - StatsMixin: Statistics and aggregations
+        - AppSettingsMixin: App settings CRUD operations
     """
 
     pass
 
 
-__all__ = ["GroupDatabase", "_UNSET"]
+__all__ = ["AppSettingsMixin", "GroupDatabase", "_UNSET"]

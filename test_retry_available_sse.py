@@ -6,12 +6,13 @@ This test verifies the data flow:
 2. list_stored_sessions reads it into SessionListItem
 3. Template uses session.retry_available for UI logic
 """
-import json
+
 import sys
 from pathlib import Path
 
 # Add project to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 
 def test_retry_available_data_flow():
     """Test that retry_available field is properly defined and flows."""
@@ -51,7 +52,10 @@ def test_retry_available_data_flow():
     sessions_path = Path(__file__).parent / "src/chatfilter/web/routers/sessions.py"
     sessions_content = sessions_path.read_text()
 
-    if 'config["retry_available"]' not in sessions_content and '"retry_available":' not in sessions_content:
+    if (
+        'config["retry_available"]' not in sessions_content
+        and '"retry_available":' not in sessions_content
+    ):
         print("❌ FAIL: sessions.py doesn't save retry_available to config")
         return False
 
@@ -76,13 +80,10 @@ def test_retry_available_data_flow():
     print("✅ save_error_metadata(error_message, retry_available) function exists")
 
     # 6. Check that exceptions are classified
-    transient_check = (
-        "ConnectionError" in sessions_content and
-        "TimeoutError" in sessions_content
-    )
+    transient_check = "ConnectionError" in sessions_content and "TimeoutError" in sessions_content
     permanent_check = (
-        "AuthKeyUnregisteredError" in sessions_content and
-        "PhoneNumberInvalidError" in sessions_content
+        "AuthKeyUnregisteredError" in sessions_content
+        and "PhoneNumberInvalidError" in sessions_content
     )
 
     if not (transient_check and permanent_check):
@@ -101,6 +102,7 @@ def test_retry_available_data_flow():
     print("\n✅ retry_available field flows from exception → config.json → SSE → UI")
 
     return True
+
 
 if __name__ == "__main__":
     success = test_retry_available_data_flow()

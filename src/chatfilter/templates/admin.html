@@ -47,4 +47,26 @@
     </div>
     {% include "partials/admin_users.html" %}
 </section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>Параметры системы</h2>
+    </div>
+    <form method="post" action="/admin/settings" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div>
+            <label for="max-chats" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">Макс. чатов на аккаунт (1–1000)</label>
+            <input type="number" id="max-chats" name="max_chats_per_account" required
+                   min="1" max="1000" class="form-input"
+                   value="{{ app_settings.get('max_chats_per_account', '300') }}">
+        </div>
+        <div>
+            <label for="freshness-days" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">Актуальность анализа, дней (1–30)</label>
+            <input type="number" id="freshness-days" name="analysis_freshness_days" required
+                   min="1" max="30" class="form-input"
+                   value="{{ app_settings.get('analysis_freshness_days', '7') }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+    </form>
+</section>
 {% endblock %}

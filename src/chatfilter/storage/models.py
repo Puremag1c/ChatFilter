@@ -104,7 +104,9 @@ catalog_group_chats = Table(
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("catalog_chat_id", Text, ForeignKey("chat_catalog.id"), nullable=False),
-    Column("group_chat_id", Integer, ForeignKey("group_chats.id", ondelete="CASCADE"), nullable=False),
+    Column(
+        "group_chat_id", Integer, ForeignKey("group_chats.id", ondelete="CASCADE"), nullable=False
+    ),
 )
 
 account_subscriptions = Table(

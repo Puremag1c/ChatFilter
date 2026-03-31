@@ -13,6 +13,7 @@ from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
 if TYPE_CHECKING:
+    from chatfilter.storage.group_database import GroupDatabase
     from chatfilter.storage.user_database import UserDatabase
 
 router = APIRouter(tags=["admin"])
@@ -22,6 +23,12 @@ def _get_user_db(request: Request) -> UserDatabase:
     from chatfilter.storage.user_database import get_user_db
 
     return get_user_db(request.app.state.settings.effective_database_url)
+
+
+def _get_group_db(request: Request) -> GroupDatabase:
+    from chatfilter.storage.group_database import GroupDatabase
+
+    return GroupDatabase(request.app.state.settings.effective_database_url)
 
 
 def _require_admin(request: Request) -> bool:
@@ -50,6 +57,9 @@ async def admin_page(
     users = db.list_users()
     current_user_id = get_session(request).get("user_id")
 
+    group_db = _get_group_db(request)
+    app_settings = group_db.get_all_settings()
+
     templates = get_templates()
     return templates.TemplateResponse(
         request=request,
@@ -61,6 +71,7 @@ async def admin_page(
             flash=flash,
             flash_type=flash_type or "success",
             current_user_id=current_user_id,
+            app_settings=app_settings,
         ),
     )
 
@@ -216,3 +227,32 @@ async def toggle_admin(request: Request, user_id: str) -> Response:
             current_user_id=current_user_id,
         ),
     )
+
+
+@router.post("/admin/settings", response_model=None)
+async def update_settings(
+    request: Request,
+    max_chats_per_account: int = Form(...),
+    analysis_freshness_days: int = Form(...),
+) -> RedirectResponse | Response:
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    if not (1 <= max_chats_per_account <= 1000):
+        qs = urlencode(
+            {"flash": "max_chats_per_account должен быть от 1 до 1000", "flash_type": "error"}
+        )
+        return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+
+    if not (1 <= analysis_freshness_days <= 30):
+        qs = urlencode(
+            {"flash": "analysis_freshness_days должен быть от 1 до 30", "flash_type": "error"}
+        )
+        return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+
+    group_db = _get_group_db(request)
+    group_db.set_setting("max_chats_per_account", str(max_chats_per_account))
+    group_db.set_setting("analysis_freshness_days", str(analysis_freshness_days))
+
+    qs = urlencode({"flash": "Настройки сохранены", "flash_type": "success"})
+    return RedirectResponse(url=f"/admin?{qs}", status_code=303)

@@ -6,6 +6,8 @@ Create Date: 2026-03-31
 
 from __future__ import annotations
 
+from datetime import UTC
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -94,9 +96,9 @@ def upgrade() -> None:
 
     # Seed default app_settings
     conn = op.get_bind()
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     defaults = [
         ("max_chats_per_account", "300"),
         ("analysis_freshness_days", "7"),
@@ -115,9 +117,7 @@ def upgrade() -> None:
 
     # Data migration: populate chat_catalog from existing group_chats
     # Deduplicate by chat_ref, keeping freshest data (highest id = most recent analysis)
-    existing_catalog = conn.execute(
-        sa.text("SELECT id FROM chat_catalog LIMIT 1")
-    ).fetchone()
+    existing_catalog = conn.execute(sa.text("SELECT id FROM chat_catalog LIMIT 1")).fetchone()
 
     if existing_catalog is None:
         # Check if group_chats has any data
@@ -135,7 +135,7 @@ def upgrade() -> None:
             )
         ).fetchall()
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         seen: set[str] = set()
         catalog_rows = []
         for row in rows:
@@ -147,10 +147,10 @@ def upgrade() -> None:
                 {
                     "id": chat_ref,
                     "title": row[1],
-                    "chat_type": row[2] if row[2] in (
-                        "group", "forum", "channel_comments",
-                        "channel_no_comments", "dead"
-                    ) else "pending",
+                    "chat_type": row[2]
+                    if row[2]
+                    in ("group", "forum", "channel_comments", "channel_no_comments", "dead")
+                    else "pending",
                     "subscribers": row[3],
                     "moderation": row[4],
                     "messages_per_hour": row[5],
