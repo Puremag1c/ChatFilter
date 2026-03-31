@@ -43,6 +43,7 @@ class ChatMetricsUpdater:
         self._db = db
         self._task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
+        self._cycle_running = False
 
     def start(self) -> None:
         """Start the scheduler background task."""
@@ -87,6 +88,18 @@ class ChatMetricsUpdater:
 
     async def _run_update_cycle(self) -> None:
         """Fetch messages and update metrics for all subscribed chats."""
+        if self._cycle_running:
+            logger.warning("Previous cycle still running, skipping")
+            return
+
+        self._cycle_running = True
+        try:
+            await self._run_update_cycle_inner()
+        finally:
+            self._cycle_running = False
+
+    async def _run_update_cycle_inner(self) -> None:
+        """Internal implementation of the update cycle."""
         start = time.monotonic()
         subscriptions = self._db.get_subscribed_chats()
 
@@ -97,9 +110,7 @@ class ChatMetricsUpdater:
         # Group by account_id for sequential processing per account
         by_account: dict[str, list[tuple[str, int]]] = {}
         for account_id, catalog_chat_id, telegram_chat_id in subscriptions:
-            by_account.setdefault(account_id, []).append(
-                (catalog_chat_id, telegram_chat_id)
-            )
+            by_account.setdefault(account_id, []).append((catalog_chat_id, telegram_chat_id))
 
         updated = 0
         errors = 0
@@ -108,9 +119,7 @@ class ChatMetricsUpdater:
             # Skip accounts that are flood-waited
             flood_tracker = get_flood_tracker()
             if flood_tracker.is_blocked(account_id):
-                logger.info(
-                    "Skipping account '%s' — flood-waited", account_id
-                )
+                logger.info("Skipping account '%s' — flood-waited", account_id)
                 continue
 
             # Check if session is connected
@@ -134,9 +143,7 @@ class ChatMetricsUpdater:
                     break
 
                 try:
-                    metrics = await self._fetch_chat_metrics(
-                        client, telegram_chat_id
-                    )
+                    metrics = await self._fetch_chat_metrics(client, telegram_chat_id)
                     if metrics is not None:
                         self._db.update_catalog_metrics(
                             catalog_chat_id, metrics, use_ema=True, alpha=0.3
