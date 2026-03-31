@@ -2881,6 +2881,82 @@ msgstr "Неверный логин или пароль"
 msgid "API credentials are configured globally via environment variables."
 msgstr "API учётные данные настраиваются глобально через переменные окружения."
 
+#: src/chatfilter/templates/catalog.html:7
+msgid "Chat Catalog"
+msgstr "Каталог чатов"
+
+#: src/chatfilter/templates/catalog.html:19
+msgid "Min subscribers"
+msgstr "Мин. подписчиков"
+
+#: src/chatfilter/templates/catalog.html:29
+msgid "Max subscribers"
+msgstr "Макс. подписчиков"
+
+#: src/chatfilter/templates/catalog.html:41
+msgid "Any"
+msgstr "Любое"
+
+#: src/chatfilter/templates/catalog.html:50
+msgid "Min msg/h"
+msgstr "Мин. сообщений/ч"
+
+#: src/chatfilter/templates/catalog.html:59
+msgid "Max msg/h"
+msgstr "Макс. сообщений/ч"
+
+#: src/chatfilter/templates/catalog.html:71
+msgid "Fresh (days)"
+msgstr "Свежее (дни)"
+
+#: src/chatfilter/templates/catalog.html:79
+msgid "Title or @username"
+msgstr "Название или @юзернейм"
+
+#: src/chatfilter/templates/catalog.html:85
+msgid "Sort by"
+msgstr "Сортировать по"
+
+#: src/chatfilter/templates/catalog.html:87
+msgid "Default"
+msgstr "По умолчанию"
+
+#: src/chatfilter/templates/catalog.html:89
+msgid "Title"
+msgstr "Название"
+
+#: src/chatfilter/templates/catalog.html:90
+msgid "Subscribers"
+msgstr "Подписчики"
+
+#: src/chatfilter/templates/catalog.html:91
+msgid "Activity"
+msgstr "Активность"
+
+#: src/chatfilter/templates/catalog.html:92
+msgid "Authors"
+msgstr "Авторы"
+
+#: src/chatfilter/templates/catalog.html:93
+msgid "Last check"
+msgstr "Последняя проверка"
+
+#: src/chatfilter/templates/catalog.html:96
+msgid "Direction"
+msgstr "Направление"
+
+#: src/chatfilter/templates/catalog.html:98
+msgid "Ascending"
+msgstr "По возрастанию"
+
+#: src/chatfilter/templates/catalog.html:99
+msgid "Descending"
+msgstr "По убыванию"
+
+#: src/chatfilter/templates/catalog.html:110
+msgid "Loading…"
+msgstr "Загрузка…"
+
 #~ msgid "2FA password accepted successfully"
 #~ msgstr "Пароль 2FA успешно принят"
 
