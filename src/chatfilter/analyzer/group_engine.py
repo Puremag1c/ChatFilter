@@ -108,6 +108,8 @@ class GroupAnalysisEngine:
         self._stop_events: dict[str, asyncio.Event] = {}
         self._progress = progress if progress is not None else ProgressTracker(db)
         self._inter_chat_delay = inter_chat_delay
+        self._cache_hit_counts: dict[str, int] = {}
+        self._fresh_chat_counts: dict[str, int] = {}
 
     # -- Startup recovery --------------------------------------------------
 
@@ -606,7 +608,21 @@ class GroupAnalysisEngine:
             cached = self._db.get_catalog_chat(chat_ref)
             if cached:
                 title = cached.title or chat_ref
-            self._progress.publish_from_db(group_id=group_id, chat_title=title)
+            # Track cache hit count and build informative message
+            self._cache_hit_counts[group_id] = self._cache_hit_counts.get(group_id, 0) + 1
+            cache_hits = self._cache_hit_counts[group_id]
+            fresh_chats = self._fresh_chat_counts.get(group_id, 0)
+            days_ago = None
+            if cached and cached.last_check:
+                delta = datetime.now(UTC) - cached.last_check
+                days_ago = delta.days
+            if days_ago is not None:
+                cache_msg = (
+                    f"{cache_hits} from cache (analyzed {days_ago}d ago), {fresh_chats} fresh"
+                )
+            else:
+                cache_msg = f"{cache_hits} from cache, {fresh_chats} fresh"
+            self._progress.publish_from_db(group_id=group_id, chat_title=title, message=cache_msg)
             return
 
         if mode == AnalysisMode.INCREMENT:
@@ -720,9 +736,18 @@ class GroupAnalysisEngine:
                 health_tracker.record_failure(account_id)
 
         title = (result.value.title or chat_ref) if result.success and result.value else chat_ref
+        # Track fresh analysis count for cache feedback message
+        if result.success:
+            self._fresh_chat_counts[group_id] = self._fresh_chat_counts.get(group_id, 0) + 1
+        cache_hits = self._cache_hit_counts.get(group_id, 0)
+        fresh_chats = self._fresh_chat_counts.get(group_id, 0)
+        fresh_msg: str | None = None
+        if cache_hits > 0 or fresh_chats > 0:
+            fresh_msg = f"{cache_hits} from cache, {fresh_chats} fresh"
         self._progress.publish_from_db(
             group_id=group_id,
             chat_title=title,
+            message=fresh_msg,
             error=result.error if not result.success else None,
         )
 
@@ -852,7 +877,15 @@ class GroupAnalysisEngine:
 
         if done + errors >= total:
             status = GroupStatus.FAILED.value if errors == total else GroupStatus.COMPLETED.value
-            msg = "Analysis failed: all chats failed" if errors == total else "Analysis completed"
+            # Build completion message with cache stats if any
+            cache_hits = self._cache_hit_counts.pop(group_id, 0)
+            fresh_chats = self._fresh_chat_counts.pop(group_id, 0)
+            if cache_hits > 0 or fresh_chats > 0:
+                msg = f"Done: {cache_hits} from cache, {fresh_chats} fresh"
+            elif errors == total:
+                msg = "Analysis failed: all chats failed"
+            else:
+                msg = "Analysis completed"
             # Status is computed from chat statuses, no manual update needed
             self._signal_completion(group_id, status, msg, done + errors, total)
             logger.info(

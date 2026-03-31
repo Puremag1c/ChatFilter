@@ -60,7 +60,9 @@
                 floodWaitTimeEl: document.getElementById('flood-wait-time-' + groupId),
                 floodWaitCountdownEl: document.getElementById('flood-wait-countdown-' + groupId),
                 statusBadgeEl: document.querySelector('#group-' + groupId + ' .status-badge'),
-                cardEl: document.getElementById('group-' + groupId)
+                cardEl: document.getElementById('group-' + groupId),
+                cacheInfoRowEl: document.getElementById('cache-info-row-' + groupId),
+                cacheInfoEl: document.getElementById('cache-info-' + groupId)
             };
         }
 
@@ -306,6 +308,12 @@
                     if ('chat_title' in data && els.currentChatEl) {
                         els.currentChatEl.textContent = data.chat_title || '—';
                         els.currentChatEl.title = data.chat_title || '';
+                    }
+
+                    // Show cache-hit info message if present
+                    if (data.message && els.cacheInfoEl && els.cacheInfoRowEl) {
+                        els.cacheInfoEl.textContent = data.message;
+                        els.cacheInfoRowEl.style.display = '';
                     }
                 }
 
