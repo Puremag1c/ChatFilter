@@ -2,13 +2,14 @@
 
 This module provides session management using signed cookies to track
 browser sessions across multiple tabs. Each browser session gets a unique
-session ID, and session data is stored server-side in memory.
+session ID, and session data is stored server-side in SQLite.
 
 Features:
 - Secure cookie-based session IDs
 - Per-session state isolation (each tab can have different state)
 - Automatic session cleanup (TTL-based expiration)
 - Thread-safe session storage
+- Persistent storage: sessions survive server restarts
 
 Session data includes:
 - selected_session_id: Currently selected Telegram session
@@ -19,15 +20,18 @@ Session data includes:
 
 from __future__ import annotations
 
+import json
 import logging
 import secrets
 import time
-from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any, cast
 
+from sqlalchemy import text
 from starlette.requests import Request
+
+from chatfilter.storage.engine import create_db_engine
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +49,7 @@ class SessionData:
     created_at: float = field(default_factory=time.time)
     last_accessed: float = field(default_factory=time.time)
     data: dict[str, Any] = field(default_factory=dict)
+    _save_callback: Any = field(default=None, repr=False, compare=False, init=False)
 
     def is_expired(self, ttl: int = SESSION_TTL) -> bool:
         """Check if session has expired."""
@@ -53,6 +58,8 @@ class SessionData:
     def touch(self) -> None:
         """Update last accessed time."""
         self.last_accessed = time.time()
+        if self._save_callback is not None:
+            self._save_callback(self)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get session data value."""
@@ -61,38 +68,111 @@ class SessionData:
     def set(self, key: str, value: Any) -> None:
         """Set session data value."""
         self.data[key] = value
-        self.touch()
+        self.last_accessed = time.time()
+        if self._save_callback is not None:
+            self._save_callback(self)
 
     def delete(self, key: str) -> None:
         """Delete session data value."""
         self.data.pop(key, None)
-        self.touch()
+        self.last_accessed = time.time()
+        if self._save_callback is not None:
+            self._save_callback(self)
 
     def clear(self) -> None:
         """Clear all session data."""
         self.data.clear()
-        self.touch()
+        self.last_accessed = time.time()
+        if self._save_callback is not None:
+            self._save_callback(self)
+
+
+_CREATE_SESSIONS_TABLE = """
+CREATE TABLE IF NOT EXISTS sessions (
+    session_id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    last_accessed REAL NOT NULL
+)
+"""
+
+_CREATE_SESSIONS_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_sessions_last_accessed ON sessions (last_accessed)
+"""
 
 
 class SessionStore:
-    """Thread-safe in-memory session storage.
+    """SQLite-backed session storage that also caches sessions in memory.
 
-    This implementation stores sessions in memory. For production deployments
-    with multiple workers, consider using Redis or a database backend.
+    Sessions are persisted to SQLite so they survive server restarts.
+    An in-memory dict acts as a write-through cache for fast access.
     """
 
-    def __init__(self) -> None:
-        self._sessions: MutableMapping[str, SessionData] = {}
+    def __init__(self, db_url: str = "sqlite:///:memory:") -> None:
+        self._sessions: dict[str, SessionData] = {}
         self._lock = Lock()
         self._last_cleanup = time.time()
+        self._engine = create_db_engine(db_url)
+        self._init_table()
+
+    def _init_table(self) -> None:
+        """Ensure sessions table exists (idempotent)."""
+        with self._engine.connect() as conn:
+            conn.execute(text(_CREATE_SESSIONS_TABLE))
+            conn.execute(text(_CREATE_SESSIONS_INDEX))
+            conn.commit()
+
+    def _upsert(self, conn: Any, session: SessionData) -> None:
+        """Write session to DB (INSERT OR REPLACE)."""
+        conn.execute(
+            text(
+                "INSERT OR REPLACE INTO sessions (session_id, data, created_at, last_accessed)"
+                " VALUES (:sid, :data, :cat, :lat)"
+            ),
+            {
+                "sid": session.session_id,
+                "data": json.dumps(session.data),
+                "cat": session.created_at,
+                "lat": session.last_accessed,
+            },
+        )
+
+    def _persist(self, session: SessionData) -> None:
+        """Write-through callback — called by SessionData on every mutation."""
+        with self._engine.connect() as conn:
+            self._upsert(conn, session)
+            conn.commit()
+
+    def _load_from_db(self, session_id: str) -> SessionData | None:
+        """Load a single session from DB. Returns None if not found."""
+        with self._engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT session_id, data, created_at, last_accessed"
+                    " FROM sessions WHERE session_id = :sid"
+                ),
+                {"sid": session_id},
+            ).fetchone()
+        if row is None:
+            return None
+        session = SessionData(
+            session_id=row[0],
+            data=json.loads(row[1]),
+            created_at=row[2],
+            last_accessed=row[3],
+        )
+        session._save_callback = self._persist
+        return session
 
     def create_session(self) -> SessionData:
         """Create a new session with unique ID."""
         session_id = secrets.token_urlsafe(32)
         session = SessionData(session_id=session_id)
+        session._save_callback = self._persist
 
         with self._lock:
             self._sessions[session_id] = session
+            self._persist(session)
             self._maybe_cleanup()
 
         logger.debug(f"Created new session: {session_id[:8]}...")
@@ -104,10 +184,17 @@ class SessionStore:
             session = self._sessions.get(session_id)
 
             if session is None:
+                # Not in memory — try DB (e.g. after server restart)
+                session = self._load_from_db(session_id)
+                if session is not None:
+                    self._sessions[session_id] = session
+
+            if session is None:
                 return None
 
             if session.is_expired():
                 del self._sessions[session_id]
+                self._delete_from_db(session_id)
                 logger.debug(f"Session expired: {session_id[:8]}...")
                 return None
 
@@ -117,35 +204,53 @@ class SessionStore:
     def delete_session(self, session_id: str) -> None:
         """Delete a session."""
         with self._lock:
-            if session_id in self._sessions:
-                del self._sessions[session_id]
-                logger.debug(f"Deleted session: {session_id[:8]}...")
+            self._sessions.pop(session_id, None)
+            self._delete_from_db(session_id)
+            logger.debug(f"Deleted session: {session_id[:8]}...")
+
+    def _delete_from_db(self, session_id: str) -> None:
+        with self._engine.connect() as conn:
+            conn.execute(
+                text("DELETE FROM sessions WHERE session_id = :sid"),
+                {"sid": session_id},
+            )
+            conn.commit()
 
     def cleanup_expired(self) -> int:
         """Remove expired sessions. Returns number of sessions removed."""
         now = time.time()
+        cutoff = now - SESSION_TTL
         expired = []
 
         with self._lock:
-            for session_id, session in self._sessions.items():
+            for session_id, session in list(self._sessions.items()):
                 if session.is_expired():
                     expired.append(session_id)
 
             for session_id in expired:
                 del self._sessions[session_id]
 
+            # Also clean up from DB (catches sessions not in memory cache)
+            with self._engine.connect() as conn:
+                result = conn.execute(
+                    text("DELETE FROM sessions WHERE last_accessed < :cutoff"),
+                    {"cutoff": cutoff},
+                )
+                db_removed = result.rowcount
+                conn.commit()
+
             self._last_cleanup = now
 
-        if expired:
-            logger.info(f"Cleaned up {len(expired)} expired session(s)")
+        # Total removed = in-memory expired + any extra in DB not in memory
+        total = max(len(expired), db_removed)
+        if total:
+            logger.info(f"Cleaned up {total} expired session(s)")
 
         return len(expired)
 
     def _maybe_cleanup(self) -> None:
         """Run cleanup if interval has passed (called with lock held)."""
         if (time.time() - self._last_cleanup) > SESSION_CLEANUP_INTERVAL:
-            # Release lock and run cleanup in background to avoid blocking
-            # For now, we'll just update the timestamp and let cleanup happen later
             self._last_cleanup = time.time()
 
     def get_session_count(self) -> int:
@@ -159,10 +264,13 @@ _session_store: SessionStore | None = None
 
 
 def get_session_store() -> SessionStore:
-    """Get global session store instance."""
+    """Get global session store instance backed by the configured database."""
     global _session_store
     if _session_store is None:
-        _session_store = SessionStore()
+        from chatfilter.config import get_settings
+
+        settings = get_settings()
+        _session_store = SessionStore(db_url=settings.effective_database_url)
     return _session_store
 
 
