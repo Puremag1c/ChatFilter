@@ -47,6 +47,7 @@
     --info: #007aff;
     --info-bg: #e3f2fd;
     --info-text: #0d47a1;
+    --purple: #af52de;
 
     --status-online: #34c759;
     --status-error: #ff3b30;
@@ -101,6 +102,7 @@
     --info: #0a84ff;
     --info-bg: #1a2d3d;
     --info-text: #409cff;
+    --purple: #bf5af0;
 
     --status-online: #32d74b;
     --status-error: #ff453a;
@@ -3912,11 +3914,25 @@ body:has(.update-notification.show) {
     color: #fff;
 }
 
-.catalog-table .badge--channel,
-.catalog-table .badge--group,
-.catalog-table .badge--supergroup {
-    background: var(--surface-secondary, #e5e5ea);
-    color: var(--text-primary);
+.catalog-table .badge--type-group {
+    background: var(--success, #34c759);
+    color: #fff;
+}
+
+.catalog-table .badge--type-forum {
+    background: var(--purple, #af52de);
+    color: #fff;
+}
+
+.catalog-table .badge--type-channel {
+    background: var(--primary, #007aff);
+    color: #fff;
+}
+
+.catalog-table .badge--type-pending,
+.catalog-table .badge--type-dead {
+    background: var(--secondary, #8e8e93);
+    color: #fff;
 }
 
 .catalog-table .badge--frozen {

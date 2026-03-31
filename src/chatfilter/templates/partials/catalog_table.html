@@ -23,7 +23,23 @@
                 {% endif %}
             </td>
             <td>
-                <span class="badge badge--{{ chat.chat_type }}">{{ chat.chat_type }}</span>
+                {% set type_display = {
+                    'group': 'group',
+                    'forum': 'forum',
+                    'channel_comments': 'channel+',
+                    'channel_no_comments': 'channel',
+                    'pending': 'pending',
+                    'dead': 'dead'
+                }.get(chat.chat_type, chat.chat_type) %}
+                {% set type_class = {
+                    'group': 'group',
+                    'forum': 'forum',
+                    'channel_comments': 'channel',
+                    'channel_no_comments': 'channel',
+                    'pending': 'pending',
+                    'dead': 'dead'
+                }.get(chat.chat_type, chat.chat_type) %}
+                <span class="badge badge--type-{{ type_class }}">{{ type_display }}</span>
             </td>
             <td class="num">{{ chat.subscribers }}</td>
             <td class="num">
