@@ -153,9 +153,10 @@ class SQLiteDatabase(Database):
                 row = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
                 current = row[0] if row else None
                 # Resolve head revision without running migrations
+                from pathlib import Path as _Path
+
                 from alembic.config import Config
                 from alembic.script import ScriptDirectory
-                from pathlib import Path as _Path
 
                 ini_path = _Path(__file__).resolve().parent.parent.parent.parent / "alembic.ini"
                 if ini_path.exists():

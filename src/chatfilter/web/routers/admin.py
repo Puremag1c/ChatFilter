@@ -88,9 +88,12 @@ async def create_user(
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
+    db = _get_user_db(request)
+
     if len(password) < 8:
-        db = _get_user_db(request)
         users = db.list_users()
+        group_db = _get_group_db(request)
+        app_settings = group_db.get_all_settings()
         templates = get_templates()
         return templates.TemplateResponse(
             request=request,
@@ -99,16 +102,17 @@ async def create_user(
                 request,
                 version=__version__,
                 users=users,
+                app_settings=app_settings,
                 error="Пароль должен содержать минимум 8 символов",
             ),
             status_code=422,
         )
 
-    db = _get_user_db(request)
-
     existing = db.get_user_by_username(username)
     if existing:
         users = db.list_users()
+        group_db = _get_group_db(request)
+        app_settings = group_db.get_all_settings()
         templates = get_templates()
         return templates.TemplateResponse(
             request=request,
@@ -117,6 +121,7 @@ async def create_user(
                 request,
                 version=__version__,
                 users=users,
+                app_settings=app_settings,
                 error=f"Пользователь '{username}' уже существует",
             ),
             status_code=409,
@@ -180,6 +185,8 @@ async def change_password(
 
     if len(password) < 8:
         users = db.list_users()
+        group_db = _get_group_db(request)
+        app_settings = group_db.get_all_settings()
         templates = get_templates()
         return templates.TemplateResponse(
             request=request,
@@ -188,6 +195,7 @@ async def change_password(
                 request,
                 version=__version__,
                 users=users,
+                app_settings=app_settings,
                 error="Пароль должен содержать минимум 8 символов",
             ),
             status_code=422,
