@@ -187,7 +187,8 @@ class CatalogMixin(DatabaseMixinBase):
                 """
                 SELECT cg.name
                 FROM catalog_group_chats cgc
-                JOIN chat_groups cg ON cg.id = cgc.group_chat_id
+                JOIN group_chats gc ON gc.id = cgc.group_chat_id
+                JOIN chat_groups cg ON cg.id = gc.group_id
                 WHERE cgc.catalog_chat_id = ?
                 """,
                 (catalog_chat_id,),
