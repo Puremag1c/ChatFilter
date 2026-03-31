@@ -10,6 +10,7 @@ from typing import Any
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
+from sqlalchemy.pool import StaticPool
 
 
 def create_db_engine(url: str, **kwargs: Any) -> Engine:
@@ -18,6 +19,8 @@ def create_db_engine(url: str, **kwargs: Any) -> Engine:
     For SQLite URLs, automatically sets:
       - PRAGMA foreign_keys = ON
       - PRAGMA busy_timeout = 30000
+      - check_same_thread=False (allows cross-thread access)
+      - StaticPool for :memory: databases (all threads share one connection)
 
     Args:
         url: Database URL (e.g. "sqlite:///path/to/db" or "postgresql://...")
@@ -26,6 +29,12 @@ def create_db_engine(url: str, **kwargs: Any) -> Engine:
     Returns:
         Configured SQLAlchemy Engine.
     """
+    if "sqlite" in url:
+        kwargs.setdefault("connect_args", {})
+        kwargs["connect_args"].setdefault("check_same_thread", False)
+        if ":memory:" in url:
+            kwargs.setdefault("poolclass", StaticPool)
+
     engine = create_engine(url, **kwargs)
 
     if engine.dialect.name == "sqlite":
