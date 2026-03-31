@@ -481,9 +481,7 @@ async def _evict_oldest_subscription(
         await leave_chat(client, oldest.telegram_chat_id)
     with contextlib.suppress(Exception):
         db.remove_subscription(account_id, oldest.catalog_chat_id)
-    logger.info(
-        f"Account '{account_id}': evicted oldest subscription '{oldest.catalog_chat_id}'"
-    )
+    logger.info(f"Account '{account_id}': evicted oldest subscription '{oldest.catalog_chat_id}'")
 
 
 async def _detect_captcha(

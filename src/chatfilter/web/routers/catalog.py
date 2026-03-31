@@ -88,7 +88,9 @@ async def catalog_table(
     # Client-side search by title substring
     if search:
         search_lower = search.lower()
-        chats = [c for c in chats if search_lower in c.title.lower() or search_lower in c.id.lower()]
+        chats = [
+            c for c in chats if search_lower in c.title.lower() or search_lower in c.id.lower()
+        ]
 
     # Sorting
     valid_sort_fields = {
