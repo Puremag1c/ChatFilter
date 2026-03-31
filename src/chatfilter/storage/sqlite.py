@@ -172,6 +172,19 @@ class SQLiteDatabase(Database):
                 head = script.get_current_head()
                 needs_migration = current != head
 
+                if not needs_migration:
+                    # Version matches head but tables may be missing (partial migration).
+                    # All migrations are idempotent so re-running is safe.
+                    from .models import metadata as _models_meta
+
+                    expected = {t.name for t in _models_meta.tables.values()}
+                    actual = set(tables)
+                    if not expected.issubset(actual):
+                        # Reset version so Alembic re-runs from scratch
+                        conn.execute(text("DELETE FROM alembic_version"))
+                        conn.commit()
+                        needs_migration = True
+
         if needs_migration:
             # Dispose engine to release all connections before Alembic runs
             self._engine.dispose()
