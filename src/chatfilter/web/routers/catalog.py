@@ -3,15 +3,27 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from pydantic import BeforeValidator
 
 from chatfilter.web.session import get_session
 
 if TYPE_CHECKING:
     from chatfilter.db.group_database import GroupDatabase
+
+
+def _empty_str_to_none(v: object) -> object:
+    """Convert empty string to None for optional query params."""
+    if v == "":
+        return None
+    return v
+
+
+OptionalInt = Annotated[int | None, BeforeValidator(_empty_str_to_none)]
+OptionalFloat = Annotated[float | None, BeforeValidator(_empty_str_to_none)]
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +61,13 @@ async def catalog_page(request: Request) -> Response:
 async def catalog_table(
     request: Request,
     chat_type: str | None = None,
-    min_subscribers: int | None = None,
-    max_subscribers: int | None = None,
+    min_subscribers: OptionalInt = None,
+    max_subscribers: OptionalInt = None,
     has_moderation: str | None = None,
     has_captcha: str | None = None,
-    min_activity: float | None = None,
-    max_activity: float | None = None,
-    fresh_only: int | None = None,
+    min_activity: OptionalFloat = None,
+    max_activity: OptionalFloat = None,
+    fresh_only: OptionalInt = None,
     search: str | None = None,
     sort_by: str | None = None,
     sort_dir: str | None = None,
