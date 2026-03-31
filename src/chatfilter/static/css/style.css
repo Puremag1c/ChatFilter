@@ -599,6 +599,43 @@ footer .diagnostic-button:hover {
     cursor: pointer;
 }
 
+/* Direct form-input styling for admin and profile pages */
+.form-input[type="text"],
+.form-input[type="password"],
+.form-input[type="number"],
+.form-input[type="email"],
+.form-input[type="file"] {
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9375rem;
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.form-input[type="text"]::placeholder,
+.form-input[type="password"]::placeholder,
+.form-input[type="number"]::placeholder,
+.form-input[type="email"]::placeholder {
+    color: var(--text-secondary);
+}
+
+.form-input[type="text"]:focus,
+.form-input[type="password"]:focus,
+.form-input[type="number"]:focus,
+.form-input[type="email"]:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.form-input[type="file"] {
+    padding: 0.5rem;
+    cursor: pointer;
+}
+
 .form-hint {
     display: block;
     margin-top: 0.25rem;
