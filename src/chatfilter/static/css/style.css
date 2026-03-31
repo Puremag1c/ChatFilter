@@ -2233,6 +2233,7 @@ tr.htmx-request .proxy-status-badge {
     main {
         padding: 1rem;
         max-width: 100%; /* Fill viewport width on mobile */
+        min-width: 0; /* Allow flex item to shrink below content width */
     }
 
     footer {
