@@ -54,6 +54,8 @@
     --status-warning: #ff9500;
 
     --overlay-bg: rgba(0, 0, 0, 0.4);
+
+    --bg-stripe: rgba(0, 0, 0, 0.02);
 }
 
 /* Dark mode colors (Apple-style) */
@@ -109,6 +111,8 @@
     --status-warning: #ff9f0a;
 
     --overlay-bg: rgba(0, 0, 0, 0.7);
+
+    --bg-stripe: rgba(255, 255, 255, 0.03);
 }
 
 /* ========== End CSS Variables ========== */
@@ -3897,6 +3901,97 @@ body:has(.update-notification.show) {
 #catalog-table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+}
+
+/* Base data table */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    table-layout: auto;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.data-table thead th {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-secondary);
+    background: var(--bg-code);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.data-table tbody tr:hover {
+    background: var(--bg-card-hover);
+}
+
+/* Zebra striping */
+.data-table tbody tr:nth-child(even) {
+    background: var(--bg-stripe, rgba(0,0,0,0.025));
+}
+
+.data-table tbody tr:nth-child(even):hover {
+    background: var(--bg-card-hover);
+}
+
+/* Column helpers */
+.data-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+
+.data-table .bool-cell {
+    text-align: center;
+}
+
+.data-table .date-cell {
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.data-table .muted {
+    color: var(--text-muted);
+}
+
+/* Catalog-specific column widths */
+.catalog-table {
+    min-width: 700px;
+}
+
+.catalog-table td.chat-ref-cell,
+.catalog-table th:first-child {
+    min-width: 160px;
+    max-width: 280px;
+}
+
+.catalog-table .chat-title {
+    display: block;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.catalog-table .chat-title[href] {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.catalog-table .chat-title[href]:hover {
+    text-decoration: underline;
 }
 
 .catalog-table .badge {
