@@ -11,94 +11,37 @@
               hx-swap="outerHTML">
             <div class="modal-body">
                 <div class="form-group">
-                    <p style="margin-bottom: 1rem; font-weight: 600;">{{ _("Metrics to Analyze") }}</p>
+                    <p style="margin-bottom: 1rem; font-weight: 600;">{{ _("Analysis Mode") }}</p>
 
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox"
-                                   id="detect-chat-type"
-                                   name="detect_chat_type"
-                                   value="true"
-                                   {% if group.settings.detect_chat_type %}checked{% endif %}>
-                            <span>{{ _("Detect Chat Type") }}</span>
-                            <span class="metric-badge metric-badge-success"
-                                  data-tooltip="{{ _('No join required - uses chat metadata') }}"
-                                  data-tooltip-position="right">✓</span>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                            <input type="radio"
+                                   name="analysis_mode"
+                                   value="quick"
+                                   {% if group.settings.inferred_mode == 'quick' %}checked{% endif %}
+                                   style="margin-top: 0.2rem; flex-shrink: 0;">
+                            <div>
+                                <div style="font-weight: 500;">{{ _("Quick Analysis") }}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary, #666);">
+                                    {{ _("(chat type, subscribers, moderation — no join required)") }}
+                                </div>
+                            </div>
                         </label>
 
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox"
-                                   id="detect-subscribers"
-                                   name="detect_subscribers"
-                                   value="true"
-                                   {% if group.settings.detect_subscribers %}checked{% endif %}>
-                            <span>{{ _("Detect Subscribers Count") }}</span>
-                            <span class="metric-badge metric-badge-success"
-                                  data-tooltip="{{ _('No join required - uses chat metadata') }}"
-                                  data-tooltip-position="right">✓</span>
-                        </label>
-
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox"
-                                   id="detect-activity"
-                                   name="detect_activity"
-                                   value="true"
-                                   {% if group.settings.detect_activity %}checked{% endif %}
-                                   onchange="toggleTimeWindow()">
-                            <span>{{ _("Detect Activity Metrics") }}</span>
-                            <span class="metric-badge metric-badge-warning"
-                                  data-tooltip="{{ _('Requires joining chats to read messages') }}"
-                                  data-tooltip-position="right">⚠</span>
-                        </label>
-
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox"
-                                   id="detect-unique-authors"
-                                   name="detect_unique_authors"
-                                   value="true"
-                                   {% if group.settings.detect_unique_authors %}checked{% endif %}
-                                   onchange="toggleTimeWindow()">
-                            <span>{{ _("Detect Unique Authors") }}</span>
-                            <span class="metric-badge metric-badge-warning"
-                                  data-tooltip="{{ _('Requires joining chats to read messages') }}"
-                                  data-tooltip-position="right">⚠</span>
-                        </label>
-
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox"
-                                   id="detect-moderation"
-                                   name="detect_moderation"
-                                   value="true"
-                                   {% if group.settings.detect_moderation %}checked{% endif %}>
-                            <span>{{ _("Detect Moderation Settings") }}</span>
-                            <span class="metric-badge metric-badge-success"
-                                  data-tooltip="{{ _('No join required - uses chat settings') }}"
-                                  data-tooltip-position="right">✓</span>
-                        </label>
-
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox"
-                                   id="detect-captcha"
-                                   name="detect_captcha"
-                                   value="true"
-                                   {% if group.settings.detect_captcha %}checked{% endif %}>
-                            <span>{{ _("Detect Captcha Presence") }}</span>
-                            <span class="metric-badge metric-badge-warning"
-                                  data-tooltip="{{ _('Requires joining chats to check restrictions') }}"
-                                  data-tooltip-position="right">⚠</span>
+                        <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                            <input type="radio"
+                                   name="analysis_mode"
+                                   value="deep"
+                                   {% if group.settings.inferred_mode == 'deep' %}checked{% endif %}
+                                   style="margin-top: 0.2rem; flex-shrink: 0;">
+                            <div>
+                                <div style="font-weight: 500;">{{ _("Deep Analysis") }}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary, #666);">
+                                    {{ _("(everything + activity, authors, captcha — requires joining chat)") }}
+                                </div>
+                            </div>
                         </label>
                     </div>
-                </div>
-
-                <div class="form-group" id="time-window-group" style="margin-top: 1.5rem;">
-                    <label for="time-window">{{ _("Time Window for Activity Analysis") }}</label>
-                    <select id="time-window" name="time_window">
-                        <option value="1" {% if group.settings.time_window == 1 %}selected{% endif %}>{{ _("1 hour") }}</option>
-                        <option value="6" {% if group.settings.time_window == 6 %}selected{% endif %}>{{ _("6 hours") }}</option>
-                        <option value="24" {% if group.settings.time_window == 24 %}selected{% endif %}>{{ _("24 hours") }}</option>
-                        <option value="48" {% if group.settings.time_window == 48 %}selected{% endif %}>{{ _("48 hours") }}</option>
-                    </select>
-                    <small>{{ _("Time window for analyzing activity and unique authors") }}</small>
                 </div>
 
                 <div id="settings-error" class="alert alert-error" style="display: none;"></div>
@@ -122,23 +65,6 @@
 
     // Show modal
     modal.classList.add('show');
-
-    // Toggle time window visibility based on checkboxes
-    function toggleTimeWindow() {
-        const detectActivity = document.getElementById('detect-activity').checked;
-        const detectUniqueAuthors = document.getElementById('detect-unique-authors').checked;
-        const timeWindowGroup = document.getElementById('time-window-group');
-
-        // Show time window selector only if either checkbox is checked
-        if (detectActivity || detectUniqueAuthors) {
-            timeWindowGroup.style.display = 'block';
-        } else {
-            timeWindowGroup.style.display = 'none';
-        }
-    }
-
-    // Initialize time window visibility on load
-    toggleTimeWindow();
 
     // Form submission handler
     document.getElementById('settings-form').addEventListener('htmx:afterRequest', function(event) {
@@ -188,8 +114,5 @@
             closeModal();
         }
     };
-
-    // Expose toggleTimeWindow for inline onchange handlers
-    window.toggleTimeWindow = toggleTimeWindow;
 })();
 </script>

@@ -89,6 +89,22 @@ class GroupSettings(BaseModel):
     detect_moderation: bool = True
     detect_captcha: bool = True
     time_window: int = 24
+    analysis_mode: str | None = None
+
+    @property
+    def inferred_mode(self) -> str:
+        """Infer analysis mode for UI display.
+
+        Returns stored analysis_mode if set, otherwise detects from flags:
+        deep if any join-required metric is enabled, quick otherwise.
+        """
+        if self.analysis_mode is not None:
+            return self.analysis_mode
+        return (
+            "deep"
+            if (self.detect_activity or self.detect_unique_authors or self.detect_captcha)
+            else "quick"
+        )
 
     @field_validator("time_window")
     @classmethod
@@ -140,6 +156,7 @@ class GroupSettings(BaseModel):
             "detect_moderation",
             "detect_captcha",
             "time_window",
+            "analysis_mode",
         }
 
         # Filter data to only include known new fields
