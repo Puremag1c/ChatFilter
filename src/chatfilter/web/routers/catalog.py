@@ -90,9 +90,9 @@ async def catalog_table(
         filters["min_subscribers"] = min_subscribers
     if max_subscribers is not None:
         filters["max_subscribers"] = max_subscribers
-    if has_moderation is not None:
+    if has_moderation is not None and has_moderation != "":
         filters["has_moderation"] = has_moderation.lower() in ("1", "true", "yes")
-    if has_captcha is not None:
+    if has_captcha is not None and has_captcha != "":
         filters["has_captcha"] = has_captcha.lower() in ("1", "true", "yes")
     if min_activity is not None:
         filters["min_activity"] = min_activity
