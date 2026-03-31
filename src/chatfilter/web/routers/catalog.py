@@ -6,7 +6,9 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+
+from chatfilter.web.session import get_session
 
 if TYPE_CHECKING:
     from chatfilter.db.group_database import GroupDatabase
@@ -25,11 +27,15 @@ def _get_catalog_db() -> GroupDatabase:
 
 
 @router.get("/catalog", response_class=HTMLResponse)
-async def catalog_page(request: Request) -> HTMLResponse:
+async def catalog_page(request: Request) -> Response:
     """Catalog page — requires login."""
     from chatfilter import __version__
     from chatfilter.web.app import get_templates
     from chatfilter.web.template_helpers import get_template_context
+
+    session = get_session(request)
+    if not session.get("user_id"):
+        return RedirectResponse(url="/login", status_code=302)
 
     templates = get_templates()
     return templates.TemplateResponse(
@@ -53,10 +59,14 @@ async def catalog_table(
     search: str | None = None,
     sort_by: str | None = None,
     sort_dir: str | None = None,
-) -> HTMLResponse:
+) -> Response:
     """HTMX partial: filtered/sorted catalog table."""
     from chatfilter.web.app import get_templates
     from chatfilter.web.template_helpers import get_template_context
+
+    session = get_session(request)
+    if not session.get("user_id"):
+        return RedirectResponse(url="/login", status_code=302)
 
     templates = get_templates()
 
