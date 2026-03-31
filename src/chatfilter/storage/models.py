@@ -78,3 +78,51 @@ users = Table(
     Column("created_at", Text, nullable=False),
     Index("idx_users_username", "username"),
 )
+
+chat_catalog = Table(
+    "chat_catalog",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("telegram_id", Integer),
+    Column("title", Text),
+    Column("chat_type", Text),
+    Column("subscribers", Integer),
+    Column("moderation", Boolean),
+    Column("messages_per_hour", Float),
+    Column("unique_authors_per_hour", Float),
+    Column("captcha", Boolean),
+    Column("partial_data", Boolean),
+    Column("last_check", Text),
+    Column("analysis_mode", Text),
+    Column("created_at", Text),
+    Index("idx_chat_catalog_last_check", "last_check"),
+    Index("idx_chat_catalog_chat_type", "chat_type"),
+)
+
+catalog_group_chats = Table(
+    "catalog_group_chats",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("catalog_chat_id", Text, ForeignKey("chat_catalog.id"), nullable=False),
+    Column("group_chat_id", Integer, ForeignKey("group_chats.id", ondelete="CASCADE"), nullable=False),
+)
+
+account_subscriptions = Table(
+    "account_subscriptions",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("account_id", Text, nullable=False),
+    Column("catalog_chat_id", Text, ForeignKey("chat_catalog.id")),
+    Column("telegram_chat_id", Integer),
+    Column("joined_at", Text, nullable=False),
+    Index("idx_account_subs_account", "account_id"),
+    Index("idx_account_subs_joined", "joined_at"),
+)
+
+app_settings = Table(
+    "app_settings",
+    metadata,
+    Column("key", Text, primary_key=True),
+    Column("value", Text, nullable=False),
+    Column("updated_at", Text, nullable=False),
+)
