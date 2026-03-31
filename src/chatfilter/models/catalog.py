@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from .group import ChatTypeEnum, GroupSettings
 
@@ -80,6 +80,18 @@ class CatalogChat(BaseModel):
     moderation: bool = False
     messages_per_hour: float = 0.0
     unique_authors_per_hour: float = 0.0
+
+    @field_validator("messages_per_hour", "unique_authors_per_hour", mode="before")
+    @classmethod
+    def coerce_na_to_zero(cls, v: object) -> float:
+        """Coerce non-numeric strings (e.g. 'N/A') to 0.0."""
+        if isinstance(v, str):
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return 0.0
+        return v  # type: ignore[return-value]
+
     captcha: bool = False
     partial_data: bool = False
     last_check: datetime | None = None
