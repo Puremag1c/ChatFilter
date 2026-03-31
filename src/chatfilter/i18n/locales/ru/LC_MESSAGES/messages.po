@@ -232,7 +232,12 @@ msgstr "Выберите чаты для анализа из вашего Telegr
 msgid "Chats"
 msgstr "Чаты"
 
-#: src/chatfilter/templates/base.html:42
+#: src/chatfilter/templates/base.html:41
+#: src/chatfilter/templates/catalog.html:3
+msgid "Catalog"
+msgstr "Каталог"
+
+#: src/chatfilter/templates/base.html:45
 msgid "Toggle dark mode"
 msgstr "Переключить тёмный режим"
 
