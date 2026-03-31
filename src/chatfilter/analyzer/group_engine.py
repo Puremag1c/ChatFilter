@@ -618,7 +618,7 @@ class GroupAnalysisEngine:
 
         async def _do_process(acct_id: str, chat_dict: dict[str, Any]) -> ChatResult:
             c = client if acct_id == account_id else await self._session_mgr.connect(acct_id)
-            return await process_chat(chat_dict, c, acct_id, settings)
+            return await process_chat(chat_dict, c, acct_id, settings, db=self._db)
 
         async def _on_floodwait(expiry_timestamp: float) -> None:
             """Publish progress event with FloodWait info."""

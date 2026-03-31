@@ -19,6 +19,7 @@ from telethon.tl.functions.messages import CheckChatInviteRequest
 from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready, ChatInvitePeek
 from telethon.tl.types import Chat as TelegramChat
 
+from chatfilter.models.catalog import AnalysisModeEnum, CatalogChat
 from chatfilter.models.group import ChatTypeEnum, GroupSettings
 from chatfilter.telegram.client.membership import (
     _parse_chat_reference,
@@ -30,6 +31,8 @@ from chatfilter.telegram.rate_limiter import get_rate_limiter
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
+
+    from chatfilter.storage.group_database import GroupDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -101,10 +104,13 @@ async def process_chat(
     client: TelegramClient,
     account_id: str,
     settings: GroupSettings,
+    db: GroupDatabase | None = None,
 ) -> ChatResult:
     """Process a single chat end-to-end.
 
-    Resolves metadata, joins if needed, analyzes activity, always leaves.
+    Resolves metadata, joins if needed, analyzes activity.
+    On success, account stays in chat and subscription is tracked.
+    On failure, account leaves the chat.
     """
     chat_ref = chat["chat_ref"]
 
@@ -127,11 +133,17 @@ async def process_chat(
         )
 
     if not needs_join:
-        return _result_from_resolved(resolved)
+        result = _result_from_resolved(resolved)
+        if db is not None:
+            _save_catalog_entry(db, result, resolved, chat, AnalysisModeEnum.QUICK)
+        return result
 
     try:
-        activity = await _analyze_chat_activity(client, resolved, account_id, settings)
-        return _result_from_resolved(resolved, **activity)
+        activity = await _analyze_chat_activity(client, resolved, account_id, settings, db)
+        result = _result_from_resolved(resolved, **activity)
+        if db is not None:
+            _save_catalog_entry(db, result, resolved, chat, AnalysisModeEnum.DEEP)
+        return result
     except errors.FloodWaitError:
         raise
     except Exception as e:
@@ -352,8 +364,13 @@ async def _analyze_chat_activity(
     resolved: _ResolvedChat,
     account_id: str,
     settings: GroupSettings,
+    db: GroupDatabase | None = None,
 ) -> dict[str, Any]:
-    """Join chat, analyze activity, always leave."""
+    """Join chat, analyze activity.
+
+    On success: account stays in chat, subscription is tracked, eviction if over limit.
+    On failure: account leaves the chat.
+    """
     chat_ref = resolved.chat_ref
     numeric_id = None
     rate_limiter = get_rate_limiter()
@@ -393,6 +410,15 @@ async def _analyze_chat_activity(
         if settings.detect_captcha:
             has_captcha = await _detect_captcha(client, numeric_id, messages)
 
+        # Success: account stays in chat — track subscription and evict if over limit
+        if db is not None and numeric_id is not None:
+            with contextlib.suppress(Exception):
+                db.add_subscription(account_id, chat_ref, numeric_id)
+                count = db.count_subscriptions(account_id)
+                max_chats = db.get_max_chats_per_account()
+                if count > max_chats:
+                    await _evict_oldest_subscription(client, db, account_id)
+
         return {
             "messages_per_hour": messages_per_hour,
             "unique_authors_per_hour": unique_authors_per_hour,
@@ -400,10 +426,64 @@ async def _analyze_chat_activity(
             "partial_data": has_timeout,
         }
 
-    finally:
+    except Exception:
+        # Analysis failed — leave the chat (no point staying)
         if numeric_id is not None:
             with contextlib.suppress(Exception):
                 await leave_chat(client, numeric_id)
+        raise
+
+
+def _save_catalog_entry(
+    db: GroupDatabase,
+    result: ChatResult,
+    resolved: _ResolvedChat,
+    chat: dict[str, Any],
+    mode: AnalysisModeEnum,
+) -> None:
+    """Save ChatResult to chat_catalog and link to group_chat."""
+    now = datetime.now(UTC)
+    mph = result.messages_per_hour
+    uaph = result.unique_authors_per_hour
+    catalog_chat = CatalogChat(
+        id=resolved.chat_ref,
+        telegram_id=resolved.numeric_id or 0,
+        title=resolved.title or "",
+        chat_type=ChatTypeEnum(resolved.chat_type),
+        subscribers=resolved.subscribers or 0,
+        moderation=resolved.moderation or False,
+        messages_per_hour=float(mph) if isinstance(mph, (int, float)) else 0.0,
+        unique_authors_per_hour=float(uaph) if isinstance(uaph, (int, float)) else 0.0,
+        captcha=bool(result.captcha) if isinstance(result.captcha, bool) else False,
+        partial_data=result.partial_data,
+        last_check=now,
+        analysis_mode=mode,
+        created_at=now,
+    )
+    with contextlib.suppress(Exception):
+        db.save_catalog_chat(catalog_chat)
+    group_chat_id = chat.get("id")
+    if group_chat_id is not None:
+        with contextlib.suppress(Exception):
+            db.link_to_group(resolved.chat_ref, int(group_chat_id))
+
+
+async def _evict_oldest_subscription(
+    client: TelegramClient,
+    db: GroupDatabase,
+    account_id: str,
+) -> None:
+    """Leave the oldest subscribed chat and remove its subscription record."""
+    oldest = db.get_oldest_subscription(account_id)
+    if oldest is None:
+        return
+    with contextlib.suppress(Exception):
+        await leave_chat(client, oldest.telegram_chat_id)
+    with contextlib.suppress(Exception):
+        db.remove_subscription(account_id, oldest.catalog_chat_id)
+    logger.info(
+        f"Account '{account_id}': evicted oldest subscription '{oldest.catalog_chat_id}'"
+    )
 
 
 async def _detect_captcha(

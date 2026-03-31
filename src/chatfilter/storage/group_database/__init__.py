@@ -9,6 +9,7 @@ from .groups import GroupsMixin
 from .metrics import MetricsMixin
 from .schema import SchemaMixin
 from .stats import StatsMixin
+from .subscriptions import SubscriptionsMixin
 from .tasks import TasksMixin
 
 
@@ -20,6 +21,7 @@ class GroupDatabase(
     MetricsMixin,
     StatsMixin,
     CatalogMixin,
+    SubscriptionsMixin,
     AppSettingsMixin,
     SQLiteDatabase,
 ):
@@ -44,4 +46,4 @@ class GroupDatabase(
     pass
 
 
-__all__ = ["AppSettingsMixin", "CatalogMixin", "GroupDatabase", "_UNSET"]
+__all__ = ["AppSettingsMixin", "CatalogMixin", "GroupDatabase", "SubscriptionsMixin", "_UNSET"]
