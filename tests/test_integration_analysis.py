@@ -153,7 +153,7 @@ class TestFullAnalysisFlow:
             original_publish(event)
 
         # Mock process_chat to succeed for every chat
-        async def mock_process(chat, client, account_id, settings):
+        async def mock_process(chat, client, account_id, settings, **kwargs):
             return _make_chat_result(chat["chat_ref"])
 
         with (
@@ -205,7 +205,7 @@ class TestStopResumeFlow:
         # Phase 1: Process first 2 chats, then simulate a stop
         processed_count = 0
 
-        async def mock_process_partial(chat, client, account_id, settings):
+        async def mock_process_partial(chat, client, account_id, settings, **kwargs):
             nonlocal processed_count
             processed_count += 1
             if processed_count > 2:
@@ -241,7 +241,7 @@ class TestStopResumeFlow:
         time.sleep(1.1)
 
         # Phase 2: Resume — should reset errors to pending and complete remaining
-        async def mock_process_resume(chat, client, account_id, settings):
+        async def mock_process_resume(chat, client, account_id, settings, **kwargs):
             return _make_chat_result(chat["chat_ref"])
 
         with (
@@ -288,7 +288,7 @@ class TestIncrementMode:
         group_id = _setup_group(db, chat_refs=refs, settings=initial_settings)
 
         # First pass: succeed with subscribers only (no activity)
-        async def mock_first_pass(chat, client, account_id, settings):
+        async def mock_first_pass(chat, client, account_id, settings, **kwargs):
             return _make_chat_result(
                 chat["chat_ref"],
                 messages_per_hour=None,
@@ -325,7 +325,7 @@ class TestIncrementMode:
         # Second pass: INCREMENT should only process chats missing metrics
         processed_refs: list[str] = []
 
-        async def mock_increment_pass(chat, client, account_id, settings):
+        async def mock_increment_pass(chat, client, account_id, settings, **kwargs):
             processed_refs.append(chat["chat_ref"])
             return _make_chat_result(chat["chat_ref"])
 
@@ -363,7 +363,7 @@ class TestOverwriteMode:
         group_id = _setup_group(db, chat_refs=refs)
 
         # First pass
-        async def mock_first(chat, client, account_id, settings):
+        async def mock_first(chat, client, account_id, settings, **kwargs):
             return _make_chat_result(chat["chat_ref"], subscribers=50)
 
         with (
@@ -385,7 +385,7 @@ class TestOverwriteMode:
         # OVERWRITE: should reset all chats and reanalyze
         processed_refs: list[str] = []
 
-        async def mock_overwrite(chat, client, account_id, settings):
+        async def mock_overwrite(chat, client, account_id, settings, **kwargs):
             processed_refs.append(chat["chat_ref"])
             return _make_chat_result(chat["chat_ref"], subscribers=999)
 
@@ -421,7 +421,7 @@ class TestDeadChat:
         refs = ["@alive", "@dead_chat"]
         group_id = _setup_group(db, chat_refs=refs)
 
-        async def mock_process(chat, client, account_id, settings):
+        async def mock_process(chat, client, account_id, settings, **kwargs):
             if "dead" in chat["chat_ref"]:
                 return ChatResult(
                     chat_ref=chat["chat_ref"],
@@ -471,7 +471,7 @@ class TestModeratedChat:
         refs = ["@moderated", "@normal"]
         group_id = _setup_group(db, chat_refs=refs)
 
-        async def mock_process(chat, client, account_id, settings):
+        async def mock_process(chat, client, account_id, settings, **kwargs):
             if "moderated" in chat["chat_ref"]:
                 return ChatResult(
                     chat_ref=chat["chat_ref"],
@@ -539,7 +539,7 @@ class TestAllAccountsBanned:
         refs = ["@fail1", "@fail2"]
         group_id = _setup_group(db, chat_refs=refs)
 
-        async def mock_process(chat, client, account_id, settings):
+        async def mock_process(chat, client, account_id, settings, **kwargs):
             return ChatResult(
                 chat_ref=chat["chat_ref"],
                 chat_type=ChatTypeEnum.DEAD.value,
@@ -739,7 +739,7 @@ class TestServiceLayer:
         group_id = _setup_group(db)
         svc = GroupService(db=db, engine=engine)
 
-        async def mock_process(chat, client, account_id, settings):
+        async def mock_process(chat, client, account_id, settings, **kwargs):
             return _make_chat_result(chat["chat_ref"])
 
         with (

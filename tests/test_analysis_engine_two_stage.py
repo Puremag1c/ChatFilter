@@ -458,8 +458,8 @@ class TestStage2JoinOnlyWhenNeeded:
             # Verify: join_chat was called (Stage 2)
             mock_join.assert_called_once()
 
-            # Verify: leave_chat was called (cleanup)
-            mock_leave.assert_called_once_with(mock_client, 456)
+            # Verify: leave_chat NOT called on success (account stays subscribed)
+            mock_leave.assert_not_called()
 
         # Verify: Activity metrics were calculated
         chats = mock_db.load_chats(group_id=group_id)

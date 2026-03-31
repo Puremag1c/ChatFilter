@@ -238,6 +238,7 @@ async def test_account_health_stops_after_consecutive_failures() -> None:
 
     db.count_processed_chats.return_value = (0, 10)
     db.get_group_stats.return_value = {"by_status": {}, "by_type": {}}
+    db.get_fresh_chat.return_value = None  # No catalog cache hits
 
     # Mock session manager
     session_mgr.list_sessions.return_value = ["acc1"]

@@ -3,21 +3,25 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
+
+if TYPE_CHECKING:
+    from chatfilter.db.group_database import GroupDatabase
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["catalog"])
 
 
-def _get_catalog_db():
+def _get_catalog_db() -> GroupDatabase:
     """Get GroupDatabase instance (includes CatalogMixin)."""
     from chatfilter.web.dependencies import get_group_engine
 
     engine = get_group_engine()
-    return engine.db
+    return engine._db
 
 
 @router.get("/catalog", response_class=HTMLResponse)
@@ -56,7 +60,7 @@ async def catalog_table(
 
     templates = get_templates()
 
-    filters: dict = {}
+    filters: dict[str, Any] = {}
     if chat_type:
         filters["chat_type"] = chat_type
     if min_subscribers is not None:

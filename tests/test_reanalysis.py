@@ -143,7 +143,7 @@ async def test_incremental_preserves_existing_metrics(
     )
 
     # Step 2: Run initial analysis (only subscribers, no activity)
-    async def mock_initial_worker(chat, client, account_id, settings):
+    async def mock_initial_worker(chat, client, account_id, settings, **kwargs):
         return _make_chat_result(
             chat["chat_ref"],
             subscribers=5000,
@@ -186,7 +186,7 @@ async def test_incremental_preserves_existing_metrics(
     )
 
     # Step 4: Run incremental analysis
-    async def mock_increment_worker(chat, client, account_id, settings):
+    async def mock_increment_worker(chat, client, account_id, settings, **kwargs):
         # Incremental worker adds missing metrics
         return _make_chat_result(
             chat["chat_ref"],
@@ -263,7 +263,7 @@ async def test_incremental_skips_collected_metrics(
     )
 
     # Run FRESH analysis first to populate all metrics
-    async def mock_fresh_worker(chat, client, account_id, settings):
+    async def mock_fresh_worker(chat, client, account_id, settings, **kwargs):
         return _make_chat_result(
             chat["chat_ref"],
             subscribers=1000,
@@ -292,7 +292,7 @@ async def test_incremental_skips_collected_metrics(
     # Now run incremental - should NOT call worker (metrics complete)
     processed_refs: list[str] = []
 
-    async def mock_increment_worker(chat, client, account_id, settings):
+    async def mock_increment_worker(chat, client, account_id, settings, **kwargs):
         # This should NEVER be called for chats with complete metrics
         processed_refs.append(chat["chat_ref"])
         return _make_chat_result(chat["chat_ref"])
@@ -355,7 +355,7 @@ async def test_incremental_does_not_call_clear_results(
     )
 
     # Initial analysis
-    async def mock_initial(chat, client, account_id, settings):
+    async def mock_initial(chat, client, account_id, settings, **kwargs):
         return _make_chat_result(chat["chat_ref"], subscribers=999, messages_per_hour=None)
 
     with (
@@ -375,7 +375,7 @@ async def test_incremental_does_not_call_clear_results(
     )
 
     # Run incremental analysis
-    async def mock_increment(chat, client, account_id, settings):
+    async def mock_increment(chat, client, account_id, settings, **kwargs):
         # Should see existing metrics preserved
         return _make_chat_result(chat["chat_ref"], subscribers=999, messages_per_hour=None)
 
@@ -436,7 +436,7 @@ async def test_overwrite_clears_all_results(
     # Initial analysis with OLD data
     engine = GroupAnalysisEngine(db=test_db, session_manager=mock_session_manager)
 
-    async def mock_initial(chat, client, account_id, settings):
+    async def mock_initial(chat, client, account_id, settings, **kwargs):
         return _make_chat_result(
             chat["chat_ref"],
             subscribers=1000,
@@ -466,7 +466,7 @@ async def test_overwrite_clears_all_results(
     )
 
     # Run OVERWRITE analysis with NEW data
-    async def mock_overwrite(chat, client, account_id, settings):
+    async def mock_overwrite(chat, client, account_id, settings, **kwargs):
         return _make_chat_result(
             chat["chat_ref"],
             subscribers=2000,  # NEW data
@@ -556,7 +556,7 @@ async def test_overwrite_resets_chat_statuses(
     )
 
     # Run OVERWRITE - should reset all to PENDING
-    async def mock_overwrite(chat, client, account_id, settings):
+    async def mock_overwrite(chat, client, account_id, settings, **kwargs):
         return _make_chat_result(chat["chat_ref"])
 
     with (
@@ -681,7 +681,7 @@ async def test_settings_change_plus_increment(
     )
 
     # Step 2: Complete initial analysis (only subscribers)
-    async def mock_initial(chat, client, account_id, settings):
+    async def mock_initial(chat, client, account_id, settings, **kwargs):
         return _make_chat_result(
             chat["chat_ref"],
             subscribers=3000,
@@ -723,7 +723,7 @@ async def test_settings_change_plus_increment(
     )
 
     # Step 4: Run incremental analysis
-    async def mock_increment(chat, client, account_id, settings):
+    async def mock_increment(chat, client, account_id, settings, **kwargs):
         # Add activity metric
         return _make_chat_result(
             chat["chat_ref"],

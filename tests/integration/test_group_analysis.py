@@ -194,7 +194,7 @@ class TestRetryMechanism:
         call_count = 0
 
         # Mock process_chat to always fail
-        async def mock_process_chat(chat_dict, client, account_id, settings):
+        async def mock_process_chat(chat_dict, client, account_id, settings, **kwargs):
             nonlocal call_count
             call_count += 1
             raise ConnectionError("Simulated connection error")
@@ -670,7 +670,7 @@ class TestAllChatsGetResultsGuarantee:
         # Mock process_chat to simulate mixed results:
         # - First 100 chats succeed
         # - Next 43 chats return dead results
-        async def mock_process_chat(chat_dict, client, account_id, settings):
+        async def mock_process_chat(chat_dict, client, account_id, settings, **kwargs):
             nonlocal call_count
             call_count += 1
             chat_index = int(chat_dict["chat_ref"].split("chat")[1])
@@ -818,7 +818,7 @@ class TestAllChatsGetResultsGuarantee:
         floodwait_hit = False
 
         # Mock process_chat to raise FloodWait on chat #50
-        async def mock_process_chat(chat_dict, client, account_id, settings):
+        async def mock_process_chat(chat_dict, client, account_id, settings, **kwargs):
             nonlocal call_count, floodwait_hit
             call_count += 1
             chat_index = int(chat_dict["chat_ref"].split("chat")[1])
@@ -944,7 +944,7 @@ class TestAllChatsGetResultsGuarantee:
         retry_count = 0
 
         # Mock process_chat to ALWAYS fail with network error
-        async def mock_process_chat(chat_dict, client, account_id, settings):
+        async def mock_process_chat(chat_dict, client, account_id, settings, **kwargs):
             nonlocal retry_count
             retry_count += 1
             raise ConnectionError("Network unreachable")
@@ -1051,7 +1051,7 @@ class TestAllChatsGetResultsGuarantee:
         retry_count = 0
 
         # Mock process_chat to fail on first 2 accounts, succeed on 3rd
-        async def mock_process_chat(chat_dict, client, account_id, settings):
+        async def mock_process_chat(chat_dict, client, account_id, settings, **kwargs):
             nonlocal retry_count
             retry_count += 1
             if retry_count < 3:
@@ -1178,7 +1178,7 @@ class TestAccountPreValidation:
         )
 
         # Mock process_chat to succeed
-        async def mock_process_chat(chat_dict, client, account_id, settings):
+        async def mock_process_chat(chat_dict, client, account_id, settings, **kwargs):
             return ChatResult(
                 chat_ref=chat_dict["chat_ref"],
                 chat_type="group",
@@ -1426,7 +1426,7 @@ class TestExceptionRecoveryPaths:
         # Mock process_chat to succeed for first 5, fail for last 3
         call_count = 0
 
-        async def mock_process_chat(chat_dict, client, account_id, settings):
+        async def mock_process_chat(chat_dict, client, account_id, settings, **kwargs):
             nonlocal call_count
             call_count += 1
             chat_index = int(chat_dict["chat_ref"].split("chat")[1])
