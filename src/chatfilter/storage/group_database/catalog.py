@@ -21,13 +21,14 @@ class CatalogMixin(DatabaseMixinBase):
             conn.execute(
                 """
                 INSERT INTO chat_catalog
-                (id, telegram_id, title, chat_type, subscribers, moderation,
+                (id, telegram_id, title, username, chat_type, subscribers, moderation,
                  messages_per_hour, unique_authors_per_hour, captcha, partial_data,
                  last_check, analysis_mode, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     telegram_id = excluded.telegram_id,
                     title = excluded.title,
+                    username = excluded.username,
                     chat_type = excluded.chat_type,
                     subscribers = excluded.subscribers,
                     moderation = excluded.moderation,
@@ -42,6 +43,7 @@ class CatalogMixin(DatabaseMixinBase):
                     chat.id,
                     chat.telegram_id,
                     chat.title,
+                    chat.username,
                     str(chat.chat_type),
                     chat.subscribers,
                     chat.moderation,
@@ -321,4 +323,5 @@ class CatalogMixin(DatabaseMixinBase):
             else AnalysisModeEnum.QUICK,
             created_at=self._str_to_datetime(row["created_at"]),
             has_subscriber=bool(row["has_subscriber"]) if "has_subscriber" in keys else True,
+            username=row["username"] if "username" in keys else None,
         )

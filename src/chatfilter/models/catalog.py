@@ -98,6 +98,7 @@ class CatalogChat(BaseModel):
     analysis_mode: AnalysisModeEnum = AnalysisModeEnum.QUICK
     created_at: datetime | None = None
     has_subscriber: bool = True
+    username: str | None = None
 
     def is_fresh(self, freshness_days: int) -> bool:
         """Check if the catalog data is still fresh.

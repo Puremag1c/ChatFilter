@@ -16,9 +16,10 @@
         {% for chat in chats %}
         <tr{% if not chat.has_subscriber %} class="row--frozen"{% endif %}>
             <td class="chat-ref-cell">
+                {% if chat.username %}
+                <a href="https://t.me/{{ chat.username }}" class="chat-title" target="_blank" rel="noopener noreferrer">{{ chat.title or chat.id }}</a>
+                {% else %}
                 <span class="chat-title">{{ chat.title or chat.id }}</span>
-                {% if chat.title and chat.id != chat.title %}
-                <small class="chat-ref muted">{{ chat.id }}</small>
                 {% endif %}
             </td>
             <td>
