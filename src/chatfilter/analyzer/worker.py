@@ -324,6 +324,7 @@ async def _resolve_by_invite(
                 subscribers=subscribers,
                 moderation=moderation,
                 numeric_id=numeric_id,
+                username=getattr(entity, "username", None),
             )
 
         elif isinstance(result, (ChatInvite, ChatInvitePeek)):
@@ -451,7 +452,7 @@ def _save_catalog_entry(
         id=resolved.chat_ref,
         telegram_id=resolved.numeric_id or 0,
         title=resolved.title or "",
-        username=resolved.username,
+        username=resolved.username or (resolved.chat_ref.lstrip("@") if resolved.chat_ref.startswith("@") else None),
         chat_type=ChatTypeEnum(resolved.chat_type),
         subscribers=resolved.subscribers or 0,
         moderation=resolved.moderation or False,
