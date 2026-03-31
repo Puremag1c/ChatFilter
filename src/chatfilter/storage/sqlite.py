@@ -140,12 +140,36 @@ class SQLiteDatabase(Database):
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
-        """Auto-migrate if the database has no tables."""
+        """Auto-migrate if the database has no tables or is behind head."""
         needs_migration = False
         with self._engine.connect() as conn:
+            from sqlalchemy import text
+
             insp = sa_inspect(conn)
             tables = insp.get_table_names()
-            needs_migration = not tables or "alembic_version" not in tables
+            if not tables or "alembic_version" not in tables:
+                needs_migration = True
+            else:
+                row = conn.execute(text("SELECT version_num FROM alembic_version")).fetchone()
+                current = row[0] if row else None
+                # Resolve head revision without running migrations
+                from alembic.config import Config
+                from alembic.script import ScriptDirectory
+                from pathlib import Path as _Path
+
+                ini_path = _Path(__file__).resolve().parent.parent.parent.parent / "alembic.ini"
+                if ini_path.exists():
+                    alembic_cfg = Config(str(ini_path))
+                else:
+                    alembic_cfg = Config()
+                    alembic_cfg.set_main_option(
+                        "script_location",
+                        str(_Path(__file__).resolve().parent / "migrations"),
+                    )
+                alembic_cfg.set_main_option("sqlalchemy.url", self._db_url)
+                script = ScriptDirectory.from_config(alembic_cfg)
+                head = script.get_current_head()
+                needs_migration = current != head
 
         if needs_migration:
             # Dispose engine to release all connections before Alembic runs
