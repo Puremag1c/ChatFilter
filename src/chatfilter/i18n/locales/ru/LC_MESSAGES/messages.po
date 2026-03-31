@@ -2881,9 +2881,17 @@ msgstr "Неверный логин или пароль"
 msgid "API credentials are configured globally via environment variables."
 msgstr "API учётные данные настраиваются глобально через переменные окружения."
 
+#: src/chatfilter/templates/catalog.html:3
+msgid "Catalog"
+msgstr "Каталог"
+
 #: src/chatfilter/templates/catalog.html:7
 msgid "Chat Catalog"
 msgstr "Каталог чатов"
+
+#: src/chatfilter/templates/catalog.html:10
+msgid "Filters"
+msgstr "Фильтры"
 
 #: src/chatfilter/templates/catalog.html:19
 msgid "Min subscribers"
