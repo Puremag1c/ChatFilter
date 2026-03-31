@@ -230,8 +230,19 @@ class SessionStore:
             for session_id in expired:
                 del self._sessions[session_id]
 
-            # Also clean up from DB (catches sessions not in memory cache)
             with self._engine.connect() as conn:
+                # Delete expired in-memory sessions by ID — handles direct
+                # last_accessed mutation that bypasses the save callback
+                if expired:
+                    placeholders = ",".join(f":id{i}" for i in range(len(expired)))
+                    params = {f"id{i}": sid for i, sid in enumerate(expired)}
+                    conn.execute(
+                        text(
+                            f"DELETE FROM sessions WHERE session_id IN ({placeholders})"
+                        ),
+                        params,
+                    )
+                # Also clean up by timestamp (catches sessions not in memory cache)
                 result = conn.execute(
                     text("DELETE FROM sessions WHERE last_accessed < :cutoff"),
                     {"cutoff": cutoff},
