@@ -349,7 +349,8 @@ async def update_group(
 
     try:
         service = _get_group_service()
-        updated_group = service.update_group_name(group_id, name)
+        user_id: str = web_session.get("user_id", "")
+        updated_group = service.update_group_name(group_id, name, user_id=user_id)
 
         if not updated_group:
             raise HTTPException(status_code=404, detail="Group not found")
@@ -362,6 +363,8 @@ async def update_group(
             context=get_template_context(request, group=updated_group, stats=stats),
         )
 
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail="Access denied") from e
     except HTTPException:
         raise
     except Exception as e:
@@ -445,7 +448,8 @@ async def update_group_settings(
 
         # Update via service
         service = _get_group_service()
-        service.update_settings(group_id, settings)
+        user_id: str = web_session.get("user_id", "")
+        service.update_settings(group_id, settings, user_id=user_id)
 
         # Get updated group for rendering
         group = service.get_group(group_id)
@@ -460,6 +464,8 @@ async def update_group_settings(
             context=get_template_context(request, group=group, stats=stats),
         )
 
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail="Access denied") from e
     except ValueError as e:
         # Validation error from GroupSettings or service
         return templates.TemplateResponse(

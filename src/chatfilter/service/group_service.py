@@ -228,18 +228,21 @@ class GroupService:
         self,
         group_id: str,
         settings: GroupSettings,
+        user_id: str | None = None,
     ) -> GroupSettings:
         """Update group settings.
 
         Args:
             group_id: Group identifier.
             settings: New group settings.
+            user_id: If provided, verifies ownership before updating.
 
         Returns:
             Updated GroupSettings instance.
 
         Raises:
             ValueError: If group not found.
+            PermissionError: If user_id is provided and does not match group owner.
 
         Example:
             >>> new_settings = GroupSettings(message_limit=500, leave_after_analysis=True)
@@ -248,6 +251,9 @@ class GroupService:
         group_data = self._db.load_group(group_id)
         if not group_data:
             raise ValueError(f"Group not found: {group_id}")
+
+        if user_id and group_data.get("user_id") != user_id:
+            raise PermissionError("Access denied")
 
         # Update group with new settings
         self._db.save_group(
@@ -302,15 +308,21 @@ class GroupService:
             status_pending=by_status.get(GroupChatStatus.PENDING.value, 0),
         )
 
-    def update_group_name(self, group_id: str, new_name: str) -> ChatGroup | None:
+    def update_group_name(
+        self, group_id: str, new_name: str, user_id: str | None = None
+    ) -> ChatGroup | None:
         """Update a chat group's name.
 
         Args:
             group_id: Group identifier.
             new_name: New group name.
+            user_id: If provided, verifies ownership before updating.
 
         Returns:
             Updated ChatGroup or None if group not found.
+
+        Raises:
+            PermissionError: If user_id is provided and does not match group owner.
 
         Example:
             >>> group = service.update_group_name("group-123", "New Name")
@@ -321,6 +333,9 @@ class GroupService:
         raw = self._db.load_group(group_id)
         if not raw:
             return None
+
+        if user_id and raw.get("user_id") != user_id:
+            raise PermissionError("Access denied")
 
         group = self.get_group(group_id)
         if not group:
