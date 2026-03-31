@@ -98,49 +98,57 @@ class CatalogMixin(DatabaseMixinBase):
         """
 
         filters = filters or {}
-        query = "SELECT * FROM chat_catalog WHERE 1=1"
+        query = (
+            "SELECT cc.*, "
+            "CASE WHEN COUNT(acs.id) > 0 THEN 1 ELSE 0 END AS has_subscriber "
+            "FROM chat_catalog cc "
+            "LEFT JOIN account_subscriptions acs ON acs.catalog_chat_id = cc.id "
+            "WHERE 1=1"
+        )
         params: list[Any] = []
 
         if "chat_type" in filters and filters["chat_type"] is not None:
-            query += " AND chat_type = ?"
+            query += " AND cc.chat_type = ?"
             params.append(filters["chat_type"])
 
         if "min_subscribers" in filters and filters["min_subscribers"] is not None:
-            query += " AND subscribers >= ?"
+            query += " AND cc.subscribers >= ?"
             params.append(filters["min_subscribers"])
 
         if "max_subscribers" in filters and filters["max_subscribers"] is not None:
-            query += " AND subscribers <= ?"
+            query += " AND cc.subscribers <= ?"
             params.append(filters["max_subscribers"])
 
         if "has_moderation" in filters and filters["has_moderation"] is not None:
-            query += " AND moderation = ?"
+            query += " AND cc.moderation = ?"
             params.append(1 if filters["has_moderation"] else 0)
 
         if "has_captcha" in filters and filters["has_captcha"] is not None:
-            query += " AND captcha = ?"
+            query += " AND cc.captcha = ?"
             params.append(1 if filters["has_captcha"] else 0)
 
         if "min_activity" in filters and filters["min_activity"] is not None:
-            query += " AND messages_per_hour >= ?"
+            query += " AND cc.messages_per_hour >= ?"
             params.append(filters["min_activity"])
 
         if "max_activity" in filters and filters["max_activity"] is not None:
-            query += " AND messages_per_hour <= ?"
+            query += " AND cc.messages_per_hour <= ?"
             params.append(filters["max_activity"])
 
         if "min_authors" in filters and filters["min_authors"] is not None:
-            query += " AND unique_authors_per_hour >= ?"
+            query += " AND cc.unique_authors_per_hour >= ?"
             params.append(filters["min_authors"])
 
         if "max_authors" in filters and filters["max_authors"] is not None:
-            query += " AND unique_authors_per_hour <= ?"
+            query += " AND cc.unique_authors_per_hour <= ?"
             params.append(filters["max_authors"])
 
         if "fresh_only" in filters and filters["fresh_only"] is not None:
             cutoff = datetime.now(UTC) - timedelta(days=int(filters["fresh_only"]))
-            query += " AND last_check >= ?"
+            query += " AND cc.last_check >= ?"
             params.append(cutoff.isoformat())
+
+        query += " GROUP BY cc.id"
 
         with self._connection() as conn:
             cursor = conn.execute(query, params)
@@ -294,6 +302,7 @@ class CatalogMixin(DatabaseMixinBase):
         from chatfilter.models.catalog import AnalysisModeEnum, CatalogChat
         from chatfilter.models.group import ChatTypeEnum
 
+        keys = row.keys() if hasattr(row, "keys") else []
         return CatalogChat(
             id=row["id"],
             telegram_id=row["telegram_id"] or 0,
@@ -310,4 +319,5 @@ class CatalogMixin(DatabaseMixinBase):
             if row["analysis_mode"]
             else AnalysisModeEnum.QUICK,
             created_at=self._str_to_datetime(row["created_at"]),
+            has_subscriber=bool(row["has_subscriber"]) if "has_subscriber" in keys else True,
         )

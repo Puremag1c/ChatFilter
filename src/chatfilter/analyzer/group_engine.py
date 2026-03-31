@@ -555,6 +555,36 @@ class GroupAnalysisEngine:
                     self._save_chat_error(chat["id"], f"Account error: {e}")
                     self._progress.publish_from_db(group_id, chat["chat_ref"], error=str(e))
 
+    def _try_catalog_cache(self, chat: dict[str, Any], account_id: str) -> bool:
+        """Check catalog for a fresh entry and apply cached data if found.
+
+        Returns True if cache hit (caller should skip Telegram analysis), False otherwise.
+        """
+        chat_ref = chat["chat_ref"]
+        freshness_days = self._db.get_analysis_freshness_days()
+        cached = self._db.get_fresh_chat(chat_ref, freshness_days)
+        if cached is None:
+            return False
+
+        last_check = cached.last_check
+        logger.info(f"Cache hit for {chat_ref}, last_check={last_check}")
+
+        # Build a ChatResult from cached catalog data
+        result = ChatResult(
+            chat_ref=chat_ref,
+            chat_type=str(cached.chat_type),
+            title=cached.title or None,
+            subscribers=cached.subscribers or None,
+            moderation=cached.moderation,
+            messages_per_hour=cached.messages_per_hour or None,
+            unique_authors_per_hour=cached.unique_authors_per_hour or None,
+            captcha=cached.captcha,
+            status="done",
+        )
+        self._save_chat_result(chat, result, account_id)
+        self._db.link_to_group(chat_ref, chat["id"])
+        return True
+
     async def _process_single_chat(
         self,
         group_id: str,
@@ -568,6 +598,16 @@ class GroupAnalysisEngine:
     ) -> None:
         """Process a single chat using worker + retry."""
         chat_ref = chat["chat_ref"]
+
+        # Cache-hit check: skip Telegram analysis if fresh data exists in catalog
+        if self._try_catalog_cache(chat, account_id):
+            health_tracker.record_success(account_id)
+            title = chat_ref
+            cached = self._db.get_catalog_chat(chat_ref)
+            if cached:
+                title = cached.title or chat_ref
+            self._progress.publish_from_db(group_id=group_id, chat_title=title)
+            return
 
         if mode == AnalysisMode.INCREMENT:
             metrics = self._db.get_chat_metrics(chat["id"])

@@ -3,6 +3,7 @@
 from chatfilter.storage.sqlite import SQLiteDatabase
 
 from .app_settings import AppSettingsMixin
+from .catalog import CatalogMixin
 from .chats import _UNSET, ChatsMixin
 from .groups import GroupsMixin
 from .metrics import MetricsMixin
@@ -18,6 +19,7 @@ class GroupDatabase(
     TasksMixin,
     MetricsMixin,
     StatsMixin,
+    CatalogMixin,
     AppSettingsMixin,
     SQLiteDatabase,
 ):
@@ -35,10 +37,11 @@ class GroupDatabase(
         - TasksMixin: Task management
         - MetricsMixin: Metrics CRUD operations
         - StatsMixin: Statistics and aggregations
+        - CatalogMixin: Chat catalog CRUD operations
         - AppSettingsMixin: App settings CRUD operations
     """
 
     pass
 
 
-__all__ = ["AppSettingsMixin", "GroupDatabase", "_UNSET"]
+__all__ = ["AppSettingsMixin", "CatalogMixin", "GroupDatabase", "_UNSET"]

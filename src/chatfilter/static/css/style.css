@@ -3850,4 +3850,40 @@ body:has(.update-notification.show) {
 .minimal-logo .logo:hover {
     color: var(--primary);
 }
+
+/* Catalog table */
+.catalog-table .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.catalog-table .badge--yes {
+    background: var(--success, #34c759);
+    color: #fff;
+}
+
+.catalog-table .badge--channel,
+.catalog-table .badge--group,
+.catalog-table .badge--supergroup {
+    background: var(--surface-secondary, #e5e5ea);
+    color: var(--text-primary);
+}
+
+.catalog-table .badge--frozen {
+    background: transparent;
+    border: 1px solid var(--text-muted);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.catalog-table tr.row--frozen td {
+    opacity: 0.55;
+}
 /* ========== End SSE Status Banner Styles ==========*/

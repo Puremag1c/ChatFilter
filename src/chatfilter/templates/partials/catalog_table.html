@@ -1,0 +1,78 @@
+{% if chats %}
+<table class="data-table catalog-table" aria-label="{{ _("Chat catalog") }}">
+    <thead>
+        <tr>
+            <th>{{ _("Chat") }}</th>
+            <th>{{ _("Type") }}</th>
+            <th>{{ _("Subscribers") }}</th>
+            <th>{{ _("Msg/h") }}</th>
+            <th>{{ _("Authors/h") }}</th>
+            <th>{{ _("Moderation") }}</th>
+            <th>{{ _("Captcha") }}</th>
+            <th>{{ _("Last check") }}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for chat in chats %}
+        <tr{% if not chat.has_subscriber %} class="row--frozen"{% endif %}>
+            <td class="chat-ref-cell">
+                <span class="chat-title">{{ chat.title or chat.id }}</span>
+                {% if chat.title and chat.id != chat.title %}
+                <small class="chat-ref muted">{{ chat.id }}</small>
+                {% endif %}
+            </td>
+            <td>
+                <span class="badge badge--{{ chat.chat_type }}">{{ chat.chat_type }}</span>
+            </td>
+            <td class="num">{{ chat.subscribers }}</td>
+            <td class="num">
+                {% if chat.messages_per_hour %}
+                    {{ "%.1f"|format(chat.messages_per_hour) }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td class="num">
+                {% if chat.unique_authors_per_hour %}
+                    {{ "%.1f"|format(chat.unique_authors_per_hour) }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td class="bool-cell">
+                {% if chat.moderation %}
+                    <span class="badge badge--yes" title="{{ _("Moderation enabled") }}">✓</span>
+                {% else %}
+                    <span class="muted">—</span>
+                {% endif %}
+            </td>
+            <td class="bool-cell">
+                {% if chat.captcha %}
+                    <span class="badge badge--yes" title="{{ _("Captcha enabled") }}">✓</span>
+                {% else %}
+                    <span class="muted">—</span>
+                {% endif %}
+            </td>
+            <td class="date-cell">
+                {% if chat.last_check %}
+                    <time datetime="{{ chat.last_check.isoformat() }}"
+                          title="{{ chat.last_check.strftime('%Y-%m-%d %H:%M UTC') }}">
+                        {{ chat.last_check.strftime('%Y-%m-%d') }}
+                    </time>
+                {% else %}
+                    <span class="muted">—</span>
+                {% endif %}
+                {% if not chat.has_subscriber %}
+                    <span class="badge badge--frozen" title="{{ _("No active subscriber — data is frozen") }}">{{ _("No subscriber") }}</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<p class="result-count muted">{{ _("{n} chats").format(n=chats|length) }}</p>
+{% else %}
+<div class="empty-state">
+    <p>{{ _("No chats found matching the selected filters.") }}</p>
+</div>
+{% endif %}

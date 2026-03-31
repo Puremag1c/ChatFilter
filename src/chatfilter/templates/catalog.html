@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}{{ _("Catalog") }} — ChatFilter{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ _("Chat Catalog") }}</h1>
+</div>
+
+<section class="filter-panel" aria-label="{{ _("Filters") }}">
+    <form id="catalog-filters"
+          hx-get="/api/catalog"
+          hx-target="#catalog-table-container"
+          hx-trigger="change, input delay:400ms from:[name=search]"
+          hx-include="[name]">
+
+        <div class="filter-row">
+            <div class="filter-group">
+                <label for="filter-chat-type">{{ _("Type") }}</label>
+                <select name="chat_type" id="filter-chat-type">
+                    <option value="">{{ _("All") }}</option>
+                    <option value="channel">{{ _("Channel") }}</option>
+                    <option value="group">{{ _("Group") }}</option>
+                    <option value="supergroup">{{ _("Supergroup") }}</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-min-subs">{{ _("Min subscribers") }}</label>
+                <input type="number" name="min_subscribers" id="filter-min-subs"
+                       min="0" placeholder="0">
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-max-subs">{{ _("Max subscribers") }}</label>
+                <input type="number" name="max_subscribers" id="filter-max-subs"
+                       min="0" placeholder="—">
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-moderation">{{ _("Moderation") }}</label>
+                <select name="has_moderation" id="filter-moderation">
+                    <option value="">{{ _("Any") }}</option>
+                    <option value="true">{{ _("Yes") }}</option>
+                    <option value="false">{{ _("No") }}</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-captcha">{{ _("Captcha") }}</label>
+                <select name="has_captcha" id="filter-captcha">
+                    <option value="">{{ _("Any") }}</option>
+                    <option value="true">{{ _("Yes") }}</option>
+                    <option value="false">{{ _("No") }}</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-min-activity">{{ _("Min msg/h") }}</label>
+                <input type="number" name="min_activity" id="filter-min-activity"
+                       min="0" step="0.1" placeholder="0">
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-max-activity">{{ _("Max msg/h") }}</label>
+                <input type="number" name="max_activity" id="filter-max-activity"
+                       min="0" step="0.1" placeholder="—">
+            </div>
+
+            <div class="filter-group">
+                <label for="filter-fresh">{{ _("Fresh (days)") }}</label>
+                <input type="number" name="fresh_only" id="filter-fresh"
+                       min="1" placeholder="—">
+            </div>
+
+            <div class="filter-group filter-group--search">
+                <label for="filter-search">{{ _("Search") }}</label>
+                <input type="text" name="search" id="filter-search"
+                       placeholder="{{ _("Title or @username") }}">
+            </div>
+        </div>
+
+        <div class="filter-row filter-row--sort">
+            <div class="filter-group">
+                <label for="filter-sort-by">{{ _("Sort by") }}</label>
+                <select name="sort_by" id="filter-sort-by">
+                    <option value="">{{ _("Default") }}</option>
+                    <option value="title">{{ _("Title") }}</option>
+                    <option value="subscribers">{{ _("Subscribers") }}</option>
+                    <option value="activity">{{ _("Activity") }}</option>
+                    <option value="authors">{{ _("Authors") }}</option>
+                    <option value="last_check">{{ _("Last check") }}</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-sort-dir">{{ _("Direction") }}</label>
+                <select name="sort_dir" id="filter-sort-dir">
+                    <option value="asc">{{ _("Ascending") }}</option>
+                    <option value="desc">{{ _("Descending") }}</option>
+                </select>
+            </div>
+        </div>
+    </form>
+</section>
+
+<div id="catalog-table-container"
+     hx-get="/api/catalog"
+     hx-trigger="load"
+     hx-indicator="#catalog-loading">
+    <div id="catalog-loading" class="htmx-indicator">{{ _("Loading…") }}</div>
+</div>
+{% endblock %}
