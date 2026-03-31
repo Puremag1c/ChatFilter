@@ -12,7 +12,7 @@ from pydantic import BeforeValidator
 from chatfilter.web.session import get_session
 
 if TYPE_CHECKING:
-    from chatfilter.db.group_database import GroupDatabase
+    from chatfilter.storage.group_database import GroupDatabase
 
 
 def _empty_str_to_none(v: object) -> object:
