@@ -210,9 +210,10 @@ class TestSchedulerResilience:
                 raise RuntimeError("Simulated error")
             # Second call succeeds
 
-        with patch.object(
-            updater, "_run_update_cycle", side_effect=failing_cycle
-        ), patch("chatfilter.scheduler.updater.UPDATE_INTERVAL_SECONDS", 0.01):
+        with (
+            patch.object(updater, "_run_update_cycle", side_effect=failing_cycle),
+            patch("chatfilter.scheduler.updater.UPDATE_INTERVAL_SECONDS", 0.01),
+        ):
             # Start the loop
             updater._task = asyncio.create_task(updater._scheduler_loop())
 
@@ -225,9 +226,7 @@ class TestSchedulerResilience:
             await asyncio.sleep(0.01)
 
     @pytest.mark.asyncio
-    async def test_scheduler_stops_on_stop_event(
-        self, updater: ChatMetricsUpdater
-    ) -> None:
+    async def test_scheduler_stops_on_stop_event(self, updater: ChatMetricsUpdater) -> None:
         """Test that scheduler loop stops when stop_event is set."""
         cycle_count = 0
 
@@ -248,9 +247,7 @@ class TestSchedulerResilience:
             assert cycle_count >= 1
 
     @pytest.mark.asyncio
-    async def test_scheduler_cancelled_error_propagates(
-        self, updater: ChatMetricsUpdater
-    ) -> None:
+    async def test_scheduler_cancelled_error_propagates(self, updater: ChatMetricsUpdater) -> None:
         """Test that CancelledError is properly propagated in the loop."""
 
         async def raising_cycle() -> None:
@@ -297,9 +294,7 @@ class TestSchedulerShutdown:
         assert updater._task is None
 
     @pytest.mark.asyncio
-    async def test_stop_waits_for_task_completion(
-        self, updater: ChatMetricsUpdater
-    ) -> None:
+    async def test_stop_waits_for_task_completion(self, updater: ChatMetricsUpdater) -> None:
         """Test that stop() waits for the task to complete."""
         cycle_count = 0
 
@@ -359,9 +354,10 @@ class TestSchedulerIntegration:
 
         mock_db.get_subscribed_chats.return_value = []
 
-        with patch.object(
-            updater, "_run_update_cycle", side_effect=cycle_with_occasional_error
-        ), patch("chatfilter.scheduler.updater.UPDATE_INTERVAL_SECONDS", 0.01):
+        with (
+            patch.object(updater, "_run_update_cycle", side_effect=cycle_with_occasional_error),
+            patch("chatfilter.scheduler.updater.UPDATE_INTERVAL_SECONDS", 0.01),
+        ):
             updater.start()
             await asyncio.sleep(0.1)
 
