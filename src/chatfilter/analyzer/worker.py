@@ -167,6 +167,7 @@ class _ResolvedChat:
     moderation: bool | None
     numeric_id: int | None
     linked_chat_id: int | None = None
+    username: str | None = None
     status: str = "done"
     error: str | None = None
 
@@ -260,6 +261,7 @@ async def _resolve_by_username(
             moderation=moderation,
             numeric_id=numeric_id,
             linked_chat_id=linked_chat_id,
+            username=username,
         )
 
     except errors.FloodWaitError:
@@ -449,6 +451,7 @@ def _save_catalog_entry(
         id=resolved.chat_ref,
         telegram_id=resolved.numeric_id or 0,
         title=resolved.title or "",
+        username=resolved.username,
         chat_type=ChatTypeEnum(resolved.chat_type),
         subscribers=resolved.subscribers or 0,
         moderation=resolved.moderation or False,
