@@ -237,9 +237,7 @@ class SessionStore:
                     placeholders = ",".join(f":id{i}" for i in range(len(expired)))
                     params = {f"id{i}": sid for i, sid in enumerate(expired)}
                     conn.execute(
-                        text(
-                            f"DELETE FROM sessions WHERE session_id IN ({placeholders})"
-                        ),
+                        text(f"DELETE FROM sessions WHERE session_id IN ({placeholders})"),
                         params,
                     )
                 # Also clean up by timestamp (catches sessions not in memory cache)
