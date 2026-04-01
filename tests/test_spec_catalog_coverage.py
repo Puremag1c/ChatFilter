@@ -629,10 +629,6 @@ class TestCatalogEndpoints:
         app = create_app()
         return TestClient(app)
 
-    @pytest.mark.xfail(
-        reason="SPEC req: catalog requires login, but auth enforcement is missing. "
-        "See bug: SMOKE: [Backend] /catalog accessible without authentication"
-    )
     def test_catalog_page_redirects_unauthenticated(self, client) -> None:
         """Unauthenticated GET /catalog should redirect to login (302) or return 401."""
         response = client.get("/catalog", follow_redirects=False)
@@ -640,10 +636,6 @@ class TestCatalogEndpoints:
             f"Expected redirect/auth error for unauthenticated /catalog, got {response.status_code}"
         )
 
-    @pytest.mark.xfail(
-        reason="SPEC req: catalog requires login, but auth enforcement is missing. "
-        "See bug: SMOKE: [Backend] /catalog accessible without authentication"
-    )
     def test_api_catalog_redirects_unauthenticated(self, client) -> None:
         """Unauthenticated GET /api/catalog should redirect to login or return 401."""
         response = client.get("/api/catalog", follow_redirects=False)
