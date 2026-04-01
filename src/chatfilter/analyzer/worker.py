@@ -7,7 +7,6 @@ returns all metrics in a single dict. Used by GroupAnalysisEngine.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -414,12 +413,14 @@ async def _analyze_chat_activity(
 
         # Success: account stays in chat — track subscription and evict if over limit
         if db is not None and numeric_id is not None:
-            with contextlib.suppress(Exception):
+            try:
                 db.add_subscription(account_id, chat_ref, numeric_id)
                 count = db.count_subscriptions(account_id)
                 max_chats = db.get_max_chats_per_account()
                 if count > max_chats:
                     await _evict_oldest_subscription(client, db, account_id)
+            except Exception as e:
+                logger.warning(f"Failed to add subscription for account {account_id}: {e}")
 
         return {
             "messages_per_hour": messages_per_hour,
@@ -431,8 +432,10 @@ async def _analyze_chat_activity(
     except Exception:
         # Analysis failed — leave the chat (no point staying)
         if numeric_id is not None:
-            with contextlib.suppress(Exception):
+            try:
                 await leave_chat(client, numeric_id)
+            except Exception as e:
+                logger.warning(f"Failed to leave chat {numeric_id} during error handling: {e}")
         raise
 
 
@@ -463,12 +466,16 @@ def _save_catalog_entry(
         analysis_mode=mode,
         created_at=now,
     )
-    with contextlib.suppress(Exception):
+    try:
         db.save_catalog_chat(catalog_chat)
+    except Exception as e:
+        logger.warning(f"Failed to save catalog chat {resolved.chat_ref}: {e}")
     group_chat_id = chat.get("id")
     if group_chat_id is not None:
-        with contextlib.suppress(Exception):
+        try:
             db.link_to_group(resolved.chat_ref, int(group_chat_id))
+        except Exception as e:
+            logger.warning(f"Failed to link chat {resolved.chat_ref} to group {group_chat_id}: {e}")
 
 
 async def _evict_oldest_subscription(
@@ -480,10 +487,16 @@ async def _evict_oldest_subscription(
     oldest = db.get_oldest_subscription(account_id)
     if oldest is None:
         return
-    with contextlib.suppress(Exception):
+    try:
         await leave_chat(client, oldest.telegram_chat_id)
-    with contextlib.suppress(Exception):
+    except Exception as e:
+        logger.warning(f"Failed to leave chat {oldest.telegram_chat_id} during eviction: {e}")
+    try:
         db.remove_subscription(account_id, oldest.catalog_chat_id)
+    except Exception as e:
+        logger.warning(
+            f"Failed to remove subscription {oldest.catalog_chat_id} for account {account_id}: {e}"
+        )
     logger.info(f"Account '{account_id}': evicted oldest subscription '{oldest.catalog_chat_id}'")
 
 
