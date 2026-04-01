@@ -57,6 +57,9 @@ async def catalog_page(request: Request) -> Response:
     )
 
 
+_DEFAULT_PAGE_SIZE = 100
+
+
 @router.get("/api/catalog", response_class=HTMLResponse)
 async def catalog_table(
     request: Request,
@@ -71,8 +74,9 @@ async def catalog_table(
     search: str | None = None,
     sort_by: str | None = None,
     sort_dir: str | None = None,
+    page: OptionalInt = None,
 ) -> Response:
-    """HTMX partial: filtered/sorted catalog table."""
+    """HTMX partial: filtered/sorted/paginated catalog table."""
     from chatfilter.web.app import get_templates
     from chatfilter.web.template_helpers import get_template_context
 
@@ -106,15 +110,30 @@ async def catalog_table(
     if sort_dir:
         filters["sort_dir"] = sort_dir
 
+    current_page = max(1, page or 1)
+
     try:
         db = _get_catalog_db()
-        chats = db.list_catalog_chats(filters)
+        page_size_str = db.get_setting("catalog_page_size")
+        page_size = int(page_size_str) if page_size_str else _DEFAULT_PAGE_SIZE
+        chats, total_count = db.list_catalog_chats(filters, page=current_page, page_size=page_size)
     except Exception:
         logger.exception("Failed to fetch catalog chats")
         chats = []
+        total_count = 0
+        page_size = _DEFAULT_PAGE_SIZE
+
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
 
     return templates.TemplateResponse(
         request=request,
         name="partials/catalog_table.html",
-        context=get_template_context(request, chats=chats),
+        context=get_template_context(
+            request,
+            chats=chats,
+            total_count=total_count,
+            page=current_page,
+            page_size=page_size,
+            total_pages=total_pages,
+        ),
     )

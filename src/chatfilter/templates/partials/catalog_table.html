@@ -85,7 +85,35 @@
         {% endfor %}
     </tbody>
 </table>
-<p class="result-count muted">{{ _("{n} chats").format(n=chats|length) }}</p>
+<p class="result-count muted">{{ _("{n} chats").format(n=total_count) }}</p>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="{{ _('Page navigation') }}">
+    {% if page > 1 %}
+    <a class="pagination__btn"
+       hx-get="/api/catalog"
+       hx-target="#catalog-table-container"
+       hx-include="#catalog-filters"
+       hx-vals='{"page": "{{ page - 1 }}"}'
+       hx-indicator="#catalog-loading">&#8592; {{ _("Prev") }}</a>
+    {% else %}
+    <span class="pagination__btn pagination__btn--disabled">&#8592; {{ _("Prev") }}</span>
+    {% endif %}
+
+    <span class="pagination__info">{{ page }} / {{ total_pages }}</span>
+
+    {% if page < total_pages %}
+    <a class="pagination__btn"
+       hx-get="/api/catalog"
+       hx-target="#catalog-table-container"
+       hx-include="#catalog-filters"
+       hx-vals='{"page": "{{ page + 1 }}"}'
+       hx-indicator="#catalog-loading">{{ _("Next") }} &#8594;</a>
+    {% else %}
+    <span class="pagination__btn pagination__btn--disabled">{{ _("Next") }} &#8594;</span>
+    {% endif %}
+</nav>
+{% endif %}
 {% else %}
 <div class="empty-state no-results">
     <div class="empty-state-icon">🔍</div>

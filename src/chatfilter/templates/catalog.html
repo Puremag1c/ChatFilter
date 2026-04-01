@@ -105,8 +105,25 @@
                 </select>
             </div>
         </div>
+
+        <input type="hidden" name="page" id="catalog-page" value="1">
     </form>
 </section>
+<script>
+(function() {
+    var form = document.getElementById('catalog-filters');
+    if (form) {
+        form.addEventListener('change', function() {
+            document.getElementById('catalog-page').value = '1';
+        });
+        form.addEventListener('input', function(e) {
+            if (e.target.name === 'search') {
+                document.getElementById('catalog-page').value = '1';
+            }
+        });
+    }
+})();
+</script>
 
 <div id="catalog-loading" class="htmx-indicator">{{ _("Loading…") }}</div>
 <div id="catalog-table-container"

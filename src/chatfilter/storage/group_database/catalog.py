@@ -82,8 +82,13 @@ class CatalogMixin(DatabaseMixinBase):
 
         return self._row_to_catalog_chat(row)
 
-    def list_catalog_chats(self, filters: dict[str, Any] | None = None) -> list[Any]:
-        """List catalog chats with optional filters.
+    def list_catalog_chats(
+        self,
+        filters: dict[str, Any] | None = None,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> tuple[list[Any], int]:
+        """List catalog chats with optional filters and pagination.
 
         Args:
             filters: Optional dict with keys:
@@ -100,15 +105,15 @@ class CatalogMixin(DatabaseMixinBase):
                 - search: str (title or id LIKE search)
                 - sort_by: str (title|subscribers|activity|authors|last_check)
                 - sort_dir: str (asc|desc)
+            page: 1-based page number
+            page_size: number of rows per page
 
         Returns:
-            List of CatalogChat instances
+            Tuple of (list of CatalogChat instances, total_count)
         """
 
         filters = filters or {}
-        query = (
-            "SELECT cc.*, "
-            "CASE WHEN COUNT(acs.id) > 0 THEN 1 ELSE 0 END AS has_subscriber "
+        base_join = (
             "FROM chat_catalog cc "
             "LEFT JOIN account_subscriptions acs ON acs.catalog_chat_id = cc.id "
             "WHERE 1=1"
@@ -116,54 +121,61 @@ class CatalogMixin(DatabaseMixinBase):
         params: list[Any] = []
 
         if "chat_type" in filters and filters["chat_type"] is not None:
-            query += " AND cc.chat_type = ?"
+            base_join += " AND cc.chat_type = ?"
             params.append(filters["chat_type"])
 
         if "min_subscribers" in filters and filters["min_subscribers"] is not None:
-            query += " AND cc.subscribers >= ?"
+            base_join += " AND cc.subscribers >= ?"
             params.append(filters["min_subscribers"])
 
         if "max_subscribers" in filters and filters["max_subscribers"] is not None:
-            query += " AND cc.subscribers <= ?"
+            base_join += " AND cc.subscribers <= ?"
             params.append(filters["max_subscribers"])
 
         if "has_moderation" in filters and filters["has_moderation"] is not None:
-            query += " AND cc.moderation = ?"
+            base_join += " AND cc.moderation = ?"
             params.append(1 if filters["has_moderation"] else 0)
 
         if "has_captcha" in filters and filters["has_captcha"] is not None:
             if filters["has_captcha"]:
-                query += " AND cc.captcha = 1"
+                base_join += " AND cc.captcha = 1"
             else:
-                query += " AND (cc.captcha = 0 OR cc.captcha IS NULL)"
+                base_join += " AND (cc.captcha = 0 OR cc.captcha IS NULL)"
 
         if "min_activity" in filters and filters["min_activity"] is not None:
-            query += " AND cc.messages_per_hour >= ?"
+            base_join += " AND cc.messages_per_hour >= ?"
             params.append(filters["min_activity"])
 
         if "max_activity" in filters and filters["max_activity"] is not None:
-            query += " AND cc.messages_per_hour <= ?"
+            base_join += " AND cc.messages_per_hour <= ?"
             params.append(filters["max_activity"])
 
         if "min_authors" in filters and filters["min_authors"] is not None:
-            query += " AND cc.unique_authors_per_hour >= ?"
+            base_join += " AND cc.unique_authors_per_hour >= ?"
             params.append(filters["min_authors"])
 
         if "max_authors" in filters and filters["max_authors"] is not None:
-            query += " AND cc.unique_authors_per_hour <= ?"
+            base_join += " AND cc.unique_authors_per_hour <= ?"
             params.append(filters["max_authors"])
 
         if "fresh_only" in filters and filters["fresh_only"] is not None:
             cutoff = datetime.now(UTC) - timedelta(days=int(filters["fresh_only"]))
-            query += " AND cc.last_check >= ?"
+            base_join += " AND cc.last_check >= ?"
             params.append(cutoff.isoformat())
 
         if "search" in filters and filters["search"] is not None:
             pattern = f"%{filters['search']}%"
-            query += " AND (cc.title LIKE ? OR cc.id LIKE ?)"
+            base_join += " AND (cc.title LIKE ? OR cc.id LIKE ?)"
             params.extend([pattern, pattern])
 
-        query += " GROUP BY cc.id"
+        count_query = f"SELECT COUNT(*) FROM (SELECT cc.id {base_join} GROUP BY cc.id)"
+
+        data_query = (
+            "SELECT cc.*, "
+            "CASE WHEN COUNT(acs.id) > 0 THEN 1 ELSE 0 END AS has_subscriber "
+            + base_join
+            + " GROUP BY cc.id"
+        )
 
         _sort_field_map = {
             "title": "cc.title",
@@ -177,13 +189,16 @@ class CatalogMixin(DatabaseMixinBase):
         if sort_by and sort_by in _sort_field_map:
             direction = "DESC" if sort_dir == "desc" else "ASC"
             col = _sort_field_map[sort_by]
-            query += f" ORDER BY {col} {direction} NULLS LAST"
+            data_query += f" ORDER BY {col} {direction} NULLS LAST"
+
+        offset = (max(1, page) - 1) * page_size
+        data_query += " LIMIT ? OFFSET ?"
 
         with self._connection() as conn:
-            cursor = conn.execute(query, params)
-            rows = cursor.fetchall()
+            total_count = conn.execute(count_query, params).fetchone()[0]
+            rows = conn.execute(data_query, [*params, page_size, offset]).fetchall()
 
-        return [self._row_to_catalog_chat(row) for row in rows]
+        return [self._row_to_catalog_chat(row) for row in rows], total_count
 
     def link_to_group(self, catalog_chat_id: str, group_chat_id: int) -> None:
         """Link a catalog chat to a group_chat via catalog_group_chats.
