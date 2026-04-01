@@ -20,9 +20,12 @@
                 <label for="filter-chat-type">{{ _("Type") }}</label>
                 <select name="chat_type" id="filter-chat-type">
                     <option value="">{{ _("All") }}</option>
-                    <option value="channel">{{ _("Channel") }}</option>
                     <option value="group">{{ _("Group") }}</option>
-                    <option value="supergroup">{{ _("Supergroup") }}</option>
+                    <option value="forum">{{ _("Forum") }}</option>
+                    <option value="channel_comments">{{ _("Channel (with comments)") }}</option>
+                    <option value="channel_no_comments">{{ _("Channel (no comments)") }}</option>
+                    <option value="pending">{{ _("Pending") }}</option>
+                    <option value="dead">{{ _("Dead") }}</option>
                 </select>
             </div>
 
