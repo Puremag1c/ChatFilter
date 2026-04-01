@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-04-01
+
+### Added
+- Каталог: серверная пагинация (LIMIT/OFFSET + UI навигация по страницам через HTMX)
+- Каталог: серверная сортировка (ORDER BY в SQL вместо Python sorted())
+- Каталог: серверный поиск (LIKE в SQL вместо Python-фильтрации)
+- Каталог: публичный accessor для GroupDatabase (замена engine._db)
+- Каталог: пустое состояние при отсутствии результатов
+- Каталог: HTMX loading indicator при загрузке таблицы
+- Регрессионные тесты: NULL captcha filter + ChatTypeEnum type filter
+
+### Fixed
+- Каталог: фильтр типов чатов приведён в соответствие с ChatTypeEnum (group/forum/channel/channel+)
+- Каталог: фильтр "без капчи" теперь включает чаты с captcha=NULL
+- Каталог: гиперссылки для всех чатов (t.me/c/{telegram_id} для чатов без username)
+- Каталог: двойной URL / title в href ссылок
+- Каталог: активность 0.0 больше не сохраняется как NULL
+- Worker: contextlib.suppress заменён на try/except с логированием
+- CI: pipeline исправлен на main
+
+### Security
+- SQL injection protection: allowlist ORDER BY column перед интерполяцией
+- Валидация chat_type в _row_to_catalog_chat
+
 ## [0.29.1] - 2026-03-31
 
 ### Added
