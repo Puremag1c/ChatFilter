@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Request
@@ -102,6 +101,10 @@ async def catalog_table(
         filters["fresh_only"] = fresh_only
     if search:
         filters["search"] = search
+    if sort_by:
+        filters["sort_by"] = sort_by
+    if sort_dir:
+        filters["sort_dir"] = sort_dir
 
     try:
         db = _get_catalog_db()
@@ -109,18 +112,6 @@ async def catalog_table(
     except Exception:
         logger.exception("Failed to fetch catalog chats")
         chats = []
-
-    # Sorting
-    valid_sort_fields = {
-        "title": lambda c: (c.title or "").lower(),
-        "subscribers": lambda c: c.subscribers or 0,
-        "activity": lambda c: c.messages_per_hour or 0,
-        "authors": lambda c: c.unique_authors_per_hour or 0,
-        "last_check": lambda c: c.last_check or datetime.min,
-    }
-    if sort_by and sort_by in valid_sort_fields:
-        reverse = sort_dir == "desc"
-        chats = sorted(chats, key=valid_sort_fields[sort_by], reverse=reverse)
 
     return templates.TemplateResponse(
         request=request,

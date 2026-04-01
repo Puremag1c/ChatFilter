@@ -97,6 +97,9 @@ class CatalogMixin(DatabaseMixinBase):
                 - min_authors: float (unique_authors_per_hour)
                 - max_authors: float
                 - fresh_only: int (last_check within N days)
+                - search: str (title or id LIKE search)
+                - sort_by: str (title|subscribers|activity|authors|last_check)
+                - sort_dir: str (asc|desc)
 
         Returns:
             List of CatalogChat instances
@@ -161,6 +164,20 @@ class CatalogMixin(DatabaseMixinBase):
             params.extend([pattern, pattern])
 
         query += " GROUP BY cc.id"
+
+        _sort_field_map = {
+            "title": "cc.title",
+            "subscribers": "cc.subscribers",
+            "activity": "cc.messages_per_hour",
+            "authors": "cc.unique_authors_per_hour",
+            "last_check": "cc.last_check",
+        }
+        sort_by = filters.get("sort_by")
+        sort_dir = filters.get("sort_dir")
+        if sort_by and sort_by in _sort_field_map:
+            direction = "DESC" if sort_dir == "desc" else "ASC"
+            col = _sort_field_map[sort_by]
+            query += f" ORDER BY {col} {direction} NULLS LAST"
 
         with self._connection() as conn:
             cursor = conn.execute(query, params)
