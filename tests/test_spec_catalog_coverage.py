@@ -239,7 +239,7 @@ class TestListCatalogChatsFilters:
         """Empty filters return all catalog chats."""
         self._make_chat(temp_db, chat_id="@a", telegram_id=1)
         self._make_chat(temp_db, chat_id="@b", telegram_id=2)
-        results , _ = temp_db.list_catalog_chats()
+        results, _ = temp_db.list_catalog_chats()
         assert len(results) == 2
 
     def test_filter_by_chat_type(self, temp_db) -> None:
@@ -254,7 +254,7 @@ class TestListCatalogChatsFilters:
             chat_type=ChatTypeEnum.CHANNEL_NO_COMMENTS,
         )
 
-        groups , _ = temp_db.list_catalog_chats({"chat_type": "group"})
+        groups, _ = temp_db.list_catalog_chats({"chat_type": "group"})
         assert len(groups) == 1
         assert groups[0].id == "@group"
 
@@ -263,7 +263,7 @@ class TestListCatalogChatsFilters:
         self._make_chat(temp_db, chat_id="@small", telegram_id=1, subscribers=100)
         self._make_chat(temp_db, chat_id="@large", telegram_id=2, subscribers=1000)
 
-        results , _ = temp_db.list_catalog_chats({"min_subscribers": 500})
+        results, _ = temp_db.list_catalog_chats({"min_subscribers": 500})
         assert len(results) == 1
         assert results[0].id == "@large"
 
@@ -272,7 +272,7 @@ class TestListCatalogChatsFilters:
         self._make_chat(temp_db, chat_id="@small", telegram_id=1, subscribers=100)
         self._make_chat(temp_db, chat_id="@large", telegram_id=2, subscribers=1000)
 
-        results , _ = temp_db.list_catalog_chats({"max_subscribers": 500})
+        results, _ = temp_db.list_catalog_chats({"max_subscribers": 500})
         assert len(results) == 1
         assert results[0].id == "@small"
 
@@ -281,7 +281,7 @@ class TestListCatalogChatsFilters:
         self._make_chat(temp_db, chat_id="@mod", telegram_id=1, moderation=True)
         self._make_chat(temp_db, chat_id="@nomod", telegram_id=2, moderation=False)
 
-        results , _ = temp_db.list_catalog_chats({"has_moderation": True})
+        results, _ = temp_db.list_catalog_chats({"has_moderation": True})
         assert len(results) == 1
         assert results[0].id == "@mod"
 
@@ -290,7 +290,7 @@ class TestListCatalogChatsFilters:
         self._make_chat(temp_db, chat_id="@captcha", telegram_id=1, captcha=True)
         self._make_chat(temp_db, chat_id="@nocaptcha", telegram_id=2, captcha=False)
 
-        results , _ = temp_db.list_catalog_chats({"has_captcha": True})
+        results, _ = temp_db.list_catalog_chats({"has_captcha": True})
         assert len(results) == 1
         assert results[0].id == "@captcha"
 
@@ -299,7 +299,7 @@ class TestListCatalogChatsFilters:
         self._make_chat(temp_db, chat_id="@active", telegram_id=1, messages_per_hour=50.0)
         self._make_chat(temp_db, chat_id="@quiet", telegram_id=2, messages_per_hour=1.0)
 
-        results , _ = temp_db.list_catalog_chats({"min_activity": 10.0})
+        results, _ = temp_db.list_catalog_chats({"min_activity": 10.0})
         assert len(results) == 1
         assert results[0].id == "@active"
 
@@ -318,7 +318,7 @@ class TestListCatalogChatsFilters:
             last_check=datetime.now(UTC) - timedelta(days=10),
         )
 
-        results , _ = temp_db.list_catalog_chats({"fresh_only": 7})
+        results, _ = temp_db.list_catalog_chats({"fresh_only": 7})
         assert len(results) == 1
         assert results[0].id == "@fresh"
 
@@ -351,12 +351,11 @@ class TestListCatalogChatsFilters:
             moderation=True,
         )
 
-        results , _ = temp_db.list_catalog_chats(
+        results, _ = temp_db.list_catalog_chats(
             {"chat_type": "group", "min_subscribers": 200, "has_moderation": True}
         )
         assert len(results) == 1
         assert results[0].id == "@match"
-
 
     def test_filter_no_captcha_includes_null(self, temp_db) -> None:
         """Regression test: has_captcha=False must include both NULL and 0 values.
@@ -408,7 +407,7 @@ class TestListCatalogChatsFilters:
             conn.execute("UPDATE chat_catalog SET captcha = NULL WHERE id = ?", ("@null_captcha",))
 
         # Filter: has_captcha=False should return BOTH NULL and False chats
-        results , _ = temp_db.list_catalog_chats({"has_captcha": False})
+        results, _ = temp_db.list_catalog_chats({"has_captcha": False})
 
         result_ids = {r.id for r in results}
         assert "@null_captcha" in result_ids, "NULL captcha chat should be included"
@@ -423,8 +422,12 @@ class TestListCatalogChatsFilters:
         from chatfilter.models.group import ChatTypeEnum
 
         # Insert chats with different types
-        self._make_chat(temp_db, chat_id="@test_group", telegram_id=2001, chat_type=ChatTypeEnum.GROUP)
-        self._make_chat(temp_db, chat_id="@test_forum", telegram_id=2002, chat_type=ChatTypeEnum.FORUM)
+        self._make_chat(
+            temp_db, chat_id="@test_group", telegram_id=2001, chat_type=ChatTypeEnum.GROUP
+        )
+        self._make_chat(
+            temp_db, chat_id="@test_forum", telegram_id=2002, chat_type=ChatTypeEnum.FORUM
+        )
         self._make_chat(
             temp_db,
             chat_id="@test_channel_no_comments",
@@ -439,22 +442,26 @@ class TestListCatalogChatsFilters:
         )
 
         # Test forum filter
-        forum_results , _ = temp_db.list_catalog_chats({"chat_type": "forum"})
+        forum_results, _ = temp_db.list_catalog_chats({"chat_type": "forum"})
         forum_ids = {r.id for r in forum_results}
         assert forum_ids == {"@test_forum"}, f"Expected only forum chat, got {forum_ids}"
 
         # Test channel_no_comments filter
-        channel_results , _ = temp_db.list_catalog_chats({"chat_type": "channel_no_comments"})
+        channel_results, _ = temp_db.list_catalog_chats({"chat_type": "channel_no_comments"})
         channel_ids = {r.id for r in channel_results}
-        assert channel_ids == {"@test_channel_no_comments"}, f"Expected only channel_no_comments chat, got {channel_ids}"
+        assert channel_ids == {"@test_channel_no_comments"}, (
+            f"Expected only channel_no_comments chat, got {channel_ids}"
+        )
 
         # Test channel_comments filter
-        channel_comments_results , _ = temp_db.list_catalog_chats({"chat_type": "channel_comments"})
+        channel_comments_results, _ = temp_db.list_catalog_chats({"chat_type": "channel_comments"})
         channel_comments_ids = {r.id for r in channel_comments_results}
-        assert channel_comments_ids == {"@test_channel_comments"}, f"Expected only channel_comments chat, got {channel_comments_ids}"
+        assert channel_comments_ids == {"@test_channel_comments"}, (
+            f"Expected only channel_comments chat, got {channel_comments_ids}"
+        )
 
         # Test group filter
-        group_results , _ = temp_db.list_catalog_chats({"chat_type": "group"})
+        group_results, _ = temp_db.list_catalog_chats({"chat_type": "group"})
         group_ids = {r.id for r in group_results}
         assert group_ids == {"@test_group"}, f"Expected only group chat, got {group_ids}"
 

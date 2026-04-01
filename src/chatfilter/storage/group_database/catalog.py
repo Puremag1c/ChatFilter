@@ -50,8 +50,8 @@ class CatalogMixin(DatabaseMixinBase):
                     str(chat.chat_type),
                     chat.subscribers,
                     chat.moderation,
-                    chat.messages_per_hour or None,
-                    chat.unique_authors_per_hour or None,
+                    chat.messages_per_hour,
+                    chat.unique_authors_per_hour,
                     chat.captcha,
                     chat.partial_data,
                     self._datetime_to_str(chat.last_check),
@@ -275,14 +275,14 @@ class CatalogMixin(DatabaseMixinBase):
 
                 if mph is not None:
                     updates.append(
-                        "messages_per_hour = CASE WHEN messages_per_hour IS NULL OR messages_per_hour = 0 "
+                        "messages_per_hour = CASE WHEN messages_per_hour IS NULL "
                         f"THEN ? ELSE {alpha} * ? + {1 - alpha} * messages_per_hour END"
                     )
                     params.extend([mph, mph])
 
                 if uaph is not None:
                     updates.append(
-                        "unique_authors_per_hour = CASE WHEN unique_authors_per_hour IS NULL OR unique_authors_per_hour = 0 "
+                        "unique_authors_per_hour = CASE WHEN unique_authors_per_hour IS NULL "
                         f"THEN ? ELSE {alpha} * ? + {1 - alpha} * unique_authors_per_hour END"
                     )
                     params.extend([uaph, uaph])
