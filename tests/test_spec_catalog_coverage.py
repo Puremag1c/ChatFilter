@@ -358,6 +358,107 @@ class TestListCatalogChatsFilters:
         assert results[0].id == "@match"
 
 
+    def test_filter_no_captcha_includes_null(self, temp_db) -> None:
+        """Regression test: has_captcha=False must include both NULL and 0 values.
+
+        Covers fix for bug: WHERE captcha=0 OR captcha IS NULL
+        """
+        from chatfilter.models.catalog import AnalysisModeEnum, CatalogChat
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Chat with captcha=False (explicitly no captcha, will be 0 in DB)
+        chat_false = CatalogChat(
+            id="@false_captcha",
+            telegram_id=1002,
+            title="Chat with False captcha",
+            chat_type=ChatTypeEnum.GROUP,
+            captcha=False,
+            last_check=datetime.now(UTC),
+            analysis_mode=AnalysisModeEnum.QUICK,
+        )
+        temp_db.save_catalog_chat(chat_false)
+
+        # Chat with captcha=True (has captcha, will be 1 in DB)
+        chat_true = CatalogChat(
+            id="@true_captcha",
+            telegram_id=1003,
+            title="Chat with True captcha",
+            chat_type=ChatTypeEnum.GROUP,
+            captcha=True,
+            last_check=datetime.now(UTC),
+            analysis_mode=AnalysisModeEnum.QUICK,
+        )
+        temp_db.save_catalog_chat(chat_true)
+
+        # Create chat with captcha=False then manually update DB to set NULL
+        # (simulating a chat that was never checked for captcha)
+        chat_null = CatalogChat(
+            id="@null_captcha",
+            telegram_id=1001,
+            title="Chat with NULL captcha",
+            chat_type=ChatTypeEnum.GROUP,
+            captcha=False,  # Will be inserted as 0, then we update to NULL
+            last_check=datetime.now(UTC),
+            analysis_mode=AnalysisModeEnum.QUICK,
+        )
+        temp_db.save_catalog_chat(chat_null)
+
+        # Update directly to NULL to simulate unchecked captcha
+        with temp_db._connection() as conn:
+            conn.execute("UPDATE chat_catalog SET captcha = NULL WHERE id = ?", ("@null_captcha",))
+
+        # Filter: has_captcha=False should return BOTH NULL and False chats
+        results = temp_db.list_catalog_chats({"has_captcha": False})
+
+        result_ids = {r.id for r in results}
+        assert "@null_captcha" in result_ids, "NULL captcha chat should be included"
+        assert "@false_captcha" in result_ids, "False captcha chat should be included"
+        assert "@true_captcha" not in result_ids, "True captcha chat should NOT be included"
+
+    def test_filter_chat_type_uses_real_enum_values(self, temp_db) -> None:
+        """Regression test: chat_type filter uses real ChatTypeEnum values.
+
+        Ensures filter dropdown values match actual DB enum values.
+        """
+        from chatfilter.models.group import ChatTypeEnum
+
+        # Insert chats with different types
+        self._make_chat(temp_db, chat_id="@test_group", telegram_id=2001, chat_type=ChatTypeEnum.GROUP)
+        self._make_chat(temp_db, chat_id="@test_forum", telegram_id=2002, chat_type=ChatTypeEnum.FORUM)
+        self._make_chat(
+            temp_db,
+            chat_id="@test_channel_no_comments",
+            telegram_id=2003,
+            chat_type=ChatTypeEnum.CHANNEL_NO_COMMENTS,
+        )
+        self._make_chat(
+            temp_db,
+            chat_id="@test_channel_comments",
+            telegram_id=2004,
+            chat_type=ChatTypeEnum.CHANNEL_COMMENTS,
+        )
+
+        # Test forum filter
+        forum_results = temp_db.list_catalog_chats({"chat_type": "forum"})
+        forum_ids = {r.id for r in forum_results}
+        assert forum_ids == {"@test_forum"}, f"Expected only forum chat, got {forum_ids}"
+
+        # Test channel_no_comments filter
+        channel_results = temp_db.list_catalog_chats({"chat_type": "channel_no_comments"})
+        channel_ids = {r.id for r in channel_results}
+        assert channel_ids == {"@test_channel_no_comments"}, f"Expected only channel_no_comments chat, got {channel_ids}"
+
+        # Test channel_comments filter
+        channel_comments_results = temp_db.list_catalog_chats({"chat_type": "channel_comments"})
+        channel_comments_ids = {r.id for r in channel_comments_results}
+        assert channel_comments_ids == {"@test_channel_comments"}, f"Expected only channel_comments chat, got {channel_comments_ids}"
+
+        # Test group filter
+        group_results = temp_db.list_catalog_chats({"chat_type": "group"})
+        group_ids = {r.id for r in group_results}
+        assert group_ids == {"@test_group"}, f"Expected only group chat, got {group_ids}"
+
+
 # ---------------------------------------------------------------------------
 # 4. update_catalog_metrics() EMA logic
 # ---------------------------------------------------------------------------
