@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from ._base import DatabaseMixinBase
 
@@ -308,11 +311,21 @@ class CatalogMixin(DatabaseMixinBase):
         from chatfilter.models.group import ChatTypeEnum
 
         keys = row.keys() if hasattr(row, "keys") else []
+        raw_chat_type = row["chat_type"]
+        if raw_chat_type in ChatTypeEnum._value2member_map_:
+            chat_type = ChatTypeEnum(raw_chat_type)
+        else:
+            logger.warning(
+                "Unknown chat_type %r for row id=%s, defaulting to PENDING",
+                raw_chat_type,
+                row["id"],
+            )
+            chat_type = ChatTypeEnum.PENDING
         return CatalogChat(
             id=row["id"],
             telegram_id=row["telegram_id"] or 0,
             title=row["title"] or "",
-            chat_type=ChatTypeEnum(row["chat_type"]) if row["chat_type"] else ChatTypeEnum.PENDING,
+            chat_type=chat_type,
             subscribers=row["subscribers"] or 0,
             moderation=bool(row["moderation"]),
             messages_per_hour=row["messages_per_hour"] or 0.0,
