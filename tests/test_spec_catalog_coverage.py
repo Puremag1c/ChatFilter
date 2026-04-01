@@ -523,13 +523,13 @@ class TestUpdateCatalogMetricsEMA:
         from chatfilter.models.catalog import CatalogChat
         from chatfilter.models.group import ChatTypeEnum
 
-        # Save chat with messages_per_hour=0 (DB will store NULL via COALESCE logic)
+        # Save chat with messages_per_hour=0 (stored as 0.0 after ChatFilter-0yh fix)
         chat = CatalogChat(
             id="@null_test",
             telegram_id=999,
             title="Null Test",
             chat_type=ChatTypeEnum.GROUP,
-            messages_per_hour=0.0,  # coerced to NULL in storage
+            messages_per_hour=0.0,  # stored as 0.0, not NULL
         )
         temp_db.save_catalog_chat(chat)
 
@@ -542,8 +542,8 @@ class TestUpdateCatalogMetricsEMA:
 
         updated = temp_db.get_catalog_chat("@null_test")
         assert updated is not None
-        # When NULL, EMA CASE sets it to new value (15.0)
-        assert updated.messages_per_hour == 15.0
+        # EMA = 0.3*15.0 + 0.7*0.0 = 4.5
+        assert updated.messages_per_hour == 4.5
 
     def test_update_sets_last_check(self, temp_db) -> None:
         """update_catalog_metrics always updates last_check timestamp."""
