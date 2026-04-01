@@ -13,6 +13,7 @@
           hx-target="#catalog-table-container"
           hx-trigger="change, input delay:400ms from:[name=search]"
           hx-include="[name]"
+          hx-indicator="#catalog-loading"
           hx-on:htmx:response-error="document.getElementById('catalog-table-container').innerHTML = '<div class=alert>{{ _("Error: failed to load") }}</div>'">
 
         <div class="filter-row">
@@ -107,11 +108,11 @@
     </form>
 </section>
 
+<div id="catalog-loading" class="htmx-indicator">{{ _("Loading…") }}</div>
 <div id="catalog-table-container"
      hx-get="/api/catalog"
      hx-trigger="load"
      hx-indicator="#catalog-loading"
      hx-on:htmx:response-error="this.innerHTML = '<div class=alert>{{ _("Error: failed to load") }}</div>'">
-    <div id="catalog-loading" class="htmx-indicator">{{ _("Loading…") }}</div>
 </div>
 {% endblock %}
