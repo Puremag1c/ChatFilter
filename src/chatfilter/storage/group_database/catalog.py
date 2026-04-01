@@ -126,8 +126,10 @@ class CatalogMixin(DatabaseMixinBase):
             params.append(1 if filters["has_moderation"] else 0)
 
         if "has_captcha" in filters and filters["has_captcha"] is not None:
-            query += " AND cc.captcha = ?"
-            params.append(1 if filters["has_captcha"] else 0)
+            if filters["has_captcha"]:
+                query += " AND cc.captcha = 1"
+            else:
+                query += " AND (cc.captcha = 0 OR cc.captcha IS NULL)"
 
         if "min_activity" in filters and filters["min_activity"] is not None:
             query += " AND cc.messages_per_hour >= ?"
