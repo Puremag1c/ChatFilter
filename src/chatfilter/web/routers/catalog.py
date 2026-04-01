@@ -36,7 +36,7 @@ def _get_catalog_db() -> GroupDatabase:
     from chatfilter.web.dependencies import get_group_engine
 
     engine = get_group_engine()
-    return engine._db
+    return engine.db
 
 
 @router.get("/catalog", response_class=HTMLResponse)

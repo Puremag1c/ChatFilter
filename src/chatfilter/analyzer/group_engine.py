@@ -111,6 +111,11 @@ class GroupAnalysisEngine:
         self._cache_hit_counts: dict[str, int] = {}
         self._fresh_chat_counts: dict[str, int] = {}
 
+    @property
+    def db(self) -> GroupDatabase:
+        """Public accessor for GroupDatabase."""
+        return self._db
+
     # -- Startup recovery --------------------------------------------------
 
     def recover_stale_analysis(self) -> None:
