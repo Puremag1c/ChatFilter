@@ -6,9 +6,9 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from ._base import DatabaseMixinBase
+
+logger = logging.getLogger(__name__)
 
 
 class CatalogMixin(DatabaseMixinBase):
@@ -275,14 +275,14 @@ class CatalogMixin(DatabaseMixinBase):
 
                 if mph is not None:
                     updates.append(
-                        "messages_per_hour = CASE WHEN messages_per_hour IS NULL "
+                        "messages_per_hour = CASE WHEN messages_per_hour IS NULL OR messages_per_hour = 0 "
                         f"THEN ? ELSE {alpha} * ? + {1 - alpha} * messages_per_hour END"
                     )
                     params.extend([mph, mph])
 
                 if uaph is not None:
                     updates.append(
-                        "unique_authors_per_hour = CASE WHEN unique_authors_per_hour IS NULL "
+                        "unique_authors_per_hour = CASE WHEN unique_authors_per_hour IS NULL OR unique_authors_per_hour = 0 "
                         f"THEN ? ELSE {alpha} * ? + {1 - alpha} * unique_authors_per_hour END"
                     )
                     params.extend([uaph, uaph])
