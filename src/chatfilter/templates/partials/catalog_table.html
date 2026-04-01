@@ -16,7 +16,17 @@
         {% for chat in chats %}
         <tr{% if not chat.has_subscriber %} class="row--frozen"{% endif %}>
             <td class="chat-ref-cell">
-                {% set chat_url = 'https://t.me/' + chat.username if chat.username else (chat.id if chat.id.startswith('https://') else 'https://t.me/c/' + (chat.id[4:] if chat.id.startswith('-100') else chat.id)) %}
+                {% if chat.username %}
+                    {% set chat_url = 'https://t.me/' ~ chat.username %}
+                {% elif chat.id and chat.id.startswith('https://') %}
+                    {% set chat_url = chat.id %}
+                {% elif chat.telegram_id and chat.telegram_id > 0 %}
+                    {% set chat_url = 'https://t.me/c/' ~ chat.telegram_id|string %}
+                {% elif chat.id and chat.id.startswith('-100') and chat.id[4:].isdigit() %}
+                    {% set chat_url = 'https://t.me/c/' ~ chat.id[4:] %}
+                {% else %}
+                    {% set chat_url = '#' %}
+                {% endif %}
                 <a href="{{ chat_url }}" class="chat-title" target="_blank" rel="noopener noreferrer">{{ chat.title or chat.id }}</a>
             </td>
             <td>
