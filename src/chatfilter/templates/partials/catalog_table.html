@@ -89,7 +89,9 @@
 </table>
 <p class="result-count muted">{{ _("{n} chats").format(n=chats|length) }}</p>
 {% else %}
-<div class="empty-state">
-    <p>{{ _("No chats found matching the selected filters.") }}</p>
+<div class="empty-state no-results">
+    <div class="empty-state-icon">🔍</div>
+    <h3>{{ _("No chats found") }}</h3>
+    <p>{{ _("No chats match the current filters. Try adjusting or clearing the filters.") }}</p>
 </div>
 {% endif %}
