@@ -100,6 +100,8 @@ async def catalog_table(
         filters["max_activity"] = max_activity
     if fresh_only is not None:
         filters["fresh_only"] = fresh_only
+    if search:
+        filters["search"] = search
 
     try:
         db = _get_catalog_db()
@@ -107,13 +109,6 @@ async def catalog_table(
     except Exception:
         logger.exception("Failed to fetch catalog chats")
         chats = []
-
-    # Client-side search by title substring
-    if search:
-        search_lower = search.lower()
-        chats = [
-            c for c in chats if search_lower in c.title.lower() or search_lower in c.id.lower()
-        ]
 
     # Sorting
     valid_sort_fields = {

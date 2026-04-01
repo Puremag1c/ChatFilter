@@ -155,6 +155,11 @@ class CatalogMixin(DatabaseMixinBase):
             query += " AND cc.last_check >= ?"
             params.append(cutoff.isoformat())
 
+        if "search" in filters and filters["search"] is not None:
+            pattern = f"%{filters['search']}%"
+            query += " AND (cc.title LIKE ? OR cc.id LIKE ?)"
+            params.extend([pattern, pattern])
+
         query += " GROUP BY cc.id"
 
         with self._connection() as conn:
