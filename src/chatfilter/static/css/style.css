@@ -4474,4 +4474,73 @@ body:has(.update-notification.show) {
         transform: rotate(-45deg) translate(5px, -5px);
     }
 }
-/* ========== End Burger Menu ========== */
+
+/* ========== Mobile Adaptation ========== */
+
+/* Scroll shadow: gradient fade on right edge hints at horizontal scroll */
+.proxy-pool-table-container,
+.admin-users-table-container,
+#catalog-table-container {
+    background:
+        linear-gradient(to right, var(--bg-card, #fff) 30%, transparent) center left,
+        linear-gradient(to left, var(--bg-card, #fff) 30%, transparent) center right,
+        radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.08), transparent) center left,
+        radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.08), transparent) center right;
+    background-repeat: no-repeat;
+    background-size: 40px 100%, 40px 100%, 12px 100%, 12px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
+
+@media (max-width: 768px) {
+    /* Form inputs: full-width (covers .form-input class used on admin/profile pages) */
+    .form-input[type="text"],
+    .form-input[type="password"],
+    .form-input[type="number"],
+    .form-input[type="email"],
+    .form-input[type="file"] {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Touch targets: min 44px for all interactive form elements */
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group input[type="password"],
+    .form-group input[type="file"],
+    .form-group select,
+    .form-input[type="text"],
+    .form-input[type="password"],
+    .form-input[type="number"],
+    .form-input[type="email"],
+    .filter-group input[type="text"],
+    .filter-group input[type="number"],
+    .filter-group select {
+        min-height: 44px;
+    }
+
+    /* Profile trigger: 44px touch target */
+    .profile-trigger {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Header right: allow wrapping on narrow screens */
+    .header-right {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Filter actions: full-width button on mobile */
+    .filter-row--actions {
+        justify-content: stretch;
+    }
+
+    .filter-row--actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ========== End Mobile Adaptation ========== */
