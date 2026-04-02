@@ -124,6 +124,64 @@ class UserDatabase(SQLiteDatabase):
                 (new_balance, user_id),
             )
 
+    def atomic_charge(
+        self,
+        user_id: str,
+        cost_usd: float,
+        model: str | None,
+        tokens_in: int | None,
+        tokens_out: int | None,
+        description: str | None,
+    ) -> float:
+        """Atomically check balance, deduct cost, and record transaction.
+
+        All three operations execute within a single DB transaction so concurrent
+        requests cannot both pass the balance > 0 check before either deducts.
+
+        Returns new balance.
+        Raises ValueError("insufficient:<balance>") if balance <= 0.
+        """
+        created_at = self._datetime_to_str(datetime.now(UTC))
+        with self._connection() as conn:
+            # Atomic deduct: WHERE clause prevents deduction when balance < cost,
+            # ensuring balance never goes below 0 even under concurrent requests.
+            cursor = conn.execute(
+                "UPDATE users SET ai_balance_usd = ai_balance_usd - ? WHERE id = ? AND ai_balance_usd >= ?",
+                (cost_usd, user_id, cost_usd),
+            )
+            if cursor.rowcount == 0:
+                bal_cursor = conn.execute(
+                    "SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,)
+                )
+                row = bal_cursor.fetchone()
+                balance = float(row["ai_balance_usd"]) if row else 0.0
+                raise ValueError(f"insufficient:{balance:.6f}")
+
+            bal_cursor = conn.execute("SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,))
+            row = bal_cursor.fetchone()
+            new_balance = float(row["ai_balance_usd"])
+
+            conn.execute(
+                """
+                INSERT INTO ai_transactions
+                    (user_id, type, amount_usd, balance_after, model,
+                     tokens_in, tokens_out, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    "charge",
+                    -cost_usd,
+                    new_balance,
+                    model,
+                    tokens_in,
+                    tokens_out,
+                    description,
+                    created_at,
+                ),
+            )
+            return new_balance
+
     def add_transaction(
         self,
         user_id: str,

@@ -43,25 +43,28 @@ class BillingService:
     ) -> float:
         """Deduct cost_usd from user balance atomically.
 
+        Uses a single DB transaction (check + deduct + record) so concurrent
+        requests cannot both pass the balance > 0 check before either deducts.
+
         Raises InsufficientBalance if balance <= 0.
         Returns new balance.
         """
-        balance = self._db.get_balance(user_id)
-        if balance <= 0:
-            raise InsufficientBalance(f"User {user_id} has insufficient balance: {balance:.6f} USD")
-        new_balance = balance - cost_usd
-        self._db.update_balance(user_id, new_balance)
-        self._db.add_transaction(
-            user_id=user_id,
-            transaction_type="charge",
-            amount_usd=-cost_usd,
-            balance_after=new_balance,
-            model=model,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
-            description=description,
-        )
-        return new_balance
+        try:
+            return self._db.atomic_charge(
+                user_id=user_id,
+                cost_usd=cost_usd,
+                model=model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                description=description,
+            )
+        except ValueError as exc:
+            if str(exc).startswith("insufficient:"):
+                balance = float(str(exc).split(":")[1])
+                raise InsufficientBalance(
+                    f"User {user_id} has insufficient balance: {balance:.6f} USD"
+                ) from exc
+            raise
 
     def topup(self, user_id: str, amount_usd: float, admin_description: str) -> float:
         """Add amount_usd to user balance.
