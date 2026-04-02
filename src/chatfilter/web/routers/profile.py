@@ -97,4 +97,7 @@ async def change_password(
     trigger = json.dumps(
         {"showToast": {"message": _("Password changed successfully"), "type": "success"}}
     )
-    return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger})
+    return Response(
+        status_code=303,
+        headers={"Location": "/profile", "HX-Trigger": trigger},
+    )

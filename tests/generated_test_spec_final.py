@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-
 # =============================================================================
 # SPEC Must Have #4: Export CSV with actual data
 # =============================================================================
@@ -42,7 +41,7 @@ class TestExportCSVWithData:
         assert resp.status_code == 200
         body = resp.text
         # CSV must have at least one header row
-        lines = [l for l in body.splitlines() if l.strip()]
+        lines = [line for line in body.splitlines() if line.strip()]
         assert len(lines) >= 2, "CSV with 1 result must have header + 1 data row"
 
     def test_export_csv_contains_chat_title(self, fastapi_test_client):
@@ -85,10 +84,10 @@ class TestExportCSVWithData:
         from fastapi.testclient import TestClient
 
         from chatfilter import config
+        from chatfilter.storage.user_database import get_user_db
         from chatfilter.web.app import create_app
         from chatfilter.web.dependencies import reset_group_engine
         from chatfilter.web.session import SESSION_COOKIE_NAME, get_session_store
-        from chatfilter.storage.user_database import get_user_db
 
         monkeypatch.setattr(config, "get_settings", lambda: test_settings)
         reset_group_engine()
@@ -126,10 +125,10 @@ class TestExportCSVWithData:
         from fastapi.testclient import TestClient
 
         from chatfilter import config
+        from chatfilter.storage.user_database import get_user_db
         from chatfilter.web.app import create_app
         from chatfilter.web.dependencies import reset_group_engine
         from chatfilter.web.session import SESSION_COOKIE_NAME, get_session_store
-        from chatfilter.storage.user_database import get_user_db
 
         monkeypatch.setattr(config, "get_settings", lambda: test_settings)
         reset_group_engine()

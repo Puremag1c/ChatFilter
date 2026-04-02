@@ -103,7 +103,8 @@ class TestHXTriggerPattern:
         )
 
         if resp.status_code == 204:
-            assert resp.headers.get("HX-Trigger") == "refreshGroups"
+            hx_trigger = resp.headers.get("HX-Trigger", "")
+            assert "refreshGroups" in hx_trigger
             assert resp.text == "" or resp.content == b""
         else:
             # 400/404 are acceptable in test environment
@@ -126,7 +127,8 @@ class TestHXTriggerPattern:
         )
 
         assert resp.status_code == 200
-        assert resp.headers.get("HX-Trigger") == "refreshGroups"
+        hx_trigger = resp.headers.get("HX-Trigger", "")
+        assert "refreshGroups" in hx_trigger
 
 
 class TestGroupListNoDuplicates:

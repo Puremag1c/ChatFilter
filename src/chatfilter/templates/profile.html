@@ -25,7 +25,7 @@
     <div class="card-header">
         <h2>{{ _("Change Password") }}</h2>
     </div>
-    <form hx-post="/profile/password" hx-swap="none" style="display:flex;flex-direction:column;gap:0.75rem;padding:1rem;max-width:400px">
+    <form action="/profile/password" method="post" hx-post="/profile/password" hx-swap="none" style="display:flex;flex-direction:column;gap:0.75rem;padding:1rem;max-width:400px">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div>
             <label for="old-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Current Password") }}</label>

@@ -23,14 +23,18 @@ def _toast_response(
     message: str,
     toast_type: str = "success",
     redirect: str | None = None,
+    status_code: int = 200,
 ) -> Response:
     """Return a response that triggers a toast notification via HX-Trigger."""
     headers: dict[str, str] = {
         "HX-Trigger": json.dumps({"showToast": {"type": toast_type, "message": message}}),
     }
     if redirect:
-        headers["HX-Redirect"] = redirect
-    return Response(status_code=200, headers=headers)
+        if status_code == 303:
+            headers["Location"] = redirect
+        else:
+            headers["HX-Redirect"] = redirect
+    return Response(status_code=status_code, headers=headers)
 
 
 _SENSITIVE_SETTINGS = {"openrouter_api_key"}
@@ -118,14 +122,14 @@ async def create_user(
     db = _get_user_db(request)
 
     if len(password) < 8:
-        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error")
+        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error", status_code=422)
 
     existing = db.get_user_by_username(username)
     if existing:
-        return _toast_response(f"Пользователь '{username}' уже существует", toast_type="error")
+        return _toast_response(f"Пользователь '{username}' уже существует", toast_type="error", status_code=409)
 
     db.create_user(username, password)
-    return _toast_response(f"Пользователь '{username}' создан", redirect="/admin")
+    return _toast_response(f"Пользователь '{username}' создан", redirect="/admin", status_code=303)
 
 
 @router.delete("/admin/users/{user_id}", response_model=None)
@@ -172,10 +176,10 @@ async def change_password(
     db = _get_user_db(request)
 
     if len(password) < 8:
-        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error")
+        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error", status_code=422)
 
     db.update_password(user_id, password)
-    return _toast_response("Пароль изменён")
+    return _toast_response("Пароль изменён", redirect="/admin", status_code=303)
 
 
 @router.post("/admin/users/{user_id}/toggle-admin", response_model=None)
