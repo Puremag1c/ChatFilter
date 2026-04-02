@@ -131,6 +131,23 @@
         exportBtn.href = '/api/catalog/export' + (qs ? '?' + qs : '');
     }
 
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            if (exportBtn.dataset.exporting) return;
+            exportBtn.dataset.exporting = '1';
+            var origText = exportBtn.textContent;
+            exportBtn.textContent = '{{ _("Exporting...") }}';
+            exportBtn.style.pointerEvents = 'none';
+            exportBtn.style.opacity = '0.6';
+            setTimeout(function() {
+                exportBtn.textContent = origText;
+                exportBtn.style.pointerEvents = '';
+                exportBtn.style.opacity = '';
+                delete exportBtn.dataset.exporting;
+            }, 3000);
+        });
+    }
+
     if (form) {
         form.addEventListener('change', function() {
             document.getElementById('catalog-page').value = '1';
