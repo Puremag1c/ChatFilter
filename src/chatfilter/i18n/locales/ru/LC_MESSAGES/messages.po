@@ -2344,6 +2344,102 @@ msgstr "Профиль"
 msgid "Log out"
 msgstr "Выход"
 
+#: src/chatfilter/templates/profile.html
+msgid "Account Info"
+msgstr "Информация об аккаунте"
+
+#: src/chatfilter/templates/profile.html
+msgid "Member since"
+msgstr "Участник с"
+
+#: src/chatfilter/templates/profile.html
+msgid "Current Password"
+msgstr "Текущий пароль"
+
+#: src/chatfilter/templates/profile.html
+msgid "New Password"
+msgstr "Новый пароль"
+
+#: src/chatfilter/templates/profile.html
+msgid "Confirm New Password"
+msgstr "Подтвердите новый пароль"
+
+#: src/chatfilter/templates/profile.html
+msgid "AI Usage"
+msgstr "Использование ИИ"
+
+#: src/chatfilter/templates/profile.html
+msgid "Balance"
+msgstr "Баланс"
+
+#: src/chatfilter/templates/profile.html
+msgid "No AI transactions yet."
+msgstr "Транзакций ИИ пока нет."
+
+#: src/chatfilter/templates/profile.html
+msgid "Date"
+msgstr "Дата"
+
+#: src/chatfilter/templates/profile.html
+msgid "Tokens In"
+msgstr "Токены (вход)"
+
+#: src/chatfilter/templates/profile.html
+msgid "Tokens Out"
+msgstr "Токены (выход)"
+
+#: src/chatfilter/templates/profile.html
+msgid "Cost"
+msgstr "Стоимость"
+
+#: src/chatfilter/templates/profile.html
+msgid "Balance After"
+msgstr "Баланс после"
+
+#: src/chatfilter/templates/admin.html
+msgid "AI Settings"
+msgstr "Настройки ИИ"
+
+#: src/chatfilter/templates/admin.html
+msgid "OpenRouter API Key"
+msgstr "Ключ OpenRouter API"
+
+#: src/chatfilter/templates/admin.html
+msgid "Leave blank to keep existing key."
+msgstr "Оставьте пустым для сохранения текущего ключа."
+
+#: src/chatfilter/templates/admin.html
+msgid "Key set (leave blank to keep)"
+msgstr "Ключ установлен (оставьте пустым)"
+
+#: src/chatfilter/templates/admin.html
+msgid "Primary Model"
+msgstr "Основная модель"
+
+#: src/chatfilter/templates/admin.html
+msgid "Fallback Models (one per line)"
+msgstr "Резервные модели (по одной в строке)"
+
+#: src/chatfilter/templates/admin.html
+msgid "System Settings"
+msgstr "Параметры системы"
+
+#: src/chatfilter/templates/admin.html
+msgid "Max chats per account (1–1000)"
+msgstr "Макс. чатов на аккаунт (1–1000)"
+
+#: src/chatfilter/templates/admin.html
+msgid "Analysis freshness, days (1–30)"
+msgstr "Актуальность анализа, дней (1–30)"
+
+#: src/chatfilter/templates/admin.html
+msgid "Save"
+msgstr "Сохранить"
+
+#: src/chatfilter/templates/admin.html
+msgid "Error:"
+msgstr "Ошибка:"
+
 #: src/chatfilter/templates/login.html:87
 msgid "Telegram Chat Analysis"
 msgstr "Анализ Telegram чатов"
