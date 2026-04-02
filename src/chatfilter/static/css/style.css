@@ -293,6 +293,36 @@ header .nav-links a:hover {
     gap: 0.25rem;
 }
 
+/* Burger menu — always-hidden checkbox, icon hidden on desktop */
+.burger-checkbox {
+    display: none;
+}
+
+.burger-icon {
+    display: none;
+    width: 24px;
+    height: 2px;
+    background: var(--text-header);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    margin: 8px 0;
+}
+
+.burger-icon::before,
+.burger-icon::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: var(--text-header);
+    left: 0;
+    transition: transform 0.2s;
+}
+
+.burger-icon::before { top: -7px; }
+.burger-icon::after  { bottom: -7px; }
+
 /* AI Balance Badge */
 .balance-badge {
     font-size: 0.8125rem;
@@ -4294,3 +4324,65 @@ body:has(.update-notification.show) {
     }
 }
 /* ========== End SSE Status Banner Styles ==========*/
+
+/* ========== Burger Menu (mobile header) ========== */
+@media (max-width: 768px) {
+    /* Position header for absolute dropdown */
+    header {
+        position: relative;
+    }
+
+    /* Show burger icon */
+    .burger-icon {
+        display: block;
+    }
+
+    /* Hide nav-links by default on mobile */
+    header .nav-links {
+        display: none;
+        position: absolute;
+        top: 52px; /* matches .header-nav height */
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        gap: 0;
+        background: var(--bg-header);
+        border-bottom: 1px solid var(--border-light);
+        padding: 0.5rem 0;
+        z-index: 200;
+        box-shadow: 0 4px 12px var(--shadow-md);
+        /* Override any inherited font-size/order from other breakpoints */
+        font-size: 1rem;
+        order: unset;
+    }
+
+    /* Show dropdown when burger is checked */
+    .burger-checkbox:checked ~ .nav-links {
+        display: flex;
+    }
+
+    /* Nav links: full-width tap targets */
+    header .nav-links a {
+        display: block;
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 44px;
+        white-space: normal;
+    }
+
+    /* Animate burger → X when open */
+    .burger-checkbox:checked ~ .burger-icon {
+        background: transparent; /* hide middle bar */
+    }
+
+    .burger-checkbox:checked ~ .burger-icon::before {
+        transform: rotate(45deg) translate(5px, 5px);
+    }
+
+    .burger-checkbox:checked ~ .burger-icon::after {
+        transform: rotate(-45deg) translate(5px, -5px);
+    }
+}
+/* ========== End Burger Menu ========== */
