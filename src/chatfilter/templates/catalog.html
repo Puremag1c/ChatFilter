@@ -108,19 +108,41 @@
 
         <input type="hidden" name="page" id="catalog-page" value="1">
     </form>
+
+    <div class="filter-row filter-row--actions">
+        <a id="export-csv-btn" href="/api/catalog/export" class="btn btn-secondary">{{ _("Export CSV") }}</a>
+    </div>
 </section>
 <script>
 (function() {
     var form = document.getElementById('catalog-filters');
+    var exportBtn = document.getElementById('export-csv-btn');
+
+    function updateExportHref() {
+        if (!exportBtn) return;
+        var data = new FormData(form);
+        var params = new URLSearchParams();
+        data.forEach(function(value, key) {
+            if (key !== 'page' && value !== '') {
+                params.append(key, value);
+            }
+        });
+        var qs = params.toString();
+        exportBtn.href = '/api/catalog/export' + (qs ? '?' + qs : '');
+    }
+
     if (form) {
         form.addEventListener('change', function() {
             document.getElementById('catalog-page').value = '1';
+            updateExportHref();
         });
         form.addEventListener('input', function(e) {
             if (e.target.name === 'search') {
                 document.getElementById('catalog-page').value = '1';
             }
+            updateExportHref();
         });
+        updateExportHref();
     }
 })();
 </script>

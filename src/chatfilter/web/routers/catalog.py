@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
+from datetime import date
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BeforeValidator
 
 from chatfilter.web.session import get_session
@@ -136,4 +139,106 @@ async def catalog_table(
             page_size=page_size,
             total_pages=total_pages,
         ),
+    )
+
+
+def _sanitize_csv_cell(value: object) -> str:
+    """Sanitize a cell value against CSV formula injection."""
+    s = str(value) if value is not None else ""
+    if s and s[0] in ("=", "+", "-", "@", "\t"):
+        s = "\t" + s
+    return s
+
+
+@router.get("/api/catalog/export")
+async def catalog_export(
+    request: Request,
+    chat_type: str | None = None,
+    min_subscribers: OptionalInt = None,
+    max_subscribers: OptionalInt = None,
+    has_moderation: str | None = None,
+    has_captcha: str | None = None,
+    min_activity: OptionalFloat = None,
+    max_activity: OptionalFloat = None,
+    fresh_only: OptionalInt = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
+) -> Response:
+    """Export catalog as CSV with current filters applied."""
+    session = get_session(request)
+    if not session.get("user_id"):
+        return RedirectResponse(url="/login", status_code=302)
+
+    filters: dict[str, Any] = {}
+    if chat_type:
+        filters["chat_type"] = chat_type
+    if min_subscribers is not None:
+        filters["min_subscribers"] = min_subscribers
+    if max_subscribers is not None:
+        filters["max_subscribers"] = max_subscribers
+    if has_moderation is not None and has_moderation != "":
+        filters["has_moderation"] = has_moderation.lower() in ("1", "true", "yes")
+    if has_captcha is not None and has_captcha != "":
+        filters["has_captcha"] = has_captcha.lower() in ("1", "true", "yes")
+    if min_activity is not None:
+        filters["min_activity"] = min_activity
+    if max_activity is not None:
+        filters["max_activity"] = max_activity
+    if fresh_only is not None:
+        filters["fresh_only"] = fresh_only
+    if search:
+        filters["search"] = search
+    if sort_by:
+        filters["sort_by"] = sort_by
+    if sort_dir:
+        filters["sort_dir"] = sort_dir
+
+    try:
+        db = _get_catalog_db()
+        chats, _ = db.list_catalog_chats(filters, page=1, page_size=999999)
+    except Exception:
+        logger.exception("Failed to fetch catalog chats for export")
+        chats = []
+
+    columns = [
+        "title",
+        "type",
+        "subscribers",
+        "activity",
+        "authors",
+        "moderation",
+        "captcha",
+        "last_check",
+        "link",
+    ]
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(columns)
+    for chat in chats:
+        chat_type = chat.chat_type
+        chat_type_val = chat_type.value if hasattr(chat_type, "value") else str(chat_type)
+        username = getattr(chat, "username", None) or ""
+        link = f"https://t.me/{username.lstrip('@')}" if username else ""
+        row = [
+            _sanitize_csv_cell(chat.title),
+            _sanitize_csv_cell(chat_type_val),
+            _sanitize_csv_cell(chat.subscribers),
+            _sanitize_csv_cell(chat.messages_per_hour),
+            _sanitize_csv_cell(chat.unique_authors_per_hour),
+            _sanitize_csv_cell(chat.moderation),
+            _sanitize_csv_cell(chat.captcha),
+            _sanitize_csv_cell(chat.last_check),
+            _sanitize_csv_cell(link),
+        ]
+        writer.writerow(row)
+
+    csv_content = output.getvalue()
+    filename = f"catalog_{date.today().isoformat()}.csv"
+
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
