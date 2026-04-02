@@ -44,6 +44,46 @@ class AIService:
             api_key=api_key, model=model, fallback_models=fallback_models
         )  # api_key stored as SecretStr
 
+    # Fallback cost per token when LiteLLM cannot determine the real cost.
+    # Uses conservative upper-bound pricing to avoid giving away free AI.
+    _FALLBACK_COST_PER_INPUT_TOKEN = 5e-6  # $5 / 1M tokens
+    _FALLBACK_COST_PER_OUTPUT_TOKEN = 15e-6  # $15 / 1M tokens
+    _FALLBACK_MINIMUM_COST = 0.0001  # $0.0001 floor when tokens are also missing
+
+    def _estimate_cost(
+        self, response: object, tokens_in: int, tokens_out: int, model: str
+    ) -> float:
+        """Try to compute cost via LiteLLM; fall back to token-based estimate."""
+        try:
+            cost = litellm.completion_cost(completion_response=response)
+            if cost is not None and cost > 0:
+                return float(cost)
+        except Exception:
+            pass
+
+        # LiteLLM couldn't determine cost — use fallback estimate
+        if tokens_in > 0 or tokens_out > 0:
+            estimated = (
+                tokens_in * self._FALLBACK_COST_PER_INPUT_TOKEN
+                + tokens_out * self._FALLBACK_COST_PER_OUTPUT_TOKEN
+            )
+            logger.warning(
+                "Cost unavailable from LiteLLM for model %s; estimated $%.6f from %d/%d tokens",
+                model,
+                estimated,
+                tokens_in,
+                tokens_out,
+            )
+            return estimated
+
+        # No cost AND no token counts — charge minimum floor
+        logger.warning(
+            "Cost and token counts unavailable from LiteLLM for model %s; charging minimum $%.4f",
+            model,
+            self._FALLBACK_MINIMUM_COST,
+        )
+        return self._FALLBACK_MINIMUM_COST
+
     async def complete(self, prompt: str, user_id: str | None = None) -> AIResponse:
         """Send a completion request and return an AIResponse.
 
@@ -76,10 +116,7 @@ class AIService:
                 tokens_in = getattr(usage, "prompt_tokens", 0) or 0
                 tokens_out = getattr(usage, "completion_tokens", 0) or 0
 
-                try:
-                    cost_usd = litellm.completion_cost(completion_response=response)
-                except Exception:
-                    cost_usd = 0.0
+                cost_usd = self._estimate_cost(response, tokens_in, tokens_out, model)
 
                 content = response.choices[0].message.content or ""
                 used_model = response.model or model
