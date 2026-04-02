@@ -169,11 +169,28 @@ async def validation_exception_handler(
 
     # In production, we still return validation details as they're safe
     # (they don't expose server internals, just input validation issues)
+    # Sanitize errors to ensure all values are JSON-serializable
+    # (convert Exception objects to strings, including nested ones in ctx dict)
+    def sanitize_value(value: object) -> object:
+        """Recursively convert Exception objects to strings for JSON serialization."""
+        if isinstance(value, Exception):
+            return str(value)
+        elif isinstance(value, dict):
+            return {k: sanitize_value(v) for k, v in value.items()}
+        elif isinstance(value, (list, tuple)):
+            return [sanitize_value(v) for v in value]
+        else:
+            return value
+
+    sanitized_errors = [
+        {k: sanitize_value(v) for k, v in error.items()} for error in exc.errors()
+    ]
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "detail": "Invalid input data",
-            "errors": exc.errors(),
+            "errors": sanitized_errors,
         },
     )
 
