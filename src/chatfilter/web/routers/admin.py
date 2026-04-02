@@ -208,7 +208,7 @@ async def toggle_admin(request: Request, user_id: str) -> Response:
             current_user_id=current_user_id,
         ),
     )
-    username = html.escape(user["username"])
+    username = user["username"]
     action = "назначен администратором" if new_is_admin else "снят с должности администратора"
     response.headers["HX-Trigger"] = json.dumps(
         {"showToast": {"type": "success", "message": f"Пользователь '{username}' {action}"}}
