@@ -32,7 +32,7 @@
                 <button type="submit" class="btn btn-secondary">{{ _("Top up") }}</button>
             </form>
             <!-- Change password form -->
-            <form method="post" action="/admin/users/{{ user.id }}/password" class="admin-password-form">
+            <form hx-post="/admin/users/{{ user.id }}/password" hx-swap="none" class="admin-password-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="password" name="password" required
                        class="form-input" placeholder="{{ _("new password") }}"

@@ -8,24 +8,11 @@
     <p class="subtitle">{{ _("User management") }}</p>
 </div>
 
-<div id="flash-container">
-{% if error %}
-<div class="alert alert-error" role="alert">
-    <strong>{{ _("Error:") }}</strong> {{ error }}
-</div>
-{% endif %}
-{% if flash %}
-<div class="alert alert-{{ flash_type|default('success') }}" role="alert">
-    {{ flash }}
-</div>
-{% endif %}
-</div>
-
 <section class="card">
     <div class="card-header">
         <h2>{{ _("Create User") }}</h2>
     </div>
-    <form method="post" action="/admin/users" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
+    <form hx-post="/admin/users" hx-swap="none" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div>
             <label for="new-username" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Username") }}</label>
@@ -52,7 +39,7 @@
     <div class="card-header">
         <h2>{{ _("AI Settings") }}</h2>
     </div>
-    <form method="post" action="/admin/ai-settings" style="display:flex;flex-direction:column;gap:1rem;padding:1rem;max-width:480px">
+    <form hx-post="/admin/ai-settings" hx-swap="none" style="display:flex;flex-direction:column;gap:1rem;padding:1rem;max-width:480px">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div>
             <label for="openrouter-api-key" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("OpenRouter API Key") }}</label>
@@ -84,7 +71,7 @@
     <div class="card-header">
         <h2>{{ _("System Settings") }}</h2>
     </div>
-    <form method="post" action="/admin/settings" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
+    <form hx-post="/admin/settings" hx-swap="none" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div>
             <label for="max-chats" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Max chats per account (1–1000)") }}</label>

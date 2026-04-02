@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import html
+import json
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
 
-from fastapi import APIRouter, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import HTMLResponse, Response
 
 from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
@@ -17,6 +17,21 @@ if TYPE_CHECKING:
     from chatfilter.storage.user_database import UserDatabase
 
 router = APIRouter(tags=["admin"])
+
+
+def _toast_response(
+    message: str,
+    toast_type: str = "success",
+    redirect: str | None = None,
+) -> Response:
+    """Return a response that triggers a toast notification via HX-Trigger."""
+    headers: dict[str, str] = {
+        "HX-Trigger": json.dumps({"showToast": {"type": toast_type, "message": message}}),
+    }
+    if redirect:
+        headers["HX-Redirect"] = redirect
+    return Response(status_code=200, headers=headers)
+
 
 _SENSITIVE_SETTINGS = {"openrouter_api_key"}
 
@@ -63,8 +78,6 @@ def _require_admin(request: Request) -> bool:
 @router.get("/admin", response_class=HTMLResponse, response_model=None)
 async def admin_page(
     request: Request,
-    flash: str | None = Query(None),
-    flash_type: str | None = Query(None),
 ) -> HTMLResponse | Response:
     from chatfilter import __version__
     from chatfilter.web.app import get_templates
@@ -87,8 +100,6 @@ async def admin_page(
             request,
             version=__version__,
             users=users,
-            flash=flash,
-            flash_type=flash_type or "success",
             current_user_id=current_user_id,
             app_settings=app_settings,
         ),
@@ -100,55 +111,21 @@ async def create_user(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-) -> RedirectResponse | HTMLResponse | Response:
-    from chatfilter import __version__
-    from chatfilter.web.app import get_templates
-
+) -> Response:
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
     db = _get_user_db(request)
 
     if len(password) < 8:
-        users = db.list_users()
-        group_db = _get_group_db(request)
-        app_settings = _safe_app_settings(group_db.get_all_settings())
-        templates = get_templates()
-        return templates.TemplateResponse(
-            request=request,
-            name="admin.html",
-            context=get_template_context(
-                request,
-                version=__version__,
-                users=users,
-                app_settings=app_settings,
-                error="Пароль должен содержать минимум 8 символов",
-            ),
-            status_code=422,
-        )
+        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error")
 
     existing = db.get_user_by_username(username)
     if existing:
-        users = db.list_users()
-        group_db = _get_group_db(request)
-        app_settings = _safe_app_settings(group_db.get_all_settings())
-        templates = get_templates()
-        return templates.TemplateResponse(
-            request=request,
-            name="admin.html",
-            context=get_template_context(
-                request,
-                version=__version__,
-                users=users,
-                app_settings=app_settings,
-                error=f"Пользователь '{username}' уже существует",
-            ),
-            status_code=409,
-        )
+        return _toast_response(f"Пользователь '{username}' уже существует", toast_type="error")
 
     db.create_user(username, password)
-    qs = urlencode({"flash": f"Пользователь '{username}' создан", "flash_type": "success"})
-    return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+    return _toast_response(f"Пользователь '{username}' создан", redirect="/admin")
 
 
 @router.delete("/admin/users/{user_id}", response_model=None)
@@ -180,12 +157,7 @@ async def delete_user(request: Request, user_id: str) -> Response:
     # 4. Delete user record
     db.delete_user(user_id)
 
-    flash_html = (
-        '<div id="flash-container" hx-swap-oob="innerHTML">'
-        '<div class="alert alert-success" role="alert">'
-        f"Пользователь &#39;{username}&#39; удалён</div></div>"
-    )
-    return HTMLResponse(content=flash_html, status_code=200)
+    return _toast_response(f"Пользователь '{username}' удалён")
 
 
 @router.post("/admin/users/{user_id}/password", response_model=None)
@@ -193,36 +165,17 @@ async def change_password(
     request: Request,
     user_id: str,
     password: str = Form(...),
-) -> RedirectResponse | Response:
-    from chatfilter import __version__
-    from chatfilter.web.app import get_templates
-
+) -> Response:
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
     db = _get_user_db(request)
 
     if len(password) < 8:
-        users = db.list_users()
-        group_db = _get_group_db(request)
-        app_settings = _safe_app_settings(group_db.get_all_settings())
-        templates = get_templates()
-        return templates.TemplateResponse(
-            request=request,
-            name="admin.html",
-            context=get_template_context(
-                request,
-                version=__version__,
-                users=users,
-                app_settings=app_settings,
-                error="Пароль должен содержать минимум 8 символов",
-            ),
-            status_code=422,
-        )
+        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error")
 
     db.update_password(user_id, password)
-    qs = urlencode({"flash": "Пароль изменён", "flash_type": "success"})
-    return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+    return _toast_response("Пароль изменён")
 
 
 @router.post("/admin/users/{user_id}/toggle-admin", response_model=None)
@@ -300,7 +253,7 @@ async def update_ai_settings(
     openrouter_api_key: str = Form(""),
     ai_model: str = Form(""),
     ai_fallback_models: str = Form(""),
-) -> RedirectResponse | Response:
+) -> Response:
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
@@ -311,8 +264,7 @@ async def update_ai_settings(
         group_db.set_setting("ai_model", ai_model.strip())
     group_db.set_setting("ai_fallback_models", ai_fallback_models.strip())
 
-    qs = urlencode({"flash": "AI настройки сохранены", "flash_type": "success"})
-    return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+    return _toast_response("AI настройки сохранены", redirect="/admin")
 
 
 @router.post("/admin/settings", response_model=None)
@@ -320,25 +272,18 @@ async def update_settings(
     request: Request,
     max_chats_per_account: int = Form(...),
     analysis_freshness_days: int = Form(...),
-) -> RedirectResponse | Response:
+) -> Response:
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
     if not (1 <= max_chats_per_account <= 1000):
-        qs = urlencode(
-            {"flash": "max_chats_per_account должен быть от 1 до 1000", "flash_type": "error"}
-        )
-        return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+        return _toast_response("max_chats_per_account должен быть от 1 до 1000", toast_type="error")
 
     if not (1 <= analysis_freshness_days <= 30):
-        qs = urlencode(
-            {"flash": "analysis_freshness_days должен быть от 1 до 30", "flash_type": "error"}
-        )
-        return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+        return _toast_response("analysis_freshness_days должен быть от 1 до 30", toast_type="error")
 
     group_db = _get_group_db(request)
     group_db.set_setting("max_chats_per_account", str(max_chats_per_account))
     group_db.set_setting("analysis_freshness_days", str(analysis_freshness_days))
 
-    qs = urlencode({"flash": "Настройки сохранены", "flash_type": "success"})
-    return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+    return _toast_response("Настройки сохранены", redirect="/admin")
