@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.2] - 2026-04-03
+
+### Added
+- Toast-уведомления: универсальный компонент для всех user actions (success/error/info/warning)
+- Toast: auto-dismiss через 5 секунд, stacking, dark/light тема, мобильная адаптация
+- Toast: интеграция с HTMX через HX-Trigger response header
+- Toast: миграция flash→toast в admin.py и profile.py
+- Skeleton loading: placeholder-блоки для таблицы каталога с shimmer-анимацией
+- Микроанимации: fade-in для HTMX-контента, slide-down для dropdown и бургер-меню
+
+### Fixed
+- Skeleton: hardcoded light colors заменены на CSS-переменные (--bg-skeleton)
+- Toast: удалён дублирующий showToast listener из htmx-error-handler.js
+- Toast: XSS-защита — использование textContent вместо innerHTML
+- Toast: корректная обработка смешанных форматов HX-Trigger
+- Toast: предотвращение дублирования при refresh с flash URL-параметрами
+- CI: ruff formatter — исправлены ошибки форматирования
+- CI: 9 упавших тестов — исправлены
+- Admin: html.escape(username) вызывал отображение &lt;admin&gt; — убран
+
 ## [0.31.1] - 2026-04-02
 
 ### Fixed

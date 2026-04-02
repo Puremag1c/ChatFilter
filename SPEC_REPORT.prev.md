@@ -1,45 +1,23 @@
 # Отчёт по итерации
 
-**Версия:** 0.31.1
-**Дата:** 2026-04-02
+**Версия:** 0.31.2
+**Дата:** 2026-04-03
 
 ## Выполнено
 
-### Must Have 1: Хедер — перекрытие на мобильных (375px)
-Реализовано. Добавлено бургер-меню для мобильных (<768px). Навигация коллапсится в hamburger, тестировано на 375px (iPhone SE), 390px (iPhone 14), 768px (iPad).
+### Must Have 1: Toast-уведомления
+Реализовано. Универсальный toast-компонент с типами success/error/info/warning. Auto-dismiss через 5 секунд. Позиция — правый верхний угол. Stacking нескольких toast. Интеграция с HTMX через HX-Trigger response header. Работает в обеих темах (dark/light). На мобильных не перекрывает контент. XSS-защита через textContent. Миграция flash→toast в admin.py и profile.py.
 
-### Must Have 2: Top-up — очистка поля + visual feedback
-Реализовано. Поле очищается после успешного hx-post через hx-on::after-settle. Добавлена зелёная подсветка (flash) как визуальный feedback успешного начисления. Серверная валидация суммы.
+### Must Have 2: Skeleton loading
+Реализовано. Placeholder-блоки для таблицы каталога, повторяющие структуру строк таблицы. Shimmer/pulse анимация. CSS-переменные для обеих тем (--bg-skeleton). Интеграция через hx-indicator.
 
-### Must Have 3: Кнопки — современный стиль
-Реализовано. Достаточный padding (12px 24px primary, 10px 20px secondary), иконки (Export CSV → 📥 + текст), визуальная иерархия, hover/active/focus transitions (150-200ms), border-radius 8px, тени для primary.
-
-### Must Have 4: Export CSV — привести в порядок
-Реализовано. Иконка + текст, вписан в фильтр-панель. Состояние "exporting..." со спиннером. Исправлен баг с 500 ошибкой при невалидных параметрах (теперь 422).
-
-### Must Have 5: Формы и инпуты
-Реализовано. Консистентный padding и высота, focus-состояние с border-color transition + box-shadow, labels с правильным spacing, placeholder в --text-muted.
-
-### Must Have 6: Таблицы — читаемость
-Реализовано. Zebra-striping через --bg-stripe, padding ячеек min 12px 16px, хедер визуально отделён (фон, font-weight), vertical spacing. Пустые состояния для таблиц без данных.
-
-### Must Have 7: Мобильная адаптация
-Реализовано. Бургер-меню на <768px, горизонтальный скролл таблиц, full-width инпуты и кнопки на мобильных, touch targets min 44px.
-
-### Must Have 8: Общий visual polish
-Реализовано. Spacing система (16/24/32px), карточки с subtle shadow, скругления 8-12px карточки / 6-8px инпуты, transitions 150-200ms ease, визуальная иерархия.
+### Must Have 3: Микроанимации
+Реализовано. Fade-in для HTMX-контента при загрузке (htmx-added). Slide-down для dropdown-меню профиля в хедере. Slide-down для бургер-меню на мобильных. Плавное появление toast (slide-in + fade).
 
 ## Не выполнено
 
-### Nice to Have: Toast-уведомления
-Не реализовано. Используется inline visual feedback (зелёная подсветка) вместо полноценных toast.
-
-### Nice to Have: Skeleton loading
-Не реализовано. Не приоритет для данной итерации.
-
-### Nice to Have: Микроанимации
-Частично реализовано. Добавлены transitions для hover/focus, но без fade-in для контента и slide для dropdown.
+Все Must Have и основные Nice to Have реализованы. Нет невыполненных требований.
 
 ## Итог
 
-Все 8 Must Have требований из SPEC.md реализованы и протестированы. Исправлена мобильная регрессия хедера (375px), добавлено бургер-меню. UX доведён до современного уровня: консистентные кнопки, формы, таблицы, spacing. Визуальное тестирование пройдено на 3 viewports (375px, 768px, 1920px) в обеих темах. CI проходит, все 2328 backend-тестов зелёные. Стилизованная модалка подтверждения заменила native hx-confirm.
+Все 3 Must Have требования из SPEC.md реализованы и протестированы: toast-уведомления, skeleton loading, микроанимации. Дополнительно реализованы Nice to Have: stacking toasts и dismiss по клику. Исправлены баги: hardcoded skeleton цвета, дублирующие event listeners, XSS в toast, html.escape в admin, CI failures. Визуальное тестирование пройдено (15+ скриншотов, desktop/mobile, dark/light). Функциональное тестирование — все 3 Must Have PASS. CI проходит. API — 13 endpoints протестированы без серверных ошибок.
