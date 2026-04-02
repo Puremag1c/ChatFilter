@@ -256,6 +256,27 @@ async def toggle_admin(request: Request, user_id: str) -> Response:
     )
 
 
+@router.post("/admin/ai-settings", response_model=None)
+async def update_ai_settings(
+    request: Request,
+    openrouter_api_key: str = Form(""),
+    ai_model: str = Form(""),
+    ai_fallback_models: str = Form(""),
+) -> RedirectResponse | Response:
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    group_db = _get_group_db(request)
+    if openrouter_api_key.strip():
+        group_db.set_setting("openrouter_api_key", openrouter_api_key.strip())
+    if ai_model.strip():
+        group_db.set_setting("ai_model", ai_model.strip())
+    group_db.set_setting("ai_fallback_models", ai_fallback_models.strip())
+
+    qs = urlencode({"flash": "AI настройки сохранены", "flash_type": "success"})
+    return RedirectResponse(url=f"/admin?{qs}", status_code=303)
+
+
 @router.post("/admin/settings", response_model=None)
 async def update_settings(
     request: Request,
