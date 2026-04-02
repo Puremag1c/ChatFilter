@@ -386,13 +386,18 @@ async def delete_group(web_session: WebSession, group_id: str) -> HTMLResponse:
     Returns:
         Empty response for OOB swap
     """
+    import json
+
     try:
         service = _get_group_service()
         user_id: str = web_session.get("user_id", "")
         service.delete_group(group_id, user_id=user_id)
 
-        # Return empty response with HX-Trigger header to refresh the container
-        return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": "refreshGroups"})
+        # Return empty response with HX-Trigger header to refresh the container and show toast
+        trigger = json.dumps(
+            {"refreshGroups": {}, "showToast": {"type": "success", "message": "Группа удалена"}}
+        )
+        return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger})
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete group: {str(e)}") from e

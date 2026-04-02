@@ -89,8 +89,11 @@ async def start_group_analysis(
 
         service.start_analysis(group_id)
 
-        # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": "refreshGroups"})
+        # Return 204 No Content with HX-Trigger header to refresh the container and show toast
+        trigger = json.dumps(
+            {"refreshGroups": {}, "showToast": {"type": "success", "message": "Анализ запущен"}}
+        )
+        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": trigger})
 
     except HTTPException:
         raise
@@ -180,8 +183,11 @@ async def reanalyze_group(
 
         service.reanalyze(group_id, mode=analysis_mode)
 
-        # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": "refreshGroups"})
+        # Return 204 No Content with HX-Trigger header to refresh the container and show toast
+        trigger = json.dumps(
+            {"refreshGroups": {}, "showToast": {"type": "success", "message": "Анализ запущен"}}
+        )
+        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": trigger})
 
     except HTTPException:
         raise
@@ -229,8 +235,11 @@ async def stop_group_analysis(
         # Stop analysis via service (cancels task, updates status)
         service.stop_analysis(group_id)
 
-        # Return 204 No Content with HX-Trigger header to refresh the container
-        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": "refreshGroups"})
+        # Return 204 No Content with HX-Trigger header to refresh the container and show toast
+        trigger = json.dumps(
+            {"refreshGroups": {}, "showToast": {"type": "success", "message": "Анализ остановлен"}}
+        )
+        return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": trigger})
 
     except HTTPException:
         raise

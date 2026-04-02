@@ -291,10 +291,15 @@
             document.body.removeChild(a);
             window.URL.revokeObjectURL(downloadUrl);
 
-            // Close modal
+            // Close modal and show success toast
             closeModal();
+            if (window.ToastManager) {
+                ToastManager.success('CSV-файл загружен');
+            }
         } catch (error) {
-            alert('Failed to download export: ' + error.message);
+            if (window.ToastManager) {
+                ToastManager.error('Не удалось скачать файл: ' + error.message);
+            }
         }
     }
     window.downloadFilteredExport = downloadFilteredExport;

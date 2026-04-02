@@ -194,11 +194,12 @@ async def toggle_admin(request: Request, user_id: str) -> Response:
     if not user:
         return Response(status_code=404, content="User not found")
 
-    db.set_admin(user_id, not user["is_admin"])
+    new_is_admin = not user["is_admin"]
+    db.set_admin(user_id, new_is_admin)
     updated_user = db.get_user_by_id(user_id)
 
     templates = get_templates()
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="partials/admin_user_row.html",
         context=get_template_context(
@@ -207,6 +208,12 @@ async def toggle_admin(request: Request, user_id: str) -> Response:
             current_user_id=current_user_id,
         ),
     )
+    username = html.escape(user["username"])
+    action = "назначен администратором" if new_is_admin else "снят с должности администратора"
+    response.headers["HX-Trigger"] = json.dumps(
+        {"showToast": {"type": "success", "message": f"Пользователь '{username}' {action}"}}
+    )
+    return response
 
 
 @router.post("/admin/users/{user_id}/topup", response_model=None)
@@ -236,7 +243,7 @@ async def topup_balance(
         admin_description=f"Admin topup ${amount:.2f}",
     )
     templates = get_templates()
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="partials/balance_td.html",
         context=get_template_context(
@@ -245,6 +252,10 @@ async def topup_balance(
             new_balance=new_balance,
         ),
     )
+    response.headers["HX-Trigger"] = json.dumps(
+        {"showToast": {"type": "success", "message": f"Баланс пополнен на ${amount:.2f}"}}
+    )
+    return response
 
 
 @router.post("/admin/ai-settings", response_model=None)
