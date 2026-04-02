@@ -371,7 +371,6 @@ header .nav-links a:hover {
 }
 
 .profile-menu {
-    display: none;
     position: absolute;
     top: calc(100% + 0.5rem);
     right: 0;
@@ -382,10 +381,16 @@ header .nav-links a:hover {
     min-width: 140px;
     z-index: 100;
     overflow: hidden;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
 }
 
 .profile-dropdown:focus-within .profile-menu {
-    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
 
 .profile-menu-item {
@@ -4439,7 +4444,6 @@ body:has(.update-notification.show) {
 
     /* Hide nav-links by default on mobile */
     header .nav-links {
-        display: none;
         position: absolute;
         top: 52px; /* matches .header-nav height */
         left: 0;
@@ -4454,11 +4458,16 @@ body:has(.update-notification.show) {
         /* Override any inherited font-size/order from other breakpoints */
         font-size: 1rem;
         order: unset;
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: max-height 0.3s, opacity 0.3s;
     }
 
     /* Show dropdown when burger is checked */
     .burger-checkbox:checked ~ .nav-links {
-        display: flex;
+        max-height: 500px;
+        opacity: 1;
     }
 
     /* Nav links: full-width tap targets */
@@ -4555,3 +4564,11 @@ body:has(.update-notification.show) {
 }
 
 /* ========== End Mobile Adaptation ========== */
+
+/* ========== HTMX Animations ========== */
+/* New content from HTMX starts invisible with transition enabled.
+   HTMX removes .htmx-added after settling, fading element to opacity:1 */
+.htmx-added {
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+}
