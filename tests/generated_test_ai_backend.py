@@ -495,7 +495,6 @@ class TestProfileTransactionHistory:
     ) -> None:
         """Profile page must show transactions when they exist."""
         from chatfilter.storage.user_database import get_user_db
-        from chatfilter.web.session import SESSION_COOKIE_NAME
 
         # Get current user's id from the test client session cookie
         db = get_user_db(test_settings.effective_database_url)
