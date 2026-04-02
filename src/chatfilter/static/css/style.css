@@ -3211,25 +3211,34 @@ body:has(.update-notification.show) {
 
 .proxy-pool-table th,
 .proxy-pool-table td {
-    padding: 0.875rem 1rem;
+    padding: 0.75rem 1rem;
     text-align: left;
     border-bottom: 1px solid var(--border-light);
 }
 
 .proxy-pool-table th {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-secondary);
     font-size: 0.8125rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    background: var(--bg-card);
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
 }
 
 .proxy-pool-table tbody tr {
     transition: background-color 0.15s ease;
 }
 
+.proxy-pool-table tbody tr:nth-child(even) {
+    background: var(--bg-stripe);
+}
+
 .proxy-pool-table tbody tr:hover {
+    background: var(--bg-card-hover);
+}
+
+.proxy-pool-table tbody tr:nth-child(even):hover {
     background: var(--bg-card-hover);
 }
 
@@ -3515,25 +3524,34 @@ body:has(.update-notification.show) {
 
 .admin-users-table th,
 .admin-users-table td {
-    padding: 0.875rem 1rem;
+    padding: 0.75rem 1rem;
     text-align: left;
     border-bottom: 1px solid var(--border-light);
 }
 
 .admin-users-table th {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-secondary);
     font-size: 0.8125rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    background: var(--bg-card);
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
 }
 
 .admin-users-table tbody tr {
     transition: background-color 0.15s ease;
 }
 
+.admin-users-table tbody tr:nth-child(even) {
+    background: var(--bg-stripe);
+}
+
 .admin-users-table tbody tr:hover {
+    background: var(--bg-card-hover);
+}
+
+.admin-users-table tbody tr:nth-child(even):hover {
     background: var(--bg-card-hover);
 }
 
@@ -3677,7 +3695,7 @@ body:has(.update-notification.show) {
 
 .accounts-table th,
 .accounts-table td {
-    padding: 0.875rem 1rem;
+    padding: 0.75rem 1rem;
     text-align: left;
     border-bottom: 1px solid var(--border-light);
 }
@@ -3689,10 +3707,19 @@ body:has(.update-notification.show) {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.accounts-table tbody tr:nth-child(even) {
+    background: var(--bg-stripe);
 }
 
 .accounts-table tbody tr:hover {
-    background: var(--bg-secondary);
+    background: var(--bg-card-hover);
+}
+
+.accounts-table tbody tr:nth-child(even):hover {
+    background: var(--bg-card-hover);
 }
 
 .account-row.removing {
@@ -4132,7 +4159,7 @@ body:has(.update-notification.show) {
 
 .data-table th,
 .data-table td {
-    padding: 0.5rem 0.75rem;
+    padding: 0.75rem 1rem;
     text-align: left;
     vertical-align: middle;
     border-bottom: 1px solid var(--border-color);
@@ -4145,7 +4172,8 @@ body:has(.update-notification.show) {
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: var(--text-secondary);
-    background: var(--bg-code);
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: 1;
