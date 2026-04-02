@@ -227,6 +227,7 @@ header {
     padding: 0 2rem;
     border-bottom: 1px solid var(--border-light);
     backdrop-filter: blur(20px);
+    box-shadow: 0 1px 4px var(--shadow-sm);
 }
 
 header nav {
@@ -666,8 +667,8 @@ footer .diagnostic-button:hover {
 /* Cards */
 .card {
     background: var(--bg-card);
-    border-radius: 6px;
-    box-shadow: 0 1px 2px var(--shadow-sm);
+    border-radius: 10px;
+    box-shadow: 0 1px 3px var(--shadow-sm), 0 4px 12px var(--shadow-md);
     border: 1px solid var(--border-light);
     padding: 1.75rem;
     margin-bottom: 1.5rem;
@@ -675,7 +676,7 @@ footer .diagnostic-button:hover {
 
 .card h3 {
     font-size: 1.125rem;
-    font-weight: 500;
+    font-weight: 600;
     margin-bottom: 1.25rem;
     color: var(--text-primary);
     letter-spacing: -0.01em;
@@ -684,7 +685,7 @@ footer .diagnostic-button:hover {
 /* Alerts */
 .alert {
     padding: 1rem 1.25rem;
-    border-radius: 6px;
+    border-radius: 8px;
     margin-bottom: 1.5rem;
     font-size: 0.9375rem;
     line-height: 1.5;
@@ -1293,14 +1294,15 @@ tr.htmx-request .proxy-status-badge {
     flex-direction: column;
     padding: 1rem 1.25rem;
     background: var(--bg-card);
-    border-radius: 6px;
+    border-radius: 8px;
     border: 1px solid var(--border-light);
-    transition: all 0.2s;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .session-item:hover {
     background: var(--bg-card-hover);
     border-color: var(--border-color);
+    box-shadow: 0 2px 8px var(--shadow-md);
 }
 
 .session-header {
@@ -1480,7 +1482,7 @@ tr.htmx-request .proxy-status-badge {
 .onboarding-section {
     background: var(--bg-card);
     border: 1px solid var(--border-light);
-    border-radius: 6px;
+    border-radius: 8px;
     margin-bottom: 0.75rem;
     overflow: hidden;
 }
@@ -1608,8 +1610,8 @@ tr.htmx-request .proxy-status-badge {
 
 .toast {
     background: var(--bg-card);
-    border-radius: 6px;
-    box-shadow: 0 2px 8px var(--shadow-md);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px var(--shadow-md), 0 4px 16px var(--shadow-sm);
     border: 1px solid var(--border-light);
     padding: 1rem 1.25rem;
     display: flex;
@@ -1778,8 +1780,8 @@ tr.htmx-request .proxy-status-badge {
 /* Modal dialog */
 .modal-dialog {
     background: var(--bg-card);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px var(--shadow-lg);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px var(--shadow-md), 0 8px 32px var(--shadow-lg);
     border: 1px solid var(--border-light);
     max-width: 500px;
     width: 90%;
@@ -1889,11 +1891,11 @@ tr.htmx-request .proxy-status-badge {
 .modal-button {
     padding: 0.625rem 1.25rem;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.9375rem;
     font-weight: 400;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .modal-button:hover {
@@ -2654,7 +2656,7 @@ tr.htmx-request .proxy-status-badge {
     /* Cards */
     .card {
         padding: 0.875rem;
-        border-radius: 6px;
+        border-radius: 8px;
     }
 
     .card h3 {
@@ -3710,6 +3712,10 @@ body:has(.update-notification.show) {
     border-bottom: 2px solid var(--border-color);
 }
 
+.accounts-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
 .accounts-table tbody tr:nth-child(even) {
     background: var(--bg-stripe);
 }
@@ -4179,6 +4185,10 @@ body:has(.update-notification.show) {
     z-index: 1;
 }
 
+.data-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
 .data-table tbody tr:hover {
     background: var(--bg-card-hover);
 }
@@ -4293,10 +4303,11 @@ body:has(.update-notification.show) {
 /* Catalog filter panel styles */
 .filter-panel {
     background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
     padding: 1.5rem;
     margin-bottom: 2rem;
+    box-shadow: 0 1px 3px var(--shadow-sm), 0 4px 12px var(--shadow-md);
 }
 
 .filter-row {
