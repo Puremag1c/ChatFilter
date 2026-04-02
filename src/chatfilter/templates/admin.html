@@ -69,4 +69,32 @@
         <button type="submit" class="btn btn-primary">Сохранить</button>
     </form>
 </section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>AI Settings</h2>
+    </div>
+    <form method="post" action="/admin/ai-settings" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div>
+            <label for="openrouter-api-key" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">OpenRouter API Key</label>
+            <input type="password" id="openrouter-api-key" name="openrouter_api_key"
+                   class="form-input" autocomplete="off"
+                   value="{{ app_settings.get('openrouter_api_key', '') }}">
+        </div>
+        <div>
+            <label for="ai-model" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">Primary Model</label>
+            <input type="text" id="ai-model" name="ai_model"
+                   class="form-input" placeholder="openrouter/google/gemini-2.5-flash"
+                   value="{{ app_settings.get('ai_model', '') }}">
+        </div>
+        <div>
+            <label for="ai-fallback-models" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">Fallback Models (one per line)</label>
+            <textarea id="ai-fallback-models" name="ai_fallback_models"
+                      class="form-input" rows="3" style="width:20rem;resize:vertical"
+                      placeholder="openrouter/anthropic/claude-3-haiku">{{ ai_fallback_models_text }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+    </form>
+</section>
 {% endblock %}
