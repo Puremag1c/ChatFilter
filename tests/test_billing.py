@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -36,14 +35,10 @@ class TestGetBalance:
 
 
 class TestCheckBalance:
-    def test_check_balance_false_when_zero(
-        self, billing: BillingService, user_id: str
-    ) -> None:
+    def test_check_balance_false_when_zero(self, billing: BillingService, user_id: str) -> None:
         assert billing.check_balance(user_id) is False
 
-    def test_check_balance_true_when_positive(
-        self, billing: BillingService, user_id: str
-    ) -> None:
+    def test_check_balance_true_when_positive(self, billing: BillingService, user_id: str) -> None:
         billing.topup(user_id, 1.0, "load")
         assert billing.check_balance(user_id) is True
 
@@ -59,9 +54,7 @@ class TestTopup:
         billing.topup(user_id, 3.0, "second")
         assert billing.get_balance(user_id) == pytest.approx(8.0)
 
-    def test_topup_creates_transaction_record(
-        self, billing: BillingService, user_id: str
-    ) -> None:
+    def test_topup_creates_transaction_record(self, billing: BillingService, user_id: str) -> None:
         billing.topup(user_id, 10.0, "Admin top-up")
         txns = billing.get_transactions(user_id)
         assert len(txns) == 1
@@ -84,9 +77,7 @@ class TestCharge:
         assert new_balance == pytest.approx(9.95)
         assert billing.get_balance(user_id) == pytest.approx(9.95)
 
-    def test_charge_creates_transaction_record(
-        self, billing: BillingService, user_id: str
-    ) -> None:
+    def test_charge_creates_transaction_record(self, billing: BillingService, user_id: str) -> None:
         billing.topup(user_id, 10.0, "load")
         billing.charge(user_id, 0.05, "gpt-4", 100, 200, "AI request")
         txns = billing.get_transactions(user_id)
