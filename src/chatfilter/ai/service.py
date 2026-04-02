@@ -41,9 +41,7 @@ class AIService:
         except json.JSONDecodeError:
             fallback_models = []
 
-        return AIConfig(
-            api_key=SecretStr(api_key), model=model, fallback_models=fallback_models
-        )
+        return AIConfig(api_key=SecretStr(api_key), model=model, fallback_models=fallback_models)
 
     # Fallback cost per token when LiteLLM cannot determine the real cost.
     # Uses conservative upper-bound pricing to avoid giving away free AI.
