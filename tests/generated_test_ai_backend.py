@@ -78,23 +78,28 @@ def admin_csrf_client(test_settings: Any, monkeypatch: Any) -> Iterator[TestClie
 # SPEC requirement 1: New dependencies importable
 # ============================================================================
 
+
 class TestNewDependencies:
     """SPEC line 33-37: litellm, playwright, beautifulsoup4, lxml must be installed."""
 
     def test_litellm_importable(self) -> None:
         import litellm  # noqa: F401
+
         assert litellm is not None
 
     def test_beautifulsoup4_importable(self) -> None:
         from bs4 import BeautifulSoup  # noqa: F401
+
         assert BeautifulSoup is not None
 
     def test_lxml_importable(self) -> None:
         import lxml  # noqa: F401
+
         assert lxml is not None
 
     def test_playwright_importable(self) -> None:
         import playwright  # noqa: F401
+
         assert playwright is not None
 
 
@@ -102,26 +107,31 @@ class TestNewDependencies:
 # SPEC requirement 3: AI service module structure
 # ============================================================================
 
+
 class TestAIModuleStructure:
     """SPEC line 43-49: ai/ module with service.py, models.py, billing.py."""
 
     def test_ai_service_importable(self) -> None:
         from chatfilter.ai.service import AIService  # noqa: F401
+
         assert AIService is not None
 
     def test_ai_models_importable(self) -> None:
         from chatfilter.ai.models import AIConfig, AIResponse  # noqa: F401
+
         assert AIConfig is not None
         assert AIResponse is not None
 
     def test_ai_billing_importable(self) -> None:
         from chatfilter.ai.billing import BillingService, InsufficientBalance  # noqa: F401
+
         assert BillingService is not None
         assert InsufficientBalance is not None
 
     def test_ai_config_defaults(self) -> None:
         """AIConfig should have sensible defaults including OpenRouter model."""
         from chatfilter.ai.models import AIConfig
+
         config = AIConfig()
         assert "openrouter" in config.model or config.model != ""
         assert config.fallback_models == []
@@ -129,7 +139,10 @@ class TestAIModuleStructure:
     def test_ai_response_model(self) -> None:
         """AIResponse must have content, model, tokens_in, tokens_out, cost_usd."""
         from chatfilter.ai.models import AIResponse
-        resp = AIResponse(content="hello", model="test/model", tokens_in=10, tokens_out=5, cost_usd=0.001)
+
+        resp = AIResponse(
+            content="hello", model="test/model", tokens_in=10, tokens_out=5, cost_usd=0.001
+        )
         assert resp.content == "hello"
         assert resp.model == "test/model"
         assert resp.tokens_in == 10
@@ -140,6 +153,7 @@ class TestAIModuleStructure:
 # ============================================================================
 # SPEC requirement 4: User balance — migration schema
 # ============================================================================
+
 
 class TestMigrationSchema:
     """SPEC line 52-53: ai_balance_usd field and ai_transactions table via migration."""
@@ -166,7 +180,9 @@ class TestMigrationSchema:
 
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_transactions'")
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_transactions'"
+        )
         result = cursor.fetchone()
         conn.close()
 
@@ -183,8 +199,18 @@ class TestMigrationSchema:
         cols = {row[1] for row in cursor.fetchall()}
         conn.close()
 
-        required = {"id", "user_id", "amount_usd", "balance_after", "type", "model",
-                    "tokens_in", "tokens_out", "description", "created_at"}
+        required = {
+            "id",
+            "user_id",
+            "amount_usd",
+            "balance_after",
+            "type",
+            "model",
+            "tokens_in",
+            "tokens_out",
+            "description",
+            "created_at",
+        }
         missing = required - cols
         assert not missing, f"ai_transactions missing columns: {missing}"
 
@@ -206,6 +232,7 @@ class TestMigrationSchema:
 # ============================================================================
 # SPEC requirement 4: Balance checking — reject when ≤ 0
 # ============================================================================
+
 
 class TestBalanceEnforcement:
     """SPEC line 56-57: check balance > 0 before AI request; reject if ≤ 0."""
@@ -267,6 +294,7 @@ class TestBalanceEnforcement:
 # SPEC requirement 4: Starting balance $1.00
 # ============================================================================
 
+
 class TestNewUserStartingBalance:
     """SPEC line 55: new user starts with $1.00 AI balance."""
 
@@ -288,6 +316,7 @@ class TestNewUserStartingBalance:
 # SPEC requirement 5: Admin AI settings — stored in app_settings
 # ============================================================================
 
+
 class TestAdminAISettings:
     """SPEC line 48: API key, model, fallbacks stored in app_settings."""
 
@@ -303,6 +332,7 @@ class TestAdminAISettings:
 
     def test_group_db_can_store_fallback_models_json(self, tmp_path: Path) -> None:
         import json
+
         db = make_group_db(tmp_path / "settings_test3.db")
         fallbacks = ["openrouter/anthropic/claude-3-haiku", "openrouter/meta-llama/llama-3-8b"]
         db.set_setting("ai_fallback_models", json.dumps(fallbacks))
@@ -312,6 +342,7 @@ class TestAdminAISettings:
     def test_ai_service_loads_config_from_db(self, tmp_path: Path) -> None:
         """AIService._load_config must read from app_settings."""
         from chatfilter.ai.service import AIService
+
         db = make_group_db(tmp_path / "service_config.db")
         db.set_setting("ai_model", "openrouter/test/model-x")
         db.set_setting("openrouter_api_key", "sk-test-key")
@@ -324,6 +355,7 @@ class TestAdminAISettings:
     def test_ai_service_handles_empty_fallback_models(self, tmp_path: Path) -> None:
         """Empty fallback_models setting must not crash — return empty list."""
         from chatfilter.ai.service import AIService
+
         db = make_group_db(tmp_path / "service_empty_fallback.db")
         db.set_setting("ai_fallback_models", "[]")
 
@@ -334,6 +366,7 @@ class TestAdminAISettings:
     def test_ai_service_handles_invalid_fallback_json(self, tmp_path: Path) -> None:
         """Invalid JSON for fallback_models must degrade gracefully to empty list."""
         from chatfilter.ai.service import AIService
+
         db = make_group_db(tmp_path / "service_bad_json.db")
         db.set_setting("ai_fallback_models", "not-valid-json")
 
@@ -345,6 +378,7 @@ class TestAdminAISettings:
 # ============================================================================
 # SPEC requirement 5: Admin topup endpoint
 # ============================================================================
+
 
 class TestAdminTopupEndpoint:
     """SPEC line 60-61: admin can topup user balance via /admin/users/{id}/topup."""
@@ -389,7 +423,9 @@ class TestAdminTopupEndpoint:
             f"Expected balance $10.00 after topup, got ${new_balance}"
         )
 
-    def test_topup_endpoint_requires_admin(self, fastapi_test_client: Any, test_settings: Any) -> None:
+    def test_topup_endpoint_requires_admin(
+        self, fastapi_test_client: Any, test_settings: Any
+    ) -> None:
         """Non-admin users must be rejected with 403."""
         from chatfilter.storage.user_database import get_user_db
 
@@ -431,12 +467,11 @@ class TestAdminTopupEndpoint:
 # SPEC requirement 5: Admin AI settings endpoint
 # ============================================================================
 
+
 class TestAdminAISettingsEndpoint:
     """SPEC line 59-61: Admin can save OpenRouter key, model, fallback models."""
 
-    def test_save_ai_settings_accessible_by_admin(
-        self, admin_csrf_client: TestClient
-    ) -> None:
+    def test_save_ai_settings_accessible_by_admin(self, admin_csrf_client: TestClient) -> None:
         """Admin POST to /admin/ai-settings must succeed."""
         response = admin_csrf_client.post(
             "/admin/ai-settings",
@@ -469,6 +504,7 @@ class TestAdminAISettingsEndpoint:
 # SPEC requirement 6: Profile page transaction history
 # ============================================================================
 
+
 class TestProfileTransactionHistory:
     """SPEC line 63-64: profile page shows AI transaction history."""
 
@@ -479,7 +515,9 @@ class TestProfileTransactionHistory:
             f"Profile page returned {response.status_code}: {response.text[:200]}"
         )
 
-    def test_profile_page_includes_balance(self, fastapi_test_client: Any, test_settings: Any) -> None:
+    def test_profile_page_includes_balance(
+        self, fastapi_test_client: Any, test_settings: Any
+    ) -> None:
         """Profile page must include AI balance information."""
         response = fastapi_test_client.get("/profile")
         # Balance should appear somewhere on the page
