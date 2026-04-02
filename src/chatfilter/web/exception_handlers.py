@@ -182,9 +182,7 @@ async def validation_exception_handler(
         else:
             return value
 
-    sanitized_errors = [
-        {k: sanitize_value(v) for k, v in error.items()} for error in exc.errors()
-    ]
+    sanitized_errors = [{k: sanitize_value(v) for k, v in error.items()} for error in exc.errors()]
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
