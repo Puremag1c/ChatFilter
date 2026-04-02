@@ -31,6 +31,7 @@ async def profile_page(
     flash_type: str = "success",
 ) -> Response:
     from chatfilter import __version__
+    from chatfilter.ai.billing import BillingService
     from chatfilter.web.app import get_templates
 
     session = get_session(request)
@@ -43,6 +44,10 @@ async def profile_page(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
 
+    billing = BillingService(db)
+    ai_balance = billing.get_balance(user_id)
+    transactions = billing.get_transactions(user_id)
+
     templates = get_templates()
     return templates.TemplateResponse(
         request=request,
@@ -53,6 +58,8 @@ async def profile_page(
             user=user,
             flash=flash,
             flash_type=flash_type,
+            ai_balance=ai_balance,
+            transactions=transactions,
         ),
     )
 
@@ -79,6 +86,12 @@ async def change_password(
 
     username = user["username"]
 
+    from chatfilter.ai.billing import BillingService
+
+    billing = BillingService(db)
+    ai_balance = billing.get_balance(user_id)
+    transactions = billing.get_transactions(user_id)
+
     def render_error(error: str) -> Response:
         templates = get_templates()
         return templates.TemplateResponse(
@@ -90,6 +103,8 @@ async def change_password(
                 user=user,
                 flash=error,
                 flash_type="error",
+                ai_balance=ai_balance,
+                transactions=transactions,
             ),
             status_code=400,
         )

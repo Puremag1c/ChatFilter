@@ -53,4 +53,65 @@
         </div>
     </form>
 </section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <h2>{{ _("AI Usage") }}</h2>
+        <span class="balance-badge" style="font-size:0.875rem">
+            {{ _("Balance") }}: ${{ "%.2f"|format(ai_balance) }}
+        </span>
+    </div>
+    <div style="padding:1rem">
+        {% if transactions %}
+        <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
+                <thead>
+                    <tr style="border-bottom:2px solid var(--border-color,#e5e7eb)">
+                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Date") }}</th>
+                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Type") }}</th>
+                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Model") }}</th>
+                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Tokens In") }}</th>
+                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Tokens Out") }}</th>
+                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Cost") }}</th>
+                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Balance After") }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                    <tr style="border-bottom:1px solid var(--border-color,#e5e7eb)">
+                        <td style="padding:0.5rem 0.75rem;white-space:nowrap">
+                            {{ tx.created_at[:16] | replace("T", " ") if tx.created_at else "—" }}
+                        </td>
+                        <td style="padding:0.5rem 0.75rem">
+                            <span style="padding:0.125rem 0.5rem;border-radius:9999px;font-size:0.75rem;
+                                {% if tx.type == 'topup' %}background:var(--success-bg,#d1fae5);color:var(--success-color,#065f46)
+                                {% else %}background:var(--muted-bg,#f3f4f6);color:var(--muted-color,#374151){% endif %}">
+                                {{ tx.type }}
+                            </span>
+                        </td>
+                        <td style="padding:0.5rem 0.75rem">{{ tx.model or "—" }}</td>
+                        <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_in if tx.tokens_in is not none else "—" }}</td>
+                        <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_out if tx.tokens_out is not none else "—" }}</td>
+                        <td style="padding:0.5rem 0.75rem;text-align:right">
+                            {% if tx.amount_usd is not none %}
+                                ${{ "%.4f"|format(tx.amount_usd | abs) }}
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="padding:0.5rem 0.75rem;text-align:right">
+                            {% if tx.balance_after is not none %}
+                                ${{ "%.4f"|format(tx.balance_after) }}
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color:var(--muted-color,#6b7280);text-align:center;padding:2rem 0">
+            {{ _("No AI transactions yet.") }}
+        </p>
+        {% endif %}
+    </div>
+</section>
 {% endblock %}
