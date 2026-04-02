@@ -18,6 +18,25 @@ if TYPE_CHECKING:
 
 router = APIRouter(tags=["admin"])
 
+_SENSITIVE_SETTINGS = {"openrouter_api_key"}
+
+
+def _mask_api_key(value: str) -> str:
+    if not value:
+        return ""
+    if len(value) <= 8:
+        return "****"
+    return value[:3] + "..." + value[-4:]
+
+
+def _safe_app_settings(settings: dict[str, str]) -> dict[str, str]:
+    """Return app_settings with sensitive keys masked for display."""
+    result = dict(settings)
+    for key in _SENSITIVE_SETTINGS:
+        if key in result:
+            result[key] = _mask_api_key(result[key])
+    return result
+
 
 def _get_user_db(request: Request) -> UserDatabase:
     from chatfilter.storage.user_database import get_user_db
@@ -58,7 +77,7 @@ async def admin_page(
     current_user_id = get_session(request).get("user_id")
 
     group_db = _get_group_db(request)
-    app_settings = group_db.get_all_settings()
+    app_settings = _safe_app_settings(group_db.get_all_settings())
 
     templates = get_templates()
     return templates.TemplateResponse(
@@ -93,7 +112,7 @@ async def create_user(
     if len(password) < 8:
         users = db.list_users()
         group_db = _get_group_db(request)
-        app_settings = group_db.get_all_settings()
+        app_settings = _safe_app_settings(group_db.get_all_settings())
         templates = get_templates()
         return templates.TemplateResponse(
             request=request,
@@ -112,7 +131,7 @@ async def create_user(
     if existing:
         users = db.list_users()
         group_db = _get_group_db(request)
-        app_settings = group_db.get_all_settings()
+        app_settings = _safe_app_settings(group_db.get_all_settings())
         templates = get_templates()
         return templates.TemplateResponse(
             request=request,
@@ -186,7 +205,7 @@ async def change_password(
     if len(password) < 8:
         users = db.list_users()
         group_db = _get_group_db(request)
-        app_settings = group_db.get_all_settings()
+        app_settings = _safe_app_settings(group_db.get_all_settings())
         templates = get_templates()
         return templates.TemplateResponse(
             request=request,
