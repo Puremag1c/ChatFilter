@@ -141,16 +141,4 @@
         );
     });
 
-    // Handle custom HX-Trigger events (showToast)
-    document.body.addEventListener('showToast', function(event) {
-        var detail = event.detail;
-        if (detail) {
-            ToastManager.show({
-                type: detail.type || 'info',
-                title: detail.title,
-                message: detail.message,
-                duration: detail.duration || 5000
-            });
-        }
-    });
 })();
