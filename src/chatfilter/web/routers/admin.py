@@ -272,6 +272,9 @@ async def topup_balance(
     if not user:
         return Response(status_code=404, content="User not found")
 
+    if amount <= 0:
+        return Response(status_code=400, content="Amount must be positive")
+
     billing = BillingService(db)
     new_balance = billing.topup(
         user_id=user_id,
