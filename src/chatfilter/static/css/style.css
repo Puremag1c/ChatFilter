@@ -841,11 +841,11 @@ footer .diagnostic-button:hover {
     gap: 0.5rem;
     padding: 0.625rem 1.25rem;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.9375rem;
     font-weight: 400;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
     background-color: var(--bg-card);
     color: var(--text-primary);
 }
@@ -854,30 +854,45 @@ footer .diagnostic-button:hover {
     transform: scale(0.98);
 }
 
+.btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
 .btn:hover {
     background-color: var(--bg-code);
     border-color: var(--text-secondary);
 }
 
 .btn-primary {
+    padding: 0.75rem 1.5rem;
     background-color: var(--primary);
     color: white;
     border-color: var(--primary);
+    font-weight: 500;
+    box-shadow: 0 1px 3px var(--shadow-sm);
 }
 
 .btn-primary:hover {
     background-color: var(--primary-hover);
     border-color: var(--primary-hover);
+    box-shadow: 0 2px 6px var(--shadow-sm);
+}
+
+.btn-primary:active {
+    box-shadow: none;
 }
 
 .btn-secondary {
+    padding: 0.625rem 1.25rem;
     background-color: var(--bg-code);
-    color: var(--text-primary);
+    color: var(--text-secondary);
     border-color: var(--border-color);
 }
 
 .btn-secondary:hover {
     background-color: var(--bg-card-hover);
+    color: var(--text-primary);
 }
 
 .btn-danger {
