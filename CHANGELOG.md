@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-04-02
+
+### Fixed
+- Баг: хедер — перекрытие элементов на мобильных (375px), добавлено бургер-меню
+- Баг: top-up форма — поле не очищалось после начисления, добавлен visual feedback (зелёная подсветка)
+- Баг: Export CSV возвращал 500 вместо 422 при ошибке валидации
+- Баг: Ruff formatter — неформатированные файлы в CI
+- Баг: Неиспользуемый импорт SESSION_COOKIE_NAME в lint
+- Баг: Green flash timing — использование htmx:afterSettle вместо after-request
+
+### Changed
+- UX: кнопки — современный стиль с padding, иконками, hover/active/focus transitions
+- UX: Export CSV — иконка + текст, спиннер при экспорте, вписан в фильтр-панель
+- UX: формы и инпуты — консистентный padding, focus-состояние, labels spacing
+- UX: таблицы — zebra-striping, padding ячеек, визуальное отделение хедера
+- UX: мобильная адаптация — responsive layout, touch targets (min 44px), full-width элементы
+- UX: общий visual polish — spacing система (16/24/32px), тени, скругления, transitions
+- UX: пустые состояния для основных таблиц данных
+- UX: стилизованная модалка подтверждения вместо native hx-confirm
+- Серверная валидация суммы top-up
+
 ## [0.31.0] - 2026-04-02
 
 ### Added
