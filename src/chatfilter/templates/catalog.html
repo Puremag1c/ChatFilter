@@ -192,7 +192,36 @@
 })();
 </script>
 
-<div id="catalog-loading" class="htmx-indicator">{{ _("Loading…") }}</div>
+<div id="catalog-loading" class="htmx-indicator">
+    <table class="data-table catalog-table skeleton-results-table" aria-hidden="true">
+        <thead>
+            <tr>
+                <th><span class="skeleton skeleton-text skeleton-text-wide"></span></th>
+                <th><span class="skeleton skeleton-text skeleton-text-short"></span></th>
+                <th><span class="skeleton skeleton-text skeleton-text-short"></span></th>
+                <th><span class="skeleton skeleton-text skeleton-text-short"></span></th>
+                <th><span class="skeleton skeleton-text skeleton-text-short"></span></th>
+                <th><span class="skeleton skeleton-text skeleton-text-short"></span></th>
+                <th><span class="skeleton skeleton-text skeleton-text-short"></span></th>
+                <th><span class="skeleton skeleton-text skeleton-text-short"></span></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for _ in range(6) %}
+            <tr class="skeleton-results-row">
+                <td><span class="skeleton skeleton-cell skeleton-cell-short"></span></td>
+                <td><span class="skeleton skeleton-cell skeleton-cell-number"></span></td>
+                <td><span class="skeleton skeleton-cell skeleton-cell-number"></span></td>
+                <td><span class="skeleton skeleton-cell skeleton-cell-number"></span></td>
+                <td><span class="skeleton skeleton-cell skeleton-cell-number"></span></td>
+                <td><span class="skeleton skeleton-cell skeleton-cell-number"></span></td>
+                <td><span class="skeleton skeleton-cell skeleton-cell-number"></span></td>
+                <td><span class="skeleton skeleton-cell skeleton-cell-short"></span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 <div id="catalog-table-container"
      hx-get="/api/catalog"
      hx-trigger="load"
