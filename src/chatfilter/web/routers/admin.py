@@ -256,6 +256,34 @@ async def toggle_admin(request: Request, user_id: str) -> Response:
     )
 
 
+@router.post("/admin/users/{user_id}/topup", response_model=None)
+async def topup_balance(
+    request: Request,
+    user_id: str,
+    amount: float = Form(...),
+) -> Response:
+    from chatfilter.ai.billing import BillingService
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    db = _get_user_db(request)
+    user = db.get_user_by_id(user_id)
+    if not user:
+        return Response(status_code=404, content="User not found")
+
+    billing = BillingService(db)
+    new_balance = billing.topup(
+        user_id=user_id,
+        amount_usd=amount,
+        admin_description=f"Admin topup ${amount:.2f}",
+    )
+    return HTMLResponse(
+        content=f'<td data-label="Balance" id="balance-{user_id}">${new_balance:.2f}</td>',
+        status_code=200,
+    )
+
+
 @router.post("/admin/ai-settings", response_model=None)
 async def update_ai_settings(
     request: Request,
