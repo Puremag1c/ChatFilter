@@ -79,6 +79,7 @@ jobs:
             # Install/update dependencies
             uv venv --python 3.12 --clear
             uv pip install -e . --reinstall-package chatfilter
+            .venv/bin/playwright install chromium --with-deps
 
             # Run migrations (skip if version doesn't support it)
             .venv/bin/chatfilter migrate --data-dir "${DATA_DIR}" 2>/dev/null || echo "migrate not available in this version, skipping"
