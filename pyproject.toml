@@ -30,6 +30,10 @@ dependencies = [
     "bcrypt>=4.0.0",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
+    "litellm>=1.0.0",
+    "playwright>=1.40.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.0",
 ]
 
 [project.optional-dependencies]
@@ -150,6 +154,22 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["babel", "babel.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["litellm", "litellm.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["playwright", "playwright.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["bs4", "bs4.*", "beautifulsoup4"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["lxml", "lxml.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
