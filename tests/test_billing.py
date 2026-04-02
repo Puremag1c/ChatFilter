@@ -20,6 +20,7 @@ def billing(tmp_path: Path) -> BillingService:
 def user_id(billing: BillingService) -> str:
     uid = "test-user-001"
     billing._db.create_user("testuser", "password123", user_id=uid)
+    billing._db.update_balance(uid, 0.0)  # Reset default starting balance to $0 for billing tests
     return uid
 
 

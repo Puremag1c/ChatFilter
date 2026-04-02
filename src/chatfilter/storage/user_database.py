@@ -159,6 +159,7 @@ class UserDatabase(SQLiteDatabase):
 
             bal_cursor = conn.execute("SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,))
             row = bal_cursor.fetchone()
+            assert row is not None  # user must exist — we just updated their balance above
             new_balance = float(row["ai_balance_usd"])
 
             conn.execute(

@@ -6,6 +6,8 @@ high-level charge/topup operations for AI usage.
 
 from __future__ import annotations
 
+from typing import Any
+
 from chatfilter.storage.user_database import UserDatabase
 
 
@@ -83,6 +85,6 @@ class BillingService:
         )
         return new_balance
 
-    def get_transactions(self, user_id: str, limit: int = 50) -> list[dict]:
+    def get_transactions(self, user_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return recent transactions ordered by created_at DESC."""
         return self._db.get_transactions(user_id, limit=limit)

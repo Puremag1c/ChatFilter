@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import litellm
+from pydantic import SecretStr
 
 from chatfilter.ai.models import AIConfig, AIResponse
 
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Suppress LiteLLM verbose output and prevent API keys from appearing in logs
-litellm.set_verbose = False
+litellm.set_verbose = False  # type: ignore[attr-defined]
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 logging.getLogger("LiteLLM Router").setLevel(logging.WARNING)
 logging.getLogger("LiteLLM Proxy").setLevel(logging.WARNING)
@@ -41,8 +42,8 @@ class AIService:
             fallback_models = []
 
         return AIConfig(
-            api_key=api_key, model=model, fallback_models=fallback_models
-        )  # api_key stored as SecretStr
+            api_key=SecretStr(api_key), model=model, fallback_models=fallback_models
+        )
 
     # Fallback cost per token when LiteLLM cannot determine the real cost.
     # Uses conservative upper-bound pricing to avoid giving away free AI.
@@ -97,7 +98,7 @@ class AIService:
         config = self._load_config()
         models_to_try = [config.model, *config.fallback_models]
 
-        extra_kwargs: dict = {}
+        extra_kwargs: dict[str, Any] = {}
         raw_api_key = config.api_key.get_secret_value()
         if raw_api_key:
             extra_kwargs["api_key"] = raw_api_key
