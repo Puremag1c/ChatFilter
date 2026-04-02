@@ -145,12 +145,27 @@
     document.body.addEventListener('showToast', function(event) {
         var detail = event.detail;
         if (detail) {
-            ToastManager.show({
+            var toastId = ToastManager.show({
                 type: detail.type || 'info',
                 title: detail.title,
                 message: detail.message,
-                duration: detail.duration || 5000
+                duration: detail.duration || (detail.link ? 10000 : 5000)
             });
+            // Append clickable link to toast message if provided
+            if (detail.link) {
+                var el = document.querySelector('[data-toast-id="' + toastId + '"]');
+                if (el) {
+                    var msgEl = el.querySelector('.toast-message');
+                    if (msgEl) {
+                        var a = document.createElement('a');
+                        a.href = detail.link;
+                        a.textContent = detail.linkText || 'Go to page';
+                        a.style.cssText = 'display:inline-block;margin-top:6px;color:inherit;text-decoration:underline;font-weight:500;';
+                        msgEl.appendChild(document.createElement('br'));
+                        msgEl.appendChild(a);
+                    }
+                }
+            }
         }
     });
 })();

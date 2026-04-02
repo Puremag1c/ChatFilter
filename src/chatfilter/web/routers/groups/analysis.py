@@ -17,6 +17,29 @@ from chatfilter.web.template_helpers import get_template_context
 
 from .helpers import _get_group_service
 
+
+def _check_ai_balance(request: Request, user_id: str) -> HTMLResponse | None:
+    """Check if user has positive AI balance. Return error response if not."""
+    from chatfilter.ai.billing import BillingService
+    from chatfilter.storage.user_database import get_user_db
+
+    db = get_user_db(request.app.state.settings.effective_database_url)
+    billing = BillingService(db)
+    if not billing.check_balance(user_id):
+        trigger_data = json.dumps(
+            {
+                "refreshGroups": None,
+                "showToast": {
+                    "message": "Insufficient AI balance. Please top up your account.",
+                    "type": "error",
+                    "link": "/profile",
+                    "linkText": "Go to Profile",
+                },
+            }
+        )
+        return HTMLResponse(content="", status_code=402, headers={"HX-Trigger": trigger_data})
+    return None
+
 router = APIRouter()
 
 
@@ -86,6 +109,11 @@ async def start_group_analysis(
                 }
             )
             return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
+
+        # Check AI balance before starting analysis
+        balance_error = _check_ai_balance(request, user_id)
+        if balance_error:
+            return balance_error
 
         service.start_analysis(group_id)
 
@@ -177,6 +205,11 @@ async def reanalyze_group(
                 }
             )
             return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
+
+        # Check AI balance before starting reanalysis
+        balance_error = _check_ai_balance(request, user_id)
+        if balance_error:
+            return balance_error
 
         service.reanalyze(group_id, mode=analysis_mode)
 
@@ -339,6 +372,11 @@ async def resume_group_analysis(
                 }
             )
             return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
+
+        # Check AI balance before resuming analysis
+        balance_error = _check_ai_balance(request, user_id)
+        if balance_error:
+            return balance_error
 
         service.start_analysis(group_id)
 

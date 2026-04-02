@@ -238,12 +238,27 @@
         const detail = event.detail;
         if (detail) {
             const toast = detail;
-            ToastManager.show({
+            const toastId = ToastManager.show({
                 type: toast.type || 'info',
                 title: toast.title,
                 message: toast.message,
-                duration: toast.duration || 5000
+                duration: toast.duration || (toast.link ? 10000 : 5000)
             });
+            // Append clickable link to toast message if provided
+            if (toast.link) {
+                const el = document.querySelector('[data-toast-id="' + toastId + '"]');
+                if (el) {
+                    const msgEl = el.querySelector('.toast-message');
+                    if (msgEl) {
+                        const a = document.createElement('a');
+                        a.href = toast.link;
+                        a.textContent = toast.linkText || t('toast.go_to_page');
+                        a.style.cssText = 'display:inline-block;margin-top:6px;color:inherit;text-decoration:underline;font-weight:500;';
+                        msgEl.appendChild(document.createElement('br'));
+                        msgEl.appendChild(a);
+                    }
+                }
+            }
         }
     });
 
