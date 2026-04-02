@@ -64,6 +64,22 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
 
         css_version = __version__
 
+    current_username = session.get("username")
+
+    ai_balance: float | None = None
+    if current_username:
+        try:
+            from chatfilter.storage.user_database import get_user_db
+
+            settings = getattr(request.app.state, "settings", None)
+            if settings is not None:
+                db = get_user_db(settings.effective_database_url)
+                user = db.get_user_by_username(current_username)
+                if user is not None:
+                    ai_balance = user.get("ai_balance_usd")
+        except Exception:
+            pass
+
     return {
         "request": request,
         "csrf_token": csrf_token,
@@ -73,7 +89,8 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "ngettext": translations.ngettext,
         "css_version": css_version,  # CSS file hash for cache-busting
         "js_translations_json": _js_translations_json(locale),
-        "current_username": session.get("username"),
+        "current_username": current_username,
         "current_is_admin": session.get("is_admin", False),
+        "ai_balance": ai_balance,
         **kwargs,
     }

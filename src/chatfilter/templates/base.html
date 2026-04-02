@@ -32,30 +32,40 @@
     <a href="#main-content" class="skip-link">{{ _("Skip to main content") }}</a>
 
     <header role="banner">
-        <nav role="navigation" aria-label="{{ _("Main navigation") }}">
-            <a href="/" class="logo">ChatFilter</a>
-            <ul class="nav-links">
-                <li><a href="/proxies">{{ _("Proxies") }}</a></li>
-                <li><a href="/">{{ _("Sessions") }}</a></li>
-                <li><a href="/chats">{{ _("Chats") }}</a></li>
-                <li><a href="/catalog">{{ _("Catalog") }}</a></li>
-                {% if current_is_admin %}<li><a href="/admin">{{ _("Admin") }}</a></li>{% endif %}
-            </ul>
-            <div class="status-indicators">
-<button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}">
-                    <span class="theme-icon" aria-hidden="true">🌙</span>
-                </button>
-                <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}">
-                    <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
-                </button>
-                {% if current_username %}
-                <a href="/profile" style="font-size:0.85rem;text-decoration:none">{{ current_username }}</a>
-                <form method="post" action="/logout" style="display:inline;margin:0">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button type="submit" class="btn btn-secondary" style="font-size:0.85rem;padding:0.3rem 0.75rem" aria-label="{{ _("Log out") }}">
-                        &rarr; {{ _("Log out") }}
+        <nav class="header-nav" role="navigation" aria-label="{{ _("Main navigation") }}">
+            <div class="header-left">
+                <a href="/" class="logo">ChatFilter</a>
+                <ul class="nav-links">
+                    <li><a href="/proxies">{{ _("Proxies") }}</a></li>
+                    <li><a href="/">{{ _("Sessions") }}</a></li>
+                    <li><a href="/chats">{{ _("Chats") }}</a></li>
+                    <li><a href="/catalog">{{ _("Catalog") }}</a></li>
+                    {% if current_is_admin %}<li><a href="/admin">{{ _("Admin") }}</a></li>{% endif %}
+                </ul>
+            </div>
+            <div class="header-right">
+                {% if current_username and ai_balance is not none %}
+                <span class="balance-badge">${{ "%.2f" | format(ai_balance) }}</span>
+                {% endif %}
+                <div class="header-controls">
+                    <button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}">
+                        <span class="theme-icon" aria-hidden="true">🌙</span>
                     </button>
-                </form>
+                    <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}">
+                        <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
+                    </button>
+                </div>
+                {% if current_username %}
+                <div class="profile-dropdown">
+                    <button class="profile-trigger" type="button" aria-haspopup="true">{{ current_username }}</button>
+                    <div class="profile-menu" role="menu">
+                        <a href="/profile" class="profile-menu-item" role="menuitem">{{ _("Profile") }}</a>
+                        <form method="post" action="/logout">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="profile-menu-item profile-menu-item--logout" role="menuitem">{{ _("Log out") }}</button>
+                        </form>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </nav>
