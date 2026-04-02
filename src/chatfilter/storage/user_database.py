@@ -109,6 +109,87 @@ class UserDatabase(SQLiteDatabase):
             return str(existing["id"])
         return self.create_user(username, password, is_admin=is_admin)
 
+    def get_balance(self, user_id: str) -> float:
+        """Return current AI balance for user in USD. Returns 0.0 if user not found."""
+        with self._connection() as conn:
+            cursor = conn.execute("SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,))
+            row = cursor.fetchone()
+        return float(row["ai_balance_usd"]) if row else 0.0
+
+    def update_balance(self, user_id: str, new_balance: float) -> None:
+        """Set AI balance for user."""
+        with self._connection() as conn:
+            conn.execute(
+                "UPDATE users SET ai_balance_usd = ? WHERE id = ?",
+                (new_balance, user_id),
+            )
+
+    def add_transaction(
+        self,
+        user_id: str,
+        transaction_type: str,
+        amount_usd: float,
+        balance_after: float,
+        model: str | None = None,
+        tokens_in: int | None = None,
+        tokens_out: int | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Insert a transaction record."""
+        created_at = self._datetime_to_str(datetime.now(UTC))
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO ai_transactions
+                    (user_id, type, amount_usd, balance_after, model,
+                     tokens_in, tokens_out, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    transaction_type,
+                    amount_usd,
+                    balance_after,
+                    model,
+                    tokens_in,
+                    tokens_out,
+                    description,
+                    created_at,
+                ),
+            )
+
+    def get_transactions(self, user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        """Return recent transactions for user ordered by created_at DESC."""
+        with self._connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, user_id, type, amount_usd, balance_after,
+                       model, tokens_in, tokens_out, description, created_at
+                FROM ai_transactions
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            )
+            rows = cursor.fetchall()
+        return [self._transaction_row_to_dict(row) for row in rows]
+
+    @staticmethod
+    def _transaction_row_to_dict(row: Any) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "user_id": row["user_id"],
+            "type": row["type"],
+            "amount_usd": row["amount_usd"],
+            "balance_after": row["balance_after"],
+            "model": row["model"],
+            "tokens_in": row["tokens_in"],
+            "tokens_out": row["tokens_out"],
+            "description": row["description"],
+            "created_at": row["created_at"],
+        }
+
     @staticmethod
     def _row_to_dict(row: Any) -> dict[str, Any]:
         return {
@@ -117,6 +198,9 @@ class UserDatabase(SQLiteDatabase):
             "password_hash": row["password_hash"],
             "is_admin": bool(row["is_admin"]),
             "created_at": row["created_at"],
+            "ai_balance_usd": float(row["ai_balance_usd"])
+            if row["ai_balance_usd"] is not None
+            else 0.0,
         }
 
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import html
-import json
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
@@ -61,14 +60,6 @@ async def admin_page(
     group_db = _get_group_db(request)
     app_settings = group_db.get_all_settings()
 
-    # Parse fallback models JSON → newline-separated text for textarea
-    fallback_raw = app_settings.get("ai_fallback_models", "")
-    try:
-        fallback_list = json.loads(fallback_raw) if fallback_raw else []
-    except (json.JSONDecodeError, ValueError):
-        fallback_list = [fallback_raw] if fallback_raw else []
-    ai_fallback_models_text = "\n".join(fallback_list)
-
     templates = get_templates()
     return templates.TemplateResponse(
         request=request,
@@ -81,7 +72,6 @@ async def admin_page(
             flash_type=flash_type or "success",
             current_user_id=current_user_id,
             app_settings=app_settings,
-            ai_fallback_models_text=ai_fallback_models_text,
         ),
     )
 
@@ -273,27 +263,4 @@ async def update_settings(
     group_db.set_setting("analysis_freshness_days", str(analysis_freshness_days))
 
     qs = urlencode({"flash": "Настройки сохранены", "flash_type": "success"})
-    return RedirectResponse(url=f"/admin?{qs}", status_code=303)
-
-
-@router.post("/admin/ai-settings", response_model=None)
-async def update_ai_settings(
-    request: Request,
-    openrouter_api_key: str = Form(""),
-    ai_model: str = Form(""),
-    ai_fallback_models: str = Form(""),
-) -> RedirectResponse | Response:
-    if not _require_admin(request):
-        return Response(status_code=403, content="Forbidden")
-
-    # Convert newline-separated textarea → JSON array
-    fallback_lines = [line.strip() for line in ai_fallback_models.splitlines() if line.strip()]
-    fallback_json = json.dumps(fallback_lines)
-
-    group_db = _get_group_db(request)
-    group_db.set_setting("openrouter_api_key", openrouter_api_key.strip())
-    group_db.set_setting("ai_model", ai_model.strip())
-    group_db.set_setting("ai_fallback_models", fallback_json)
-
-    qs = urlencode({"flash": "AI настройки сохранены", "flash_type": "success"})
     return RedirectResponse(url=f"/admin?{qs}", status_code=303)

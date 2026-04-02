@@ -78,21 +78,10 @@ jobs:
             ${{ runner.os }}-pip-test-
             ${{ runner.os }}-pip-
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-chromium-
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-
-      - name: Install Playwright browsers
-        run: playwright install chromium --with-deps
 
       - name: Run tests with coverage
         run: |
