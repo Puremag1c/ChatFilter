@@ -76,7 +76,25 @@ users = Table(
     Column("password_hash", Text, nullable=False),
     Column("is_admin", Integer, nullable=False, server_default="0"),
     Column("created_at", Text, nullable=False),
+    Column("ai_balance_usd", Float, nullable=False, server_default="1.0"),
     Index("idx_users_username", "username"),
+)
+
+ai_transactions = Table(
+    "ai_transactions",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("user_id", Text, ForeignKey("users.id"), nullable=False),
+    Column("amount", Float, nullable=False),
+    Column("balance_after", Float, nullable=False),
+    Column("type", Text, nullable=False),
+    Column("model", Text),
+    Column("tokens_in", Integer),
+    Column("tokens_out", Integer),
+    Column("description", Text),
+    Column("created_at", Text, nullable=False),
+    Index("idx_ai_transactions_user_id", "user_id"),
+    Index("idx_ai_transactions_created_at", "created_at"),
 )
 
 chat_catalog = Table(
