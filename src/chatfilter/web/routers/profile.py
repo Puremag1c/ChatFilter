@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -27,8 +27,6 @@ def _get_user_db(request: Request) -> UserDatabase:
 @router.get("/profile", response_class=HTMLResponse)
 async def profile_page(
     request: Request,
-    flash: str | None = None,
-    flash_type: str = "success",
 ) -> Response:
     from chatfilter import __version__
     from chatfilter.ai.billing import BillingService
@@ -56,8 +54,6 @@ async def profile_page(
             request,
             version=__version__,
             user=user,
-            flash=flash,
-            flash_type=flash_type,
             ai_balance=ai_balance,
             transactions=transactions,
         ),
@@ -71,9 +67,6 @@ async def change_password(
     new_password: str = Form(...),
     confirm_password: str = Form(...),
 ) -> Response:
-    from chatfilter import __version__
-    from chatfilter.web.app import get_templates
-
     session = get_session(request)
     user_id = session.get("user_id")
     if not user_id:
@@ -86,39 +79,22 @@ async def change_password(
 
     username = user["username"]
 
-    from chatfilter.ai.billing import BillingService
-
-    billing = BillingService(db)
-    ai_balance = billing.get_balance(user_id)
-    transactions = billing.get_transactions(user_id)
-
-    def render_error(error: str) -> Response:
-        templates = get_templates()
-        return templates.TemplateResponse(
-            request=request,
-            name="profile.html",
-            context=get_template_context(
-                request,
-                version=__version__,
-                user=user,
-                flash=error,
-                flash_type="error",
-                ai_balance=ai_balance,
-                transactions=transactions,
-            ),
-            status_code=400,
-        )
+    def toast_error(message: str) -> Response:
+        trigger = json.dumps({"showToast": {"message": message, "type": "error"}})
+        return HTMLResponse(content="", status_code=400, headers={"HX-Trigger": trigger})
 
     if not db.verify_password(username, old_password):
-        return render_error(_("Current password is incorrect"))
+        return toast_error(_("Current password is incorrect"))
 
     if len(new_password) < 8:
-        return render_error(_("New password must be at least 8 characters"))
+        return toast_error(_("New password must be at least 8 characters"))
 
     if new_password != confirm_password:
-        return render_error(_("New password and confirmation do not match"))
+        return toast_error(_("New password and confirmation do not match"))
 
     db.update_password(user_id, new_password)
 
-    params = urlencode({"flash": _("Password changed successfully"), "flash_type": "success"})
-    return RedirectResponse(url=f"/profile?{params}", status_code=303)
+    trigger = json.dumps(
+        {"showToast": {"message": _("Password changed successfully"), "type": "success"}}
+    )
+    return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger})
