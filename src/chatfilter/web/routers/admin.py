@@ -122,11 +122,15 @@ async def create_user(
     db = _get_user_db(request)
 
     if len(password) < 8:
-        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error", status_code=422)
+        return _toast_response(
+            "Пароль должен содержать минимум 8 символов", toast_type="error", status_code=422
+        )
 
     existing = db.get_user_by_username(username)
     if existing:
-        return _toast_response(f"Пользователь '{username}' уже существует", toast_type="error", status_code=409)
+        return _toast_response(
+            f"Пользователь '{username}' уже существует", toast_type="error", status_code=409
+        )
 
     db.create_user(username, password)
     return _toast_response(f"Пользователь '{username}' создан", redirect="/admin", status_code=303)
@@ -176,7 +180,9 @@ async def change_password(
     db = _get_user_db(request)
 
     if len(password) < 8:
-        return _toast_response("Пароль должен содержать минимум 8 символов", toast_type="error", status_code=422)
+        return _toast_response(
+            "Пароль должен содержать минимум 8 символов", toast_type="error", status_code=422
+        )
 
     db.update_password(user_id, password)
     return _toast_response("Пароль изменён", redirect="/admin", status_code=303)

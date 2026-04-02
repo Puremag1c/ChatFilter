@@ -20,6 +20,7 @@ import pytest
 # SPEC Must Have #4: Export CSV with actual data
 # =============================================================================
 
+
 class TestExportCSVWithData:
     """Export CSV returns correct content when results are provided."""
 
@@ -101,7 +102,9 @@ class TestExportCSVWithData:
 
         # NaN is not valid JSON per RFC 7159. Must be rejected before reaching server logic.
         payload_str = '{"results": [{"chat_id": 1, "chat_title": "t", "chat_type": "group", "message_count": 0, "unique_authors": 0, "history_hours": NaN}]}'
-        with TestClient(app, cookies={SESSION_COOKIE_NAME: session.session_id}, raise_server_exceptions=False) as client:
+        with TestClient(
+            app, cookies={SESSION_COOKIE_NAME: session.session_id}, raise_server_exceptions=False
+        ) as client:
             resp = client.post(
                 "/api/export/csv",
                 content=payload_str,
@@ -152,7 +155,9 @@ class TestExportCSVWithData:
                 }
             ]
         }
-        with TestClient(app, cookies={SESSION_COOKIE_NAME: session.session_id}, raise_server_exceptions=False) as client:
+        with TestClient(
+            app, cookies={SESSION_COOKIE_NAME: session.session_id}, raise_server_exceptions=False
+        ) as client:
             resp = client.post("/api/export/csv", json=payload)
         reset_group_engine()
         assert resp.status_code != 200, (
@@ -164,6 +169,7 @@ class TestExportCSVWithData:
 # =============================================================================
 # SPEC Must Have #8: CSS visual polish elements
 # =============================================================================
+
 
 class TestCSSSpecRequirements:
     """CSS file must contain all SPEC Must Have visual elements."""
@@ -232,6 +238,7 @@ class TestCSSSpecRequirements:
 # SPEC Must Have #1: Header mobile overlap — template structure check
 # =============================================================================
 
+
 class TestHeaderMobileTemplateStructure:
     """Header template must have correct mobile nav structure per SPEC #1."""
 
@@ -274,6 +281,7 @@ class TestHeaderMobileTemplateStructure:
 # =============================================================================
 # SPEC health check: server still running after visual changes
 # =============================================================================
+
 
 class TestServerHealthAfterChanges:
     """Server health endpoint must still return correct data after UX changes."""

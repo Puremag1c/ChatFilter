@@ -55,13 +55,12 @@ def _make_admin_csrf_client(
 @pytest.fixture
 def admin_csrf_client_ux(test_settings: Any, monkeypatch: Any) -> Iterator[TestClient]:
     """Admin TestClient with CSRF token set — for testing form submissions."""
-    client, original = _make_admin_csrf_client(
-        test_settings, monkeypatch, username="admin_ux_test"
-    )
+    client, original = _make_admin_csrf_client(test_settings, monkeypatch, username="admin_ux_test")
     with client:
         yield client
     from chatfilter import config
     from chatfilter.web.dependencies import reset_group_engine
+
     monkeypatch.setattr(config, "get_settings", original)
     reset_group_engine()
 
@@ -69,6 +68,7 @@ def admin_csrf_client_ux(test_settings: Any, monkeypatch: Any) -> Iterator[TestC
 # =============================================================================
 # SPEC Must Have #2: Topup HTMX response structure
 # =============================================================================
+
 
 class TestTopupHTMXResponse:
     """SPEC line 42-46: topup endpoint returns HTMX-compatible <td> for outerHTML swap."""
@@ -86,9 +86,7 @@ class TestTopupHTMXResponse:
             f"/admin/users/{target_id}/topup",
             data={"amount": "5.00", "csrf_token": _CSRF_TOKEN},
         )
-        assert resp.status_code == 200, (
-            f"Topup returned {resp.status_code}: {resp.text[:200]}"
-        )
+        assert resp.status_code == 200, f"Topup returned {resp.status_code}: {resp.text[:200]}"
         body = resp.text.strip()
         assert body.startswith("<td"), (
             f"Topup response must start with <td> for HTMX outerHTML swap, got: {body[:80]}"
@@ -153,6 +151,7 @@ class TestTopupHTMXResponse:
 # SPEC Must Have #2: Topup amount validation
 # =============================================================================
 
+
 class TestTopupAmountValidation:
     """SPEC line 42-46: server-side validation for topup amount."""
 
@@ -169,9 +168,7 @@ class TestTopupAmountValidation:
             f"/admin/users/{target_id}/topup",
             data={"amount": "0", "csrf_token": _CSRF_TOKEN},
         )
-        assert resp.status_code == 400, (
-            f"Amount=0 must return 400, got {resp.status_code}"
-        )
+        assert resp.status_code == 400, f"Amount=0 must return 400, got {resp.status_code}"
 
     def test_topup_negative_amount_rejected(
         self, admin_csrf_client_ux: TestClient, test_settings: Any
@@ -186,13 +183,9 @@ class TestTopupAmountValidation:
             f"/admin/users/{target_id}/topup",
             data={"amount": "-5.00", "csrf_token": _CSRF_TOKEN},
         )
-        assert resp.status_code == 400, (
-            f"Negative amount must return 400, got {resp.status_code}"
-        )
+        assert resp.status_code == 400, f"Negative amount must return 400, got {resp.status_code}"
 
-    def test_topup_nonexistent_user_returns_404(
-        self, admin_csrf_client_ux: TestClient
-    ) -> None:
+    def test_topup_nonexistent_user_returns_404(self, admin_csrf_client_ux: TestClient) -> None:
         """Topup for non-existent user must return 404."""
         resp = admin_csrf_client_ux.post(
             "/admin/users/nonexistent-id-xyz/topup",
@@ -215,14 +208,13 @@ class TestTopupAmountValidation:
             f"/admin/users/{target_id}/topup",
             data={"csrf_token": _CSRF_TOKEN},  # No amount field
         )
-        assert resp.status_code == 422, (
-            f"Missing amount must return 422, got {resp.status_code}"
-        )
+        assert resp.status_code == 422, f"Missing amount must return 422, got {resp.status_code}"
 
 
 # =============================================================================
 # SPEC Must Have #4: Export CSV backend behavior (POST /api/export/csv)
 # =============================================================================
+
 
 class TestExportCSVBackend:
     """SPEC line 56-59: Export CSV returns proper file with content-disposition."""
@@ -273,6 +265,7 @@ class TestExportCSVBackend:
 # SPEC Must Have #2 (template): balance_td.html HTMX structure
 # =============================================================================
 
+
 class TestTopupTemplateStructure:
     """Verify balance_td.html and admin_user_row.html meet HTMX requirements."""
 
@@ -305,7 +298,7 @@ class TestTopupTemplateStructure:
             "SPEC Must Have #2: topup form must have hx-on::after-request to clear input after success"
         )
         after_idx = content.find("hx-on::after-request")
-        snippet = content[after_idx:after_idx + 200]
+        snippet = content[after_idx : after_idx + 200]
         assert "amount" in snippet, (
             "hx-on::after-request handler must target the amount input field"
         )
