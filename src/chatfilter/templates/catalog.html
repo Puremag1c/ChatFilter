@@ -128,7 +128,26 @@
             }
         });
         var qs = params.toString();
-        exportBtn.href = '/api/catalog/export' + (qs ? '?' + qs : '');
+        exportBtn.dataset.href = '/api/catalog/export' + (qs ? '?' + qs : '');
+        // Re-apply href only if not disabled
+        if (!exportBtn.classList.contains('btn--disabled')) {
+            exportBtn.href = exportBtn.dataset.href;
+        }
+    }
+
+    function updateExportState() {
+        if (!exportBtn) return;
+        var container = document.getElementById('catalog-table-container');
+        var hasNoResults = container && container.querySelector('.no-results');
+        if (hasNoResults) {
+            exportBtn.classList.add('btn--disabled');
+            exportBtn.removeAttribute('href');
+            exportBtn.title = '{{ _("No results to export") }}';
+        } else {
+            exportBtn.classList.remove('btn--disabled');
+            exportBtn.href = exportBtn.dataset.href || '/api/catalog/export';
+            exportBtn.title = '';
+        }
     }
 
     if (exportBtn) {
@@ -161,6 +180,12 @@
         });
         updateExportHref();
     }
+
+    document.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail && e.detail.target && e.detail.target.id === 'catalog-table-container') {
+            updateExportState();
+        }
+    });
 })();
 </script>
 
