@@ -4269,6 +4269,32 @@ body:has(.update-notification.show) {
     border-top: 1px solid var(--border-color);
 }
 
+.filter-row--actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Export CSV button icon/spinner states */
+.btn-export-csv .export-icon-spinner {
+    display: none;
+}
+
+.btn-export-csv.btn--exporting {
+    pointer-events: none;
+    opacity: 0.75;
+}
+
+.btn-export-csv.btn--exporting .export-icon {
+    display: none;
+}
+
+.btn-export-csv.btn--exporting .export-icon-spinner {
+    display: inline-block;
+}
+
 .filter-group {
     display: flex;
     flex-direction: column;
