@@ -19,7 +19,7 @@ def upgrade() -> None:
     # Add ai_balance_usd column to users (default 0.0)
     with op.batch_alter_table("users") as batch_op:
         batch_op.add_column(
-            sa.Column("ai_balance_usd", sa.Float(), nullable=False, server_default="0.0")
+            sa.Column("ai_balance_usd", sa.Float(), nullable=False, server_default="1.0")
         )
 
     # Create ai_transactions table

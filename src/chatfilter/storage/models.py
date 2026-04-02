@@ -76,7 +76,7 @@ users = Table(
     Column("password_hash", Text, nullable=False),
     Column("is_admin", Integer, nullable=False, server_default="0"),
     Column("created_at", Text, nullable=False),
-    Column("ai_balance_usd", Float, nullable=False, server_default="0.0"),
+    Column("ai_balance_usd", Float, nullable=False, server_default="1.0"),
     Index("idx_users_username", "username"),
 )
 
