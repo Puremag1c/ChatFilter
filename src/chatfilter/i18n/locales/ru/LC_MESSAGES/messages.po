@@ -2334,6 +2334,12 @@ msgstr "Изменить пароль"
 msgid "No users found."
 msgstr "Пользователей не найдено."
 
+#: src/chatfilter/templates/base.html:62
+#: src/chatfilter/templates/profile.html:18
+#: src/chatfilter/templates/profile.html:20
+msgid "Profile"
+msgstr "Профиль"
+
 #: src/chatfilter/templates/base.html:54
 msgid "Log out"
 msgstr "Выход"
