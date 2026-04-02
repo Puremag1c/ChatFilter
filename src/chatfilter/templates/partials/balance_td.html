@@ -1,0 +1,3 @@
+{# Balance cell partial for HTMX topup swap #}
+{# Receives: user_id, new_balance #}
+<td data-label="{{ _("Balance") }}" id="balance-{{ user_id }}" class="balance-flash">${{ "%.2f"|format(new_balance) }}</td>

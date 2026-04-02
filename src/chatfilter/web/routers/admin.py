@@ -263,6 +263,7 @@ async def topup_balance(
     amount: float = Form(...),
 ) -> Response:
     from chatfilter.ai.billing import BillingService
+    from chatfilter.web.app import get_templates
 
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
@@ -281,9 +282,15 @@ async def topup_balance(
         amount_usd=amount,
         admin_description=f"Admin topup ${amount:.2f}",
     )
-    return HTMLResponse(
-        content=f'<td data-label="Balance" id="balance-{user_id}" class="balance-flash">${new_balance:.2f}</td>',
-        status_code=200,
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/balance_td.html",
+        context=get_template_context(
+            request,
+            user_id=user_id,
+            new_balance=new_balance,
+        ),
     )
 
 
