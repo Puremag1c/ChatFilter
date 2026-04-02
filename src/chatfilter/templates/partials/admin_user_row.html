@@ -9,7 +9,6 @@
         <button type="button"
                 class="btn btn-sm {% if user.is_admin %}btn-warning{% else %}btn-secondary{% endif %}"
                 hx-post="/admin/users/{{ user.id }}/toggle-admin"
-                hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
                 hx-target="#user-row-{{ user.id }}"
                 hx-swap="outerHTML"
                 {% if user.id == current_user_id %}disabled title="{{ _("Cannot remove own admin rights") }}"{% endif %}>
@@ -23,7 +22,6 @@
             <!-- Top up balance form -->
             <form class="admin-topup-form"
                   hx-post="/admin/users/{{ user.id }}/topup"
-                  hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
                   hx-target="#balance-{{ user.id }}"
                   hx-swap="outerHTML"
                   hx-on::after-request="if(event.detail.successful) this.querySelector('[name=amount]').value = ''"
@@ -45,7 +43,6 @@
             <button type="button"
                     class="btn btn-danger"
                     hx-delete="/admin/users/{{ user.id }}"
-                    hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
                     hx-target="#user-row-{{ user.id }}"
                     hx-swap="outerHTML"
                     hx-confirm="Удалить пользователя {{ user.username }} и все его данные? Это действие необратимо.">
