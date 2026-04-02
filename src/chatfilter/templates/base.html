@@ -45,7 +45,7 @@
             </div>
             <div class="header-right">
                 {% if current_username and ai_balance is not none %}
-                <span class="balance-badge">${{ "%.2f" | format(ai_balance) }}</span>
+                <span class="balance-badge{% if ai_balance <= 0 %} balance-badge--empty{% elif ai_balance < 0.10 %} balance-badge--low{% endif %}">${{ "%.2f" | format(ai_balance) }}</span>
                 {% endif %}
                 <div class="header-controls">
                     <button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}">
