@@ -279,7 +279,7 @@ async def topup_balance(
         admin_description=f"Admin topup ${amount:.2f}",
     )
     return HTMLResponse(
-        content=f'<td data-label="Balance" id="balance-{user_id}">${new_balance:.2f}</td>',
+        content=f'<td data-label="Balance" id="balance-{user_id}" class="balance-flash">${new_balance:.2f}</td>',
         status_code=200,
     )
 

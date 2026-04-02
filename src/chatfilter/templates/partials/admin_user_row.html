@@ -26,6 +26,7 @@
                   hx-headers='{"X-CSRF-Token": "{{ csrf_token }}"}'
                   hx-target="#balance-{{ user.id }}"
                   hx-swap="outerHTML"
+                  hx-on::after-request="if(event.detail.successful) this.querySelector('[name=amount]').value = ''"
                   style="display:flex;gap:0.25rem;align-items:center">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="number" name="amount" required min="0.01" step="0.01"

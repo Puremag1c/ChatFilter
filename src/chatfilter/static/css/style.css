@@ -3547,6 +3547,16 @@ body:has(.update-notification.show) {
     margin-left: 0.5rem;
 }
 
+@keyframes balance-flash {
+    0%   { background-color: transparent; color: inherit; }
+    25%  { background-color: var(--success-bg); color: var(--success-text); }
+    100% { background-color: transparent; color: inherit; }
+}
+
+.balance-flash {
+    animation: balance-flash 1.5s ease-out;
+}
+
 .admin-user-actions {
     display: flex;
     gap: 0.5rem;
