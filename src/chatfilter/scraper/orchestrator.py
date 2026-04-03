@@ -26,9 +26,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Cost multiplier applied to raw AI + platform costs
-_COST_MULTIPLIER = 1.5
-
 # Estimated cost per search for balance reservation
 _ESTIMATED_COST_PER_SEARCH = 0.01
 
@@ -125,8 +122,8 @@ class SearchOrchestrator:
         )
 
         try:
-            # 2. Generate search queries via AI
-            queries = await self._query_gen.generate(user_query, user_id=user_id)
+            # 2. Generate search queries via AI (captures cost)
+            queries, ai_cost = await self._query_gen.generate(user_query, user_id=user_id)
             logger.info("Generated %d queries for: %r", len(queries), user_query)
 
             # 3. Resolve platforms
@@ -186,7 +183,16 @@ class SearchOrchestrator:
             clear_scraping_progress(group_id)
 
             # 8. Calculate cost and settle billing
-            actual_cost = ai_cost * _COST_MULTIPLIER
+            # Sum platform API request costs: queries_run × cost_per_request for each platform
+            platform_cost = 0.0
+            for s in stats_list:
+                if s.error is None and s.queries_run > 0:
+                    setting = self._db.get_platform_setting(s.platform_id)
+                    if setting:
+                        platform_cost += s.queries_run * setting["cost_per_request_usd"]
+
+            # BillingService applies the DB cost multiplier automatically
+            actual_cost = ai_cost + platform_cost
             platforms_searched = sum(1 for s in stats_list if s.error is None)
             self._billing.settle(
                 user_id,

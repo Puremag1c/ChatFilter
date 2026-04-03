@@ -24,7 +24,7 @@ class QueryGenerator:
     def __init__(self, ai_service: AIService) -> None:
         self._ai = ai_service
 
-    async def generate(self, user_text: str, user_id: str | None = None) -> list[str]:
+    async def generate(self, user_text: str, user_id: str | None = None) -> tuple[list[str], float]:
         """Generate search queries from a natural language description.
 
         Args:
@@ -32,19 +32,20 @@ class QueryGenerator:
             user_id: Optional user identifier for billing tracking.
 
         Returns:
-            List of search query strings. Falls back to [user_text] if AI fails.
+            Tuple of (query strings, ai_cost_usd). Falls back to ([user_text], 0.0) if AI fails.
         """
         prompt = _PROMPT_TEMPLATE.format(user_text=user_text)
         try:
             response = await self._ai.complete(prompt, user_id=user_id)
             queries = _parse_json_array(response.content)
             if queries:
-                return queries
+                return queries, response.cost_usd
             logger.warning("AI returned empty query list for input: %r", user_text)
+            return [user_text], response.cost_usd
         except Exception:
             logger.exception("AI query generation failed for input: %r", user_text)
 
-        return [user_text]
+        return [user_text], 0.0
 
 
 def _parse_json_array(text: str) -> list[str]:
