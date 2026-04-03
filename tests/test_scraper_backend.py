@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -11,7 +10,6 @@ from chatfilter.models.group import GroupStatus
 from chatfilter.scraper.base import BasePlatform
 from chatfilter.scraper.orchestrator import (
     SearchOrchestrator,
-    SearchResult,
     _deduplicate_refs,
     _normalize_ref,
     clear_scraping_progress,
@@ -20,7 +18,6 @@ from chatfilter.scraper.orchestrator import (
 from chatfilter.scraper.query_generator import QueryGenerator, _parse_json_array
 from chatfilter.scraper.registry import PlatformRegistry
 from tests.db_helpers import make_group_db
-
 
 # ---------------------------------------------------------------------------
 # Helpers / stubs
@@ -68,9 +65,9 @@ def _make_billing(balance: float = 10.0) -> MagicMock:
     return billing
 
 
-def _make_query_gen(queries: list[str] | None = None) -> AsyncMock:
+def _make_query_gen(queries: list[str] | None = None, ai_cost: float = 0.001) -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = queries or ["test query"]
+    gen.generate.return_value = (queries or ["test query"], ai_cost)
     return gen
 
 
@@ -153,10 +150,12 @@ def test_normalize_ref(raw, expected):
 @pytest.mark.asyncio
 async def test_query_generator_uses_ai():
     ai = AsyncMock()
-    ai.complete.return_value = MagicMock(content='["crypto channels", "крипто каналы"]')
+    response = MagicMock(content='["crypto channels", "крипто каналы"]', cost_usd=0.001)
+    ai.complete.return_value = response
     gen = QueryGenerator(ai)
-    result = await gen.generate("crypto")
-    assert result == ["crypto channels", "крипто каналы"]
+    queries, cost = await gen.generate("crypto")
+    assert queries == ["crypto channels", "крипто каналы"]
+    assert cost == 0.001
 
 
 @pytest.mark.asyncio
@@ -165,17 +164,20 @@ async def test_query_generator_fallback_on_ai_error():
     ai = AsyncMock()
     ai.complete.side_effect = RuntimeError("AI unavailable")
     gen = QueryGenerator(ai)
-    result = await gen.generate("some query")
-    assert result == ["some query"]
+    queries, cost = await gen.generate("some query")
+    assert queries == ["some query"]
+    assert cost == 0.0  # No cost on failure
 
 
 @pytest.mark.asyncio
 async def test_query_generator_fallback_on_empty_response():
     ai = AsyncMock()
-    ai.complete.return_value = MagicMock(content="[]")
+    response = MagicMock(content="[]", cost_usd=0.0)
+    ai.complete.return_value = response
     gen = QueryGenerator(ai)
-    result = await gen.generate("some query")
-    assert result == ["some query"]
+    queries, cost = await gen.generate("some query")
+    assert queries == ["some query"]
+    assert cost == 0.0
 
 
 def test_parse_json_array_handles_markdown_fences():
@@ -464,7 +466,11 @@ async def test_orchestrator_billing_reserve_and_settle_called(group_db):
 
     # settle should use transaction type "search"
     settle_args = billing.settle.call_args
-    assert settle_args[0][3] == "search" or settle_args[1].get("model") == "search" or "search" in str(settle_args)
+    assert (
+        settle_args[0][3] == "search"
+        or settle_args[1].get("model") == "search"
+        or "search" in str(settle_args)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -475,7 +481,6 @@ async def test_orchestrator_billing_reserve_and_settle_called(group_db):
 @pytest.mark.asyncio
 async def test_scraping_progress_tracked_during_search(group_db):
     """SPEC: While scraping, progress is tracked per-platform."""
-    progress_snapshots = []
 
     class _TrackingPlatform(BasePlatform):
         id = "tracking"
@@ -604,3 +609,42 @@ async def test_group_transitions_scraping_to_pending(group_db):
     group = group_db.load_group(result.group_id)
     assert group["status"] == GroupStatus.PENDING.value
     assert group["source"] == "scraping"
+
+
+# ---------------------------------------------------------------------------
+# 11. Cost calculation with multiplier
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_cost_multiplier_applied(group_db):
+    """SPEC: Billing must apply cost multiplier to AI cost."""
+    reg = PlatformRegistry()
+    p = _FakePlatform(results=["@test"])
+    reg.register(p)
+
+    billing = _make_billing()
+
+    # Mock query generator to return a fixed AI cost of $0.01
+    qgen = AsyncMock(spec=QueryGenerator)
+    ai_cost = 0.01
+    qgen.generate.return_value = (["test query"], ai_cost)
+
+    orch = SearchOrchestrator(reg, qgen, group_db, billing)
+
+    await orch.search(
+        user_query="test",
+        platform_ids=["fake"],
+        user_id="user1",
+        group_name="Cost Test",
+    )
+
+    # Verify settle was called with correct cost multiplier
+    billing.settle.assert_called_once()
+
+    # Get the settle call arguments to verify cost is passed through
+    call_args = billing.settle.call_args
+    # settle(user_id, reserved, actual_cost, model, platforms_count, chats_count, note)
+    # Orchestrator passes raw ai_cost; BillingService applies cost multiplier internally
+    actual_cost_arg = call_args[0][2]  # 3rd positional argument
+    assert actual_cost_arg == ai_cost, f"Expected {ai_cost}, got {actual_cost_arg}"

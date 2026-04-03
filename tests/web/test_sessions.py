@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -480,7 +480,13 @@ class TestConnectSessionErrorHandling:
                 "chatfilter.web.routers.sessions.background.get_event_bus",
                 return_value=mock_event_bus,
             ),
-            patch("telethon.TelegramClient", return_value=mock_client),
+            patch(
+                "chatfilter.web.routers.sessions.background.TelegramClient",
+                return_value=mock_client,
+            ),
+            patch(
+                "chatfilter.web.routers.sessions.background.asyncio.sleep", new_callable=AsyncMock
+            ),
         ):
             await _send_verification_code_and_create_auth(
                 session_id=session_id,

@@ -36,7 +36,6 @@ _MAX_SEARCH_QUERY_LEN = 2000
 _MAX_GROUP_NAME_LEN = 200
 
 
-
 @router.post("/api/groups", response_class=HTMLResponse)
 async def create_group(
     request: Request,
