@@ -2608,6 +2608,62 @@ msgstr "{minutes}m {seconds}s"
 msgid "{hours}h {minutes}m"
 msgstr "{hours}h {minutes}m"
 
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Collect Chats"
+msgstr "Collect Chats"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Search Query"
+msgstr "Search Query"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Platforms"
+msgstr "Platforms"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Start Search"
+msgstr "Start Search"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Cost tier"
+msgstr "Cost tier"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Configure in Admin settings"
+msgstr "Configure in Admin settings"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "no API key"
+msgstr "no API key"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Max 2000 characters"
+msgstr "Max 2000 characters"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "No platforms registered."
+msgstr "No platforms registered."
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Select at least one platform to start search"
+msgstr "Select at least one platform to start search"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Select at least one platform"
+msgstr "Select at least one platform"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Searching..."
+msgstr "Searching..."
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Failed to start search"
+msgstr "Failed to start search"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Describe what kind of channels you are looking for, e.g. Python programming tutorials"
+msgstr "Describe what kind of channels you are looking for, e.g. Python programming tutorials"
+
 #~ msgid "Shows your internet connection status"
 #~ msgstr "Shows your internet connection status"
 
