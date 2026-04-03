@@ -57,6 +57,9 @@
                     <p class="text-muted">{{ _("No platforms registered.") }}</p>
                     {% endif %}
                 </div>
+                <small id="collect-platform-hint" class="platform-validation-hint" style="display: none; color: var(--color-error, #dc3545);">
+                    {{ _("Select at least one platform to start search") }}
+                </small>
 
                 <div id="collect-error" class="alert alert-error" style="display: none;"></div>
             </div>
@@ -64,7 +67,8 @@
                 <button type="button" class="modal-button secondary" onclick="closeCollectModal()">
                     {{ _("Cancel") }}
                 </button>
-                <button type="submit" class="modal-button primary">
+                <button type="submit" id="collect-submit-btn" class="modal-button primary"
+                        title="{{ _('Select at least one platform') }}">
                     <span class="btn-text">{{ _("Start Search") }}</span>
                     <span id="collect-spinner" class="htmx-indicator spinner"></span>
                 </button>
@@ -125,7 +129,7 @@
     modal.classList.add('show');
 
     const form = document.getElementById('collect-form');
-    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitBtn = document.getElementById('collect-submit-btn');
     const btnText = submitBtn.querySelector('.btn-text');
     const errorDiv = document.getElementById('collect-error');
 
@@ -147,6 +151,22 @@
         if (e.target === modal) closeCollectModal();
     });
 
+    // Platform checkbox validation: disable submit if none selected
+    const platformCheckboxes = form.querySelectorAll('input[name="platform_ids"]');
+
+    const platformHint = document.getElementById('collect-platform-hint');
+
+    function updateSubmitState() {
+        const anyChecked = Array.from(platformCheckboxes).some(cb => cb.checked);
+        submitBtn.disabled = !anyChecked;
+        if (platformHint) {
+            platformHint.style.display = anyChecked ? 'none' : 'block';
+        }
+    }
+
+    platformCheckboxes.forEach(cb => cb.addEventListener('change', updateSubmitState));
+    updateSubmitState();
+
     form.addEventListener('htmx:beforeRequest', function() {
         btnText.textContent = '{{ _("Searching...") }}';
         errorDiv.style.display = 'none';
@@ -162,7 +182,8 @@
     });
 
     form.addEventListener('htmx:beforeSwap', function(e) {
-        if (e.detail.xhr.status === 422) {
+        const status = e.detail.xhr.status;
+        if (status === 422 || status === 402) {
             e.detail.shouldSwap = false;
             var tmp = document.createElement('div');
             tmp.innerHTML = e.detail.xhr.responseText || '{{ _("Failed to start search") }}';
