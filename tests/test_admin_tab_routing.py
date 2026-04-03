@@ -54,9 +54,7 @@ def _make_admin_client(
 
 @pytest.fixture
 def admin_csrf_client(test_settings: Any, monkeypatch: Any) -> Iterator[TestClient]:
-    client, original = _make_admin_client(
-        test_settings, monkeypatch, username="admin_tab_test"
-    )
+    client, original = _make_admin_client(test_settings, monkeypatch, username="admin_tab_test")
     with client:
         yield client
     from chatfilter import config
@@ -122,9 +120,7 @@ class TestCreateUserWithEmail:
 
 
 class TestAISettingsCostMultiplier:
-    def test_save_cost_multiplier(
-        self, admin_csrf_client: TestClient, test_settings: Any
-    ) -> None:
+    def test_save_cost_multiplier(self, admin_csrf_client: TestClient, test_settings: Any) -> None:
         response = admin_csrf_client.post(
             "/admin/ai-settings",
             data={
@@ -144,6 +140,4 @@ class TestAISettingsCostMultiplier:
 
         group_db = GroupDatabase(test_settings.effective_database_url)
         multiplier = group_db.get_cost_multiplier()
-        assert abs(multiplier - 2.5) < 0.001, (
-            f"cost_multiplier not saved, got: {multiplier}"
-        )
+        assert abs(multiplier - 2.5) < 0.001, f"cost_multiplier not saved, got: {multiplier}"
