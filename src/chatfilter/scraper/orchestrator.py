@@ -39,6 +39,18 @@ def get_scraping_progress(group_id: str) -> dict | None:
     return _scraping_progress.get(group_id)
 
 
+def init_scraping_progress(group_id: str, platform_ids: list[str]) -> None:
+    """Pre-initialize progress before the asyncio task starts.
+
+    Called before asyncio.create_task() so the first poll always finds platform info.
+    The orchestrator will overwrite this once platforms are resolved.
+    """
+    _scraping_progress[group_id] = {
+        "platforms": {pid: {"status": "searching", "chats_found": 0} for pid in platform_ids},
+        "total_found": 0,
+    }
+
+
 def clear_scraping_progress(group_id: str) -> None:
     """Remove progress entry once no longer needed."""
     _scraping_progress.pop(group_id, None)

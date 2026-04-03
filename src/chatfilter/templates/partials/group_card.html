@@ -19,7 +19,12 @@
          hx-target="#scraping-progress-{{ group.id }}"
          hx-swap="innerHTML"
          style="background: #e8f4fd; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">
+        {% if scraping_progress %}
+        {% set progress = scraping_progress %}
+        {% include "partials/scraping_progress.html" %}
+        {% else %}
         🔍 {{ _("Searching platforms for chats...") }}
+        {% endif %}
     </div>
     {% endif %}
     {% if group.status.value in ('in_progress', 'waiting_for_accounts') %}

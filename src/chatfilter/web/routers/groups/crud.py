@@ -629,6 +629,13 @@ async def collect_chats(
             user_id=user_id,
         )
 
+        # Pre-initialize progress so the first poll always shows the platform list.
+        # This is done BEFORE create_task so the dict is populated by the time
+        # the client fires hx-trigger="load" on the returned card.
+        from chatfilter.scraper.orchestrator import get_scraping_progress, init_scraping_progress
+
+        init_scraping_progress(group_id, platform_ids)
+
         # Launch search as asyncio background task (pass pre-created group_id)
         asyncio.create_task(
             orchestrator.search(
@@ -640,17 +647,20 @@ async def collect_chats(
             )
         )
 
-        # Return group card in scraping status immediately
+        # Return group card in scraping status immediately, with progress pre-filled
         service = _get_group_service(request)
         group = service.get_group(group_id)
         if group is None:
             return _error("Search started but could not load group. Please refresh.")
 
         stats = service.get_group_stats(group_id)
+        initial_progress = get_scraping_progress(group_id)
         return templates.TemplateResponse(
             request=request,
             name="partials/group_card.html",
-            context=get_template_context(request, group=group, stats=stats),
+            context=get_template_context(
+                request, group=group, stats=stats, scraping_progress=initial_progress
+            ),
         )
 
     except InsufficientBalance as e:
