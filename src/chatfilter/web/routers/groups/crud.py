@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
@@ -266,7 +266,7 @@ async def list_groups(request: Request, web_session: WebSession) -> HTMLResponse
         groups_with_stats = []
         for group in groups:
             stats = service.get_group_stats(group.id)
-            item: dict = {"group": group, "stats": stats}
+            item: dict[str, Any] = {"group": group, "stats": stats}
             if group.status.value == "scraping":
                 item["scraping_progress"] = get_scraping_progress(group.id)
             groups_with_stats.append(item)
