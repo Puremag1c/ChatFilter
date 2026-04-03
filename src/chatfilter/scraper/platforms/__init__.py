@@ -6,8 +6,8 @@ from .google_search import GoogleSearchPlatform
 from .hottg import HottgPlatform
 from .lyzem import LyzemPlatform
 from .nicegram import NicegramPlatform
-from .telegram_channels import TelegramChannelsPlatform
 from .telegago import TelegagoPlatform
+from .telegram_channels import TelegramChannelsPlatform
 from .telemetr import TelemetrPlatform
 from .teleteg import TeletegPlatform
 from .tgstat import TgstatPlatform

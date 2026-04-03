@@ -154,7 +154,10 @@ class SearchOrchestrator:
                 "total_found": 0,
             }
             platform_results = await asyncio.gather(
-                *(self._search_platform_tracked(platform, queries, group_id) for platform in platforms),
+                *(
+                    self._search_platform_tracked(platform, queries, group_id)
+                    for platform in platforms
+                ),
                 return_exceptions=True,
             )
 
@@ -254,10 +257,11 @@ class SearchOrchestrator:
         progress = _scraping_progress.get(group_id)
         if progress is not None:
             status = "error" if stats.error else "done"
-            progress["platforms"][platform.id] = {"status": status, "chats_found": stats.chats_found}
-            progress["total_found"] = sum(
-                p["chats_found"] for p in progress["platforms"].values()
-            )
+            progress["platforms"][platform.id] = {
+                "status": status,
+                "chats_found": stats.chats_found,
+            }
+            progress["total_found"] = sum(p["chats_found"] for p in progress["platforms"].values())
         return refs, stats
 
     async def _search_platform(

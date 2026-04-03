@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -11,7 +10,6 @@ from chatfilter.models.group import GroupStatus
 from chatfilter.scraper.base import BasePlatform
 from chatfilter.scraper.orchestrator import (
     SearchOrchestrator,
-    SearchResult,
     _deduplicate_refs,
     _normalize_ref,
     clear_scraping_progress,
@@ -20,7 +18,6 @@ from chatfilter.scraper.orchestrator import (
 from chatfilter.scraper.query_generator import QueryGenerator, _parse_json_array
 from chatfilter.scraper.registry import PlatformRegistry
 from tests.db_helpers import make_group_db
-
 
 # ---------------------------------------------------------------------------
 # Helpers / stubs
@@ -70,7 +67,7 @@ def _make_billing(balance: float = 10.0) -> MagicMock:
 
 def _make_query_gen(queries: list[str] | None = None) -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = queries or ["test query"]
+    gen.generate.return_value = (queries or ["test query"], 0.001)
     return gen
 
 
@@ -153,10 +150,13 @@ def test_normalize_ref(raw, expected):
 @pytest.mark.asyncio
 async def test_query_generator_uses_ai():
     ai = AsyncMock()
-    ai.complete.return_value = MagicMock(content='["crypto channels", "крипто каналы"]')
+    ai.complete.return_value = MagicMock(
+        content='["crypto channels", "крипто каналы"]', cost_usd=0.001
+    )
     gen = QueryGenerator(ai)
-    result = await gen.generate("crypto")
+    result, cost = await gen.generate("crypto")
     assert result == ["crypto channels", "крипто каналы"]
+    assert cost == 0.001
 
 
 @pytest.mark.asyncio
@@ -165,17 +165,19 @@ async def test_query_generator_fallback_on_ai_error():
     ai = AsyncMock()
     ai.complete.side_effect = RuntimeError("AI unavailable")
     gen = QueryGenerator(ai)
-    result = await gen.generate("some query")
+    result, cost = await gen.generate("some query")
     assert result == ["some query"]
+    assert cost == 0.0
 
 
 @pytest.mark.asyncio
 async def test_query_generator_fallback_on_empty_response():
     ai = AsyncMock()
-    ai.complete.return_value = MagicMock(content="[]")
+    ai.complete.return_value = MagicMock(content="[]", cost_usd=0.0005)
     gen = QueryGenerator(ai)
-    result = await gen.generate("some query")
+    result, cost = await gen.generate("some query")
     assert result == ["some query"]
+    assert cost == 0.0005
 
 
 def test_parse_json_array_handles_markdown_fences():
@@ -464,7 +466,11 @@ async def test_orchestrator_billing_reserve_and_settle_called(group_db):
 
     # settle should use transaction type "search"
     settle_args = billing.settle.call_args
-    assert settle_args[0][3] == "search" or settle_args[1].get("model") == "search" or "search" in str(settle_args)
+    assert (
+        settle_args[0][3] == "search"
+        or settle_args[1].get("model") == "search"
+        or "search" in str(settle_args)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -475,7 +481,6 @@ async def test_orchestrator_billing_reserve_and_settle_called(group_db):
 @pytest.mark.asyncio
 async def test_scraping_progress_tracked_during_search(group_db):
     """SPEC: While scraping, progress is tracked per-platform."""
-    progress_snapshots = []
 
     class _TrackingPlatform(BasePlatform):
         id = "tracking"
