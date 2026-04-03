@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from chatfilter.ai.billing import InsufficientBalance
 from chatfilter.models.group import (
     ChatTypeEnum,
     GroupChatStatus,
@@ -228,6 +229,12 @@ class SearchOrchestrator:
                 platform_stats=stats_list,
             )
 
+        except InsufficientBalance:
+            logger.warning("Insufficient balance for user %s, search aborted", user_id)
+            clear_scraping_progress(group_id)
+            self._update_group_status(group_id, GroupStatus.FAILED)
+            # reserve() never succeeded — do NOT call settle() or a phantom refund is issued
+            raise
         except Exception:
             logger.exception("Search orchestrator failed for group %s", group_id)
             clear_scraping_progress(group_id)
