@@ -3076,6 +3076,62 @@ msgstr "чаты не найдены. Попробуйте другой запр
 msgid "Search again"
 msgstr "Искать снова"
 
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Collect Chats"
+msgstr "Собрать чаты"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Search Query"
+msgstr "Поисковый запрос"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Platforms"
+msgstr "Платформы"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Start Search"
+msgstr "Начать поиск"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Cost tier"
+msgstr "Ценовой уровень"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Configure in Admin settings"
+msgstr "Настроить в администраторских параметрах"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "no API key"
+msgstr "нет API ключа"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Max 2000 characters"
+msgstr "Максимум 2000 символов"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "No platforms registered."
+msgstr "Платформы не зарегистрированы."
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Select at least one platform to start search"
+msgstr "Выберите хотя бы одну платформу для начала поиска"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Select at least one platform"
+msgstr "Выберите хотя бы одну платформу"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Searching..."
+msgstr "Поиск..."
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Failed to start search"
+msgstr "Не удалось начать поиск"
+
+#: src/chatfilter/templates/partials/modals/collect_modal.html
+msgid "Describe what kind of channels you are looking for, e.g. Python programming tutorials"
+msgstr "Опишите, какие каналы вы ищете, например учебники по программированию на Python"
+
 #~ msgid "2FA password accepted successfully"
 #~ msgstr "Пароль 2FA успешно принят"
 
