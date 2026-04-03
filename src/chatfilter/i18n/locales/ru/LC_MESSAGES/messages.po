@@ -2332,7 +2332,7 @@ msgstr "Изменить пароль"
 
 #: src/chatfilter/templates/partials/admin_users.html:49
 msgid "No users found."
-msgstr "Пользователей не найдено."
+msgstr "Пользователи не найдены"
 
 #: src/chatfilter/templates/base.html:62
 #: src/chatfilter/templates/profile.html:18
@@ -2459,10 +2459,6 @@ msgstr "Макс. чатов на аккаунт (1–1000)"
 #: src/chatfilter/templates/admin.html
 msgid "Analysis freshness, days (1–30)"
 msgstr "Актуальность анализа, дней (1–30)"
-
-#: src/chatfilter/templates/admin.html
-msgid "Save"
-msgstr "Сохранить"
 
 #: src/chatfilter/templates/admin.html
 msgid "Error:"
