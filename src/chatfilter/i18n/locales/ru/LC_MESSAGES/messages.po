@@ -2497,6 +2497,10 @@ msgid "Next"
 msgstr "Далее"
 
 #. JS translation
+msgid "Prev"
+msgstr "Назад"
+
+#. JS translation
 msgid "Previous"
 msgstr "Предыдущий"
 
