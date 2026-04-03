@@ -3112,6 +3112,10 @@ msgstr "Поисковый запрос"
 msgid "Platforms"
 msgstr "Платформы"
 
+#: src/chatfilter/templates/admin.html:36
+msgid "System"
+msgstr "Система"
+
 #: src/chatfilter/templates/partials/modals/collect_modal.html
 msgid "Start Search"
 msgstr "Начать поиск"
