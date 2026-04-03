@@ -69,6 +69,65 @@
 
 <section class="card" style="margin-top:1.5rem">
     <div class="card-header">
+        <h2>{{ _("Platform Settings") }}</h2>
+    </div>
+    <form hx-post="/admin/platform-settings" hx-swap="none" style="padding:1rem">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if platforms_data %}
+        <table style="width:100%;border-collapse:collapse;margin-bottom:1rem">
+            <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--border,#ddd)">
+                    <th style="padding:0.5rem">{{ _("Platform") }}</th>
+                    <th style="padding:0.5rem">{{ _("API Key") }}</th>
+                    <th style="padding:0.5rem">{{ _("Cost / request (USD)") }}</th>
+                    <th style="padding:0.5rem;text-align:center">{{ _("Enabled") }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in platforms_data %}
+                <tr style="border-bottom:1px solid var(--border-subtle,#eee)">
+                    <td style="padding:0.5rem;font-weight:500">{{ p.name }}</td>
+                    <td style="padding:0.5rem">
+                        {% if p.needs_api_key %}
+                        <input type="password" name="platform_{{ p.id }}_api_key"
+                               class="form-input" autocomplete="off" style="width:100%;max-width:280px"
+                               placeholder="{{ _('Key set (leave blank to keep)') if p.api_key_set else 'API key...' }}">
+                        {% else %}
+                        <span style="color:var(--text-muted,#888);font-size:0.85rem">{{ _("Not required") }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:0.5rem">
+                        <input type="number" name="platform_{{ p.id }}_cost"
+                               class="form-input" min="0" step="0.0001" style="width:120px"
+                               value="{{ '%.4f'|format(p.cost_per_request_usd|float) if p.cost_per_request_usd else '0.0000' }}">
+                    </td>
+                    <td style="padding:0.5rem;text-align:center">
+                        <input type="checkbox" name="platform_{{ p.id }}_enabled"
+                               {% if p.enabled %}checked{% endif %}>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:var(--text-muted,#888);padding:0.5rem 0">{{ _("No platforms registered.") }}</p>
+        {% endif %}
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <div>
+                <label for="cost-multiplier" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Global cost multiplier") }}</label>
+                <input type="number" id="cost-multiplier" name="cost_multiplier"
+                       class="form-input" min="0.01" step="0.01" style="width:120px"
+                       value="{{ '%.2f'|format(cost_multiplier) }}">
+            </div>
+            <div style="align-self:flex-end">
+                <button type="submit" class="btn btn-primary">{{ _("Save") }}</button>
+            </div>
+        </div>
+    </form>
+</section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
         <h2>{{ _("System Settings") }}</h2>
     </div>
     <form hx-post="/admin/settings" hx-swap="none" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">

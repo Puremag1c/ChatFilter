@@ -84,6 +84,7 @@ async def admin_page(
     request: Request,
 ) -> HTMLResponse | Response:
     from chatfilter import __version__
+    from chatfilter.scraper.registry import registry
     from chatfilter.web.app import get_templates
 
     if not _require_admin(request):
@@ -96,6 +97,25 @@ async def admin_page(
     group_db = _get_group_db(request)
     app_settings = _safe_app_settings(group_db.get_all_settings())
 
+    # Platform settings
+    all_platform_settings = {s["id"]: s for s in group_db.get_all_platform_settings()}
+    platforms_data = []
+    for platform in registry.get_all():
+        db_settings = all_platform_settings.get(platform.id, {})
+        api_key_raw = db_settings.get("api_key") or ""
+        platforms_data.append(
+            {
+                "id": platform.id,
+                "name": platform.name,
+                "needs_api_key": platform.needs_api_key,
+                "api_key_display": _mask_api_key(api_key_raw) if api_key_raw else "",
+                "api_key_set": bool(api_key_raw),
+                "cost_per_request_usd": db_settings.get("cost_per_request_usd", 0.0),
+                "enabled": db_settings.get("enabled", True),
+            }
+        )
+    cost_multiplier = group_db.get_cost_multiplier()
+
     templates = get_templates()
     return templates.TemplateResponse(
         request=request,
@@ -106,6 +126,8 @@ async def admin_page(
             users=users,
             current_user_id=current_user_id,
             app_settings=app_settings,
+            platforms_data=platforms_data,
+            cost_multiplier=cost_multiplier,
         ),
     )
 
@@ -308,3 +330,49 @@ async def update_settings(
     group_db.set_setting("analysis_freshness_days", str(analysis_freshness_days))
 
     return _toast_response("Настройки сохранены", redirect="/admin")
+
+
+@router.post("/admin/platform-settings", response_model=None)
+async def update_platform_settings(
+    request: Request,
+) -> Response:
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    from chatfilter.scraper.registry import registry
+
+    form = await request.form()
+    group_db = _get_group_db(request)
+
+    for platform in registry.get_all():
+        pid = platform.id
+        api_key = str(form.get(f"platform_{pid}_api_key", "")).strip()
+        cost_str = str(form.get(f"platform_{pid}_cost", "0")).strip()
+        enabled = f"platform_{pid}_enabled" in form
+
+        try:
+            cost = float(cost_str) if cost_str else 0.0
+        except ValueError:
+            cost = 0.0
+
+        # Preserve existing api_key if field left blank
+        if not api_key:
+            existing = group_db.get_platform_setting(pid)
+            api_key = existing["api_key"] if existing and existing.get("api_key") else None
+
+        group_db.save_platform_setting(
+            platform_id=pid,
+            api_key=api_key or None,
+            cost=cost,
+            enabled=enabled,
+        )
+
+    cost_multiplier_str = str(form.get("cost_multiplier", "1.0")).strip()
+    try:
+        cost_multiplier = float(cost_multiplier_str)
+        if cost_multiplier > 0:
+            group_db.set_cost_multiplier(cost_multiplier)
+    except ValueError:
+        pass
+
+    return _toast_response("Настройки площадок сохранены", redirect="/admin")

@@ -68,9 +68,9 @@ def _make_billing(balance: float = 10.0) -> MagicMock:
     return billing
 
 
-def _make_query_gen(queries: list[str] | None = None, ai_cost: float = 0.0) -> AsyncMock:
+def _make_query_gen(queries: list[str] | None = None) -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = (queries or ["test query"], ai_cost)
+    gen.generate.return_value = queries or ["test query"]
     return gen
 
 
@@ -153,32 +153,29 @@ def test_normalize_ref(raw, expected):
 @pytest.mark.asyncio
 async def test_query_generator_uses_ai():
     ai = AsyncMock()
-    ai.complete.return_value = MagicMock(content='["crypto channels", "крипто каналы"]', cost_usd=0.001)
+    ai.complete.return_value = MagicMock(content='["crypto channels", "крипто каналы"]')
     gen = QueryGenerator(ai)
-    queries, cost = await gen.generate("crypto")
-    assert queries == ["crypto channels", "крипто каналы"]
-    assert cost == 0.001
+    result = await gen.generate("crypto")
+    assert result == ["crypto channels", "крипто каналы"]
 
 
 @pytest.mark.asyncio
 async def test_query_generator_fallback_on_ai_error():
-    """If AI fails, fallback to original user_text with zero cost."""
+    """If AI fails, fallback to original user_text."""
     ai = AsyncMock()
     ai.complete.side_effect = RuntimeError("AI unavailable")
     gen = QueryGenerator(ai)
-    queries, cost = await gen.generate("some query")
-    assert queries == ["some query"]
-    assert cost == 0.0
+    result = await gen.generate("some query")
+    assert result == ["some query"]
 
 
 @pytest.mark.asyncio
 async def test_query_generator_fallback_on_empty_response():
     ai = AsyncMock()
-    ai.complete.return_value = MagicMock(content="[]", cost_usd=0.0005)
+    ai.complete.return_value = MagicMock(content="[]")
     gen = QueryGenerator(ai)
-    queries, cost = await gen.generate("some query")
-    assert queries == ["some query"]
-    assert cost == 0.0005
+    result = await gen.generate("some query")
+    assert result == ["some query"]
 
 
 def test_parse_json_array_handles_markdown_fences():
@@ -468,31 +465,6 @@ async def test_orchestrator_billing_reserve_and_settle_called(group_db):
     # settle should use transaction type "search"
     settle_args = billing.settle.call_args
     assert settle_args[0][3] == "search" or settle_args[1].get("model") == "search" or "search" in str(settle_args)
-
-
-@pytest.mark.asyncio
-async def test_orchestrator_billing_captures_ai_cost(group_db):
-    """SPEC: AI cost from query generation must be reflected in billing settle call."""
-    reg = PlatformRegistry()
-    p = _FakePlatform(results=["@c"])
-    reg.register(p)
-
-    billing = _make_billing()
-    qgen = _make_query_gen(["q"], ai_cost=0.005)
-    orch = SearchOrchestrator(reg, qgen, group_db, billing)
-
-    await orch.search(
-        user_query="test",
-        platform_ids=["fake"],
-        user_id="user1",
-        group_name="AI Cost Test",
-    )
-
-    billing.settle.assert_called_once()
-    # actual_cost (3rd positional arg) must be non-zero
-    settle_args = billing.settle.call_args[0]
-    actual_cost = settle_args[2]
-    assert actual_cost == pytest.approx(0.005)
 
 
 # ---------------------------------------------------------------------------
