@@ -2421,6 +2421,34 @@ msgid "Fallback Models (one per line)"
 msgstr "Резервные модели (по одной в строке)"
 
 #: src/chatfilter/templates/admin.html
+msgid "Platform Settings"
+msgstr "Параметры платформ"
+
+#: src/chatfilter/templates/admin.html
+msgid "Platform"
+msgstr "Платформа"
+
+#: src/chatfilter/templates/admin.html
+msgid "API Key"
+msgstr "Ключ API"
+
+#: src/chatfilter/templates/admin.html
+msgid "Cost / request (USD)"
+msgstr "Стоимость / запрос (USD)"
+
+#: src/chatfilter/templates/admin.html
+msgid "Enabled"
+msgstr "Включено"
+
+#: src/chatfilter/templates/admin.html
+msgid "Not required"
+msgstr "Не требуется"
+
+#: src/chatfilter/templates/admin.html
+msgid "Global cost multiplier"
+msgstr "Глобальный коэффициент стоимости"
+
+#: src/chatfilter/templates/admin.html
 msgid "System Settings"
 msgstr "Параметры системы"
 
