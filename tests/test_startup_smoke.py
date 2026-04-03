@@ -5,6 +5,7 @@ Run with: pytest tests/test_startup_smoke.py
 """
 
 import asyncio
+import os
 import sys
 import time
 from subprocess import PIPE, Popen
@@ -28,11 +29,15 @@ def test_app_startup_and_sessions_endpoint():
     startup_timeout = 30  # seconds
 
     # Start the chatfilter process
+    env = os.environ.copy()
+    src_path = os.path.join(os.path.dirname(__file__), "..", "src")
+    env["PYTHONPATH"] = os.path.abspath(src_path)
     process = Popen(
         [sys.executable, "-m", "chatfilter.main", "--port", str(port)],
         stdout=PIPE,
         stderr=PIPE,
         text=True,
+        env=env,
     )
 
     try:
