@@ -113,8 +113,11 @@ async def admin_tab_users(
     total_pages = max(1, (total_count + page_size - 1) // page_size)
     current_user_id = get_session(request).get("user_id")
 
-    is_htmx = request.headers.get("HX-Request") == "true"
-    template_name = "partials/admin_users.html" if is_htmx else "partials/admin_tab_users.html"
+    hx_target = request.headers.get("HX-Target", "")
+    if hx_target == "users-table-container":
+        template_name = "partials/admin_users.html"
+    else:
+        template_name = "partials/admin_tab_users.html"
 
     templates = get_templates()
     return templates.TemplateResponse(
