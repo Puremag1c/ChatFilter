@@ -99,7 +99,8 @@ async def _generate_unified_sse_events(
         active_groups = [
             g
             for g in all_groups
-            if g.status in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS)
+            if g.status
+            in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS, GroupStatus.SCRAPING)
         ]
 
         # Track subscriptions for cleanup
@@ -162,7 +163,11 @@ async def _generate_unified_sse_events(
                         for g in current_groups:
                             if (
                                 g.status
-                                in (GroupStatus.IN_PROGRESS, GroupStatus.WAITING_FOR_ACCOUNTS)
+                                in (
+                                    GroupStatus.IN_PROGRESS,
+                                    GroupStatus.WAITING_FOR_ACCOUNTS,
+                                    GroupStatus.SCRAPING,
+                                )
                                 and g.id not in subscriptions
                             ):
                                 # New active group — subscribe and send init
