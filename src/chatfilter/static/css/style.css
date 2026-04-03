@@ -1994,6 +1994,7 @@ tr.htmx-request .proxy-status-badge {
     .modal-body {
         padding: 20px;
         flex: 1;
+        max-height: none;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         min-height: 0;
