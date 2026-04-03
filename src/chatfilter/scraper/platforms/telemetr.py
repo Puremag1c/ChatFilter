@@ -1,18 +1,39 @@
-"""Telemetr.io HTTP scraping platform."""
+"""Telemetr.io HTTP scraping platform.
+
+Uses curl_cffi to bypass Cloudflare's TLS fingerprint challenge.
+Extracts channel usernames from telemetr's internal /en/channels/ID-name links.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
+from functools import partial
 
-import httpx
 from bs4 import BeautifulSoup
+from curl_cffi import requests as cf_requests
 
 from chatfilter.scraper.base import BasePlatform
 
 logger = logging.getLogger(__name__)
 
-TGREF_RE = re.compile(r"(?:https?://)?t\.me/([A-Za-z0-9_]+)")
+# Matches telemetr internal channel links: /en/channels/1234567-username
+_CHANNEL_RE = re.compile(r"/en/channels/\d+-([A-Za-z0-9_]+)")
+
+# Also match t.me links in page text
+_TGREF_RE = re.compile(r"(?:https?://)?t\.me/([A-Za-z0-9_]+)")
+
+# Exclude known non-channel usernames (telemetr's own bots/pages)
+_EXCLUDED = frozenset(
+    {
+        "telemetrio_news",
+        "telemetrio_api_bot",
+        "telemetr_io_bot",
+        "telemetrio",
+        "telemetrioalertbot",
+    }
+)
 
 
 class TelemetrPlatform(BasePlatform):
@@ -27,13 +48,18 @@ class TelemetrPlatform(BasePlatform):
 
     async def search(self, query: str) -> list[str]:
         search_url = f"https://telemetr.io/en/channels?channel={query}&page=1"
-        headers = {
-            "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
-        }
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(search_url, headers=headers)
-                resp.raise_for_status()
+            loop = asyncio.get_running_loop()
+            resp = await loop.run_in_executor(
+                None,
+                partial(
+                    cf_requests.get,
+                    search_url,
+                    impersonate="chrome",
+                    timeout=30,
+                ),
+            )
+            resp.raise_for_status()
         except Exception:
             logger.warning("telemetr: request failed for query=%r", query)
             return []
@@ -41,13 +67,20 @@ class TelemetrPlatform(BasePlatform):
         soup = BeautifulSoup(resp.text, "html.parser")
         refs: set[str] = set()
 
+        # Extract from telemetr internal channel links
         for tag in soup.find_all("a", href=True):
-            m = TGREF_RE.search(str(tag["href"]))
+            m = _CHANNEL_RE.search(str(tag["href"]))
             if m:
-                refs.add(f"@{m.group(1)}")
+                username = m.group(1).lower()
+                if username not in _EXCLUDED:
+                    refs.add(f"@{username}")
 
-        for text_node in soup.find_all(string=TGREF_RE):
-            for m in TGREF_RE.finditer(str(text_node)):
-                refs.add(f"@{m.group(1)}")
+        # Also extract any t.me links found in page
+        for tag in soup.find_all("a", href=True):
+            m = _TGREF_RE.search(str(tag["href"]))
+            if m:
+                username = m.group(1).lower()
+                if username not in _EXCLUDED:
+                    refs.add(f"@{username}")
 
         return list(refs)

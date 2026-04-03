@@ -1,12 +1,18 @@
-"""Teleteg.com HTTP scraping platform."""
+"""Teleteg.com HTTP scraping platform.
+
+Uses curl_cffi for browser-like TLS fingerprint.
+Correct search URL: /search-results/?query=...
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
+from functools import partial
 
-import httpx
 from bs4 import BeautifulSoup
+from curl_cffi import requests as cf_requests
 
 from chatfilter.scraper.base import BasePlatform
 
@@ -26,14 +32,19 @@ class TeletegPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> list[str]:
-        search_url = f"https://teleteg.com/search?q={query}"
-        headers = {
-            "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
-        }
+        search_url = f"https://teleteg.com/search-results/?query={query}"
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(search_url, headers=headers)
-                resp.raise_for_status()
+            loop = asyncio.get_running_loop()
+            resp = await loop.run_in_executor(
+                None,
+                partial(
+                    cf_requests.get,
+                    search_url,
+                    impersonate="chrome",
+                    timeout=30,
+                ),
+            )
+            resp.raise_for_status()
         except Exception:
             logger.warning("teleteg: request failed for query=%r", query)
             return []
