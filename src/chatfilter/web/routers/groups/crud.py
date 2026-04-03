@@ -620,6 +620,10 @@ async def collect_chats(
             billing=billing,
         )
 
+        # Check balance synchronously before doing any work
+        if not billing.check_balance(user_id):
+            raise InsufficientBalance("Your AI balance is insufficient. Please top up to continue.")
+
         # Pre-create group with SCRAPING status so we can return the card immediately
         group_id = f"group-{uuid.uuid4().hex[:12]}"
         now = datetime.now(UTC)
@@ -671,7 +675,7 @@ async def collect_chats(
         return templates.TemplateResponse(
             request=request,
             name="partials/error_message.html",
-            context={"error": f"Insufficient balance: {str(e)}"},
+            context={"error": str(e)},
             status_code=402,
         )
     except Exception as e:
