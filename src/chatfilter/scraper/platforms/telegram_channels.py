@@ -42,12 +42,12 @@ class TelegramChannelsPlatform(BasePlatform):
         refs: set[str] = set()
 
         for tag in soup.find_all("a", href=True):
-            m = TGREF_RE.search(tag["href"])
+            m = TGREF_RE.search(str(tag["href"]))
             if m:
                 refs.add(f"@{m.group(1)}")
 
-        for tag in soup.find_all(string=TGREF_RE):
-            for m in TGREF_RE.finditer(str(tag)):
+        for text_node in soup.find_all(string=TGREF_RE):
+            for m in TGREF_RE.finditer(str(text_node)):
                 refs.add(f"@{m.group(1)}")
 
         return list(refs)

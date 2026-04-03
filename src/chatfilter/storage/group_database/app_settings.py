@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import Any
 
 from ._base import DatabaseMixinBase
 
@@ -66,7 +67,7 @@ class AppSettingsMixin(DatabaseMixinBase):
 
     # --- Platform settings CRUD ---
 
-    def get_platform_setting(self, platform_id: str) -> dict | None:
+    def get_platform_setting(self, platform_id: str) -> dict[str, Any] | None:
         """Get platform settings by ID. Returns None if not found."""
         with self._connection() as conn:
             cursor = conn.execute(
@@ -106,7 +107,7 @@ class AppSettingsMixin(DatabaseMixinBase):
                 (platform_id, api_key, cost, int(enabled)),
             )
 
-    def get_all_platform_settings(self) -> list[dict]:
+    def get_all_platform_settings(self) -> list[dict[str, Any]]:
         """Get all platform settings."""
         with self._connection() as conn:
             cursor = conn.execute(

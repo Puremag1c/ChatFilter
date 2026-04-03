@@ -346,7 +346,7 @@ async def update_platform_settings(
 
     for platform in registry.get_all():
         pid = platform.id
-        api_key = str(form.get(f"platform_{pid}_api_key", "")).strip()
+        api_key: str | None = str(form.get(f"platform_{pid}_api_key", "")).strip()
         cost_str = str(form.get(f"platform_{pid}_cost", "0")).strip()
         enabled = f"platform_{pid}_enabled" in form
 

@@ -8,7 +8,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from chatfilter.models.group import (
     ChatTypeEnum,
@@ -31,10 +31,10 @@ _ESTIMATED_COST_PER_SEARCH = 0.01
 
 # In-memory scraping progress tracker: group_id → progress dict
 # Each entry: {"platforms": {platform_id: {"status": str, "chats_found": int}}, "total_found": int}
-_scraping_progress: dict[str, dict] = {}
+_scraping_progress: dict[str, dict[str, Any]] = {}
 
 
-def get_scraping_progress(group_id: str) -> dict | None:
+def get_scraping_progress(group_id: str) -> dict[str, Any] | None:
     """Return current scraping progress for a group, or None if not tracked."""
     return _scraping_progress.get(group_id)
 
