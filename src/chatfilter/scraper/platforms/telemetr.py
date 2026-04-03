@@ -59,7 +59,7 @@ class TelemetrPlatform(BasePlatform):
                     timeout=30,
                 ),
             )
-            resp.raise_for_status()
+            resp.raise_for_status()  # type: ignore[no-untyped-call]
         except Exception:
             logger.warning("telemetr: request failed for query=%r", query)
             return []
