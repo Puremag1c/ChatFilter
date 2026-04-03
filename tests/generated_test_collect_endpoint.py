@@ -134,9 +134,7 @@ class TestCollectEndpointInputValidation:
         )
         assert resp.status_code == 422
 
-    def test_collect_name_exceeds_max_length_returns_400(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_collect_name_exceeds_max_length_returns_400(self, fastapi_test_client: Any) -> None:
         """POST with name exceeding max length should return 400."""
         csrf = self._get_csrf(fastapi_test_client)
         # Max length is typically 256 characters
