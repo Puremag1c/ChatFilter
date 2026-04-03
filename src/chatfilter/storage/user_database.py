@@ -192,6 +192,9 @@ class UserDatabase(SQLiteDatabase):
             assert row is not None
             new_balance = float(row["ai_balance_usd"])
 
+            # Determine transaction type: 'search' for search operations, 'charge' for others
+            transaction_type = model if model == "search" else "charge"
+
             conn.execute(
                 """
                 INSERT INTO ai_transactions
@@ -201,7 +204,7 @@ class UserDatabase(SQLiteDatabase):
                 """,
                 (
                     user_id,
-                    "charge",
+                    transaction_type,
                     -actual_cost,
                     new_balance,
                     model,
