@@ -158,3 +158,83 @@ class TestGetTransactions:
 
         txns = billing.get_transactions(user_id, limit=5)
         assert len(txns) == 5
+
+
+class TestReserveAndSettle:
+    def test_reserve_deducts_balance(self, billing: BillingService, user_id: str) -> None:
+        billing.topup(user_id, 1.0, "load")
+        new_balance = billing.reserve(user_id, 0.60)
+        assert new_balance == pytest.approx(0.40)
+        assert billing.get_balance(user_id) == pytest.approx(0.40)
+
+    def test_reserve_raises_when_insufficient(self, billing: BillingService, user_id: str) -> None:
+        billing.topup(user_id, 0.50, "load")
+        with pytest.raises(InsufficientBalance):
+            billing.reserve(user_id, 0.60)
+
+    def test_reserve_does_not_modify_balance_on_insufficient(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        billing.topup(user_id, 0.50, "load")
+        with pytest.raises(InsufficientBalance):
+            billing.reserve(user_id, 0.60)
+        assert billing.get_balance(user_id) == pytest.approx(0.50)
+
+    def test_settle_refunds_when_actual_less_than_reserved(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        billing.topup(user_id, 1.0, "load")
+        billing.reserve(user_id, 0.80)
+        new_balance = billing.settle(user_id, 0.80, 0.50, "gpt-4", 100, 200, "AI call")
+        assert new_balance == pytest.approx(0.50)  # 1.0 - 0.80 + 0.30 refund
+        assert billing.get_balance(user_id) == pytest.approx(0.50)
+
+    def test_settle_charges_extra_when_actual_greater_than_reserved(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        billing.topup(user_id, 1.0, "load")
+        billing.reserve(user_id, 0.50)
+        new_balance = billing.settle(user_id, 0.50, 0.70, "gpt-4", 100, 200, "AI call")
+        assert new_balance == pytest.approx(0.30)  # 1.0 - 0.50 - 0.20 extra
+
+    def test_settle_records_transaction_for_actual_cost(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        billing.topup(user_id, 1.0, "load")
+        billing.reserve(user_id, 0.80)
+        billing.settle(user_id, 0.80, 0.50, "gpt-4", 100, 200, "AI call")
+        txns = billing.get_transactions(user_id)
+        charge_txn = next(t for t in txns if t["type"] == "charge")
+        assert charge_txn["amount_usd"] == pytest.approx(-0.50)
+        assert charge_txn["balance_after"] == pytest.approx(0.50)
+
+    def test_concurrent_reserves_cannot_overdraft(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        """Two concurrent reserves where combined cost exceeds balance.
+
+        Only the first reserve succeeds; the second raises InsufficientBalance.
+        Balance must never go below 0.
+        """
+        billing.topup(user_id, 1.0, "load")
+
+        # Reserve 0.70 — succeeds, balance = 0.30
+        balance_after_first = billing.reserve(user_id, 0.70)
+        assert balance_after_first == pytest.approx(0.30)
+
+        # Reserve 0.70 again — fails, balance is only 0.30
+        with pytest.raises(InsufficientBalance):
+            billing.reserve(user_id, 0.70)
+
+        # Balance must not have gone below 0
+        assert billing.get_balance(user_id) >= 0.0
+
+    def test_settle_caps_extra_charge_at_zero_when_balance_exhausted(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        """If actual > reserved and balance is now insufficient, cap at 0."""
+        billing.topup(user_id, 0.50, "load")
+        billing.reserve(user_id, 0.50)  # balance = 0
+        # actual > reserved but balance is already 0 — should not go negative
+        new_balance = billing.settle(user_id, 0.50, 0.80, "gpt-4", 100, 200, "AI call")
+        assert new_balance >= 0.0

@@ -124,6 +124,95 @@ class UserDatabase(SQLiteDatabase):
                 (new_balance, user_id),
             )
 
+    def reserve_balance(self, user_id: str, estimated_cost: float) -> float:
+        """Atomically reserve estimated cost before starting AI call.
+
+        Deducts estimated_cost from balance in a single SQL statement so
+        concurrent calls cannot both reserve when only one can afford it.
+
+        Returns new balance.
+        Raises ValueError("insufficient:<balance>") if balance < estimated_cost.
+        """
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET ai_balance_usd = ai_balance_usd - ? WHERE id = ? AND ai_balance_usd >= ?",
+                (estimated_cost, user_id, estimated_cost),
+            )
+            if cursor.rowcount == 0:
+                row = conn.execute(
+                    "SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,)
+                ).fetchone()
+                balance = float(row["ai_balance_usd"]) if row else 0.0
+                raise ValueError(f"insufficient:{balance:.6f}")
+
+            row = conn.execute(
+                "SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            assert row is not None
+            return float(row["ai_balance_usd"])
+
+    def settle_reserve(
+        self,
+        user_id: str,
+        reserved_cost: float,
+        actual_cost: float,
+        model: str | None,
+        tokens_in: int | None,
+        tokens_out: int | None,
+        description: str | None,
+    ) -> float:
+        """Settle a prior reserve after AI call completes.
+
+        Adjusts balance from reserved_cost to actual_cost and records transaction.
+
+        If actual_cost <= reserved_cost: refunds the difference.
+        If actual_cost > reserved_cost: charges the extra, capped at MAX(0, balance) to
+        prevent overdraft (AI already ran, charge what user has left).
+
+        Returns new balance.
+        """
+        created_at = self._datetime_to_str(datetime.now(UTC))
+        with self._connection() as conn:
+            if actual_cost <= reserved_cost:
+                refund = reserved_cost - actual_cost
+                conn.execute(
+                    "UPDATE users SET ai_balance_usd = ai_balance_usd + ? WHERE id = ?",
+                    (refund, user_id),
+                )
+            else:
+                extra = actual_cost - reserved_cost
+                conn.execute(
+                    "UPDATE users SET ai_balance_usd = MAX(0.0, ai_balance_usd - ?) WHERE id = ?",
+                    (extra, user_id),
+                )
+
+            row = conn.execute(
+                "SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            assert row is not None
+            new_balance = float(row["ai_balance_usd"])
+
+            conn.execute(
+                """
+                INSERT INTO ai_transactions
+                    (user_id, type, amount_usd, balance_after, model,
+                     tokens_in, tokens_out, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    "charge",
+                    -actual_cost,
+                    new_balance,
+                    model,
+                    tokens_in,
+                    tokens_out,
+                    description,
+                    created_at,
+                ),
+            )
+            return new_balance
+
     def atomic_charge(
         self,
         user_id: str,

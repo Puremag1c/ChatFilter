@@ -34,6 +34,51 @@ class BillingService:
         """Return True if user has positive balance."""
         return self._db.get_balance(user_id) > 0
 
+    def reserve(self, user_id: str, estimated_cost: float) -> float:
+        """Atomically reserve estimated_cost from balance before starting AI call.
+
+        Must be paired with settle() after the call completes.
+
+        Returns new balance.
+        Raises InsufficientBalance if balance < estimated_cost.
+        """
+        try:
+            return self._db.reserve_balance(user_id, estimated_cost)
+        except ValueError as exc:
+            if str(exc).startswith("insufficient:"):
+                balance = float(str(exc).split(":")[1])
+                raise InsufficientBalance(
+                    f"User {user_id} has insufficient balance: {balance:.6f} USD"
+                ) from exc
+            raise
+
+    def settle(
+        self,
+        user_id: str,
+        reserved_cost: float,
+        actual_cost: float,
+        model: str,
+        tokens_in: int,
+        tokens_out: int,
+        description: str,
+    ) -> float:
+        """Settle a prior reserve with the actual cost after AI call completes.
+
+        Refunds if actual < reserved; charges extra (capped) if actual > reserved.
+        Records transaction for actual_cost.
+
+        Returns new balance.
+        """
+        return self._db.settle_reserve(
+            user_id=user_id,
+            reserved_cost=reserved_cost,
+            actual_cost=actual_cost,
+            model=model,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            description=description,
+        )
+
     def charge(
         self,
         user_id: str,
