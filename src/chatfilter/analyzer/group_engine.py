@@ -119,17 +119,21 @@ class GroupAnalysisEngine:
     # -- Startup recovery --------------------------------------------------
 
     def recover_stale_analysis(self) -> None:
-        """Reset groups stuck in in_progress or waiting_for_accounts after server restart."""
-        stale = [
+        """Reset groups stuck in in_progress, waiting_for_accounts, or scraping after server restart."""
+        all_groups = self._db.load_all_groups()
+        stale_analysis = [
             g
-            for g in self._db.load_all_groups()
+            for g in all_groups
             if g["status"]
             in (GroupStatus.IN_PROGRESS.value, GroupStatus.WAITING_FOR_ACCOUNTS.value)
         ]
-        if not stale:
-            logger.info("No stale in_progress/waiting_for_accounts groups — recovery skipped")
+        stale_scraping = [g for g in all_groups if g["status"] == GroupStatus.SCRAPING.value]
+        if not stale_analysis and not stale_scraping:
+            logger.info(
+                "No stale in_progress/waiting_for_accounts/scraping groups — recovery skipped"
+            )
             return
-        for group in stale:
+        for group in stale_analysis:
             gid = group["id"]
             task = self._db.get_active_task(gid)
             if task:
@@ -145,6 +149,24 @@ class GroupAnalysisEngine:
                 user_id=group.get("user_id", ""),
             )
             logger.info(f"Recovered stale group '{group['name']}' ({gid}) → paused")
+        for group in stale_scraping:
+            gid = group["id"]
+            # Scraping (search) cannot be resumed — mark as failed
+            settings = dict(group["settings"])
+            settings["_error_message"] = "Search interrupted by server restart — please try again"
+            self._db.save_group(
+                group_id=gid,
+                name=group["name"],
+                settings=settings,
+                status=GroupStatus.FAILED.value,
+                created_at=group["created_at"],
+                updated_at=datetime.now(UTC),
+                user_id=group.get("user_id", ""),
+            )
+            logger.warning(
+                f"Recovered stale scraping group '{group['name']}' ({gid}) → failed"
+                " (search interrupted by server restart)"
+            )
 
     # -- INCREMENT check ---------------------------------------------------
 
