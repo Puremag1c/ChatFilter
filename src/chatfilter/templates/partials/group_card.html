@@ -15,7 +15,7 @@
     {% if group.status.value == 'scraping' %}
     <div id="scraping-progress-{{ group.id }}"
          hx-get="/api/groups/{{ group.id }}/scraping-progress"
-         hx-trigger="load, every 3s"
+         hx-trigger="every 3s"
          hx-target="#scraping-progress-{{ group.id }}"
          hx-swap="innerHTML"
          style="background: #e8f4fd; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">
