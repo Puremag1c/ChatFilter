@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, Response
 
+from chatfilter import __version__
 from chatfilter.web.session import get_session
 from chatfilter.web.template_helpers import get_template_context
 
@@ -92,7 +93,7 @@ async def admin_page(
     return templates.TemplateResponse(
         request=request,
         name="admin.html",
-        context=get_template_context(request),
+        context=get_template_context(request, version=__version__),
     )
 
 
@@ -125,6 +126,7 @@ async def admin_tab_users(
         name=template_name,
         context=get_template_context(
             request,
+            version=__version__,
             users=users,
             current_user_id=current_user_id,
             page=page,
@@ -167,6 +169,7 @@ async def admin_tab_platforms(request: Request) -> HTMLResponse | Response:
         name="partials/admin_tab_platforms.html",
         context=get_template_context(
             request,
+            version=__version__,
             platforms_data=platforms_data,
         ),
     )
@@ -189,6 +192,7 @@ async def admin_tab_system(request: Request) -> HTMLResponse | Response:
         name="partials/admin_tab_system.html",
         context=get_template_context(
             request,
+            version=__version__,
             app_settings=app_settings,
             cost_multiplier=cost_multiplier,
         ),
@@ -209,7 +213,7 @@ async def admin_tab_page(request: Request) -> HTMLResponse | Response:
     return templates.TemplateResponse(
         request=request,
         name="admin.html",
-        context=get_template_context(request),
+        context=get_template_context(request, version=__version__),
     )
 
 
@@ -330,6 +334,7 @@ async def toggle_admin(request: Request, user_id: str) -> Response:
         name="partials/admin_user_row.html",
         context=get_template_context(
             request,
+            version=__version__,
             user=updated_user,
             current_user_id=current_user_id,
         ),
@@ -374,6 +379,7 @@ async def topup_balance(
         name="partials/balance_td.html",
         context=get_template_context(
             request,
+            version=__version__,
             user_id=user_id,
             new_balance=new_balance,
         ),
