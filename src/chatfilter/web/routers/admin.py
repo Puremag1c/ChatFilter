@@ -219,7 +219,14 @@ async def create_user(
             f"Пользователь '{username}' уже существует", toast_type="error", status_code=409
         )
 
-    db.create_user(username, password)
+    from chatfilter.storage.user_database import UserAlreadyExistsError
+
+    try:
+        db.create_user(username, password)
+    except UserAlreadyExistsError:
+        return _toast_response(
+            f"Пользователь '{username}' уже существует", toast_type="error", status_code=409
+        )
     return _toast_response(f"Пользователь '{username}' создан", redirect="/admin", status_code=303)
 
 

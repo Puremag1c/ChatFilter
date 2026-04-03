@@ -9,8 +9,13 @@ from pathlib import Path
 from typing import Any
 
 import bcrypt
+from sqlalchemy.exc import IntegrityError as SAIntegrityError
 
 from chatfilter.storage.sqlite import SQLiteDatabase
+
+
+class UserAlreadyExistsError(Exception):
+    """Raised when attempting to create a user with a duplicate username or email."""
 
 
 class UserDatabase(SQLiteDatabase):
@@ -34,14 +39,19 @@ class UserDatabase(SQLiteDatabase):
         uid = user_id or str(uuid.uuid4())
         password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         created_at = self._datetime_to_str(datetime.now(UTC))
-        with self._connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO users (id, username, password_hash, is_admin, created_at, email)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (uid, username, password_hash, 1 if is_admin else 0, created_at, email),
-            )
+        try:
+            with self._connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO users (id, username, password_hash, is_admin, created_at, email)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (uid, username, password_hash, 1 if is_admin else 0, created_at, email),
+                )
+        except SAIntegrityError as exc:
+            raise UserAlreadyExistsError(
+                f"User with username '{username}' or email '{email}' already exists"
+            ) from exc
         return uid
 
     def get_user_by_email(self, email: str) -> dict[str, Any] | None:
