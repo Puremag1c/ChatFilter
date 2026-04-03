@@ -84,9 +84,17 @@
     gap: 0.5rem;
     max-height: 200px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .platforms-list {
+        max-height: none;
+        overflow-y: visible;
+    }
 }
 
 .platform-item {
