@@ -14,6 +14,11 @@
             <input type="password" id="new-password" name="password" required
                    class="form-input" placeholder="{{ _("password") }}" autocomplete="new-password">
         </div>
+        <div>
+            <label for="new-email" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Email") }} ({{ _("optional") }})</label>
+            <input type="email" id="new-email" name="email"
+                   class="form-input" placeholder="user@example.com" autocomplete="off">
+        </div>
         <button type="submit" class="btn btn-primary">{{ _("Create") }}</button>
     </form>
 </section>
@@ -21,6 +26,15 @@
 <section class="card" style="margin-top:1.5rem">
     <div class="card-header">
         <h2>{{ _("Users") }}</h2>
+        <input type="search" name="q" value="{{ q }}"
+               placeholder="{{ _('Search by username or email…') }}"
+               class="form-input" style="max-width:20rem"
+               hx-get="/admin/tab/users"
+               hx-trigger="input changed delay:300ms"
+               hx-target="#users-table-container"
+               hx-include="[name='q']">
     </div>
-    {% include "partials/admin_users.html" %}
+    <div id="users-table-container">
+        {% include "partials/admin_users.html" %}
+    </div>
 </section>

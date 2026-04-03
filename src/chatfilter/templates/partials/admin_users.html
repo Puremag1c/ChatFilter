@@ -4,6 +4,7 @@
         <thead>
             <tr>
                 <th scope="col">{{ _("Username") }}</th>
+                <th scope="col">{{ _("Email") }}</th>
                 <th scope="col">{{ _("Admin") }}</th>
                 <th scope="col">{{ _("Balance") }}</th>
                 <th scope="col">{{ _("Created") }}</th>
@@ -17,6 +18,30 @@
         </tbody>
     </table>
 </div>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="{{ _('Page navigation') }}">
+    {% if page > 1 %}
+    <a class="pagination__btn"
+       hx-get="/admin/tab/users"
+       hx-target="#users-table-container"
+       hx-vals='{"page": "{{ page - 1 }}", "q": "{{ q }}"}'>&#8592; {{ _("Prev") }}</a>
+    {% else %}
+    <span class="pagination__btn pagination__btn--disabled">&#8592; {{ _("Prev") }}</span>
+    {% endif %}
+
+    <span class="pagination__info">{{ page }} / {{ total_pages }}</span>
+
+    {% if page < total_pages %}
+    <a class="pagination__btn"
+       hx-get="/admin/tab/users"
+       hx-target="#users-table-container"
+       hx-vals='{"page": "{{ page + 1 }}", "q": "{{ q }}"}'>{{ _("Next") }} &#8594;</a>
+    {% else %}
+    <span class="pagination__btn pagination__btn--disabled">{{ _("Next") }} &#8594;</span>
+    {% endif %}
+</nav>
+{% endif %}
 {% else %}
 <p style="padding:1rem;color:var(--text-muted)">{{ _("No users found.") }}</p>
 {% endif %}

@@ -5,6 +5,7 @@
         <strong>{{ user.username }}</strong>
         {% if user.is_admin %}<span class="admin-badge">[admin]</span>{% endif %}
     </td>
+    <td data-label="{{ _("Email") }}">{{ user.email or "—" }}</td>
     <td data-label="{{ _("Admin") }}">
         <button type="button"
                 class="btn btn-sm {% if user.is_admin %}btn-warning{% else %}btn-secondary{% endif %}"

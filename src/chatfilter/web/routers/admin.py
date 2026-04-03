@@ -97,24 +97,37 @@ async def admin_page(
 
 
 @router.get("/admin/tab/users", response_class=HTMLResponse, response_model=None)
-async def admin_tab_users(request: Request) -> HTMLResponse | Response:
+async def admin_tab_users(
+    request: Request,
+    page: int = 1,
+    q: str = "",
+) -> HTMLResponse | Response:
     from chatfilter.web.app import get_templates
 
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
     db = _get_user_db(request)
-    users, _ = db.list_users()
+    page_size = 20
+    users, total_count = db.list_users(page=page, page_size=page_size, query=q or None)
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
     current_user_id = get_session(request).get("user_id")
+
+    is_htmx = request.headers.get("HX-Request") == "true"
+    template_name = "partials/admin_users.html" if is_htmx else "partials/admin_tab_users.html"
 
     templates = get_templates()
     return templates.TemplateResponse(
         request=request,
-        name="partials/admin_tab_users.html",
+        name=template_name,
         context=get_template_context(
             request,
             users=users,
             current_user_id=current_user_id,
+            page=page,
+            total_pages=total_pages,
+            total_count=total_count,
+            q=q,
         ),
     )
 
@@ -202,7 +215,10 @@ async def create_user(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    email: str = Form(""),
 ) -> Response:
+    import re
+
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
@@ -219,14 +235,17 @@ async def create_user(
             f"Пользователь '{username}' уже существует", toast_type="error", status_code=409
         )
 
-    from chatfilter.storage.user_database import UserAlreadyExistsError
+    email_value: str | None = email.strip() or None
+    if email_value:
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email_value):
+            return _toast_response("Неверный формат email", toast_type="error", status_code=422)
+        existing_email = db.get_user_by_email(email_value)
+        if existing_email:
+            return _toast_response(
+                f"Email '{email_value}' уже используется", toast_type="error", status_code=409
+            )
 
-    try:
-        db.create_user(username, password)
-    except UserAlreadyExistsError:
-        return _toast_response(
-            f"Пользователь '{username}' уже существует", toast_type="error", status_code=409
-        )
+    db.create_user(username, password, email=email_value)
     return _toast_response(f"Пользователь '{username}' создан", redirect="/admin", status_code=303)
 
 
