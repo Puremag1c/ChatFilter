@@ -3127,6 +3127,14 @@ msgstr "{hours}h {minutes}m"
 #~ msgid "Failed to finalize connection. Please try Connect again."
 #~ msgstr "Failed to finalize connection. Please try Connect again."
 
+#: src/chatfilter/templates/partials/group_card.html
+msgid "Search completed, no chats found"
+msgstr "Search completed, no chats found"
+
+#: src/chatfilter/templates/partials/group_card.html
+msgid "Try a different query or select other platforms."
+msgstr "Try a different query or select other platforms."
+
 # Group status translations
 #~ msgid "pending"
 #~ msgstr "Pending"

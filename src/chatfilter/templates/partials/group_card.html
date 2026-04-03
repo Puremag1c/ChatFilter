@@ -40,6 +40,24 @@
     </div>
     {% endif %}
 
+    {% if stats.total == 0 and group.source == 'scraping' and group.status.value != 'scraping' %}
+    <!-- Empty state: scraping completed with 0 results -->
+    <div style="background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 6px; padding: 1rem; margin: 0.5rem 0; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</div>
+        <p style="margin: 0 0 0.5rem 0; font-weight: 500; color: #e65100;">
+            {{ _("Search completed, no chats found") }}
+        </p>
+        <p style="margin: 0 0 0.75rem 0; font-size: 0.875rem; color: #bf360c;">
+            {{ _("Try a different query or select other platforms.") }}
+        </p>
+        <button class="btn btn-secondary btn-sm"
+                hx-get="/api/groups/modal/collect"
+                hx-target="#modal-container"
+                hx-swap="innerHTML">
+            🔍 {{ _("Collect chats") }}
+        </button>
+    </div>
+    {% else %}
     <div class="group-stats">
         <div class="stat-row">
             <span>{{ _("Total chats") }}:</span>
@@ -92,6 +110,7 @@
         {% endif %}
         {% endif %}
     </div>
+    {% endif %}
 
     <!-- Action buttons -->
     <div class="group-actions">
