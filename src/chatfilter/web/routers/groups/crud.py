@@ -261,10 +261,15 @@ async def list_groups(request: Request, web_session: WebSession) -> HTMLResponse
         groups = service.list_groups(user_id=user_id)
 
         # Get stats for each group
+        from chatfilter.scraper.orchestrator import get_scraping_progress
+
         groups_with_stats = []
         for group in groups:
             stats = service.get_group_stats(group.id)
-            groups_with_stats.append({"group": group, "stats": stats})
+            item: dict = {"group": group, "stats": stats}
+            if group.status.value == "scraping":
+                item["scraping_progress"] = get_scraping_progress(group.id)
+            groups_with_stats.append(item)
 
         return templates.TemplateResponse(
             request=request,

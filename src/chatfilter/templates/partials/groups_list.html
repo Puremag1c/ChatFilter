@@ -3,6 +3,7 @@
     {% for item in groups %}
         {% set group = item.group %}
         {% set stats = item.stats %}
+        {% set scraping_progress = item.scraping_progress if item.scraping_progress is defined else none %}
         {% include "partials/group_card.html" with context %}
     {% endfor %}
 {% else %}

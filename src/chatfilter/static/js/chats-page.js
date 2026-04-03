@@ -123,7 +123,7 @@
                         // Skip updating group cards with active SSE (in_progress/waiting_for_accounts)
                         // to prevent DOM jitter and timer resets
                         if (fromEl.classList && fromEl.classList.contains('group-card')) {
-                            var statusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts');
+                            var statusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
                             if (statusBadge) {
                                 // Active card — skip update to prevent jitter
                                 return false;
@@ -153,7 +153,7 @@
     function schedulePoll() {
         if (pollTimer) clearTimeout(pollTimer);
 
-        var hasActive = container.querySelector('.status-badge.in_progress') || container.querySelector('.status-badge.waiting_for_accounts');
+        var hasActive = container.querySelector('.status-badge.in_progress') || container.querySelector('.status-badge.waiting_for_accounts') || container.querySelector('.status-badge.scraping');
         var isSseConnected = !(document.body.classList && document.body.classList.contains('sse-disconnected'));
 
         var pollInterval;
