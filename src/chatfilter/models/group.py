@@ -14,6 +14,7 @@ class GroupStatus(StrEnum):
     """Status of a chat group."""
 
     PENDING = "pending"
+    SCRAPING = "scraping"
     IN_PROGRESS = "in_progress"
     PAUSED = "paused"
     WAITING_FOR_ACCOUNTS = "waiting_for_accounts"

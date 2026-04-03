@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 from ._base import DatabaseMixinBase
@@ -51,3 +52,75 @@ class AppSettingsMixin(DatabaseMixinBase):
         """Get analysis_freshness_days setting (default 7)."""
         val = self.get_setting("analysis_freshness_days")
         return int(val) if val is not None else _FRESHNESS_DAYS_DEFAULT
+
+    # --- Cost multiplier ---
+
+    def get_cost_multiplier(self) -> float:
+        """Get global cost multiplier (default 1.0)."""
+        val = self.get_setting("cost_multiplier")
+        return float(val) if val is not None else 1.0
+
+    def set_cost_multiplier(self, value: float) -> None:
+        """Set global cost multiplier."""
+        self.set_setting("cost_multiplier", str(value))
+
+    # --- Platform settings CRUD ---
+
+    def get_platform_setting(self, platform_id: str) -> dict | None:
+        """Get platform settings by ID. Returns None if not found."""
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "SELECT id, api_key, cost_per_request_usd, enabled, extra_config"
+                " FROM platform_settings WHERE id = ?",
+                (platform_id,),
+            )
+            row = cursor.fetchone()
+        if row is None:
+            return None
+        return {
+            "id": row["id"],
+            "api_key": row["api_key"],
+            "cost_per_request_usd": row["cost_per_request_usd"],
+            "enabled": bool(row["enabled"]),
+            "extra_config": json.loads(row["extra_config"]) if row["extra_config"] else {},
+        }
+
+    def save_platform_setting(
+        self,
+        platform_id: str,
+        api_key: str | None = None,
+        cost: float = 0.0,
+        enabled: bool = True,
+    ) -> None:
+        """Upsert platform settings."""
+        with self._connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO platform_settings (id, api_key, cost_per_request_usd, enabled)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    api_key = excluded.api_key,
+                    cost_per_request_usd = excluded.cost_per_request_usd,
+                    enabled = excluded.enabled
+                """,
+                (platform_id, api_key, cost, int(enabled)),
+            )
+
+    def get_all_platform_settings(self) -> list[dict]:
+        """Get all platform settings."""
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "SELECT id, api_key, cost_per_request_usd, enabled, extra_config"
+                " FROM platform_settings"
+            )
+            rows = cursor.fetchall()
+        return [
+            {
+                "id": row["id"],
+                "api_key": row["api_key"],
+                "cost_per_request_usd": row["cost_per_request_usd"],
+                "enabled": bool(row["enabled"]),
+                "extra_config": json.loads(row["extra_config"]) if row["extra_config"] else {},
+            }
+            for row in rows
+        ]
