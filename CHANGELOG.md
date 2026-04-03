@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-04-03
+
+### Added
+- Кнопка «Собрать чаты» + модальное окно с выбором площадок и текстовым запросом
+- Новый статус группы `scraping` с индикатором прогресса по площадкам
+- Спецификации 12 площадок поиска (TGStat, Telemetr, Teleteg, Nicegram Hub, Baza-TG, Combot, Hottg, TelegramChannels.me, Tlgrm.ru, Lyzem, Telegago, Google Search)
+- Движок поиска: AI генерирует поисковые запросы → поиск по площадкам → дедупликация → создание группы
+- Админка: настройки площадок (API-ключи, стоимость за запрос, вкл/выкл)
+- Глобальный мультипликатор стоимости для AI-операций
+- Биллинг поиска: проверка баланса перед стартом, списание по факту, транзакции type="search"
+
+### Fixed
+- CI: lint & type check — ошибки форматирования и mypy в scraper
+- API: CSRF token missing в тестах collect endpoint
+- Visual: список площадок в модалке обрезался на мобильных
+- Backend: мультипликатор некорректно начислял при значении > 1.0
+- Backend: InsufficientBalance вызывал settle() refund — баланс пользователя увеличивался вместо ошибки
+
 ## [0.31.2] - 2026-04-03
 
 ### Added
