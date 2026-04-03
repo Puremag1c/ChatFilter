@@ -179,6 +179,24 @@ async def admin_tab_system(request: Request) -> HTMLResponse | Response:
     )
 
 
+@router.get("/admin/users", response_class=HTMLResponse, response_model=None)
+@router.get("/admin/platforms", response_class=HTMLResponse, response_model=None)
+@router.get("/admin/system", response_class=HTMLResponse, response_model=None)
+async def admin_tab_page(request: Request) -> HTMLResponse | Response:
+    """Serve admin shell for direct tab URL access (e.g. /admin/users on refresh)."""
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html",
+        context=get_template_context(request),
+    )
+
+
 @router.post("/admin/users", response_model=None)
 async def create_user(
     request: Request,

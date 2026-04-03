@@ -12,7 +12,7 @@
             hx-get="/admin/tab/users"
             hx-target="#admin-content"
             hx-swap="innerHTML"
-            hx-trigger="click, load"
+            hx-push-url="/admin/users"
             style="padding:0.6rem 1.25rem;border:none;background:none;cursor:pointer;font-size:0.95rem;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted,#666)"
             onclick="setActiveTab(this)">
         {{ _("Users") }}
@@ -21,6 +21,7 @@
             hx-get="/admin/tab/platforms"
             hx-target="#admin-content"
             hx-swap="innerHTML"
+            hx-push-url="/admin/platforms"
             style="padding:0.6rem 1.25rem;border:none;background:none;cursor:pointer;font-size:0.95rem;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted,#666)"
             onclick="setActiveTab(this)">
         {{ _("Platforms") }}
@@ -29,6 +30,7 @@
             hx-get="/admin/tab/system"
             hx-target="#admin-content"
             hx-swap="innerHTML"
+            hx-push-url="/admin/system"
             style="padding:0.6rem 1.25rem;border:none;background:none;cursor:pointer;font-size:0.95rem;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted,#666)"
             onclick="setActiveTab(this)">
         {{ _("System") }}
@@ -52,10 +54,15 @@ function setActiveTab(el) {
     });
     el.classList.add('active');
 }
-// Mark first tab active on load
 document.addEventListener('DOMContentLoaded', function() {
-    var first = document.querySelector('.admin-tab-btn');
-    if (first) first.classList.add('active');
+    var path = window.location.pathname;
+    var tabIndex = { '/admin/users': 0, '/admin/platforms': 1, '/admin/system': 2 };
+    var idx = (path in tabIndex) ? tabIndex[path] : 0;
+    var tabs = document.querySelectorAll('.admin-tab-btn');
+    if (tabs[idx]) {
+        setActiveTab(tabs[idx]);
+        htmx.trigger(tabs[idx], 'click');
+    }
 });
 </script>
 {% endblock %}
