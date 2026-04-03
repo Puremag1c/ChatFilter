@@ -1,0 +1,26 @@
+<section class="card">
+    <div class="card-header">
+        <h2>{{ _("Create User") }}</h2>
+    </div>
+    <form hx-post="/admin/users" hx-swap="none" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div>
+            <label for="new-username" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Username") }}</label>
+            <input type="text" id="new-username" name="username" required
+                   class="form-input" placeholder="{{ _("username") }}" autocomplete="off">
+        </div>
+        <div>
+            <label for="new-password" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Password") }}</label>
+            <input type="password" id="new-password" name="password" required
+                   class="form-input" placeholder="{{ _("password") }}" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary">{{ _("Create") }}</button>
+    </form>
+</section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>{{ _("Users") }}</h2>
+    </div>
+    {% include "partials/admin_users.html" %}
+</section>

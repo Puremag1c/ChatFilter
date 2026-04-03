@@ -83,8 +83,21 @@ def _require_admin(request: Request) -> bool:
 async def admin_page(
     request: Request,
 ) -> HTMLResponse | Response:
-    from chatfilter import __version__
-    from chatfilter.scraper.registry import registry
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html",
+        context=get_template_context(request),
+    )
+
+
+@router.get("/admin/tab/users", response_class=HTMLResponse, response_model=None)
+async def admin_tab_users(request: Request) -> HTMLResponse | Response:
     from chatfilter.web.app import get_templates
 
     if not _require_admin(request):
@@ -94,10 +107,27 @@ async def admin_page(
     users = db.list_users()
     current_user_id = get_session(request).get("user_id")
 
-    group_db = _get_group_db(request)
-    app_settings = _safe_app_settings(group_db.get_all_settings())
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/admin_tab_users.html",
+        context=get_template_context(
+            request,
+            users=users,
+            current_user_id=current_user_id,
+        ),
+    )
 
-    # Platform settings
+
+@router.get("/admin/tab/platforms", response_class=HTMLResponse, response_model=None)
+async def admin_tab_platforms(request: Request) -> HTMLResponse | Response:
+    from chatfilter.scraper.registry import registry
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    group_db = _get_group_db(request)
     all_platform_settings = {s["id"]: s for s in group_db.get_all_platform_settings()}
     platforms_data = []
     for platform in registry.get_all():
@@ -114,19 +144,36 @@ async def admin_page(
                 "enabled": db_settings.get("enabled", True),
             }
         )
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/admin_tab_platforms.html",
+        context=get_template_context(
+            request,
+            platforms_data=platforms_data,
+        ),
+    )
+
+
+@router.get("/admin/tab/system", response_class=HTMLResponse, response_model=None)
+async def admin_tab_system(request: Request) -> HTMLResponse | Response:
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    group_db = _get_group_db(request)
+    app_settings = _safe_app_settings(group_db.get_all_settings())
     cost_multiplier = group_db.get_cost_multiplier()
 
     templates = get_templates()
     return templates.TemplateResponse(
         request=request,
-        name="admin.html",
+        name="partials/admin_tab_system.html",
         context=get_template_context(
             request,
-            version=__version__,
-            users=users,
-            current_user_id=current_user_id,
             app_settings=app_settings,
-            platforms_data=platforms_data,
             cost_multiplier=cost_multiplier,
         ),
     )
