@@ -104,7 +104,7 @@ async def admin_tab_users(request: Request) -> HTMLResponse | Response:
         return Response(status_code=403, content="Forbidden")
 
     db = _get_user_db(request)
-    users = db.list_users()
+    users, _ = db.list_users()
     current_user_id = get_session(request).get("user_id")
 
     templates = get_templates()

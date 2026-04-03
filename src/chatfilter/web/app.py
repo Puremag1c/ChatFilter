@@ -185,7 +185,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if settings.admin_login and settings.admin_password:
             user_db.upsert_user(settings.admin_login, settings.admin_password, is_admin=True)
             logger.info(f"Admin user '{settings.admin_login}' initialized from environment")
-        elif not user_db.list_users():
+        elif not user_db.list_users()[1]:
             password = secrets.token_urlsafe(16)
             user_db.create_user("admin", password, is_admin=True)
             print(f"\n{'=' * 60}")  # noqa: T201

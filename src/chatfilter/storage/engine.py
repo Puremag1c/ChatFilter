@@ -45,5 +45,8 @@ def create_db_engine(url: str, **kwargs: Any) -> Engine:
             cursor.close()
             cursor = dbapi_conn.execute("PRAGMA busy_timeout = 30000")
             cursor.close()
+            # Override LOWER() with a Unicode-aware version so that Cyrillic
+            # (and other non-ASCII) case-insensitive searches work correctly.
+            dbapi_conn.create_function("lower", 1, lambda s: s.lower() if s else s)
 
     return engine

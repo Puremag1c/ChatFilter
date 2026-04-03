@@ -28,6 +28,7 @@ class UserDatabase(SQLiteDatabase):
         password: str,
         is_admin: bool = False,
         user_id: str | None = None,
+        email: str | None = None,
     ) -> str:
         """Create a new user. Returns the user id."""
         uid = user_id or str(uuid.uuid4())
@@ -36,12 +37,19 @@ class UserDatabase(SQLiteDatabase):
         with self._connection() as conn:
             conn.execute(
                 """
-                INSERT INTO users (id, username, password_hash, is_admin, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO users (id, username, password_hash, is_admin, created_at, email)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (uid, username, password_hash, 1 if is_admin else 0, created_at),
+                (uid, username, password_hash, 1 if is_admin else 0, created_at, email),
             )
         return uid
+
+    def get_user_by_email(self, email: str) -> dict[str, Any] | None:
+        """Return user dict or None if not found."""
+        with self._connection() as conn:
+            cursor = conn.execute("SELECT * FROM users WHERE email = ?", (email,))
+            row = cursor.fetchone()
+        return self._row_to_dict(row) if row else None
 
     def get_user_by_username(self, username: str) -> dict[str, Any] | None:
         """Return user dict or None if not found."""
@@ -57,12 +65,52 @@ class UserDatabase(SQLiteDatabase):
             row = cursor.fetchone()
         return self._row_to_dict(row) if row else None
 
-    def list_users(self) -> list[dict[str, Any]]:
-        """Return all users ordered by created_at."""
+    def list_users(
+        self,
+        page: int = 1,
+        page_size: int = 50,
+        query: str | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Return paginated users ordered by created_at.
+
+        Args:
+            page: 1-based page number.
+            page_size: number of rows per page.
+            query: optional search string matched against username OR email
+                (case-insensitive, including Cyrillic).
+
+        Returns:
+            Tuple of (list of user dicts, total_count).
+        """
+        offset = (max(1, page) - 1) * page_size
         with self._connection() as conn:
-            cursor = conn.execute("SELECT * FROM users ORDER BY created_at ASC")
-            rows = cursor.fetchall()
-        return [self._row_to_dict(row) for row in rows]
+            if query:
+                pattern = f"%{query.lower()}%"
+                count_row = conn.execute(
+                    """
+                    SELECT COUNT(*) FROM users
+                    WHERE LOWER(username) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?)
+                    """,
+                    (pattern, pattern),
+                ).fetchone()
+                total_count: int = count_row[0]
+                rows = conn.execute(
+                    """
+                    SELECT * FROM users
+                    WHERE LOWER(username) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?)
+                    ORDER BY created_at ASC
+                    LIMIT ? OFFSET ?
+                    """,
+                    (pattern, pattern, page_size, offset),
+                ).fetchall()
+            else:
+                count_row = conn.execute("SELECT COUNT(*) FROM users").fetchone()
+                total_count = count_row[0]
+                rows = conn.execute(
+                    "SELECT * FROM users ORDER BY created_at ASC LIMIT ? OFFSET ?",
+                    (page_size, offset),
+                ).fetchall()
+        return [self._row_to_dict(row) for row in rows], total_count
 
     def delete_user(self, user_id: str) -> bool:
         """Delete user by id. Returns True if deleted."""
@@ -352,6 +400,7 @@ class UserDatabase(SQLiteDatabase):
             "ai_balance_usd": float(row["ai_balance_usd"])
             if row["ai_balance_usd"] is not None
             else 0.0,
+            "email": row["email"] if row["email"] is not None else None,
         }
 
 

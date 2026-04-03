@@ -73,22 +73,55 @@ class TestGetUser:
 
 class TestListUsers:
     def test_empty_returns_empty_list(self, user_db: UserDatabase) -> None:
-        assert user_db.list_users() == []
+        users, total = user_db.list_users()
+        assert users == []
+        assert total == 0
 
     def test_returns_all_users(self, user_db: UserDatabase) -> None:
         user_db.create_user("alice", "password123")
         user_db.create_user("bob", "password456")
-        users = user_db.list_users()
+        users, total = user_db.list_users()
         assert len(users) == 2
+        assert total == 2
         usernames = {u["username"] for u in users}
         assert usernames == {"alice", "bob"}
 
     def test_ordered_by_created_at(self, user_db: UserDatabase) -> None:
         user_db.create_user("first", "password123")
         user_db.create_user("second", "password123")
-        users = user_db.list_users()
+        users, _ = user_db.list_users()
         assert users[0]["username"] == "first"
         assert users[1]["username"] == "second"
+
+    def test_pagination(self, user_db: UserDatabase) -> None:
+        for i in range(5):
+            user_db.create_user(f"user{i}", "password123")
+        users, total = user_db.list_users(page=1, page_size=2)
+        assert total == 5
+        assert len(users) == 2
+        users2, total2 = user_db.list_users(page=3, page_size=2)
+        assert total2 == 5
+        assert len(users2) == 1
+
+    def test_search_by_username(self, user_db: UserDatabase) -> None:
+        user_db.create_user("alice", "password123")
+        user_db.create_user("bob", "password456")
+        results, count = user_db.list_users(query="ali")
+        assert count == 1
+        assert results[0]["username"] == "alice"
+
+    def test_search_cyrillic_case_insensitive(self, user_db: UserDatabase) -> None:
+        user_db.create_user("Иван", "password123")
+        results, count = user_db.list_users(query="иван")
+        assert count == 1
+        assert results[0]["username"] == "Иван"
+
+    def test_search_by_email(self, user_db: UserDatabase) -> None:
+        user_db.create_user("alice", "password123", email="alice@example.com")
+        user_db.create_user("bob", "password456")
+        results, count = user_db.list_users(query="alice@")
+        assert count == 1
+        assert results[0]["username"] == "alice"
 
 
 class TestDeleteUser:
@@ -141,7 +174,8 @@ class TestUpsertUser:
     def test_does_not_create_duplicate(self, user_db: UserDatabase) -> None:
         user_db.upsert_user("alice", "password123")
         user_db.upsert_user("alice", "password456")
-        assert len(user_db.list_users()) == 1
+        _, total = user_db.list_users()
+        assert total == 1
 
 
 class TestDeleteUserFiles:
