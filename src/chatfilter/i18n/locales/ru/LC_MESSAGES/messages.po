@@ -2995,6 +2995,18 @@ msgstr "пароль"
 msgid "new password"
 msgstr "новый пароль"
 
+#: src/chatfilter/templates/partials/admin_tab_users.html:30
+msgid "Search by username or email…"
+msgstr "Поиск по имени пользователя или адресу электронной почты…"
+
+#: src/chatfilter/templates/partials/admin_tab_users.html:18
+msgid "optional"
+msgstr "необязательно"
+
+#: src/chatfilter/templates/partials/admin_user_row.html:33
+msgid "Top up"
+msgstr "Пополнить"
+
 #: src/chatfilter/templates/login.html:3
 msgid "Login"
 msgstr "Вход"
