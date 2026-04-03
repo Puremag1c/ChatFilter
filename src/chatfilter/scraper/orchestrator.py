@@ -112,9 +112,7 @@ class SearchOrchestrator:
         Returns:
             SearchResult with group_id and statistics.
         """
-        # 1. Reserve balance
         estimated_cost = _ESTIMATED_COST_PER_SEARCH * max(len(platform_ids), 1)
-        self._billing.reserve(user_id, estimated_cost)
         ai_cost = 0.0
 
         if group_id is None:
@@ -134,6 +132,9 @@ class SearchOrchestrator:
         )
 
         try:
+            # 1. Reserve balance
+            self._billing.reserve(user_id, estimated_cost)
+
             # 2. Generate search queries via AI (captures cost)
             queries, ai_cost = await self._query_gen.generate(user_query, user_id=user_id)
             logger.info("Generated %d queries for: %r", len(queries), user_query)
