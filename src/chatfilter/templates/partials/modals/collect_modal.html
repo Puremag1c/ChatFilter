@@ -91,9 +91,15 @@
 }
 
 @media (max-width: 768px) {
-    .platforms-list {
-        max-height: none;
-        overflow-y: visible;
+    #collect-modal .modal-dialog {
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
+    #collect-modal .modal-body {
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
     }
 }
 
