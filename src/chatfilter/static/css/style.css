@@ -1983,7 +1983,7 @@ tr.htmx-request .proxy-status-badge {
         flex-direction: column;
         flex: 1;
         min-height: 0;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .modal-header {
@@ -2746,7 +2746,7 @@ tr.htmx-request .proxy-status-badge {
         flex-direction: column;
         flex: 1;
         min-height: 0;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .modal-header {
