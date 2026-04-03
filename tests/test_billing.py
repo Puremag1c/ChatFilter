@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from chatfilter.ai.billing import BillingService, InsufficientBalance
-from tests.db_helpers import make_user_db
+from tests.db_helpers import make_group_db, make_user_db
 
 
 @pytest.fixture
@@ -238,3 +238,56 @@ class TestReserveAndSettle:
         # actual > reserved but balance is already 0 — should not go negative
         new_balance = billing.settle(user_id, 0.50, 0.80, "gpt-4", 100, 200, "AI call")
         assert new_balance >= 0.0
+
+
+class TestReserveAndSettleWithMultiplier:
+    """Tests that reserve+settle correctly applies the cost multiplier."""
+
+    @pytest.fixture
+    def billing_with_multiplier(self, tmp_path: Path) -> BillingService:
+        db_path = tmp_path / "test_billing_mult.db"
+        user_db = make_user_db(db_path)
+        group_db = make_group_db(db_path)
+        group_db.set_cost_multiplier(1.5)
+        return BillingService(user_db, group_db)
+
+    @pytest.fixture
+    def uid(self, billing_with_multiplier: BillingService) -> str:
+        uid = "test-user-mult"
+        billing_with_multiplier._db.create_user("testmult", "password123", user_id=uid)
+        billing_with_multiplier._db.update_balance(uid, 0.0)
+        return uid
+
+    def test_reserve_applies_multiplier(
+        self, billing_with_multiplier: BillingService, uid: str
+    ) -> None:
+        billing_with_multiplier.topup(uid, 1.0, "load")
+        new_balance = billing_with_multiplier.reserve(uid, 0.10)
+        # 0.10 * 1.5 = 0.15 deducted
+        assert new_balance == pytest.approx(0.85)
+
+    def test_settle_with_multiplier_correct_balance(
+        self, billing_with_multiplier: BillingService, uid: str
+    ) -> None:
+        """Reserve and settle with multiplier: balance = start - actual_cost * multiplier."""
+        billing_with_multiplier.topup(uid, 1.0, "load")
+        billing_with_multiplier.reserve(uid, 0.10)  # deducts 0.15, balance=0.85
+        new_balance = billing_with_multiplier.settle(uid, 0.10, 0.05, "search", 0, 0, "Search test")
+        # actual_cost * multiplier = 0.05 * 1.5 = 0.075
+        # balance = 1.0 - 0.075 = 0.925
+        assert new_balance == pytest.approx(0.925)
+
+    def test_settle_search_creates_transaction_with_correct_type_and_cost(
+        self, billing_with_multiplier: BillingService, uid: str
+    ) -> None:
+        """Search settle creates ai_transactions with type=search and non-zero cost."""
+        billing_with_multiplier.topup(uid, 1.0, "load")
+        billing_with_multiplier.reserve(uid, 0.01)
+        billing_with_multiplier.settle(
+            uid, 0.01, 0.005, "search", 0, 0, "Search: 1 platforms, 3 chats"
+        )
+        txns = billing_with_multiplier.get_transactions(uid)
+        search_txn = next(t for t in txns if t["type"] == "search")
+        # actual_cost * multiplier = 0.005 * 1.5 = 0.0075
+        assert search_txn["amount_usd"] == pytest.approx(-0.0075)
+        assert search_txn["balance_after"] < 1.0
