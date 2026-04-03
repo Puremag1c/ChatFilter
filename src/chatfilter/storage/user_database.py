@@ -118,10 +118,7 @@ class UserDatabase(SQLiteDatabase):
                 ).fetchall()
             else:
                 count_row = conn.execute("SELECT COUNT(*) FROM users").fetchone()
-                if count_row is not None:
-                    total_count = count_row[0]
-                else:
-                    total_count = 0
+                total_count = count_row[0] if count_row is not None else 0
                 rows = conn.execute(
                     "SELECT * FROM users ORDER BY created_at ASC LIMIT ? OFFSET ?",
                     (page_size, offset),
