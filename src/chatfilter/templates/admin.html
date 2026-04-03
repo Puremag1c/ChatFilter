@@ -88,4 +88,50 @@
         <button type="submit" class="btn btn-primary">{{ _("Save") }}</button>
     </form>
 </section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>{{ _("Площадки поиска") }}</h2>
+    </div>
+    <div style="padding:1rem">
+        <!-- Cost multiplier global setting -->
+        <form hx-post="/admin/settings/cost-multiplier" hx-swap="none"
+              style="display:flex;gap:0.75rem;align-items:flex-end;margin-bottom:1.5rem;flex-wrap:wrap">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div>
+                <label for="cost-multiplier" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">
+                    {{ _("Cost multiplier (global)") }}
+                </label>
+                <input type="number" id="cost-multiplier" name="cost_multiplier"
+                       class="form-input" min="0.1" max="100" step="0.1"
+                       value="{{ cost_multiplier }}">
+            </div>
+            <button type="submit" class="btn btn-primary">{{ _("Save") }}</button>
+        </form>
+
+        {% if platforms %}
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{{ _("Platform") }}</th>
+                        <th>{{ _("Method") }}</th>
+                        <th>{{ _("Status") }}</th>
+                        <th>{{ _("API Key") }}</th>
+                        <th>{{ _("Cost/req") }}</th>
+                        <th>{{ _("Actions") }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for platform in platforms %}
+                        {% include "partials/platform_settings_row.html" %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted,#666)">{{ _("No platforms registered.") }}</p>
+        {% endif %}
+    </div>
+</section>
 {% endblock %}

@@ -79,6 +79,31 @@ def _require_admin(request: Request) -> bool:
     return bool(user and user.get("is_admin"))
 
 
+def _get_platforms_with_settings(group_db: GroupDatabase) -> list[dict]:
+    """Merge registry platforms with DB settings for display."""
+    from chatfilter.scraper import registry
+
+    db_settings = {s["id"]: s for s in group_db.get_all_platform_settings()}
+    result = []
+    for platform in registry.get_all():
+        settings = db_settings.get(platform.id, {})
+        raw_key = settings.get("api_key") or ""
+        result.append(
+            {
+                "id": platform.id,
+                "name": platform.name,
+                "method": platform.method,
+                "needs_api_key": platform.needs_api_key,
+                "cost_tier": platform.cost_tier,
+                "api_key_masked": _mask_api_key(raw_key),
+                "has_api_key": bool(raw_key),
+                "cost_per_request_usd": settings.get("cost_per_request_usd", 0.0),
+                "enabled": settings.get("enabled", True),
+            }
+        )
+    return result
+
+
 @router.get("/admin", response_class=HTMLResponse, response_model=None)
 async def admin_page(
     request: Request,
@@ -95,6 +120,8 @@ async def admin_page(
 
     group_db = _get_group_db(request)
     app_settings = _safe_app_settings(group_db.get_all_settings())
+    platforms = _get_platforms_with_settings(group_db)
+    cost_multiplier = group_db.get_cost_multiplier()
 
     templates = get_templates()
     return templates.TemplateResponse(
@@ -106,6 +133,8 @@ async def admin_page(
             users=users,
             current_user_id=current_user_id,
             app_settings=app_settings,
+            platforms=platforms,
+            cost_multiplier=cost_multiplier,
         ),
     )
 
@@ -308,3 +337,45 @@ async def update_settings(
     group_db.set_setting("analysis_freshness_days", str(analysis_freshness_days))
 
     return _toast_response("Настройки сохранены", redirect="/admin")
+
+
+@router.post("/admin/platforms/{platform_id}", response_model=None)
+async def update_platform_settings(
+    request: Request,
+    platform_id: str,
+    api_key: str = Form(""),
+    cost_per_request_usd: float = Form(0.0),
+    enabled: str = Form("off"),
+) -> Response:
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    group_db = _get_group_db(request)
+    existing = group_db.get_platform_setting(platform_id)
+
+    # Keep existing api_key if blank submitted (leave blank to keep)
+    resolved_key = api_key.strip() if api_key.strip() else (existing or {}).get("api_key") or ""
+
+    group_db.save_platform_setting(
+        platform_id=platform_id,
+        api_key=resolved_key or None,
+        cost=cost_per_request_usd,
+        enabled=(enabled == "on"),
+    )
+    return _toast_response(f"Настройки площадки '{platform_id}' сохранены")
+
+
+@router.post("/admin/settings/cost-multiplier", response_model=None)
+async def update_cost_multiplier(
+    request: Request,
+    cost_multiplier: float = Form(...),
+) -> Response:
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    if not (0.1 <= cost_multiplier <= 100.0):
+        return _toast_response("Мультипликатор должен быть от 0.1 до 100", toast_type="error")
+
+    group_db = _get_group_db(request)
+    group_db.set_cost_multiplier(cost_multiplier)
+    return _toast_response("Мультипликатор стоимости сохранён")
