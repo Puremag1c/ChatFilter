@@ -98,10 +98,11 @@
     background-repeat: no-repeat;
 }
 
-/* Mobile: increase scrollable area for all platforms to be accessible */
+/* Mobile: let platforms expand fully; modal-body handles scrolling */
 @media (max-width: 480px) {
     .platforms-list {
-        max-height: 55vh;
+        max-height: none;
+        overflow-y: visible;
     }
 }
 
@@ -115,6 +116,11 @@
         overflow-y: auto;
         flex: 1;
         min-height: 0;
+    }
+    /* Scroll affordance: bottom fade signals more content */
+    #collect-modal .modal-body.has-overflow {
+        -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 28px), transparent 100%);
+        mask-image: linear-gradient(to bottom, black calc(100% - 28px), transparent 100%);
     }
 }
 
@@ -195,6 +201,23 @@
 
     platformCheckboxes.forEach(cb => cb.addEventListener('change', updateSubmitState));
     updateSubmitState();
+
+    // Scroll affordance: add/remove fade when modal-body is scrollable
+    var modalBody = modal.querySelector('.modal-body');
+    function updateScrollAffordance() {
+        if (!modalBody) return;
+        var hasOverflow = modalBody.scrollHeight > modalBody.clientHeight;
+        var atBottom = modalBody.scrollTop + modalBody.clientHeight >= modalBody.scrollHeight - 2;
+        if (hasOverflow && !atBottom) {
+            modalBody.classList.add('has-overflow');
+        } else {
+            modalBody.classList.remove('has-overflow');
+        }
+    }
+    if (modalBody) {
+        modalBody.addEventListener('scroll', updateScrollAffordance);
+        setTimeout(updateScrollAffordance, 100);
+    }
 
     form.addEventListener('htmx:beforeRequest', function() {
         btnText.textContent = '{{ _("Searching...") }}';
