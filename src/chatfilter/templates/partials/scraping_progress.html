@@ -1,0 +1,27 @@
+{% if progress %}
+<div class="scraping-progress" style="font-size: 0.875rem; margin: 0.5rem 0;">
+    <div style="margin-bottom: 0.25rem; color: #555;">
+        {{ _("Found") }}: <strong>{{ progress.total_found }}</strong> {{ _("chats so far") }}
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+        {% for pid, info in progress.platforms.items() %}
+        <span style="display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.15rem 0.4rem; border-radius: 3px;
+            {% if info.status == 'done' %}background: #e8f5e9; color: #2e7d32;
+            {% elif info.status == 'error' %}background: #ffebee; color: #c62828;
+            {% else %}background: #e3f2fd; color: #1565c0;{% endif %}">
+            {% if info.status == 'done' %}✓
+            {% elif info.status == 'error' %}✗
+            {% else %}<span style="display:inline-block;width:0.6em;height:0.6em;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></span>{% endif %}
+            {{ pid }}{% if info.chats_found > 0 %} ({{ info.chats_found }}){% endif %}
+        </span>
+        {% endfor %}
+    </div>
+</div>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% else %}
+<div style="font-size: 0.875rem; color: #1565c0; margin: 0.5rem 0;">
+    🔍 {{ _("Searching platforms...") }}
+</div>
+{% endif %}

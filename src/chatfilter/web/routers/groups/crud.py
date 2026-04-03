@@ -487,6 +487,50 @@ async def update_group_settings(
         )
 
 
+@router.get("/api/groups/{group_id}/scraping-progress", response_class=HTMLResponse)
+async def scraping_progress(
+    request: Request,
+    web_session: WebSession,
+    group_id: str,
+) -> HTMLResponse:
+    """Return scraping progress partial for a group.
+
+    Polled every 3s by the group card while status=scraping.
+    When scraping is done, returns the full card (via HX-Retarget) to replace itself.
+    """
+    from chatfilter.scraper.orchestrator import get_scraping_progress
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    service = _get_group_service(request)
+    user_id: str = web_session.get("user_id", "")
+    group = service.get_group(group_id, user_id=user_id)
+
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # If no longer scraping → return full card, retargeting the card element
+    if group.status.value != "scraping":
+        stats = service.get_group_stats(group_id)
+        response = templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context=get_template_context(request, group=group, stats=stats),
+        )
+        response.headers["HX-Retarget"] = f"#group-{group_id}"
+        response.headers["HX-Reswap"] = "outerHTML"
+        return response
+
+    progress = get_scraping_progress(group_id)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/scraping_progress.html",
+        context={"progress": progress, "group_id": group_id},
+    )
+
+
 @router.post("/api/groups/collect", response_class=HTMLResponse)
 async def collect_chats(
     request: Request,

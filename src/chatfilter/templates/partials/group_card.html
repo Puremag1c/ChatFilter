@@ -13,7 +13,12 @@
 
     <span class="status-badge {{ group.status.value }}">{{ _(group.status.value) }}</span>
     {% if group.status.value == 'scraping' %}
-    <div style="background: #e8f4fd; color: #1565c0; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
+    <div id="scraping-progress-{{ group.id }}"
+         hx-get="/api/groups/{{ group.id }}/scraping-progress"
+         hx-trigger="load, every 3s"
+         hx-target="#scraping-progress-{{ group.id }}"
+         hx-swap="innerHTML"
+         style="background: #e8f4fd; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">
         🔍 {{ _("Searching platforms for chats...") }}
     </div>
     {% endif %}

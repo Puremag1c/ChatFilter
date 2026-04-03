@@ -32,6 +32,20 @@ _COST_MULTIPLIER = 1.5
 # Estimated cost per search for balance reservation
 _ESTIMATED_COST_PER_SEARCH = 0.01
 
+# In-memory scraping progress tracker: group_id → progress dict
+# Each entry: {"platforms": {platform_id: {"status": str, "chats_found": int}}, "total_found": int}
+_scraping_progress: dict[str, dict] = {}
+
+
+def get_scraping_progress(group_id: str) -> dict | None:
+    """Return current scraping progress for a group, or None if not tracked."""
+    return _scraping_progress.get(group_id)
+
+
+def clear_scraping_progress(group_id: str) -> None:
+    """Remove progress entry once no longer needed."""
+    _scraping_progress.pop(group_id, None)
+
 
 @dataclass
 class PlatformStats:
@@ -125,9 +139,13 @@ class SearchOrchestrator:
                 )
                 return SearchResult(group_id=group_id)
 
-            # 4. Search all platforms concurrently
+            # 4. Search all platforms concurrently (with progress tracking)
+            _scraping_progress[group_id] = {
+                "platforms": {p.id: {"status": "searching", "chats_found": 0} for p in platforms},
+                "total_found": 0,
+            }
             platform_results = await asyncio.gather(
-                *(self._search_platform(platform, queries) for platform in platforms),
+                *(self._search_platform_tracked(platform, queries, group_id) for platform in platforms),
                 return_exceptions=True,
             )
 
@@ -164,6 +182,9 @@ class SearchOrchestrator:
                 status = GroupStatus.FAILED if all_failed else GroupStatus.PENDING
                 self._update_group_status(group_id, status)
 
+            # Clear progress tracking
+            clear_scraping_progress(group_id)
+
             # 8. Calculate cost and settle billing
             actual_cost = ai_cost * _COST_MULTIPLIER
             platforms_searched = sum(1 for s in stats_list if s.error is None)
@@ -187,6 +208,7 @@ class SearchOrchestrator:
 
         except Exception:
             logger.exception("Search orchestrator failed for group %s", group_id)
+            clear_scraping_progress(group_id)
             self._update_group_status(group_id, GroupStatus.FAILED)
             # Settle with zero cost on failure
             self._billing.settle(user_id, estimated_cost, 0.0, "search", 0, 0, "Search failed")
@@ -202,6 +224,23 @@ class SearchOrchestrator:
             except KeyError:
                 logger.warning("Unknown platform ID: %s", pid)
         return platforms
+
+    async def _search_platform_tracked(
+        self,
+        platform: BasePlatform,
+        queries: list[str],
+        group_id: str,
+    ) -> tuple[list[str], PlatformStats]:
+        """Wrapper around _search_platform that updates scraping progress."""
+        refs, stats = await self._search_platform(platform, queries)
+        progress = _scraping_progress.get(group_id)
+        if progress is not None:
+            status = "error" if stats.error else "done"
+            progress["platforms"][platform.id] = {"status": status, "chats_found": stats.chats_found}
+            progress["total_found"] = sum(
+                p["chats_found"] for p in progress["platforms"].values()
+            )
+        return refs, stats
 
     async def _search_platform(
         self,
