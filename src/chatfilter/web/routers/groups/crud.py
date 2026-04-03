@@ -6,6 +6,8 @@ plus group settings management.
 
 from __future__ import annotations
 
+import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -14,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from chatfilter.importer.google_sheets import fetch_google_sheet
 from chatfilter.importer.parser import ChatListEntry, parse_chat_list
 from chatfilter.models.catalog import AnalysisModeEnum
+from chatfilter.models.group import GroupSettings, GroupStatus
 from chatfilter.web.dependencies import WebSession
 from chatfilter.web.template_helpers import get_template_context
 
@@ -27,6 +30,11 @@ from .helpers import (
 )
 
 router = APIRouter()
+
+# Max lengths for collect search inputs (security: prevent prompt injection / cost spike)
+_MAX_SEARCH_QUERY_LEN = 2000
+_MAX_GROUP_NAME_LEN = 200
+
 
 
 @router.post("/api/groups", response_class=HTMLResponse)
@@ -477,3 +485,128 @@ async def update_group_settings(
             name="partials/error_message.html",
             context={"error": f"Failed to update settings: {str(e)}"},
         )
+
+
+@router.post("/api/groups/collect", response_class=HTMLResponse)
+async def collect_chats(
+    request: Request,
+    web_session: WebSession,
+    name: Annotated[str, Form()],
+    search_query: Annotated[str, Form()],
+    platform_ids: Annotated[list[str] | None, Form()] = None,
+) -> HTMLResponse:
+    """Start a background search to collect Telegram chats.
+
+    Creates a group with status='scraping' and launches the search orchestrator
+    as an asyncio background task.
+
+    Args:
+        request: FastAPI request object
+        web_session: User's web session
+        name: Group name
+        search_query: Natural language description of desired channels
+        platform_ids: List of platform IDs to search
+
+    Returns:
+        HTML partial with new group card (scraping status) or error message
+    """
+    import asyncio
+
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    def _error(msg: str) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": msg},
+            status_code=422,
+        )
+
+    # Validate inputs
+    if not name or not name.strip():
+        return _error("Group name is required")
+    if len(name) > _MAX_GROUP_NAME_LEN:
+        return _error(f"Group name must be at most {_MAX_GROUP_NAME_LEN} characters")
+    if not search_query or not search_query.strip():
+        return _error("Search query is required")
+    if len(search_query) > _MAX_SEARCH_QUERY_LEN:
+        return _error(f"Search query must be at most {_MAX_SEARCH_QUERY_LEN} characters")
+    if not platform_ids:
+        return _error("Select at least one platform")
+
+    user_id: str = web_session.get("user_id", "")
+
+    try:
+        import asyncio
+
+        from chatfilter.ai.billing import BillingService, InsufficientBalance
+        from chatfilter.ai.service import AIService
+        from chatfilter.scraper import registry
+        from chatfilter.scraper.orchestrator import SearchOrchestrator
+        from chatfilter.scraper.query_generator import QueryGenerator
+        from chatfilter.storage.group_database import GroupDatabase
+        from chatfilter.storage.user_database import get_user_db
+
+        settings = request.app.state.settings
+        group_db = GroupDatabase(settings.effective_database_url)
+        user_db = get_user_db(settings.effective_database_url)
+
+        ai_service = AIService(group_db)
+        query_gen = QueryGenerator(ai_service)
+        billing = BillingService(user_db, group_db)
+
+        orchestrator = SearchOrchestrator(
+            registry=registry,
+            query_generator=query_gen,
+            db=group_db,
+            billing=billing,
+        )
+
+        # Pre-create group with SCRAPING status so we can return the card immediately
+        group_id = f"group-{uuid.uuid4().hex[:12]}"
+        now = datetime.now(UTC)
+        group_db.save_group(
+            group_id=group_id,
+            name=name.strip(),
+            settings=GroupSettings().model_dump(),
+            status=GroupStatus.SCRAPING.value,
+            created_at=now,
+            updated_at=now,
+            user_id=user_id,
+        )
+
+        # Launch search as asyncio background task (pass pre-created group_id)
+        asyncio.create_task(
+            orchestrator.search(
+                user_query=search_query.strip(),
+                platform_ids=platform_ids,
+                user_id=user_id,
+                group_name=name.strip(),
+                group_id=group_id,
+            )
+        )
+
+        # Return group card in scraping status immediately
+        service = _get_group_service(request)
+        group = service.get_group(group_id)
+        if group is None:
+            return _error("Search started but could not load group. Please refresh.")
+
+        stats = service.get_group_stats(group_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/group_card.html",
+            context=get_template_context(request, group=group, stats=stats),
+        )
+
+    except InsufficientBalance as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": f"Insufficient balance: {str(e)}"},
+            status_code=402,
+        )
+    except Exception as e:
+        return _error(f"Failed to start search: {str(e)}")

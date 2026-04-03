@@ -1,0 +1,178 @@
+{# Collect Chats Modal — search platforms for Telegram channels #}
+<div id="collect-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="collect-modal-title">
+    <div class="modal-dialog" role="document">
+        <div class="modal-header">
+            <span class="modal-icon info" aria-hidden="true">🔍</span>
+            <h2 class="modal-title" id="collect-modal-title">{{ _("Collect Chats") }}</h2>
+        </div>
+        <form id="collect-form"
+              hx-post="/api/groups/collect"
+              hx-target="#groups-list"
+              hx-swap="afterbegin"
+              hx-indicator="#collect-spinner"
+              hx-disabled-elt="button[type='submit']">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="collect-group-name">{{ _("Group Name") }} *</label>
+                    <input type="text"
+                           id="collect-group-name"
+                           name="name"
+                           required
+                           maxlength="200"
+                           placeholder="{{ _('e.g., Marketing Channels') }}"
+                           aria-required="true">
+                </div>
+
+                <div class="form-group">
+                    <label for="collect-query">{{ _("Search Query") }} *</label>
+                    <textarea id="collect-query"
+                              name="search_query"
+                              required
+                              maxlength="2000"
+                              rows="3"
+                              placeholder="{{ _('Describe what kind of channels you are looking for, e.g. Python programming tutorials') }}"
+                              aria-required="true"></textarea>
+                    <small>{{ _("Max 2000 characters") }}</small>
+                </div>
+
+                <div class="form-group">
+                    <label>{{ _("Platforms") }} *</label>
+                    <div class="platforms-list">
+                        {% for p in platforms %}
+                        <label class="platform-item {% if not p.available %}disabled{% endif %}"
+                               {% if not p.available %}title="{{ _(p.disabled_reason or 'Configure in Admin settings') }}"{% endif %}>
+                            <input type="checkbox"
+                                   name="platform_ids"
+                                   value="{{ p.id }}"
+                                   {% if p.available %}checked{% else %}disabled{% endif %}>
+                            <span class="platform-name">{{ p.name }}</span>
+                            <span class="cost-icon" title="{{ _('Cost tier') }}: {{ p.cost_tier }}">{{ p.cost_icon }}</span>
+                            {% if not p.available %}
+                            <span class="platform-disabled-hint">{{ _(p.disabled_reason or "no API key") }}</span>
+                            {% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% if not platforms %}
+                    <p class="text-muted">{{ _("No platforms registered.") }}</p>
+                    {% endif %}
+                </div>
+
+                <div id="collect-error" class="alert alert-error" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-button secondary" onclick="closeCollectModal()">
+                    {{ _("Cancel") }}
+                </button>
+                <button type="submit" class="modal-button primary">
+                    <span class="btn-text">{{ _("Start Search") }}</span>
+                    <span id="collect-spinner" class="htmx-indicator spinner"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.platforms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.5rem;
+}
+
+.platform-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.platform-item:hover:not(.disabled) {
+    background: var(--bg-hover, #f5f5f5);
+}
+
+.platform-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.platform-name {
+    flex: 1;
+}
+
+.cost-icon {
+    font-size: 1rem;
+}
+
+.platform-disabled-hint {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+</style>
+
+<script>
+(function() {
+    const modal = document.getElementById('collect-modal');
+    modal.classList.add('show');
+
+    const form = document.getElementById('collect-form');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const errorDiv = document.getElementById('collect-error');
+
+    function closeCollectModal() {
+        modal.classList.remove('show');
+        document.removeEventListener('keydown', handleEscape);
+        setTimeout(() => modal.remove(), 300);
+    }
+
+    // Expose for inline onclick
+    window.closeCollectModal = closeCollectModal;
+
+    function handleEscape(e) {
+        if (e.key === 'Escape') closeCollectModal();
+    }
+    document.addEventListener('keydown', handleEscape);
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeCollectModal();
+    });
+
+    form.addEventListener('htmx:beforeRequest', function() {
+        btnText.textContent = '{{ _("Searching...") }}';
+        errorDiv.style.display = 'none';
+    });
+
+    form.addEventListener('htmx:afterRequest', function(e) {
+        btnText.textContent = '{{ _("Start Search") }}';
+        if (e.detail.successful) {
+            const noGroupsEl = document.querySelector('.no-groups');
+            if (noGroupsEl) noGroupsEl.remove();
+            closeCollectModal();
+        }
+    });
+
+    form.addEventListener('htmx:beforeSwap', function(e) {
+        if (e.detail.xhr.status === 422) {
+            e.detail.shouldSwap = false;
+            var tmp = document.createElement('div');
+            tmp.innerHTML = e.detail.xhr.responseText || '{{ _("Failed to start search") }}';
+            errorDiv.textContent = tmp.textContent.trim();
+            errorDiv.style.display = 'block';
+        }
+    });
+
+    if (typeof htmx !== 'undefined' && htmx.process) {
+        htmx.process(modal);
+    }
+})();
+</script>

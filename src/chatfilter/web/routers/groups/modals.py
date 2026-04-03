@@ -124,6 +124,63 @@ async def get_reanalyze_confirm_modal(
         )
 
 
+@router.get("/api/groups/modal/collect", response_class=HTMLResponse)
+async def get_collect_modal(request: Request) -> HTMLResponse:
+    """Get collect chats modal HTML with platform list.
+
+    Args:
+        request: FastAPI request object
+
+    Returns:
+        HTML modal for collecting chats via search
+    """
+    from chatfilter.scraper import registry
+    from chatfilter.web.app import get_templates
+
+    templates = get_templates()
+
+    service = _get_group_service()
+    db = service._db
+
+    # Build platform info list: all platforms with availability flag
+    all_settings = {s["id"]: s for s in db.get_all_platform_settings()}
+    cost_icons = {"cheap": "💚", "medium": "🟡", "expensive": "🔴"}
+    platforms_info = []
+    for platform in registry.get_all():
+        settings = all_settings.get(platform.id)
+        disabled_reason = None
+        if settings is not None:
+            enabled = bool(settings.get("enabled", True))
+            has_key = bool(settings.get("api_key")) if platform.needs_api_key else True
+            if not enabled:
+                disabled_reason = "Platform disabled"
+            elif not has_key:
+                disabled_reason = "API key required"
+        else:
+            enabled = True
+            has_key = not platform.needs_api_key
+            if not has_key:
+                disabled_reason = "API key required"
+        available = enabled and has_key
+        platforms_info.append(
+            {
+                "id": platform.id,
+                "name": platform.name,
+                "cost_tier": platform.cost_tier,
+                "cost_icon": cost_icons.get(platform.cost_tier, "🟡"),
+                "needs_api_key": platform.needs_api_key,
+                "available": available,
+                "disabled_reason": disabled_reason,
+            }
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/modals/collect_modal.html",
+        context={"platforms": platforms_info},
+    )
+
+
 @router.get("/api/groups/{group_id}/export/modal", response_class=HTMLResponse)
 async def get_export_modal(
     request: Request, web_session: WebSession, group_id: str

@@ -165,6 +165,8 @@
     .status-badge.paused { background-color: #fff9c4; color: #f57f17; }
     .status-badge.waiting_for_accounts { background-color: #fff3e0; color: #e65100; }
     .status-badge.completed { background-color: #e8f5e9; color: #2e7d32; }
+    .status-badge.scraping { background-color: #e8f4fd; color: #1565c0; }
+    .status-badge.failed { background-color: #ffebee; color: #c62828; }
 
     .no-groups {
         padding: 3rem;
@@ -219,12 +221,20 @@
 <section class="card">
     <div class="groups-header">
         <h2>{{ _("Groups") }}</h2>
-        <button class="btn btn-primary"
-                hx-get="/api/groups/modal/create"
-                hx-target="#modal-container"
-                hx-swap="innerHTML">
-            {{ _("Import chats") }}
-        </button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button class="btn btn-primary"
+                    hx-get="/api/groups/modal/create"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML">
+                {{ _("Import chats") }}
+            </button>
+            <button class="btn btn-secondary"
+                    hx-get="/api/groups/modal/collect"
+                    hx-target="#modal-container"
+                    hx-swap="innerHTML">
+                🔍 {{ _("Collect chats") }}
+            </button>
+        </div>
     </div>
 
     <div id="groups-container"
