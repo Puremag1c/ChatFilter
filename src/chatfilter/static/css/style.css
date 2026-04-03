@@ -2759,10 +2759,15 @@ tr.htmx-request .proxy-status-badge {
     .modal-body {
         padding: 1rem;
         font-size: 0.875rem;
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        min-height: 0;
     }
 
     .modal-footer {
         padding: 0.75rem 1rem;
+        flex-shrink: 0;
     }
 
     .modal-button {
