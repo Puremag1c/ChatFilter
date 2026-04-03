@@ -19,6 +19,7 @@ class GroupsMixin(DatabaseMixinBase):
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
         user_id: str = "",
+        source: str | None = None,
     ) -> None:
         """Save or update a chat group.
 
@@ -30,6 +31,7 @@ class GroupsMixin(DatabaseMixinBase):
             created_at: Creation timestamp (default: now)
             updated_at: Last update timestamp (default: now)
             user_id: Owner user identifier (default: empty string)
+            source: Creation origin (e.g. 'scraping'), preserved on updates
         """
         now = datetime.now(UTC)
         created = created_at or now
@@ -38,8 +40,8 @@ class GroupsMixin(DatabaseMixinBase):
         with self._connection() as conn:
             conn.execute(
                 """
-                INSERT INTO chat_groups (id, name, settings, status, created_at, updated_at, user_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO chat_groups (id, name, settings, status, created_at, updated_at, user_id, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     settings = excluded.settings,
@@ -54,6 +56,7 @@ class GroupsMixin(DatabaseMixinBase):
                     self._datetime_to_str(created),
                     self._datetime_to_str(updated),
                     user_id,
+                    source,
                 ),
             )
 
@@ -94,6 +97,7 @@ class GroupsMixin(DatabaseMixinBase):
                 if row["analysis_started_at"]
                 else None,
                 "user_id": row["user_id"],
+                "source": row["source"],
             }
 
     def load_all_groups(self) -> list[dict[str, Any]]:

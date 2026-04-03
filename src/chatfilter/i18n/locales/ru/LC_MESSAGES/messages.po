@@ -3064,6 +3064,18 @@ msgstr "По убыванию"
 msgid "Loading…"
 msgstr "Загрузка…"
 
+#: src/chatfilter/templates/partials/group_card.html
+msgid "Search complete"
+msgstr "Поиск завершён"
+
+#: src/chatfilter/templates/partials/group_card.html
+msgid "no chats found. Try a different query or select other platforms."
+msgstr "чаты не найдены. Попробуйте другой запрос или выберите другие площадки."
+
+#: src/chatfilter/templates/partials/group_card.html
+msgid "Search again"
+msgstr "Искать снова"
+
 #~ msgid "2FA password accepted successfully"
 #~ msgstr "Пароль 2FA успешно принят"
 

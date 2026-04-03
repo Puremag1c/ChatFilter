@@ -242,6 +242,7 @@ class ChatGroup(BaseModel):
     chat_count: int
     created_at: datetime
     updated_at: datetime
+    source: str | None = None
 
     @field_validator("chat_count")
     @classmethod

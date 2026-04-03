@@ -75,6 +75,7 @@ class SearchOrchestrator:
         platform_ids: list[str],
         user_id: str,
         group_name: str,
+        group_id: str | None = None,
     ) -> SearchResult:
         """Run end-to-end search: generate queries, search platforms, deduplicate, create group.
 
@@ -83,6 +84,7 @@ class SearchOrchestrator:
             platform_ids: List of platform IDs to search.
             user_id: User identifier for billing.
             group_name: Name for the created group.
+            group_id: Optional pre-created group ID. If None, a new ID is generated.
 
         Returns:
             SearchResult with group_id and statistics.
@@ -92,10 +94,11 @@ class SearchOrchestrator:
         self._billing.reserve(user_id, estimated_cost)
         ai_cost = 0.0
 
-        group_id = f"group-{uuid.uuid4().hex[:12]}"
+        if group_id is None:
+            group_id = f"group-{uuid.uuid4().hex[:12]}"
         now = datetime.now(UTC)
 
-        # Create group with SCRAPING status
+        # Create/update group with SCRAPING status
         self._db.save_group(
             group_id=group_id,
             name=group_name.strip(),
@@ -104,6 +107,7 @@ class SearchOrchestrator:
             created_at=now,
             updated_at=now,
             user_id=user_id,
+            source="scraping",
         )
 
         try:

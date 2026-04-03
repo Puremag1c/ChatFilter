@@ -219,6 +219,7 @@ class GroupService:
                     chat_count=group_data["chat_count"],
                     created_at=group_data["created_at"],
                     updated_at=group_data["updated_at"],
+                    source=group_data.get("source"),
                 )
             )
 

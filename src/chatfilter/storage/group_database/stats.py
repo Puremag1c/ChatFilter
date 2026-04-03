@@ -147,6 +147,7 @@ class StatsMixin(DatabaseMixinBase):
                         g.updated_at,
                         g.analysis_started_at,
                         g.user_id,
+                        g.source,
                         COUNT(gc.id) as chat_count
                     FROM chat_groups g
                     LEFT JOIN group_chats gc ON g.id = gc.group_id
@@ -167,6 +168,7 @@ class StatsMixin(DatabaseMixinBase):
                         g.updated_at,
                         g.analysis_started_at,
                         g.user_id,
+                        g.source,
                         COUNT(gc.id) as chat_count
                     FROM chat_groups g
                     LEFT JOIN group_chats gc ON g.id = gc.group_id
@@ -188,6 +190,7 @@ class StatsMixin(DatabaseMixinBase):
                 if row["analysis_started_at"]
                 else None,
                 "user_id": row["user_id"],
+                "source": row["source"],
             }
             for row in rows
         ]
