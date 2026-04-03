@@ -568,15 +568,23 @@ async def collect_chats(
             status_code=422,
         )
 
+    def _bad_request(msg: str) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/error_message.html",
+            context={"error": msg},
+            status_code=400,
+        )
+
     # Validate inputs
     if not name or not name.strip():
         return _error("Group name is required")
     if len(name) > _MAX_GROUP_NAME_LEN:
-        return _error(f"Group name must be at most {_MAX_GROUP_NAME_LEN} characters")
+        return _bad_request(f"Group name must be at most {_MAX_GROUP_NAME_LEN} characters")
     if not search_query or not search_query.strip():
         return _error("Search query is required")
     if len(search_query) > _MAX_SEARCH_QUERY_LEN:
-        return _error(f"Search query must be at most {_MAX_SEARCH_QUERY_LEN} characters")
+        return _bad_request(f"Search query must be at most {_MAX_SEARCH_QUERY_LEN} characters")
     if not platform_ids:
         return _error("Select at least one platform")
 

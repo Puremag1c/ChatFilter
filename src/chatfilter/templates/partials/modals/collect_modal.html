@@ -183,7 +183,7 @@
 
     form.addEventListener('htmx:beforeSwap', function(e) {
         const status = e.detail.xhr.status;
-        if (status === 422 || status === 402) {
+        if (status === 400 || status === 422 || status === 402) {
             e.detail.shouldSwap = false;
             var tmp = document.createElement('div');
             tmp.innerHTML = e.detail.xhr.responseText || '{{ _("Failed to start search") }}';
