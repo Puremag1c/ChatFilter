@@ -414,12 +414,4 @@ async def update_platform_settings(
             enabled=enabled,
         )
 
-    cost_multiplier_str = str(form.get("cost_multiplier", "1.0")).strip()
-    try:
-        cost_multiplier = float(cost_multiplier_str)
-        if cost_multiplier > 0:
-            group_db.set_cost_multiplier(cost_multiplier)
-    except ValueError:
-        pass
-
     return _toast_response("Настройки площадок сохранены", redirect="/admin")
