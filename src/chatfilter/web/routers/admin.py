@@ -358,6 +358,7 @@ async def topup_balance(
 @router.post("/admin/ai-settings", response_model=None)
 async def update_ai_settings(
     request: Request,
+    cost_multiplier: float = Form(1.0),
     openrouter_api_key: str = Form(""),
     ai_model: str = Form(""),
     ai_fallback_models: str = Form(""),
@@ -366,6 +367,8 @@ async def update_ai_settings(
         return Response(status_code=403, content="Forbidden")
 
     group_db = _get_group_db(request)
+    if cost_multiplier > 0:
+        group_db.set_cost_multiplier(cost_multiplier)
     if openrouter_api_key.strip():
         group_db.set_setting("openrouter_api_key", openrouter_api_key.strip())
     if ai_model.strip():

@@ -5,6 +5,12 @@
     <form hx-post="/admin/ai-settings" hx-swap="none" style="display:flex;flex-direction:column;gap:1rem;padding:1rem;max-width:480px">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div>
+            <label for="cost-multiplier" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Global cost multiplier") }}</label>
+            <input type="number" id="cost-multiplier" name="cost_multiplier"
+                   class="form-input" min="0.01" step="0.01" style="width:120px"
+                   value="{{ '%.2f'|format(cost_multiplier) }}">
+        </div>
+        <div>
             <label for="openrouter-api-key" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("OpenRouter API Key") }}</label>
             <input type="password" id="openrouter-api-key" name="openrouter_api_key"
                    class="form-input" autocomplete="off"
@@ -32,7 +38,7 @@
 
 <section class="card" style="margin-top:1.5rem">
     <div class="card-header">
-        <h2>{{ _("System Settings") }}</h2>
+        <h2>{{ _("Analysis Settings") }}</h2>
     </div>
     <form hx-post="/admin/settings" hx-swap="none" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;padding:1rem">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -49,25 +55,5 @@
                    value="{{ app_settings.get('analysis_freshness_days', '7') }}">
         </div>
         <button type="submit" class="btn btn-primary">{{ _("Save") }}</button>
-    </form>
-</section>
-
-<section class="card" style="margin-top:1.5rem">
-    <div class="card-header">
-        <h2>{{ _("Cost Settings") }}</h2>
-    </div>
-    <form hx-post="/admin/platform-settings" hx-swap="none" style="padding:1rem">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-            <div>
-                <label for="cost-multiplier" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Global cost multiplier") }}</label>
-                <input type="number" id="cost-multiplier" name="cost_multiplier"
-                       class="form-input" min="0.01" step="0.01" style="width:120px"
-                       value="{{ '%.2f'|format(cost_multiplier) }}">
-            </div>
-            <div style="align-self:flex-end">
-                <button type="submit" class="btn btn-primary">{{ _("Save") }}</button>
-            </div>
-        </div>
     </form>
 </section>
