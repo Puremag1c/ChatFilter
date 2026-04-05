@@ -2381,12 +2381,24 @@ msgid "Date"
 msgstr "Дата"
 
 #: src/chatfilter/templates/profile.html
+msgid "Model / Platforms"
+msgstr "Модель / Площадки"
+
+#: src/chatfilter/templates/profile.html
+msgid "Tokens In / Chats"
+msgstr "Токены / Чаты"
+
+#: src/chatfilter/templates/profile.html
 msgid "Tokens In"
 msgstr "Токены (вход)"
 
 #: src/chatfilter/templates/profile.html
 msgid "Tokens Out"
 msgstr "Токены (выход)"
+
+#: src/chatfilter/templates/profile.html
+msgid "free"
+msgstr "бесплатно"
 
 #: src/chatfilter/templates/profile.html
 msgid "Cost"
