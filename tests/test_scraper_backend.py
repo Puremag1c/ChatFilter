@@ -67,7 +67,7 @@ def _make_billing(balance: float = 10.0) -> MagicMock:
 
 def _make_query_gen(queries: list[str] | None = None, ai_cost: float = 0.001) -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = (queries or ["test query"], ai_cost)
+    gen.generate.return_value = (queries or ["test query"], ai_cost, False)
     return gen
 
 
@@ -153,9 +153,10 @@ async def test_query_generator_uses_ai():
     response = MagicMock(content='["crypto channels", "крипто каналы"]', cost_usd=0.001)
     ai.complete.return_value = response
     gen = QueryGenerator(ai)
-    queries, cost = await gen.generate("crypto")
+    queries, cost, fallback = await gen.generate("crypto")
     assert queries == ["crypto channels", "крипто каналы"]
     assert cost == 0.001
+    assert fallback is False
 
 
 @pytest.mark.asyncio
@@ -164,9 +165,10 @@ async def test_query_generator_fallback_on_ai_error():
     ai = AsyncMock()
     ai.complete.side_effect = RuntimeError("AI unavailable")
     gen = QueryGenerator(ai)
-    queries, cost = await gen.generate("some query")
+    queries, cost, fallback = await gen.generate("some query")
     assert queries == ["some query"]
     assert cost == 0.0  # No cost on failure
+    assert fallback is True
 
 
 @pytest.mark.asyncio
@@ -175,9 +177,10 @@ async def test_query_generator_fallback_on_empty_response():
     response = MagicMock(content="[]", cost_usd=0.0)
     ai.complete.return_value = response
     gen = QueryGenerator(ai)
-    queries, cost = await gen.generate("some query")
+    queries, cost, fallback = await gen.generate("some query")
     assert queries == ["some query"]
     assert cost == 0.0
+    assert fallback is True
 
 
 def test_parse_json_array_handles_markdown_fences():
@@ -628,7 +631,7 @@ async def test_orchestrator_cost_multiplier_applied(group_db):
     # Mock query generator to return a fixed AI cost of $0.01
     qgen = AsyncMock(spec=QueryGenerator)
     ai_cost = 0.01
-    qgen.generate.return_value = (["test query"], ai_cost)
+    qgen.generate.return_value = (["test query"], ai_cost, False)
 
     orch = SearchOrchestrator(reg, qgen, group_db, billing)
 

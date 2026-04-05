@@ -47,7 +47,7 @@ class _FakePlatform(BasePlatform):
 
 def _make_query_gen(queries: list[str] | None = None, ai_cost: float = 0.001) -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = (queries or ["test query"], ai_cost)
+    gen.generate.return_value = (queries or ["test query"], ai_cost, False)
     return gen
 
 

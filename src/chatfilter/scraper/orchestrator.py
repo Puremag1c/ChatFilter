@@ -34,6 +34,10 @@ _ESTIMATED_COST_PER_SEARCH = 0.01
 # Each entry: {"platforms": {platform_id: {"status": str, "chats_found": int}}, "total_found": int}
 _scraping_progress: dict[str, dict[str, Any]] = {}
 
+# In-memory scraping result store: group_id → result summary
+# Stored after scraping completes, consumed once by the polling endpoint to show toast.
+_scraping_results: dict[str, dict[str, Any]] = {}
+
 
 def get_scraping_progress(group_id: str) -> dict[str, Any] | None:
     """Return current scraping progress for a group, or None if not tracked."""
@@ -55,6 +59,16 @@ def init_scraping_progress(group_id: str, platform_ids: list[str]) -> None:
 def clear_scraping_progress(group_id: str) -> None:
     """Remove progress entry once no longer needed."""
     _scraping_progress.pop(group_id, None)
+
+
+def get_scraping_result(group_id: str) -> dict[str, Any] | None:
+    """Pop the scraping result for a group (consumed once by the polling endpoint)."""
+    return _scraping_results.pop(group_id, None)
+
+
+def store_scraping_result(group_id: str, result: dict[str, Any]) -> None:
+    """Store scraping result summary for post-scraping toast display."""
+    _scraping_results[group_id] = result
 
 
 @dataclass
@@ -141,8 +155,8 @@ class SearchOrchestrator:
                 self._billing.reserve(user_id, estimated_cost)
 
             # 2. Generate search queries via AI (captures cost)
-            queries, ai_cost = await self._query_gen.generate(user_query, user_id=user_id)
-            logger.info("Generated %d queries for: %r", len(queries), user_query)
+            queries, ai_cost, ai_fallback = await self._query_gen.generate(user_query, user_id=user_id)
+            logger.info("Generated %d queries for: %r (fallback: %s)", len(queries), user_query, ai_fallback)
 
             # 3. Resolve platforms
             platforms = self._resolve_platforms(platform_ids)
@@ -200,6 +214,16 @@ class SearchOrchestrator:
                 status = GroupStatus.FAILED if all_failed else GroupStatus.PENDING
                 self._update_group_status(group_id, status)
 
+            # Store result summary for toast display before clearing progress
+            platforms_searched = sum(1 for s in stats_list if s.error is None)
+            store_scraping_result(group_id, {
+                "total_chats": len(unique_refs),
+                "platforms_searched": platforms_searched,
+                "platforms_total": len(stats_list),
+                "ai_fallback": ai_fallback,
+                "all_failed": all(s.error is not None for s in stats_list) if stats_list else True,
+            })
+
             # Clear progress tracking
             clear_scraping_progress(group_id)
 
@@ -214,7 +238,6 @@ class SearchOrchestrator:
 
             # BillingService applies the DB cost multiplier automatically
             actual_cost = ai_cost + platform_cost
-            platforms_searched = sum(1 for s in stats_list if s.error is None)
             self._billing.settle(
                 user_id,
                 estimated_cost,
@@ -235,6 +258,10 @@ class SearchOrchestrator:
 
         except InsufficientBalance:
             logger.warning("Insufficient balance for user %s, search aborted", user_id)
+            store_scraping_result(group_id, {
+                "total_chats": 0, "platforms_searched": 0, "platforms_total": 0,
+                "ai_fallback": False, "all_failed": True, "error": "insufficient_balance",
+            })
             clear_scraping_progress(group_id)
             self._update_group_status(group_id, GroupStatus.FAILED)
             if pre_reserved:
@@ -252,6 +279,10 @@ class SearchOrchestrator:
             raise
         except Exception:
             logger.exception("Search orchestrator failed for group %s", group_id)
+            store_scraping_result(group_id, {
+                "total_chats": 0, "platforms_searched": 0, "platforms_total": 0,
+                "ai_fallback": False, "all_failed": True, "error": "internal_error",
+            })
             clear_scraping_progress(group_id)
             self._update_group_status(group_id, GroupStatus.FAILED)
             # Settle with zero cost on failure

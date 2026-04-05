@@ -40,6 +40,12 @@
     </div>
     {% endif %}
 
+    {% if group.status.value == 'pending' and stats.total == 0 %}
+    <div style="background: #fff3e0; color: #e65100; padding: 0.75rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
+        {{ _("No chats found. Try changing your query or platforms.") }}
+    </div>
+    {% endif %}
+
     <div class="group-stats">
         <div class="stat-row">
             <span>{{ _("Total chats") }}:</span>

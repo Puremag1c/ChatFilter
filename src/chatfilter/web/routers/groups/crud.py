@@ -36,6 +36,34 @@ _MAX_SEARCH_QUERY_LEN = 2000
 _MAX_GROUP_NAME_LEN = 200
 
 
+def _build_scraping_toast(result: dict[str, Any]) -> dict[str, Any]:
+    """Build toast notification dict from scraping result summary."""
+    total = result.get("total_chats", 0)
+    platforms = result.get("platforms_searched", 0)
+    ai_fallback = result.get("ai_fallback", False)
+    all_failed = result.get("all_failed", False)
+    error = result.get("error")
+
+    if error == "insufficient_balance":
+        return {"type": "error", "message": "Недостаточно средств для поиска", "duration": 8000}
+
+    if error == "internal_error":
+        return {"type": "error", "message": "Ошибка поиска. Попробуйте позже.", "duration": 8000}
+
+    if all_failed and total == 0:
+        return {"type": "error", "message": "Не удалось найти чаты: все площадки недоступны", "duration": 8000}
+
+    parts = [f"Сбор завершён: найдено {total} чатов с {platforms} площадок"]
+    if ai_fallback:
+        parts.append("AI-генерация запросов не сработала, использован прямой поиск")
+
+    return {
+        "type": "warning" if ai_fallback else "success",
+        "message": ". ".join(parts),
+        "duration": 8000 if ai_fallback else 5000,
+    }
+
+
 @router.post("/api/groups", response_class=HTMLResponse)
 async def create_group(
     request: Request,
@@ -502,7 +530,9 @@ async def scraping_progress(
     Polled every 3s by the group card while status=scraping.
     When scraping is done, returns the full card (via HX-Retarget) to replace itself.
     """
-    from chatfilter.scraper.orchestrator import get_scraping_progress
+    import json as _json
+
+    from chatfilter.scraper.orchestrator import get_scraping_progress, get_scraping_result
     from chatfilter.web.app import get_templates
 
     templates = get_templates()
@@ -517,6 +547,7 @@ async def scraping_progress(
     # If no longer scraping → return full card, retargeting the card element
     if group.status.value != "scraping":
         stats = service.get_group_stats(group_id)
+        scraping_result = get_scraping_result(group_id)
         response = templates.TemplateResponse(
             request=request,
             name="partials/group_card.html",
@@ -524,6 +555,12 @@ async def scraping_progress(
         )
         response.headers["HX-Retarget"] = f"#group-{group_id}"
         response.headers["HX-Reswap"] = "outerHTML"
+
+        # Build toast notification based on scraping result
+        if scraping_result:
+            toast = _build_scraping_toast(scraping_result)
+            response.headers["HX-Trigger"] = _json.dumps({"showToast": toast})
+
         return response
 
     progress = get_scraping_progress(group_id)

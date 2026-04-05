@@ -21,7 +21,7 @@ def _make_registry(platform=None) -> MagicMock:
 
 def _make_query_gen() -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = (["test query"], 0.001)
+    gen.generate.return_value = (["test query"], 0.001, False)
     return gen
 
 
