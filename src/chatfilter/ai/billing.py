@@ -78,17 +78,18 @@ class BillingService:
     ) -> float:
         """Settle a prior reserve with the actual cost after AI call completes.
 
-        The global cost multiplier is applied automatically to actual_cost.
-        reserved_cost must be the already-multiplied value returned by reserve().
+        The global cost multiplier is applied automatically to both reserved_cost
+        and actual_cost, matching the multiplier applied during reserve().
         Refunds if actual < reserved; charges extra (capped) if actual > reserved.
         Records transaction for actual_cost * multiplier.
 
         Returns new balance.
         """
+        multiplier = self._get_multiplier()
         return self._db.settle_reserve(
             user_id=user_id,
-            reserved_cost=reserved_cost,
-            actual_cost=actual_cost * self._get_multiplier(),
+            reserved_cost=reserved_cost * multiplier,
+            actual_cost=actual_cost * multiplier,
             model=model,
             tokens_in=tokens_in,
             tokens_out=tokens_out,
