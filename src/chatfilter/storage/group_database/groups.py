@@ -217,7 +217,7 @@ class GroupsMixin(DatabaseMixinBase):
                 """,
                 (self._datetime_to_str(now),),
             )
-            return cursor.rowcount
+            return int(cursor.rowcount)
 
     def update_status_atomic(
         self,
