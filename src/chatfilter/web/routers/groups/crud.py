@@ -536,7 +536,11 @@ async def scraping_progress(
     """
     import json as _json
 
-    from chatfilter.scraper.orchestrator import get_scraping_progress, get_scraping_result
+    from chatfilter.scraper.orchestrator import (
+        clear_scraping_progress,
+        get_scraping_progress,
+        get_scraping_result,
+    )
     from chatfilter.web.app import get_templates
 
     templates = get_templates()
@@ -548,8 +552,23 @@ async def scraping_progress(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    # If no longer scraping → return full card, retargeting the card element
+    # If no longer scraping, check whether to show completed progress one more
+    # cycle or transition to the final card.  This ensures the user always sees
+    # the per-platform "done" breakdown even when the background task finishes
+    # before the first poll fires.
     if group.status.value != "scraping":
+        progress = get_scraping_progress(group_id)
+        if progress is not None:
+            # Show the completed progress one last time, then clear it so the
+            # next poll returns the final card with toast.
+            clear_scraping_progress(group_id)
+            return templates.TemplateResponse(
+                request=request,
+                name="partials/scraping_progress.html",
+                context={"progress": progress, "group_id": group_id},
+            )
+
+        # Progress already consumed — return full card, retargeting the card element
         stats = service.get_group_stats(group_id)
         scraping_result = get_scraping_result(group_id)
         response = templates.TemplateResponse(

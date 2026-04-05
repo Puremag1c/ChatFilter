@@ -233,8 +233,10 @@ class SearchOrchestrator:
                 },
             )
 
-            # Clear progress tracking
-            clear_scraping_progress(group_id)
+            # Keep progress in memory so the polling endpoint can show the
+            # completed per-platform breakdown for one more cycle before
+            # transitioning to the final PENDING card.  The endpoint itself
+            # calls clear_scraping_progress() after displaying it once.
 
             # 8. Calculate cost and settle billing
             # Sum platform API request costs: queries_run × cost_per_request for each platform
@@ -278,7 +280,7 @@ class SearchOrchestrator:
                     "error": "insufficient_balance",
                 },
             )
-            clear_scraping_progress(group_id)
+            # Don't clear progress — polling endpoint will clear after displaying once
             self._update_group_status(group_id, GroupStatus.FAILED)
             if pre_reserved:
                 # Caller reserved before queuing — refund the reservation
@@ -306,7 +308,7 @@ class SearchOrchestrator:
                     "error": "internal_error",
                 },
             )
-            clear_scraping_progress(group_id)
+            # Don't clear progress — polling endpoint will clear after displaying once
             self._update_group_status(group_id, GroupStatus.FAILED)
             # Settle with zero cost on failure
             self._billing.settle(user_id, estimated_cost, 0.0, "search", 0, 0, "Search failed")

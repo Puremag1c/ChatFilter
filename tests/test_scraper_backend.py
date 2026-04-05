@@ -511,8 +511,15 @@ async def test_scraping_progress_tracked_during_search(group_db):
         group_name="Progress Test",
     )
 
-    # After completion, progress should be cleared
-    assert get_scraping_progress(result.group_id) is None
+    # After completion, progress is kept in memory so the polling endpoint
+    # can show the completed per-platform breakdown for one more cycle.
+    # The endpoint itself clears it after displaying once.
+    progress = get_scraping_progress(result.group_id)
+    assert progress is not None
+    assert progress["platforms"]["tracking"]["status"] == "done"
+
+    # Manual cleanup (in production, the polling endpoint does this)
+    clear_scraping_progress(result.group_id)
 
 
 def test_get_scraping_progress_returns_none_for_unknown():
