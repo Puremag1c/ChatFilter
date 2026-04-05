@@ -119,14 +119,17 @@
 
                 morphdom(container, tempDiv, {
                     childrenOnly: true,
-                    onBeforeElUpdated: function(fromEl) {
+                    onBeforeElUpdated: function(fromEl, toEl) {
                         // Skip updating group cards with active SSE (in_progress/waiting_for_accounts)
-                        // to prevent DOM jitter and timer resets
+                        // to prevent DOM jitter and timer resets — but only if server also shows active status
                         if (fromEl.classList && fromEl.classList.contains('group-card')) {
-                            var statusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
-                            if (statusBadge) {
-                                // Active card — skip update to prevent jitter
-                                return false;
+                            var fromStatusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
+                            if (fromStatusBadge) {
+                                var toStatusBadge = toEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
+                                if (toStatusBadge) {
+                                    // Both sides show active status — skip to preserve live progress
+                                    return false;
+                                }
                             }
                         }
                         return true;
