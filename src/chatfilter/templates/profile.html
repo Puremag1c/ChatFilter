@@ -88,8 +88,8 @@
                             {% set desc = tx.description or "" %}
                             {% if "platforms" in desc and "chats" in desc %}
                                 {% set parts = desc.replace("Search: ", "").split(", ") %}
-                                {{ _("Площадки") }}: {{ parts[0] }},
-                                {{ _("Найдено чатов") }}: {{ parts[1].split(" ")[0] }}
+                                {{ _("Platforms") }}: {{ parts[0] }},
+                                {{ _("Chats found") }}: {{ parts[1].split(" ")[0] }}
                             {% else %}
                                 {{ desc or "—" }}
                             {% endif %}

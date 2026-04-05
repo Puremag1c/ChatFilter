@@ -3125,8 +3125,13 @@ msgid "Search Query"
 msgstr "Поисковый запрос"
 
 #: src/chatfilter/templates/partials/modals/collect_modal.html
+#: src/chatfilter/templates/profile.html
 msgid "Platforms"
 msgstr "Платформы"
+
+#: src/chatfilter/templates/profile.html
+msgid "Chats found"
+msgstr "Найдено чатов"
 
 #: src/chatfilter/templates/admin.html:36
 msgid "System"
