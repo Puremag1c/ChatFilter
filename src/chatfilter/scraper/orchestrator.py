@@ -239,7 +239,15 @@ class SearchOrchestrator:
             self._update_group_status(group_id, GroupStatus.FAILED)
             if pre_reserved:
                 # Caller reserved before queuing — refund the reservation
-                self._billing.settle(user_id, estimated_cost, 0.0, "search", 0, 0, "Search aborted: insufficient balance")
+                self._billing.settle(
+                    user_id,
+                    estimated_cost,
+                    0.0,
+                    "search",
+                    0,
+                    0,
+                    "Search aborted: insufficient balance",
+                )
             # else: reserve() never succeeded — do NOT call settle() or a phantom refund is issued
             raise
         except Exception:
@@ -256,6 +264,9 @@ class SearchOrchestrator:
         for pid in platform_ids:
             try:
                 platform = self._registry.get(pid)
+                if not platform.is_implemented:
+                    logger.info("Skipping stub platform %s (not yet implemented)", pid)
+                    continue
                 platforms.append(platform)
             except KeyError:
                 logger.warning("Unknown platform ID: %s", pid)

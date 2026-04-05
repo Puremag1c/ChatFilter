@@ -98,7 +98,6 @@
     var container = document.getElementById('groups-container');
     var pollTimer = null;
     var isRefreshing = false;
-    var refreshAbortController = null;
 
     function refreshGroups() {
         if (isRefreshing) return;
@@ -112,8 +111,7 @@
             }
         });
 
-        refreshAbortController = new AbortController();
-        fetch('/api/groups', { signal: refreshAbortController.signal })
+        fetch('/api/groups')
             .then(function(resp) { return resp.text(); })
             .then(function(html) {
                 var tempDiv = document.createElement('div');
@@ -121,17 +119,14 @@
 
                 morphdom(container, tempDiv, {
                     childrenOnly: true,
-                    onBeforeElUpdated: function(fromEl, toEl) {
+                    onBeforeElUpdated: function(fromEl) {
                         // Skip updating group cards with active SSE (in_progress/waiting_for_accounts)
-                        // to prevent DOM jitter and timer resets — but only if server also shows active status
+                        // to prevent DOM jitter and timer resets
                         if (fromEl.classList && fromEl.classList.contains('group-card')) {
-                            var fromStatusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
-                            if (fromStatusBadge) {
-                                var toStatusBadge = toEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
-                                if (toStatusBadge) {
-                                    // Both sides show active status — skip to preserve live progress
-                                    return false;
-                                }
+                            var statusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
+                            if (statusBadge) {
+                                // Active card — skip update to prevent jitter
+                                return false;
                             }
                         }
                         return true;
@@ -151,10 +146,7 @@
 
                 schedulePoll();
             })
-            .catch(function(err) {
-                if (err && err.name === 'AbortError') return; // Aborted intentionally — caller handles next step
-                schedulePoll();
-            })
+            .catch(function() { schedulePoll(); })
             .finally(function() { isRefreshing = false; });
     }
 
@@ -178,19 +170,8 @@
         pollTimer = setTimeout(refreshGroups, pollInterval);
     }
 
-    function forceRefreshGroups() {
-        // Abort any in-flight refresh so stale data doesn't overwrite the DOM
-        if (refreshAbortController) {
-            refreshAbortController.abort();
-            refreshAbortController = null;
-        }
-        isRefreshing = false;
-        if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
-        refreshGroups();
-    }
-
     document.body.addEventListener('refreshGroups', function() {
-        forceRefreshGroups();
+        refreshGroups();
     });
 
     var SPINNER_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;">' +

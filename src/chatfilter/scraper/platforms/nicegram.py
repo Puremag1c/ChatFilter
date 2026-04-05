@@ -18,6 +18,7 @@ class NicegramPlatform(BasePlatform):
     method = "playwright"
     needs_api_key = False
     cost_tier = "medium"
+    is_implemented = False
 
     async def search(self, query: str) -> list[str]:
         logger.warning("nicegram: Playwright scraping not yet implemented")

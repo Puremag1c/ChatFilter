@@ -24,6 +24,7 @@ class BasePlatform(ABC):
     method: PlatformMethod
     needs_api_key: bool
     cost_tier: CostTier
+    is_implemented: bool = True  # False for stub platforms not yet implemented
 
     @abstractmethod
     async def search(self, query: str) -> list[str]:

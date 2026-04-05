@@ -63,8 +63,8 @@
                     <tr style="border-bottom:2px solid var(--border-color,#e5e7eb)">
                         <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Date") }}</th>
                         <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Type") }}</th>
-                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Model / Platforms") }}</th>
-                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Tokens In / Chats") }}</th>
+                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Model") }}</th>
+                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Tokens In") }}</th>
                         <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Tokens Out") }}</th>
                         <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Cost") }}</th>
                         <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Balance After") }}</th>
@@ -79,37 +79,16 @@
                         <td style="padding:0.5rem 0.75rem">
                             <span style="padding:0.125rem 0.5rem;border-radius:9999px;font-size:0.75rem;
                                 {% if tx.type == 'topup' %}background:var(--success-bg,#d1fae5);color:var(--success-color,#065f46)
-                                {% elif tx.type == 'search' %}background:var(--info-bg,#dbeafe);color:var(--info-color,#1e40af)
                                 {% else %}background:var(--muted-bg,#f3f4f6);color:var(--muted-color,#374151){% endif %}">
                                 {{ tx.type }}
                             </span>
                         </td>
-                        {% if tx.type == 'search' %}
-                            {%- set desc = tx.description or '' -%}
-                            {%- if desc.startswith('Search: ') -%}
-                                {%- set rest = desc[8:] -%}
-                                {%- set parts = rest.split(', ') -%}
-                                {%- set platforms_str = parts[0] if parts|length > 0 else '?' -%}
-                                {%- set chats_str = parts[1] if parts|length > 1 else '?' -%}
-                            {%- else -%}
-                                {%- set platforms_str = desc or '—' -%}
-                                {%- set chats_str = '' -%}
-                            {%- endif -%}
-                            <td style="padding:0.5rem 0.75rem;color:var(--muted-color,#6b7280);font-size:0.8rem" title="{{ desc }}">{{ platforms_str }}</td>
-                            <td style="padding:0.5rem 0.75rem;text-align:right;color:var(--muted-color,#6b7280);font-size:0.8rem">{{ chats_str or '—' }}</td>
-                            <td style="padding:0.5rem 0.75rem;text-align:right">—</td>
-                        {% else %}
-                            <td style="padding:0.5rem 0.75rem">{{ tx.model or "—" }}</td>
-                            <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_in if tx.tokens_in is not none else "—" }}</td>
-                            <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_out if tx.tokens_out is not none else "—" }}</td>
-                        {% endif %}
+                        <td style="padding:0.5rem 0.75rem">{{ tx.model or "—" }}</td>
+                        <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_in if tx.tokens_in is not none else "—" }}</td>
+                        <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_out if tx.tokens_out is not none else "—" }}</td>
                         <td style="padding:0.5rem 0.75rem;text-align:right">
                             {% if tx.amount_usd is not none %}
-                                {% if tx.type == 'search' and tx.amount_usd == 0 %}
-                                    <span style="color:var(--muted-color,#6b7280);font-size:0.8rem">{{ _("free") }}</span>
-                                {% else %}
-                                    ${{ "%.4f"|format(tx.amount_usd | abs) }}
-                                {% endif %}
+                                ${{ "%.4f"|format(tx.amount_usd | abs) }}
                             {% else %}—{% endif %}
                         </td>
                         <td style="padding:0.5rem 0.75rem;text-align:right">
