@@ -98,6 +98,7 @@
     var container = document.getElementById('groups-container');
     var pollTimer = null;
     var isRefreshing = false;
+    var refreshAbortController = null;
 
     function refreshGroups() {
         if (isRefreshing) return;
@@ -111,7 +112,8 @@
             }
         });
 
-        fetch('/api/groups')
+        refreshAbortController = new AbortController();
+        fetch('/api/groups', { signal: refreshAbortController.signal })
             .then(function(resp) { return resp.text(); })
             .then(function(html) {
                 var tempDiv = document.createElement('div');
@@ -149,7 +151,10 @@
 
                 schedulePoll();
             })
-            .catch(function() { schedulePoll(); })
+            .catch(function(err) {
+                if (err && err.name === 'AbortError') return; // Aborted intentionally — caller handles next step
+                schedulePoll();
+            })
             .finally(function() { isRefreshing = false; });
     }
 
@@ -173,8 +178,19 @@
         pollTimer = setTimeout(refreshGroups, pollInterval);
     }
 
-    document.body.addEventListener('refreshGroups', function() {
+    function forceRefreshGroups() {
+        // Abort any in-flight refresh so stale data doesn't overwrite the DOM
+        if (refreshAbortController) {
+            refreshAbortController.abort();
+            refreshAbortController = null;
+        }
+        isRefreshing = false;
+        if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
         refreshGroups();
+    }
+
+    document.body.addEventListener('refreshGroups', function() {
+        forceRefreshGroups();
     });
 
     var SPINNER_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;">' +

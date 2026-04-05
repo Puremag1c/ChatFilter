@@ -213,6 +213,8 @@
             // Keep button disabled during close animation to prevent double-submit
             const noGroupsEl = document.querySelector('.no-groups');
             if (noGroupsEl) noGroupsEl.remove();
+            // Force an immediate fresh refresh so stale in-flight morphdom doesn't remove the new card
+            document.body.dispatchEvent(new CustomEvent('refreshGroups'));
             closeCollectModal();
         } else {
             // Re-enable only on error so user can retry
