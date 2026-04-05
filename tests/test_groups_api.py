@@ -967,3 +967,136 @@ class TestRouterUsesNewServiceAPI:
             assert len(lines) >= 2, "CSV should have header + data rows"
             assert "chat_ref" in lines[0]
             assert "@testchat" in lines[1]
+
+
+# ---------------------------------------------------------------------------
+# Scraping-progress endpoint: toast notification regression (ChatFilter-di6)
+# ---------------------------------------------------------------------------
+
+
+class TestScrapingProgressToast:
+    """Verify scraping-progress endpoint delivers showToast on completion.
+
+    Regression for ChatFilter-di6: toast was never triggered because the card
+    skipped SCRAPING state (ChatFilter-rsw).  Now that the collect endpoint
+    always returns a SCRAPING card, the polling div is rendered and the two-cycle
+    mechanism fires: first poll shows completed progress, second poll returns the
+    final card with HX-Trigger showToast.
+    """
+
+    def test_toast_returned_when_scraping_done_no_progress_cached(
+        self,
+        fastapi_test_client: TestClient,
+        test_settings: object,
+    ) -> None:
+        """Second poll (no progress cached) must return HX-Trigger showToast."""
+        import json
+        import uuid
+        from datetime import UTC, datetime
+
+        from chatfilter.models.group import GroupSettings, GroupStatus
+        from chatfilter.scraper.orchestrator import store_scraping_result
+        from chatfilter.storage.group_database import GroupDatabase
+        from chatfilter.storage.user_database import get_user_db
+
+        db_url = test_settings.effective_database_url  # type: ignore[attr-defined]
+        group_db = GroupDatabase(db_url)
+        user_db = get_user_db(db_url)
+
+        # Reuse the test user already created by the fastapi_test_client fixture
+        user = user_db.get_user_by_username("testuser")
+        assert user, "test user must exist"
+        user_id = user["id"]
+
+        group_id = f"group-{uuid.uuid4().hex[:12]}"
+        now = datetime.now(UTC)
+        group_db.save_group(
+            group_id=group_id,
+            name="Toast Test Group",
+            settings=GroupSettings().model_dump(),
+            status=GroupStatus.PENDING.value,
+            created_at=now,
+            updated_at=now,
+            user_id=user_id,
+        )
+
+        # Pre-populate scraping result (no progress cached → second-poll scenario)
+        store_scraping_result(
+            group_id,
+            {
+                "total_chats": 5,
+                "platforms_searched": 2,
+                "platforms_total": 2,
+                "ai_fallback": False,
+                "all_failed": False,
+            },
+        )
+
+        resp = fastapi_test_client.get(f"/api/groups/{group_id}/scraping-progress")
+        assert resp.status_code == 200
+
+        # Must retarget the full card
+        assert resp.headers.get("HX-Retarget") == f"#group-{group_id}"
+        assert resp.headers.get("HX-Reswap") == "outerHTML"
+
+        # Must include showToast trigger
+        hx_trigger = resp.headers.get("HX-Trigger", "")
+        assert hx_trigger, "HX-Trigger header must be present"
+        trigger = json.loads(hx_trigger)
+        assert "showToast" in trigger, f"showToast missing from HX-Trigger: {trigger}"
+        assert trigger["showToast"]["type"] == "success"
+        assert "5" in trigger["showToast"]["message"]  # total_chats
+        assert "2" in trigger["showToast"]["message"]  # platforms_searched
+
+    def test_intermediate_poll_shows_progress_without_toast(
+        self,
+        fastapi_test_client: TestClient,
+        test_settings: object,
+    ) -> None:
+        """First poll (progress still cached) must return progress HTML, no toast."""
+        import uuid
+        from datetime import UTC, datetime
+
+        from chatfilter.models.group import GroupSettings, GroupStatus
+        from chatfilter.scraper.orchestrator import init_scraping_progress, store_scraping_result
+        from chatfilter.storage.group_database import GroupDatabase
+        from chatfilter.storage.user_database import get_user_db
+
+        db_url = test_settings.effective_database_url  # type: ignore[attr-defined]
+        group_db = GroupDatabase(db_url)
+        user_db = get_user_db(db_url)
+
+        user = user_db.get_user_by_username("testuser")
+        assert user
+        user_id = user["id"]
+
+        group_id = f"group-{uuid.uuid4().hex[:12]}"
+        now = datetime.now(UTC)
+        group_db.save_group(
+            group_id=group_id,
+            name="Toast Intermediate Test",
+            settings=GroupSettings().model_dump(),
+            status=GroupStatus.PENDING.value,
+            created_at=now,
+            updated_at=now,
+            user_id=user_id,
+        )
+
+        # Simulate completed scraping: progress cached + result stored
+        init_scraping_progress(group_id, ["tg", "vk"])
+        store_scraping_result(
+            group_id,
+            {
+                "total_chats": 3,
+                "platforms_searched": 1,
+                "platforms_total": 2,
+                "ai_fallback": False,
+                "all_failed": False,
+            },
+        )
+
+        # First poll: should return progress partial (no HX-Retarget, no toast)
+        resp = fastapi_test_client.get(f"/api/groups/{group_id}/scraping-progress")
+        assert resp.status_code == 200
+        assert "HX-Retarget" not in resp.headers
+        assert "HX-Trigger" not in resp.headers
