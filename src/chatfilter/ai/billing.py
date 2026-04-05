@@ -79,8 +79,8 @@ class BillingService:
         """Settle a prior reserve with the actual cost after AI call completes.
 
         The global cost multiplier is applied automatically to both reserved_cost
-        and actual_cost. reserved_cost must be the NON-multiplied value passed to
-        reserve() (multiplier is applied internally here, matching reserve()).
+        and actual_cost — callers pass the same non-multiplied values that were
+        passed to reserve().
         Refunds if actual < reserved; charges extra (capped) if actual > reserved.
         Records transaction for actual_cost * multiplier.
 
