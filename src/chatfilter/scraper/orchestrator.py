@@ -137,19 +137,20 @@ class SearchOrchestrator:
             group_id = f"group-{uuid.uuid4().hex[:12]}"
         now = datetime.now(UTC)
 
-        # Create/update group with SCRAPING status
-        self._db.save_group(
-            group_id=group_id,
-            name=group_name.strip(),
-            settings=GroupSettings().model_dump(),
-            status=GroupStatus.SCRAPING.value,
-            created_at=now,
-            updated_at=now,
-            user_id=user_id,
-            source="scraping",
-        )
-
         try:
+            # Create/update group with SCRAPING status (inside try so that
+            # a DB failure still triggers settle() and refunds the reserve).
+            self._db.save_group(
+                group_id=group_id,
+                name=group_name.strip(),
+                settings=GroupSettings().model_dump(),
+                status=GroupStatus.SCRAPING.value,
+                created_at=now,
+                updated_at=now,
+                user_id=user_id,
+                source="scraping",
+            )
+
             # 1. Reserve balance (skip if caller already reserved atomically)
             if not pre_reserved:
                 self._billing.reserve(user_id, estimated_cost)
@@ -218,27 +219,10 @@ class SearchOrchestrator:
                 status = GroupStatus.FAILED if all_failed else GroupStatus.PENDING
                 self._update_group_status(group_id, status)
 
-            # Store result summary for toast display before clearing progress
+            # 8. Calculate cost and settle billing BEFORE notifying clients,
+            # so balance is correct by the time the UI polls for results.
             platforms_searched = sum(1 for s in stats_list if s.error is None)
-            store_scraping_result(
-                group_id,
-                {
-                    "total_chats": len(unique_refs),
-                    "platforms_searched": platforms_searched,
-                    "platforms_total": len(stats_list),
-                    "ai_fallback": ai_fallback,
-                    "all_failed": all(s.error is not None for s in stats_list)
-                    if stats_list
-                    else True,
-                },
-            )
 
-            # Keep progress in memory so the polling endpoint can show the
-            # completed per-platform breakdown for one more cycle before
-            # transitioning to the final PENDING card.  The endpoint itself
-            # calls clear_scraping_progress() after displaying it once.
-
-            # 8. Calculate cost and settle billing
             # Sum platform API request costs: queries_run × cost_per_request for each platform
             platform_cost = 0.0
             for s in stats_list:
@@ -258,6 +242,26 @@ class SearchOrchestrator:
                 0,
                 f"Search: {platforms_searched} platforms, {len(unique_refs)} chats",
             )
+
+            # Store result summary for toast display AFTER billing is settled.
+            # This ensures the client sees correct balance when it polls for results.
+            store_scraping_result(
+                group_id,
+                {
+                    "total_chats": len(unique_refs),
+                    "platforms_searched": platforms_searched,
+                    "platforms_total": len(stats_list),
+                    "ai_fallback": ai_fallback,
+                    "all_failed": all(s.error is not None for s in stats_list)
+                    if stats_list
+                    else True,
+                },
+            )
+
+            # Keep progress in memory so the polling endpoint can show the
+            # completed per-platform breakdown for one more cycle before
+            # transitioning to the final PENDING card.  The endpoint itself
+            # calls clear_scraping_progress() after displaying it once.
 
             return SearchResult(
                 group_id=group_id,

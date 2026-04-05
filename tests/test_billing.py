@@ -238,3 +238,44 @@ class TestReserveAndSettle:
         # actual > reserved but balance is already 0 — should not go negative
         new_balance = billing.settle(user_id, 0.50, 0.80, "gpt-4", 100, 200, "AI call")
         assert new_balance >= 0.0
+
+    def test_settle_with_zero_actual_cost_fully_refunds(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        """Regression: reserve + settle(actual=0) must restore original balance.
+
+        When all platforms are stubs and AI falls back, actual_cost=0.
+        Balance must be unchanged and transaction must show $0 cost.
+        """
+        billing.topup(user_id, 1.0, "load")
+        original_balance = billing.get_balance(user_id)
+
+        billing.reserve(user_id, 0.03)
+        assert billing.get_balance(user_id) == pytest.approx(0.97)
+
+        new_balance = billing.settle(user_id, 0.03, 0.0, "search", 0, 0, "Search: stubs")
+        assert new_balance == pytest.approx(original_balance)
+        assert billing.get_balance(user_id) == pytest.approx(original_balance)
+
+        txns = billing.get_transactions(user_id)
+        search_txn = next(t for t in txns if t["type"] == "search")
+        assert search_txn["amount_usd"] == pytest.approx(0.0)
+        assert search_txn["balance_after"] == pytest.approx(original_balance)
+
+    def test_settle_with_zero_actual_cost_multiple_searches(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        """Regression: multiple sequential reserve+settle(actual=0) must not leak balance."""
+        billing.topup(user_id, 1.0, "load")
+        original_balance = billing.get_balance(user_id)
+
+        for _ in range(3):
+            billing.reserve(user_id, 0.03)
+            billing.settle(user_id, 0.03, 0.0, "search", 0, 0, "Search: stubs")
+
+        assert billing.get_balance(user_id) == pytest.approx(original_balance)
+        txns = billing.get_transactions(user_id)
+        search_txns = [t for t in txns if t["type"] == "search"]
+        assert len(search_txns) == 3
+        # Last settle should show original balance restored
+        assert search_txns[0]["balance_after"] == pytest.approx(original_balance)
