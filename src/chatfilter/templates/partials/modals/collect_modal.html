@@ -7,8 +7,7 @@
         </div>
         <form id="collect-form"
               hx-post="/api/groups/collect"
-              hx-target="#groups-list"
-              hx-swap="afterbegin"
+              hx-swap="none"
               hx-indicator="#collect-spinner">
             <div class="modal-body">
                 <div class="form-group">
@@ -211,11 +210,16 @@
         btnText.textContent = '{{ _("Start Search") }}';
         if (e.detail.successful) {
             // Keep button disabled during close animation to prevent double-submit
-            const noGroupsEl = document.querySelector('.no-groups');
-            if (noGroupsEl) noGroupsEl.remove();
-            // Force an immediate fresh refresh so stale in-flight morphdom doesn't remove the new card
-            document.body.dispatchEvent(new CustomEvent('refreshGroups'));
             closeCollectModal();
+            // Dispatch refreshGroups immediately so the new card appears via morphdom.
+            // Using hx-swap="none" avoids the race where a stale in-flight poll
+            // (started before the group existed) would morphdom-remove the afterbegin card.
+            // A 2s retry handles the edge case where a stale poll is still in-flight
+            // right now (isRefreshing guard makes the first dispatch a no-op).
+            document.body.dispatchEvent(new CustomEvent('refreshGroups'));
+            setTimeout(function() {
+                document.body.dispatchEvent(new CustomEvent('refreshGroups'));
+            }, 2000);
         } else {
             // Re-enable only on error so user can retry
             submitBtn.disabled = false;
