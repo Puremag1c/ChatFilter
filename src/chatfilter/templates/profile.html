@@ -83,9 +83,22 @@
                                 {{ tx.type }}
                             </span>
                         </td>
+                        {% if tx.type == 'search' %}
+                        <td colspan="3" style="padding:0.5rem 0.75rem">
+                            {% set desc = tx.description or "" %}
+                            {% if "platforms" in desc and "chats" in desc %}
+                                {% set parts = desc.replace("Search: ", "").split(", ") %}
+                                {{ _("Площадки") }}: {{ parts[0] }},
+                                {{ _("Найдено чатов") }}: {{ parts[1].split(" ")[0] }}
+                            {% else %}
+                                {{ desc or "—" }}
+                            {% endif %}
+                        </td>
+                        {% else %}
                         <td style="padding:0.5rem 0.75rem">{{ tx.model or "—" }}</td>
                         <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_in if tx.tokens_in is not none else "—" }}</td>
                         <td style="padding:0.5rem 0.75rem;text-align:right">{{ tx.tokens_out if tx.tokens_out is not none else "—" }}</td>
+                        {% endif %}
                         <td style="padding:0.5rem 0.75rem;text-align:right">
                             {% if tx.amount_usd is not none %}
                                 ${{ "%.4f"|format(tx.amount_usd | abs) }}
