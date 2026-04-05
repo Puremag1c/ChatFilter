@@ -100,6 +100,7 @@ class SearchOrchestrator:
         user_id: str,
         group_name: str,
         group_id: str | None = None,
+        pre_reserved: bool = False,
     ) -> SearchResult:
         """Run end-to-end search: generate queries, search platforms, deduplicate, create group.
 
@@ -109,6 +110,8 @@ class SearchOrchestrator:
             user_id: User identifier for billing.
             group_name: Name for the created group.
             group_id: Optional pre-created group ID. If None, a new ID is generated.
+            pre_reserved: If True, skip the internal reserve() call because the caller
+                already reserved the balance atomically before queuing this task.
 
         Returns:
             SearchResult with group_id and statistics.
@@ -133,8 +136,9 @@ class SearchOrchestrator:
         )
 
         try:
-            # 1. Reserve balance
-            self._billing.reserve(user_id, estimated_cost)
+            # 1. Reserve balance (skip if caller already reserved atomically)
+            if not pre_reserved:
+                self._billing.reserve(user_id, estimated_cost)
 
             # 2. Generate search queries via AI (captures cost)
             queries, ai_cost = await self._query_gen.generate(user_query, user_id=user_id)
@@ -233,7 +237,10 @@ class SearchOrchestrator:
             logger.warning("Insufficient balance for user %s, search aborted", user_id)
             clear_scraping_progress(group_id)
             self._update_group_status(group_id, GroupStatus.FAILED)
-            # reserve() never succeeded — do NOT call settle() or a phantom refund is issued
+            if pre_reserved:
+                # Caller reserved before queuing — refund the reservation
+                self._billing.settle(user_id, estimated_cost, 0.0, "search", 0, 0, "Search aborted: insufficient balance")
+            # else: reserve() never succeeded — do NOT call settle() or a phantom refund is issued
             raise
         except Exception:
             logger.exception("Search orchestrator failed for group %s", group_id)

@@ -620,9 +620,17 @@ async def collect_chats(
             billing=billing,
         )
 
-        # Check balance synchronously before doing any work
-        if not billing.check_balance(user_id):
-            raise InsufficientBalance("Your AI balance is insufficient. Please top up to continue.")
+        # Reserve balance atomically BEFORE queuing the task to prevent TOCTOU overdraft.
+        # Concurrent requests will both hit reserve(); the DB enforces the balance check
+        # atomically so only one can succeed if funds are low.
+        from chatfilter.scraper.orchestrator import (
+            _ESTIMATED_COST_PER_SEARCH,
+            get_scraping_progress,
+            init_scraping_progress,
+        )
+
+        estimated_cost = _ESTIMATED_COST_PER_SEARCH * max(len(platform_ids), 1)
+        billing.reserve(user_id, estimated_cost)
 
         # Pre-create group with SCRAPING status so we can return the card immediately
         group_id = f"group-{uuid.uuid4().hex[:12]}"
@@ -640,11 +648,10 @@ async def collect_chats(
         # Pre-initialize progress so the first poll always shows the platform list.
         # This is done BEFORE create_task so the dict is populated by the time
         # the client fires hx-trigger="load" on the returned card.
-        from chatfilter.scraper.orchestrator import get_scraping_progress, init_scraping_progress
-
         init_scraping_progress(group_id, platform_ids)
 
-        # Launch search as asyncio background task (pass pre-created group_id)
+        # Launch search as asyncio background task (pass pre-created group_id).
+        # pre_reserved=True tells the orchestrator to skip its own reserve() call.
         asyncio.create_task(
             orchestrator.search(
                 user_query=search_query.strip(),
@@ -652,6 +659,7 @@ async def collect_chats(
                 user_id=user_id,
                 group_name=name.strip(),
                 group_id=group_id,
+                pre_reserved=True,
             )
         )
 
