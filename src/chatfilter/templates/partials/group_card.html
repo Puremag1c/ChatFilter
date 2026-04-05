@@ -93,7 +93,8 @@
         {% endif %}
     </div>
 
-    <!-- Action buttons -->
+    <!-- Action buttons (hidden during scraping) -->
+    {% if group.status.value != 'scraping' %}
     <div class="group-actions">
         <button class="btn btn-secondary btn-sm"
                 hx-get="/api/groups/modal/settings/{{ group.id }}"
@@ -102,11 +103,7 @@
             {{ _("Configure analysis") }}
         </button>
 
-        {% if group.status.value == 'scraping' %}
-        <span class="btn btn-sm" style="background: #e3f2fd; color: #1565c0; cursor: default; border: 1px solid #90caf9;">
-            {{ _("Search in progress...") }}
-        </span>
-        {% elif group.status.value == 'in_progress' %}
+        {% if group.status.value == 'in_progress' %}
         <button class="btn btn-warning btn-sm"
                 hx-post="/api/groups/{{ group.id }}/stop"
                 hx-swap="none"
@@ -168,6 +165,7 @@
             {{ _("Delete") }}
         </button>
     </div>
+    {% endif %}
 
     {% if error_message %}
     <script>
