@@ -9,8 +9,7 @@
               hx-post="/api/groups/collect"
               hx-target="#groups-list"
               hx-swap="afterbegin"
-              hx-indicator="#collect-spinner"
-              hx-disabled-elt="button[type='submit']">
+              hx-indicator="#collect-spinner">
             <div class="modal-body">
                 <div class="form-group">
                     <label for="collect-group-name">{{ _("Group Name") }} *</label>
@@ -150,6 +149,12 @@
     color: var(--text-secondary);
     font-style: italic;
 }
+
+#collect-submit-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 </style>
 
 <script>
@@ -197,6 +202,7 @@
     updateSubmitState();
 
     form.addEventListener('htmx:beforeRequest', function() {
+        submitBtn.disabled = true;
         btnText.textContent = '{{ _("Searching...") }}';
         errorDiv.style.display = 'none';
     });
@@ -204,9 +210,14 @@
     form.addEventListener('htmx:afterRequest', function(e) {
         btnText.textContent = '{{ _("Start Search") }}';
         if (e.detail.successful) {
+            // Keep button disabled during close animation to prevent double-submit
             const noGroupsEl = document.querySelector('.no-groups');
             if (noGroupsEl) noGroupsEl.remove();
             closeCollectModal();
+        } else {
+            // Re-enable only on error so user can retry
+            submitBtn.disabled = false;
+            updateSubmitState();
         }
     });
 
