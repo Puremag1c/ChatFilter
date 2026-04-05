@@ -51,7 +51,11 @@ def _build_scraping_toast(result: dict[str, Any]) -> dict[str, Any]:
         return {"type": "error", "message": "Ошибка поиска. Попробуйте позже.", "duration": 8000}
 
     if all_failed and total == 0:
-        return {"type": "error", "message": "Не удалось найти чаты: все площадки недоступны", "duration": 8000}
+        return {
+            "type": "error",
+            "message": "Не удалось найти чаты: все площадки недоступны",
+            "duration": 8000,
+        }
 
     parts = [f"Сбор завершён: найдено {total} чатов с {platforms} площадок"]
     if ai_fallback:

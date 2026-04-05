@@ -24,7 +24,9 @@ class QueryGenerator:
     def __init__(self, ai_service: AIService) -> None:
         self._ai = ai_service
 
-    async def generate(self, user_text: str, user_id: str | None = None) -> tuple[list[str], float, bool]:
+    async def generate(
+        self, user_text: str, user_id: str | None = None
+    ) -> tuple[list[str], float, bool]:
         """Generate search queries from a natural language description.
 
         Args:

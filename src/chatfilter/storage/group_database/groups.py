@@ -192,7 +192,9 @@ class GroupsMixin(DatabaseMixinBase):
             else:
                 conn.execute("DELETE FROM chat_groups WHERE id = ?", (group_id,))
 
-    def reset_scraping_groups(self, reason: str = "Collection interrupted by server restart") -> int:
+    def reset_scraping_groups(
+        self, reason: str = "Collection interrupted by server restart"
+    ) -> int:
         """Reset all groups stuck in SCRAPING status to FAILED.
 
         Called at startup to recover groups left in SCRAPING state after a crash (SIGKILL/OOM).

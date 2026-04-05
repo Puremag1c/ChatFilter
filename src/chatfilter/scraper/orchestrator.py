@@ -155,8 +155,12 @@ class SearchOrchestrator:
                 self._billing.reserve(user_id, estimated_cost)
 
             # 2. Generate search queries via AI (captures cost)
-            queries, ai_cost, ai_fallback = await self._query_gen.generate(user_query, user_id=user_id)
-            logger.info("Generated %d queries for: %r (fallback: %s)", len(queries), user_query, ai_fallback)
+            queries, ai_cost, ai_fallback = await self._query_gen.generate(
+                user_query, user_id=user_id
+            )
+            logger.info(
+                "Generated %d queries for: %r (fallback: %s)", len(queries), user_query, ai_fallback
+            )
 
             # 3. Resolve platforms
             platforms = self._resolve_platforms(platform_ids)
@@ -216,13 +220,18 @@ class SearchOrchestrator:
 
             # Store result summary for toast display before clearing progress
             platforms_searched = sum(1 for s in stats_list if s.error is None)
-            store_scraping_result(group_id, {
-                "total_chats": len(unique_refs),
-                "platforms_searched": platforms_searched,
-                "platforms_total": len(stats_list),
-                "ai_fallback": ai_fallback,
-                "all_failed": all(s.error is not None for s in stats_list) if stats_list else True,
-            })
+            store_scraping_result(
+                group_id,
+                {
+                    "total_chats": len(unique_refs),
+                    "platforms_searched": platforms_searched,
+                    "platforms_total": len(stats_list),
+                    "ai_fallback": ai_fallback,
+                    "all_failed": all(s.error is not None for s in stats_list)
+                    if stats_list
+                    else True,
+                },
+            )
 
             # Clear progress tracking
             clear_scraping_progress(group_id)
@@ -258,10 +267,17 @@ class SearchOrchestrator:
 
         except InsufficientBalance:
             logger.warning("Insufficient balance for user %s, search aborted", user_id)
-            store_scraping_result(group_id, {
-                "total_chats": 0, "platforms_searched": 0, "platforms_total": 0,
-                "ai_fallback": False, "all_failed": True, "error": "insufficient_balance",
-            })
+            store_scraping_result(
+                group_id,
+                {
+                    "total_chats": 0,
+                    "platforms_searched": 0,
+                    "platforms_total": 0,
+                    "ai_fallback": False,
+                    "all_failed": True,
+                    "error": "insufficient_balance",
+                },
+            )
             clear_scraping_progress(group_id)
             self._update_group_status(group_id, GroupStatus.FAILED)
             if pre_reserved:
@@ -279,10 +295,17 @@ class SearchOrchestrator:
             raise
         except Exception:
             logger.exception("Search orchestrator failed for group %s", group_id)
-            store_scraping_result(group_id, {
-                "total_chats": 0, "platforms_searched": 0, "platforms_total": 0,
-                "ai_fallback": False, "all_failed": True, "error": "internal_error",
-            })
+            store_scraping_result(
+                group_id,
+                {
+                    "total_chats": 0,
+                    "platforms_searched": 0,
+                    "platforms_total": 0,
+                    "ai_fallback": False,
+                    "all_failed": True,
+                    "error": "internal_error",
+                },
+            )
             clear_scraping_progress(group_id)
             self._update_group_status(group_id, GroupStatus.FAILED)
             # Settle with zero cost on failure
