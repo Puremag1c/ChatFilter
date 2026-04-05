@@ -135,17 +135,7 @@ class BillingService:
 
         Returns new balance.
         """
-        balance = self._db.get_balance(user_id)
-        new_balance = balance + amount_usd
-        self._db.update_balance(user_id, new_balance)
-        self._db.add_transaction(
-            user_id=user_id,
-            transaction_type="topup",
-            amount_usd=amount_usd,
-            balance_after=new_balance,
-            description=admin_description,
-        )
-        return new_balance
+        return self._db.atomic_topup(user_id, amount_usd, admin_description)
 
     def get_transactions(self, user_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return recent transactions ordered by created_at DESC."""

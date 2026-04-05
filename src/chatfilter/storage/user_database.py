@@ -185,6 +185,45 @@ class UserDatabase(SQLiteDatabase):
                 (new_balance, user_id),
             )
 
+    def atomic_topup(self, user_id: str, amount_usd: float, description: str) -> float:
+        """Atomically add amount_usd to balance and record a topup transaction.
+
+        Uses a single SQL increment to prevent lost updates under concurrent topups.
+
+        Returns new balance.
+        """
+        created_at = self._datetime_to_str(datetime.now(UTC))
+        with self._connection() as conn:
+            conn.execute(
+                "UPDATE users SET ai_balance_usd = ai_balance_usd + ? WHERE id = ?",
+                (amount_usd, user_id),
+            )
+            row = conn.execute(
+                "SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            assert row is not None
+            new_balance = float(row["ai_balance_usd"])
+            conn.execute(
+                """
+                INSERT INTO ai_transactions
+                    (user_id, type, amount_usd, balance_after, model,
+                     tokens_in, tokens_out, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    "topup",
+                    amount_usd,
+                    new_balance,
+                    None,
+                    None,
+                    None,
+                    description,
+                    created_at,
+                ),
+            )
+            return new_balance
+
     def reserve_balance(self, user_id: str, estimated_cost: float) -> float:
         """Atomically reserve estimated cost before starting AI call.
 
