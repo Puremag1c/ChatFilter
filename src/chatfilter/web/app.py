@@ -126,6 +126,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     group_engine = get_group_engine()
     group_engine.recover_stale_analysis()
 
+    # Reset groups stuck in SCRAPING status after crash (SIGKILL/OOM)
+    scraping_reset = group_engine.db.reset_scraping_groups()
+    if scraping_reset > 0:
+        logger.warning(
+            f"Reset {scraping_reset} group(s) stuck in SCRAPING → FAILED "
+            "(Collection interrupted by server restart)"
+        )
+        logger.warning(
+            "If any subscription reserves were outstanding for these groups, "
+            "review them manually — automatic refund is not supported."
+        )
+
     # Initialize session manager and start connection monitor
     from chatfilter.web.dependencies import get_session_manager
 
