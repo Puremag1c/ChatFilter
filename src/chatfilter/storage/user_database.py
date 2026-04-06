@@ -316,6 +316,56 @@ class UserDatabase(SQLiteDatabase):
             )
             return new_balance
 
+    def force_charge(
+        self,
+        user_id: str,
+        cost_usd: float,
+        tx_type: str,
+        model: str | None,
+        tokens_in: int | None,
+        tokens_out: int | None,
+        description: str | None,
+    ) -> float:
+        """Deduct cost_usd from balance WITHOUT checking balance >= 0.
+
+        Always succeeds — balance can go negative.
+        Records a transaction with the given tx_type.
+
+        Returns new balance.
+        """
+        created_at = self._datetime_to_str(datetime.now(UTC))
+        with self._connection() as conn:
+            conn.execute(
+                "UPDATE users SET ai_balance_usd = ai_balance_usd - ? WHERE id = ?",
+                (cost_usd, user_id),
+            )
+            row = conn.execute(
+                "SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            assert row is not None
+            new_balance = float(row["ai_balance_usd"])
+
+            conn.execute(
+                """
+                INSERT INTO ai_transactions
+                    (user_id, type, amount_usd, balance_after, model,
+                     tokens_in, tokens_out, description, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    tx_type,
+                    -cost_usd,
+                    new_balance,
+                    model,
+                    tokens_in,
+                    tokens_out,
+                    description,
+                    created_at,
+                ),
+            )
+            return new_balance
+
     def atomic_charge(
         self,
         user_id: str,

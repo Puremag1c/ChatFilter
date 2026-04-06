@@ -131,6 +131,40 @@ class BillingService:
                 ) from exc
             raise
 
+    def force_charge(
+        self,
+        user_id: str,
+        cost_usd: float,
+        tx_type: str,
+        model: str | None,
+        tokens_in: int,
+        tokens_out: int,
+        description: str,
+    ) -> float:
+        """Deduct cost_usd from user balance WITHOUT checking balance >= 0.
+
+        The global cost multiplier is applied automatically to cost_usd.
+        Always succeeds — balance can go negative.
+
+        Args:
+            tx_type: 'query_processing' | 'parse_response' | 'platform_request'
+
+        Returns new balance.
+        """
+        return self._db.force_charge(
+            user_id=user_id,
+            cost_usd=cost_usd * self._get_multiplier(),
+            tx_type=tx_type,
+            model=model,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            description=description,
+        )
+
+    def check_positive_balance(self, user_id: str) -> bool:
+        """Return True if user has positive balance (> 0)."""
+        return self._db.get_balance(user_id) > 0
+
     def topup(self, user_id: str, amount_usd: float, admin_description: str) -> float:
         """Add amount_usd to user balance.
 
