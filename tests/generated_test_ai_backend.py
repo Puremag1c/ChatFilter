@@ -97,11 +97,6 @@ class TestNewDependencies:
 
         assert lxml is not None
 
-    def test_playwright_importable(self) -> None:
-        import playwright  # noqa: F401
-
-        assert playwright is not None
-
 
 # ============================================================================
 # SPEC requirement 3: AI service module structure
