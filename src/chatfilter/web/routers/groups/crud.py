@@ -729,6 +729,13 @@ async def collect_chats(
         if group is None:
             return _error("Search started but could not load group. Please refresh.")
 
+        # Force SCRAPING status for the initial card response.
+        # The background task may complete before we reach this point, changing
+        # the DB status to PENDING.  The card template only renders the polling
+        # div (hx-get scraping-progress) when status == 'scraping', so without
+        # this override the toast notification would never be delivered.
+        group.status = GroupStatus.SCRAPING
+
         stats = service.get_group_stats(group_id)
         initial_progress = get_scraping_progress(group_id)
         return templates.TemplateResponse(

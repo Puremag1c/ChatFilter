@@ -137,20 +137,19 @@ class SearchOrchestrator:
             group_id = f"group-{uuid.uuid4().hex[:12]}"
         now = datetime.now(UTC)
 
-        try:
-            # Create/update group with SCRAPING status (inside try so that
-            # a DB failure still triggers settle() and refunds the reserve).
-            self._db.save_group(
-                group_id=group_id,
-                name=group_name.strip(),
-                settings=GroupSettings().model_dump(),
-                status=GroupStatus.SCRAPING.value,
-                created_at=now,
-                updated_at=now,
-                user_id=user_id,
-                source="scraping",
-            )
+        # Create/update group with SCRAPING status
+        self._db.save_group(
+            group_id=group_id,
+            name=group_name.strip(),
+            settings=GroupSettings().model_dump(),
+            status=GroupStatus.SCRAPING.value,
+            created_at=now,
+            updated_at=now,
+            user_id=user_id,
+            source="scraping",
+        )
 
+        try:
             # 1. Reserve balance (skip if caller already reserved atomically)
             if not pre_reserved:
                 self._billing.reserve(user_id, estimated_cost)
