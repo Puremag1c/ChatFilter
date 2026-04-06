@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import logging
-import re
 
 import httpx
-from bs4 import BeautifulSoup
 
-from chatfilter.scraper.base import BasePlatform
+from chatfilter.ai.html_parser import extract_telegram_links
+from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
 
 logger = logging.getLogger(__name__)
-
-TGREF_RE = re.compile(r"(?:https?://)?t\.me/([A-Za-z0-9_]+)")
 
 
 class TelegramChannelsPlatform(BasePlatform):
@@ -25,7 +22,7 @@ class TelegramChannelsPlatform(BasePlatform):
     needs_api_key = False
     cost_tier = "cheap"
 
-    async def search(self, query: str) -> list[str]:
+    async def search(self, query: str) -> PlatformSearchResult:
         search_url = f"https://telegramchannels.me/channels?search={query}"
         headers = {
             "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
@@ -36,18 +33,23 @@ class TelegramChannelsPlatform(BasePlatform):
                 resp.raise_for_status()
         except Exception:
             logger.warning("telegram_channels: request failed for query=%r", query)
-            return []
+            return PlatformSearchResult(refs=[])
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        refs: set[str] = set()
+        if not self._ai_service:
+            logger.warning("telegram_channels: AI service not configured, skipping extraction")
+            return PlatformSearchResult(refs=[])
 
-        for tag in soup.find_all("a", href=True):
-            m = TGREF_RE.search(str(tag["href"]))
-            if m:
-                refs.add(f"@{m.group(1)}")
+        # Use AI parser to extract Telegram links
+        refs, ai_response = await extract_telegram_links(
+            resp.text,
+            platform_name=self.name,
+            ai_service=self._ai_service,
+        )
 
-        for text_node in soup.find_all(string=TGREF_RE):
-            for m in TGREF_RE.finditer(str(text_node)):
-                refs.add(f"@{m.group(1)}")
-
-        return list(refs)
+        return PlatformSearchResult(
+            refs=refs,
+            ai_cost=ai_response.cost_usd,
+            ai_model=ai_response.model,
+            ai_tokens_in=ai_response.tokens_in,
+            ai_tokens_out=ai_response.tokens_out,
+        )
