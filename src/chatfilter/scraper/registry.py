@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 from .base import BasePlatform
 
 if TYPE_CHECKING:
+    from chatfilter.ai.service import AIService
+    from chatfilter.storage.group_database import GroupDatabase
     from chatfilter.storage.group_database.app_settings import AppSettingsMixin
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,17 @@ class PlatformRegistry:
     def get_all(self) -> list[BasePlatform]:
         """Get all registered platforms."""
         return list(self._platforms.values())
+
+    def configure(self, ai_service: AIService, db: GroupDatabase) -> None:
+        """Inject AI service and database into all registered platforms.
+
+        Called once during app startup after DB is available. Platforms
+        are singletons registered at import time with _ai_service=None;
+        this method provides the runtime dependency.
+        """
+        for platform in self._platforms.values():
+            platform._configure(ai_service, db)
+        logger.info("Configured %d platform(s) with AIService", len(self._platforms))
 
     def get_available(self, db: AppSettingsMixin) -> list[BasePlatform]:
         """Get platforms that are enabled and configured in database settings.

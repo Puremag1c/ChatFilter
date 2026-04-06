@@ -211,6 +211,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.error(f"Failed to initialize admin user: {e}")
         raise SystemExit(1) from e
 
+    # Configure platform registry with AI service (dependency injection)
+    # Platforms are singletons registered at import time; ai_service requires
+    # DB to load API keys so it can only be injected here, after startup.
+    from chatfilter.ai.service import AIService
+    from chatfilter.scraper.registry import registry as platform_registry
+    from chatfilter.storage.group_database import GroupDatabase
+
+    scraper_db = GroupDatabase(settings.effective_database_url)
+    ai_service = AIService(scraper_db)
+    platform_registry.configure(ai_service, scraper_db)
+
     logger.info("Application startup complete")
 
     yield

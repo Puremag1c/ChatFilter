@@ -7,7 +7,8 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    pass
+    from chatfilter.ai.service import AIService
+    from chatfilter.storage.group_database import GroupDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,15 @@ class BasePlatform(ABC):
     needs_api_key: bool
     cost_tier: CostTier
     is_implemented: bool = True  # False for stub platforms not yet implemented
+
+    def __init__(self) -> None:
+        self._ai_service: AIService | None = None
+        self._db: GroupDatabase | None = None
+
+    def _configure(self, ai_service: AIService, db: GroupDatabase) -> None:
+        """Inject AI service and database after app startup."""
+        self._ai_service = ai_service
+        self._db = db
 
     @abstractmethod
     async def search(self, query: str) -> list[str]:
