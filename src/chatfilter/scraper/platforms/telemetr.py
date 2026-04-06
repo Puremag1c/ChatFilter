@@ -1,40 +1,22 @@
 """Telemetr.io HTTP scraping platform.
 
 Uses curl_cffi to bypass Cloudflare's TLS fingerprint challenge.
-Extracts channel usernames from telemetr's internal /en/channels/ID-name links.
+Extracts Telegram links using AI-powered HTML parser.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from functools import partial
 from urllib.parse import urlencode
 
-from bs4 import BeautifulSoup
 from curl_cffi import requests as cf_requests
 
-from chatfilter.scraper.base import BasePlatform
+from chatfilter.ai.html_parser import extract_telegram_links
+from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
 
 logger = logging.getLogger(__name__)
-
-# Matches telemetr internal channel links: /en/channels/1234567-username
-_CHANNEL_RE = re.compile(r"/en/channels/\d+-([A-Za-z0-9_]+)")
-
-# Also match t.me links in page text
-_TGREF_RE = re.compile(r"(?:https?://)?t\.me/([A-Za-z0-9_]+)")
-
-# Exclude known non-channel usernames (telemetr's own bots/pages)
-_EXCLUDED = frozenset(
-    {
-        "telemetrio_news",
-        "telemetrio_api_bot",
-        "telemetr_io_bot",
-        "telemetrio",
-        "telemetrioalertbot",
-    }
-)
 
 
 class TelemetrPlatform(BasePlatform):
@@ -47,7 +29,7 @@ class TelemetrPlatform(BasePlatform):
     needs_api_key = False
     cost_tier = "cheap"
 
-    async def search(self, query: str) -> list[str]:
+    async def search(self, query: str) -> PlatformSearchResult:
         search_url = "https://telemetr.io/en/channels?" + urlencode({"channel": query, "page": 1})
         try:
             loop = asyncio.get_running_loop()
@@ -63,25 +45,23 @@ class TelemetrPlatform(BasePlatform):
             resp.raise_for_status()  # type: ignore[no-untyped-call]
         except Exception:
             logger.warning("telemetr: request failed for query=%r", query)
-            return []
+            return PlatformSearchResult(refs=[])
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        refs: set[str] = set()
+        if not self._ai_service:
+            logger.warning("telemetr: AI service not configured, skipping extraction")
+            return PlatformSearchResult(refs=[])
 
-        # Extract from telemetr internal channel links
-        for tag in soup.find_all("a", href=True):
-            m = _CHANNEL_RE.search(str(tag["href"]))
-            if m:
-                username = m.group(1).lower()
-                if username not in _EXCLUDED:
-                    refs.add(f"@{username}")
+        # Use AI parser to extract Telegram links
+        refs, ai_response = await extract_telegram_links(
+            resp.text,
+            platform_name=self.name,
+            ai_service=self._ai_service,
+        )
 
-        # Also extract any t.me links found in page
-        for tag in soup.find_all("a", href=True):
-            m = _TGREF_RE.search(str(tag["href"]))
-            if m:
-                username = m.group(1).lower()
-                if username not in _EXCLUDED:
-                    refs.add(f"@{username}")
-
-        return list(refs)
+        return PlatformSearchResult(
+            refs=refs,
+            ai_cost=ai_response.cost_usd,
+            ai_model=ai_response.model,
+            ai_tokens_in=ai_response.tokens_in,
+            ai_tokens_out=ai_response.tokens_out,
+        )
