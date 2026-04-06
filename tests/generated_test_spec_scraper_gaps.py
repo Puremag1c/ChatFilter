@@ -66,15 +66,13 @@ class TestAiTransactionTypeSearch:
     """SPEC: Billing stores type='search' for search operations (ai_transactions table)."""
 
     def test_settle_with_search_model_creates_search_type_transaction(self, tmp_path: Path):
-        """When settle() is called with model='search', DB record must have type='search'."""
+        """When force_charge() is called with model='search', DB record must have type='search'."""
         db = make_user_db(tmp_path / "search_txn.db")
         billing = BillingService(db)
         user_id = db.create_user("searcher", "password123")
 
         billing.topup(user_id, 5.0, "initial load")
-        estimated = 0.10
-        billing.reserve(user_id, estimated)
-        billing.settle(user_id, estimated, 0.05, "search", 0, 0, "Search: 3 platforms, 12 chats")
+        billing.force_charge(user_id, 0.05, "search", "search", 0, 0, "Search: 3 platforms, 12 chats")
 
         txns = billing.get_transactions(user_id)
         charge_txns = [t for t in txns if t["type"] != "topup"]
@@ -85,15 +83,13 @@ class TestAiTransactionTypeSearch:
         )
 
     def test_settle_with_ai_model_creates_charge_type_transaction(self, tmp_path: Path):
-        """When settle() is called with an AI model name, type must remain 'charge'."""
+        """When force_charge() is called with an AI model name, type must be 'charge'."""
         db = make_user_db(tmp_path / "charge_txn.db")
         billing = BillingService(db)
         user_id = db.create_user("aiuser", "password123")
 
         billing.topup(user_id, 5.0, "initial")
-        estimated = 0.10
-        billing.reserve(user_id, estimated)
-        billing.settle(user_id, estimated, 0.05, "gpt-4o-mini", 100, 200, "AI analysis")
+        billing.force_charge(user_id, 0.05, "charge", "gpt-4o-mini", 100, 200, "AI analysis")
 
         txns = billing.get_transactions(user_id)
         charge_txns = [t for t in txns if t["type"] != "topup"]
@@ -108,10 +104,8 @@ class TestAiTransactionTypeSearch:
         user_id = db.create_user("descuser", "password123")
 
         billing.topup(user_id, 5.0, "initial")
-        estimated = 0.10
-        billing.reserve(user_id, estimated)
         desc = "Search: 5 platforms, 42 chats"
-        billing.settle(user_id, estimated, 0.05, "search", 0, 0, desc)
+        billing.force_charge(user_id, 0.05, "search", "search", 0, 0, desc)
 
         txns = billing.get_transactions(user_id)
         search_txn = next((t for t in txns if t["type"] == "search"), None)
@@ -298,17 +292,14 @@ class TestCostMultiplierAtDBLevel:
 
         balance_before = billing.get_balance(user_id)
 
-        raw_estimated = 0.05  # Raw unscaled estimated cost
+        raw_cost = 0.05  # Raw unscaled cost
         multiplier = 2.0
-        # reserve() applies multiplier internally: deducts 0.05 * 2 = 0.10
-        billing.reserve(user_id, raw_estimated)
-        # settle() applies multiplier internally: 0.05 * 2 = 0.10.
-        # Pass raw cost (not pre-multiplied) to settle(), it handles multiplier application.
-        billing.settle(user_id, raw_estimated, raw_estimated, "search", 0, 0, "Search 2x test")
+        # force_charge applies multiplier internally: deducts 0.05 * 2 = 0.10
+        billing.force_charge(user_id, raw_cost, "search", "search", 0, 0, "Search 2x test")
 
         balance_after = billing.get_balance(user_id)
         deducted = balance_before - balance_after
-        expected_deduction = raw_estimated * multiplier  # $0.10
+        expected_deduction = raw_cost * multiplier  # $0.10
 
         assert deducted == pytest.approx(expected_deduction, abs=1e-6), (
             f"Expected ${expected_deduction:.2f} deducted with 2x multiplier on $0.05 raw search, "
@@ -327,9 +318,8 @@ class TestCostMultiplierAtDBLevel:
         billing.topup(user_id, 100.0, "initial")
 
         balance_before = billing.get_balance(user_id)
-        estimated = 0.05
-        billing.reserve(user_id, estimated)
-        billing.settle(user_id, estimated, 0.05, "search", 0, 0, "1x search")
+        cost = 0.05
+        billing.force_charge(user_id, cost, "search", "search", 0, 0, "1x search")
 
         balance_after = billing.get_balance(user_id)
         deducted = balance_before - balance_after

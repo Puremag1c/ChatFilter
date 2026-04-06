@@ -26,7 +26,7 @@ class BillingService:
     contains only business logic.
 
     If group_db is provided, BillingService automatically applies the global
-    cost multiplier (from app_settings) to all charge/reserve/settle calls.
+    cost multiplier (from app_settings) to all charge/force_charge calls.
     """
 
     def __init__(self, db: UserDatabase, group_db: GroupDatabase | None = None) -> None:
@@ -46,55 +46,6 @@ class BillingService:
     def check_balance(self, user_id: str) -> bool:
         """Return True if user has positive balance."""
         return self._db.get_balance(user_id) > 0
-
-    def reserve(self, user_id: str, estimated_cost: float) -> float:
-        """Atomically reserve estimated_cost from balance before starting AI call.
-
-        The global cost multiplier is applied automatically to estimated_cost.
-        Must be paired with settle() after the call completes.
-
-        Returns new balance.
-        Raises InsufficientBalance if balance < estimated_cost * multiplier.
-        """
-        try:
-            return self._db.reserve_balance(user_id, estimated_cost * self._get_multiplier())
-        except ValueError as exc:
-            if str(exc).startswith("insufficient:"):
-                balance = float(str(exc).split(":")[1])
-                raise InsufficientBalance(
-                    f"User {user_id} has insufficient balance: {balance:.6f} USD"
-                ) from exc
-            raise
-
-    def settle(
-        self,
-        user_id: str,
-        reserved_cost: float,
-        actual_cost: float,
-        model: str,
-        tokens_in: int,
-        tokens_out: int,
-        description: str,
-    ) -> float:
-        """Settle a prior reserve with the actual cost after AI call completes.
-
-        The global cost multiplier is applied automatically to both reserved_cost
-        and actual_cost, matching the multiplier applied during reserve().
-        Refunds if actual < reserved; charges extra (capped) if actual > reserved.
-        Records transaction for actual_cost * multiplier.
-
-        Returns new balance.
-        """
-        multiplier = self._get_multiplier()
-        return self._db.settle_reserve(
-            user_id=user_id,
-            reserved_cost=reserved_cost * multiplier,
-            actual_cost=actual_cost * multiplier,
-            model=model,
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
-            description=description,
-        )
 
     def charge(
         self,
@@ -172,12 +123,9 @@ class BillingService:
         Returns True if balance was positive and the deduction succeeded,
         False if balance was zero or negative.
 
-        This replaces the separate check_positive_balance() + reserve() pattern.
         A single UPDATE ... WHERE ai_balance_usd > 0 prevents the TOCTOU race
         where two concurrent requests both pass a read-only balance check before
         either deduction lands.
-
-        Pair with settle() to reconcile estimated vs actual cost after search completes.
         """
         return self._db.atomic_check_and_deduct(
             user_id, min_balance=0.0, initial_deduct=estimated_cost * self._get_multiplier()
