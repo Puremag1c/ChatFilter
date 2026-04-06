@@ -32,7 +32,6 @@ class NicegramPlatform(BasePlatform):
     method = "http"
     needs_api_key = False
     cost_tier = "medium"
-    is_implemented = True
 
     async def search(self, query: str) -> PlatformSearchResult:  # type: ignore[override]
         refs: set[str] = set()

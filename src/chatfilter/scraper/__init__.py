@@ -2,9 +2,7 @@
 
 from .base import BasePlatform, CostTier, PlatformMethod
 from .platforms import (
-    BazaTgPlatform,
     CombotPlatform,
-    GoogleSearchPlatform,
     HottgPlatform,
     LyzemPlatform,
     NicegramPlatform,
@@ -27,16 +25,12 @@ registry.register(TlgrmPlatform())
 registry.register(LyzemPlatform())
 registry.register(TgstatPlatform())
 registry.register(NicegramPlatform())
-registry.register(BazaTgPlatform())
 registry.register(TelegagoPlatform())
-registry.register(GoogleSearchPlatform())
 
 __all__ = [
     "BasePlatform",
-    "BazaTgPlatform",
     "CombotPlatform",
     "CostTier",
-    "GoogleSearchPlatform",
     "HottgPlatform",
     "LyzemPlatform",
     "NicegramPlatform",

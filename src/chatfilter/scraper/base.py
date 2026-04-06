@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-PlatformMethod = Literal["api", "http", "playwright"]
+PlatformMethod = Literal["api", "http"]
 CostTier = Literal["cheap", "medium", "expensive"]
 
 
@@ -37,7 +37,6 @@ class BasePlatform(ABC):
     method: PlatformMethod
     needs_api_key: bool
     cost_tier: CostTier
-    is_implemented: bool = True  # False for stub platforms not yet implemented
 
     def __init__(self) -> None:
         self._ai_service: AIService | None = None

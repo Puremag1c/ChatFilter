@@ -1,8 +1,6 @@
 """Scraper platform implementations."""
 
-from .baza_tg import BazaTgPlatform
 from .combot import CombotPlatform
-from .google_search import GoogleSearchPlatform
 from .hottg import HottgPlatform
 from .lyzem import LyzemPlatform
 from .nicegram import NicegramPlatform
@@ -14,9 +12,7 @@ from .tgstat import TgstatPlatform
 from .tlgrm import TlgrmPlatform
 
 __all__ = [
-    "BazaTgPlatform",
     "CombotPlatform",
-    "GoogleSearchPlatform",
     "HottgPlatform",
     "LyzemPlatform",
     "NicegramPlatform",

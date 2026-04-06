@@ -31,7 +31,6 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "litellm>=1.0.0",
-    "playwright>=1.40.0",
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
     "curl_cffi>=0.7.0",
@@ -155,10 +154,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["litellm", "litellm.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["playwright", "playwright.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

@@ -276,9 +276,6 @@ class SearchOrchestrator:
         for pid in platform_ids:
             try:
                 platform = self._registry.get(pid)
-                if not platform.is_implemented:
-                    logger.info("Skipping stub platform %s (not yet implemented)", pid)
-                    continue
                 platforms.append(platform)
             except KeyError:
                 logger.warning("Unknown platform ID: %s", pid)
