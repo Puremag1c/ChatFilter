@@ -734,11 +734,11 @@ async def collect_chats(
             ),
         )
 
-    except InsufficientBalance as e:
+    except InsufficientBalance:
         return templates.TemplateResponse(
             request=request,
-            name="partials/error_message.html",
-            context={"error": str(e)},
+            name="partials/insufficient_balance.html",
+            context={},
             status_code=402,
         )
     except Exception as e:
