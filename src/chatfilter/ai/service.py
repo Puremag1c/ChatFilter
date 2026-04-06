@@ -83,12 +83,18 @@ class AIService:
         )
         return self._FALLBACK_MINIMUM_COST
 
-    async def complete(self, prompt: str, user_id: str | None = None) -> AIResponse:
+    async def complete(
+        self,
+        prompt: str,
+        user_id: str | None = None,
+        system_prompt: str | None = None,
+    ) -> AIResponse:
         """Send a completion request and return an AIResponse.
 
         Args:
             prompt: The prompt to send.
             user_id: Optional user identifier for tracking.
+            system_prompt: Optional system message sent before the user prompt.
 
         Returns:
             AIResponse with content, model used, token counts, and cost.
@@ -103,12 +109,17 @@ class AIService:
         if user_id:
             extra_kwargs["user"] = user_id
 
+        messages: list[dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         last_error: Exception | None = None
         for model in models_to_try:
             try:
                 response = await litellm.acompletion(
                     model=model,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=messages,
                     **extra_kwargs,
                 )
                 usage = response.usage or {}
