@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-04-06
+
+### Added
+- Nicegram Hub — новая площадка (крупнейшая база Telegram, 8M чатов), cursor-пагинация, поиск каналов и групп
+- Telegago — поиск через Google `site:t.me`, без зависимости от Google CSE API
+- TGStat API — полноценная интеграция (channels/search, peer_type=all для каналов и чатов)
+- AI HTML-парсинг — все HTTP-площадки переведены с regex на LLM-извлечение (устойчивость к смене вёрстки)
+- Биллинг: 3 типа транзакций — обработка запроса, парсинг ответа, запрос к площадке (с моделью, токенами, стоимостью)
+- Поиск ищет и каналы и чаты (query_generator генерирует запросы для обоих типов)
+- Защита AI-парсера от prompt injection в HTML
+
+### Changed
+- Биллинг: списание по факту вместо reserve/settle — списание после каждого шага
+- Оркестратор: charge-per-step логика в collect endpoint
+
+### Removed
+- `google_search.py` — дубликат telegago, удалён
+- `baza_tg.py` — API за $300, нецелесообразно
+- Playwright + Chromium — зависимость удалена
+- `is_implemented` флаг и фильтрация stub-платформ
+- reserve/settle методы биллинга (мёртвый код)
+
+### Fixed
+- AI-парсинг: silent failure при невалидной модели — теперь пользователь видит ошибку
+- TGStat: добавлен `peer_type=all` — ищет и каналы и чаты
+- Тесты: удалены stale-тесты, ссылающиеся на удалённые reserve/settle методы
+- CI: исправлены ошибки линтера, типизации и i18n
+
+### Security
+- URL-encode пользовательских запросов во всех URL платформ
+- TOCTOU race condition в проверке баланса
+
 ## [0.33.0] - 2026-04-06
 
 ### Added
