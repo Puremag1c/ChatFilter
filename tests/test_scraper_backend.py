@@ -67,7 +67,7 @@ def _make_billing(balance: float = 10.0) -> MagicMock:
 
 def _make_query_gen(queries: list[str] | None = None, ai_cost: float = 0.001) -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = (queries or ["test query"], ai_cost, False)
+    gen.generate.return_value = (queries or ["test query"], ai_cost, False, "test-model", 10, 20)
     return gen
 
 
@@ -150,10 +150,10 @@ def test_normalize_ref(raw, expected):
 @pytest.mark.asyncio
 async def test_query_generator_uses_ai():
     ai = AsyncMock()
-    response = MagicMock(content='["crypto channels", "крипто каналы"]', cost_usd=0.001)
+    response = MagicMock(content='["crypto channels", "крипто каналы"]', cost_usd=0.001, model="gpt-4o-mini", tokens_in=50, tokens_out=20)
     ai.complete.return_value = response
     gen = QueryGenerator(ai)
-    queries, cost, fallback = await gen.generate("crypto")
+    queries, cost, fallback, model, tokens_in, tokens_out = await gen.generate("crypto")
     assert queries == ["crypto channels", "крипто каналы"]
     assert cost == 0.001
     assert fallback is False
@@ -165,7 +165,7 @@ async def test_query_generator_fallback_on_ai_error():
     ai = AsyncMock()
     ai.complete.side_effect = RuntimeError("AI unavailable")
     gen = QueryGenerator(ai)
-    queries, cost, fallback = await gen.generate("some query")
+    queries, cost, fallback, model, tokens_in, tokens_out = await gen.generate("some query")
     assert queries == ["some query"]
     assert cost == 0.0  # No cost on failure
     assert fallback is True
@@ -174,10 +174,10 @@ async def test_query_generator_fallback_on_ai_error():
 @pytest.mark.asyncio
 async def test_query_generator_fallback_on_empty_response():
     ai = AsyncMock()
-    response = MagicMock(content="[]", cost_usd=0.0)
+    response = MagicMock(content="[]", cost_usd=0.0, model="gpt-4o-mini", tokens_in=50, tokens_out=0)
     ai.complete.return_value = response
     gen = QueryGenerator(ai)
-    queries, cost, fallback = await gen.generate("some query")
+    queries, cost, fallback, model, tokens_in, tokens_out = await gen.generate("some query")
     assert queries == ["some query"]
     assert cost == 0.0
     assert fallback is True
@@ -447,8 +447,8 @@ async def test_orchestrator_uses_pre_created_group_id(group_db):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_billing_reserve_and_settle_called(group_db):
-    """SPEC: Billing must reserve before search and settle after."""
+async def test_orchestrator_billing_force_charge_called(group_db):
+    """SPEC: Billing must charge after each AI step (no reserve/settle)."""
     reg = PlatformRegistry()
     p = _FakePlatform(results=["@c"])
     reg.register(p)
@@ -464,16 +464,10 @@ async def test_orchestrator_billing_reserve_and_settle_called(group_db):
         group_name="Billing Test",
     )
 
-    billing.reserve.assert_called_once()
-    billing.settle.assert_called_once()
-
-    # settle should use transaction type "search"
-    settle_args = billing.settle.call_args
-    assert (
-        settle_args[0][3] == "search"
-        or settle_args[1].get("model") == "search"
-        or "search" in str(settle_args)
-    )
+    # New model: force_charge is called instead of reserve/settle
+    billing.force_charge.assert_called()
+    billing.reserve.assert_not_called()
+    billing.settle.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -638,7 +632,7 @@ async def test_orchestrator_cost_multiplier_applied(group_db):
     # Mock query generator to return a fixed AI cost of $0.01
     qgen = AsyncMock(spec=QueryGenerator)
     ai_cost = 0.01
-    qgen.generate.return_value = (["test query"], ai_cost, False)
+    qgen.generate.return_value = (["test query"], ai_cost, False, "test-model", 10, 20)
 
     orch = SearchOrchestrator(reg, qgen, group_db, billing)
 
@@ -649,12 +643,11 @@ async def test_orchestrator_cost_multiplier_applied(group_db):
         group_name="Cost Test",
     )
 
-    # Verify settle was called with correct cost multiplier
-    billing.settle.assert_called_once()
+    # Verify force_charge was called with the AI cost for query processing
+    billing.force_charge.assert_called()
 
-    # Get the settle call arguments to verify cost is passed through
-    call_args = billing.settle.call_args
-    # settle(user_id, reserved, actual_cost, model, platforms_count, chats_count, note)
-    # Orchestrator passes raw ai_cost; BillingService applies cost multiplier internally
-    actual_cost_arg = call_args[0][2]  # 3rd positional argument
+    # Get the force_charge call arguments to verify cost is passed through
+    call_args = billing.force_charge.call_args
+    # force_charge(user_id, amount, tx_type, model, tokens_in, tokens_out, description)
+    actual_cost_arg = call_args[0][1]  # 2nd positional argument
     assert actual_cost_arg == ai_cost, f"Expected {ai_cost}, got {actual_cost_arg}"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from chatfilter.ai.html_parser import _clean_html, _SYSTEM_PROMPT, _parse_links_response
+from chatfilter.ai.html_parser import _SYSTEM_PROMPT, _clean_html, _parse_links_response
 
 
 class TestCleanHtml:
