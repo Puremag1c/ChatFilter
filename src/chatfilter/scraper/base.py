@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
@@ -14,6 +15,17 @@ logger = logging.getLogger(__name__)
 
 PlatformMethod = Literal["api", "http", "playwright"]
 CostTier = Literal["cheap", "medium", "expensive"]
+
+
+@dataclass
+class PlatformSearchResult:
+    """Result from a single platform search call."""
+
+    refs: list[str] = field(default_factory=list)
+    ai_cost: float = 0.0
+    ai_model: str | None = None
+    ai_tokens_in: int = 0
+    ai_tokens_out: int = 0
 
 
 class BasePlatform(ABC):

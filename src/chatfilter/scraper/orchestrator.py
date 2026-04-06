@@ -17,6 +17,7 @@ from chatfilter.models.group import (
     GroupSettings,
     GroupStatus,
 )
+from chatfilter.scraper.base import PlatformSearchResult
 
 if TYPE_CHECKING:
     from chatfilter.ai.billing import BillingService
@@ -79,6 +80,10 @@ class PlatformStats:
     queries_run: int = 0
     chats_found: int = 0
     error: str | None = None
+    ai_cost: float = 0.0
+    ai_model: str | None = None
+    ai_tokens_in: int = 0
+    ai_tokens_out: int = 0
 
 
 @dataclass
@@ -366,10 +371,22 @@ class SearchOrchestrator:
 
         for query in queries:
             try:
-                refs = await platform.search(query)
-                all_refs.extend(refs)
+                result = await platform.search(query)
+                # Handle both PlatformSearchResult (new) and list[str] (legacy)
+                if isinstance(result, PlatformSearchResult):
+                    all_refs.extend(result.refs)
+                    stats.ai_cost += result.ai_cost
+                    stats.ai_tokens_in += result.ai_tokens_in
+                    stats.ai_tokens_out += result.ai_tokens_out
+                    if result.ai_model:
+                        stats.ai_model = result.ai_model
+                    refs_count = len(result.refs)
+                else:
+                    # Legacy: platform returns list[str]
+                    all_refs.extend(result)
+                    refs_count = len(result)
                 stats.queries_run += 1
-                stats.chats_found += len(refs)
+                stats.chats_found += refs_count
             except Exception:
                 logger.exception("Platform %s failed for query %r", platform.id, query)
                 # Continue with remaining queries — don't fail entire platform
