@@ -146,6 +146,10 @@ class SearchOrchestrator:
                 source="scraping",
             )
 
+            # Check user has balance to proceed with search
+            if not self._billing.check_positive_balance(user_id):
+                raise InsufficientBalance("User balance is insufficient for search")
+
             # 1. Generate search queries via AI
             (
                 queries,

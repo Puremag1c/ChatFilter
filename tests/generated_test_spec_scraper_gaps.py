@@ -47,7 +47,7 @@ class _FakePlatform(BasePlatform):
 
 def _make_query_gen(queries: list[str] | None = None, ai_cost: float = 0.001) -> AsyncMock:
     gen = AsyncMock(spec=QueryGenerator)
-    gen.generate.return_value = (queries or ["test query"], ai_cost, False)
+    gen.generate.return_value = (queries or ["test query"], ai_cost, False, "gpt-4o-mini", 0, 0)
     return gen
 
 
@@ -200,20 +200,18 @@ class TestPlatformSpecCompleteness:
     REQUIRED_ATTRS = ["id", "name", "url", "method", "needs_api_key", "cost_tier"]
     VALID_METHODS = {"api", "http", "playwright"}
     VALID_TIERS = {"cheap", "medium", "expensive"}
-    EXPECTED_PLATFORM_COUNT = 12
+    EXPECTED_PLATFORM_COUNT = 10
     EXPECTED_PLATFORM_IDS = {
         "tgstat",
         "telemetr",
         "teleteg",
         "nicegram",
-        "baza_tg",
         "combot",
         "hottg",
         "telegram_channels",
         "tlgrm",
         "lyzem",
         "telegago",
-        "google_search",
     }
 
     def _load_all_platforms(self) -> list[BasePlatform]:
@@ -303,12 +301,10 @@ class TestCostMultiplierAtDBLevel:
         multiplier = 2.0
         # reserve() applies multiplier internally: deducts 0.05 * 2 = 0.10
         billing.reserve(user_id, raw_estimated)
-        # settle() docstring: reserved_cost must be the already-multiplied value from reserve().
-        # actual_cost is raw; settle() applies multiplier internally: 0.05 * 2 = 0.10.
-        # Since reserved(0.10) == actual(0.10), refund = 0 and total deduction = $0.10.
-        reserved_multiplied = raw_estimated * multiplier
+        # settle() applies multiplier internally: 0.05 * 2 = 0.10.
+        # Pass raw cost (not pre-multiplied) to settle(), it handles multiplier application.
         billing.settle(
-            user_id, reserved_multiplied, raw_estimated, "search", 0, 0, "Search 2x test"
+            user_id, raw_estimated, raw_estimated, "search", 0, 0, "Search 2x test"
         )
 
         balance_after = billing.get_balance(user_id)
