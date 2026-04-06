@@ -33,7 +33,7 @@ class NicegramPlatform(BasePlatform):
     needs_api_key = False
     cost_tier = "medium"
 
-    async def search(self, query: str) -> PlatformSearchResult:  # type: ignore[override]
+    async def search(self, query: str) -> PlatformSearchResult:
         refs: set[str] = set()
         total_cost = 0.0
         total_tokens_in = 0

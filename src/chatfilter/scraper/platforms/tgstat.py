@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from chatfilter.scraper.base import BasePlatform
+from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,6 @@ class TgstatPlatform(BasePlatform):
     needs_api_key = True
     cost_tier = "medium"
 
-    async def search(self, query: str) -> list[str]:
+    async def search(self, query: str) -> PlatformSearchResult:
         logger.warning("tgstat: API key not configured")
-        return []
+        return PlatformSearchResult()

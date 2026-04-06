@@ -216,7 +216,7 @@ msgstr "Основная навигация"
 
 #: src/chatfilter/templates/base.html:38
 msgid "Toggle navigation menu"
-msgstr ""
+msgstr "Переключить меню навигации"
 
 #: src/chatfilter/templates/base.html:41
 msgid "Proxies"
@@ -693,7 +693,7 @@ msgstr "Дата"
 
 #: src/chatfilter/templates/profile.html:66
 msgid "Details"
-msgstr ""
+msgstr "Подробности"
 
 #: src/chatfilter/templates/profile.html:67
 msgid "Cost"
@@ -1048,7 +1048,7 @@ msgstr "пароль"
 #: src/chatfilter/templates/partials/admin_user_row.html:8
 #: src/chatfilter/templates/partials/admin_users.html:7
 msgid "Email"
-msgstr ""
+msgstr "Email"
 
 #: src/chatfilter/templates/partials/admin_tab_users.html:18
 msgid "optional"
@@ -1064,7 +1064,7 @@ msgstr "Поиск по имени пользователя или адресу 
 
 #: src/chatfilter/templates/partials/admin_user_row.html:15
 msgid "Cannot remove own admin rights"
-msgstr ""
+msgstr "Нельзя снять свои права администратора"
 
 #: src/chatfilter/templates/partials/admin_user_row.html:20
 #: src/chatfilter/templates/partials/admin_users.html:10
@@ -1092,7 +1092,7 @@ msgstr "Удалить"
 
 #: src/chatfilter/templates/partials/admin_users.html:3
 msgid "Admin users list"
-msgstr ""
+msgstr "Список администраторов"
 
 #: src/chatfilter/templates/partials/admin_users.html:23
 #: src/chatfilter/templates/partials/catalog_table.html:105
@@ -1384,7 +1384,7 @@ msgstr "Включено"
 
 #: src/chatfilter/templates/partials/catalog_table.html:95
 msgid "No active subscriber — data is frozen"
-msgstr ""
+msgstr "Нет активного подписчика — данные заморожены"
 
 #: src/chatfilter/templates/partials/catalog_table.html:95
 #, fuzzy
@@ -2282,7 +2282,7 @@ msgstr "Возобновить анализ"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:26
 msgid "(chat type, subscribers, moderation — no join required)"
-msgstr ""
+msgstr "(тип чата, подписчики, модерация — вступление не требуется)"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:38
 #, fuzzy
@@ -2291,7 +2291,7 @@ msgstr "Возобновить анализ"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:40
 msgid "(everything + activity, authors, captcha — requires joining chat)"
-msgstr ""
+msgstr "(всё + активность, авторы, капча — требуется вступление в чат)"
 
 #: src/chatfilter/templates/partials/modals/settings_modal.html:54
 msgid "Save Settings"
@@ -2423,7 +2423,7 @@ msgstr "Неверный пароль: не более 256 символов."
 
 #: src/chatfilter/web/routers/profile.py:93
 msgid "New password and confirmation do not match"
-msgstr ""
+msgstr "Новый пароль и подтверждение не совпадают"
 
 #: src/chatfilter/web/routers/profile.py:98
 #, fuzzy
@@ -2678,6 +2678,30 @@ msgstr "Номер телефона должен начинаться с +"
 #: src/chatfilter/web/routers/sessions/validation.py:34
 msgid "Phone number must contain only digits after +"
 msgstr "Номер телефона должен содержать только цифры после +"
+
+msgid "Export"
+msgstr "Экспорт"
+
+msgid "Failed to load data"
+msgstr "Не удалось загрузить данные"
+
+msgid "Filter"
+msgstr "Фильтр"
+
+msgid "No results found"
+msgstr "Результаты не найдены"
+
+msgid "Not Found"
+msgstr "Не найдено"
+
+msgid "Operation failed"
+msgstr "Операция не удалась"
+
+msgid "Processing"
+msgstr "Обработка"
+
+msgid "Proxy added successfully"
+msgstr "Прокси успешно добавлен"
 
 #~ msgid "2FA password accepted successfully"
 #~ msgstr "Пароль 2FA успешно принят"
