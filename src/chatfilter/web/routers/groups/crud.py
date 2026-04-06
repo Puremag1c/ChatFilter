@@ -681,19 +681,12 @@ async def collect_chats(
         )
 
         from chatfilter.scraper.orchestrator import (
-            _ESTIMATED_COST_PER_SEARCH,
             get_scraping_progress,
             init_scraping_progress,
         )
 
-        estimated_cost = _ESTIMATED_COST_PER_SEARCH * max(len(platform_ids), 1)
-
-        # Atomically check balance > 0 AND deduct estimated_cost in a single
-        # UPDATE ... WHERE ai_balance_usd > 0.  This prevents the TOCTOU race
-        # where two concurrent requests both pass a read-only balance check
-        # before either deduction lands.  The orchestrator's settle() call
-        # reconciles estimated vs actual cost after the search completes.
-        if not billing.try_start_search(user_id, estimated_cost):
+        # Check balance > 0 before starting search
+        if not billing.check_positive_balance(user_id):
             raise InsufficientBalance(f"User {user_id} has insufficient balance")
 
         # Pre-create group with SCRAPING status so we can return the card immediately
@@ -715,7 +708,6 @@ async def collect_chats(
         init_scraping_progress(group_id, platform_ids)
 
         # Launch search as asyncio background task (pass pre-created group_id).
-        # pre_reserved=True tells the orchestrator to skip its own reserve() call.
         asyncio.create_task(
             orchestrator.search(
                 user_query=search_query.strip(),
@@ -723,7 +715,6 @@ async def collect_chats(
                 user_id=user_id,
                 group_name=name.strip(),
                 group_id=group_id,
-                pre_reserved=True,
             )
         )
 

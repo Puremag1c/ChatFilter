@@ -28,9 +28,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Estimated cost per search for balance reservation
-_ESTIMATED_COST_PER_SEARCH = 0.01
-
 # In-memory scraping progress tracker: group_id → progress dict
 # Each entry: {"platforms": {platform_id: {"status": str, "chats_found": int}}, "total_found": int}
 _scraping_progress: dict[str, dict[str, Any]] = {}
@@ -119,7 +116,6 @@ class SearchOrchestrator:
         user_id: str,
         group_name: str,
         group_id: str | None = None,
-        pre_reserved: bool = False,
     ) -> SearchResult:
         """Run end-to-end search: generate queries, search platforms, deduplicate, create group.
 
@@ -129,22 +125,16 @@ class SearchOrchestrator:
             user_id: User identifier for billing.
             group_name: Name for the created group.
             group_id: Optional pre-created group ID. If None, a new ID is generated.
-            pre_reserved: If True, skip the internal reserve() call because the caller
-                already reserved the balance atomically before queuing this task.
 
         Returns:
             SearchResult with group_id and statistics.
         """
-        estimated_cost = _ESTIMATED_COST_PER_SEARCH * max(len(platform_ids), 1)
-        ai_cost = 0.0
-
         if group_id is None:
             group_id = f"group-{uuid.uuid4().hex[:12]}"
         now = datetime.now(UTC)
 
         try:
-            # Create/update group with SCRAPING status (inside try so that
-            # a DB failure still triggers settle() and refunds the reserve).
+            # Create/update group with SCRAPING status
             self._db.save_group(
                 group_id=group_id,
                 name=group_name.strip(),
@@ -156,42 +146,43 @@ class SearchOrchestrator:
                 source="scraping",
             )
 
-            # 1. Reserve balance (skip if caller already reserved atomically)
-            if not pre_reserved:
-                self._billing.reserve(user_id, estimated_cost)
-
-            # 2. Generate search queries via AI (captures cost)
-            queries, ai_cost, ai_fallback = await self._query_gen.generate(
-                user_query, user_id=user_id
+            # 1. Generate search queries via AI
+            queries, ai_cost, ai_fallback, ai_model, ai_tokens_in, ai_tokens_out = (
+                await self._query_gen.generate(user_query, user_id=user_id)
             )
             logger.info(
                 "Generated %d queries for: %r (fallback: %s)", len(queries), user_query, ai_fallback
             )
 
-            # 3. Resolve platforms
+            # Charge for query generation
+            if ai_cost > 0:
+                self._billing.force_charge(
+                    user_id, ai_cost, "query_processing",
+                    ai_model, ai_tokens_in, ai_tokens_out,
+                    "Обработка запроса",
+                )
+
+            # 2. Resolve platforms
             platforms = self._resolve_platforms(platform_ids)
             if not platforms:
                 logger.warning("No available platforms for IDs: %s", platform_ids)
                 self._update_group_status(group_id, GroupStatus.FAILED)
-                self._billing.settle(
-                    user_id, estimated_cost, 0.0, "search", 0, 0, "No platforms available"
-                )
                 return SearchResult(group_id=group_id)
 
-            # 4. Search all platforms concurrently (with progress tracking)
+            # 3. Search all platforms concurrently (with progress tracking)
             _scraping_progress[group_id] = {
                 "platforms": {p.id: {"status": "searching", "chats_found": 0} for p in platforms},
                 "total_found": 0,
             }
             platform_results = await asyncio.gather(
                 *(
-                    self._search_platform_tracked(platform, queries, group_id)
+                    self._search_platform_tracked(platform, queries, group_id, user_id)
                     for platform in platforms
                 ),
                 return_exceptions=True,
             )
 
-            # 5. Collect and aggregate results
+            # 4. Collect and aggregate results
             all_refs: list[str] = []
             stats_list: list[PlatformStats] = []
 
@@ -204,11 +195,11 @@ class SearchOrchestrator:
                     all_refs.extend(refs)
                     stats_list.append(pstats)
 
-            # 6. Deduplicate
+            # 5. Deduplicate
             unique_refs = _deduplicate_refs(all_refs)
             duplicates_removed = len(all_refs) - len(unique_refs)
 
-            # 7. Add chats to group and update status
+            # 6. Add chats to group and update status
             if unique_refs:
                 for ref in unique_refs:
                     self._db.save_chat(
@@ -224,32 +215,9 @@ class SearchOrchestrator:
                 status = GroupStatus.FAILED if all_failed else GroupStatus.PENDING
                 self._update_group_status(group_id, status)
 
-            # 8. Calculate cost and settle billing BEFORE notifying clients,
-            # so balance is correct by the time the UI polls for results.
             platforms_searched = sum(1 for s in stats_list if s.error is None)
 
-            # Sum platform API request costs: queries_run × cost_per_request for each platform
-            platform_cost = 0.0
-            for s in stats_list:
-                if s.error is None and s.queries_run > 0:
-                    setting = self._db.get_platform_setting(s.platform_id)
-                    if setting:
-                        platform_cost += s.queries_run * setting["cost_per_request_usd"]
-
-            # BillingService applies the DB cost multiplier automatically
-            actual_cost = ai_cost + platform_cost
-            self._billing.settle(
-                user_id,
-                estimated_cost,
-                actual_cost,
-                "search",
-                0,
-                0,
-                f"Search: {platforms_searched} platforms, {len(unique_refs)} chats",
-            )
-
-            # Store result summary for toast display AFTER billing is settled.
-            # This ensures the client sees correct balance when it polls for results.
+            # Store result summary for toast display
             store_scraping_result(
                 group_id,
                 {
@@ -262,11 +230,6 @@ class SearchOrchestrator:
                     else True,
                 },
             )
-
-            # Keep progress in memory so the polling endpoint can show the
-            # completed per-platform breakdown for one more cycle before
-            # transitioning to the final PENDING card.  The endpoint itself
-            # calls clear_scraping_progress() after displaying it once.
 
             return SearchResult(
                 group_id=group_id,
@@ -289,20 +252,7 @@ class SearchOrchestrator:
                     "error": "insufficient_balance",
                 },
             )
-            # Don't clear progress — polling endpoint will clear after displaying once
             self._update_group_status(group_id, GroupStatus.FAILED)
-            if pre_reserved:
-                # Caller reserved before queuing — refund the reservation
-                self._billing.settle(
-                    user_id,
-                    estimated_cost,
-                    0.0,
-                    "search",
-                    0,
-                    0,
-                    "Search aborted: insufficient balance",
-                )
-            # else: reserve() never succeeded — do NOT call settle() or a phantom refund is issued
             raise
         except Exception:
             logger.exception("Search orchestrator failed for group %s", group_id)
@@ -317,10 +267,7 @@ class SearchOrchestrator:
                     "error": "internal_error",
                 },
             )
-            # Don't clear progress — polling endpoint will clear after displaying once
             self._update_group_status(group_id, GroupStatus.FAILED)
-            # Settle with zero cost on failure
-            self._billing.settle(user_id, estimated_cost, 0.0, "search", 0, 0, "Search failed")
             raise
 
     def _resolve_platforms(self, platform_ids: list[str]) -> list[BasePlatform]:
@@ -342,9 +289,10 @@ class SearchOrchestrator:
         platform: BasePlatform,
         queries: list[str],
         group_id: str,
+        user_id: str,
     ) -> tuple[list[str], PlatformStats]:
         """Wrapper around _search_platform that updates scraping progress."""
-        refs, stats = await self._search_platform(platform, queries)
+        refs, stats = await self._search_platform(platform, queries, user_id)
         progress = _scraping_progress.get(group_id)
         if progress is not None:
             status = "error" if stats.error else "done"
@@ -359,6 +307,7 @@ class SearchOrchestrator:
         self,
         platform: BasePlatform,
         queries: list[str],
+        user_id: str,
     ) -> tuple[list[str], PlatformStats]:
         """Search a single platform with all queries."""
         stats = PlatformStats(platform_id=platform.id)
@@ -394,6 +343,26 @@ class SearchOrchestrator:
 
         if stats.queries_run == 0 and not all_refs:
             stats.error = "All queries failed"
+
+        # Charge for AI parsing cost if platform used AI
+        if stats.ai_cost > 0:
+            self._billing.force_charge(
+                user_id, stats.ai_cost, "parse_response",
+                stats.ai_model, stats.ai_tokens_in, stats.ai_tokens_out,
+                f"Парсинг: {platform.name}",
+            )
+
+        # Charge for platform request cost
+        if stats.queries_run > 0:
+            setting = self._db.get_platform_setting(stats.platform_id)
+            if setting:
+                platform_cost = stats.queries_run * setting["cost_per_request_usd"]
+                if platform_cost > 0:
+                    self._billing.force_charge(
+                        user_id, platform_cost, "platform_request",
+                        None, 0, 0,
+                        f"Запрос: {platform.name}",
+                    )
 
         return all_refs, stats
 
