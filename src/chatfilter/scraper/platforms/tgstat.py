@@ -42,7 +42,7 @@ class TgstatPlatform(BasePlatform):
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                 resp = await client.get(
                     _API_URL,
-                    params={"token": api_key, "q": query, "limit": 20},
+                    params={"token": api_key, "q": query, "limit": 20, "peer_type": "all"},
                 )
                 resp.raise_for_status()
                 data = resp.json()

@@ -659,3 +659,62 @@ async def test_orchestrator_cost_multiplier_applied(group_db):
     assert qp_calls, "No query_processing call found"
     actual_cost_arg = qp_calls[0][0][1]  # 2nd positional argument
     assert actual_cost_arg == ai_cost, f"Expected {ai_cost}, got {actual_cost_arg}"
+
+
+# ---------------------------------------------------------------------------
+# 12. TGStat platform — peer_type parameter
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_tgstat_includes_peer_type_all_in_request(group_db):
+    """SPEC: TGStat must include peer_type=all to search both channels and chats."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from chatfilter.scraper.platforms.tgstat import TgstatPlatform
+
+    # Setup: Configure TGStat API key in DB
+    group_db.save_platform_setting("tgstat", api_key="test_key_123", enabled=True)
+
+    # Create platform with mocked DB
+    platform = TgstatPlatform()
+    platform._db = group_db
+
+    # Mock the httpx.AsyncClient.get method to capture the request params
+    with patch("chatfilter.scraper.platforms.tgstat.httpx.AsyncClient") as mock_client_class:
+        mock_client = AsyncMock()
+        mock_client_class.return_value.__aenter__.return_value = mock_client
+
+        # Mock successful response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "status": "ok",
+            "response": {
+                "items": [
+                    {"username": "test_channel"},
+                    {"username": "test_chat"},
+                ]
+            },
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_client.get.return_value = mock_response
+
+        # Execute search
+        result = await platform.search("test query")
+
+        # Verify the request was made with peer_type=all
+        mock_client.get.assert_called_once()
+        call_args = mock_client.get.call_args
+
+        # Extract params from the call
+        params = call_args.kwargs["params"]
+        assert "peer_type" in params, "peer_type parameter missing"
+        assert params["peer_type"] == "all", f"Expected peer_type=all, got {params['peer_type']}"
+        assert params["q"] == "test query"
+        assert params["token"] == "test_key_123"
+        assert params["limit"] == 20
+
+        # Verify both refs are extracted
+        assert len(result.refs) == 2
+        assert "@test_channel" in result.refs
+        assert "@test_chat" in result.refs
