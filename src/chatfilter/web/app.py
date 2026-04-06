@@ -216,11 +216,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # DB to load API keys so it can only be injected here, after startup.
     from chatfilter.ai.service import AIService
     from chatfilter.scraper.registry import registry as platform_registry
-    from chatfilter.storage.group_database import GroupDatabase
 
-    scraper_db = GroupDatabase(settings.effective_database_url)
-    ai_service = AIService(scraper_db)
-    platform_registry.configure(ai_service, scraper_db)
+    ai_service = AIService(metrics_db)
+    platform_registry.configure(ai_service, metrics_db)
 
     logger.info("Application startup complete")
 
