@@ -303,9 +303,7 @@ class TestCostMultiplierAtDBLevel:
         billing.reserve(user_id, raw_estimated)
         # settle() applies multiplier internally: 0.05 * 2 = 0.10.
         # Pass raw cost (not pre-multiplied) to settle(), it handles multiplier application.
-        billing.settle(
-            user_id, raw_estimated, raw_estimated, "search", 0, 0, "Search 2x test"
-        )
+        billing.settle(user_id, raw_estimated, raw_estimated, "search", 0, 0, "Search 2x test")
 
         balance_after = billing.get_balance(user_id)
         deducted = balance_before - balance_after
