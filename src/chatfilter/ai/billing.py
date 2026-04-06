@@ -165,6 +165,24 @@ class BillingService:
         """Return True if user has positive balance (> 0)."""
         return self._db.get_balance(user_id) > 0
 
+    def try_start_search(self, user_id: str, estimated_cost: float) -> bool:
+        """Atomically check balance > 0 and deduct estimated_cost to start a search.
+
+        The global cost multiplier is applied automatically to estimated_cost.
+        Returns True if balance was positive and the deduction succeeded,
+        False if balance was zero or negative.
+
+        This replaces the separate check_positive_balance() + reserve() pattern.
+        A single UPDATE ... WHERE ai_balance_usd > 0 prevents the TOCTOU race
+        where two concurrent requests both pass a read-only balance check before
+        either deduction lands.
+
+        Pair with settle() to reconcile estimated vs actual cost after search completes.
+        """
+        return self._db.atomic_check_and_deduct(
+            user_id, min_balance=0.0, initial_deduct=estimated_cost * self._get_multiplier()
+        )
+
     def topup(self, user_id: str, amount_usd: float, admin_description: str) -> float:
         """Add amount_usd to user balance.
 

@@ -316,6 +316,27 @@ class UserDatabase(SQLiteDatabase):
             )
             return new_balance
 
+    def atomic_check_and_deduct(
+        self,
+        user_id: str,
+        min_balance: float = 0.0,
+        initial_deduct: float = 0.0,
+    ) -> bool:
+        """Atomically check balance > min_balance and deduct initial_deduct.
+
+        Executes as a single UPDATE so concurrent requests are serialized at the DB
+        level — unlike a separate SELECT then UPDATE, this prevents TOCTOU races.
+
+        Returns True if the check passed (balance was > min_balance), False if the
+        user had zero or insufficient balance.
+        """
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "UPDATE users SET ai_balance_usd = ai_balance_usd - ? WHERE id = ? AND ai_balance_usd > ?",
+                (initial_deduct, user_id, min_balance),
+            )
+            return cursor.rowcount > 0
+
     def force_charge(
         self,
         user_id: str,

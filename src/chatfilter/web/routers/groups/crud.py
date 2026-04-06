@@ -680,9 +680,6 @@ async def collect_chats(
             billing=billing,
         )
 
-        # Reserve balance atomically BEFORE queuing the task to prevent TOCTOU overdraft.
-        # Concurrent requests will both hit reserve(); the DB enforces the balance check
-        # atomically so only one can succeed if funds are low.
         from chatfilter.scraper.orchestrator import (
             _ESTIMATED_COST_PER_SEARCH,
             get_scraping_progress,
@@ -690,7 +687,14 @@ async def collect_chats(
         )
 
         estimated_cost = _ESTIMATED_COST_PER_SEARCH * max(len(platform_ids), 1)
-        billing.reserve(user_id, estimated_cost)
+
+        # Atomically check balance > 0 AND deduct estimated_cost in a single
+        # UPDATE ... WHERE ai_balance_usd > 0.  This prevents the TOCTOU race
+        # where two concurrent requests both pass a read-only balance check
+        # before either deduction lands.  The orchestrator's settle() call
+        # reconciles estimated vs actual cost after the search completes.
+        if not billing.try_start_search(user_id, estimated_cost):
+            raise InsufficientBalance(f"User {user_id} has insufficient balance")
 
         # Pre-create group with SCRAPING status so we can return the card immediately
         group_id = f"group-{uuid.uuid4().hex[:12]}"
