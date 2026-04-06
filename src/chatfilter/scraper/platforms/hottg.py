@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import logging
-import re
 from urllib.parse import urlencode
 
 import httpx
-from bs4 import BeautifulSoup
 
-from chatfilter.scraper.base import BasePlatform
+from chatfilter.ai.html_parser import extract_telegram_links
+from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
 
 logger = logging.getLogger(__name__)
-
-TGREF_RE = re.compile(r"(?:https?://)?t\.me/([A-Za-z0-9_]+)")
 
 
 class HottgPlatform(BasePlatform):
@@ -26,7 +23,7 @@ class HottgPlatform(BasePlatform):
     needs_api_key = False
     cost_tier = "cheap"
 
-    async def search(self, query: str) -> list[str]:
+    async def search(self, query: str) -> PlatformSearchResult:
         search_url = "https://hottg.com/search?" + urlencode({"q": query})
         headers = {
             "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
@@ -37,18 +34,22 @@ class HottgPlatform(BasePlatform):
                 resp.raise_for_status()
         except Exception:
             logger.warning("hottg: request failed for query=%r", query)
-            return []
+            return PlatformSearchResult()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        refs: set[str] = set()
+        if self._ai_service is None:
+            logger.warning("hottg: AI service not configured, cannot parse results")
+            return PlatformSearchResult()
 
-        for tag in soup.find_all("a", href=True):
-            m = TGREF_RE.search(str(tag["href"]))
-            if m:
-                refs.add(f"@{m.group(1)}")
+        refs, ai_response = await extract_telegram_links(
+            html=resp.text,
+            platform_name=self.name,
+            ai_service=self._ai_service,
+        )
 
-        for text_node in soup.find_all(string=TGREF_RE):
-            for m in TGREF_RE.finditer(str(text_node)):
-                refs.add(f"@{m.group(1)}")
-
-        return list(refs)
+        return PlatformSearchResult(
+            refs=refs,
+            ai_cost=ai_response.cost_usd,
+            ai_model=ai_response.model or None,
+            ai_tokens_in=ai_response.tokens_in,
+            ai_tokens_out=ai_response.tokens_out,
+        )
