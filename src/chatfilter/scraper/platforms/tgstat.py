@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import httpx
 
@@ -61,7 +62,7 @@ class TgstatPlatform(BasePlatform):
         return settings.get("api_key") or None
 
 
-def _parse_refs(data: dict) -> list[str]:
+def _parse_refs(data: dict[str, Any]) -> list[str]:
     """Extract Telegram channel refs from TGStat API response."""
     if data.get("status") != "ok":
         return []
