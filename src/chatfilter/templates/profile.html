@@ -82,11 +82,11 @@
                                 {% elif tx.type == 'platform_request' %}background:#fef3c7;color:#92400e
                                 {% elif tx.type == 'search' %}background:#e0f2fe;color:#0369a1
                                 {% else %}background:var(--muted-bg,#f3f4f6);color:var(--muted-color,#374151){% endif %}">
-                                {% if tx.type == 'query_processing' %}{{ _("Обработка запроса") }}
-                                {% elif tx.type == 'parse_response' %}{{ _("Парсинг ответа") }}
-                                {% elif tx.type == 'platform_request' %}{{ _("Запрос к площадке") }}
-                                {% elif tx.type == 'topup' %}{{ _("Пополнение") }}
-                                {% elif tx.type == 'search' %}{{ _("Поиск") }}
+                                {% if tx.type == 'query_processing' %}{{ _("Query processing") }}
+                                {% elif tx.type == 'parse_response' %}{{ _("Parse response") }}
+                                {% elif tx.type == 'platform_request' %}{{ _("Platform request") }}
+                                {% elif tx.type == 'topup' %}{{ _("Top up") }}
+                                {% elif tx.type == 'search' %}{{ _("Search") }}
                                 {% else %}{{ tx.type }}{% endif %}
                             </span>
                         </td>
