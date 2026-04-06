@@ -59,8 +59,6 @@ class _FakePlatformNeedsKey(BasePlatform):
 
 def _make_billing(balance: float = 10.0) -> MagicMock:
     billing = MagicMock()
-    billing.reserve.return_value = balance
-    billing.settle.return_value = balance
     billing.check_balance.return_value = balance > 0
     return billing
 

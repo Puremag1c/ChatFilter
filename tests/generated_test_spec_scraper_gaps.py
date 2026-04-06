@@ -125,7 +125,7 @@ class TestSearchBalanceCheck:
 
     @pytest.mark.asyncio
     async def test_zero_balance_raises_insufficient_balance(self, group_db, tmp_path):
-        """User with zero balance: orchestrator.reserve() raises InsufficientBalance."""
+        """User with zero balance: search raises InsufficientBalance."""
         user_db = make_user_db(tmp_path / "broke.db")
         user_id = user_db.create_user("broke_user", "password123")
         # Set balance to 0.0 explicitly (server_default is 1.0)
@@ -140,7 +140,7 @@ class TestSearchBalanceCheck:
 
         orch = SearchOrchestrator(reg, qgen, group_db, billing)
 
-        # Orchestrator should raise InsufficientBalance when reserve() fails
+        # Orchestrator should raise InsufficientBalance when balance check fails
         with pytest.raises(InsufficientBalance):
             await orch.search(
                 user_query="crypto channels",
