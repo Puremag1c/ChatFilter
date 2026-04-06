@@ -2987,6 +2987,10 @@ msgstr "{minutes}м {seconds}с"
 msgid "{hours}h {minutes}m"
 msgstr "{hours}ч {minutes}м"
 
+#: src/chatfilter/templates/partials/catalog_table.html
+msgid "Chat"
+msgstr "Чат"
+
 #: src/chatfilter/templates/admin.html:33
 msgid "username"
 msgstr "имя пользователя"

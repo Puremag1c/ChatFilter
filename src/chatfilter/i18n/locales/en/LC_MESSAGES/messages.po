@@ -2608,6 +2608,10 @@ msgstr "{minutes}m {seconds}s"
 msgid "{hours}h {minutes}m"
 msgstr "{hours}h {minutes}m"
 
+#: src/chatfilter/templates/partials/catalog_table.html
+msgid "Chat"
+msgstr "Chat"
+
 #~ msgid "Shows your internet connection status"
 #~ msgstr "Shows your internet connection status"
 

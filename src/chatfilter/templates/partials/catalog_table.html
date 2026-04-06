@@ -46,6 +46,11 @@
                     'pending': 'pending',
                     'dead': 'dead'
                 }.get(chat.chat_type, chat.chat_type) %}
+                {% if chat.chat_type in ('channel_comments', 'channel_no_comments') %}
+                <span class="badge badge--category-channel">{{ _("Channel") }}</span>
+                {% elif chat.chat_type in ('group', 'forum') %}
+                <span class="badge badge--category-chat">{{ _("Chat") }}</span>
+                {% endif %}
                 <span class="badge badge--type-{{ type_class }}">{{ type_display }}</span>
             </td>
             <td class="num">{{ chat.subscribers }}</td>

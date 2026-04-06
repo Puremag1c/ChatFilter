@@ -4287,6 +4287,18 @@ body:has(.update-notification.show) {
     color: #fff;
 }
 
+.catalog-table .badge--category-channel {
+    background: var(--primary, #007aff);
+    color: #fff;
+    font-weight: 600;
+}
+
+.catalog-table .badge--category-chat {
+    background: var(--success, #34c759);
+    color: #fff;
+    font-weight: 600;
+}
+
 .catalog-table .badge--type-group {
     background: var(--success, #34c759);
     color: #fff;
