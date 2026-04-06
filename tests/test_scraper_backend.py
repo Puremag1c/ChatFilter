@@ -150,7 +150,13 @@ def test_normalize_ref(raw, expected):
 @pytest.mark.asyncio
 async def test_query_generator_uses_ai():
     ai = AsyncMock()
-    response = MagicMock(content='["crypto channels", "крипто каналы"]', cost_usd=0.001, model="gpt-4o-mini", tokens_in=50, tokens_out=20)
+    response = MagicMock(
+        content='["crypto channels", "крипто каналы"]',
+        cost_usd=0.001,
+        model="gpt-4o-mini",
+        tokens_in=50,
+        tokens_out=20,
+    )
     ai.complete.return_value = response
     gen = QueryGenerator(ai)
     queries, cost, fallback, model, tokens_in, tokens_out = await gen.generate("crypto")
@@ -174,7 +180,9 @@ async def test_query_generator_fallback_on_ai_error():
 @pytest.mark.asyncio
 async def test_query_generator_fallback_on_empty_response():
     ai = AsyncMock()
-    response = MagicMock(content="[]", cost_usd=0.0, model="gpt-4o-mini", tokens_in=50, tokens_out=0)
+    response = MagicMock(
+        content="[]", cost_usd=0.0, model="gpt-4o-mini", tokens_in=50, tokens_out=0
+    )
     ai.complete.return_value = response
     gen = QueryGenerator(ai)
     queries, cost, fallback, model, tokens_in, tokens_out = await gen.generate("some query")

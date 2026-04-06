@@ -80,11 +80,13 @@
                                 {% elif tx.type == 'query_processing' %}background:#dbeafe;color:#1e40af
                                 {% elif tx.type == 'parse_response' %}background:#ede9fe;color:#5b21b6
                                 {% elif tx.type == 'platform_request' %}background:#fef3c7;color:#92400e
+                                {% elif tx.type == 'search' %}background:#e0f2fe;color:#0369a1
                                 {% else %}background:var(--muted-bg,#f3f4f6);color:var(--muted-color,#374151){% endif %}">
-                                {% if tx.type == 'query_processing' %}{{ _("Query") }}
-                                {% elif tx.type == 'parse_response' %}{{ _("Parsing") }}
-                                {% elif tx.type == 'platform_request' %}{{ _("Platform") }}
-                                {% elif tx.type == 'topup' %}{{ _("Topup") }}
+                                {% if tx.type == 'query_processing' %}{{ _("Обработка запроса") }}
+                                {% elif tx.type == 'parse_response' %}{{ _("Парсинг ответа") }}
+                                {% elif tx.type == 'platform_request' %}{{ _("Запрос к площадке") }}
+                                {% elif tx.type == 'topup' %}{{ _("Пополнение") }}
+                                {% elif tx.type == 'search' %}{{ _("Поиск") }}
                                 {% else %}{{ tx.type }}{% endif %}
                             </span>
                         </td>
@@ -123,14 +125,7 @@
                                     <span style="font-weight:500">{{ desc or "—" }}</span>
                                 {% endif %}
                             {% elif tx.type == 'search' %}
-                                {% set desc = tx.description or "" %}
-                                {% if "platforms" in desc and "chats" in desc %}
-                                    {% set parts = desc.replace("Search: ", "").split(", ") %}
-                                    {{ _("Platforms") }}: {{ parts[0] }},
-                                    {{ _("Chats found") }}: {{ parts[1].split(" ")[0] }}
-                                {% else %}
-                                    {{ desc or "—" }}
-                                {% endif %}
+                                {{ tx.description or "—" }}
                             {% else %}
                                 {{ tx.description or "—" }}
                             {% endif %}

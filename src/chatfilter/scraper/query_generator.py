@@ -47,9 +47,23 @@ class QueryGenerator:
             response = await self._ai.complete(prompt, user_id=user_id)
             queries = _parse_json_array(response.content)
             if queries:
-                return queries, response.cost_usd, False, response.model, response.tokens_in, response.tokens_out
+                return (
+                    queries,
+                    response.cost_usd,
+                    False,
+                    response.model,
+                    response.tokens_in,
+                    response.tokens_out,
+                )
             logger.warning("AI returned empty query list for input: %r", user_text)
-            return [user_text], response.cost_usd, True, response.model, response.tokens_in, response.tokens_out
+            return (
+                [user_text],
+                response.cost_usd,
+                True,
+                response.model,
+                response.tokens_in,
+                response.tokens_out,
+            )
         except Exception:
             logger.exception("AI query generation failed for input: %r", user_text)
 

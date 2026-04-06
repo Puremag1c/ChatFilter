@@ -147,9 +147,14 @@ class SearchOrchestrator:
             )
 
             # 1. Generate search queries via AI
-            queries, ai_cost, ai_fallback, ai_model, ai_tokens_in, ai_tokens_out = (
-                await self._query_gen.generate(user_query, user_id=user_id)
-            )
+            (
+                queries,
+                ai_cost,
+                ai_fallback,
+                ai_model,
+                ai_tokens_in,
+                ai_tokens_out,
+            ) = await self._query_gen.generate(user_query, user_id=user_id)
             logger.info(
                 "Generated %d queries for: %r (fallback: %s)", len(queries), user_query, ai_fallback
             )
@@ -157,8 +162,12 @@ class SearchOrchestrator:
             # Charge for query generation
             if ai_cost > 0:
                 self._billing.force_charge(
-                    user_id, ai_cost, "query_processing",
-                    ai_model, ai_tokens_in, ai_tokens_out,
+                    user_id,
+                    ai_cost,
+                    "query_processing",
+                    ai_model,
+                    ai_tokens_in,
+                    ai_tokens_out,
                     "Обработка запроса",
                 )
 
@@ -344,8 +353,12 @@ class SearchOrchestrator:
         # Charge for AI parsing cost if platform used AI
         if stats.ai_cost > 0:
             self._billing.force_charge(
-                user_id, stats.ai_cost, "parse_response",
-                stats.ai_model, stats.ai_tokens_in, stats.ai_tokens_out,
+                user_id,
+                stats.ai_cost,
+                "parse_response",
+                stats.ai_model,
+                stats.ai_tokens_in,
+                stats.ai_tokens_out,
                 f"Парсинг: {platform.name}",
             )
 
@@ -356,8 +369,12 @@ class SearchOrchestrator:
                 platform_cost = stats.queries_run * setting["cost_per_request_usd"]
                 if platform_cost > 0:
                     self._billing.force_charge(
-                        user_id, platform_cost, "platform_request",
-                        None, 0, 0,
+                        user_id,
+                        platform_cost,
+                        "platform_request",
+                        None,
+                        0,
+                        0,
                         f"Запрос: {platform.name}",
                     )
 

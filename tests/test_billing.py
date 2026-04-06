@@ -212,9 +212,7 @@ class TestForceCharge:
         self, billing: BillingService, user_id: str
     ) -> None:
         billing.topup(user_id, 1.0, "load")
-        billing.force_charge(
-            user_id, 0.05, "query_processing", "gpt-4", 100, 200, "AI query"
-        )
+        billing.force_charge(user_id, 0.05, "query_processing", "gpt-4", 100, 200, "AI query")
         txns = billing.get_transactions(user_id)
         charge_txn = next(t for t in txns if t["type"] == "query_processing")
         assert charge_txn["amount_usd"] == pytest.approx(-0.05)
@@ -224,9 +222,7 @@ class TestForceCharge:
         assert charge_txn["tokens_out"] == 200
         assert charge_txn["description"] == "AI query"
 
-    def test_force_charge_parse_response_type(
-        self, billing: BillingService, user_id: str
-    ) -> None:
+    def test_force_charge_parse_response_type(self, billing: BillingService, user_id: str) -> None:
         billing.topup(user_id, 1.0, "load")
         billing.force_charge(
             user_id, 0.10, "parse_response", "gpt-4", 500, 300, "Parse HTML response"
@@ -241,9 +237,7 @@ class TestForceCharge:
     ) -> None:
         """platform_request charges have no model/tokens, just cost."""
         billing.topup(user_id, 1.0, "load")
-        billing.force_charge(
-            user_id, 0.02, "platform_request", None, 0, 0, "HTTP request to Slack"
-        )
+        billing.force_charge(user_id, 0.02, "platform_request", None, 0, 0, "HTTP request to Slack")
         txns = billing.get_transactions(user_id)
         txn = next(t for t in txns if t["type"] == "platform_request")
         assert txn["amount_usd"] == pytest.approx(-0.02)
@@ -251,9 +245,7 @@ class TestForceCharge:
         assert txn["tokens_in"] == 0
         assert txn["tokens_out"] == 0
 
-    def test_force_charge_zero_cost_is_allowed(
-        self, billing: BillingService, user_id: str
-    ) -> None:
+    def test_force_charge_zero_cost_is_allowed(self, billing: BillingService, user_id: str) -> None:
         """Zero-cost operations (e.g., cached responses) should be recordable."""
         billing.topup(user_id, 1.0, "load")
         new_balance = billing.force_charge(
@@ -265,9 +257,7 @@ class TestForceCharge:
 
 
 class TestChargePerStepFlow:
-    def test_check_then_force_charge_workflow(
-        self, billing: BillingService, user_id: str
-    ) -> None:
+    def test_check_then_force_charge_workflow(self, billing: BillingService, user_id: str) -> None:
         """Typical charge-per-step flow: check > 0, then force_charge after each step."""
         billing.topup(user_id, 0.50, "load")
 
