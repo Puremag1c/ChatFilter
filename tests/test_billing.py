@@ -160,122 +160,160 @@ class TestGetTransactions:
         assert len(txns) == 5
 
 
-class TestReserveAndSettle:
-    def test_reserve_deducts_balance(self, billing: BillingService, user_id: str) -> None:
-        billing.topup(user_id, 1.0, "load")
-        new_balance = billing.reserve(user_id, 0.60)
-        assert new_balance == pytest.approx(0.40)
-        assert billing.get_balance(user_id) == pytest.approx(0.40)
-
-    def test_reserve_raises_when_insufficient(self, billing: BillingService, user_id: str) -> None:
-        billing.topup(user_id, 0.50, "load")
-        with pytest.raises(InsufficientBalance):
-            billing.reserve(user_id, 0.60)
-
-    def test_reserve_does_not_modify_balance_on_insufficient(
+class TestCheckPositiveBalance:
+    def test_check_positive_balance_false_when_zero(
         self, billing: BillingService, user_id: str
     ) -> None:
-        billing.topup(user_id, 0.50, "load")
-        with pytest.raises(InsufficientBalance):
-            billing.reserve(user_id, 0.60)
-        assert billing.get_balance(user_id) == pytest.approx(0.50)
+        assert billing.check_positive_balance(user_id) is False
 
-    def test_settle_refunds_when_actual_less_than_reserved(
+    def test_check_positive_balance_false_when_negative(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        billing._db.update_balance(user_id, -1.0)
+        assert billing.check_positive_balance(user_id) is False
+
+    def test_check_positive_balance_true_when_positive(
         self, billing: BillingService, user_id: str
     ) -> None:
         billing.topup(user_id, 1.0, "load")
-        billing.reserve(user_id, 0.80)
-        new_balance = billing.settle(user_id, 0.80, 0.50, "gpt-4", 100, 200, "AI call")
-        assert new_balance == pytest.approx(0.50)  # 1.0 - 0.80 + 0.30 refund
-        assert billing.get_balance(user_id) == pytest.approx(0.50)
+        assert billing.check_positive_balance(user_id) is True
 
-    def test_settle_charges_extra_when_actual_greater_than_reserved(
+
+class TestForceCharge:
+    def test_force_charge_deducts_balance(self, billing: BillingService, user_id: str) -> None:
+        billing.topup(user_id, 1.0, "load")
+        new_balance = billing.force_charge(
+            user_id, 0.05, "query_processing", "gpt-4", 100, 200, "AI query"
+        )
+        assert new_balance == pytest.approx(0.95)
+        assert billing.get_balance(user_id) == pytest.approx(0.95)
+
+    def test_force_charge_allows_negative_balance(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        """force_charge allows balance to go negative (no check)."""
+        billing.topup(user_id, 0.03, "load")
+        new_balance = billing.force_charge(
+            user_id, 0.10, "query_processing", "gpt-4", 100, 200, "AI query"
+        )
+        assert new_balance == pytest.approx(-0.07)
+        assert billing.get_balance(user_id) == pytest.approx(-0.07)
+
+    def test_force_charge_multiple_times_accumulates(
         self, billing: BillingService, user_id: str
     ) -> None:
         billing.topup(user_id, 1.0, "load")
-        billing.reserve(user_id, 0.50)
-        new_balance = billing.settle(user_id, 0.50, 0.70, "gpt-4", 100, 200, "AI call")
-        assert new_balance == pytest.approx(0.30)  # 1.0 - 0.50 - 0.20 extra
+        billing.force_charge(user_id, 0.30, "query_processing", "gpt-4", 100, 100, "step 1")
+        billing.force_charge(user_id, 0.40, "parse_response", "gpt-4", 200, 200, "step 2")
+        billing.force_charge(user_id, 0.50, "platform_request", None, 0, 0, "step 3")
+        assert billing.get_balance(user_id) == pytest.approx(-0.20)
 
-    def test_settle_records_transaction_for_actual_cost(
+    def test_force_charge_records_transaction_with_tx_type(
         self, billing: BillingService, user_id: str
     ) -> None:
         billing.topup(user_id, 1.0, "load")
-        billing.reserve(user_id, 0.80)
-        billing.settle(user_id, 0.80, 0.50, "gpt-4", 100, 200, "AI call")
+        billing.force_charge(
+            user_id, 0.05, "query_processing", "gpt-4", 100, 200, "AI query"
+        )
         txns = billing.get_transactions(user_id)
-        charge_txn = next(t for t in txns if t["type"] == "charge")
-        assert charge_txn["amount_usd"] == pytest.approx(-0.50)
-        assert charge_txn["balance_after"] == pytest.approx(0.50)
+        charge_txn = next(t for t in txns if t["type"] == "query_processing")
+        assert charge_txn["amount_usd"] == pytest.approx(-0.05)
+        assert charge_txn["balance_after"] == pytest.approx(0.95)
+        assert charge_txn["model"] == "gpt-4"
+        assert charge_txn["tokens_in"] == 100
+        assert charge_txn["tokens_out"] == 200
+        assert charge_txn["description"] == "AI query"
 
-    def test_concurrent_reserves_cannot_overdraft(
+    def test_force_charge_parse_response_type(
         self, billing: BillingService, user_id: str
     ) -> None:
-        """Two concurrent reserves where combined cost exceeds balance.
-
-        Only the first reserve succeeds; the second raises InsufficientBalance.
-        Balance must never go below 0.
-        """
         billing.topup(user_id, 1.0, "load")
+        billing.force_charge(
+            user_id, 0.10, "parse_response", "gpt-4", 500, 300, "Parse HTML response"
+        )
+        txns = billing.get_transactions(user_id)
+        txn = next(t for t in txns if t["type"] == "parse_response")
+        assert txn["amount_usd"] == pytest.approx(-0.10)
+        assert txn["model"] == "gpt-4"
 
-        # Reserve 0.70 — succeeds, balance = 0.30
-        balance_after_first = billing.reserve(user_id, 0.70)
-        assert balance_after_first == pytest.approx(0.30)
-
-        # Reserve 0.70 again — fails, balance is only 0.30
-        with pytest.raises(InsufficientBalance):
-            billing.reserve(user_id, 0.70)
-
-        # Balance must not have gone below 0
-        assert billing.get_balance(user_id) >= 0.0
-
-    def test_settle_caps_extra_charge_at_zero_when_balance_exhausted(
+    def test_force_charge_platform_request_type(
         self, billing: BillingService, user_id: str
     ) -> None:
-        """If actual > reserved and balance is now insufficient, cap at 0."""
+        """platform_request charges have no model/tokens, just cost."""
+        billing.topup(user_id, 1.0, "load")
+        billing.force_charge(
+            user_id, 0.02, "platform_request", None, 0, 0, "HTTP request to Slack"
+        )
+        txns = billing.get_transactions(user_id)
+        txn = next(t for t in txns if t["type"] == "platform_request")
+        assert txn["amount_usd"] == pytest.approx(-0.02)
+        assert txn["model"] is None
+        assert txn["tokens_in"] == 0
+        assert txn["tokens_out"] == 0
+
+    def test_force_charge_zero_cost_is_allowed(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        """Zero-cost operations (e.g., cached responses) should be recordable."""
+        billing.topup(user_id, 1.0, "load")
+        new_balance = billing.force_charge(
+            user_id, 0.0, "query_processing", "gpt-4", 0, 0, "Cached response"
+        )
+        assert new_balance == pytest.approx(1.0)
+        txns = billing.get_transactions(user_id)
+        assert len(txns) == 2  # topup + force_charge
+
+
+class TestChargePerStepFlow:
+    def test_check_then_force_charge_workflow(
+        self, billing: BillingService, user_id: str
+    ) -> None:
+        """Typical charge-per-step flow: check > 0, then force_charge after each step."""
         billing.topup(user_id, 0.50, "load")
-        billing.reserve(user_id, 0.50)  # balance = 0
-        # actual > reserved but balance is already 0 — should not go negative
-        new_balance = billing.settle(user_id, 0.50, 0.80, "gpt-4", 100, 200, "AI call")
-        assert new_balance >= 0.0
 
-    def test_settle_with_zero_actual_cost_fully_refunds(
+        # Step 1: Check balance and process query
+        assert billing.check_positive_balance(user_id) is True
+        billing.force_charge(user_id, 0.10, "query_processing", "gpt-4", 100, 100, "step 1")
+
+        # Step 2: Check balance and parse response
+        assert billing.check_positive_balance(user_id) is True
+        billing.force_charge(user_id, 0.15, "parse_response", "gpt-4", 200, 200, "step 2")
+
+        # Step 3: Check balance and platform request (now negative, but check passed before it)
+        assert billing.check_positive_balance(user_id) is True
+        billing.force_charge(user_id, 0.30, "platform_request", None, 0, 0, "step 3")
+
+        # Balance is now negative
+        assert billing.get_balance(user_id) == pytest.approx(-0.05)
+        assert billing.check_positive_balance(user_id) is False
+
+        # All steps recorded with correct types
+        txns = billing.get_transactions(user_id)
+        assert len(txns) == 4  # topup + 3 charges
+        types = [t["type"] for t in txns if t["type"] != "topup"]
+        assert "query_processing" in types
+        assert "parse_response" in types
+        assert "platform_request" in types
+
+    def test_balance_blocked_when_zero_or_negative(
         self, billing: BillingService, user_id: str
     ) -> None:
-        """Regression: reserve + settle(actual=0) must restore original balance.
+        """Once balance <= 0, subsequent operations blocked."""
+        billing.topup(user_id, 0.10, "load")
 
-        When all platforms are stubs and AI falls back, actual_cost=0.
-        Balance must be unchanged and transaction must show $0 cost.
-        """
-        billing.topup(user_id, 1.0, "load")
-        original_balance = billing.get_balance(user_id)
+        # Use all balance
+        billing.force_charge(user_id, 0.10, "query_processing", "gpt-4", 100, 100, "step 1")
+        assert billing.get_balance(user_id) == pytest.approx(0.0)
+        assert billing.check_positive_balance(user_id) is False
 
-        billing.reserve(user_id, 0.03)
-        assert billing.get_balance(user_id) == pytest.approx(0.97)
+        # Try next operation — should be blocked by check
+        if not billing.check_positive_balance(user_id):
+            # In real app, orchestrator would raise InsufficientBalance here
+            with pytest.raises(InsufficientBalance):
+                billing.charge(user_id, 0.01, "gpt-4", 10, 10, "next step")
 
-        new_balance = billing.settle(user_id, 0.03, 0.0, "search", 0, 0, "Search: stubs")
-        assert new_balance == pytest.approx(original_balance)
-        assert billing.get_balance(user_id) == pytest.approx(original_balance)
-
-        txns = billing.get_transactions(user_id)
-        search_txn = next(t for t in txns if t["type"] == "search")
-        assert search_txn["amount_usd"] == pytest.approx(0.0)
-        assert search_txn["balance_after"] == pytest.approx(original_balance)
-
-    def test_settle_with_zero_actual_cost_multiple_searches(
-        self, billing: BillingService, user_id: str
-    ) -> None:
-        """Regression: multiple sequential reserve+settle(actual=0) must not leak balance."""
-        billing.topup(user_id, 1.0, "load")
-        original_balance = billing.get_balance(user_id)
-
-        for _ in range(3):
-            billing.reserve(user_id, 0.03)
-            billing.settle(user_id, 0.03, 0.0, "search", 0, 0, "Search: stubs")
-
-        assert billing.get_balance(user_id) == pytest.approx(original_balance)
-        txns = billing.get_transactions(user_id)
-        search_txns = [t for t in txns if t["type"] == "search"]
-        assert len(search_txns) == 3
-        # Last settle should show original balance restored
-        assert search_txns[0]["balance_after"] == pytest.approx(original_balance)
+        # force_charge always succeeds even when balance is <= 0
+        new_balance = billing.force_charge(
+            user_id, 0.05, "parse_response", "gpt-4", 100, 100, "step 2"
+        )
+        assert new_balance == pytest.approx(-0.05)
