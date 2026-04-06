@@ -651,11 +651,11 @@ async def test_orchestrator_cost_multiplier_applied(group_db):
         group_name="Cost Test",
     )
 
-    # Verify force_charge was called with the AI cost for query processing
+    # Verify force_charge was called with the AI cost for query_processing
     billing.force_charge.assert_called()
 
-    # Get the force_charge call arguments to verify cost is passed through
-    call_args = billing.force_charge.call_args
-    # force_charge(user_id, amount, tx_type, model, tokens_in, tokens_out, description)
-    actual_cost_arg = call_args[0][1]  # 2nd positional argument
+    # Find the query_processing call among all force_charge calls
+    qp_calls = [c for c in billing.force_charge.call_args_list if c[0][2] == "query_processing"]
+    assert qp_calls, "No query_processing call found"
+    actual_cost_arg = qp_calls[0][0][1]  # 2nd positional argument
     assert actual_cost_arg == ai_cost, f"Expected {ai_cost}, got {actual_cost_arg}"

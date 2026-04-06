@@ -159,17 +159,16 @@ class SearchOrchestrator:
                 "Generated %d queries for: %r (fallback: %s)", len(queries), user_query, ai_fallback
             )
 
-            # Charge for query generation
-            if ai_cost > 0:
-                self._billing.force_charge(
-                    user_id,
-                    ai_cost,
-                    "query_processing",
-                    ai_model,
-                    ai_tokens_in,
-                    ai_tokens_out,
-                    "Query processing",
-                )
+            # Record query generation transaction (always, even if cost is 0)
+            self._billing.force_charge(
+                user_id,
+                ai_cost,
+                "query_processing",
+                ai_model,
+                ai_tokens_in,
+                ai_tokens_out,
+                "Query processing",
+            )
 
             # 2. Resolve platforms
             platforms = self._resolve_platforms(platform_ids)
@@ -350,33 +349,32 @@ class SearchOrchestrator:
         if stats.queries_run == 0 and not all_refs:
             stats.error = "All queries failed"
 
-        # Charge for AI parsing cost if platform used AI
-        if stats.ai_cost > 0:
-            self._billing.force_charge(
-                user_id,
-                stats.ai_cost,
-                "parse_response",
-                stats.ai_model,
-                stats.ai_tokens_in,
-                stats.ai_tokens_out,
-                f"Parsing: {platform.name}",
-            )
+        # Record parse_response transaction (always, even if AI cost is 0)
+        self._billing.force_charge(
+            user_id,
+            stats.ai_cost,
+            "parse_response",
+            stats.ai_model,
+            stats.ai_tokens_in,
+            stats.ai_tokens_out,
+            f"Parsing: {platform.name}",
+        )
 
-        # Charge for platform request cost
+        # Record platform_request transaction (always, even if cost is 0)
+        platform_cost = 0.0
         if stats.queries_run > 0:
             setting = self._db.get_platform_setting(stats.platform_id)
             if setting:
                 platform_cost = stats.queries_run * setting["cost_per_request_usd"]
-                if platform_cost > 0:
-                    self._billing.force_charge(
-                        user_id,
-                        platform_cost,
-                        "platform_request",
-                        None,
-                        0,
-                        0,
-                        f"Request: {platform.name}",
-                    )
+        self._billing.force_charge(
+            user_id,
+            platform_cost,
+            "platform_request",
+            None,
+            0,
+            0,
+            f"Request: {platform.name}",
+        )
 
         return all_refs, stats
 
