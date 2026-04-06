@@ -57,6 +57,14 @@ def _build_scraping_toast(result: dict[str, Any]) -> dict[str, Any]:
             "duration": 8000,
         }
 
+    # AI completely broken: query gen failed AND no results were parsed from any platform
+    if ai_fallback and total == 0 and platforms > 0:
+        return {
+            "type": "error",
+            "message": "AI-модель недоступна или неверно настроена — результаты поиска не распознаны. Проверьте настройки модели.",
+            "duration": 10000,
+        }
+
     parts = [f"Сбор завершён: найдено {total} чатов с {platforms} площадок"]
     if ai_fallback:
         parts.append("AI-генерация запросов не сработала, использован прямой поиск")

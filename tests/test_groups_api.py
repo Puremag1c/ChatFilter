@@ -1100,3 +1100,68 @@ class TestScrapingProgressToast:
         assert resp.status_code == 200
         assert "HX-Retarget" not in resp.headers
         assert "HX-Trigger" not in resp.headers
+
+    def test_ai_broken_toast_when_fallback_and_zero_results(
+        self,
+        fastapi_test_client: TestClient,
+        test_settings: object,
+    ) -> None:
+        """When AI model is broken (ai_fallback=True) and no results parsed, show clear error toast.
+
+        Regression for ChatFilter-l1h: invalid AI model caused silent 0 results;
+        toast must distinguish 'AI broken' from 'legitimately no chats found'.
+        """
+        import json
+        import uuid
+        from datetime import UTC, datetime
+
+        from chatfilter.models.group import GroupSettings, GroupStatus
+        from chatfilter.scraper.orchestrator import store_scraping_result
+        from chatfilter.storage.group_database import GroupDatabase
+        from chatfilter.storage.user_database import get_user_db
+
+        db_url = test_settings.effective_database_url  # type: ignore[attr-defined]
+        group_db = GroupDatabase(db_url)
+        user_db = get_user_db(db_url)
+
+        user = user_db.get_user_by_username("testuser")
+        assert user
+        user_id = user["id"]
+
+        group_id = f"group-{uuid.uuid4().hex[:12]}"
+        now = datetime.now(UTC)
+        group_db.save_group(
+            group_id=group_id,
+            name="AI Broken Test Group",
+            settings=GroupSettings().model_dump(),
+            status=GroupStatus.PENDING.value,
+            created_at=now,
+            updated_at=now,
+            user_id=user_id,
+        )
+
+        # AI model is misconfigured: query gen fell back + 0 results parsed
+        store_scraping_result(
+            group_id,
+            {
+                "total_chats": 0,
+                "platforms_searched": 2,
+                "platforms_total": 2,
+                "ai_fallback": True,
+                "all_failed": False,
+            },
+        )
+
+        resp = fastapi_test_client.get(f"/api/groups/{group_id}/scraping-progress")
+        assert resp.status_code == 200
+
+        hx_trigger = resp.headers.get("HX-Trigger", "")
+        assert hx_trigger, "HX-Trigger header must be present"
+        trigger = json.loads(hx_trigger)
+        assert "showToast" in trigger
+        toast = trigger["showToast"]
+        # Must be an error (not warning/success) and mention AI/model
+        assert toast["type"] == "error", f"Expected error toast, got: {toast}"
+        assert "модел" in toast["message"].lower() or "ai" in toast["message"].lower(), (
+            f"Toast message must mention model/AI issue: {toast['message']}"
+        )
