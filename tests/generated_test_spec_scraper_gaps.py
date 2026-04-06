@@ -72,7 +72,9 @@ class TestAiTransactionTypeSearch:
         user_id = db.create_user("searcher", "password123")
 
         billing.topup(user_id, 5.0, "initial load")
-        billing.force_charge(user_id, 0.05, "search", "search", 0, 0, "Search: 3 platforms, 12 chats")
+        billing.force_charge(
+            user_id, 0.05, "search", "search", 0, 0, "Search: 3 platforms, 12 chats"
+        )
 
         txns = billing.get_transactions(user_id)
         charge_txns = [t for t in txns if t["type"] != "topup"]
