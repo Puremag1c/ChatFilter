@@ -10,6 +10,7 @@ import asyncio
 import logging
 import re
 from functools import partial
+from urllib.parse import urlencode
 
 from bs4 import BeautifulSoup
 from curl_cffi import requests as cf_requests
@@ -47,7 +48,7 @@ class TelemetrPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> list[str]:
-        search_url = f"https://telemetr.io/en/channels?channel={query}&page=1"
+        search_url = "https://telemetr.io/en/channels?" + urlencode({"channel": query, "page": 1})
         try:
             loop = asyncio.get_running_loop()
             resp = await loop.run_in_executor(

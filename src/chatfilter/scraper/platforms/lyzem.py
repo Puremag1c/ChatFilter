@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import urlencode
 
 import httpx
 from bs4 import BeautifulSoup
@@ -26,7 +27,7 @@ class LyzemPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> list[str]:
-        search_url = f"https://lyzem.com/search?q={query}&lang=all"
+        search_url = "https://lyzem.com/search?" + urlencode({"q": query, "lang": "all"})
         headers = {
             "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
         }

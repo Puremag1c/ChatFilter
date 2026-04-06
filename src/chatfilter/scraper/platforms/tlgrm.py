@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import quote
 
 import httpx
 from bs4 import BeautifulSoup
@@ -26,7 +27,7 @@ class TlgrmPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> list[str]:
-        search_url = f"https://tlgrm.ru/channels/search/{query}"
+        search_url = "https://tlgrm.ru/channels/search/" + quote(query, safe="")
         headers = {
             "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
         }

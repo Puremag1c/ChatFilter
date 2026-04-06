@@ -10,6 +10,7 @@ import asyncio
 import logging
 import re
 from functools import partial
+from urllib.parse import urlencode
 
 from bs4 import BeautifulSoup
 from curl_cffi import requests as cf_requests
@@ -32,7 +33,7 @@ class TeletegPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> list[str]:
-        search_url = f"https://teleteg.com/search-results/?query={query}"
+        search_url = "https://teleteg.com/search-results/?" + urlencode({"query": query})
         try:
             loop = asyncio.get_running_loop()
             resp = await loop.run_in_executor(
