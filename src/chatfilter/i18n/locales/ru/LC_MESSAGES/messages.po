@@ -717,7 +717,7 @@ msgstr "Запрос к площадке"
 
 #: src/chatfilter/templates/partials/admin_user_row.html:33
 #: src/chatfilter/templates/profile.html:88
-msgid "Top up"
+msgid "Deposit"
 msgstr "Пополнение"
 
 #: src/chatfilter/templates/profile.html:154

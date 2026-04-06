@@ -48,11 +48,11 @@ class BasePlatform(ABC):
         self._db = db
 
     @abstractmethod
-    async def search(self, query: str) -> PlatformSearchResult:
+    async def search(self, query: str) -> list[str]:
         """Search for Telegram chats matching query.
 
         Returns:
-            PlatformSearchResult containing refs and AI cost metrics.
+            List of chat_ref strings (e.g. '@channel', 't.me/channel').
         """
 
     async def is_available(self) -> bool:

@@ -168,7 +168,7 @@ class SearchOrchestrator:
                     ai_model,
                     ai_tokens_in,
                     ai_tokens_out,
-                    "Обработка запроса",
+                    "Query processing",
                 )
 
             # 2. Resolve platforms
@@ -359,7 +359,7 @@ class SearchOrchestrator:
                 stats.ai_model,
                 stats.ai_tokens_in,
                 stats.ai_tokens_out,
-                f"Парсинг: {platform.name}",
+                f"Parsing: {platform.name}",
             )
 
         # Charge for platform request cost
@@ -375,7 +375,7 @@ class SearchOrchestrator:
                         None,
                         0,
                         0,
-                        f"Запрос: {platform.name}",
+                        f"Request: {platform.name}",
                     )
 
         return all_refs, stats

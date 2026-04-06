@@ -729,8 +729,8 @@ msgstr ""
 
 #: src/chatfilter/templates/partials/admin_user_row.html:33
 #: src/chatfilter/templates/profile.html:88
-msgid "Top up"
-msgstr ""
+msgid "Deposit"
+msgstr "Deposit"
 
 #: src/chatfilter/templates/profile.html:154
 msgid "No AI transactions yet."
