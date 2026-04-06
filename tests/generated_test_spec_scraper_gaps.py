@@ -5,6 +5,7 @@ Gaps covered:
 2. Balance check before search: orchestrator raises InsufficientBalance when balance is 0
 3. Platform spec completeness: all 12 platforms have required SPEC attributes
 4. Cost multiplier correctly applied to search billing at DB level
+5. TGStat platform makes a real HTTP request when API key is configured
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import contextlib
 import importlib
 import pkgutil
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -335,3 +336,84 @@ class TestCostMultiplierAtDBLevel:
         assert deducted == pytest.approx(0.05, abs=1e-6), (
             f"Expected $0.05 deducted with 1x multiplier, got ${deducted:.4f}"
         )
+
+
+# ---------------------------------------------------------------------------
+# GAP 5: TGStat platform makes a real HTTP request when API key is configured
+# ---------------------------------------------------------------------------
+
+
+class TestTgstatRealApiImplementation:
+    """SPEC Must Have #3: TGStat API — real GET to api.tgstat.ru/channels/search."""
+
+    @pytest.mark.asyncio
+    async def test_tgstat_has_real_api_implementation(self, tmp_path):
+        """tgstat.py makes a real GET to api.tgstat.ru/channels/search when api_key is set."""
+        from chatfilter.scraper.platforms.tgstat import TgstatPlatform
+        from tests.db_helpers import make_group_db
+
+        db = make_group_db(tmp_path / "tgstat_test.db")
+        db.save_platform_setting("tgstat", api_key="test-api-key", cost=0.001, enabled=True)
+
+        platform = TgstatPlatform()
+        platform._db = db
+
+        fake_response = {
+            "status": "ok",
+            "response": {
+                "count": 2,
+                "total_count": 2,
+                "items": [
+                    {"id": 1, "username": "channel_one", "title": "Channel One"},
+                    {"id": 2, "username": "channel_two", "title": "Channel Two"},
+                ],
+            },
+        }
+
+        with patch("chatfilter.scraper.platforms.tgstat.httpx.AsyncClient") as mock_client_cls:
+            mock_client = mock_client_cls.return_value.__aenter__.return_value
+            mock_resp = MagicMock()
+            mock_resp.json.return_value = fake_response
+            mock_resp.raise_for_status = MagicMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+
+            result = await platform.search("crypto")
+
+        # Verify HTTP GET was made (not just returning empty stub)
+        mock_client.get.assert_called_once()
+        call_args = mock_client.get.call_args
+        url = call_args[0][0] if call_args[0] else call_args[1].get("url", "")
+        assert "api.tgstat.ru/channels/search" in url, (
+            f"Expected call to api.tgstat.ru/channels/search, got: {url!r}. "
+            "SPEC Must Have #3: TGStat must hit real API endpoint."
+        )
+
+        # Verify API key is passed
+        params = call_args[1].get("params", {})
+        assert params.get("token") == "test-api-key", (
+            f"Expected token='test-api-key' in params, got: {params!r}"
+        )
+        assert params.get("q") == "crypto", f"Expected q='crypto' in params, got: {params!r}"
+
+        # Verify results are parsed
+        assert len(result.refs) == 2, f"Expected 2 refs from parsed response, got: {result.refs!r}"
+        assert "@channel_one" in result.refs
+        assert "@channel_two" in result.refs
+
+    @pytest.mark.asyncio
+    async def test_tgstat_returns_empty_without_api_key(self, tmp_path):
+        """tgstat.py returns empty result and does NOT call API when no key configured."""
+        from chatfilter.scraper.platforms.tgstat import TgstatPlatform
+        from tests.db_helpers import make_group_db
+
+        db = make_group_db(tmp_path / "tgstat_nokey.db")
+        # No api_key set
+
+        platform = TgstatPlatform()
+        platform._db = db
+
+        with patch("chatfilter.scraper.platforms.tgstat.httpx.AsyncClient") as mock_client_cls:
+            result = await platform.search("crypto")
+            mock_client_cls.assert_not_called()
+
+        assert result.refs == [], f"Expected empty refs without API key, got: {result.refs!r}"
