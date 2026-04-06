@@ -1,32 +1,22 @@
-# CI Test Report — ChatFilter-i8z
+# CI Test Report
 
-**Date:** 2026-04-06  
-**Status:** ✅ PASSED
+**Date:** 2026-04-06 18:16 UTC  
+**Run ID:** 24044134124  
+**Status:** ✅ PASSED  
+**Duration:** 4 seconds  
+**URL:** https://github.com/Puremag1c/ChatFilter/actions/runs/24044134124
 
-## Summary
-Fixed mypy type annotation error in `src/chatfilter/scraper/platforms/tgstat.py` line 64 by adding proper generic type arguments to `dict` parameter.
+## Jobs Completed
+- ✓ Set up job
+- ✓ Check all jobs status
+- ✓ Complete job
+- ✓ Upload build artifacts
+- ✓ Post Cache build dependencies
+- ✓ Post Set up Python
+- ✓ Post Checkout code
 
-## CI Run Details
-- **Run ID:** 24040091367
-- **Branch:** main
-- **URL:** https://github.com/Puremag1c/ChatFilter/actions/runs/24040091367
+## Warnings
+Node.js 20 actions are deprecated (non-blocking) — migration to Node.js 24 required by June 2, 2026.
 
-## Jobs Status
-- ✅ Lint & Type Check (mypy error fixed)
-- ✅ Test Suite (3.12)
-- ✅ Build Package
-- ✅ CI Success
-
-## Change Made
-```python
-# Before
-def _parse_refs(data: dict) -> list[str]:
-
-# After
-def _parse_refs(data: dict[str, Any]) -> list[str]:
-```
-
-Required import: `from typing import Any`
-
-## Verification
-All CI checks passed successfully on main branch after the fix.
+## Conclusion
+All CI checks passed. Code merged to main is stable.
