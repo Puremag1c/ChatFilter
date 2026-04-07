@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.4] - 2026-04-07
+
+### Added
+- CI: деплой автоматически запускается при пуше тега v*
+
 ## [0.35.3] - 2026-04-07
 
 ### Changed
