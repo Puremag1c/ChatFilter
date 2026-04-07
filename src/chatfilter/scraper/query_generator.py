@@ -13,17 +13,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _PROMPT_TEMPLATE = (
-    "Generate 4-6 search queries for finding Telegram channels and chats/groups "
-    "matching this description: {user_text}\n\n"
+    "You are a search strategist. The user wants to find Telegram channels and "
+    "chats/groups matching this description:\n"
+    '"{user_text}"\n\n'
+    "Your job is to THINK about what this audience actually does, where they hang out, "
+    "what topics they discuss — then generate 6-10 diverse search queries that cover "
+    "different angles and subtopics.\n\n"
+    "EXAMPLE: for 'молодые канадцы' you should think:\n"
+    '- Direct: "канадская молодежь чат", "Canadian youth group"\n'
+    '- Music/culture: "Canadian indie music", "concerts Toronto Montreal"\n'
+    '- Student life: "university Canada students", "канадские студенты"\n'
+    '- Gaming/hobbies: "gaming Canada", "esports Canadian"\n'
+    '- Local communities: "Vancouver youth", "Toronto young professionals"\n'
+    "- Subcultures: what subcultures exist in this demographic?\n\n"
     "RULES:\n"
-    "- Each query MUST preserve the FULL meaning of the request. "
-    "Do NOT split into separate concepts (e.g. for 'молодые канадцы' do NOT "
-    "generate 'молодежь telegram' without 'канада').\n"
-    "- Do NOT add 'site:t.me' — queries go to Telegram catalog search, not Google.\n"
-    "- Do NOT add 'telegram' to every query — the search is already Telegram-specific.\n"
-    "- Mix Russian and English variations.\n"
-    "- Include both channel queries ('канал', 'channel') and group queries ('чат', 'группа', 'group').\n"
-    "- Keep queries short and natural (2-5 words).\n\n"
+    "- Generate 6-10 queries covering DIFFERENT angles, not just rephrasing.\n"
+    "- Each query MUST stay relevant to the target audience.\n"
+    "- Do NOT add 'site:t.me' or 'telegram' — search is already Telegram-specific.\n"
+    "- Mix Russian and English.\n"
+    "- Keep queries short (2-5 words).\n\n"
     "Return as JSON array of strings only, no explanation."
 )
 
