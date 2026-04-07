@@ -204,12 +204,26 @@ class SearchOrchestrator:
                     stats_list.append(PlatformStats(platform_id=platform.id, error=str(result)))
                 else:
                     refs, pstats = result
+                    logger.warning(
+                        "Platform %s returned %d unique refs (queries_run=%d, error=%s)",
+                        platform.id,
+                        len(refs),
+                        pstats.queries_run,
+                        pstats.error,
+                    )
                     all_refs.extend(refs)
                     stats_list.append(pstats)
 
-            # 5. Deduplicate
+            # 5. Deduplicate across platforms
+            total_before = len(all_refs)
             unique_refs = _deduplicate_refs(all_refs)
-            duplicates_removed = len(all_refs) - len(unique_refs)
+            duplicates_removed = total_before - len(unique_refs)
+            logger.warning(
+                "Dedup: %d refs from platforms → %d unique (%d cross-platform duplicates removed)",
+                total_before,
+                len(unique_refs),
+                duplicates_removed,
+            )
 
             # 6. Add chats to group and update status
             if unique_refs:
