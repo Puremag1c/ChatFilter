@@ -1,7 +1,13 @@
 <div class="group-card {{ group.status.value }}" id="group-{{ group.id }}"
      data-group-id="{{ group.id }}"
      data-group-status="{{ group.status.value }}"
-     data-flood-wait-until="{% if group.flood_wait_until %}{{ group.flood_wait_until.isoformat() }}{% endif %}">
+     data-flood-wait-until="{% if group.flood_wait_until %}{{ group.flood_wait_until.isoformat() }}{% endif %}"
+     {% if group.status.value in ('in_progress', 'waiting_for_accounts') %}
+     hx-get="/api/groups/{{ group.id }}"
+     hx-trigger="every 5s"
+     hx-target="#group-{{ group.id }}"
+     hx-swap="outerHTML"
+     {% endif %}>
     <!-- SSE event handlers: hidden elements for HTMX SSE extension to register EventSource listeners -->
     <div sse-swap="init" style="display:none"></div>
     <div sse-swap="progress" style="display:none"></div>

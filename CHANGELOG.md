@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.6] - 2026-04-08
+
+### Fixed
+- Live updates: добавлен HTMX polling fallback (every 5s) на карточки in_progress/waiting — работает даже если SSE, morphdom или JS инициализация сломаны. Polling останавливается автоматически когда анализ завершён.
+
 ## [0.35.5] - 2026-04-08
 
 ### Fixed
