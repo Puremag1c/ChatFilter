@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.7] - 2026-04-08
+
+### Fixed
+- UI: убраны sse-swap div'ы из карточки — SSE raw JSON отображался на странице как текст
+
 ## [0.35.6] - 2026-04-08
 
 ### Fixed
