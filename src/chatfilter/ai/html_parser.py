@@ -105,6 +105,14 @@ async def extract_telegram_links(
 
     # Parse JSON array from response
     links = _parse_links_response(response.content, platform_name)
+    logger.warning(
+        "AI extracted %d links from %s (html_len=%d, cleaned_len=%d, model=%s)",
+        len(links),
+        platform_name,
+        len(html),
+        len(cleaned),
+        response.model,
+    )
     return links, response
 
 

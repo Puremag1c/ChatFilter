@@ -159,7 +159,7 @@ class SearchOrchestrator:
                 ai_tokens_in,
                 ai_tokens_out,
             ) = await self._query_gen.generate(user_query, user_id=user_id)
-            logger.info(
+            logger.warning(
                 "Generated %d queries for: %r (fallback: %s)", len(queries), user_query, ai_fallback
             )
 
@@ -235,11 +235,22 @@ class SearchOrchestrator:
                         status=GroupChatStatus.PENDING.value,
                     )
                 self._update_group_status(group_id, GroupStatus.PENDING)
+                logger.warning(
+                    "Scraping complete for group %s: saved %d chats to DB, status → PENDING",
+                    group_id,
+                    len(unique_refs),
+                )
             else:
                 # All platforms returned empty or failed
                 all_failed = all(s.error is not None for s in stats_list)
                 status = GroupStatus.FAILED if all_failed else GroupStatus.PENDING
                 self._update_group_status(group_id, status)
+                logger.warning(
+                    "Scraping complete for group %s: 0 chats, status → %s (all_failed=%s)",
+                    group_id,
+                    status.value,
+                    all_failed,
+                )
 
             platforms_searched = sum(1 for s in stats_list if s.error is None)
 
@@ -369,14 +380,30 @@ class SearchOrchestrator:
                     refs_count = len(result)
                 stats.queries_run += 1
                 stats.chats_found += refs_count
+                logger.warning(
+                    "Platform %s query %r → %d refs (running total: %d raw)",
+                    platform.id,
+                    query[:60],
+                    refs_count,
+                    len(all_refs),
+                )
             except Exception:
                 logger.exception("Platform %s failed for query %r", platform.id, query)
                 # Continue with remaining queries — don't fail entire platform
                 continue
 
         # Deduplicate within platform (multiple queries often return the same chats)
+        raw_count = len(all_refs)
         all_refs = _deduplicate_refs(all_refs)
         stats.chats_found = len(all_refs)
+        if raw_count != len(all_refs):
+            logger.warning(
+                "Platform %s intra-dedup: %d raw → %d unique (%d duplicates across queries)",
+                platform.id,
+                raw_count,
+                len(all_refs),
+                raw_count - len(all_refs),
+            )
 
         if stats.queries_run == 0 and not all_refs:
             stats.error = "All queries failed"
