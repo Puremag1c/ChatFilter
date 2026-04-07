@@ -867,15 +867,18 @@ class GroupAnalysisEngine:
                 f"Group '{group_id}': {len(retriable)} retriable ERROR chat(s) after main queue — "
                 f"starting auto-retry pass (INCREMENT mode)"
             )
-            processed, _ = self._db.count_processed_chats(group_id)
-            self._progress.publish(
-                GroupProgressEvent(
-                    group_id=group_id,
-                    status=GroupStatus.IN_PROGRESS.value,
-                    current=processed,
-                    total=total,
-                    message=f"Retrying {len(retriable)} error chat(s)...",
+            # Reset retriable chats to pending so the counter shows retry progress
+            for chat in retriable:
+                self._db.update_chat_status(
+                    chat["id"],
+                    GroupChatStatus.PENDING.value,
+                    error=None,
                 )
+            processed, _ = self._db.count_processed_chats(group_id)
+            self._progress.publish_from_db(
+                group_id=group_id,
+                chat_title="",
+                message=f"Retrying {len(retriable)} error chat(s)...",
             )
             await self.start_analysis(group_id, mode=AnalysisMode.INCREMENT, _error_retry=True)
             return

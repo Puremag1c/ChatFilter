@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.6] - 2026-04-07
+
+### Fixed
+- Retry: ошибочные чаты сбрасываются в pending перед retry-пассом — счётчик "Обработано" снова бежит, видно прогресс retry
+
 ## [0.34.5] - 2026-04-07
 
 ### Fixed
