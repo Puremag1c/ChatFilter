@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.5] - 2026-04-07
+
+### Fixed
+- Analysis: группа застревала в IN_PROGRESS после завершения анализа — движок не записывал финальный статус (COMPLETED/FAILED) в БД, полагаясь на вычисление из чатов (сломалось в v0.34.2 при переходе на явные статусы)
+
 ## [0.34.4] - 2026-04-07
 
 ### Fixed

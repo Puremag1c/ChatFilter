@@ -891,7 +891,6 @@ class GroupAnalysisEngine:
                 msg = "Analysis failed: all chats failed"
             else:
                 msg = "Analysis completed"
-            # Status is computed from chat statuses, no manual update needed
             self._signal_completion(group_id, status, msg, done + errors, total)
             logger.info(
                 f"Group '{group_id}': {done + errors}/{total} ({done} done, {errors} error) → {status}"
@@ -905,9 +904,23 @@ class GroupAnalysisEngine:
         current: int | None = None,
         total: int | None = None,
     ) -> None:
-        """Send completion event and sentinel."""
+        """Send completion event, persist status to DB, and send sentinel."""
         if current is None or total is None:
             current, total = self._db.count_processed_chats(group_id)
+
+        # Persist final status to DB (required since explicit statuses are no longer computed)
+        group_data = self._db.load_group(group_id)
+        if group_data:
+            self._db.save_group(
+                group_id=group_id,
+                name=group_data["name"],
+                settings=group_data["settings"],
+                status=status,
+                created_at=group_data["created_at"],
+                updated_at=datetime.now(UTC),
+                user_id=group_data.get("user_id", ""),
+            )
+
         self._progress.publish(
             GroupProgressEvent(
                 group_id=group_id,
