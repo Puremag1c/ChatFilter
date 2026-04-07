@@ -31,9 +31,7 @@ class TelegramChannelsPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> PlatformSearchResult:
-        search_url = (
-            "https://telegramchannels.me/search?search=" + quote_plus(query)
-        )
+        search_url = "https://telegramchannels.me/search?search=" + quote_plus(query)
         try:
             loop = asyncio.get_running_loop()
             resp = await loop.run_in_executor(

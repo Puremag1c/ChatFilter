@@ -57,13 +57,17 @@ class TelemetrPlatform(BasePlatform):
             try:
                 async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                     resp = await client.get(
-                        _API_URL, params=params, headers=headers,
+                        _API_URL,
+                        params=params,
+                        headers=headers,
                     )
                     resp.raise_for_status()
                     data = resp.json()
             except Exception:
                 logger.warning(
-                    "telemetr: request failed for query=%r peer_type=%s", query, peer_type,
+                    "telemetr: request failed for query=%r peer_type=%s",
+                    query,
+                    peer_type,
                 )
                 continue
 

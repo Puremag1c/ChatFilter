@@ -19,7 +19,7 @@ _SCRIPT_STYLE_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.DOTALL | re.I
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 _HREF_RE = re.compile(r'href=["\']([^"\']*t\.me/[^"\']*)["\']', re.IGNORECASE)
 # tg://resolve?domain=xxx links used by telegramchannels.me
-_TG_RESOLVE_RE = re.compile(r'tg://resolve\?domain=([a-zA-Z0-9_]+)', re.IGNORECASE)
+_TG_RESOLVE_RE = re.compile(r"tg://resolve\?domain=([a-zA-Z0-9_]+)", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"[ \t]+")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
