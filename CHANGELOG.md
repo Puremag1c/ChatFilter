@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.3] - 2026-04-07
+
+### Fixed
+- Scraping: дедупликация refs внутри каждой платформы (6 запросов к combot давали x6 дублей в прогрессе)
+- Scraping: полное WARNING-логирование пайплайна — per-query счётчики, AI-парсинг, intra/cross-platform dedup, итог сохранения
+
 ## [0.34.2] - 2026-04-07
 
 ### Fixed
