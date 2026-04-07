@@ -360,6 +360,10 @@ class SearchOrchestrator:
                 # Continue with remaining queries — don't fail entire platform
                 continue
 
+        # Deduplicate within platform (multiple queries often return the same chats)
+        all_refs = _deduplicate_refs(all_refs)
+        stats.chats_found = len(all_refs)
+
         if stats.queries_run == 0 and not all_refs:
             stats.error = "All queries failed"
 
