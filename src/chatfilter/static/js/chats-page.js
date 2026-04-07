@@ -119,13 +119,19 @@
 
                 morphdom(container, tempDiv, {
                     childrenOnly: true,
+                    onBeforeNodeDiscarded: function(node) {
+                        // Never discard the SSE swap anchors — they must persist
+                        if (node.id === 'sse-swap-anchors') return false;
+                        return true;
+                    },
                     onBeforeElUpdated: function(fromEl) {
+                        // Never touch SSE swap anchors
+                        if (fromEl.id === 'sse-swap-anchors') return false;
                         // Skip updating group cards with active SSE (in_progress/waiting_for_accounts)
                         // to prevent DOM jitter and timer resets
                         if (fromEl.classList && fromEl.classList.contains('group-card')) {
                             var statusBadge = fromEl.querySelector('.status-badge.in_progress, .status-badge.waiting_for_accounts, .status-badge.scraping');
                             if (statusBadge) {
-                                // Active card — skip update to prevent jitter
                                 return false;
                             }
                         }

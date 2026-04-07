@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.8] - 2026-04-08
+
+### Fixed
+- SSE: восстановлены sse-swap anchor'ы (v0.35.7 их удалила → htmx:sseMessage не стрелял). Перенесены из карточки в #groups-container вне #groups-list — morphdom не трогает, всегда на месте. Скрыты через display:none!important + overflow:hidden.
+- morphdom: защита sse-swap-anchors от удаления через onBeforeNodeDiscarded
+
 ## [0.35.7] - 2026-04-08
 
 ### Fixed

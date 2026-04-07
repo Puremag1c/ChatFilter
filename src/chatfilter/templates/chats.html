@@ -243,6 +243,15 @@
          aria-label="{{ _("Groups list") }}"
          hx-ext="sse"
          sse-connect="/api/groups/events">
+        {# SSE event listeners — MUST exist for htmx:sseMessage to fire.
+           Placed here (outside #groups-list) so morphdom never touches them. #}
+        <div id="sse-swap-anchors" style="display:none!important;position:absolute;width:0;height:0;overflow:hidden">
+            <div sse-swap="init"></div>
+            <div sse-swap="progress"></div>
+            <div sse-swap="complete"></div>
+            <div sse-swap="error"></div>
+            <div sse-swap="ping"></div>
+        </div>
         <div class="groups-list" id="groups-list">
             <div class="no-groups" role="status">
                 <p>{{ _("Loading groups...") }}</p>
