@@ -453,4 +453,9 @@
             });
         }
     });
+
+    // Re-initialize after vanilla JS DOM updates (morphdom in refreshGroups).
+    // morphdom does NOT execute <script> tags, so initGroupCard must be
+    // triggered explicitly when cards transition to in_progress/waiting.
+    document.body.addEventListener('reinitGroupCards', initAllGroupCards);
 })();

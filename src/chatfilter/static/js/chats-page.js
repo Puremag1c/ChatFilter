@@ -135,6 +135,11 @@
 
                 htmx.process(container);
 
+                // Re-initialize group card SSE handlers after morphdom replace.
+                // morphdom does NOT execute <script> tags in patched elements,
+                // so cards that transitioned to in_progress need explicit init.
+                document.body.dispatchEvent(new CustomEvent('reinitGroupCards'));
+
                 container.querySelectorAll('.group-card').forEach(function(card) {
                     var completedBadge = card.querySelector('.status-badge.completed');
                     var pausedBadge = card.querySelector('.status-badge.paused');

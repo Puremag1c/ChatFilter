@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.4] - 2026-04-07
+
+### Fixed
+- Live updates: карточка анализа не обновлялась в реальном времени — morphdom заменял pending→in_progress карточку, но group-card.js не переинициализировался (скрипты не выполняются при DOM-патчинге). Добавлен `reinitGroupCards` event после morphdom.
+
 ## [0.34.3] - 2026-04-07
 
 ### Fixed
