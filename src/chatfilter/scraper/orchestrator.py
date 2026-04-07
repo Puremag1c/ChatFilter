@@ -293,6 +293,8 @@ class SearchOrchestrator:
                 logger.warning("Unknown platform ID: %s", pid)
         return platforms
 
+    _PLATFORM_TIMEOUT = 120  # seconds per platform
+
     async def _search_platform_tracked(
         self,
         platform: BasePlatform,
@@ -301,7 +303,15 @@ class SearchOrchestrator:
         user_id: str,
     ) -> tuple[list[str], PlatformStats]:
         """Wrapper around _search_platform that updates scraping progress."""
-        refs, stats = await self._search_platform(platform, queries, user_id)
+        try:
+            refs, stats = await asyncio.wait_for(
+                self._search_platform(platform, queries, user_id),
+                timeout=self._PLATFORM_TIMEOUT,
+            )
+        except TimeoutError:
+            logger.warning("Platform %s timed out after %ds", platform.id, self._PLATFORM_TIMEOUT)
+            refs = []
+            stats = PlatformStats(platform_id=platform.id, error="Timed out")
         progress = _scraping_progress.get(group_id)
         if progress is not None:
             status = "error" if stats.error else "done"
