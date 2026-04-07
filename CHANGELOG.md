@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-04-07
+
+### Fixed
+- Биллинг: стоимость берётся из ответа OpenRouter (реальная цена), а не fallback $5/$15 за миллион токенов — переплата ~60x для новых моделей
+- AI HTML-парсинг: HTML очищается от тегов перед обрезкой до 50K — страницы вроде Nicegram (282KB) теряли все результаты
+- tlgrm: переписан на Typesense API (старый URL /channels/search/ = 404)
+- telegram_channels: curl_cffi + правильный параметр `?search=` (было 403 + неверный `?q=`)
+- hottg: curl_cffi вместо httpx (бот UA блокировался)
+
+### Added
+- Playwright для площадок требующих JS-рендеринг (telegago, combot)
+- telemetr.io: переписан как API-клиент (x-api-key, поиск Channel + Group)
+- Извлечение `tg://resolve?domain=` ссылок из HTML (telegram_channels)
+
+### Removed
+- Площадка teleteg (платный сервис без API, невозможно интегрировать)
+
 ## [0.34.0] - 2026-04-06
 
 ### Added
