@@ -225,7 +225,20 @@ class SearchOrchestrator:
                 duplicates_removed,
             )
 
-            # 6. Add chats to group and update status
+            # 6. AI post-filter: remove obviously irrelevant refs
+            if unique_refs:
+                from chatfilter.ai.html_parser import filter_refs_by_relevance
+                from chatfilter.ai.service import AIService
+
+                ai_service = AIService(self._db)
+                unique_refs, filter_cost = await filter_refs_by_relevance(
+                    unique_refs, user_query, ai_service, user_id=user_id
+                )
+                self._billing.force_charge(
+                    user_id, filter_cost, "parse_response", None, 0, 0, "Post-filter"
+                )
+
+            # 7. Add chats to group and update status
             if unique_refs:
                 for ref in unique_refs:
                     self._db.save_chat(
