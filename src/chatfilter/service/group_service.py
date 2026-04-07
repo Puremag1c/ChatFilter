@@ -159,11 +159,17 @@ class GroupService:
         if settings_dict is None or not isinstance(settings_dict, dict):
             settings_dict = {}
 
-        # Status priority: PAUSED (manual) takes precedence over computed status
-        # PAUSED is an explicit user action (stop button) that persists until resume
+        # Explicit statuses are preserved from DB — they represent active operations
+        # or manual user actions that should NOT be overridden by computed status.
         db_status = group_data["status"]
-        if db_status == GroupStatus.PAUSED.value:
-            final_status = GroupStatus.PAUSED.value
+        _explicit_statuses = {
+            GroupStatus.SCRAPING.value,
+            GroupStatus.IN_PROGRESS.value,
+            GroupStatus.PAUSED.value,
+            GroupStatus.WAITING_FOR_ACCOUNTS.value,
+        }
+        if db_status in _explicit_statuses:
+            final_status = db_status
         else:
             # Compute status from chat statuses (pending/done/error)
             final_status = compute_group_status(self._db, group_id)
@@ -202,10 +208,16 @@ class GroupService:
             if settings_dict is None or not isinstance(settings_dict, dict):
                 settings_dict = {}
 
-            # Status priority: PAUSED (manual) takes precedence over computed status
+            # Explicit statuses preserved from DB (active operations / manual actions)
             db_status = group_data["status"]
-            if db_status == GroupStatus.PAUSED.value:
-                final_status = GroupStatus.PAUSED.value
+            _explicit_statuses = {
+                GroupStatus.SCRAPING.value,
+                GroupStatus.IN_PROGRESS.value,
+                GroupStatus.PAUSED.value,
+                GroupStatus.WAITING_FOR_ACCOUNTS.value,
+            }
+            if db_status in _explicit_statuses:
+                final_status = db_status
             else:
                 # Compute status from chat statuses (pending/done/error)
                 final_status = compute_group_status(self._db, group_data["id"])
