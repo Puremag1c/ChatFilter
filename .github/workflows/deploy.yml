@@ -60,7 +60,7 @@ jobs:
             fi
 
             cd "${APP_DIR}"
-            git fetch origin --tags
+            git fetch origin --tags --force
             git checkout "${DEPLOY_REF}"
             # If it's a branch, pull latest
             git pull origin "${DEPLOY_REF}" 2>/dev/null || true
