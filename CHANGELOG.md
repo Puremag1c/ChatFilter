@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.3] - 2026-04-07
+
+### Changed
+- Query generator: AI выбирает язык запросов по аудитории (канадцы → EN/FR, русские эмигранты → RU), не дублирует бессмысленно на русском
+- HTML parser: восстановлено упоминание prompt injection в system prompt (CI fix)
+
 ## [0.35.2] - 2026-04-07
 
 ### Changed

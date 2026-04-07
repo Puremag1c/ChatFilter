@@ -19,10 +19,16 @@ _PROMPT_TEMPLATE = (
     "Your job is to THINK about what this audience actually does, where they hang out, "
     "what topics they discuss — then generate 6-10 diverse search queries that cover "
     "different angles and subtopics.\n\n"
+    "LANGUAGE: Choose query languages based on what the TARGET AUDIENCE actually speaks. "
+    "For example:\n"
+    '- "канадская молодежь" → queries in English/French (Canadians speak EN/FR)\n'
+    '- "русские эмигранты в Канаде" → queries in Russian (audience is Russian-speaking)\n'
+    '- "турецкие чаты" → queries in Turkish\n'
+    "Do NOT blindly duplicate every query in Russian and English.\n\n"
     "EXAMPLE: for 'молодые канадцы' you should think:\n"
-    '- Direct: "канадская молодежь чат", "Canadian youth group"\n'
+    '- Direct: "Canadian youth group", "jeunesse canadienne"\n'
     '- Music/culture: "Canadian indie music", "concerts Toronto Montreal"\n'
-    '- Student life: "university Canada students", "канадские студенты"\n'
+    '- Student life: "university Canada students", "McGill UofT chat"\n'
     '- Gaming/hobbies: "gaming Canada", "esports Canadian"\n'
     '- Local communities: "Vancouver youth", "Toronto young professionals"\n'
     "- Subcultures: what subcultures exist in this demographic?\n\n"
@@ -30,7 +36,6 @@ _PROMPT_TEMPLATE = (
     "- Generate 6-10 queries covering DIFFERENT angles, not just rephrasing.\n"
     "- Each query MUST stay relevant to the target audience.\n"
     "- Do NOT add 'site:t.me' or 'telegram' — search is already Telegram-specific.\n"
-    "- Mix Russian and English.\n"
     "- Keep queries short (2-5 words).\n\n"
     "Return as JSON array of strings only, no explanation."
 )
