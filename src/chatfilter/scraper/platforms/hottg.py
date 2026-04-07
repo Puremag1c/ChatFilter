@@ -1,11 +1,16 @@
-"""Hottg.com HTTP scraping platform."""
+"""Hottg.com HTTP scraping platform.
+
+Uses curl_cffi to bypass bot detection (plain httpx times out).
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from functools import partial
 from urllib.parse import urlencode
 
-import httpx
+from curl_cffi import requests as cf_requests
 
 from chatfilter.ai.html_parser import extract_telegram_links
 from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
@@ -25,13 +30,18 @@ class HottgPlatform(BasePlatform):
 
     async def search(self, query: str) -> PlatformSearchResult:
         search_url = "https://hottg.com/search?" + urlencode({"q": query})
-        headers = {
-            "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
-        }
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(search_url, headers=headers)
-                resp.raise_for_status()
+            loop = asyncio.get_running_loop()
+            resp = await loop.run_in_executor(
+                None,
+                partial(
+                    cf_requests.get,
+                    search_url,
+                    impersonate="chrome",
+                    timeout=30,
+                ),
+            )
+            resp.raise_for_status()  # type: ignore[no-untyped-call]
         except Exception:
             logger.warning("hottg: request failed for query=%r", query)
             return PlatformSearchResult()

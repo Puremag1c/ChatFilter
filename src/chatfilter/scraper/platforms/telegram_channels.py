@@ -1,10 +1,18 @@
-"""TelegramChannels.me HTTP scraping platform."""
+"""TelegramChannels.me HTTP scraping platform.
+
+Uses curl_cffi to bypass Cloudflare (plain httpx gets 403).
+Search param is ``search=`` not ``q=``.
+Results use ``tg://resolve?domain=xxx`` links, not ``t.me/``.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from functools import partial
+from urllib.parse import quote_plus
 
-import httpx
+from curl_cffi import requests as cf_requests
 
 from chatfilter.ai.html_parser import extract_telegram_links
 from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
@@ -23,14 +31,21 @@ class TelegramChannelsPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> PlatformSearchResult:
-        search_url = f"https://telegramchannels.me/channels?search={query}"
-        headers = {
-            "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
-        }
+        search_url = (
+            "https://telegramchannels.me/search?search=" + quote_plus(query)
+        )
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(search_url, headers=headers)
-                resp.raise_for_status()
+            loop = asyncio.get_running_loop()
+            resp = await loop.run_in_executor(
+                None,
+                partial(
+                    cf_requests.get,
+                    search_url,
+                    impersonate="chrome",
+                    timeout=30,
+                ),
+            )
+            resp.raise_for_status()  # type: ignore[no-untyped-call]
         except Exception:
             logger.warning("telegram_channels: request failed for query=%r", query)
             return PlatformSearchResult(refs=[])
@@ -39,7 +54,6 @@ class TelegramChannelsPlatform(BasePlatform):
             logger.warning("telegram_channels: AI service not configured, skipping extraction")
             return PlatformSearchResult(refs=[])
 
-        # Use AI parser to extract Telegram links
         refs, ai_response = await extract_telegram_links(
             resp.text,
             platform_name=self.name,

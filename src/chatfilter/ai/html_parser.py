@@ -17,12 +17,41 @@ _MAX_HTML_LENGTH = 50_000
 
 _SCRIPT_STYLE_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_HREF_RE = re.compile(r'href=["\']([^"\']*t\.me/[^"\']*)["\']', re.IGNORECASE)
+# tg://resolve?domain=xxx links used by telegramchannels.me
+_TG_RESOLVE_RE = re.compile(r'tg://resolve\?domain=([a-zA-Z0-9_]+)', re.IGNORECASE)
+_TAG_RE = re.compile(r"<[^>]+>")
+_WHITESPACE_RE = re.compile(r"[ \t]+")
+_BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 
 def _clean_html(html: str) -> str:
-    """Strip scripts, styles, and HTML comments, then truncate."""
+    """Strip HTML to text + t.me hrefs, then truncate.
+
+    Pages like Nicegram (282KB HTML) bury results deep in the markup.
+    Stripping tags first compresses the content so the 50K window captures
+    actual search results, not just the page header.
+    """
+    # Preserve t.me hrefs and tg://resolve links before stripping tags
+    hrefs = _HREF_RE.findall(html)
+    tg_domains = _TG_RESOLVE_RE.findall(html)
+    if tg_domains:
+        hrefs.extend(f"https://t.me/{d}" for d in tg_domains)
+
     html = _SCRIPT_STYLE_RE.sub("", html)
     html = _HTML_COMMENT_RE.sub("", html)
+    # Strip all HTML tags, keep text content
+    html = _TAG_RE.sub(" ", html)
+    # Collapse whitespace
+    html = _WHITESPACE_RE.sub(" ", html)
+    html = _BLANK_LINES_RE.sub("\n\n", html)
+    html = html.strip()
+
+    # Prepend extracted hrefs so the model always sees them
+    if hrefs:
+        href_block = "Extracted t.me links from page:\n" + "\n".join(hrefs) + "\n\n"
+        html = href_block + html
+
     if len(html) > _MAX_HTML_LENGTH:
         html = html[:_MAX_HTML_LENGTH]
     return html

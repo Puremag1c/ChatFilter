@@ -53,6 +53,18 @@ class AIService:
         self, response: object, tokens_in: int, tokens_out: int, model: str
     ) -> float:
         """Try to compute cost via LiteLLM; fall back to token-based estimate."""
+        # 1. Check provider-reported cost (e.g. OpenRouter includes actual USD in response)
+        try:
+            hidden = getattr(response, "_hidden_params", None)
+            if isinstance(hidden, dict):
+                headers = hidden.get("additional_headers", {})
+                provider_cost = headers.get("llm_provider-x-litellm-response-cost")
+                if provider_cost is not None and float(provider_cost) > 0:
+                    return float(provider_cost)
+        except (TypeError, ValueError):
+            pass
+
+        # 2. LiteLLM's own cost calculation (works for models in its pricing DB)
         try:
             cost = litellm.completion_cost(completion_response=response)
             if cost is not None and cost > 0:
