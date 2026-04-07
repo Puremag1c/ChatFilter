@@ -40,7 +40,7 @@ class TelegagoPlatform(BasePlatform):
                 await page.wait_for_timeout(2000)
                 html = await page.content()
         except Exception:
-            logger.warning("telegago: browser request failed for query=%r", query)
+            logger.warning("telegago: browser request failed for query=%r", query, exc_info=True)
             return PlatformSearchResult()
 
         if self._ai_service is None:

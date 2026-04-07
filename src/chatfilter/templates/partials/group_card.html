@@ -11,7 +11,11 @@
 
     <h3>{{ group.name }}</h3>
 
+    {% if group.status.value == 'pending' and stats.total > 0 %}
+    <span class="status-badge pending">{{ _("Ready to analyze") }}</span>
+    {% else %}
     <span class="status-badge {{ group.status.value }}">{{ _(group.status.value) }}</span>
+    {% endif %}
     {% if group.status.value == 'scraping' %}
     <div id="scraping-progress-{{ group.id }}"
          hx-get="/api/groups/{{ group.id }}/scraping-progress"
@@ -41,8 +45,8 @@
     {% endif %}
 
     {% if group.status.value == 'pending' and stats.total == 0 %}
-    <div style="background: #fff3e0; color: #e65100; padding: 0.75rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
-        {{ _("No chats found. Try changing your query or platforms.") }}
+    <div style="background: #f5f5f5; color: #757575; padding: 0.75rem; border-radius: 4px; margin: 0.5rem 0; font-size: 0.875rem;">
+        {{ _("Search completed — no chats found.") }}
     </div>
     {% endif %}
 
@@ -102,12 +106,14 @@
     <!-- Action buttons (hidden during scraping) -->
     {% if group.status.value != 'scraping' %}
     <div class="group-actions">
+        {% if stats.total > 0 %}
         <button class="btn btn-secondary btn-sm"
                 hx-get="/api/groups/modal/settings/{{ group.id }}"
                 hx-target="#modal-container"
                 hx-swap="innerHTML">
             {{ _("Configure analysis") }}
         </button>
+        {% endif %}
 
         {% if group.status.value == 'in_progress' %}
         <button class="btn btn-warning btn-sm"
@@ -145,7 +151,7 @@
                 hx-swap="innerHTML">
             {{ _("Restart analysis") }}
         </button>
-        {% else %}
+        {% elif stats.total > 0 %}
         <button class="btn btn-primary btn-sm"
                 hx-post="/api/groups/{{ group.id }}/start"
                 hx-swap="none"

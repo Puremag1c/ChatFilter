@@ -184,7 +184,7 @@ def collect_diagnostics(settings: Settings) -> dict[str, Any]:
     # Add log file info if logging to file is enabled
     if settings.log_to_file and settings.log_file_path.exists():
         diagnostics["logs"] = {
-            "recent_entries": get_recent_logs(settings.log_file_path, max_lines=100),
+            "recent_entries": get_recent_logs(settings.log_file_path, max_lines=2000),
             "log_file_path": str(settings.log_file_path),
         }
     else:
@@ -280,7 +280,7 @@ def export_diagnostics_to_text(settings: Settings) -> str:
             diagnostics["dependencies"],
             "",
             "=" * 80,
-            "RECENT LOGS (last 100 lines)",
+            "RECENT LOGS (last 2000 lines)",
             "=" * 80,
             "",
         ]

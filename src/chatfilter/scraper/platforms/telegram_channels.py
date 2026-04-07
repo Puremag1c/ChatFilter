@@ -45,7 +45,7 @@ class TelegramChannelsPlatform(BasePlatform):
             )
             resp.raise_for_status()  # type: ignore[no-untyped-call]
         except Exception:
-            logger.warning("telegram_channels: request failed for query=%r", query)
+            logger.warning("telegram_channels: request failed for query=%r", query, exc_info=True)
             return PlatformSearchResult(refs=[])
 
         if not self._ai_service:

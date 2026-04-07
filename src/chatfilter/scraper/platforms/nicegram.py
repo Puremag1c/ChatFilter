@@ -92,7 +92,7 @@ class NicegramPlatform(BasePlatform):
             )
             resp.raise_for_status()  # type: ignore[no-untyped-call]
         except Exception:
-            logger.warning("nicegram: request failed for url=%r", url)
+            logger.warning("nicegram: request failed for url=%r", url, exc_info=True)
             return None, None
 
         # Try to extract next cursor from JSON response or HTML meta

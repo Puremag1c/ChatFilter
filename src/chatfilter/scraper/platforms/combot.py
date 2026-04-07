@@ -37,7 +37,7 @@ class CombotPlatform(BasePlatform):
                 await page.wait_for_timeout(5000)
                 html = await page.content()
         except Exception:
-            logger.warning("combot: browser request failed for query=%r", query)
+            logger.warning("combot: browser request failed for query=%r", query, exc_info=True)
             return PlatformSearchResult(refs=[], ai_cost=0.0)
 
         if self._ai_service is None:

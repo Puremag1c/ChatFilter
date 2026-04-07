@@ -68,6 +68,7 @@ class TelemetrPlatform(BasePlatform):
                     "telemetr: request failed for query=%r peer_type=%s",
                     query,
                     peer_type,
+                    exc_info=True,
                 )
                 continue
 

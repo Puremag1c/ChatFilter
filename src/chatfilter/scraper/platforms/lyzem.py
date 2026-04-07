@@ -33,7 +33,7 @@ class LyzemPlatform(BasePlatform):
                 resp = await client.get(search_url, headers=headers)
                 resp.raise_for_status()
         except Exception:
-            logger.warning("lyzem: request failed for query=%r", query)
+            logger.warning("lyzem: request failed for query=%r", query, exc_info=True)
             return PlatformSearchResult()
 
         if not self._ai_service:

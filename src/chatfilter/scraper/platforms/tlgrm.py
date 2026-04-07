@@ -57,7 +57,7 @@ class TlgrmPlatform(BasePlatform):
                 resp.raise_for_status()
                 data = resp.json()
         except Exception:
-            logger.warning("tlgrm: typesense search failed for query=%r", query)
+            logger.warning("tlgrm: typesense search failed for query=%r", query, exc_info=True)
             return PlatformSearchResult()
 
         refs = _parse_hits(data)

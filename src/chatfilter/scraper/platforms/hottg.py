@@ -43,7 +43,7 @@ class HottgPlatform(BasePlatform):
             )
             resp.raise_for_status()  # type: ignore[no-untyped-call]
         except Exception:
-            logger.warning("hottg: request failed for query=%r", query)
+            logger.warning("hottg: request failed for query=%r", query, exc_info=True)
             return PlatformSearchResult()
 
         if self._ai_service is None:
