@@ -1,6 +1,9 @@
 name: Deploy ChatFilter
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       ref:
@@ -12,19 +15,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      DEPLOY_REF: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.ref }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ env.DEPLOY_REF }}
 
       - name: Get version
         id: version
         run: |
           VERSION=$(python3 -c "import re; print(re.search(r'__version__\s*=\s*\"(.+?)\"', open('src/chatfilter/__init__.py').read()).group(1))")
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Deploying version: ${VERSION} (ref: ${{ github.event.inputs.ref }})"
+          echo "Deploying version: ${VERSION} (ref: ${{ env.DEPLOY_REF }})"
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
@@ -34,11 +39,12 @@ jobs:
           CHATFILTER_ADMIN_LOGIN: ${{ secrets.CHATFILTER_ADMIN_LOGIN }}
           CHATFILTER_ADMIN_PASSWORD: ${{ secrets.CHATFILTER_ADMIN_PASSWORD }}
           CHATFILTER_DATABASE_URL: ${{ secrets.CHATFILTER_DATABASE_URL }}
+          DEPLOY_REF: ${{ env.DEPLOY_REF }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: CHATFILTER_API_ID,CHATFILTER_API_HASH,CHATFILTER_ADMIN_LOGIN,CHATFILTER_ADMIN_PASSWORD,CHATFILTER_DATABASE_URL
+          envs: CHATFILTER_API_ID,CHATFILTER_API_HASH,CHATFILTER_ADMIN_LOGIN,CHATFILTER_ADMIN_PASSWORD,CHATFILTER_DATABASE_URL,DEPLOY_REF
           script: |
             set -euo pipefail
             export PATH="$HOME/.local/bin:$PATH"
@@ -46,7 +52,7 @@ jobs:
             APP_DIR="$HOME/chatfilter"
             DATA_DIR="$HOME/chatfilter-data"
 
-            echo "=== Deploying ChatFilter (ref: ${{ github.event.inputs.ref }}) ==="
+            echo "=== Deploying ChatFilter (ref: ${DEPLOY_REF}) ==="
 
             # Clone or update repo
             if [ ! -d "${APP_DIR}/.git" ]; then
@@ -54,10 +60,10 @@ jobs:
             fi
 
             cd "${APP_DIR}"
-            git fetch origin
-            git checkout ${{ github.event.inputs.ref }}
+            git fetch origin --tags
+            git checkout "${DEPLOY_REF}"
             # If it's a branch, pull latest
-            git pull origin ${{ github.event.inputs.ref }} 2>/dev/null || true
+            git pull origin "${DEPLOY_REF}" 2>/dev/null || true
 
             # Generate .env from GitHub Secrets
             printf '%s\n' \
