@@ -388,7 +388,9 @@ class UserDatabase(SQLiteDatabase):
                 ),
             )
 
-    def get_transactions(self, user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    def get_transactions(
+        self, user_id: str, limit: int = 50, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Return recent transactions for user ordered by created_at DESC."""
         with self._connection() as conn:
             cursor = conn.execute(
@@ -398,12 +400,22 @@ class UserDatabase(SQLiteDatabase):
                 FROM ai_transactions
                 WHERE user_id = ?
                 ORDER BY created_at DESC
-                LIMIT ?
+                LIMIT ? OFFSET ?
                 """,
-                (user_id, limit),
+                (user_id, limit, offset),
             )
             rows = cursor.fetchall()
         return [self._transaction_row_to_dict(row) for row in rows]
+
+    def count_transactions(self, user_id: str) -> int:
+        """Return total number of transactions for user."""
+        with self._connection() as conn:
+            cursor = conn.execute(
+                "SELECT COUNT(*) as cnt FROM ai_transactions WHERE user_id = ?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+        return int(row["cnt"]) if row else 0
 
     @staticmethod
     def _transaction_row_to_dict(row: Any) -> dict[str, Any]:

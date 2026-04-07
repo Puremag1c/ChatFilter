@@ -50,110 +50,21 @@
 
 <section class="card" style="margin-top:1.5rem">
     <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
-        <h2>{{ _("AI Usage") }}</h2>
-        <span class="balance-badge" style="font-size:0.875rem">
-            {{ _("Balance") }}: ${{ "%.2f"|format(ai_balance) }}
-        </span>
+        <h2>{{ _("Balance") }}</h2>
     </div>
     <div style="padding:1rem">
-        {% if transactions %}
-        <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
-                <thead>
-                    <tr style="border-bottom:2px solid var(--border-color,#e5e7eb)">
-                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Date") }}</th>
-                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Type") }}</th>
-                        <th style="text-align:left;padding:0.5rem 0.75rem">{{ _("Details") }}</th>
-                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Cost") }}</th>
-                        <th style="text-align:right;padding:0.5rem 0.75rem">{{ _("Balance After") }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for tx in transactions %}
-                    <tr style="border-bottom:1px solid var(--border-color,#e5e7eb)">
-                        <td style="padding:0.5rem 0.75rem;white-space:nowrap">
-                            {{ tx.created_at[:16] | replace("T", " ") if tx.created_at else "—" }}
-                        </td>
-                        <td style="padding:0.5rem 0.75rem;white-space:nowrap">
-                            <span style="padding:0.125rem 0.5rem;border-radius:9999px;font-size:0.75rem;
-                                {% if tx.type == 'topup' %}background:var(--success-bg,#d1fae5);color:var(--success-color,#065f46)
-                                {% elif tx.type == 'query_processing' %}background:#dbeafe;color:#1e40af
-                                {% elif tx.type == 'parse_response' %}background:#ede9fe;color:#5b21b6
-                                {% elif tx.type == 'platform_request' %}background:#fef3c7;color:#92400e
-                                {% elif tx.type == 'search' %}background:#e0f2fe;color:#0369a1
-                                {% else %}background:var(--muted-bg,#f3f4f6);color:var(--muted-color,#374151){% endif %}">
-                                {% if tx.type == 'query_processing' %}{{ _("Query processing") }}
-                                {% elif tx.type == 'parse_response' %}{{ _("Parse response") }}
-                                {% elif tx.type == 'platform_request' %}{{ _("Platform request") }}
-                                {% elif tx.type == 'topup' %}{{ _("Deposit") }}
-                                {% elif tx.type == 'search' %}{{ _("Search") }}
-                                {% else %}{{ tx.type }}{% endif %}
-                            </span>
-                        </td>
-                        <td style="padding:0.5rem 0.75rem">
-                            {% if tx.type == 'query_processing' %}
-                                <span style="font-family:monospace;font-size:0.8rem">{{ tx.model or "—" }}</span>
-                                <span style="color:var(--muted-color,#6b7280);margin-left:0.5rem;font-size:0.8rem">
-                                    ↑{{ tx.tokens_in if tx.tokens_in is not none else "?" }}
-                                    ↓{{ tx.tokens_out if tx.tokens_out is not none else "?" }}
-                                </span>
-                            {% elif tx.type == 'parse_response' %}
-                                {% set desc = tx.description or "" %}
-                                {% if "Парсинг: " in desc %}
-                                    <span style="font-weight:500">{{ desc.replace("Парсинг: ", "") }}</span>
-                                {% elif "Parsing: " in desc %}
-                                    <span style="font-weight:500">{{ desc.replace("Parsing: ", "") }}</span>
-                                {% else %}
-                                    <span style="font-weight:500">{{ desc or "—" }}</span>
-                                {% endif %}
-                                {% if tx.model %}
-                                <span style="font-family:monospace;font-size:0.8rem;margin-left:0.5rem;color:var(--muted-color,#6b7280)">{{ tx.model }}</span>
-                                {% endif %}
-                                {% if tx.tokens_in is not none or tx.tokens_out is not none %}
-                                <span style="color:var(--muted-color,#6b7280);margin-left:0.25rem;font-size:0.8rem">
-                                    ↑{{ tx.tokens_in if tx.tokens_in is not none else "?" }}
-                                    ↓{{ tx.tokens_out if tx.tokens_out is not none else "?" }}
-                                </span>
-                                {% endif %}
-                            {% elif tx.type == 'platform_request' %}
-                                {% set desc = tx.description or "" %}
-                                {% if "Запрос: " in desc %}
-                                    <span style="font-weight:500">{{ desc.replace("Запрос: ", "") }}</span>
-                                {% elif "Request: " in desc %}
-                                    <span style="font-weight:500">{{ desc.replace("Request: ", "") }}</span>
-                                {% else %}
-                                    <span style="font-weight:500">{{ desc or "—" }}</span>
-                                {% endif %}
-                            {% elif tx.type == 'search' %}
-                                {{ tx.description or "—" }}
-                            {% else %}
-                                {{ tx.description or "—" }}
-                            {% endif %}
-                        </td>
-                        <td style="padding:0.5rem 0.75rem;text-align:right">
-                            {% if tx.amount_usd is not none %}
-                                {% if tx.amount_usd >= 0 %}
-                                    <span style="color:var(--success-color,#065f46)">+${{ "%.4f"|format(tx.amount_usd) }}</span>
-                                {% else %}
-                                    ${{ "%.4f"|format(tx.amount_usd | abs) }}
-                                {% endif %}
-                            {% else %}—{% endif %}
-                        </td>
-                        <td style="padding:0.5rem 0.75rem;text-align:right">
-                            {% if tx.balance_after is not none %}
-                                ${{ "%.4f"|format(tx.balance_after) }}
-                            {% else %}—{% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div style="display:flex;align-items:baseline;gap:1rem;margin-bottom:1.5rem">
+            <span style="font-size:2rem;font-weight:700">${{ "%.2f"|format(ai_balance) }}</span>
+            <span style="color:var(--muted-color,#6b7280);font-size:0.875rem">{{ _("Current balance") }}</span>
         </div>
-        {% else %}
-        <p style="color:var(--muted-color,#6b7280);text-align:center;padding:2rem 0">
-            {{ _("No AI transactions yet.") }}
-        </p>
-        {% endif %}
+
+        <h3 style="font-size:1rem;margin-bottom:0.75rem;color:var(--muted-color,#6b7280)">{{ _("Transaction History") }}</h3>
+        <div id="transactions-container"
+             hx-get="/api/profile/transactions?page=1"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <p style="color:var(--muted-color,#6b7280);text-align:center;padding:1rem 0">{{ _("Loading...") }}</p>
+        </div>
     </div>
 </section>
 {% endblock %}

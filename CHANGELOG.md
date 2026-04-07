@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-04-07
+
+### Added
+- Профиль: раздел "Balance" с крупным отображением баланса и историей транзакций с пагинацией (20 на страницу)
+- API: `GET /api/profile/transactions?page=N` для HTMX-пагинации
+
+### Changed
+- Профиль: секция "AI Usage" заменена на "Balance" с lazy-load таблицей транзакций
+
 ## [0.34.7] - 2026-04-07
 
 ### Fixed

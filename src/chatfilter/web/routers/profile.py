@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from chatfilter.i18n import _
@@ -44,7 +45,6 @@ async def profile_page(
 
     billing = BillingService(db)
     ai_balance = billing.get_balance(user_id)
-    transactions = billing.get_transactions(user_id)
 
     templates = get_templates()
     return templates.TemplateResponse(
@@ -55,7 +55,6 @@ async def profile_page(
             version=__version__,
             user=user,
             ai_balance=ai_balance,
-            transactions=transactions,
         ),
     )
 
@@ -100,4 +99,43 @@ async def change_password(
     return Response(
         status_code=303,
         headers={"Location": "/profile", "HX-Trigger": trigger},
+    )
+
+
+_TX_PER_PAGE = 20
+
+
+@router.get("/api/profile/transactions", response_class=HTMLResponse)
+async def transactions_page(
+    request: Request,
+    page: int = Query(1, ge=1),
+) -> Response:
+    """Return paginated transactions table partial for HTMX."""
+    from chatfilter.ai.billing import BillingService
+    from chatfilter.web.app import get_templates
+
+    session = get_session(request)
+    user_id = session.get("user_id")
+    if not user_id:
+        return HTMLResponse(content="", status_code=401)
+
+    db = _get_user_db(request)
+    billing = BillingService(db)
+
+    total = billing.count_transactions(user_id)
+    total_pages = max(1, math.ceil(total / _TX_PER_PAGE))
+    page = min(page, total_pages)
+    offset = (page - 1) * _TX_PER_PAGE
+    transactions = billing.get_transactions(user_id, limit=_TX_PER_PAGE, offset=offset)
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/transactions_table.html",
+        context=get_template_context(
+            request,
+            transactions=transactions,
+            page=page,
+            total_pages=total_pages,
+        ),
     )

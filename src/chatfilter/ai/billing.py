@@ -138,6 +138,12 @@ class BillingService:
         """
         return self._db.atomic_topup(user_id, amount_usd, admin_description)
 
-    def get_transactions(self, user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    def get_transactions(
+        self, user_id: str, limit: int = 50, offset: int = 0
+    ) -> list[dict[str, Any]]:
         """Return recent transactions ordered by created_at DESC."""
-        return self._db.get_transactions(user_id, limit=limit)
+        return self._db.get_transactions(user_id, limit=limit, offset=offset)
+
+    def count_transactions(self, user_id: str) -> int:
+        """Return total number of transactions for user."""
+        return self._db.count_transactions(user_id)
