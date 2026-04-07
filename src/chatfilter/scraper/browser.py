@@ -16,15 +16,16 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_browser = None
-_playwright = None
+_browser: Any = None
+_playwright: Any = None
 _lock = asyncio.Lock()
 
 
-async def _ensure_browser():  # type: ignore[no-untyped-def]
+async def _ensure_browser() -> Any:
     """Lazily start Playwright and launch a headless Chromium browser."""
     global _browser, _playwright  # noqa: PLW0603
     if _browser is not None:
@@ -50,7 +51,7 @@ async def _ensure_browser():  # type: ignore[no-untyped-def]
 
 
 @asynccontextmanager
-async def get_page() -> AsyncIterator:  # type: ignore[type-arg]
+async def get_page() -> AsyncIterator[Any]:
     """Yield a new browser page, close it on exit."""
     browser = await _ensure_browser()
     context = await browser.new_context(
