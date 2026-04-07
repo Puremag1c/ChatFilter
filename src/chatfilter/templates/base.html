@@ -8,10 +8,10 @@
     <link rel="icon" type="image/x-icon" href="/static/images/logo.ico">
     <link rel="stylesheet" href="/static/css/style.css?v={{ css_version }}">
     <script>window.__i18n__ = {{ js_translations_json|safe }};</script>
-    <script src="/static/js/htmx.min.js"></script>
-    <script src="/static/js/sse.js"></script>
-    <script src="/static/js/hyperlist.min.js"></script>
-    <script src="/static/js/chart.umd.min.js"></script>
+    <script src="/static/js/htmx.min.js?v={{ css_version }}"></script>
+    <script src="/static/js/sse.js?v={{ css_version }}"></script>
+    <script src="/static/js/hyperlist.min.js?v={{ css_version }}"></script>
+    <script src="/static/js/chart.umd.min.js?v={{ css_version }}"></script>
     <script src="/static/js/i18n.js?v={{ css_version }}"></script>
     <script src="/static/js/language-switcher.js?v={{ css_version }}"></script>
     <script src="/static/js/theme-switcher.js?v={{ css_version }}"></script>
@@ -46,9 +46,6 @@
                 </ul>
             </div>
             <div class="header-right">
-                {% if current_username and ai_balance is not none %}
-                <span class="balance-badge{% if ai_balance <= 0 %} balance-badge--empty{% elif ai_balance < 0.10 %} balance-badge--low{% endif %}">${{ "%.2f" | format(ai_balance) }}</span>
-                {% endif %}
                 <div class="header-controls">
                     <button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}">
                         <span class="theme-icon" aria-hidden="true">🌙</span>
@@ -59,7 +56,12 @@
                 </div>
                 {% if current_username %}
                 <div class="profile-dropdown">
-                    <button class="profile-trigger" type="button" aria-haspopup="true">{{ current_username }}</button>
+                    <button class="profile-trigger" type="button" aria-haspopup="true">
+                        {{ current_username }}
+                        {% if ai_balance is not none %}
+                        <span class="balance-badge{% if ai_balance <= 0 %} balance-badge--empty{% elif ai_balance < 0.10 %} balance-badge--low{% endif %}" style="margin-left:0.4rem">${{ "%.2f" | format(ai_balance) }}</span>
+                        {% endif %}
+                    </button>
                     <div class="profile-menu" role="menu">
                         <a href="/profile" class="profile-menu-item" role="menuitem">{{ _("Profile") }}</a>
                         <form method="post" action="/logout">

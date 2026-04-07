@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.7] - 2026-04-07
+
+### Fixed
+- Cache-busting: все JS-файлы теперь имеют `?v=version` — больше не нужен хард-рефреш после деплоя
+
+### Changed
+- UI: баланс перенесён внутрь кнопки с никнеймом — клик открывает дропдаун с переходом в профиль
+
 ## [0.34.6] - 2026-04-07
 
 ### Fixed
