@@ -45,6 +45,7 @@ class LyzemPlatform(BasePlatform):
             platform_name=self.name,
             ai_service=self._ai_service,
             user_id=None,
+            search_query=query,
         )
 
         return PlatformSearchResult(

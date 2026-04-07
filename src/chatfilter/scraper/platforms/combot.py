@@ -45,7 +45,7 @@ class CombotPlatform(BasePlatform):
             return PlatformSearchResult(refs=[], ai_cost=0.0)
 
         refs, ai_response = await extract_telegram_links(
-            html, self.name, self._ai_service, user_id=None
+            html, self.name, self._ai_service, user_id=None, search_query=query
         )
 
         return PlatformSearchResult(

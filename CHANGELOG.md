@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-04-07
+
+### Fixed
+- Scraping quality: промпт query generator переписан — запросы сохраняют полный смысл, убран site:t.me, не разбивают на отдельные слова
+- Scraping quality: AI HTML parser теперь получает search query и фильтрует по релевантности — пропускает UI платформы (навигация, реклама) и явно нерелевантные результаты
+
 ## [0.35.0] - 2026-04-07
 
 ### Added

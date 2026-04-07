@@ -56,6 +56,7 @@ class TelegramChannelsPlatform(BasePlatform):
             resp.text,
             platform_name=self.name,
             ai_service=self._ai_service,
+            search_query=query,
         )
 
         return PlatformSearchResult(

@@ -13,12 +13,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _PROMPT_TEMPLATE = (
-    "Generate 4-6 search queries for finding Telegram channels AND chats/groups matching this description: "
-    "{user_text}. "
-    "Include a mix of channel-focused queries (using terms like 'канал', 'channel') and "
-    "chat/group-focused queries (using terms like 'группа', 'чат', 'group', 'chat'). "
-    "If the user explicitly requests only channels or only chats/groups, generate queries for that type only. "
-    "Include Russian and English variations. "
+    "Generate 4-6 search queries for finding Telegram channels and chats/groups "
+    "matching this description: {user_text}\n\n"
+    "RULES:\n"
+    "- Each query MUST preserve the FULL meaning of the request. "
+    "Do NOT split into separate concepts (e.g. for 'молодые канадцы' do NOT "
+    "generate 'молодежь telegram' without 'канада').\n"
+    "- Do NOT add 'site:t.me' — queries go to Telegram catalog search, not Google.\n"
+    "- Do NOT add 'telegram' to every query — the search is already Telegram-specific.\n"
+    "- Mix Russian and English variations.\n"
+    "- Include both channel queries ('канал', 'channel') and group queries ('чат', 'группа', 'group').\n"
+    "- Keep queries short and natural (2-5 words).\n\n"
     "Return as JSON array of strings only, no explanation."
 )
 

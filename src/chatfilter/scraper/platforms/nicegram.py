@@ -54,7 +54,7 @@ class NicegramPlatform(BasePlatform):
 
                 if self._ai_service:
                     page_refs, ai_resp = await extract_telegram_links(
-                        html, self.name, self._ai_service
+                        html, self.name, self._ai_service, search_query=query
                     )
                     refs.update(page_refs)
                     total_cost += ai_resp.cost_usd
