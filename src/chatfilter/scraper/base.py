@@ -22,6 +22,7 @@ class PlatformSearchResult:
     """Result from a single platform search call."""
 
     refs: list[str] = field(default_factory=list)
+    titles: dict[str, str] = field(default_factory=dict)  # ref → title (optional)
     ai_cost: float = 0.0
     ai_model: str | None = None
     ai_tokens_in: int = 0

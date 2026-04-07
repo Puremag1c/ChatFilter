@@ -45,6 +45,7 @@ class TelemetrPlatform(BasePlatform):
 
         headers = {"x-api-key": api_key}
         all_refs: list[str] = []
+        all_titles: dict[str, str] = {}
 
         # Search both channels and groups
         for peer_type in ("Channel", "Group"):
@@ -72,9 +73,11 @@ class TelemetrPlatform(BasePlatform):
                 )
                 continue
 
-            all_refs.extend(_parse_refs(data))
+            refs, titles = _parse_refs(data)
+            all_refs.extend(refs)
+            all_titles.update(titles)
 
-        return PlatformSearchResult(refs=all_refs)
+        return PlatformSearchResult(refs=all_refs, titles=all_titles)
 
     def _get_api_key(self) -> str | None:
         if not self._db:
@@ -85,17 +88,22 @@ class TelemetrPlatform(BasePlatform):
         return settings.get("api_key") or None
 
 
-def _parse_refs(data: Any) -> list[str]:
-    """Extract Telegram channel/group refs from Telemetr.io API response."""
+def _parse_refs(data: Any) -> tuple[list[str], dict[str, str]]:
+    """Extract Telegram channel/group refs and titles from Telemetr.io API response."""
     if not isinstance(data, list):
         # API may wrap in {"items": [...]} or return list directly
         data = data.get("items", []) if isinstance(data, dict) else []
 
     refs: list[str] = []
+    titles: dict[str, str] = {}
     for item in data:
         if not isinstance(item, dict):
             continue
         username = item.get("username") or item.get("link")
         if username:
-            refs.append(f"@{username.lstrip('@')}")
-    return refs
+            ref = f"@{username.lstrip('@')}"
+            refs.append(ref)
+            title = item.get("title") or ""
+            if title:
+                titles[ref] = title
+    return refs, titles

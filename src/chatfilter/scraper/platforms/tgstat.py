@@ -50,8 +50,8 @@ class TgstatPlatform(BasePlatform):
             logger.warning("tgstat: request failed for query=%r", query, exc_info=True)
             return PlatformSearchResult()
 
-        refs = _parse_refs(data)
-        return PlatformSearchResult(refs=refs)
+        refs, titles = _parse_refs(data)
+        return PlatformSearchResult(refs=refs, titles=titles)
 
     def _get_api_key(self) -> str | None:
         if not self._db:
@@ -62,19 +62,23 @@ class TgstatPlatform(BasePlatform):
         return settings.get("api_key") or None
 
 
-def _parse_refs(data: dict[str, Any]) -> list[str]:
-    """Extract Telegram channel refs from TGStat API response."""
+def _parse_refs(data: dict[str, Any]) -> tuple[list[str], dict[str, str]]:
+    """Extract Telegram channel refs and titles from TGStat API response."""
     if data.get("status") != "ok":
-        return []
+        return [], {}
 
     response = data.get("response", {})
     items = response.get("items", []) if isinstance(response, dict) else []
 
     refs: list[str] = []
+    titles: dict[str, str] = {}
     for item in items:
         username = item.get("username") or item.get("link")
         if username:
             ref = f"@{username.lstrip('@')}"
             refs.append(ref)
+            title = item.get("title") or ""
+            if title:
+                titles[ref] = title
 
-    return refs
+    return refs, titles

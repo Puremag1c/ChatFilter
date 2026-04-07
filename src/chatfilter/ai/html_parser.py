@@ -131,12 +131,12 @@ async def extract_telegram_links(
 
 _FILTER_SYSTEM_PROMPT = (
     "You are a relevance filter. Given a user's search query and a list of "
-    "Telegram channel/chat usernames, return ONLY the usernames that are "
+    "Telegram channels/chats (some with titles), return ONLY the refs that are "
     "likely relevant to the query.\n\n"
-    "Judge by username alone — if the username clearly indicates an unrelated topic "
-    "(e.g. @vacansi_msk for Moscow jobs when searching for Vietnam chats), remove it.\n"
-    "If uncertain, KEEP the username — false positives are acceptable.\n\n"
-    "Return a JSON array of strings (the filtered usernames). No explanation."
+    "Judge by username AND title (when available). Remove entries that are clearly "
+    "unrelated (e.g. 'Вакансии Москва' when searching for Vietnam expat chats).\n"
+    "If uncertain, KEEP the entry — false positives are acceptable.\n\n"
+    "Return a JSON array of @username strings only. No explanation."
 )
 
 
@@ -145,6 +145,7 @@ async def filter_refs_by_relevance(
     user_query: str,
     ai_service: AIService,
     user_id: str | None = None,
+    titles: dict[str, str] | None = None,
 ) -> tuple[list[str], float]:
     """Filter collected refs by relevance to the original user query.
 
@@ -153,6 +154,7 @@ async def filter_refs_by_relevance(
         user_query: Original user search description.
         ai_service: AIService instance.
         user_id: Optional user ID for billing.
+        titles: Optional dict of ref → channel/chat title for better filtering.
 
     Returns:
         Tuple of (filtered refs, ai_cost_usd).
@@ -160,11 +162,19 @@ async def filter_refs_by_relevance(
     if not refs:
         return refs, 0.0
 
-    refs_text = "\n".join(refs)
+    titles = titles or {}
+    lines = []
+    for ref in refs:
+        title = titles.get(ref, "")
+        if title:
+            lines.append(f"{ref} — {title}")
+        else:
+            lines.append(ref)
+    refs_text = "\n".join(lines)
     user_prompt = (
         f"User's search query: {user_query}\n\n"
         f"Collected Telegram refs ({len(refs)} total):\n{refs_text}\n\n"
-        f"Return only the refs that are likely relevant to the search query."
+        f"Return only the refs (e.g. @username) that are likely relevant to the search query."
     )
 
     try:

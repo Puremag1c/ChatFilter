@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-04-08
+
+### Changed
+- AI пост-фильтр теперь получает titles каналов от API-платформ (tlgrm, tgstat, telemetr) — фильтрация по "@username — Название канала" вместо голого @username
+
 ## [0.36.0] - 2026-04-08
 
 ### Added

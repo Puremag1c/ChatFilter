@@ -107,17 +107,22 @@ class TlgrmPlatform(BasePlatform):
             logger.warning("tlgrm: typesense search failed for query=%r", query, exc_info=True)
             return PlatformSearchResult()
 
-        refs = _parse_hits(data)
-        return PlatformSearchResult(refs=refs)
+        refs, titles = _parse_hits(data)
+        return PlatformSearchResult(refs=refs, titles=titles)
 
 
-def _parse_hits(data: dict[str, Any]) -> list[str]:
-    """Extract @username refs from Typesense search response."""
+def _parse_hits(data: dict[str, Any]) -> tuple[list[str], dict[str, str]]:
+    """Extract @username refs and titles from Typesense search response."""
     hits = data.get("hits", [])
     refs: list[str] = []
+    titles: dict[str, str] = {}
     for hit in hits:
         doc = hit.get("document", hit)
         link = doc.get("link")
         if link:
-            refs.append(f"@{link.lstrip('@')}")
-    return refs
+            ref = f"@{link.lstrip('@')}"
+            refs.append(ref)
+            name = doc.get("tokenized_name") or doc.get("name") or ""
+            if name:
+                titles[ref] = name
+    return refs, titles

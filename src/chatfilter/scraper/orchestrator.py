@@ -196,6 +196,7 @@ class SearchOrchestrator:
 
             # 4. Collect and aggregate results
             all_refs: list[str] = []
+            all_titles: dict[str, str] = {}
             stats_list: list[PlatformStats] = []
 
             for platform, result in zip(platforms, platform_results, strict=True):
@@ -203,7 +204,7 @@ class SearchOrchestrator:
                     logger.error("Platform %s failed: %s", platform.id, result)
                     stats_list.append(PlatformStats(platform_id=platform.id, error=str(result)))
                 else:
-                    refs, pstats = result
+                    refs, pstats, titles = result
                     logger.warning(
                         "Platform %s returned %d unique refs (queries_run=%d, error=%s)",
                         platform.id,
@@ -212,6 +213,7 @@ class SearchOrchestrator:
                         pstats.error,
                     )
                     all_refs.extend(refs)
+                    all_titles.update(titles)
                     stats_list.append(pstats)
 
             # 5. Deduplicate across platforms
@@ -232,7 +234,11 @@ class SearchOrchestrator:
 
                 ai_service = AIService(self._db)
                 unique_refs, filter_cost = await filter_refs_by_relevance(
-                    unique_refs, user_query, ai_service, user_id=user_id
+                    unique_refs,
+                    user_query,
+                    ai_service,
+                    user_id=user_id,
+                    titles=all_titles,
                 )
                 self._billing.force_charge(
                     user_id, filter_cost, "parse_response", None, 0, 0, "Post-filter"
@@ -339,16 +345,17 @@ class SearchOrchestrator:
         queries: list[str],
         group_id: str,
         user_id: str,
-    ) -> tuple[list[str], PlatformStats]:
+    ) -> tuple[list[str], PlatformStats, dict[str, str]]:
         """Wrapper around _search_platform that updates scraping progress."""
         try:
-            refs, stats = await asyncio.wait_for(
+            refs, stats, titles = await asyncio.wait_for(
                 self._search_platform(platform, queries, user_id),
                 timeout=self._PLATFORM_TIMEOUT,
             )
         except TimeoutError:
             logger.warning("Platform %s timed out after %ds", platform.id, self._PLATFORM_TIMEOUT)
             refs = []
+            titles = {}
             stats = PlatformStats(platform_id=platform.id, error="Timed out")
         progress = _scraping_progress.get(group_id)
         if progress is not None:
@@ -358,22 +365,23 @@ class SearchOrchestrator:
                 "chats_found": stats.chats_found,
             }
             progress["total_found"] = sum(p["chats_found"] for p in progress["platforms"].values())
-        return refs, stats
+        return refs, stats, titles
 
     async def _search_platform(
         self,
         platform: BasePlatform,
         queries: list[str],
         user_id: str,
-    ) -> tuple[list[str], PlatformStats]:
+    ) -> tuple[list[str], PlatformStats, dict[str, str]]:
         """Search a single platform with all queries."""
         stats = PlatformStats(platform_id=platform.id)
         all_refs: list[str] = []
+        all_titles: dict[str, str] = {}
 
         # Check availability
         if not await platform.is_available():
             stats.error = "Platform not available (missing API key or disabled)"
-            return all_refs, stats
+            return all_refs, stats, all_titles
 
         for query in queries:
             try:
@@ -381,6 +389,7 @@ class SearchOrchestrator:
                 # Handle both PlatformSearchResult (new) and list[str] (legacy)
                 if isinstance(result, PlatformSearchResult):
                     all_refs.extend(result.refs)
+                    all_titles.update(result.titles)
                     stats.ai_cost += result.ai_cost
                     stats.ai_tokens_in += result.ai_tokens_in
                     stats.ai_tokens_out += result.ai_tokens_out
@@ -448,7 +457,7 @@ class SearchOrchestrator:
             f"Request: {platform.name}",
         )
 
-        return all_refs, stats
+        return all_refs, stats, all_titles
 
     def _update_group_status(self, group_id: str, status: GroupStatus) -> None:
         """Update group status in database."""
