@@ -177,17 +177,22 @@ def test_sanitize_config():
 
 
 def test_get_recent_logs_file_exists(isolated_tmp_dir: Path):
-    """Test get_recent_logs with existing log file."""
+    """Test get_recent_logs filters to WARNING/ERROR/CRITICAL only."""
     log_file = isolated_tmp_dir / "test.log"
-    log_content = "\n".join([f"Log line {i}" for i in range(150)])
-    log_file.write_text(log_content)
+    log_lines = []
+    for i in range(150):
+        if i % 10 == 0:
+            log_lines.append(f"2026-01-01 [WARNING] Warning line {i}")
+        else:
+            log_lines.append(f"2026-01-01 [INFO] Info line {i}")
+    log_file.write_text("\n".join(log_lines))
 
-    result = get_recent_logs(log_file, max_lines=100)
+    result = get_recent_logs(log_file, max_lines=200)
 
-    # Verify we get the last 100 lines
     lines = result.strip().split("\n")
-    assert len(lines) == 100
-    assert lines[-1] == "Log line 149"
+    # Only WARNING lines should remain (15 out of 150)
+    assert len(lines) == 15
+    assert all("[WARNING]" in ln for ln in lines)
 
 
 def test_get_recent_logs_file_not_exists(isolated_tmp_dir: Path):
@@ -200,14 +205,13 @@ def test_get_recent_logs_file_not_exists(isolated_tmp_dir: Path):
 
 
 def test_get_recent_logs_small_file(isolated_tmp_dir: Path):
-    """Test get_recent_logs with file smaller than max_lines."""
+    """Test get_recent_logs with small file containing only warnings."""
     log_file = isolated_tmp_dir / "small.log"
-    log_content = "\n".join([f"Log line {i}" for i in range(10)])
+    log_content = "\n".join([f"2026-01-01 [ERROR] Error line {i}" for i in range(10)])
     log_file.write_text(log_content)
 
     result = get_recent_logs(log_file, max_lines=100)
 
-    # Verify we get all lines
     lines = result.strip().split("\n")
     assert len(lines) == 10
 
