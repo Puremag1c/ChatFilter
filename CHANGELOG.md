@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.5] - 2026-04-08
+
+### Fixed
+- Live updates: group-card.js перенесён из карточки в chats.html — morphdom не выполняет `<script>` теги, поэтому SSE-обработчики никогда не загружались
+
 ## [0.35.4] - 2026-04-07
 
 ### Added
