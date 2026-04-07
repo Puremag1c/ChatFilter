@@ -125,15 +125,18 @@ def sanitize_config(settings: Settings) -> dict[str, Any]:
     }
 
 
-def get_recent_logs(log_file_path: Path, max_lines: int = 100) -> str:
-    """Get recent log entries from the log file.
+_DIAGNOSTIC_LOG_LEVELS = {"[WARNING]", "[ERROR]", "[CRITICAL]"}
+
+
+def get_recent_logs(log_file_path: Path, max_lines: int = 2000) -> str:
+    """Get recent WARNING/ERROR/CRITICAL log entries from the log file.
 
     Args:
         log_file_path: Path to the log file
-        max_lines: Maximum number of recent lines to retrieve (default: 100)
+        max_lines: Maximum number of recent lines to scan (default: 2000)
 
     Returns:
-        String containing recent log entries, or error message if unavailable
+        String containing filtered log entries, or error message if unavailable
     """
     if not log_file_path.exists():
         return f"Log file not found: {log_file_path}"
@@ -142,7 +145,10 @@ def get_recent_logs(log_file_path: Path, max_lines: int = 100) -> str:
         with open(log_file_path, encoding="utf-8") as f:
             lines = f.readlines()
             recent_lines = lines[-max_lines:] if len(lines) > max_lines else lines
-            return "".join(recent_lines)
+            filtered = [ln for ln in recent_lines if any(lv in ln for lv in _DIAGNOSTIC_LOG_LEVELS)]
+            if not filtered:
+                return "No warnings or errors in recent logs."
+            return "".join(filtered)
     except Exception as e:
         logger.warning(f"Failed to read log file {log_file_path}: {e}")
         return f"Error reading log file: {e}"
@@ -280,7 +286,7 @@ def export_diagnostics_to_text(settings: Settings) -> str:
             diagnostics["dependencies"],
             "",
             "=" * 80,
-            "RECENT LOGS (last 2000 lines)",
+            "RECENT LOGS (WARNING/ERROR/CRITICAL)",
             "=" * 80,
             "",
         ]

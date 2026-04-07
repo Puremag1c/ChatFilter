@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.2] - 2026-04-07
+
+### Fixed
+- Scraping: группа показывала "Pending — no chats found" сразу после создания вместо статуса scraping (compute_group_status перезатирал DB-статус)
+- Scraping: Playwright-платформы могли зависнуть навсегда — добавлен таймаут 120с на платформу
+- tlgrm: API-ключ Typesense теперь парсится с сайта при первом запросе и обновляется при 401 (ротация ключа)
+- Диагностика: экспорт логов показывал INFO-шум — теперь только WARNING/ERROR/CRITICAL
+- Все платформы: добавлен exc_info в логи ошибок для полного traceback
+
+### Changed
+- Карточка группы: статус "Ready to analyze" вместо "pending" когда чаты найдены
+- Карточка группы: при 0 чатах скрыты кнопки "Configure" и "Start", только "Delete"
+
 ## [0.34.1] - 2026-04-07
 
 ### Fixed
