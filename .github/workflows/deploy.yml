@@ -1,9 +1,10 @@
 name: Deploy ChatFilter
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: []  # all branches/tags
   workflow_dispatch:
     inputs:
       ref:
@@ -15,8 +16,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    # Only deploy if: manual trigger OR (CI passed on a v* tag)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     env:
-      DEPLOY_REF: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.ref }}
+      DEPLOY_REF: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && github.event.inputs.ref
+            || github.event.workflow_run.head_branch }}
 
     steps:
       - name: Checkout
