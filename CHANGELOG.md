@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.9] - 2026-04-08
+
+### Removed
+- UI: убрано поле "Current chat" из карточки анализа
+
 ## [0.35.8] - 2026-04-08
 
 ### Fixed

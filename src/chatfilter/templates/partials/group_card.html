@@ -65,10 +65,6 @@
             <strong id="error-{{ group.id }}">{{ stats.failed }}</strong>
         </div>
         {% if group.status.value in ('in_progress', 'waiting_for_accounts') %}
-        <div class="stat-row">
-            <span>{{ _("Current chat") }}:</span>
-            <strong id="current-chat-{{ group.id }}" class="current-chat-title">—</strong>
-        </div>
         <div class="stat-row" id="cache-info-row-{{ group.id }}" style="display: none;">
             <span>{{ _("Cache") }}:</span>
             <span id="cache-info-{{ group.id }}" class="cache-info-text" style="font-size: 0.85em; color: #666;"></span>
