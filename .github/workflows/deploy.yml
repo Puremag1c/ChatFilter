@@ -80,6 +80,9 @@ jobs:
             uv venv --python 3.12 --clear
             uv pip install -e . --reinstall-package chatfilter
 
+            # Ensure Playwright browsers are installed
+            .venv/bin/python -m playwright install chromium 2>/dev/null || echo "playwright install skipped"
+
             # Run migrations (skip if version doesn't support it)
             .venv/bin/chatfilter migrate --data-dir "${DATA_DIR}" 2>/dev/null || echo "migrate not available in this version, skipping"
 
