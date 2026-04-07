@@ -197,11 +197,10 @@ class TestPlatformSpecCompleteness:
     REQUIRED_ATTRS = ["id", "name", "url", "method", "needs_api_key", "cost_tier"]
     VALID_METHODS = {"api", "http", "playwright"}
     VALID_TIERS = {"cheap", "medium", "expensive"}
-    EXPECTED_PLATFORM_COUNT = 10
+    EXPECTED_PLATFORM_COUNT = 9
     EXPECTED_PLATFORM_IDS = {
         "tgstat",
         "telemetr",
-        "teleteg",
         "nicegram",
         "combot",
         "hottg",

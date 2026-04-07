@@ -323,7 +323,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         logger.error(f"Error stopping auth state manager during shutdown: {e}")
 
-    # 8. Clear service caches to free memory
+    # 8. Stop Playwright browser if running
+    try:
+        from chatfilter.scraper.browser import shutdown as shutdown_browser
+
+        await shutdown_browser()
+    except Exception as e:
+        logger.error(f"Error stopping Playwright browser during shutdown: {e}")
+
+    # 9. Clear service caches to free memory
     try:
         from chatfilter.web.dependencies import get_chat_analysis_service
 

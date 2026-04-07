@@ -7,7 +7,6 @@ from .nicegram import NicegramPlatform
 from .telegago import TelegagoPlatform
 from .telegram_channels import TelegramChannelsPlatform
 from .telemetr import TelemetrPlatform
-from .teleteg import TeletegPlatform
 from .tgstat import TgstatPlatform
 from .tlgrm import TlgrmPlatform
 
@@ -18,7 +17,6 @@ __all__ = [
     "NicegramPlatform",
     "TelegramChannelsPlatform",
     "TelegagoPlatform",
-    "TeletegPlatform",
     "TelemetrPlatform",
     "TgstatPlatform",
     "TlgrmPlatform",

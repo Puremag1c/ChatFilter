@@ -9,7 +9,6 @@ from .platforms import (
     TelegagoPlatform,
     TelegramChannelsPlatform,
     TelemetrPlatform,
-    TeletegPlatform,
     TgstatPlatform,
     TlgrmPlatform,
 )
@@ -17,7 +16,6 @@ from .registry import PlatformRegistry, registry
 
 # Register all platforms
 registry.register(TelemetrPlatform())
-registry.register(TeletegPlatform())
 registry.register(CombotPlatform())
 registry.register(HottgPlatform())
 registry.register(TelegramChannelsPlatform())
@@ -38,7 +36,6 @@ __all__ = [
     "PlatformRegistry",
     "TelegramChannelsPlatform",
     "TelegagoPlatform",
-    "TeletegPlatform",
     "TelemetrPlatform",
     "TgstatPlatform",
     "TlgrmPlatform",

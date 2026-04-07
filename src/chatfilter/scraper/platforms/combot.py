@@ -1,11 +1,13 @@
-"""Combot.org HTTP scraping platform."""
+"""Combot.org HTTP scraping platform.
+
+Uses Playwright headless browser to bypass Cloudflare challenge.
+AI parsing extracts Telegram links from rendered HTML.
+"""
 
 from __future__ import annotations
 
 import logging
 from urllib.parse import urlencode
-
-import httpx
 
 from chatfilter.ai.html_parser import extract_telegram_links
 from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
@@ -24,25 +26,26 @@ class CombotPlatform(BasePlatform):
     cost_tier = "cheap"
 
     async def search(self, query: str) -> PlatformSearchResult:
-        search_url = "https://combot.org/chats?" + urlencode({"q": query})
-        headers = {
-            "User-Agent": ("Mozilla/5.0 (compatible; ChatFilter/1.0; +https://chatfilter.app)")
-        }
+        search_url = "https://combot.org/telegram/top/chats?" + urlencode({"q": query})
+
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(search_url, headers=headers)
-                resp.raise_for_status()
+            from chatfilter.scraper.browser import get_page
+
+            async with get_page() as page:
+                await page.goto(search_url, wait_until="domcontentloaded", timeout=30_000)
+                # Wait for Cloudflare challenge + page render
+                await page.wait_for_timeout(5000)
+                html = await page.content()
         except Exception:
-            logger.warning("combot: request failed for query=%r", query)
+            logger.warning("combot: browser request failed for query=%r", query)
             return PlatformSearchResult(refs=[], ai_cost=0.0)
 
-        # Use AI parser to extract Telegram links
         if self._ai_service is None:
             logger.warning("combot: AI service not configured")
             return PlatformSearchResult(refs=[], ai_cost=0.0)
 
         refs, ai_response = await extract_telegram_links(
-            resp.text, self.name, self._ai_service, user_id=None
+            html, self.name, self._ai_service, user_id=None
         )
 
         return PlatformSearchResult(

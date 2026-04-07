@@ -1,30 +1,21 @@
 """Telegago: Google search restricted to t.me (site:t.me).
 
-Uses curl_cffi to bypass Google's TLS fingerprint checks.
-AI parsing extracts t.me links from Google's HTML results.
+Uses Playwright headless browser to render Google's JS-heavy results page.
+AI parsing extracts t.me links from the rendered HTML.
 No API key required.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from functools import partial
 from urllib.parse import quote_plus
-
-from curl_cffi import requests as cf_requests
 
 from chatfilter.ai.html_parser import extract_telegram_links
 from chatfilter.scraper.base import BasePlatform, PlatformSearchResult
 
 logger = logging.getLogger(__name__)
 
-_GOOGLE_SEARCH_URL = "https://www.google.com/search?q=site%3At.me+{query}&num=20"
-
-_HEADERS = {
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-}
+_GOOGLE_SEARCH_URL = "https://www.google.com/search?q=site%3At.me+{query}&num=20&hl=en"
 
 
 class TelegagoPlatform(BasePlatform):
@@ -39,21 +30,17 @@ class TelegagoPlatform(BasePlatform):
 
     async def search(self, query: str) -> PlatformSearchResult:
         url = _GOOGLE_SEARCH_URL.format(query=quote_plus(query))
+
         try:
-            loop = asyncio.get_running_loop()
-            resp = await loop.run_in_executor(
-                None,
-                partial(
-                    cf_requests.get,
-                    url,
-                    impersonate="chrome",
-                    headers=_HEADERS,
-                    timeout=30,
-                ),
-            )
-            resp.raise_for_status()  # type: ignore[no-untyped-call]
+            from chatfilter.scraper.browser import get_page
+
+            async with get_page() as page:
+                await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                # Wait for results to render (Google loads them via JS)
+                await page.wait_for_timeout(2000)
+                html = await page.content()
         except Exception:
-            logger.warning("telegago: request failed for query=%r", query)
+            logger.warning("telegago: browser request failed for query=%r", query)
             return PlatformSearchResult()
 
         if self._ai_service is None:
@@ -61,7 +48,7 @@ class TelegagoPlatform(BasePlatform):
             return PlatformSearchResult()
 
         refs, ai_response = await extract_telegram_links(
-            html=resp.text,
+            html=html,
             platform_name=self.name,
             ai_service=self._ai_service,
         )
