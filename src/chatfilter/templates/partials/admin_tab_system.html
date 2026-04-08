@@ -18,11 +18,35 @@
             <small style="color:var(--text-muted,#666)">{{ _("Leave blank to keep existing key.") }}</small>
         </div>
         <div>
-            <label for="ai-model" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Primary Model") }}</label>
+            <label for="ai-model" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Default Model") }}</label>
             <input type="text" id="ai-model" name="ai_model"
                    class="form-input" autocomplete="off"
                    value="{{ app_settings.get('ai_model', '') }}"
-                   placeholder="openrouter/openai/gpt-4o">
+                   placeholder="openrouter/google/gemini-3.1-flash">
+        </div>
+        <div>
+            <label for="ai-model-query" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Query Generation Model") }}</label>
+            <input type="text" id="ai-model-query" name="ai_model_query"
+                   class="form-input" autocomplete="off"
+                   value="{{ app_settings.get('ai_model_query', '') }}"
+                   placeholder="{{ _('Leave blank to use default') }}">
+            <small style="color:var(--text-muted,#666)">{{ _("Smart model recommended (Pro/GPT-5.4). One call per search.") }}</small>
+        </div>
+        <div>
+            <label for="ai-model-parse" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("HTML Parsing Model") }}</label>
+            <input type="text" id="ai-model-parse" name="ai_model_parse"
+                   class="form-input" autocomplete="off"
+                   value="{{ app_settings.get('ai_model_parse', '') }}"
+                   placeholder="{{ _('Leave blank to use default') }}">
+            <small style="color:var(--text-muted,#666)">{{ _("Fast/cheap model (Flash). Many calls per search.") }}</small>
+        </div>
+        <div>
+            <label for="ai-model-filter" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Post-filter Model") }}</label>
+            <input type="text" id="ai-model-filter" name="ai_model_filter"
+                   class="form-input" autocomplete="off"
+                   value="{{ app_settings.get('ai_model_filter', '') }}"
+                   placeholder="{{ _('Leave blank to use default') }}">
+            <small style="color:var(--text-muted,#666)">{{ _("One call per search to remove irrelevant results.") }}</small>
         </div>
         <div>
             <label for="ai-fallback-models" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Fallback Models (one per line)") }}</label>

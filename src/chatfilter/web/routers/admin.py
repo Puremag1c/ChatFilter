@@ -396,6 +396,9 @@ async def update_ai_settings(
     cost_multiplier: float = Form(1.0),
     openrouter_api_key: str = Form(""),
     ai_model: str = Form(""),
+    ai_model_query: str = Form(""),
+    ai_model_parse: str = Form(""),
+    ai_model_filter: str = Form(""),
     ai_fallback_models: str = Form(""),
 ) -> Response:
     if not _require_admin(request):
@@ -408,6 +411,10 @@ async def update_ai_settings(
         group_db.set_setting("openrouter_api_key", openrouter_api_key.strip())
     if ai_model.strip():
         group_db.set_setting("ai_model", ai_model.strip())
+    # Per-stage models: empty = use default
+    group_db.set_setting("ai_model_query", ai_model_query.strip())
+    group_db.set_setting("ai_model_parse", ai_model_parse.strip())
+    group_db.set_setting("ai_model_filter", ai_model_filter.strip())
     group_db.set_setting("ai_fallback_models", ai_fallback_models.strip())
 
     return _toast_response("AI настройки сохранены", redirect="/admin")

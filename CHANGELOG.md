@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-04-08
+
+### Added
+- Админка: отдельная модель AI для каждого этапа — Query Generation (умная), HTML Parsing (быстрая), Post-filter. Пустое поле = используется Default Model.
+
+### Changed
+- Промпты переписаны для modern models (Gemini 3.1/GPT-5.4): XML-теги для секций, structured output, explicit schema
+- Query generator: 15-30 запросов с распределением по длине (15% 1 слово, 50% 2 слова, 35% 3 слова), стратегическое мышление об аудитории, языковая адаптация
+- HTML parser: XML-structured system prompt с чёткими секциями role/security/task/rules/output
+- Post-filter: XML-structured prompt, правило удалять generic mega-channels
+
 ## [0.36.1] - 2026-04-08
 
 ### Changed

@@ -29,6 +29,15 @@ class AIService:
     def __init__(self, db: GroupDatabase) -> None:
         self._db = db
 
+    def get_stage_model(self, stage: str) -> str | None:
+        """Return model override for a pipeline stage, or None to use default.
+
+        Reads from app_settings keys: ai_model_query, ai_model_parse, ai_model_filter.
+        """
+        key = f"ai_model_{stage}"
+        value = self._db.get_setting(key, "")
+        return value if value else None
+
     def _load_config(self) -> AIConfig:
         """Load AI configuration from app_settings."""
         api_key = self._db.get_setting("openrouter_api_key") or ""
@@ -100,6 +109,7 @@ class AIService:
         prompt: str,
         user_id: str | None = None,
         system_prompt: str | None = None,
+        model_override: str | None = None,
     ) -> AIResponse:
         """Send a completion request and return an AIResponse.
 
@@ -107,12 +117,16 @@ class AIService:
             prompt: The prompt to send.
             user_id: Optional user identifier for tracking.
             system_prompt: Optional system message sent before the user prompt.
+            model_override: If set, use this model instead of the default from settings.
 
         Returns:
             AIResponse with content, model used, token counts, and cost.
         """
         config = self._load_config()
-        models_to_try = [config.model, *config.fallback_models]
+        if model_override:
+            models_to_try = [model_override, config.model, *config.fallback_models]
+        else:
+            models_to_try = [config.model, *config.fallback_models]
 
         extra_kwargs: dict[str, Any] = {}
         raw_api_key = config.api_key.get_secret_value()
