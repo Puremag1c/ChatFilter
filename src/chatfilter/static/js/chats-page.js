@@ -14,10 +14,22 @@
     var connectionCheckTimer = null;
     const SSE_CONNECTION_TIMEOUT = 10000; // 10 seconds
 
+    // Check if any group analyses are actively running (in_progress/waiting/scraping).
+    // When no analyses are active, SSE failures are harmless — don't alarm the user.
+    function hasActiveAnalyses() {
+        var c = document.getElementById('groups-container');
+        if (!c) return false;
+        return !!(
+            c.querySelector('.status-badge.in_progress') ||
+            c.querySelector('.status-badge.waiting_for_accounts') ||
+            c.querySelector('.status-badge.scraping')
+        );
+    }
+
     // Start 10-second SSE connection check
     console.log('[SSE] Starting connection check (10s timeout)');
     connectionCheckTimer = setTimeout(function() {
-        if (!sseHasConnected) {
+        if (!sseHasConnected && hasActiveAnalyses()) {
             console.error('[SSE] Connection failed - no connection within 10s');
             document.body.classList.add('sse-disconnected');
 
@@ -42,6 +54,13 @@
         }
 
         disconnectTimer = setTimeout(function() {
+            // No active analyses — SSE is optional, suppress the banner
+            if (!hasActiveAnalyses()) {
+                console.log('[SSE] Connection lost but no active analyses - suppressing banner');
+                document.body.classList.add('sse-disconnected');
+                return;
+            }
+
             isDisconnected = true;
             console.error('[SSE] Connection lost (>5s disconnect):', evt.detail);
 
@@ -91,6 +110,42 @@
                     duration: 2000
                 });
             }
+        }
+    });
+
+    // --- Page visibility handling (mobile backgrounding) ---
+    // Mobile browsers kill SSE connections when tab goes to background.
+    // Pause disconnect detection while hidden, give SSE time to reconnect on return.
+    var wasHiddenWhileDisconnected = false;
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // Page going to background — pause disconnect timer
+            if (disconnectTimer) {
+                clearTimeout(disconnectTimer);
+                disconnectTimer = null;
+                console.log('[SSE] Page hidden - paused disconnect timer');
+            }
+            wasHiddenWhileDisconnected = isDisconnected;
+        } else {
+            // Page returning to foreground — give SSE time to reconnect
+            if (!wasHiddenWhileDisconnected && !sseHasConnected) {
+                // SSE never connected and page was backgrounded — extend timeout
+                if (connectionCheckTimer) {
+                    clearTimeout(connectionCheckTimer);
+                }
+                connectionCheckTimer = setTimeout(function() {
+                    if (!sseHasConnected && hasActiveAnalyses()) {
+                        console.error('[SSE] Connection failed after returning from background');
+                        document.body.classList.add('sse-disconnected');
+                        if (typeof SSEStatusBanner !== 'undefined') {
+                            SSEStatusBanner.show();
+                        }
+                    }
+                }, SSE_CONNECTION_TIMEOUT);
+            }
+            wasHiddenWhileDisconnected = false;
+            console.log('[SSE] Page visible - SSE extension will auto-reconnect');
         }
     });
 
