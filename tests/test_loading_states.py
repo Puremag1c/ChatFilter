@@ -373,7 +373,7 @@ class TestStatusCellSpinner:
 
         # Verify status changed from "Connecting" to "Connected"
         assert "Connected" in html
-        assert 'class="status-icon"' in html and "●" in html
+        assert "status-icon" in html and "i-circle-dot" in html
 
     def test_status_cell_updates_after_disconnection(self) -> None:
         """Status cell should show disconnected state after successful disconnection."""
@@ -391,7 +391,7 @@ class TestStatusCellSpinner:
 
         # Verify status changed from "Disconnecting" to "Needs Auth"
         assert "Needs Auth" in html
-        assert 'class="status-icon"' in html and "📱" in html
+        assert "status-icon" in html and "i-smartphone" in html
 
 
 class TestAllActionTypesComplete:
