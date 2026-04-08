@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}ChatFilter{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="/static/images/logo.ico">
+    <link rel="stylesheet" href="/static/css/fonts.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/style.css?v={{ css_version }}">
     <script>window.__i18n__ = {{ js_translations_json|safe }};</script>
     <script src="/static/js/htmx.min.js?v={{ css_version }}"></script>
@@ -48,7 +49,7 @@
             <div class="header-right">
                 <div class="header-controls">
                     <button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}">
-                        <span class="theme-icon" aria-hidden="true">🌙</span>
+                        <span class="theme-icon i i-moon" aria-hidden="true"></span>
                     </button>
                     <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}">
                         <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
@@ -78,7 +79,7 @@
     <!-- SSE Connection Status Banner (hidden by default, shown on connection failure) -->
     <div id="sse-status-banner" class="sse-status-banner" role="alert" aria-live="assertive" style="display: none;">
         <div class="banner-content">
-            <span class="banner-icon" aria-hidden="true">⚠</span>
+            <span class="banner-icon i i-alert-triangle" aria-hidden="true"></span>
             <div class="banner-message">
                 <strong>{{ _("Real-time updates paused") }}</strong>
                 <span>{{ _("Connection lost. Please refresh to restore live status updates.") }}</span>

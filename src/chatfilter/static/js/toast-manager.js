@@ -105,10 +105,10 @@
 
         createToastHTML(toast) {
             const icons = {
-                error: '✕',
-                success: '✓',
-                warning: '⚠',
-                info: 'ℹ'
+                error: '<span class="i i-x-circle"></span>',
+                success: '<span class="i i-check-circle"></span>',
+                warning: '<span class="i i-alert-triangle"></span>',
+                info: '<span class="i i-info"></span>'
             };
 
             const iconLabels = {

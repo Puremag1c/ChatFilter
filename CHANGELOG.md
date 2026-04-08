@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-04-09
+
+### Changed
+- **UI redesign**: полная замена визуала на современный нейтральный дизайн (стиль Linear/Vercel)
+- Шрифт Inter (self-hosted) вместо системного шрифта
+- Lucide Icons (icon font) вместо эмодзи — единообразные иконки по всему UI
+- Цветовая палитра: indigo primary, мягкие тени, subtle borders, softer alerts
+- Карточки: тени вместо бордеров, hover elevation
+- Кнопки: modern focus ring, hover glow
+- Тосты: переехали вниз по центру (snackbar style), slide-up анимация
+- Модалки: backdrop blur, slide-up, radius 16px
+- Тёмная тема: тёмно-серый (#09090b) вместо чистого чёрного (#000)
+- Header: sticky с backdrop blur, pill-style навигация
+- Все hardcoded цвета в group_card.html заменены на CSS-переменные
+- Алерты: left accent border вместо full border
+
 ## [0.37.0] - 2026-04-08
 
 ### Added

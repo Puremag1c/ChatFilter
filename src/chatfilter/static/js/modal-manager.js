@@ -72,9 +72,9 @@
 
         getDefaultIcon(type) {
             const icons = {
-                warning: '⚠️',
-                danger: '⛔',
-                info: 'ℹ️'
+                warning: '<span class="i i-alert-triangle"></span>',
+                danger: '<span class="i i-ban"></span>',
+                info: '<span class="i i-info"></span>'
             };
             return icons[type] || icons.warning;
         },

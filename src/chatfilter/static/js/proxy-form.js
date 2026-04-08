@@ -298,7 +298,7 @@
             if (usageCount > 0) {
                 const confirmed = await window.ModalManager.confirm({
                     type: 'danger',
-                    icon: '⚠️',
+                    icon: '<span class="i i-alert-triangle"></span>',
                     title: t('proxy.delete.title'),
                     message: `${t('proxy.delete.used_by_prefix')} ${usageCount} ${t('proxy.delete.used_by_suffix')}`,
                     confirmText: t('proxy.delete.confirm'),

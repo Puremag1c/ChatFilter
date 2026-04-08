@@ -10,9 +10,9 @@
     const THEME_DARK = 'dark';
     const THEME_LIGHT = 'light';
 
-    // Theme icons
-    const ICON_DARK = '🌙';  // Moon for dark mode
-    const ICON_LIGHT = '☀️';  // Sun for light mode
+    // Theme icons (Lucide CSS classes)
+    const ICON_CLASS_DARK = 'i-moon';   // Moon for dark mode
+    const ICON_CLASS_LIGHT = 'i-sun';   // Sun for light mode
 
     /**
      * Get the current theme from localStorage or system preference
@@ -42,12 +42,16 @@
         if (theme === THEME_DARK) {
             root.setAttribute('data-theme', THEME_DARK);
             if (themeIcon) {
-                themeIcon.textContent = ICON_LIGHT; // Show sun when in dark mode
+                themeIcon.classList.remove(ICON_CLASS_DARK);
+                themeIcon.classList.add(ICON_CLASS_LIGHT);
+                themeIcon.textContent = '';
             }
         } else {
             root.setAttribute('data-theme', THEME_LIGHT);
             if (themeIcon) {
-                themeIcon.textContent = ICON_DARK; // Show moon when in light mode
+                themeIcon.classList.remove(ICON_CLASS_LIGHT);
+                themeIcon.classList.add(ICON_CLASS_DARK);
+                themeIcon.textContent = '';
             }
         }
     }

@@ -70,14 +70,14 @@
             </td>
             <td class="bool-cell">
                 {% if chat.moderation %}
-                    <span class="badge badge--yes" title="{{ _("Moderation enabled") }}">✓</span>
+                    <span class="badge badge--yes" title="{{ _("Moderation enabled") }}"><span class="i i-xs i-check"></span></span>
                 {% else %}
                     <span class="muted">—</span>
                 {% endif %}
             </td>
             <td class="bool-cell">
                 {% if chat.captcha %}
-                    <span class="badge badge--yes" title="{{ _("Captcha enabled") }}">✓</span>
+                    <span class="badge badge--yes" title="{{ _("Captcha enabled") }}"><span class="i i-xs i-check"></span></span>
                 {% else %}
                     <span class="muted">—</span>
                 {% endif %}
@@ -130,7 +130,7 @@
 {% endif %}
 {% else %}
 <div class="empty-state no-results">
-    <div class="empty-state-icon">🔍</div>
+    <div class="empty-state-icon"><span class="i i-lg i-search"></span></div>
     <h3>{{ _("No chats found") }}</h3>
     <p>{{ _("No chats match the current filters. Try adjusting or clearing the filters.") }}</p>
 </div>

@@ -1,0 +1,110 @@
+/* Inter font family — self-hosted */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/Inter-Regular.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('/static/fonts/Inter-Medium.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/static/fonts/Inter-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('/static/fonts/Inter-Bold.woff2') format('woff2');
+}
+
+/* Lucide icons — self-hosted icon font */
+@font-face {
+    font-family: 'lucide';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/static/fonts/lucide.woff2') format('woff2');
+}
+
+/* Icon base class */
+.i {
+    font-family: 'lucide' !important;
+    font-style: normal;
+    font-weight: 400;
+    font-size: inherit;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    speak: never;
+    vertical-align: middle;
+}
+
+/* Sizes */
+.i-xs { font-size: 14px; width: 14px; height: 14px; }
+.i-sm { font-size: 16px; width: 16px; height: 16px; }
+.i-md { font-size: 20px; width: 20px; height: 20px; }
+.i-lg { font-size: 24px; width: 24px; height: 24px; }
+
+/* Icon definitions — only icons we actually use */
+.i-moon::before { content: "\e11e"; }
+.i-sun::before { content: "\e178"; }
+.i-search::before { content: "\e151"; }
+.i-folder::before { content: "\e0d7"; }
+.i-alert-triangle::before { content: "\e193"; }
+.i-alert-circle::before { content: "\e077"; }
+.i-check::before { content: "\e06c"; }
+.i-check-circle::before { content: "\e226"; }
+.i-x::before { content: "\e1b2"; }
+.i-x-circle::before { content: "\e084"; }
+.i-circle-dot::before { content: "\e345"; }
+.i-ban::before { content: "\e051"; }
+.i-settings::before { content: "\e154"; }
+.i-smartphone::before { content: "\e163"; }
+.i-lock::before { content: "\e10b"; }
+.i-hourglass::before { content: "\e296"; }
+.i-info::before { content: "\e0f9"; }
+.i-clock::before { content: "\e087"; }
+.i-download::before { content: "\e0b2"; }
+.i-trash::before { content: "\e18e"; }
+.i-play::before { content: "\e13c"; }
+.i-pause::before { content: "\e12e"; }
+.i-stop::before { content: "\e083"; }
+.i-plus::before { content: "\e13d"; }
+.i-minus::before { content: "\e11c"; }
+.i-refresh::before { content: "\e145"; }
+.i-chevron-left::before { content: "\e06e"; }
+.i-chevron-right::before { content: "\e06f"; }
+.i-chevron-down::before { content: "\e06d"; }
+.i-log-out::before { content: "\e10e"; }
+.i-user::before { content: "\e19f"; }
+.i-shield::before { content: "\e158"; }
+.i-globe::before { content: "\e0e8"; }
+.i-upload::before { content: "\e19e"; }
+.i-file::before { content: "\e0c0"; }
+.i-list::before { content: "\e106"; }
+.i-filter::before { content: "\e0dc"; }
+.i-zap::before { content: "\e1b4"; }
+.i-loader::before { content: "\e10a"; }
+.i-circle::before { content: "\e076"; }
+.i-wifi-off::before { content: "\e1af"; }
+.i-rotate::before { content: "\e149"; }
+.i-external-link::before { content: "\e0b9"; }
+.i-eye::before { content: "\e0ba"; }
+.i-more-vertical::before { content: "\e0b7"; }

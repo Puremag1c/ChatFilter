@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ChatFilter{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="/static/images/logo.ico">
+    <link rel="stylesheet" href="/static/css/fonts.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/style.css?v={{ css_version }}">
     <script>window.__i18n__ = {{ js_translations_json|safe }};</script>
     <script src="/static/js/i18n.js?v={{ css_version }}"></script>
@@ -14,7 +15,7 @@
 <body>
     <div class="minimal-controls">
         <button id="theme-toggle" class="theme-toggle-btn" aria-label="{{ _("Toggle dark mode") }}">
-            <span class="theme-icon" aria-hidden="true">🌙</span>
+            <span class="theme-icon i i-moon" aria-hidden="true"></span>
         </button>
         <button id="language-toggle" class="language-toggle-btn" aria-label="{{ _("Switch language") }}">
             <span class="language-icon" aria-hidden="true">{{ locale.upper() }}</span>
