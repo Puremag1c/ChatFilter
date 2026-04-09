@@ -181,8 +181,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if css_path.exists():
         with css_path.open("rb") as f:
             css_hash = hashlib.sha256(f.read()).hexdigest()[:8]
-            app.state.app_state.css_version = css_hash
-            logger.info(f"CSS cache-buster: {css_hash}")
+            # Include version so JS-only changes also bust the cache
+            app.state.app_state.css_version = f"{__version__}-{css_hash}"
+            logger.info(f"Static cache-buster: {__version__}-{css_hash}")
     else:
         app.state.app_state.css_version = __version__
         logger.warning(f"CSS file not found, using version {__version__} as cache-buster")
