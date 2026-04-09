@@ -148,6 +148,9 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 						return;
 					}
 
+					// Guard: event.data can be undefined on mobile Safari when SSE drops mid-stream
+					if (event.data == null) return;
+
 					// swap the response into the DOM and trigger a notification
 					swap(child, event.data);
 					api.triggerEvent(elt, "htmx:sseMessage", event);
@@ -319,6 +322,9 @@ This extension adds support for Server Sent Events to htmx.  See /www/extensions
 	 * @param {string} content 
 	 */
 	function swap(elt, content) {
+
+		// Guard: content must be a string — undefined/null crashes htmx core (indexOf on undefined)
+		if (content == null) return;
 
 		api.withExtensions(elt, function(extension) {
 			content = extension.transformResponse(content, null, elt);
