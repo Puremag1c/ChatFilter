@@ -244,15 +244,21 @@ class SearchOrchestrator:
                     user_id, filter_cost, "parse_response", None, 0, 0, "Post-filter"
                 )
 
-            # 7. Add chats to group and update status
+            # 7. Add chats to group and update status.
+            #    Persist titles the platforms already gave us into chat_metrics
+            #    so PENDING rows carry a non-empty title in the CSV export that
+            #    the user may download BEFORE running analysis.
             if unique_refs:
                 for ref in unique_refs:
-                    self._db.save_chat(
+                    chat_id = self._db.save_chat(
                         group_id=group_id,
                         chat_ref=ref,
                         chat_type=ChatTypeEnum.PENDING.value,
                         status=GroupChatStatus.PENDING.value,
                     )
+                    title = all_titles.get(ref)
+                    if title and chat_id:
+                        self._db.save_chat_metrics(chat_id, {"title": title})
                 self._update_group_status(group_id, GroupStatus.PENDING)
                 logger.warning(
                     "Scraping complete for group %s: saved %d chats to DB, status → PENDING",
