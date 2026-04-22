@@ -306,11 +306,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 3b. Stop the persistent-queue scheduler (Phase 4). Graceful: lets
     #     in-flight per-task coroutines finish so their rows land in a
     #     terminal state instead of getting re-queued on next boot.
-    analysis_scheduler = getattr(app.state.app_state, "analysis_scheduler", None)
-    if analysis_scheduler is not None:
+    scheduler_to_stop = getattr(app.state.app_state, "analysis_scheduler", None)
+    if scheduler_to_stop is not None:
         logger.info("Stopping AnalysisScheduler")
         try:
-            await analysis_scheduler.stop()
+            await scheduler_to_stop.stop()
         except Exception as e:
             logger.error(f"Error stopping AnalysisScheduler: {e}")
 

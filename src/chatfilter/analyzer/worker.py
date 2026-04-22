@@ -25,7 +25,6 @@ from chatfilter.models.group import (
     GroupChatStatus,
     GroupSettings,
 )
-from chatfilter.utils.network import detect_network_error
 from chatfilter.telegram.client.membership import (
     _parse_chat_reference,
     join_chat,
@@ -33,6 +32,7 @@ from chatfilter.telegram.client.membership import (
 )
 from chatfilter.telegram.client.messages import _telethon_message_to_model
 from chatfilter.telegram.rate_limiter import get_rate_limiter
+from chatfilter.utils.network import detect_network_error
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
@@ -644,7 +644,4 @@ def _has_global_restriction(entity: Channel) -> bool:
     platform. Only ``platform == 'all'`` means Telegram globally hid it.
     """
     reasons = getattr(entity, "restriction_reason", None) or []
-    for r in reasons:
-        if getattr(r, "platform", "") == "all":
-            return True
-    return False
+    return any(getattr(r, "platform", "") == "all" for r in reasons)

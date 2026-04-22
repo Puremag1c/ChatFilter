@@ -121,10 +121,10 @@ class AnalysisScheduler:
             except Exception:
                 logger.exception("Scheduler tick raised unexpectedly")
             # Sleep but wake early if stop is requested.
-            try:
+            import contextlib
+
+            with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stop.wait(), timeout=self._poll_interval)
-            except TimeoutError:
-                pass
 
     async def tick_once(self) -> None:
         """Do one pass — claim as many tasks as there are idle accounts."""
@@ -187,17 +187,23 @@ class AnalysisScheduler:
         needed = set(self._infer_pool_keys_from_queue())
         if not needed:
             return {}
+        session_state_enum: Any
         try:
             from chatfilter.telegram.session.models import SessionState
+
+            session_state_enum = SessionState
         except Exception:
-            SessionState = None  # type: ignore[assignment]
+            session_state_enum = None
         for sid in list_fn():
             if sid in self._busy:
                 continue
             info = get_info(sid)
             if info is None:
                 continue
-            if SessionState is not None and getattr(info, "state", None) != SessionState.CONNECTED:
+            if (
+                session_state_enum is not None
+                and getattr(info, "state", None) != session_state_enum.CONNECTED
+            ):
                 continue
             owner = getattr(info, "owner", None) or "admin"
             if owner not in needed:
@@ -287,11 +293,27 @@ class AnalysisScheduler:
     ) -> float | None:
         """Charge cost_per_chat before the worker runs.
 
+        Idempotent: if ``charged_amount`` on the row is already > 0
+        (i.e. we charged on a previous boot and crashed before
+        finalising), we skip the second charge and reuse the recorded
+        amount. This is how crash recovery avoids double-billing the
+        same chat.
+
         Returns the amount actually charged (>= 0) — caller stores it
         on the queue row so ``_refund`` can return the exact amount
         later. Returns None if the user is out of funds, in which case
         the task is moved to ``blocked_no_funds`` status.
         """
+        # Check for an existing charge (crash recovery path).
+        with self._db._connection() as conn:
+            row = conn.execute(
+                "SELECT charged_amount FROM analysis_queue WHERE id=?",
+                (task_id,),
+            ).fetchone()
+        already_charged = float(row["charged_amount"]) if row else 0.0
+        if already_charged > 0:
+            return already_charged
+
         if self._billing is None:
             return 0.0
         try:
@@ -310,8 +332,6 @@ class AnalysisScheduler:
                 description=f"Chat analysis: {chat_ref}",
             )
         except Exception:
-            from chatfilter.ai.billing import InsufficientBalance
-
             logger.warning(
                 "Task %s blocked — user %s out of funds for chat %s",
                 task_id,

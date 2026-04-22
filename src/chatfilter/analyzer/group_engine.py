@@ -161,6 +161,24 @@ class GroupAnalysisEngine:
                         f"current balance ${current:.2f}."
                     )
 
+        # Guard against accidental duplicate-enqueue (e.g. a UI double-click
+        # or a retry). If the group already has rows in a live state —
+        # queued, running, blocked_no_funds — we return the existing count
+        # instead of piling on new tasks.
+        with self._db._connection() as conn:
+            existing = conn.execute(
+                "SELECT COUNT(*) AS n FROM analysis_queue "
+                "WHERE group_id = ? AND status IN ('queued','running','blocked_no_funds')",
+                (group_id,),
+            ).fetchone()
+        if existing and existing["n"]:
+            logger.info(
+                "Group %s already has %d live queue rows — skipping re-enqueue",
+                group_id,
+                existing["n"],
+            )
+            return int(existing["n"])
+
         enqueued = 0
         for chat in pending:
             self._db.enqueue_chat_task(

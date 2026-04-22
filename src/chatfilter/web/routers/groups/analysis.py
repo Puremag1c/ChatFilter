@@ -269,7 +269,12 @@ async def stop_group_analysis(
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # Stop analysis via service (cancels task, updates status)
+        # When the persistent-queue flag is on, cancelling queued rows
+        # is the correct stop action — the scheduler consults the queue.
+        # We still call service.stop_analysis to handle in-memory tasks
+        # left over from before the flip.
+        if service.db.get_use_scheduler_queue():
+            service.db.cancel_group_tasks(group_id)
         service.stop_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container and show toast

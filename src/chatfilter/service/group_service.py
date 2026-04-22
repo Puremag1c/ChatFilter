@@ -53,6 +53,11 @@ class GroupService:
         self._db = db
         self._engine = engine
 
+    @property
+    def db(self) -> GroupDatabase:
+        """Public accessor for the underlying GroupDatabase."""
+        return self._db
+
     def create_group(
         self,
         name: str,
