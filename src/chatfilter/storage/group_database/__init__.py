@@ -2,6 +2,7 @@
 
 from chatfilter.storage.sqlite import SQLiteDatabase
 
+from .analysis_queue import AnalysisQueueMixin
 from .app_settings import AppSettingsMixin
 from .catalog import CatalogMixin
 from .chats import _UNSET, ChatsMixin
@@ -22,6 +23,7 @@ class GroupDatabase(
     StatsMixin,
     CatalogMixin,
     SubscriptionsMixin,
+    AnalysisQueueMixin,
     AppSettingsMixin,
     SQLiteDatabase,
 ):
