@@ -79,9 +79,12 @@
     </div>
 
     <!-- Type breakdown -->
-    {% set total_typed = stats.dead + stats.groups + stats.forums + stats.channels_with_comments + stats.channels_no_comments %}
+    {% set total_typed = stats.dead + stats.banned + stats.restricted + stats.private + stats.groups + stats.forums + stats.channels_with_comments + stats.channels_no_comments %}
     <div class="type-breakdown" id="type-breakdown-{{ group.id }}">
         <span class="type-badge dead" data-badge-type="dead" id="badge-dead-{{ group.id }}" style="display: {% if stats.dead > 0 %}inline{% else %}none{% endif %}">{{ _("Dead") }}: <span data-badge-count>{{ stats.dead }}</span></span>
+        <span class="type-badge banned" data-badge-type="banned" id="badge-banned-{{ group.id }}" style="display: {% if stats.banned > 0 %}inline{% else %}none{% endif %}">{{ _("Banned") }}: <span data-badge-count>{{ stats.banned }}</span></span>
+        <span class="type-badge restricted" data-badge-type="restricted" id="badge-restricted-{{ group.id }}" style="display: {% if stats.restricted > 0 %}inline{% else %}none{% endif %}">{{ _("Restricted") }}: <span data-badge-count>{{ stats.restricted }}</span></span>
+        <span class="type-badge private" data-badge-type="private" id="badge-private-{{ group.id }}" style="display: {% if stats.private > 0 %}inline{% else %}none{% endif %}">{{ _("Private") }}: <span data-badge-count>{{ stats.private }}</span></span>
         {% if total_typed == 0 %}
         <span class="type-badge" id="badge-placeholder-{{ group.id }}" style="background: var(--bg-code); color: var(--text-muted);">—</span>
         {% else %}

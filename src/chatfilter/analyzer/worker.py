@@ -19,7 +19,13 @@ from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready, ChatInvite
 from telethon.tl.types import Chat as TelegramChat
 
 from chatfilter.models.catalog import AnalysisModeEnum, CatalogChat
-from chatfilter.models.group import ChatTypeEnum, GroupSettings
+from chatfilter.models.group import (
+    UNUSABLE_CHAT_TYPES,
+    ChatTypeEnum,
+    GroupChatStatus,
+    GroupSettings,
+)
+from chatfilter.utils.network import detect_network_error
 from chatfilter.telegram.client.membership import (
     _parse_chat_reference,
     join_chat,
@@ -107,19 +113,26 @@ async def process_chat(
 ) -> ChatResult:
     """Process a single chat end-to-end.
 
-    Resolves metadata, joins if needed, analyzes activity.
-    On success, account stays in chat and subscription is tracked.
-    On failure, account leaves the chat.
+    Two orthogonal outcomes:
+      * ``status`` — whether we got a response from Telegram at all
+        (``DONE`` = yes, ``ERROR`` = no).
+      * ``chat_type`` — what kind of chat it turned out to be (may be
+        DEAD/BANNED/PRIVATE/RESTRICTED even when ``status=DONE``).
+
+    Rotation triggers (FloodWait, UserBannedInChannel, network errors,
+    unknown exceptions) are re-raised so retry.py can pick the next
+    account.  Everything Telegram actually answers becomes a DONE result.
     """
     chat_ref = chat["chat_ref"]
 
-    try:
-        resolved = await _resolve_chat(client, chat, account_id)
-    except errors.FloodWaitError:
-        raise
+    resolved = await _resolve_chat(client, chat, account_id)
 
-    if resolved.status in ("dead", "banned"):
-        return _result_from_resolved(resolved, status=resolved.status, error=resolved.error)
+    if resolved.status == GroupChatStatus.ERROR.value:
+        return _result_from_resolved(resolved)
+
+    # Unusable chat types (dead, banned, restricted, private) — DONE, no join.
+    if resolved.chat_type in {t.value for t in UNUSABLE_CHAT_TYPES}:
+        return _result_from_resolved(resolved)
 
     needs_join = settings.needs_join()
     if resolved.moderation is True:
@@ -145,9 +158,16 @@ async def process_chat(
         return result
     except errors.FloodWaitError:
         raise
+    except errors.UserBannedInChannelError:
+        raise
     except Exception as e:
+        if detect_network_error(e):
+            # Network hiccup — propagate, retry.py will rotate account.
+            raise
         logger.error(f"Account '{account_id}': failed to analyze '{chat_ref}': {e}", exc_info=True)
-        return _result_from_resolved(resolved, status="error", error=str(e))
+        return _result_from_resolved(
+            resolved, status=GroupChatStatus.ERROR.value, error=str(e)
+        )
 
 
 # ------------------------------------------------------------------
@@ -171,17 +191,31 @@ class _ResolvedChat:
     error: str | None = None
 
 
-def _dead_chat(chat_ref: str, *, status: str = "dead", **kw: Any) -> _ResolvedChat:
-    """Shorthand for a dead/banned/failed _ResolvedChat."""
+def _typed_failure(
+    chat_ref: str,
+    chat_type: ChatTypeEnum,
+    *,
+    status: GroupChatStatus = GroupChatStatus.DONE,
+    error: str | None = None,
+    title: str | None = None,
+    numeric_id: int | None = None,
+) -> _ResolvedChat:
+    """Build a _ResolvedChat for any negative / non-analyzable outcome.
+
+    By default ``status=DONE`` (Telegram answered — billable) and
+    ``chat_type`` records the verdict (DEAD / BANNED / RESTRICTED /
+    PRIVATE).  ``status=ERROR`` is used only when our own parsing fails,
+    never for Telegram responses.
+    """
     return _ResolvedChat(
         chat_ref=chat_ref,
-        chat_type=ChatTypeEnum.DEAD.value,
-        title=kw.get("title"),
+        chat_type=chat_type.value,
+        title=title,
         subscribers=None,
         moderation=None,
-        numeric_id=kw.get("numeric_id"),
-        status=status,
-        error=kw.get("error"),
+        numeric_id=numeric_id,
+        status=status.value,
+        error=error,
     )
 
 
@@ -198,7 +232,13 @@ async def _resolve_chat(
         return await _resolve_by_username(client, chat_ref, username, account_id)
     if invite_hash:
         return await _resolve_by_invite(client, chat_ref, invite_hash, account_id)
-    return _dead_chat(chat_ref, status="failed", error=f"Invalid chat reference: {chat_ref}")
+    # Our own parse failure — not Telegram's answer. Not billable, retriable.
+    return _typed_failure(
+        chat_ref,
+        ChatTypeEnum.PENDING,
+        status=GroupChatStatus.ERROR,
+        error=f"Invalid chat reference: {chat_ref}",
+    )
 
 
 async def _resolve_by_username(
@@ -207,13 +247,36 @@ async def _resolve_by_username(
     username: str,
     account_id: str,
 ) -> _ResolvedChat:
-    """Resolve chat via get_entity(username)."""
+    """Resolve chat via get_entity(username).
+
+    Telegram tells us *what* the chat is.  This function maps that
+    verdict to a (status, chat_type) pair:
+
+      Exception                                  →  status/chat_type
+      UsernameNotOccupied / UsernameInvalid      →  DONE / DEAD
+      ChannelPrivate                             →  DONE / PRIVATE
+      ChannelBanned / ChatForbidden              →  DONE / BANNED
+      ChatRestricted                             →  DONE / RESTRICTED
+      Channel.restricted=True  platform='all'    →  DONE / RESTRICTED
+      FloodWait / UserBanned / network / unknown →  re-raise (rotate)
+    """
     rate_limiter = get_rate_limiter()
     try:
         await rate_limiter.wait_if_needed("get_entity")
         entity = await client.get_entity(username)
 
         if isinstance(entity, Channel):
+            # Globally-restricted channels: Channel.restricted=True with
+            # restriction_reason entries targeting platform='all'.
+            if getattr(entity, "restricted", False) and _has_global_restriction(entity):
+                title = getattr(entity, "title", None)
+                return _typed_failure(
+                    chat_ref,
+                    ChatTypeEnum.RESTRICTED,
+                    title=title,
+                    numeric_id=abs(entity.id) if hasattr(entity, "id") else None,
+                )
+
             title = entity.title
             subscribers = getattr(entity, "participants_count", None)
             linked_chat_id = None
@@ -243,8 +306,10 @@ async def _resolve_by_username(
             numeric_id = abs(entity.id)
             linked_chat_id = None
         else:
-            return _dead_chat(
+            # Non-chat entity (User etc.) — treated as dead for group-analysis purposes.
+            return _typed_failure(
                 chat_ref,
+                ChatTypeEnum.DEAD,
                 title=getattr(entity, "first_name", None),
                 numeric_id=abs(entity.id) if hasattr(entity, "id") else None,
             )
@@ -265,20 +330,36 @@ async def _resolve_by_username(
 
     except errors.FloodWaitError:
         raise
+    except errors.UserBannedInChannelError:
+        # Our account is banned here — rotate to another account.
+        raise
 
-    except (
-        errors.ChatForbiddenError,
-        errors.ChannelPrivateError,
-        errors.ChatRestrictedError,
-        errors.ChannelBannedError,
-        errors.UserBannedInChannelError,
-    ) as e:
-        logger.info(f"Account '{account_id}': '{chat_ref}' inaccessible ({type(e).__name__})")
-        return _dead_chat(chat_ref, status="banned", error=str(e))
+    except (errors.UsernameNotOccupiedError, errors.UsernameInvalidError) as e:
+        logger.info(f"Account '{account_id}': '{chat_ref}' does not exist ({type(e).__name__})")
+        return _typed_failure(chat_ref, ChatTypeEnum.DEAD, error=str(e))
+
+    except errors.ChannelPrivateError as e:
+        logger.info(f"Account '{account_id}': '{chat_ref}' is private")
+        return _typed_failure(chat_ref, ChatTypeEnum.PRIVATE, error=str(e))
+
+    except (errors.ChannelBannedError, errors.ChatForbiddenError) as e:
+        logger.info(
+            f"Account '{account_id}': '{chat_ref}' closed by Telegram ({type(e).__name__})"
+        )
+        return _typed_failure(chat_ref, ChatTypeEnum.BANNED, error=str(e))
+
+    except errors.ChatRestrictedError as e:
+        logger.info(f"Account '{account_id}': '{chat_ref}' restricted by Telegram")
+        return _typed_failure(chat_ref, ChatTypeEnum.RESTRICTED, error=str(e))
 
     except Exception as e:
-        logger.error(f"Account '{account_id}': failed to resolve '{chat_ref}': {e}", exc_info=True)
-        return _dead_chat(chat_ref, error=str(e))
+        if detect_network_error(e):
+            # Connectivity problem — re-raise so retry.py rotates account.
+            raise
+        logger.error(
+            f"Account '{account_id}': failed to resolve '{chat_ref}': {e}", exc_info=True
+        )
+        raise
 
 
 async def _resolve_by_invite(
@@ -345,19 +426,36 @@ async def _resolve_by_invite(
             )
 
         else:
-            return _dead_chat(chat_ref, error=f"Unknown invite result: {type(result).__name__}")
+            return _typed_failure(
+                chat_ref,
+                ChatTypeEnum.DEAD,
+                error=f"Unknown invite result: {type(result).__name__}",
+            )
 
     except errors.FloodWaitError:
         raise
+    except errors.UserBannedInChannelError:
+        raise
 
     except (errors.InviteHashExpiredError, errors.InviteHashInvalidError) as e:
-        return _dead_chat(chat_ref, error=str(e))
+        return _typed_failure(chat_ref, ChatTypeEnum.DEAD, error=str(e))
+
+    except errors.ChannelPrivateError as e:
+        return _typed_failure(chat_ref, ChatTypeEnum.PRIVATE, error=str(e))
+
+    except (errors.ChannelBannedError, errors.ChatForbiddenError) as e:
+        return _typed_failure(chat_ref, ChatTypeEnum.BANNED, error=str(e))
+
+    except errors.ChatRestrictedError as e:
+        return _typed_failure(chat_ref, ChatTypeEnum.RESTRICTED, error=str(e))
 
     except Exception as e:
+        if detect_network_error(e):
+            raise
         logger.error(
             f"Account '{account_id}': failed to resolve invite '{chat_ref}': {e}", exc_info=True
         )
-        return _dead_chat(chat_ref, error=str(e))
+        raise
 
 
 async def _analyze_chat_activity(
@@ -536,3 +634,17 @@ def _channel_to_chat_type(entity: Channel, linked_chat_id: int | None = None) ->
         if linked_chat_id is not None
         else ChatTypeEnum.CHANNEL_NO_COMMENTS.value
     )
+
+
+def _has_global_restriction(entity: Channel) -> bool:
+    """True if channel carries a platform='all' restriction reason.
+
+    Channel.restricted alone is insufficient — a reason targeting only
+    'ios' or 'android' still lets the channel work on every other
+    platform. Only ``platform == 'all'`` means Telegram globally hid it.
+    """
+    reasons = getattr(entity, "restriction_reason", None) or []
+    for r in reasons:
+        if getattr(r, "platform", "") == "all":
+            return True
+    return False

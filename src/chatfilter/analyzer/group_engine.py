@@ -759,17 +759,21 @@ class GroupAnalysisEngine:
     # -- Save helpers ------------------------------------------------------
 
     def _save_chat_result(self, chat: dict[str, Any], result: ChatResult, account_id: str) -> None:
-        """Save worker result to DB."""
-        is_error = result.status in ("dead", "banned", "error")
-        db_status = GroupChatStatus.ERROR.value if is_error else GroupChatStatus.DONE.value
+        """Save worker result to DB.
 
+        The worker already produces the orthogonal (status, chat_type) pair.
+        DONE + dead/banned/restricted/private stays DONE — the service was
+        delivered (Telegram answered), and the chat_type field carries the
+        verdict.  Only the worker's own ERROR status means "we failed to
+        obtain an answer" and should be retriable.
+        """
         self._db.save_chat(
             group_id=chat["group_id"],
             chat_ref=chat["chat_ref"],
             chat_type=result.chat_type,
-            status=db_status,
+            status=result.status,
             assigned_account=account_id,
-            error=result.error if is_error else None,
+            error=result.error,
             chat_id=chat["id"],
             subscribers=result.subscribers,
         )
