@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.2] - 2026-04-15
+
+### Fixed
+- Mobile: SSE connection banner скрыт на мобильных когда нет активных анализов
+- Mobile: починен чат-crash (SSE banner + JS crash)
+- Cache-busting: `css_version` теперь включает `__version__`, поэтому JS-only фиксы инвалидируются на апгрейде (раньше хеш считался только от style.css, и JS-only изменения оставались в кеше браузера)
+
 ## [0.38.0] - 2026-04-09
 
 ### Changed
