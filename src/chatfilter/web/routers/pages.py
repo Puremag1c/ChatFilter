@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
 from chatfilter.utils.paths import get_base_path
-from chatfilter.web.dependencies import require_admin
+from chatfilter.web.dependencies import require_session_access
 from chatfilter.web.template_helpers import get_template_context
 
 router = APIRouter(tags=["pages"])
@@ -49,7 +49,7 @@ async def chats_page(request: Request) -> HTMLResponse:
 @router.get(
     "/sessions",
     response_class=HTMLResponse,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_session_access)],
 )
 async def sessions_page(request: Request) -> HTMLResponse:
     """Sessions management — admin only (Phase 2)."""
@@ -86,7 +86,7 @@ async def chatlist_page(request: Request) -> HTMLResponse:
 @router.get(
     "/proxies",
     response_class=HTMLResponse,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_session_access)],
 )
 async def proxies_page(request: Request) -> HTMLResponse:
     """Proxy pool management — admin only (Phase 2)."""

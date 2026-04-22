@@ -87,44 +87,39 @@ async def start_group_analysis(
             )
             return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
 
-        # Phase 6: runtime switch. When the admin flips
-        # use_scheduler_queue on, the /start endpoint hands off to the
-        # persistent-queue scheduler (with per-chat billing pre-flight).
-        # When off, the legacy in-memory flow runs unchanged so the
-        # switch can be rolled back cheaply.
-        if service.db.get_use_scheduler_queue():
-            from chatfilter.ai.billing import BillingService, InsufficientBalance
-            from chatfilter.storage.user_database import get_user_db
-            from chatfilter.web.dependencies import get_group_engine
+        # All analyses run through the persistent queue + scheduler.
+        # Pool_key routes admin-pool tasks to the shared admin accounts,
+        # or user:{id} tasks to a user's own sessions when they've
+        # toggled use_own_accounts in their profile.
+        from chatfilter.ai.billing import BillingService, InsufficientBalance
+        from chatfilter.storage.user_database import get_user_db
+        from chatfilter.web.dependencies import get_group_engine
 
-            settings_obj = request.app.state.settings
-            user_db = get_user_db(settings_obj.effective_database_url)
-            billing = BillingService(user_db, group_db=service.db)
+        settings_obj = request.app.state.settings
+        user_db = get_user_db(settings_obj.effective_database_url)
+        billing = BillingService(user_db, group_db=service.db)
 
-            # Pool: admin unless the user opted into their own accounts.
-            user = user_db.get_user_by_id(user_id)
-            pool_key = (
-                f"user:{user_id}"
-                if user and user.get("use_own_accounts")
-                else "admin"
+        user = user_db.get_user_by_id(user_id)
+        pool_key = (
+            f"user:{user_id}"
+            if user and user.get("use_own_accounts")
+            else "admin"
+        )
+        engine = get_group_engine()
+        try:
+            engine.enqueue_group_analysis(
+                group_id,
+                pool_key=pool_key,
+                billing=billing,
             )
-            engine = get_group_engine()
-            try:
-                engine.enqueue_group_analysis(
-                    group_id,
-                    pool_key=pool_key,
-                    billing=billing,
-                )
-            except InsufficientBalance as ib:
-                trigger = json.dumps(
-                    {
-                        "refreshGroups": {},
-                        "showToast": {"type": "error", "message": str(ib)},
-                    }
-                )
-                return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger})
-        else:
-            service.start_analysis(group_id)
+        except InsufficientBalance as ib:
+            trigger = json.dumps(
+                {
+                    "refreshGroups": {},
+                    "showToast": {"type": "error", "message": str(ib)},
+                }
+            )
+            return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger})
 
         # Return 204 No Content with HX-Trigger header to refresh the container and show toast
         trigger = json.dumps(
@@ -218,7 +213,37 @@ async def reanalyze_group(
             )
             return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
 
-        service.reanalyze(group_id, mode=analysis_mode)
+        # Re-analysis also runs through the persistent queue/scheduler
+        # so dead/banned retries and user pools are respected.
+        from chatfilter.ai.billing import BillingService, InsufficientBalance
+        from chatfilter.storage.user_database import get_user_db
+        from chatfilter.web.dependencies import get_group_engine
+
+        settings_obj = request.app.state.settings
+        user_db = get_user_db(settings_obj.effective_database_url)
+        billing = BillingService(user_db, group_db=service.db)
+        user = user_db.get_user_by_id(user_id)
+        pool_key = (
+            f"user:{user_id}"
+            if user and user.get("use_own_accounts")
+            else "admin"
+        )
+        engine = get_group_engine()
+        try:
+            engine.enqueue_group_analysis(
+                group_id,
+                pool_key=pool_key,
+                mode=analysis_mode,
+                billing=billing,
+            )
+        except InsufficientBalance as ib:
+            trigger = json.dumps(
+                {
+                    "refreshGroups": {},
+                    "showToast": {"type": "error", "message": str(ib)},
+                }
+            )
+            return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger})
 
         # Return 204 No Content with HX-Trigger header to refresh the container and show toast
         trigger = json.dumps(
@@ -269,12 +294,10 @@ async def stop_group_analysis(
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # When the persistent-queue flag is on, cancelling queued rows
-        # is the correct stop action — the scheduler consults the queue.
-        # We still call service.stop_analysis to handle in-memory tasks
-        # left over from before the flip.
-        if service.db.get_use_scheduler_queue():
-            service.db.cancel_group_tasks(group_id)
+        # Cancel queued rows in the scheduler queue.  stop_analysis also
+        # cleans up any in-memory task state that may still be present
+        # for groups started before the redesign.
+        service.db.cancel_group_tasks(group_id)
         service.stop_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container and show toast

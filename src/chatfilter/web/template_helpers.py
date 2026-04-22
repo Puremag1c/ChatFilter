@@ -67,6 +67,7 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
     current_username = session.get("username")
 
     ai_balance: float | None = None
+    current_use_own_accounts = False
     if current_username:
         try:
             from chatfilter.storage.user_database import get_user_db
@@ -77,8 +78,14 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
                 user = db.get_user_by_username(current_username)
                 if user is not None:
                     ai_balance = user.get("ai_balance_usd")
+                    current_use_own_accounts = bool(user.get("use_own_accounts"))
         except Exception:
             pass
+
+    is_admin = session.get("is_admin", False)
+    # "Session access" = admin sees the shared pool, power-user sees
+    # their own pool. Either way Sessions/Proxies appear in the menu.
+    current_has_session_access = bool(is_admin or current_use_own_accounts)
 
     return {
         "request": request,
@@ -90,7 +97,9 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "css_version": css_version,  # CSS file hash for cache-busting
         "js_translations_json": _js_translations_json(locale),
         "current_username": current_username,
-        "current_is_admin": session.get("is_admin", False),
+        "current_is_admin": is_admin,
+        "current_use_own_accounts": current_use_own_accounts,
+        "current_has_session_access": current_has_session_access,
         "ai_balance": ai_balance,
         **kwargs,
     }

@@ -858,10 +858,11 @@ class TestRouterUsesNewServiceAPI:
             )
 
     def test_start_analysis_calls_service_method(self) -> None:
-        """Verify start_analysis endpoint calls service.start_analysis().
+        """Verify start_analysis endpoint delegates to the scheduler queue.
 
-        Inspects the endpoint function source to confirm it delegates to service,
-        not to engine directly or manual status updates.
+        Post-redesign /start writes queue rows via
+        engine.enqueue_group_analysis rather than running the analysis
+        in-process.
         """
         import inspect
 
@@ -869,15 +870,12 @@ class TestRouterUsesNewServiceAPI:
 
         source = inspect.getsource(start_group_analysis)
 
-        # Must call service.start_analysis
-        assert "service.start_analysis(" in source, (
-            "start_group_analysis should call service.start_analysis()"
+        assert "enqueue_group_analysis(" in source, (
+            "start_group_analysis should delegate to engine.enqueue_group_analysis"
         )
-        # Must NOT create background task directly
         assert "create_task(" not in source, (
             "start_group_analysis should not create background tasks directly"
         )
-        # Must NOT update status manually
         assert "update_status(" not in source, (
             "start_group_analysis should not update status manually"
         )
@@ -898,16 +896,18 @@ class TestRouterUsesNewServiceAPI:
         )
 
     def test_reanalyze_calls_service_method(self) -> None:
-        """Verify reanalyze endpoint calls service.reanalyze() with mode."""
+        """Verify reanalyze endpoint delegates to the scheduler queue with mode."""
         import inspect
 
         from chatfilter.web.routers.groups import reanalyze_group
 
         source = inspect.getsource(reanalyze_group)
 
-        assert "service.reanalyze(" in source, "reanalyze_group should call service.reanalyze()"
+        assert "enqueue_group_analysis(" in source, (
+            "reanalyze_group should delegate to engine.enqueue_group_analysis"
+        )
         assert "mode=analysis_mode" in source, (
-            "reanalyze_group should pass mode to service.reanalyze()"
+            "reanalyze_group should pass mode to enqueue_group_analysis()"
         )
         assert "create_task(" not in source, (
             "reanalyze_group should not create background tasks directly"

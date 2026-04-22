@@ -86,9 +86,10 @@ def test_start_returns_204_immediately(smoke_settings: Settings):
 
     source = inspect.getsource(groups.start_group_analysis)
 
-    # Bug 1 fix (v0.12.0): Should delegate to service layer (service.start_analysis)
-    assert "service.start_analysis" in source, (
-        "/start endpoint should delegate to service.start_analysis (creates background task internally)"
+    # Phase 4+ redesign: endpoint delegates to the persistent-queue scheduler
+    # via engine.enqueue_group_analysis (was service.start_analysis pre-Phase-6).
+    assert "enqueue_group_analysis" in source, (
+        "/start endpoint should delegate to engine.enqueue_group_analysis"
     )
     # Should return 204 No Content
     assert "status_code=204" in source or "status_code = 204" in source, (
@@ -108,14 +109,16 @@ def test_reanalyze_returns_204_immediately(smoke_settings: Settings):
 
     source = inspect.getsource(groups.reanalyze_group)
 
-    # Bug 2 fix (v0.12.0): Should use non-blocking pattern (create_task OR service delegation)
+    # Phase 4+ redesign: reanalyze also goes through enqueue_group_analysis,
+    # so no background task is needed — enqueue is a fast synchronous DB write.
     has_async_pattern = (
-        "asyncio.create_task" in source
+        "enqueue_group_analysis" in source
+        or "asyncio.create_task" in source
         or "service.start_analysis" in source
         or "service.reanalyze" in source
     )
     assert has_async_pattern, (
-        "/reanalyze endpoint should use non-blocking pattern (asyncio.create_task or service delegation)"
+        "/reanalyze endpoint should delegate to engine.enqueue_group_analysis"
     )
     # Should return 204 No Content
     assert "status_code=204" in source or "status_code = 204" in source, (

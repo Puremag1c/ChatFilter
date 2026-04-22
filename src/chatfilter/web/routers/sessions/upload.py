@@ -224,7 +224,18 @@ async def upload_session(
             final_account_info = json_account_info if json_account_info else account_info
             from chatfilter.web.session import get_session as get_web_session
 
-            _web_user_id = get_web_session(request).get("user_id", "default")
+            web_sess = get_web_session(request)
+            _web_user_id = web_sess.get("user_id", "default")
+            is_admin = bool(web_sess.get("is_admin"))
+
+            # Stamp the pool owner onto the account_info so the scheduler
+            # routes analyses correctly. Admin uploads feed the shared
+            # pool; non-admin (power-user) uploads go into the uploader's
+            # private pool.
+            if final_account_info is not None:
+                owner_key = "admin" if is_admin else f"user:{_web_user_id}"
+                final_account_info = {**final_account_info, "owner": owner_key}
+
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,

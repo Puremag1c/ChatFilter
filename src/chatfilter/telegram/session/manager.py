@@ -83,6 +83,11 @@ class SessionManager:
         """
         self._sessions: dict[str, ManagedSession] = {}
         self._factories: dict[str, ClientFactory] = {}
+        # Pool routing. Keyed by session_id; values are "admin" or
+        # "user:{id}". Unregistered entries default to "admin" when
+        # queried, which matches the pre-Phase-4 behaviour for any
+        # session without explicit ownership.
+        self._owners: dict[str, str] = {}
         self._connect_timeout = connect_timeout
         self._operation_timeout = operation_timeout
         self._disconnect_timeout = disconnect_timeout
@@ -506,11 +511,13 @@ class SessionManager:
         Returns:
             SessionInfo or None if session not found
         """
+        owner = self._owners.get(session_id, "admin")
         if session_id not in self._sessions:
             if session_id in self._factories:
                 return SessionInfo(
                     session_id=session_id,
                     state=SessionState.DISCONNECTED,
+                    owner=owner,
                 )
             return None
 
@@ -527,7 +534,20 @@ class SessionManager:
             last_network_error_at=session.last_network_error_at,
             network_error_count=session.network_error_count,
             is_recovering_from_switch=session.is_recovering_from_switch,
+            owner=owner,
         )
+
+    def set_owner(self, session_id: str, owner: str) -> None:
+        """Record which pool (``admin`` / ``user:{id}``) owns this session.
+
+        Scheduler reads this via get_info().owner to decide whether the
+        session can service an admin-pool or a private-pool task.
+        """
+        self._owners[session_id] = owner
+
+    def get_owner(self, session_id: str) -> str:
+        """Return the pool_key for this session (``admin`` by default)."""
+        return self._owners.get(session_id, "admin")
 
     def list_sessions(self) -> list[str]:
         """List all registered session IDs.

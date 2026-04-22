@@ -160,6 +160,35 @@ def load_account_info(session_dir: Path) -> dict[str, int | str] | None:
         return None
 
 
+def get_session_owner(session_id: str) -> str:
+    """Return the pool_key that owns this session.
+
+    Reads the ``owner`` field out of the session's .account_info.json.
+    Defaults to ``"admin"`` when missing — that's the behaviour we want
+    for every pre-Phase-4 account, all of which belong to the admin
+    pool by definition.
+    """
+    from chatfilter.config import get_settings
+
+    sessions_dir = get_settings().sessions_dir
+    info = load_account_info(sessions_dir / session_id)
+    if info is None:
+        return "admin"
+    owner = info.get("owner", "admin")
+    return str(owner) if owner else "admin"
+
+
+def set_session_owner(session_id: str, owner: str) -> None:
+    """Persist the pool_key owning this session into .account_info.json."""
+    from chatfilter.config import get_settings
+
+    sessions_dir = get_settings().sessions_dir
+    session_dir = sessions_dir / session_id
+    info = load_account_info(session_dir) or {}
+    info["owner"] = owner
+    save_account_info(session_dir, info)
+
+
 def _save_session_to_disk(
     session_dir: Path,
     session_content: bytes,

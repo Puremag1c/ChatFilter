@@ -277,6 +277,17 @@ async def connect_session(
     # Register loader factory (stores in _factories, NOT _sessions)
     session_manager.register(safe_name, loader)
 
+    # Pool routing (Phase 4): take the owner from the session's
+    # .account_info.json. "admin" by default for every pre-Phase-4
+    # session, or "user:{id}" when a power-user uploaded it.
+    from chatfilter.web.routers.sessions.io import get_session_owner
+
+    try:
+        owner = get_session_owner(safe_name)
+    except Exception:
+        owner = "admin"
+    session_manager.set_owner(safe_name, owner)
+
     # Eagerly create _sessions entry so state is CONNECTING before background task runs.
     # This prevents race conditions from parallel requests and ensures get_info() works.
     async with session_manager._global_lock:

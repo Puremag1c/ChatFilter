@@ -52,6 +52,9 @@ class SessionInfo:
     last_network_error_at: float | None = None
     network_error_count: int = 0
     is_recovering_from_switch: bool = False
+    # Scheduler pool routing. "admin" for the shared pool;
+    # "user:{id}" for a power-user's private pool.
+    owner: str = "admin"
 
 
 @dataclass

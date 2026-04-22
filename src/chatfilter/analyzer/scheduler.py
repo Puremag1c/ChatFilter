@@ -194,6 +194,19 @@ class AnalysisScheduler:
             session_state_enum = SessionState
         except Exception:
             session_state_enum = None
+        # Owner lookup — falls back to "admin" for pre-Phase-4 sessions
+        # and returns "user:{id}" for user-uploaded ones.
+        def _lookup_owner_from_fs(session_id: str) -> str:
+            try:
+                from chatfilter.web.routers.sessions.io import (
+                    get_session_owner,
+                )
+            except Exception:
+                return "admin"
+            try:
+                return get_session_owner(session_id)
+            except Exception:
+                return "admin"
         for sid in list_fn():
             if sid in self._busy:
                 continue
@@ -205,7 +218,9 @@ class AnalysisScheduler:
                 and getattr(info, "state", None) != session_state_enum.CONNECTED
             ):
                 continue
-            owner = getattr(info, "owner", None) or "admin"
+            # info.owner wins if the manager exposes it; otherwise we
+            # read the owner from the session's .account_info.json.
+            owner = getattr(info, "owner", None) or _lookup_owner_from_fs(sid)
             if owner not in needed:
                 continue
             pools.setdefault(owner, []).append(sid)

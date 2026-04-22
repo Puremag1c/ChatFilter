@@ -196,28 +196,33 @@ class TestNonBlockingAnalysisEndpoints:
         )
 
     def test_router_start_does_not_await_service(self) -> None:
-        """start_group_analysis router must call service.start_analysis synchronously."""
+        """start_group_analysis router hands off to the persistent queue.
+
+        Redesign: instead of running analyze_group in-process, /start
+        writes rows into analysis_queue via engine.enqueue_group_analysis.
+        The endpoint must return quickly — no `await engine.enqueue*`
+        either, since enqueue is a synchronous DB write.
+        """
         from chatfilter.web.routers.groups.analysis import start_group_analysis
 
         source = inspect.getsource(start_group_analysis)
-        # Must call service synchronously (not await)
-        assert "service.start_analysis(" in source, (
-            "start_group_analysis must call service.start_analysis (SPEC #1)"
+        assert "enqueue_group_analysis(" in source, (
+            "start_group_analysis must call engine.enqueue_group_analysis"
         )
-        assert "await service.start_analysis" not in source, (
-            "start_group_analysis must not await service.start_analysis — service is sync (SPEC #1)"
+        assert "await engine.enqueue_group_analysis" not in source, (
+            "enqueue_group_analysis is synchronous — endpoint must not await it"
         )
 
     def test_router_reanalyze_does_not_await_service(self) -> None:
-        """reanalyze_group router must call service.reanalyze synchronously."""
+        """reanalyze_group also uses enqueue_group_analysis."""
         from chatfilter.web.routers.groups.analysis import reanalyze_group
 
         source = inspect.getsource(reanalyze_group)
-        assert "service.reanalyze(" in source, (
-            "reanalyze_group must call service.reanalyze (SPEC #1)"
+        assert "enqueue_group_analysis(" in source, (
+            "reanalyze_group must call engine.enqueue_group_analysis"
         )
-        assert "await service.reanalyze" not in source, (
-            "reanalyze_group must not await service.reanalyze — service is sync (SPEC #1)"
+        assert "await engine.enqueue_group_analysis" not in source, (
+            "enqueue_group_analysis is synchronous — endpoint must not await it"
         )
 
     def test_router_resume_calls_service_start_analysis(self) -> None:

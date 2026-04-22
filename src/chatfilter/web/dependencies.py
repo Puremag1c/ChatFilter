@@ -67,6 +67,40 @@ def require_admin(request: Request) -> SessionData:
 AdminSession = Annotated[SessionData, Depends(require_admin)]
 
 
+def require_session_access(request: Request) -> SessionData:
+    """Allow the user if they're admin OR they've opted into their own accounts.
+
+    Guards /sessions, /proxies and their APIs: admins always manage
+    the shared pool, while power-users who toggled ``use_own_accounts``
+    in their profile get back the menu to load their own sessions and
+    proxies (scoped to their owner=user:{id}).
+    """
+    from fastapi import HTTPException, status
+
+    session = get_session(request)
+    if session.get("is_admin"):
+        return session
+    user_id = session.get("user_id")
+    if user_id:
+        try:
+            from chatfilter.storage.user_database import get_user_db
+
+            settings = request.app.state.settings
+            user_db = get_user_db(settings.effective_database_url)
+            user = user_db.get_user_by_id(user_id)
+            if user and user.get("use_own_accounts"):
+                return session
+        except Exception:
+            pass
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin privileges or own-accounts mode required",
+    )
+
+
+SessionAccess = Annotated[SessionData, Depends(require_session_access)]
+
+
 # Global instances (in production, these would be in app state)
 _session_manager: SessionManager | None = None
 _chat_service: ChatAnalysisService | None = None
