@@ -225,21 +225,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     ai_service = AIService(scraper_db)
     platform_registry.configure(ai_service, scraper_db)
 
-    # Phase 4: start the persistent-queue scheduler. It reclaims any
-    # running rows left behind by a previous process and then begins
-    # its poll loop. Until Phase 4b flips the /start endpoint onto
-    # enqueue, the scheduler simply observes an empty queue.
+    # Phase 4+5: start the persistent-queue scheduler wired with the
+    # billing service. It reclaims any running rows left behind by a
+    # previous process and then begins its poll loop. Until the
+    # /start endpoint is flipped onto enqueue, the scheduler simply
+    # observes an empty queue.
+    from chatfilter.ai.billing import BillingService
     from chatfilter.analyzer.scheduler import AnalysisScheduler
+    from chatfilter.storage.user_database import get_user_db
 
     scheduler_db = GroupDatabase(settings.effective_database_url)
+    scheduler_user_db = get_user_db(settings.effective_database_url)
+    scheduler_billing = BillingService(scheduler_user_db, group_db=scheduler_db)
     analysis_scheduler = AnalysisScheduler(
         db=scheduler_db,
         session_manager=session_manager,
+        billing=scheduler_billing,
     )
     analysis_scheduler.recover()
     await analysis_scheduler.start()
     app.state.app_state.analysis_scheduler = analysis_scheduler
-    logger.info("AnalysisScheduler started")
+    logger.info("AnalysisScheduler started (with billing integration)")
 
     logger.info("Application startup complete")
 

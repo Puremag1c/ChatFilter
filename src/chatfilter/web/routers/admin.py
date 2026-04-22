@@ -185,6 +185,7 @@ async def admin_tab_system(request: Request) -> HTMLResponse | Response:
     group_db = _get_group_db(request)
     app_settings = _safe_app_settings(group_db.get_all_settings())
     cost_multiplier = group_db.get_cost_multiplier()
+    cost_per_chat = group_db.get_cost_per_chat()
 
     templates = get_templates()
     return templates.TemplateResponse(
@@ -195,6 +196,7 @@ async def admin_tab_system(request: Request) -> HTMLResponse | Response:
             version=__version__,
             app_settings=app_settings,
             cost_multiplier=cost_multiplier,
+            cost_per_chat=cost_per_chat,
         ),
     )
 
@@ -394,6 +396,7 @@ async def topup_balance(
 async def update_ai_settings(
     request: Request,
     cost_multiplier: float = Form(1.0),
+    cost_per_chat: float = Form(0.0),
     openrouter_api_key: str = Form(""),
     ai_model: str = Form(""),
     ai_model_query: str = Form(""),
@@ -407,6 +410,9 @@ async def update_ai_settings(
     group_db = _get_group_db(request)
     if cost_multiplier > 0:
         group_db.set_cost_multiplier(cost_multiplier)
+    # cost_per_chat accepts 0 (the deployment default meaning "no charge").
+    if cost_per_chat >= 0:
+        group_db.set_cost_per_chat(cost_per_chat)
     if openrouter_api_key.strip():
         group_db.set_setting("openrouter_api_key", openrouter_api_key.strip())
     if ai_model.strip():

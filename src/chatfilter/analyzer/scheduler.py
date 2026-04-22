@@ -61,11 +61,13 @@ class AnalysisScheduler:
         db: GroupDatabase,
         session_manager: Any,
         *,
+        billing: Any | None = None,
         poll_interval: float = 1.0,
         user_limit: int = 2,
     ) -> None:
         self._db = db
         self._sm = session_manager
+        self._billing = billing
         self._poll_interval = poll_interval
         self._user_limit = user_limit
         self._stop = asyncio.Event()
@@ -172,15 +174,31 @@ class AnalysisScheduler:
 
     async def _run_task(self, claimed: dict[str, Any], account_id: str) -> None:
         task_id = claimed["id"]
+        user_id = claimed["user_id"]
+        chat_ref = claimed["chat_ref"]
         chat_payload = {
             "id": claimed["group_chat_id"],
             "group_id": claimed["group_id"],
-            "chat_ref": claimed["chat_ref"],
+            "chat_ref": chat_ref,
         }
         # Mark the account busy so we don't double-book it this tick.
         mark_busy = getattr(self._sm, "mark_busy", None)
         if callable(mark_busy):
             mark_busy(account_id)
+
+        # Pre-charge for the chat. If billing/cost_per_chat is unset this
+        # is a no-op and charged_amount stays at 0.0 — the existing
+        # InsufficientBalance handling leaves the row queued and yields
+        # the account to the next user.
+        charged_amount = self._pre_charge(task_id, user_id, chat_ref)
+        if charged_amount is None:
+            # Pre-charge failed (insufficient funds) — task moved to
+            # blocked_no_funds, skip execution.
+            mark_idle = getattr(self._sm, "mark_idle", None)
+            if callable(mark_idle):
+                mark_idle(account_id)
+            return
+
         try:
             client = await self._get_client(account_id)
             settings = self._load_group_settings(claimed["group_id"])
@@ -193,16 +211,98 @@ class AnalysisScheduler:
             )
             self._persist_result(claimed, result, account_id)
             if result.status == GroupChatStatus.ERROR.value:
+                self._refund(task_id, user_id, charged_amount, chat_ref, reason="ERROR")
                 self._db.mark_task_error(task_id, result.error or "worker reported ERROR")
             else:
+                # DONE regardless of chat_type (dead/banned/etc. are billable).
                 self._db.mark_task_done(task_id)
         except Exception as e:
             logger.exception("Chat-task %s crashed", task_id)
+            self._refund(task_id, user_id, charged_amount, chat_ref, reason="crash")
             self._db.mark_task_error(task_id, str(e))
         finally:
             mark_idle = getattr(self._sm, "mark_idle", None)
             if callable(mark_idle):
                 mark_idle(account_id)
+
+    # ---- billing helpers --------------------------------------------
+
+    def _pre_charge(
+        self, task_id: int, user_id: str, chat_ref: str
+    ) -> float | None:
+        """Charge cost_per_chat before the worker runs.
+
+        Returns the amount actually charged (>= 0) — caller stores it
+        on the queue row so ``_refund`` can return the exact amount
+        later. Returns None if the user is out of funds, in which case
+        the task is moved to ``blocked_no_funds`` status.
+        """
+        if self._billing is None:
+            return 0.0
+        try:
+            cost = self._db.get_cost_per_chat()
+        except Exception:
+            cost = 0.0
+        if cost <= 0 or not user_id:
+            return 0.0
+        try:
+            self._billing.charge(
+                user_id,
+                cost,
+                model="analysis",
+                tokens_in=0,
+                tokens_out=0,
+                description=f"Chat analysis: {chat_ref}",
+            )
+        except Exception:
+            from chatfilter.ai.billing import InsufficientBalance
+
+            logger.warning(
+                "Task %s blocked — user %s out of funds for chat %s",
+                task_id,
+                user_id,
+                chat_ref,
+            )
+            with self._db._connection() as conn:
+                conn.execute(
+                    "UPDATE analysis_queue SET status='blocked_no_funds', "
+                    "started_at=NULL WHERE id=?",
+                    (task_id,),
+                )
+            return None
+        # Persist the charge on the queue row so refund is exact.
+        with self._db._connection() as conn:
+            conn.execute(
+                "UPDATE analysis_queue SET charged_amount=? WHERE id=?",
+                (cost, task_id),
+            )
+        return cost
+
+    def _refund(
+        self,
+        task_id: int,
+        user_id: str,
+        amount: float,
+        chat_ref: str,
+        *,
+        reason: str,
+    ) -> None:
+        if self._billing is None or amount <= 0 or not user_id:
+            return
+        try:
+            self._billing.refund(
+                user_id,
+                amount,
+                f"Refund ({reason}): {chat_ref}",
+            )
+            # Zero out charged_amount so a later bug can't double-refund.
+            with self._db._connection() as conn:
+                conn.execute(
+                    "UPDATE analysis_queue SET charged_amount=0 WHERE id=?",
+                    (task_id,),
+                )
+        except Exception:
+            logger.exception("Refund failed for task %s (user=%s)", task_id, user_id)
 
     async def _get_client(self, account_id: str) -> Any:
         get_client = getattr(self._sm, "get_client", None)

@@ -138,6 +138,18 @@ class BillingService:
         """
         return self._db.atomic_topup(user_id, amount_usd, admin_description)
 
+    def refund(self, user_id: str, amount_usd: float, description: str) -> float:
+        """Return amount_usd to the user's balance after a failed chat-task.
+
+        Passing 0 is a no-op — callers are expected to pass the exact
+        ``charged_amount`` recorded on the queue row, which is 0 when
+        pre-charge was skipped (e.g. cost_per_chat=0). Returns the new
+        balance.
+        """
+        if amount_usd <= 0:
+            return self._db.get_balance(user_id)
+        return self._db.atomic_topup(user_id, amount_usd, description)
+
     def get_transactions(
         self, user_id: str, limit: int = 50, offset: int = 0
     ) -> list[dict[str, Any]]:

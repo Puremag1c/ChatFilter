@@ -11,6 +11,13 @@
                    value="{{ '%.2f'|format(cost_multiplier) }}">
         </div>
         <div>
+            <label for="cost-per-chat" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Price per analysed chat (USD)") }}</label>
+            <input type="number" id="cost-per-chat" name="cost_per_chat"
+                   class="form-input" min="0" step="0.001" style="width:120px"
+                   value="{{ '%.4f'|format(cost_per_chat) }}">
+            <small style="color:var(--text-muted,#666)">{{ _("Charged per DONE chat (including dead/banned/restricted — Telegram answered). 0 = free.") }}</small>
+        </div>
+        <div>
             <label for="openrouter-api-key" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("OpenRouter API Key") }}</label>
             <input type="password" id="openrouter-api-key" name="openrouter_api_key"
                    class="form-input" autocomplete="off"

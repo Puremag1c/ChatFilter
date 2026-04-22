@@ -124,6 +124,7 @@ class GroupAnalysisEngine:
         *,
         pool_key: str = "admin",
         mode: AnalysisMode = AnalysisMode.FRESH,
+        billing: Any | None = None,
     ) -> int:
         """Queue one row per pending chat for the scheduler to pick up.
 
@@ -131,6 +132,10 @@ class GroupAnalysisEngine:
         workers itself — the background ``AnalysisScheduler`` consumes
         the queue and dispatches tasks to idle accounts.  Returns the
         number of rows enqueued.
+
+        If ``billing`` is provided, a pre-flight balance check fires:
+        ``balance >= N_pending * cost_per_chat`` — otherwise
+        ``InsufficientBalance`` is raised and no rows are enqueued.
         """
         group_data = self._db.load_group(group_id)
         if not group_data:
@@ -140,6 +145,21 @@ class GroupAnalysisEngine:
         self._prepare_chats_for_mode(group_id, settings, mode)
         pending = self._db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
         user_id = group_data.get("user_id", "") or ""
+
+        # Pre-flight: user must be able to pay for every pending chat.
+        if billing is not None and pending and user_id:
+            cost_per_chat = self._db.get_cost_per_chat()
+            required = cost_per_chat * len(pending)
+            if cost_per_chat > 0 and required > 0:
+                from chatfilter.ai.billing import InsufficientBalance
+
+                current = billing.get_balance(user_id)
+                if current < required:
+                    raise InsufficientBalance(
+                        f"User {user_id} needs ${required:.2f} to analyse "
+                        f"{len(pending)} chat(s) at ${cost_per_chat:.4f} each — "
+                        f"current balance ${current:.2f}."
+                    )
 
         enqueued = 0
         for chat in pending:
