@@ -65,7 +65,9 @@ class AppState:
         self.metrics_updater: ChatMetricsUpdater | None = None  # Will be set during startup
         self.analysis_tasks: dict[
             str, asyncio.Task[Any]
-        ] = {}  # Background analysis tasks by group_id
+        ] = {}  # Background analysis tasks by group_id (legacy in-memory flow)
+        # Phase 4: persistent-queue scheduler.
+        self.analysis_scheduler: Any | None = None
         self.css_version: str = ""  # CSS file hash for cache-busting
 
 
@@ -223,6 +225,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     ai_service = AIService(scraper_db)
     platform_registry.configure(ai_service, scraper_db)
 
+    # Phase 4: start the persistent-queue scheduler. It reclaims any
+    # running rows left behind by a previous process and then begins
+    # its poll loop. Until Phase 4b flips the /start endpoint onto
+    # enqueue, the scheduler simply observes an empty queue.
+    from chatfilter.analyzer.scheduler import AnalysisScheduler
+
+    scheduler_db = GroupDatabase(settings.effective_database_url)
+    analysis_scheduler = AnalysisScheduler(
+        db=scheduler_db,
+        session_manager=session_manager,
+    )
+    analysis_scheduler.recover()
+    await analysis_scheduler.start()
+    app.state.app_state.analysis_scheduler = analysis_scheduler
+    logger.info("AnalysisScheduler started")
+
     logger.info("Application startup complete")
 
     yield
@@ -278,6 +296,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 logger.error(f"Error cancelling analysis tasks: {e}")
 
         app.state.app_state.analysis_tasks.clear()
+
+    # 3b. Stop the persistent-queue scheduler (Phase 4). Graceful: lets
+    #     in-flight per-task coroutines finish so their rows land in a
+    #     terminal state instead of getting re-queued on next boot.
+    analysis_scheduler = getattr(app.state.app_state, "analysis_scheduler", None)
+    if analysis_scheduler is not None:
+        logger.info("Stopping AnalysisScheduler")
+        try:
+            await analysis_scheduler.stop()
+        except Exception as e:
+            logger.error(f"Error stopping AnalysisScheduler: {e}")
 
     # 4. Stop chat metrics updater
     if app.state.app_state.metrics_updater:

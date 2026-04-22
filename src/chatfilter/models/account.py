@@ -43,7 +43,7 @@ class AccountInfo(BaseModel):
     model_config = ConfigDict(
         strict=True,
         frozen=True,
-        extra="forbid",
+        extra="ignore",
     )
 
     user_id: int
@@ -52,6 +52,11 @@ class AccountInfo(BaseModel):
     last_name: str | None = None
     is_premium: bool = False
     chat_count: int = 0
+    # Phase 4: every session belongs to either the shared admin pool
+    # ("admin") or a specific power-user ("user:{user_id}").
+    # Pre-Phase-4 .account_info.json files lack this field — the default
+    # makes them behave as admin-owned, which matches the migration plan.
+    owner: str = "admin"
 
     @field_validator("user_id")
     @classmethod

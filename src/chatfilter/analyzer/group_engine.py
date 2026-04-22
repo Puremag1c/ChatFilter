@@ -116,6 +116,53 @@ class GroupAnalysisEngine:
         """Public accessor for GroupDatabase."""
         return self._db
 
+    # -- Enqueue API (Phase 4) ---------------------------------------------
+
+    def enqueue_group_analysis(
+        self,
+        group_id: str,
+        *,
+        pool_key: str = "admin",
+        mode: AnalysisMode = AnalysisMode.FRESH,
+    ) -> int:
+        """Queue one row per pending chat for the scheduler to pick up.
+
+        Unlike the legacy ``start_analysis``, this method does not start
+        workers itself — the background ``AnalysisScheduler`` consumes
+        the queue and dispatches tasks to idle accounts.  Returns the
+        number of rows enqueued.
+        """
+        group_data = self._db.load_group(group_id)
+        if not group_data:
+            raise GroupNotFoundError(f"Group not found: {group_id}")
+
+        settings = GroupSettings.from_dict(group_data["settings"])
+        self._prepare_chats_for_mode(group_id, settings, mode)
+        pending = self._db.load_chats(group_id=group_id, status=GroupChatStatus.PENDING.value)
+        user_id = group_data.get("user_id", "") or ""
+
+        enqueued = 0
+        for chat in pending:
+            self._db.enqueue_chat_task(
+                group_id=group_id,
+                group_chat_id=chat["id"],
+                chat_ref=chat["chat_ref"],
+                user_id=user_id,
+                pool_key=pool_key,
+            )
+            enqueued += 1
+        self._db.save_group(
+            group_id=group_id,
+            name=group_data["name"],
+            settings=group_data["settings"],
+            status=GroupStatus.IN_PROGRESS.value,
+            created_at=group_data["created_at"],
+            updated_at=datetime.now(UTC),
+            user_id=user_id,
+        )
+        logger.info("Enqueued %d chats for group %s (pool=%s)", enqueued, group_id, pool_key)
+        return enqueued
+
     # -- Startup recovery --------------------------------------------------
 
     def recover_stale_analysis(self) -> None:
