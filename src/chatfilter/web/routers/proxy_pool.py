@@ -108,9 +108,16 @@ class ProxyRetestResponse(BaseModel):
 
 
 def _get_user_id(request: Request) -> str:
-    """Extract user_id from session."""
+    """Return the pool scope used as the proxy-file key.
+
+    All admins share the "admin" scope (one shared proxies_admin.json);
+    every power-user gets their own "user_<id>" scope.
+    """
     session = get_session(request)
-    return str(session.get("user_id", "default"))
+    if session.get("is_admin"):
+        return "admin"
+    uid = session.get("user_id")
+    return f"user_{uid}" if uid else "default"
 
 
 def _proxy_to_response(proxy: ProxyEntry) -> ProxyResponse:

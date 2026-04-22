@@ -222,19 +222,24 @@ async def upload_session(
             # source is 'file' because config was uploaded
             # Use json_account_info if provided, otherwise use account_info from session
             final_account_info = json_account_info if json_account_info else account_info
+            from chatfilter.web.dependencies import get_owner_key, get_pool_scope
             from chatfilter.web.session import get_session as get_web_session
 
             web_sess = get_web_session(request)
             _web_user_id = web_sess.get("user_id", "default")
-            is_admin = bool(web_sess.get("is_admin"))
 
             # Stamp the pool owner onto the account_info so the scheduler
             # routes analyses correctly. Admin uploads feed the shared
-            # pool; non-admin (power-user) uploads go into the uploader's
-            # private pool.
+            # "admin" pool; non-admin uploads go to the uploader's private
+            # "user:{id}" pool.
+            owner_key = get_owner_key(request)
             if final_account_info is not None:
-                owner_key = "admin" if is_admin else f"user:{_web_user_id}"
                 final_account_info = {**final_account_info, "owner": owner_key}
+
+            # The on-disk scope (the subdirectory name) is either "admin"
+            # or "user_{id}" — all admins share one folder so each of them
+            # sees the full pool when listing.
+            scope_dirname = get_pool_scope(request)
 
             _save_session_to_disk(
                 session_dir=session_dir,
@@ -242,7 +247,7 @@ async def upload_session(
                 proxy_id=None,
                 account_info=final_account_info,
                 source="file",
-                web_user_id=_web_user_id,
+                web_user_id=scope_dirname,
             )
 
         except DiskSpaceError:
@@ -462,7 +467,9 @@ async def save_import_session(
             )
 
         # Check if session already exists
-        web_user_id = get_session(request).get("user_id")
+        from chatfilter.web.dependencies import get_pool_scope
+
+        web_user_id = get_pool_scope(request)  # "admin" or "user_<id>"
         session_dir = ensure_data_dir(web_user_id) / safe_name
         if session_dir.exists():
             return templates.TemplateResponse(

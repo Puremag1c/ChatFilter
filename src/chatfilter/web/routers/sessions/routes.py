@@ -30,12 +30,12 @@ async def get_sessions(request: Request) -> HTMLResponse:
     """List all registered sessions as HTML partial."""
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import get_auth_state_manager
-    from chatfilter.web.dependencies import get_session_manager
+    from chatfilter.web.dependencies import get_pool_scope, get_session_manager
 
-    user_id = get_session(request).get("user_id")
+    scope = get_pool_scope(request)  # "admin" for every admin; "user_<id>" otherwise
     session_manager = get_session_manager()
     auth_manager = get_auth_state_manager()
-    sessions = list_stored_sessions(session_manager, auth_manager, user_id=user_id)
+    sessions = list_stored_sessions(session_manager, auth_manager, user_id=scope)
     templates = get_templates()
 
     return templates.TemplateResponse(

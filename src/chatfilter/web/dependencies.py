@@ -101,6 +101,40 @@ def require_session_access(request: Request) -> SessionData:
 SessionAccess = Annotated[SessionData, Depends(require_session_access)]
 
 
+def get_pool_scope(request: Request) -> str:
+    """Return the pool scope the current user belongs to.
+
+    All admins share ``"admin"`` — one directory, one pool. Every
+    power-user gets their own ``"user_{id}"`` scope. The scope is a
+    filesystem-safe identifier: colon-free, so it can be used directly
+    as a subdirectory name under ``sessions_dir`` / as a suffix in
+    ``proxies_<scope>.json``.
+    """
+    session = get_session(request)
+    if session.get("is_admin"):
+        return "admin"
+    uid = session.get("user_id")
+    if uid:
+        return f"user_{uid}"
+    return "admin"
+
+
+def get_owner_key(request: Request) -> str:
+    """Return the ownership key stored in .account_info.json / routed by scheduler.
+
+    ``"admin"`` for the shared admin pool, ``"user:{id}"`` for
+    power-users. Note the colon in the user form — the scheduler
+    reads this exact string from the queue's pool_key column.
+    """
+    session = get_session(request)
+    if session.get("is_admin"):
+        return "admin"
+    uid = session.get("user_id")
+    if uid:
+        return f"user:{uid}"
+    return "admin"
+
+
 # Global instances (in production, these would be in app state)
 _session_manager: SessionManager | None = None
 _chat_service: ChatAnalysisService | None = None

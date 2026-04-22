@@ -106,8 +106,11 @@ async def connect_session(
             status_code=status.HTTP_200_OK,
         )
 
-    user_id = get_session(request).get("user_id")
-    session_dir = ensure_data_dir(user_id) / safe_name
+    # Shared admin pool: all admins write to "admin/"; power-users to "user_<id>/".
+    from chatfilter.web.dependencies import get_pool_scope
+
+    scope = get_pool_scope(request)
+    session_dir = ensure_data_dir(scope) / safe_name
     session_path = session_dir / "session.session"
     config_path = session_dir / "config.json"
 
@@ -315,8 +318,11 @@ async def connect_session(
             client = loader.create_client()
             from .client_registry import register_client
 
-            if user_id is not None:
-                register_client(str(user_id), client)
+            # Track the client under the caller's scope so the
+            # register_client bookkeeping keeps working after the
+            # shared-pool rename. "admin" covers every admin uploader.
+            if scope:
+                register_client(str(scope), client)
             session_manager._sessions[safe_name] = ManagedSession(
                 client=client, state=SessionState.CONNECTING
             )
@@ -366,8 +372,11 @@ async def reconnect_session_start(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    user_id = get_session(request).get("user_id")
-    session_dir = ensure_data_dir(user_id) / safe_name
+    # Shared admin pool: all admins write to "admin/"; power-users to "user_<id>/".
+    from chatfilter.web.dependencies import get_pool_scope
+
+    scope = get_pool_scope(request)
+    session_dir = ensure_data_dir(scope) / safe_name
     session_path = session_dir / "session.session"
     config_path = session_dir / "config.json"
 

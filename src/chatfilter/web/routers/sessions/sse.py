@@ -34,12 +34,13 @@ async def session_events(request: Request) -> StreamingResponse:
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import get_auth_state_manager
     from chatfilter.web.dependencies import get_session_manager
-    from chatfilter.web.session import get_session
 
     templates = get_templates()
     session_manager = get_session_manager()
     auth_manager = get_auth_state_manager()
-    user_id = get_session(request).get("user_id")
+    from chatfilter.web.dependencies import get_pool_scope
+
+    user_id = get_pool_scope(request)  # scope-based so admins share view
 
     # Capture locale from request cookie at handler invocation time.
     # ContextVars may not propagate reliably into the SSE async generator,

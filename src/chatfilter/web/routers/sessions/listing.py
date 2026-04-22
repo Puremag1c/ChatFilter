@@ -100,102 +100,150 @@ def list_stored_sessions(
     from .io import ensure_data_dir
 
     sessions = []
-    data_dir = ensure_data_dir(user_id if user_id is not None else "default")
     get_flood_tracker()
 
-    for session_dir in data_dir.iterdir():
-        if session_dir.is_dir():
+    # Shared admin pool: list_stored_sessions accepts either a scope
+    # ("admin" or "user_<id>") or a legacy numeric user_id.  For admins
+    # we walk the canonical "admin/" dir AND every other subdir of
+    # sessions_dir so accounts uploaded before the shared-pool change
+    # remain visible — we filter by .account_info.json "owner" field
+    # to ensure cross-user safety.
+    scope = str(user_id) if user_id is not None else "default"
+    data_dirs: list[Path]
+    owner_filter: str | None = None
+    from chatfilter.config import get_settings
+
+    sessions_root = get_settings().sessions_dir
+    if scope == "admin":
+        owner_filter = "admin"
+        data_dirs = [ensure_data_dir("admin")]
+        if sessions_root.exists():
+            for sub in sessions_root.iterdir():
+                if sub.is_dir() and sub.name != "admin":
+                    data_dirs.append(sub)
+    elif scope.startswith("user_"):
+        owner_filter = "user:" + scope[len("user_") :]
+        data_dirs = [ensure_data_dir(scope)]
+    else:
+        data_dirs = [ensure_data_dir(scope)]
+
+    seen_ids: set[str] = set()
+    for data_dir in data_dirs:
+        if not data_dir.exists():
+            continue
+        for session_dir in data_dir.iterdir():
+            if not session_dir.is_dir():
+                continue
+            if session_dir.name in seen_ids:
+                continue
+            # Apply owner filter using the session's metadata.
+            if owner_filter is not None:
+                _account_info_file = session_dir / ".account_info.json"
+                if _account_info_file.exists():
+                    try:
+                        import json as _json
+
+                        with _account_info_file.open("r") as _fh:
+                            _data = _json.load(_fh)
+                        _owner_value = _data.get("owner", "admin")
+                    except Exception:
+                        _owner_value = "admin"
+                    if _owner_value != owner_filter:
+                        continue
+                else:
+                    # Legacy session without metadata — only the admin
+                    # pool claims it (pre-Phase-4 default).
+                    if owner_filter != "admin":
+                        continue
+            seen_ids.add(session_dir.name)
             session_file = session_dir / "session.session"
             config_file = session_dir / "config.json"
             account_info_file = session_dir / ".account_info.json"
 
-            if config_file.exists() or account_info_file.exists():
-                session_id = session_dir.name
+            if not (config_file.exists() or account_info_file.exists()):
+                continue
 
-                # Handle missing account_info.json (old sessions)
-                if not account_info_file.exists():
-                    sessions.append(
-                        SessionListItem(
-                            session_id=session_id,
-                            state="needs_config",
-                            error_message="Account information missing",
-                            auth_id=None,
-                            has_session_file=session_file.is_file(),
-                            flood_wait_until=_get_flood_wait_until(session_id),
-                        )
-                    )
-                    continue
+            session_id = session_dir.name
 
-                # First check config status
-                config_status, config_reason = get_session_config_status(session_dir)
-
-                # For list display, map needs_config to disconnected.
-                # Sessions saved without credentials are valid (spec: Save-only flow).
-                # The connect_session endpoint will check credentials at connect time.
-                if config_status == "needs_config":
-                    config_status = "disconnected"
-                    config_reason = None
-
-                # If session manager available, check runtime state
-                state = config_status
-                error_message = config_reason if config_status == "needs_config" else None
-                retry_available = None
-
-                # If state is an error state from config, read error_message and retry_available
-                if state in ("proxy_error", "banned", "flood_wait", "error"):
-                    try:
-                        with config_file.open("r", encoding="utf-8") as f:
-                            config = json.load(f)
-                        error_message = config.get("error_message")
-                        retry_available = config.get("retry_available")
-                    except Exception:
-                        pass
-
-                # Check if session has an active auth flow (highest priority)
-                auth_id = None
-                if auth_manager is not None:
-                    auth_state = auth_manager.get_auth_state_by_session(session_id)
-                    if auth_state:
-                        auth_id = auth_state.auth_id
-                        if auth_state.step in (AuthStep.PHONE_SENT, AuthStep.CODE_INVALID):
-                            state = "needs_code"
-                        elif auth_state.step == AuthStep.NEED_2FA:
-                            state = "needs_2fa"
-                        elif auth_state.step == AuthStep.NEED_CONFIRMATION:
-                            state = "needs_confirmation"
-
-                # Check runtime session state only if no auth flow and config is ready
-                if (
-                    session_manager is not None
-                    and config_status == "disconnected"
-                    and state == config_status
-                ):
-                    # Session is configured - check if it has runtime state
-                    info = session_manager.get_info(session_id)
-                    if info:
-                        if info.state == SessionState.CONNECTED:
-                            state = "connected"
-                        elif (
-                            info.state == SessionState.CONNECTING
-                            or info.state == SessionState.DISCONNECTING
-                        ):
-                            state = "connecting"
-                        elif info.state == SessionState.ERROR:
-                            error_message = info.error_message
-                            state = classify_error_state(error_message)
-                        # DISCONNECTED keeps config_status
-
+            # Handle missing account_info.json (old sessions)
+            if not account_info_file.exists():
                 sessions.append(
                     SessionListItem(
                         session_id=session_id,
-                        state=state,
-                        error_message=error_message,
-                        auth_id=auth_id,
+                        state="needs_config",
+                        error_message="Account information missing",
+                        auth_id=None,
                         has_session_file=session_file.is_file(),
-                        retry_available=retry_available,
                         flood_wait_until=_get_flood_wait_until(session_id),
                     )
                 )
+                continue
+
+            # First check config status
+            config_status, config_reason = get_session_config_status(session_dir)
+
+            # For list display, map needs_config to disconnected.
+            if config_status == "needs_config":
+                config_status = "disconnected"
+                config_reason = None
+
+            # If session manager available, check runtime state
+            state = config_status
+            error_message = config_reason if config_status == "needs_config" else None
+            retry_available = None
+
+            if state in ("proxy_error", "banned", "flood_wait", "error"):
+                try:
+                    with config_file.open("r", encoding="utf-8") as f:
+                        config = json.load(f)
+                    error_message = config.get("error_message")
+                    retry_available = config.get("retry_available")
+                except Exception:
+                    pass
+
+            # Check if session has an active auth flow (highest priority)
+            auth_id = None
+            if auth_manager is not None:
+                auth_state = auth_manager.get_auth_state_by_session(session_id)
+                if auth_state:
+                    auth_id = auth_state.auth_id
+                    if auth_state.step in (AuthStep.PHONE_SENT, AuthStep.CODE_INVALID):
+                        state = "needs_code"
+                    elif auth_state.step == AuthStep.NEED_2FA:
+                        state = "needs_2fa"
+                    elif auth_state.step == AuthStep.NEED_CONFIRMATION:
+                        state = "needs_confirmation"
+
+            # Check runtime session state only if no auth flow and config is ready
+            if (
+                session_manager is not None
+                and config_status == "disconnected"
+                and state == config_status
+            ):
+                info = session_manager.get_info(session_id)
+                if info:
+                    if info.state == SessionState.CONNECTED:
+                        state = "connected"
+                    elif (
+                        info.state == SessionState.CONNECTING
+                        or info.state == SessionState.DISCONNECTING
+                    ):
+                        state = "connecting"
+                    elif info.state == SessionState.ERROR:
+                        error_message = info.error_message
+                        state = classify_error_state(error_message)
+
+            sessions.append(
+                SessionListItem(
+                    session_id=session_id,
+                    state=state,
+                    error_message=error_message,
+                    auth_id=auth_id,
+                    has_session_file=session_file.is_file(),
+                    retry_available=retry_available,
+                    flood_wait_until=_get_flood_wait_until(session_id),
+                )
+            )
 
     return sessions
 
