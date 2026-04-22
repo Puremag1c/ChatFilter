@@ -49,3 +49,31 @@ repos:
       - id: bandit
         args: ['-c', 'pyproject.toml', '-ll']  # Only fail on medium/high severity
         additional_dependencies: ['bandit[toml]']
+
+  # Project-specific guards against clutter regression
+  - repo: local
+    hooks:
+      - id: version-sync
+        name: "__version__ matches CHANGELOG top entry"
+        language: system
+        entry: python3 tools/check_version_sync.py
+        pass_filenames: false
+        files: ^(src/chatfilter/__init__\.py|CHANGELOG\.md)$
+
+      - id: no-db-in-root
+        name: "No *.db files in project root"
+        language: fail
+        entry: "SQLite databases must live in data/, not git-root. Delete the file or use CHATFILTER_DATA_DIR."
+        files: '^[^/]+\.(db|db-shm|db-wal)$'
+
+      - id: no-binary-in-root
+        name: "No binary/screenshot files in project root"
+        language: fail
+        entry: "Binary files (png/jpg/mo/session/patch/xml) do not belong in project root."
+        files: '^[^/]+\.(png|jpg|jpeg|mo|pot|session|patch|xml)$'
+
+      - id: no-ephemeral-reports
+        name: "No session-report MDs in project root"
+        language: fail
+        entry: "Ephemeral reports belong in docs/ or nowhere, not git-root."
+        files: '^(VERIFICATION|SMOKE_TEST|TASK_|MANUAL_|DECISION|.*\.prev).*\.md$'

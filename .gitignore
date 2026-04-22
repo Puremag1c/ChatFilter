@@ -52,6 +52,7 @@ testacc/
 
 # Logs
 *.log
+logs/
 
 # Local config
 .env
@@ -61,18 +62,20 @@ testacc/
 
 # Runtime data directory
 data/
-CLAUDE.md
 uv.lock
-.claudev/
-.claude/agents
-.claude/commands
-scripts
-project-scripts/
 stats/
+
+# Private / env-specific
+CLAUDE.md
 PROJECT_CONTEXT.md
-.mcp.json
 SPEC.md
 SPEC.draft.md
+.mcp.json
+.claude/
+.claudev/
+
+# i18n build artifacts (source .po files ARE tracked)
+src/chatfilter/i18n/messages.pot
 
 # Beads local files
 .beads/*.sock
@@ -85,18 +88,36 @@ SPEC.draft.md
 .beads/dolt-server.port
 .beads/metadata.json
 
-# hype
+# HYPE/agent working directories (often symlinks from ~/.hype, ~/.claudev)
 .hype/
 .hype-worktrees/
-scripts
-project-scripts/
-logs/
-stats/
-PROJECT_CONTEXT.md
-SPEC.md
-SPEC.draft.md
-.mcp.json
-SPEC.prev.md
-src/chatfilter/i18n/messages.pot
-SPEC_REPORT.prev.md
-.claude/
+/scripts
+/project-scripts/
+
+# ─────────────────────────────────────────────────────────────
+# Root-level clutter guards
+# ─────────────────────────────────────────────────────────────
+# Prevent accidental commits of build/test artifacts in project root.
+# Leading "/" anchors to repo root — these rules do NOT affect src/**,
+# docs/**, or tests/**.
+/*.db
+/*.db-shm
+/*.db-wal
+/*.png
+/*.jpg
+/*.jpeg
+/*.mo
+/*.pot
+/*.session
+/*.xml
+/*.txt
+/MagicMock/
+
+# Ephemeral session reports (anywhere) — these belong in docs/reports/
+# if they need to live long-term, not in git root.
+/VERIFICATION*.md
+/SMOKE_TEST*.md
+/TASK_*.md
+/MANUAL_*.md
+/*.prev.md
+/DECISION.md
