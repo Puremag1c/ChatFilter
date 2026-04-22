@@ -432,8 +432,24 @@ class UserDatabase(SQLiteDatabase):
             "created_at": row["created_at"],
         }
 
+    def set_use_own_accounts(self, user_id: str, value: bool) -> None:
+        """Toggle whether this user runs analyses on their own accounts/proxies.
+
+        Stored as an integer (0/1) for SQLite friendliness; read back as bool.
+        """
+        with self._connection() as conn:
+            conn.execute(
+                "UPDATE users SET use_own_accounts = ? WHERE id = ?",
+                (1 if value else 0, user_id),
+            )
+
     @staticmethod
     def _row_to_dict(row: Any) -> dict[str, Any]:
+        # Row may come from older migrations that lack the column — guard it.
+        try:
+            use_own = bool(row["use_own_accounts"])
+        except (KeyError, IndexError):
+            use_own = False
         return {
             "id": row["id"],
             "username": row["username"],
@@ -444,6 +460,7 @@ class UserDatabase(SQLiteDatabase):
             if row["ai_balance_usd"] is not None
             else 0.0,
             "email": row["email"] if row["email"] is not None else None,
+            "use_own_accounts": use_own,
         }
 
 

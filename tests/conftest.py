@@ -441,6 +441,40 @@ def admin_client(test_settings: Any, monkeypatch: Any) -> Iterator[Any]:
 
 
 # ============================================================================
+# Admin-identity helpers for tests that care about business logic, not role
+# ============================================================================
+# Phase 2 moved /sessions, /api/sessions/*, /proxies and /api/proxies/* behind
+# an admin-only dependency.  Existing tests that exercise those endpoints
+# don't care about role — they care about session / proxy business logic, and
+# were written before the role gate existed.  Rather than rewrite each one to
+# stamp an admin session cookie by hand, we expose a helper.
+
+
+def _inject_admin_session() -> str:
+    """Create an in-memory admin session and return its session_id.
+
+    Attach the returned id as a SESSION_COOKIE_NAME cookie on any TestClient
+    to present as an admin user without going through the login flow.
+    """
+    from chatfilter.web.session import get_session_store
+
+    store = get_session_store()
+    session = store.create_session()
+    session.set("user_id", "test-admin-id")
+    session.set("username", "test-admin")
+    session.set("is_admin", True)
+    return session.session_id
+
+
+@pytest.fixture
+def admin_session_cookie() -> dict[str, str]:
+    """Cookie dict ready to pass to TestClient(app, cookies=...) as admin."""
+    from chatfilter.web.session import SESSION_COOKIE_NAME
+
+    return {SESSION_COOKIE_NAME: _inject_admin_session()}
+
+
+# ============================================================================
 # Telegram Mock Fixtures
 # ============================================================================
 # These fixtures provide reusable mocks for Telegram client, chats, messages,

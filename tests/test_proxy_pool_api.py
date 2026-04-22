@@ -14,6 +14,15 @@ from fastapi.testclient import TestClient
 from chatfilter.config_proxy import ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.web.app import create_app
+from chatfilter.web.session import SESSION_COOKIE_NAME
+
+from tests.conftest import _inject_admin_session
+
+
+def _admin_client() -> TestClient:
+    """Proxy endpoints are admin-only since Phase 2; stamp an admin session."""
+    app = create_app()
+    return TestClient(app, cookies={SESSION_COOKIE_NAME: _inject_admin_session()})
 
 
 def extract_csrf_token(html: str) -> str | None:
@@ -36,7 +45,7 @@ class TestListProxies:
     def client(self) -> TestClient:
         """Create test client."""
         app = create_app()
-        return TestClient(app)
+        return _admin_client()
 
     def test_list_proxies_empty(self, client: TestClient):
         """Test listing proxies when pool is empty."""
@@ -106,7 +115,7 @@ class TestCreateProxy:
     def client(self) -> TestClient:
         """Create test client."""
         app = create_app()
-        return TestClient(app)
+        return _admin_client()
 
     @pytest.fixture
     def csrf_token(self, client: TestClient) -> str:
@@ -214,7 +223,7 @@ class TestUpdateProxy:
     def client(self) -> TestClient:
         """Create test client."""
         app = create_app()
-        return TestClient(app)
+        return _admin_client()
 
     @pytest.fixture
     def csrf_token(self, client: TestClient) -> str:
@@ -377,7 +386,7 @@ class TestDeleteProxy:
     def client(self) -> TestClient:
         """Create test client."""
         app = create_app()
-        return TestClient(app)
+        return _admin_client()
 
     @pytest.fixture
     def csrf_token(self, client: TestClient) -> str:
@@ -406,7 +415,7 @@ class TestDeleteProxy:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        mock_remove.assert_called_once_with(proxy_id, "default")
+        mock_remove.assert_called_once_with(proxy_id, "test-admin-id")
 
     def test_delete_proxy_in_use(self, client: TestClient, csrf_token: str):
         """Test deleting a proxy that is in use succeeds (with warning)."""
@@ -427,7 +436,7 @@ class TestDeleteProxy:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        mock_remove.assert_called_once_with(proxy_id, "default")
+        mock_remove.assert_called_once_with(proxy_id, "test-admin-id")
 
     def test_delete_proxy_not_found(self, client: TestClient, csrf_token: str):
         """Test deleting a non-existent proxy returns 404."""

@@ -20,7 +20,7 @@ def test_app_startup_and_sessions_endpoint():
 
     Verifies:
     - App starts without errors
-    - GET /api/sessions returns 200
+    - GET /ready returns 200
     - No exceptions in startup logs
 
     This is a deployment smoke test to ensure the app can be deployed.
@@ -51,7 +51,7 @@ def test_app_startup_and_sessions_endpoint():
                 try:
                     async with httpx.AsyncClient() as client:
                         response = await client.get(
-                            f"http://localhost:{port}/api/sessions",
+                            f"http://localhost:{port}/ready",
                             timeout=2.0,
                             follow_redirects=True,
                         )
@@ -60,7 +60,7 @@ def test_app_startup_and_sessions_endpoint():
                             server_ready = True
                             return True
                         else:
-                            pytest.fail(f"GET /api/sessions returned {response.status_code}")
+                            pytest.fail(f"GET /ready returned {response.status_code}")
 
                 except (httpx.ConnectError, httpx.TimeoutException):
                     # Server not ready yet, wait and retry

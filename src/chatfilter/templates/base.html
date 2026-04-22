@@ -39,11 +39,13 @@
                 <input type="checkbox" id="burger-toggle" class="burger-checkbox" aria-label="{{ _("Toggle navigation menu") }}">
                 <label for="burger-toggle" class="burger-icon" aria-hidden="true"></label>
                 <ul class="nav-links">
-                    <li><a href="/proxies">{{ _("Proxies") }}</a></li>
-                    <li><a href="/">{{ _("Sessions") }}</a></li>
-                    <li><a href="/chats">{{ _("Chats") }}</a></li>
+                    <li><a href="/">{{ _("Chats") }}</a></li>
                     <li><a href="/catalog">{{ _("Catalog") }}</a></li>
-                    {% if current_is_admin %}<li><a href="/admin">{{ _("Admin") }}</a></li>{% endif %}
+                    {% if current_is_admin %}
+                    <li><a href="/sessions">{{ _("Sessions") }}</a></li>
+                    <li><a href="/proxies">{{ _("Proxies") }}</a></li>
+                    <li><a href="/admin">{{ _("Admin") }}</a></li>
+                    {% endif %}
                 </ul>
             </div>
             <div class="header-right">

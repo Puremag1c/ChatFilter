@@ -16,6 +16,9 @@ from fastapi.testclient import TestClient
 
 from chatfilter.config_proxy import ProxyType
 from chatfilter.web.app import create_app
+from chatfilter.web.session import SESSION_COOKIE_NAME
+
+from tests.conftest import _inject_admin_session
 
 
 def extract_csrf_token(html: str) -> str | None:
@@ -26,9 +29,9 @@ def extract_csrf_token(html: str) -> str | None:
 
 @pytest.fixture
 def client() -> TestClient:
-    """Create test client."""
+    """Create test client (admin session — proxy routes are admin-only)."""
     app = create_app()
-    return TestClient(app)
+    return TestClient(app, cookies={SESSION_COOKIE_NAME: _inject_admin_session()})
 
 
 @pytest.fixture

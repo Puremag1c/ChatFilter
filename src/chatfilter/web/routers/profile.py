@@ -59,6 +59,35 @@ async def profile_page(
     )
 
 
+@router.post("/profile", response_model=None)
+async def update_profile_prefs(
+    request: Request,
+    use_own_accounts: str | None = Form(None),
+) -> Response:
+    """Persist profile preferences.
+
+    Currently holds the ``use_own_accounts`` toggle added in Phase 2. The
+    flag only becomes functional in Phase 4 (pool-aware scheduler); in
+    Phase 2 we simply record it so the UI state is sticky.
+    """
+    session = get_session(request)
+    user_id = session.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=302)
+
+    db = _get_user_db(request)
+    user = db.get_user_by_id(user_id)
+    if not user:
+        return RedirectResponse(url="/login", status_code=302)
+
+    db.set_use_own_accounts(user_id, bool(use_own_accounts))
+
+    return Response(
+        status_code=303,
+        headers={"Location": "/profile"},
+    )
+
+
 @router.post("/profile/password", response_model=None)
 async def change_password(
     request: Request,

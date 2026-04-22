@@ -41,6 +41,32 @@ def get_web_session(request: Request) -> SessionData:
 WebSession = Annotated[SessionData, Depends(get_web_session)]
 
 
+def require_admin(request: Request) -> SessionData:
+    """Route dependency that returns the session only if the user is admin.
+
+    Raises 403 Forbidden otherwise (works both for authenticated non-admin
+    users and for unauthenticated requests — the middleware already
+    redirects anon users to /login before we get here in real flows).
+
+    Usage:
+        @router.get("/admin-only")
+        async def view(_: Annotated[SessionData, Depends(require_admin)]):
+            ...
+    """
+    from fastapi import HTTPException, status
+
+    session = get_session(request)
+    if not session.get("is_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    return session
+
+
+AdminSession = Annotated[SessionData, Depends(require_admin)]
+
+
 # Global instances (in production, these would be in app state)
 _session_manager: SessionManager | None = None
 _chat_service: ChatAnalysisService | None = None

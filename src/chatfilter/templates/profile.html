@@ -23,6 +23,31 @@
 
 <section class="card" style="margin-top:1.5rem">
     <div class="card-header">
+        <h2>{{ _("Preferences") }}</h2>
+    </div>
+    <form action="/profile" method="post" style="display:flex;flex-direction:column;gap:0.75rem;padding:1rem;max-width:560px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label style="display:flex;align-items:flex-start;gap:0.75rem;cursor:pointer">
+            <input type="checkbox"
+                   id="use-own-accounts"
+                   name="use_own_accounts"
+                   {% if user.use_own_accounts %}checked{% endif %}
+                   style="margin-top:0.25rem;flex-shrink:0">
+            <span>
+                <strong>{{ _("Use my own Telegram accounts and proxies") }}</strong>
+                <span style="display:block;font-size:0.85rem;color:var(--text-secondary,#666);margin-top:0.25rem">
+                    {{ _("When enabled, analyses you launch will run on accounts you upload yourself instead of the shared admin pool. The setting becomes active once scheduler pool-routing is released.") }}
+                </span>
+            </span>
+        </label>
+        <div>
+            <button type="submit" class="btn btn-primary">{{ _("Save preferences") }}</button>
+        </div>
+    </form>
+</section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
         <h2>{{ _("Change Password") }}</h2>
     </div>
     <form action="/profile/password" method="post" hx-post="/profile/password" hx-swap="none" style="display:flex;flex-direction:column;gap:0.75rem;padding:1rem;max-width:400px">

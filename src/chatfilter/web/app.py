@@ -433,18 +433,27 @@ def create_app(
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-    # Include routers
+    # Include routers. Sessions and proxy_pool are gated behind an
+    # admin-only dependency: they manage shared infrastructure that
+    # regular users are no longer allowed to touch (Phase 2 of the
+    # redesign).
+    from fastapi import Depends
+
+    from chatfilter.web.dependencies import require_admin
+
+    admin_only = [Depends(require_admin)]
+
     app.include_router(catalog_router)
     app.include_router(admin_router)
     app.include_router(auth_router)
     app.include_router(health_router)
     app.include_router(export_router)
-    app.include_router(sessions_router)
+    app.include_router(sessions_router, dependencies=admin_only)
     app.include_router(chatlist_router)
     app.include_router(chats_router)
     app.include_router(groups_router)
     app.include_router(profile_router)
-    app.include_router(proxy_pool_router)
+    app.include_router(proxy_pool_router, dependencies=admin_only)
     app.include_router(pages_router)
 
     return app

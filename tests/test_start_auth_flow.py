@@ -6,6 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
+from chatfilter.web.session import SESSION_COOKIE_NAME
+
+from tests.conftest import _inject_admin_session
 
 
 @pytest.fixture
@@ -29,8 +32,8 @@ def app(monkeypatch):
 
 @pytest.fixture
 def client(app):
-    """Create test client."""
-    return TestClient(app)
+    """Admin-authenticated client — sessions routes are admin-only since Phase 2."""
+    return TestClient(app, cookies={SESSION_COOKIE_NAME: _inject_admin_session()})
 
 
 class TestStartAuthFlowValidation:

@@ -54,8 +54,8 @@ def two_user_clients(test_settings: Any, monkeypatch: Any):
 
     test_settings.data_dir.mkdir(parents=True, exist_ok=True)
     db = get_user_db(test_settings.effective_database_url)
-    user1_id = db.create_user("owner_user", "pass1234567", is_admin=False)
-    user2_id = db.create_user("attacker_user", "pass1234567", is_admin=False)
+    user1_id = db.create_user("owner_user", "pass1234567", is_admin=True)
+    user2_id = db.create_user("attacker_user", "pass1234567", is_admin=True)
 
     store = get_session_store()
 
@@ -64,11 +64,13 @@ def two_user_clients(test_settings: Any, monkeypatch: Any):
     sess1 = store.create_session()
     sess1.set("user_id", user1_id)
     sess1.set("username", "owner_user")
+    sess1.set("is_admin", True)
     sess1.set("_csrf_token", csrf_token)
 
     sess2 = store.create_session()
     sess2.set("user_id", user2_id)
     sess2.set("username", "attacker_user")
+    sess2.set("is_admin", True)
     sess2.set("_csrf_token", csrf_token)
 
     app = create_app(settings=test_settings)

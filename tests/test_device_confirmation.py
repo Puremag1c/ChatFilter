@@ -42,7 +42,7 @@ class TestDeviceConfirmation:
         yield isolated_tmp_dir
 
     async def test_verify_code_needs_confirmation(
-        self, fastapi_test_client, mock_ensure_data_dir: Path
+        self, admin_client, mock_ensure_data_dir: Path
     ) -> None:
         """Test verify_code detects device confirmation needed."""
         session_dir = mock_ensure_data_dir / "test_needs_confirmation"
@@ -110,7 +110,7 @@ class TestDeviceConfirmation:
         )
 
         # Get CSRF token from home page
-        home_response = fastapi_test_client.get("/")
+        home_response = admin_client.get("/")
         csrf_token = extract_csrf_token(home_response.text)
         assert csrf_token is not None
 
@@ -133,7 +133,7 @@ class TestDeviceConfirmation:
             mock_sm._factories = {}
             mock_get_sm.return_value = mock_sm
 
-            response = fastapi_test_client.post(
+            response = admin_client.post(
                 "/api/sessions/test_needs_confirmation/verify-code",
                 data={
                     "auth_id": "test_auth_id",
@@ -160,7 +160,7 @@ class TestDeviceConfirmation:
             )
 
     async def test_verify_2fa_needs_confirmation(
-        self, fastapi_test_client, mock_ensure_data_dir: Path
+        self, admin_client, mock_ensure_data_dir: Path
     ) -> None:
         """Test verify_2fa detects device confirmation needed."""
         session_dir = mock_ensure_data_dir / "test_2fa_needs_confirmation"
@@ -228,7 +228,7 @@ class TestDeviceConfirmation:
         )
 
         # Get CSRF token from home page
-        home_response = fastapi_test_client.get("/")
+        home_response = admin_client.get("/")
         csrf_token = extract_csrf_token(home_response.text)
         assert csrf_token is not None
 
@@ -251,7 +251,7 @@ class TestDeviceConfirmation:
             mock_sm._factories = {}
             mock_get_sm.return_value = mock_sm
 
-            response = fastapi_test_client.post(
+            response = admin_client.post(
                 "/api/sessions/test_2fa_needs_confirmation/verify-2fa",
                 data={
                     "auth_id": "test_auth_id_2fa",
@@ -337,7 +337,7 @@ class TestDeviceConfirmation:
         assert result is False
 
     async def test_verify_2fa_auth_key_unregistered_goes_to_finalize(
-        self, fastapi_test_client, mock_ensure_data_dir: Path
+        self, admin_client, mock_ensure_data_dir: Path
     ) -> None:
         """Test verify_2fa: sign_in succeeds, AuthKeyUnregisteredError in _check_device_confirmation → finalize (not needs_confirmation).
 
@@ -398,7 +398,7 @@ class TestDeviceConfirmation:
             client=mock_client,
         )
 
-        home_response = fastapi_test_client.get("/")
+        home_response = admin_client.get("/")
         csrf_token = extract_csrf_token(home_response.text)
         assert csrf_token is not None
 
@@ -428,7 +428,7 @@ class TestDeviceConfirmation:
             mock_sm._factories = {}
             mock_get_sm.return_value = mock_sm
 
-            response = fastapi_test_client.post(
+            response = admin_client.post(
                 "/api/sessions/test_2fa_auth_key/verify-2fa",
                 data={
                     "auth_id": "test_auth_2fa_key",
@@ -452,7 +452,7 @@ class TestDeviceConfirmation:
             assert not any(call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls)
 
     async def test_verify_code_auth_key_unregistered_goes_to_finalize(
-        self, fastapi_test_client, mock_ensure_data_dir: Path
+        self, admin_client, mock_ensure_data_dir: Path
     ) -> None:
         """Test verify_code: sign_in succeeds, AuthKeyUnregisteredError in _check_device_confirmation → finalize (not needs_confirmation).
 
@@ -513,7 +513,7 @@ class TestDeviceConfirmation:
             client=mock_client,
         )
 
-        home_response = fastapi_test_client.get("/")
+        home_response = admin_client.get("/")
         csrf_token = extract_csrf_token(home_response.text)
         assert csrf_token is not None
 
@@ -543,7 +543,7 @@ class TestDeviceConfirmation:
             mock_sm._factories = {}
             mock_get_sm.return_value = mock_sm
 
-            response = fastapi_test_client.post(
+            response = admin_client.post(
                 "/api/sessions/test_code_auth_key/verify-code",
                 data={
                     "auth_id": "test_auth_code_key",
@@ -567,7 +567,7 @@ class TestDeviceConfirmation:
             assert not any(call.kwargs.get("step") == AuthStep.NEED_CONFIRMATION for call in calls)
 
     async def test_auto_2fa_auth_key_unregistered_goes_to_finalize(
-        self, fastapi_test_client, mock_ensure_data_dir: Path
+        self, admin_client, mock_ensure_data_dir: Path
     ) -> None:
         """Test auto-2FA path: sign_in(code) → 2FA → sign_in(password) succeeds, AuthKeyUnregisteredError in _check → finalize.
 
@@ -647,7 +647,7 @@ class TestDeviceConfirmation:
             client=mock_client,
         )
 
-        home_response = fastapi_test_client.get("/")
+        home_response = admin_client.get("/")
         csrf_token = extract_csrf_token(home_response.text)
         assert csrf_token is not None
 
@@ -677,7 +677,7 @@ class TestDeviceConfirmation:
             mock_sm._factories = {}
             mock_get_sm.return_value = mock_sm
 
-            response = fastapi_test_client.post(
+            response = admin_client.post(
                 "/api/sessions/test_auto_2fa_key/verify-code",
                 data={
                     "auth_id": "test_auth_auto_2fa",

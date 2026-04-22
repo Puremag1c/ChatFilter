@@ -52,13 +52,17 @@ def e2e_settings(isolated_tmp_dir: Path) -> Settings:
 
 @pytest.fixture
 def e2e_app(e2e_settings: Settings) -> TestClient:
-    """Create FastAPI test client with isolated settings.
+    """Create FastAPI test client with an admin session cookie.
 
-    Returns:
-        TestClient configured for E2E testing
+    Sessions routes are admin-only since Phase 2, so the smoke E2E flow
+    stamps admin identity to exercise the full path.
     """
+    from chatfilter.web.session import SESSION_COOKIE_NAME
+
+    from tests.conftest import _inject_admin_session
+
     app = create_app(settings=e2e_settings)
-    return TestClient(app)
+    return TestClient(app, cookies={SESSION_COOKIE_NAME: _inject_admin_session()})
 
 
 @pytest.fixture

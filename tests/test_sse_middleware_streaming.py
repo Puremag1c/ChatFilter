@@ -279,13 +279,21 @@ class TestSSEThroughMiddlewareStack:
 
         Returns (status_code, headers_dict, body_chunks).
         """
+        # /api/sessions/events is admin-only since Phase 2 — stamp an admin
+        # session cookie into the ASGI scope so middleware doesn't refuse.
+        from chatfilter.web.session import SESSION_COOKIE_NAME
+
+        from tests.conftest import _inject_admin_session
+
+        cookie = f"{SESSION_COOKIE_NAME}={_inject_admin_session()}".encode()
+
         scope = {
             "type": "http",
             "method": "GET",
             "path": path,
             "query_string": b"",
             "root_path": "",
-            "headers": [],
+            "headers": [(b"cookie", cookie)],
             "server": ("testserver", 80),
         }
 
