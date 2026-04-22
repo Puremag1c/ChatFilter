@@ -223,13 +223,6 @@ def _handle_migrate() -> None:
     command.upgrade(alembic_cfg, args.revision)
     print("Migrations complete.")
 
-    # Auto-import from legacy split databases (groups.db + users.db)
-    if db_url.startswith("sqlite:///"):
-        from chatfilter.storage.legacy_import import import_legacy_databases
-
-        db_path = Path(db_url.removeprefix("sqlite:///"))
-        import_legacy_databases(db_path)
-
 
 def _get_alembic_config(db_url: str) -> Any:
     """Build Alembic config pointing to our migrations."""

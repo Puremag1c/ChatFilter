@@ -447,16 +447,14 @@ class UserDatabase(SQLiteDatabase):
         }
 
 
-def get_user_db(url_or_path: str | Path) -> UserDatabase:
-    """Return a UserDatabase instance.
+def get_user_db(url: str) -> UserDatabase:
+    """Return a UserDatabase instance pointing to the single shared DB.
 
     Args:
-        url_or_path: Database URL string (sqlite:///... or postgresql://...)
-            or a Path to data directory (legacy, uses <dir>/users.db).
+        url: SQLAlchemy database URL (sqlite:///... or postgresql://...).
+            Typically ``settings.effective_database_url``.
     """
-    if isinstance(url_or_path, Path) or "://" not in str(url_or_path):
-        return UserDatabase(Path(url_or_path) / "users.db")
-    return UserDatabase(url_or_path)
+    return UserDatabase(url)
 
 
 def delete_user_files(user_id: str, sessions_dir: Path, config_dir: Path) -> None:

@@ -87,6 +87,7 @@ src/chatfilter/i18n/messages.pot
 .beads/dolt-server.pid
 .beads/dolt-server.port
 .beads/metadata.json
+.beads/export-state.json
 
 # HYPE/agent working directories (often symlinks from ~/.hype, ~/.claudev)
 .hype/
