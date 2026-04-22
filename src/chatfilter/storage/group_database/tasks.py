@@ -28,8 +28,10 @@ class TasksMixin(DatabaseMixinBase):
         """
         from chatfilter.models.group import TaskStatus
 
-        task_id = f"task-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
+        # Microseconds suffix avoids UNIQUE-id collisions on back-to-back
+        # starts (e.g. auto-retry pass triggered within the same second).
         now = datetime.now(UTC)
+        task_id = f"task-{now.strftime('%Y%m%d%H%M%S%f')}"
 
         with self._connection() as conn:
             conn.execute(

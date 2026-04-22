@@ -23,22 +23,62 @@ class GroupStatus(StrEnum):
 
 
 class ChatTypeEnum(StrEnum):
-    """Type classification for group chat."""
+    """Result of chat analysis — what this chat actually is.
 
-    PENDING = "pending"
-    GROUP = "group"
-    FORUM = "forum"
-    CHANNEL_COMMENTS = "channel_comments"
-    CHANNEL_NO_COMMENTS = "channel_no_comments"
-    DEAD = "dead"
+    Orthogonal to GroupChatStatus (which tracks the analysis *process*).
+    When Telegram returns a response, we classify the chat into one of
+    these values and mark GroupChatStatus=DONE.
+    """
+
+    PENDING = "pending"                      # not analyzed yet (alias for "unknown")
+    GROUP = "group"                          # supergroup / megagroup
+    FORUM = "forum"                          # megagroup with topics
+    CHANNEL_COMMENTS = "channel_comments"    # broadcast channel with linked_chat
+    CHANNEL_NO_COMMENTS = "channel_no_comments"  # broadcast channel without comments
+    DEAD = "dead"                            # does not exist / deactivated / invalid invite
+    BANNED = "banned"                        # Telegram closed the channel (ChannelForbidden)
+    RESTRICTED = "restricted"                # Telegram globally restricted content (Channel.restricted=True, platform=all)
+    PRIVATE = "private"                      # private channel, cannot enter without invite
 
 
 class GroupChatStatus(StrEnum):
-    """Processing status for individual chat in group."""
+    """Analysis-process status for an individual chat in a group.
 
-    PENDING = "pending"
-    DONE = "done"
-    ERROR = "error"
+    Orthogonal to ChatTypeEnum (which is the *result* of analysis).
+    DONE means "we got an answer from Telegram" regardless of the
+    resulting chat_type — billable. ERROR means "no answer / our crash" —
+    not billable, retriable.
+    """
+
+    PENDING = "pending"   # not taken yet
+    DONE = "done"         # Telegram responded and we recorded a chat_type
+    ERROR = "error"       # no response from Telegram or our code crashed
+
+
+# Only statuses for which the service was actually delivered. Billing
+# charges on status == DONE regardless of what chat_type turned out to be.
+BILLABLE_STATUSES: frozenset[GroupChatStatus] = frozenset({GroupChatStatus.DONE})
+
+# Statuses that are safe to retry later (no result obtained).
+RETRIABLE_STATUSES: frozenset[GroupChatStatus] = frozenset({GroupChatStatus.ERROR})
+
+# Final states — processing is over, no further work will be done
+# automatically (ERROR may be retried by explicit user action or the
+# group_engine retry pass).
+TERMINAL_STATUSES: frozenset[GroupChatStatus] = frozenset(
+    {GroupChatStatus.DONE, GroupChatStatus.ERROR}
+)
+
+# chat_type values that mean "Telegram said this chat is not usable".
+# Used by UI to show separate badges and by retry logic to skip them.
+UNUSABLE_CHAT_TYPES: frozenset[ChatTypeEnum] = frozenset(
+    {
+        ChatTypeEnum.DEAD,
+        ChatTypeEnum.BANNED,
+        ChatTypeEnum.RESTRICTED,
+        ChatTypeEnum.PRIVATE,
+    }
+)
 
 
 class TaskStatus(StrEnum):
@@ -496,6 +536,9 @@ class GroupStats(BaseModel):
     total: int
     pending: int
     dead: int
+    banned: int = 0
+    restricted: int = 0
+    private: int = 0
     groups: int
     forums: int
     channels_with_comments: int
@@ -509,6 +552,9 @@ class GroupStats(BaseModel):
         "total",
         "pending",
         "dead",
+        "banned",
+        "restricted",
+        "private",
         "groups",
         "forums",
         "channels_with_comments",

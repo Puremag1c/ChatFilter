@@ -198,7 +198,10 @@ class ChatsMixin(DatabaseMixinBase):
 
         Returns:
             Tuple of (processed, total) where:
-            - processed: count of chats with status in ('done', 'failed') OR chat_type = 'dead'
+            - processed: count of chats with status IN ('done', 'error') —
+              these are terminal states (we got an answer or we gave up).
+              chat_type is irrelevant here; DONE+DEAD/BANNED/etc. is still
+              processed because the service was delivered.
             - total: count of all chats in group
         """
         with self._connection() as conn:
@@ -206,7 +209,7 @@ class ChatsMixin(DatabaseMixinBase):
                 """
                 SELECT
                     SUM(CASE
-                        WHEN status IN ('done', 'failed') OR chat_type = 'dead'
+                        WHEN status IN ('done', 'error')
                         THEN 1
                         ELSE 0
                     END) as processed,

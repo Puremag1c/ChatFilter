@@ -411,22 +411,29 @@ class TestOverwriteMode:
 
 class TestDeadChat:
     @pytest.mark.asyncio
-    async def test_dead_chat_saved_as_error_with_dead_type(
+    async def test_dead_chat_saved_as_done_with_dead_type(
         self,
         db: GroupDatabase,
         engine: GroupAnalysisEngine,
         session_manager: MagicMock,
     ) -> None:
-        """Dead/banned chat gets status=ERROR and chat_type=dead."""
+        """Dead chat gets status=DONE (Telegram answered) and chat_type=DEAD.
+
+        Phase 0 orthogonal model: status is the *process* (DONE/ERROR);
+        chat_type is the *result* (DEAD/BANNED/...). Dead is a result —
+        Telegram told us "this chat does not exist", which is a billable
+        service, so status=DONE.
+        """
         refs = ["@alive", "@dead_chat"]
         group_id = _setup_group(db, chat_refs=refs)
 
         async def mock_process(chat, client, account_id, settings, **kwargs):
             if "dead" in chat["chat_ref"]:
+                # Worker now returns DONE + DEAD (Telegram answered).
                 return ChatResult(
                     chat_ref=chat["chat_ref"],
                     chat_type=ChatTypeEnum.DEAD.value,
-                    status="dead",
+                    status=GroupChatStatus.DONE.value,
                     error="ChannelPrivateError: channel is private",
                 )
             return _make_chat_result(chat["chat_ref"])
@@ -437,19 +444,20 @@ class TestDeadChat:
         ):
             await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
 
-        # Check the dead chat
+        # The dead chat is DONE (billable) with chat_type=DEAD.
         all_chats = db.load_chats(group_id=group_id)
         dead_chats = [c for c in all_chats if c["chat_type"] == ChatTypeEnum.DEAD.value]
         assert len(dead_chats) == 1
-        assert dead_chats[0]["status"] == GroupChatStatus.ERROR.value
+        assert dead_chats[0]["status"] == GroupChatStatus.DONE.value
+        # Error text retained for UI display but not a retry signal.
         assert dead_chats[0]["error"] is not None
 
-        # Check the alive chat
+        # Alive chat — DONE + GROUP (or whatever the fake returned).
         alive_chats = [c for c in all_chats if c["chat_ref"] == "@alive"]
         assert len(alive_chats) == 1
         assert alive_chats[0]["status"] == GroupChatStatus.DONE.value
 
-        # Group should be COMPLETED (done + error = total, computed)
+        # Group COMPLETED (both chats terminal).
         computed_status = db.compute_group_status(group_id)
         assert computed_status == GroupStatus.COMPLETED.value
 
@@ -529,22 +537,31 @@ class TestAllAccountsBanned:
             await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
 
     @pytest.mark.asyncio
-    async def test_all_chats_error_when_worker_fails(
+    async def test_all_chats_error_when_worker_truly_fails(
         self,
         db: GroupDatabase,
         engine: GroupAnalysisEngine,
         session_manager: MagicMock,
     ) -> None:
-        """When all accounts fail for all chats, group ends as FAILED."""
+        """When worker cannot reach Telegram for any chat, group ends FAILED.
+
+        This is the "process error" path: the worker returns status=ERROR
+        (no answer from Telegram / our code crashed). chat_type stays as
+        PENDING because we never classified the chat. This is distinct
+        from DONE+BANNED, which means Telegram told us the chat is
+        closed — a billable, terminal result that should land the group
+        in COMPLETED, not FAILED.
+        """
         refs = ["@fail1", "@fail2"]
         group_id = _setup_group(db, chat_refs=refs)
 
         async def mock_process(chat, client, account_id, settings, **kwargs):
+            # Simulate "we couldn't get an answer" — true ERROR, not DEAD/BANNED.
             return ChatResult(
                 chat_ref=chat["chat_ref"],
-                chat_type=ChatTypeEnum.DEAD.value,
-                status="banned",
-                error="UserBannedInChannelError: banned",
+                chat_type=ChatTypeEnum.PENDING.value,
+                status=GroupChatStatus.ERROR.value,
+                error="Network timeout after all retries",
             )
 
         with (
@@ -553,7 +570,7 @@ class TestAllAccountsBanned:
         ):
             await engine.start_analysis(group_id, mode=AnalysisMode.FRESH)
 
-        # All chats should be ERROR
+        # All chats should be ERROR (not DEAD/BANNED — service wasn't delivered).
         all_chats = db.load_chats(group_id=group_id)
         for c in all_chats:
             assert c["status"] == GroupChatStatus.ERROR.value
