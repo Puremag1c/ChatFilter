@@ -195,3 +195,39 @@ class AnalysisQueueMixin(DatabaseMixinBase):
         if value < 0:
             raise ValueError("cost_per_chat cannot be negative")
         self.set_setting(self._COST_PER_CHAT_KEY, str(value))  # type: ignore[attr-defined]
+
+    # ---- Phase 6: runtime switch flag -------------------------------
+
+    _USE_QUEUE_KEY = "use_scheduler_queue"
+
+    def get_use_scheduler_queue(self) -> bool:
+        """Whether /start should enqueue rows instead of running in-memory."""
+        raw = self.get_setting(self._USE_QUEUE_KEY)  # type: ignore[attr-defined]
+        return raw in ("1", "true", "True", "yes")
+
+    def set_use_scheduler_queue(self, value: bool) -> None:
+        self.set_setting(self._USE_QUEUE_KEY, "1" if value else "0")  # type: ignore[attr-defined]
+
+    # ---- Phase 6: queue stats aggregate -----------------------------
+
+    def get_queue_stats(self, group_id: str | None = None) -> dict[str, int]:
+        """Count ``analysis_queue`` rows by status.
+
+        When ``group_id`` is provided, restricts to that group. Keys in
+        the returned dict are raw status strings (``queued``,
+        ``running``, ``done``, ``error``, ``cancelled``,
+        ``blocked_no_funds``) — only non-zero counts are included.
+        """
+        with self._connection() as conn:
+            if group_id is None:
+                rows = conn.execute(
+                    "SELECT status, COUNT(*) AS n FROM analysis_queue "
+                    "GROUP BY status"
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT status, COUNT(*) AS n FROM analysis_queue "
+                    "WHERE group_id = ? GROUP BY status",
+                    (group_id,),
+                ).fetchall()
+        return {row["status"]: int(row["n"]) for row in rows}

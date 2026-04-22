@@ -87,7 +87,44 @@ async def start_group_analysis(
             )
             return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger_data})
 
-        service.start_analysis(group_id)
+        # Phase 6: runtime switch. When the admin flips
+        # use_scheduler_queue on, the /start endpoint hands off to the
+        # persistent-queue scheduler (with per-chat billing pre-flight).
+        # When off, the legacy in-memory flow runs unchanged so the
+        # switch can be rolled back cheaply.
+        if service.db.get_use_scheduler_queue():
+            from chatfilter.ai.billing import BillingService, InsufficientBalance
+            from chatfilter.storage.user_database import get_user_db
+            from chatfilter.web.dependencies import get_group_engine
+
+            settings_obj = request.app.state.settings
+            user_db = get_user_db(settings_obj.effective_database_url)
+            billing = BillingService(user_db, group_db=service.db)
+
+            # Pool: admin unless the user opted into their own accounts.
+            user = user_db.get_user_by_id(user_id)
+            pool_key = (
+                f"user:{user_id}"
+                if user and user.get("use_own_accounts")
+                else "admin"
+            )
+            engine = get_group_engine()
+            try:
+                engine.enqueue_group_analysis(
+                    group_id,
+                    pool_key=pool_key,
+                    billing=billing,
+                )
+            except InsufficientBalance as ib:
+                trigger = json.dumps(
+                    {
+                        "refreshGroups": {},
+                        "showToast": {"type": "error", "message": str(ib)},
+                    }
+                )
+                return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": trigger})
+        else:
+            service.start_analysis(group_id)
 
         # Return 204 No Content with HX-Trigger header to refresh the container and show toast
         trigger = json.dumps(

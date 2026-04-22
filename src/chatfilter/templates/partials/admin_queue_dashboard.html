@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container" role="main" style="padding-top:1.5rem">
+
+<section class="card">
+    <div class="card-header">
+        <h2>{{ _("Analysis queue") }}</h2>
+    </div>
+    <div style="padding:1rem" id="queue-stats">
+        {% if queue_stats %}
+        <div style="display:flex;flex-wrap:wrap;gap:0.75rem">
+            {% for status, count in queue_stats.items() %}
+            <div style="padding:0.75rem 1rem;border-radius:8px;background:var(--bg-subtle,#f3f4f6);min-width:140px">
+                <div style="font-size:0.75rem;text-transform:uppercase;color:var(--text-muted,#6b7280);letter-spacing:0.05em">{{ status }}</div>
+                <div style="font-size:1.5rem;font-weight:700;margin-top:0.25rem">{{ count }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="color:var(--text-muted,#6b7280)">{{ _("Queue is empty.") }}</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>{{ _("Per-user queue depth") }}</h2>
+    </div>
+    <div style="padding:1rem">
+        {% if per_user %}
+        <table style="width:100%;border-collapse:collapse">
+            <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--border,#e5e7eb)">
+                    <th style="padding:0.5rem">{{ _("User") }}</th>
+                    <th style="padding:0.5rem;text-align:right">{{ _("Queued") }}</th>
+                    <th style="padding:0.5rem;text-align:right">{{ _("Running") }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user_id, counts in per_user.items() %}
+                <tr style="border-bottom:1px solid var(--border-subtle,#f3f4f6)">
+                    <td style="padding:0.5rem;font-family:monospace">{{ user_id }}</td>
+                    <td style="padding:0.5rem;text-align:right">{{ counts.get('queued', 0) }}</td>
+                    <td style="padding:0.5rem;text-align:right">{{ counts.get('running', 0) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:var(--text-muted,#6b7280)">{{ _("No active tasks.") }}</p>
+        {% endif %}
+    </div>
+</section>
+
+</main>
+{% endblock %}

@@ -201,6 +201,41 @@ async def admin_tab_system(request: Request) -> HTMLResponse | Response:
     )
 
 
+@router.get("/admin/queue", response_class=HTMLResponse, response_model=None)
+async def admin_queue_dashboard(request: Request) -> HTMLResponse | Response:
+    """Persistent-queue dashboard — counts by status and per-user depth."""
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    group_db = _get_group_db(request)
+    queue_stats = group_db.get_queue_stats()
+
+    # Per-user queue depth (queued + running). Cheap enough to read inline.
+    with group_db._connection() as conn:  # noqa: SLF001
+        rows = conn.execute(
+            "SELECT user_id, status, COUNT(*) AS n FROM analysis_queue "
+            "WHERE status IN ('queued', 'running') "
+            "GROUP BY user_id, status ORDER BY user_id"
+        ).fetchall()
+    per_user: dict[str, dict[str, int]] = {}
+    for row in rows:
+        per_user.setdefault(row["user_id"], {})[row["status"]] = int(row["n"])
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/admin_queue_dashboard.html",
+        context=get_template_context(
+            request,
+            version=__version__,
+            queue_stats=queue_stats,
+            per_user=per_user,
+        ),
+    )
+
+
 @router.get("/admin/users", response_class=HTMLResponse, response_model=None)
 @router.get("/admin/platforms", response_class=HTMLResponse, response_model=None)
 @router.get("/admin/system", response_class=HTMLResponse, response_model=None)

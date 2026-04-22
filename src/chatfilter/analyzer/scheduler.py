@@ -74,6 +74,9 @@ class AnalysisScheduler:
         self._loop_task: asyncio.Task[None] | None = None
         # Track in-flight per-task coroutines so shutdown can wait for them.
         self._in_flight: set[asyncio.Task[None]] = set()
+        # Fallback busy-set when SessionManager doesn't expose one of its own.
+        # Entries are account_id strings for rows currently being worked.
+        self._busy: set[str] = set()
 
     # ---- lifecycle --------------------------------------------------
 
@@ -140,20 +143,66 @@ class AnalysisScheduler:
                 self._spawn_task(claimed, account_id)
 
     def _enumerate_pools(self) -> dict[str, list[str]]:
-        """Gather {pool_key: [idle_account_id, ...]} from the session manager."""
-        # The production SessionManager will expose idle_accounts(pool_key)
-        # and list_accounts_for_pool(pool_key); tests inject fakes with the
-        # same shape.
+        """Gather {pool_key: [idle_account_id, ...]} from the session manager.
+
+        Prefers the explicit ``idle_accounts`` / ``known_pools`` methods
+        (used by tests with fake managers). Falls back to the production
+        ``SessionManager`` API — ``list_sessions()`` + ``get_info(id)`` —
+        mapped onto pool_keys via each session's owner metadata.
+        """
         pools: dict[str, list[str]] = {}
         get_pools = getattr(self._sm, "known_pools", None)
-        if callable(get_pools):
-            pool_keys = get_pools()
-        else:
-            pool_keys = self._infer_pool_keys_from_queue()
-        for pk in pool_keys:
-            idle_fn = getattr(self._sm, "idle_accounts", None)
-            if callable(idle_fn):
+        idle_fn = getattr(self._sm, "idle_accounts", None)
+
+        # Explicit API (e.g. test fakes).
+        if callable(get_pools) and callable(idle_fn):
+            for pk in get_pools():
                 pools[pk] = idle_fn(pk)
+            return pools
+        if callable(idle_fn):
+            # Queue tells us which pools currently have work — only ask
+            # idle_accounts for those.
+            for pk in self._infer_pool_keys_from_queue():
+                pools[pk] = idle_fn(pk)
+            return pools
+
+        # Fallback path — production SessionManager shape.
+        return self._enumerate_pools_from_list_sessions()
+
+    def _enumerate_pools_from_list_sessions(self) -> dict[str, list[str]]:
+        """Derive pools from the SessionManager's list_sessions + get_info.
+
+        Every connected session that is not currently busy in our
+        local set becomes an idle account. The pool key is the session's
+        owner; sessions whose owner field is missing or empty default
+        to the shared admin pool.
+        """
+        list_fn = getattr(self._sm, "list_sessions", None)
+        get_info = getattr(self._sm, "get_info", None)
+        if not callable(list_fn) or not callable(get_info):
+            return {}
+        pools: dict[str, list[str]] = {}
+        # Only enumerate pools that actually have queued work — otherwise
+        # we'd spin over every account every tick.
+        needed = set(self._infer_pool_keys_from_queue())
+        if not needed:
+            return {}
+        try:
+            from chatfilter.telegram.session.models import SessionState
+        except Exception:
+            SessionState = None  # type: ignore[assignment]
+        for sid in list_fn():
+            if sid in self._busy:
+                continue
+            info = get_info(sid)
+            if info is None:
+                continue
+            if SessionState is not None and getattr(info, "state", None) != SessionState.CONNECTED:
+                continue
+            owner = getattr(info, "owner", None) or "admin"
+            if owner not in needed:
+                continue
+            pools.setdefault(owner, []).append(sid)
         return pools
 
     def _infer_pool_keys_from_queue(self) -> list[str]:
@@ -185,6 +234,8 @@ class AnalysisScheduler:
         mark_busy = getattr(self._sm, "mark_busy", None)
         if callable(mark_busy):
             mark_busy(account_id)
+        else:
+            self._busy.add(account_id)
 
         # Pre-charge for the chat. If billing/cost_per_chat is unset this
         # is a no-op and charged_amount stays at 0.0 — the existing
@@ -197,6 +248,8 @@ class AnalysisScheduler:
             mark_idle = getattr(self._sm, "mark_idle", None)
             if callable(mark_idle):
                 mark_idle(account_id)
+            else:
+                self._busy.discard(account_id)
             return
 
         try:
@@ -224,6 +277,8 @@ class AnalysisScheduler:
             mark_idle = getattr(self._sm, "mark_idle", None)
             if callable(mark_idle):
                 mark_idle(account_id)
+            else:
+                self._busy.discard(account_id)
 
     # ---- billing helpers --------------------------------------------
 
@@ -305,13 +360,16 @@ class AnalysisScheduler:
             logger.exception("Refund failed for task %s (user=%s)", task_id, user_id)
 
     async def _get_client(self, account_id: str) -> Any:
-        get_client = getattr(self._sm, "get_client", None)
-        if get_client is None:
-            return None
-        result = get_client(account_id)
-        if asyncio.iscoroutine(result):
-            return await result
-        return result
+        # Tests inject a fake ``get_client``; production uses ``connect``.
+        for attr in ("get_client", "connect"):
+            fn = getattr(self._sm, attr, None)
+            if fn is None:
+                continue
+            result = fn(account_id)
+            if asyncio.iscoroutine(result):
+                return await result
+            return result
+        return None
 
     def _load_group_settings(self, group_id: str) -> GroupSettings:
         group = self._db.load_group(group_id)
