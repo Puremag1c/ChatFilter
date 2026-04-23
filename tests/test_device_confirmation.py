@@ -134,7 +134,7 @@ class TestDeviceConfirmation:
             mock_get_sm.return_value = mock_sm
 
             response = admin_client.post(
-                "/api/sessions/test_needs_confirmation/verify-code",
+                "/admin/api/sessions/test_needs_confirmation/verify-code",
                 data={
                     "auth_id": "test_auth_id",
                     "code": "12345",
@@ -252,7 +252,7 @@ class TestDeviceConfirmation:
             mock_get_sm.return_value = mock_sm
 
             response = admin_client.post(
-                "/api/sessions/test_2fa_needs_confirmation/verify-2fa",
+                "/admin/api/sessions/test_2fa_needs_confirmation/verify-2fa",
                 data={
                     "auth_id": "test_auth_id_2fa",
                     "password": "test_password",
@@ -429,7 +429,7 @@ class TestDeviceConfirmation:
             mock_get_sm.return_value = mock_sm
 
             response = admin_client.post(
-                "/api/sessions/test_2fa_auth_key/verify-2fa",
+                "/admin/api/sessions/test_2fa_auth_key/verify-2fa",
                 data={
                     "auth_id": "test_auth_2fa_key",
                     "password": "test_password",
@@ -544,7 +544,7 @@ class TestDeviceConfirmation:
             mock_get_sm.return_value = mock_sm
 
             response = admin_client.post(
-                "/api/sessions/test_code_auth_key/verify-code",
+                "/admin/api/sessions/test_code_auth_key/verify-code",
                 data={
                     "auth_id": "test_auth_code_key",
                     "code": "12345",
@@ -678,7 +678,7 @@ class TestDeviceConfirmation:
             mock_get_sm.return_value = mock_sm
 
             response = admin_client.post(
-                "/api/sessions/test_auto_2fa_key/verify-code",
+                "/admin/api/sessions/test_auto_2fa_key/verify-code",
                 data={
                     "auth_id": "test_auth_auto_2fa",
                     "code": "12345",

@@ -20,12 +20,16 @@ import pytest
 
 
 class TestSessionAccessDependency:
-    def test_admin_sees_sessions(self, admin_client: Any) -> None:
-        r = admin_client.get("/sessions")
+    """/sessions and /proxies are the personal pool — admins without the
+    use_own_accounts toggle don't see them. See test_admin_user_split.py
+    for the full access matrix."""
+
+    def test_admin_sees_admin_accounts(self, admin_client: Any) -> None:
+        r = admin_client.get("/admin/accounts")
         assert r.status_code < 400
 
-    def test_admin_sees_proxies(self, admin_client: Any) -> None:
-        r = admin_client.get("/proxies")
+    def test_admin_sees_admin_proxies(self, admin_client: Any) -> None:
+        r = admin_client.get("/admin/proxies")
         assert r.status_code < 400
 
     def test_regular_user_without_toggle_is_blocked(

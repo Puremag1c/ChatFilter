@@ -109,7 +109,7 @@ class TestAuthIdOwnership:
 
         # user2 tries to submit code for user1's auth flow
         resp = client_user2.post(
-            "/api/sessions/auth/code",
+            "/admin/api/sessions/auth/code",
             data={"auth_id": auth_id, "code": "12345"},
             headers={"X-CSRF-Token": "test-csrf-token-ownership"},
         )
@@ -124,7 +124,7 @@ class TestAuthIdOwnership:
         AuthStateManager()._states[auth_id] = state
 
         resp = client_user1.post(
-            "/api/sessions/auth/code",
+            "/admin/api/sessions/auth/code",
             data={"auth_id": auth_id, "code": "12345"},
             headers={"X-CSRF-Token": "test-csrf-token-ownership"},
         )
@@ -141,7 +141,7 @@ class TestAuthIdOwnership:
         AuthStateManager()._states[auth_id] = state
 
         resp = client_user2.post(
-            "/api/sessions/auth/2fa",
+            "/admin/api/sessions/auth/2fa",
             data={"auth_id": auth_id, "password": "somepassword"},
             headers={"X-CSRF-Token": "test-csrf-token-ownership"},
         )
@@ -157,7 +157,7 @@ class TestAuthIdOwnership:
         AuthStateManager()._states[auth_id] = state
 
         resp = client_user1.post(
-            "/api/sessions/auth/2fa",
+            "/admin/api/sessions/auth/2fa",
             data={"auth_id": auth_id, "password": "somepassword"},
             headers={"X-CSRF-Token": "test-csrf-token-ownership"},
         )

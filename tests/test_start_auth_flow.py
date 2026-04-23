@@ -48,7 +48,7 @@ class TestStartAuthFlowValidation:
         )
 
         response = client.post(
-            "/api/sessions/auth/start",
+            "/admin/api/sessions/auth/start",
             data={
                 "session_name": "test_session",
                 "phone": "+1234567890",
@@ -68,7 +68,7 @@ class TestStartAuthFlowValidation:
         )
 
         response = client.post(
-            "/api/sessions/auth/start",
+            "/admin/api/sessions/auth/start",
             data={
                 "session_name": "test_session_no_creds",
                 "phone": "+1234567890",

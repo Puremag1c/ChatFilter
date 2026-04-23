@@ -329,8 +329,10 @@ class TestSSEThroughMiddlewareStack:
     @pytest.mark.asyncio
     @pytest.mark.timeout(8)
     async def test_session_sse_streams_through_full_middleware(self, app) -> None:
-        """SSE /api/sessions/events should deliver first event immediately."""
-        status, headers, chunks = await self._raw_asgi_sse_request(app, "/api/sessions/events")
+        """SSE /admin/api/sessions/events should deliver first event immediately."""
+        status, headers, chunks = await self._raw_asgi_sse_request(
+            app, "/admin/api/sessions/events"
+        )
 
         assert status == 200, f"Expected 200, got {status}"
         assert "text/event-stream" in headers.get("content-type", ""), (

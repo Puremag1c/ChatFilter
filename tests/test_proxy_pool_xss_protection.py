@@ -87,7 +87,7 @@ def test_proxy_retest_escapes_malicious_name(
     ):
         # Call retest endpoint (returns HTML <tr>)
         response = client.post(
-            f"/api/proxies/{proxy_id}/retest",
+            f"/admin/api/proxies/{proxy_id}/retest",
             headers={"X-CSRF-Token": csrf_token},
         )
 
@@ -131,7 +131,7 @@ def test_proxy_list_escapes_malicious_fields(
         patch("chatfilter.web.routers.proxy_pool._get_sessions_using_proxy", return_value=[]),
     ):
         # Call list endpoint
-        response = client.get("/api/proxies/list")
+        response = client.get("/admin/api/proxies/list")
 
     assert response.status_code == 200
     html = response.text
@@ -188,7 +188,7 @@ def test_json_responses_use_generic_error_messages(
 
     with patch("chatfilter.web.routers.proxy_pool.load_proxy_pool", side_effect=raise_with_xss):
         # Call API endpoint that catches exception and returns JSON error
-        response = client.get("/api/proxies")
+        response = client.get("/admin/api/proxies")
 
     assert response.status_code == 500
     error_detail = response.json().get("detail", "")
@@ -203,7 +203,7 @@ def test_html_endpoint_exception_escaping(
 ) -> None:
     """Test that HTML endpoint error responses escape exception text.
 
-    Verifies /api/proxies/list endpoint (returns HTML) properly escapes
+    Verifies /admin/api/proxies/list endpoint (returns HTML) properly escapes
     exception messages that may contain user data.
     """
     xss_payload = "<img src=x onerror=alert(1)>"
@@ -213,7 +213,7 @@ def test_html_endpoint_exception_escaping(
         raise RuntimeError(f"Database error: {xss_payload}")
 
     with patch("chatfilter.web.routers.proxy_pool.load_proxy_pool", side_effect=raise_with_xss):
-        response = client.get("/api/proxies/list")
+        response = client.get("/admin/api/proxies/list")
 
     assert response.status_code == 500
     html = response.text
@@ -243,7 +243,7 @@ def test_create_proxy_uses_generic_errors(
 
     with patch("chatfilter.web.routers.proxy_pool.add_proxy", side_effect=raise_with_xss):
         response = client.post(
-            "/api/proxies",
+            "/admin/api/proxies",
             json={
                 "name": "Test Proxy",
                 "type": "http",

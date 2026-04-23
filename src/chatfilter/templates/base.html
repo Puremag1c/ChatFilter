@@ -41,7 +41,7 @@
                 <ul class="nav-links">
                     <li><a href="/">{{ _("Chats") }}</a></li>
                     <li><a href="/catalog">{{ _("Catalog") }}</a></li>
-                    {% if current_has_session_access %}
+                    {% if current_use_own_accounts %}
                     <li><a href="/sessions">{{ _("Sessions") }}</a></li>
                     <li><a href="/proxies">{{ _("Proxies") }}</a></li>
                     {% endif %}

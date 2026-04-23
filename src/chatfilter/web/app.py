@@ -468,28 +468,35 @@ def create_app(
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-    # Include routers. Sessions and proxy_pool are gated behind the
-    # session-access dependency: admins always pass (shared pool),
-    # regular users pass only if they've toggled use_own_accounts in
-    # their profile (private pool). Requests from both paths are then
-    # filtered server-side so users only see their own entries.
+    # Include routers. The personal /sessions /proxies URLs are for
+    # power-users only (those who ticked use_own_accounts in their
+    # profile). Admins who want to manage the SHARED pool go to the
+    # admin-prefixed mounts further down. The scheduler picks the
+    # right scope from the URL path via web.dependencies.get_pool_scope.
     from fastapi import Depends
 
-    from chatfilter.web.dependencies import require_session_access
+    from chatfilter.web.dependencies import require_admin, require_own_accounts
 
-    session_access_only = [Depends(require_session_access)]
+    admin_only = [Depends(require_admin)]
+    own_accounts_only = [Depends(require_own_accounts)]
 
     app.include_router(catalog_router)
     app.include_router(admin_router)
     app.include_router(auth_router)
     app.include_router(health_router)
     app.include_router(export_router)
-    app.include_router(sessions_router, dependencies=session_access_only)
+    # Personal pool — only visible to power-users.
+    app.include_router(sessions_router, dependencies=own_accounts_only)
     app.include_router(chatlist_router)
     app.include_router(chats_router)
     app.include_router(groups_router)
     app.include_router(profile_router)
-    app.include_router(proxy_pool_router, dependencies=session_access_only)
+    app.include_router(proxy_pool_router, dependencies=own_accounts_only)
+    # Shared admin pool — same routers mounted under /admin/ with admin guard.
+    # get_pool_scope() sees the /admin/ prefix in request.url.path and
+    # returns "admin", so the same handlers read/write the shared pool.
+    app.include_router(sessions_router, prefix="/admin", dependencies=admin_only)
+    app.include_router(proxy_pool_router, prefix="/admin", dependencies=admin_only)
     app.include_router(pages_router)
 
     return app

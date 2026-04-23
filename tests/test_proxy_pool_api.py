@@ -39,7 +39,7 @@ def extract_csrf_token(html: str) -> str | None:
 
 
 class TestListProxies:
-    """Tests for GET /api/proxies endpoint."""
+    """Tests for GET /admin/api/proxies endpoint."""
 
     @pytest.fixture
     def client(self) -> TestClient:
@@ -50,7 +50,7 @@ class TestListProxies:
     def test_list_proxies_empty(self, client: TestClient):
         """Test listing proxies when pool is empty."""
         with patch("chatfilter.web.routers.proxy_pool.load_proxy_pool", return_value=[]):
-            response = client.get("/api/proxies")
+            response = client.get("/admin/api/proxies")
 
         assert response.status_code == 200
         data = response.json()
@@ -81,7 +81,7 @@ class TestListProxies:
         with patch(
             "chatfilter.web.routers.proxy_pool.load_proxy_pool", return_value=mock_proxy_pool
         ):
-            response = client.get("/api/proxies")
+            response = client.get("/admin/api/proxies")
 
         assert response.status_code == 200
         data = response.json()
@@ -109,7 +109,7 @@ class TestListProxies:
 
 
 class TestCreateProxy:
-    """Tests for POST /api/proxies endpoint."""
+    """Tests for POST /admin/api/proxies endpoint."""
 
     @pytest.fixture
     def client(self) -> TestClient:
@@ -136,7 +136,7 @@ class TestCreateProxy:
 
         with patch("chatfilter.web.routers.proxy_pool.add_proxy", return_value=created_proxy):
             response = client.post(
-                "/api/proxies",
+                "/admin/api/proxies",
                 json={
                     "name": "New Proxy",
                     "type": "socks5",
@@ -165,7 +165,7 @@ class TestCreateProxy:
 
         with patch("chatfilter.web.routers.proxy_pool.add_proxy", return_value=created_proxy):
             response = client.post(
-                "/api/proxies",
+                "/admin/api/proxies",
                 json={
                     "name": "Auth Proxy",
                     "type": "http",
@@ -185,7 +185,7 @@ class TestCreateProxy:
     def test_create_proxy_invalid_type(self, client: TestClient, csrf_token: str):
         """Test creating a proxy with invalid type returns error."""
         response = client.post(
-            "/api/proxies",
+            "/admin/api/proxies",
             json={
                 "name": "Bad Proxy",
                 "type": "invalid",
@@ -203,7 +203,7 @@ class TestCreateProxy:
     def test_create_proxy_invalid_port(self, client: TestClient, csrf_token: str):
         """Test creating a proxy with invalid port returns 422."""
         response = client.post(
-            "/api/proxies",
+            "/admin/api/proxies",
             json={
                 "name": "Bad Proxy",
                 "type": "socks5",
@@ -217,7 +217,7 @@ class TestCreateProxy:
 
 
 class TestUpdateProxy:
-    """Tests for PUT /api/proxies/{proxy_id} endpoint."""
+    """Tests for PUT /admin/api/proxies/{proxy_id} endpoint."""
 
     @pytest.fixture
     def client(self) -> TestClient:
@@ -264,7 +264,7 @@ class TestUpdateProxy:
             ) as mock_update,
         ):
             response = client.put(
-                f"/api/proxies/{proxy_id}",
+                f"/admin/api/proxies/{proxy_id}",
                 json={
                     "name": "New Name",
                     "type": "http",
@@ -315,7 +315,7 @@ class TestUpdateProxy:
             ) as mock_update,
         ):
             response = client.put(
-                f"/api/proxies/{proxy_id}",
+                f"/admin/api/proxies/{proxy_id}",
                 json={
                     "name": "Test Proxy",
                     "type": "socks5",
@@ -346,7 +346,7 @@ class TestUpdateProxy:
             side_effect=StorageNotFoundError(f"Proxy not found: {proxy_id}"),
         ):
             response = client.put(
-                f"/api/proxies/{proxy_id}",
+                f"/admin/api/proxies/{proxy_id}",
                 json={
                     "name": "New Name",
                     "type": "socks5",
@@ -363,7 +363,7 @@ class TestUpdateProxy:
         proxy_id = "11111111-1111-1111-1111-111111111111"
 
         response = client.put(
-            f"/api/proxies/{proxy_id}",
+            f"/admin/api/proxies/{proxy_id}",
             json={
                 "name": "Test Proxy",
                 "type": "invalid",
@@ -380,7 +380,7 @@ class TestUpdateProxy:
 
 
 class TestDeleteProxy:
-    """Tests for DELETE /api/proxies/{proxy_id} endpoint."""
+    """Tests for DELETE /admin/api/proxies/{proxy_id} endpoint."""
 
     @pytest.fixture
     def client(self) -> TestClient:
@@ -408,7 +408,7 @@ class TestDeleteProxy:
             patch("chatfilter.web.routers.proxy_pool.remove_proxy") as mock_remove,
         ):
             response = client.delete(
-                f"/api/proxies/{proxy_id}",
+                f"/admin/api/proxies/{proxy_id}",
                 headers={"X-CSRF-Token": csrf_token},
             )
 
@@ -429,7 +429,7 @@ class TestDeleteProxy:
             patch("chatfilter.web.routers.proxy_pool.remove_proxy") as mock_remove,
         ):
             response = client.delete(
-                f"/api/proxies/{proxy_id}",
+                f"/admin/api/proxies/{proxy_id}",
                 headers={"X-CSRF-Token": csrf_token},
             )
 
@@ -456,7 +456,7 @@ class TestDeleteProxy:
             ),
         ):
             response = client.delete(
-                f"/api/proxies/{proxy_id}",
+                f"/admin/api/proxies/{proxy_id}",
                 headers={"X-CSRF-Token": csrf_token},
             )
 

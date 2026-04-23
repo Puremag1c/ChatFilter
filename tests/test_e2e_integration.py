@@ -268,7 +268,7 @@ class TestE2EIntegration:
 
         with invalid_session.open("rb") as session_f, telegram_config_file.open("rb") as config_f:
             response = e2e_app.post(
-                "/api/sessions/upload",
+                "/admin/api/sessions/upload",
                 data={"session_name": "invalid_session"},
                 files={
                     "session_file": ("invalid.session", session_f, "application/octet-stream"),

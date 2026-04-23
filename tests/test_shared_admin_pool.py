@@ -20,18 +20,19 @@ import pytest
 
 
 class TestScopeHelpers:
-    def test_admin_session_returns_admin_scope(self) -> None:
+    """Scope is chosen by URL path now: /admin/* → admin, everything
+    else → the caller's personal scope. See test_admin_user_split for
+    the exhaustive checks."""
+
+    def test_admin_path_returns_admin_scope(self) -> None:
         from chatfilter.web.dependencies import get_owner_key, get_pool_scope
 
         req = MagicMock()
-        req.app.state = MagicMock()
+        req.url.path = "/admin/accounts"
 
         def fake_session(_req):
             s = MagicMock()
-            s.get = lambda k, d=None: {
-                "is_admin": True,
-                "user_id": "42",
-            }.get(k, d)
+            s.get = lambda k, d=None: {"is_admin": True, "user_id": "42"}.get(k, d)
             return s
 
         import chatfilter.web.dependencies as deps
@@ -44,17 +45,15 @@ class TestScopeHelpers:
         finally:
             deps.get_session = orig
 
-    def test_user_session_returns_user_scope(self) -> None:
+    def test_non_admin_path_returns_user_scope(self) -> None:
         from chatfilter.web.dependencies import get_owner_key, get_pool_scope
 
         req = MagicMock()
+        req.url.path = "/sessions"
 
         def fake_session(_req):
             s = MagicMock()
-            s.get = lambda k, d=None: {
-                "is_admin": False,
-                "user_id": "42",
-            }.get(k, d)
+            s.get = lambda k, d=None: {"is_admin": False, "user_id": "42"}.get(k, d)
             return s
 
         import chatfilter.web.dependencies as deps

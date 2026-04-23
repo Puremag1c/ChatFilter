@@ -25,15 +25,15 @@ import pytest
 
 
 class TestSessionsAdminOnly:
-    """/sessions and its API surface return 403 for a regular user."""
+    """/sessions is the PERSONAL pool. Admins without the toggle don't own one;
+    they manage the shared pool at /admin/accounts instead. Regular users
+    without the toggle get 403 too."""
 
     def test_regular_user_cannot_open_sessions_page(
         self, fastapi_test_client: Any
     ) -> None:
         r = fastapi_test_client.get("/sessions")
-        assert r.status_code == 403, (
-            f"Regular user must not see /sessions — got {r.status_code}"
-        )
+        assert r.status_code == 403
 
     def test_regular_user_cannot_list_sessions_api(
         self, fastapi_test_client: Any
@@ -41,15 +41,14 @@ class TestSessionsAdminOnly:
         r = fastapi_test_client.get("/api/sessions")
         assert r.status_code == 403
 
-    def test_admin_can_open_sessions_page(self, admin_client: Any) -> None:
-        r = admin_client.get("/sessions")
-        # Admin sees the page (200) or is redirected to the admin hub (2xx/3xx).
-        assert r.status_code < 400, (
-            f"Admin must reach /sessions — got {r.status_code}"
-        )
+    def test_admin_can_open_admin_accounts_page(self, admin_client: Any) -> None:
+        """Admins see the shared pool at /admin/accounts."""
+        r = admin_client.get("/admin/accounts")
+        assert r.status_code < 400
 
-    def test_admin_can_list_sessions_api(self, admin_client: Any) -> None:
-        r = admin_client.get("/api/sessions")
+    def test_admin_can_list_admin_sessions_api(self, admin_client: Any) -> None:
+        """Same sessions API mounted under /admin/ for the shared pool."""
+        r = admin_client.get("/admin/api/sessions")
         assert r.status_code == 200
 
 
@@ -66,8 +65,8 @@ class TestProxiesAdminOnly:
         r = fastapi_test_client.get("/api/proxies")
         assert r.status_code == 403
 
-    def test_admin_can_open_proxies_page(self, admin_client: Any) -> None:
-        r = admin_client.get("/proxies")
+    def test_admin_can_open_admin_proxies_page(self, admin_client: Any) -> None:
+        r = admin_client.get("/admin/proxies")
         assert r.status_code < 400
 
 
@@ -147,15 +146,17 @@ class TestHeaderMenuByRole:
             "Regular user must not see Proxies link in the header menu"
         )
 
-    def test_admin_sees_sessions_proxies_and_admin(
-        self, admin_client: Any
-    ) -> None:
+    def test_admin_sees_admin_link_only(self, admin_client: Any) -> None:
+        """Admin without the personal-pool toggle sees only /admin in the top
+        nav. The Sessions/Proxies links belong to the personal pool feature
+        and require use_own_accounts=True regardless of role."""
         r = admin_client.get("/")
         assert r.status_code == 200
         body = r.text
-        assert 'href="/sessions"' in body
-        assert 'href="/proxies"' in body
         assert 'href="/admin"' in body
+        # Personal pool links stay hidden until the admin ticks the toggle.
+        assert 'href="/sessions"' not in body
+        assert 'href="/proxies"' not in body
 
 
 # ------------------------------------------------------------------

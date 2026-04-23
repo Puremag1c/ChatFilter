@@ -65,7 +65,7 @@ class TestSaveNotConnect:
         mock_telethon_client = MagicMock()
         with patch("telethon.TelegramClient", mock_telethon_client):
             response = client.post(
-                "/api/sessions/auth/start",
+                "/admin/api/sessions/auth/start",
                 data={
                     "session_name": "minimal_session",
                     "phone": "+1234567890",
@@ -116,7 +116,7 @@ class TestSaveNotConnect:
         # Save minimal session
         with patch("telethon.TelegramClient"):
             response = client.post(
-                "/api/sessions/auth/start",
+                "/admin/api/sessions/auth/start",
                 data={
                     "session_name": "check_status_session",
                     "phone": "+1234567890",
@@ -151,7 +151,7 @@ class TestSaveNotConnect:
         with patch("telethon.TelegramClient", mock_telethon_client):
             # Test 1: Valid phone should save without connecting
             response = client.post(
-                "/api/sessions/auth/start",
+                "/admin/api/sessions/auth/start",
                 data={
                     "session_name": "valid_phone",
                     "phone": "+1234567890",
@@ -163,7 +163,7 @@ class TestSaveNotConnect:
 
             # Test 2: Invalid phone should be rejected WITHOUT connecting
             response2 = client.post(
-                "/api/sessions/auth/start",
+                "/admin/api/sessions/auth/start",
                 data={
                     "session_name": "invalid_phone",
                     "phone": "not-a-phone",
@@ -206,7 +206,7 @@ class TestSaveNotConnect:
             ),
         ):
             response = client.post(
-                "/api/sessions/auth/start",
+                "/admin/api/sessions/auth/start",
                 data={
                     "session_name": "no_telethon_session",
                     "phone": "+1234567890",
@@ -252,7 +252,7 @@ class TestSaveNotConnect:
 
         with patch("telethon.TelegramClient", mock_telethon_client):
             response = client.post(
-                "/api/sessions/auth/start",
+                "/admin/api/sessions/auth/start",
                 data={
                     "session_name": "proxy_session",
                     "phone": "+1234567890",

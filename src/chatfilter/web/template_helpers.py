@@ -83,9 +83,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
             pass
 
     is_admin = session.get("is_admin", False)
-    # "Session access" = admin sees the shared pool, power-user sees
-    # their own pool. Either way Sessions/Proxies appear in the menu.
-    current_has_session_access = bool(is_admin or current_use_own_accounts)
 
     return {
         "request": request,
@@ -98,8 +95,9 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "js_translations_json": _js_translations_json(locale),
         "current_username": current_username,
         "current_is_admin": is_admin,
+        # Personal pool is a user feature (admin ticks the toggle too
+        # if they want their own accounts alongside the shared pool).
         "current_use_own_accounts": current_use_own_accounts,
-        "current_has_session_access": current_has_session_access,
         "ai_balance": ai_balance,
         **kwargs,
     }
