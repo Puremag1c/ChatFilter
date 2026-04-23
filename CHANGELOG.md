@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.4] - 2026-04-23
+
+Завершающий PR аудита 0.40 — UX polish (Fix #6, #7).
+
+### Changed
+- Профиль: описание тумблера "Use my own accounts" переписано — убрана устаревшая фраза про "once scheduler pool-routing is released" (фича зарелижена в 0.40). Новый текст говорит что именно произойдёт при включении.
+- `/api/groups/{id}/stop`: docstring отражает реальное поведение (отменяет queued chats, running дойдёт до конца — scheduler не прерывает worker mid-flight). Toast в UI теперь явно об этом предупреждает: "Анализ остановлен. Уже обрабатываемый чат дойдёт до конца."
+
 ## [0.40.3] - 2026-04-23
 
 Аудит 0.40 закрывает data-consistency в classification.

@@ -267,9 +267,15 @@ async def stop_group_analysis(
     web_session: WebSession,
     group_id: str,
 ) -> HTMLResponse:
-    """Stop group analysis.
+    """Stop group analysis — cancel queued chats, let running one finish.
 
-    Cancels all active tasks for the group and updates status to PAUSED.
+    The scheduler does NOT interrupt a chat mid-flight: an already-running
+    chat (~seconds of work) plays out to its terminal status. This
+    endpoint cancels every QUEUED row for the group so no NEW chat starts,
+    marks the group PAUSED, and cleans up in-memory task state from the
+    pre-redesign path. Users who expect "instant" stop should understand
+    they may see one more completion event after pressing Stop; the
+    accompanying toast in the UI wording reflects this.
 
     Args:
         request: FastAPI request object
@@ -302,7 +308,13 @@ async def stop_group_analysis(
 
         # Return 204 No Content with HX-Trigger header to refresh the container and show toast
         trigger = json.dumps(
-            {"refreshGroups": {}, "showToast": {"type": "success", "message": "Анализ остановлен"}}
+            {
+                "refreshGroups": {},
+                "showToast": {
+                    "type": "success",
+                    "message": "Анализ остановлен. Уже обрабатываемый чат дойдёт до конца.",
+                },
+            }
         )
         return HTMLResponse(content="", status_code=204, headers={"HX-Trigger": trigger})
 
