@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.3] - 2026-04-23
+
+Аудит 0.40 закрывает data-consistency в classification.
+
+### Fixed
+- **Миграция 017** добивает Phase-0 backfill: `status='error' AND chat_type IN ('banned','restricted','private')` → `status='done'`. Миграция 013 обработала только `dead`, а остальные terminal-результаты продолжали висеть как ERROR — не отображались в UI как done и не биллились, хотя сервис был оказан (Telegram ответил). Downgrade — консервативный: переворачивает только строки без `error`-текста, чтобы не затронуть реальные ошибки, которые кто-то мог помечть позже.
+
+### Added
+- Миграция `017_backfill_terminal_chat_types.py` + `test_migration_017_backfill_terminal.py` (upgrade + downgrade paths).
+
 ## [0.40.2] - 2026-04-23
 
 Аудит 0.40 закрывает финансовую часть: refund корректно учитывает `cost_multiplier`, и нет double-charge'а после рестарта.
