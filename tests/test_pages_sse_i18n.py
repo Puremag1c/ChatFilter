@@ -18,7 +18,6 @@ from typing import Any
 
 import pytest
 
-
 # ------------------------------------------------------------------
 # Helper — power-user client (needs use_own_accounts for personal pages)
 # ------------------------------------------------------------------
@@ -85,9 +84,7 @@ class TestPagesRenderFor200:
 
 
 class TestSSEAnchors:
-    def test_groups_page_has_sse_connect_and_all_anchors(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_groups_page_has_sse_connect_and_all_anchors(self, fastapi_test_client: Any) -> None:
         """/chats (home) subscribes to /api/groups/events and has all 5
         anchors (init/progress/complete/error/ping)."""
         html = fastapi_test_client.get("/").text
@@ -158,17 +155,14 @@ class TestSSEAnchors:
 class TestI18nRuLocale:
     RU_COOKIE: dict[str, str] = {"lang": "ru"}
 
-    def test_profile_page_ru_renders_russian(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_profile_page_ru_renders_russian(self, fastapi_test_client: Any) -> None:
         """At least one Cyrillic character must appear — proves the
         gettext chain delivers Russian for pages that have translations."""
         fastapi_test_client.cookies.update(self.RU_COOKIE)
         html = fastapi_test_client.get("/profile").text
         fastapi_test_client.cookies.clear()
         assert any("а" <= ch <= "я" or "А" <= ch <= "Я" for ch in html), (
-            "Profile page under lang=ru produced no Cyrillic — "
-            "gettext chain likely broken"
+            "Profile page under lang=ru produced no Cyrillic — gettext chain likely broken"
         )
 
     def test_home_page_ru_renders_russian(self, fastapi_test_client: Any) -> None:
@@ -194,7 +188,6 @@ class TestI18nRuLocale:
         html = fastapi_test_client.get("/profile").text
         fastapi_test_client.cookies.clear()
         # A couple of known English fragments from profile.html must be there
-        assert (
-            "Use my own Telegram accounts and proxies" in html
-            or "Profile" in html
-        ), "Profile page under lang=en lost its English copy"
+        assert "Use my own Telegram accounts and proxies" in html or "Profile" in html, (
+            "Profile page under lang=en lost its English copy"
+        )

@@ -7,7 +7,7 @@ plus dead/banned chats.
 
 from __future__ import annotations
 
-from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupStats
+from chatfilter.models.group import GroupStats
 
 
 class TestGroupStatsFieldsExist:
@@ -51,7 +51,8 @@ class TestServiceBreakdown:
     """Service-layer: by_type / by_status → GroupStats fields."""
 
     def test_service_populates_all_result_types(self) -> None:
-        from chatfilter.models.group import ChatTypeEnum as CT, GroupChatStatus as GS
+        from chatfilter.models.group import ChatTypeEnum as CT
+        from chatfilter.models.group import GroupChatStatus as GS
 
         by_type = {
             CT.GROUP.value: 3,
@@ -107,22 +108,27 @@ class TestFailedIsNotPollutedByDeadOrBanned:
         stats = GroupStats(
             total=100,
             pending=0,
-            dead=30,      # DONE + DEAD
-            banned=20,    # DONE + BANNED
+            dead=30,  # DONE + DEAD
+            banned=20,  # DONE + BANNED
             restricted=10,  # DONE + RESTRICTED
-            private=5,    # DONE + PRIVATE
+            private=5,  # DONE + PRIVATE
             groups=20,
             forums=5,
             channels_with_comments=3,
             channels_no_comments=5,
             analyzed=95,  # all DONE
-            failed=2,     # actual ERROR only
+            failed=2,  # actual ERROR only
         )
         assert stats.failed == 2
         # Sanity: totals approximately match (allow loose sum check — stats aren't
         # strictly additive when chat_type and status are orthogonal).
         assert (
-            stats.dead + stats.banned + stats.restricted + stats.private
-            + stats.groups + stats.forums
-            + stats.channels_with_comments + stats.channels_no_comments
+            stats.dead
+            + stats.banned
+            + stats.restricted
+            + stats.private
+            + stats.groups
+            + stats.forums
+            + stats.channels_with_comments
+            + stats.channels_no_comments
         ) == 98  # 100 - 2 ERROR chats without chat_type yet

@@ -15,7 +15,6 @@ from chatfilter.config_proxy import ProxyType
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.web.app import create_app
 from chatfilter.web.session import SESSION_COOKIE_NAME
-
 from tests.conftest import _inject_admin_session
 
 
@@ -44,7 +43,7 @@ class TestListProxies:
     @pytest.fixture
     def client(self) -> TestClient:
         """Create test client."""
-        app = create_app()
+        create_app()
         return _admin_client()
 
     def test_list_proxies_empty(self, client: TestClient):
@@ -114,7 +113,7 @@ class TestCreateProxy:
     @pytest.fixture
     def client(self) -> TestClient:
         """Create test client."""
-        app = create_app()
+        create_app()
         return _admin_client()
 
     @pytest.fixture
@@ -222,7 +221,7 @@ class TestUpdateProxy:
     @pytest.fixture
     def client(self) -> TestClient:
         """Create test client."""
-        app = create_app()
+        create_app()
         return _admin_client()
 
     @pytest.fixture
@@ -385,7 +384,7 @@ class TestDeleteProxy:
     @pytest.fixture
     def client(self) -> TestClient:
         """Create test client."""
-        app = create_app()
+        create_app()
         return _admin_client()
 
     @pytest.fixture

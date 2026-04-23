@@ -117,9 +117,7 @@ def test_reanalyze_returns_204_immediately(smoke_settings: Settings):
         or "service.start_analysis" in source
         or "service.reanalyze" in source
     )
-    assert has_async_pattern, (
-        "/reanalyze endpoint should delegate to engine.enqueue_group_analysis"
-    )
+    assert has_async_pattern, "/reanalyze endpoint should delegate to engine.enqueue_group_analysis"
     # Should return 204 No Content
     assert "status_code=204" in source or "status_code = 204" in source, (
         "/reanalyze endpoint should return 204 status code"

@@ -31,9 +31,7 @@ def alembic_cfg_factory(tmp_path: Path):
     return _make
 
 
-def test_dead_chats_with_error_status_promoted_to_done(
-    tmp_path: Path, alembic_cfg_factory
-) -> None:
+def test_dead_chats_with_error_status_promoted_to_done(tmp_path: Path, alembic_cfg_factory) -> None:
     db_path = tmp_path / "test.db"
     cfg = alembic_cfg_factory(db_path)
 
@@ -69,9 +67,7 @@ def test_dead_chats_with_error_status_promoted_to_done(
 
     with sqlite3.connect(db_path) as conn:
         rows = dict(
-            conn.execute(
-                "SELECT chat_ref, status FROM group_chats ORDER BY chat_ref"
-            ).fetchall()
+            conn.execute("SELECT chat_ref, status FROM group_chats ORDER BY chat_ref").fetchall()
         )
 
     # Dead chat was promoted.
@@ -82,9 +78,7 @@ def test_dead_chats_with_error_status_promoted_to_done(
     assert rows["@grp"] == "done"
 
 
-def test_downgrade_reverts_dead_chats_to_error(
-    tmp_path: Path, alembic_cfg_factory
-) -> None:
+def test_downgrade_reverts_dead_chats_to_error(tmp_path: Path, alembic_cfg_factory) -> None:
     db_path = tmp_path / "test.db"
     cfg = alembic_cfg_factory(db_path)
 
@@ -104,8 +98,8 @@ def test_downgrade_reverts_dead_chats_to_error(
     command.downgrade(cfg, "012")
 
     with sqlite3.connect(db_path) as conn:
-        status = conn.execute(
-            "SELECT status FROM group_chats WHERE chat_ref = '@dead'"
-        ).fetchone()[0]
+        status = conn.execute("SELECT status FROM group_chats WHERE chat_ref = '@dead'").fetchone()[
+            0
+        ]
 
     assert status == "error"

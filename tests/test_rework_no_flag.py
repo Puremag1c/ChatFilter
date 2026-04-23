@@ -8,11 +8,7 @@ their private pool.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-
-import pytest
-
 
 # ------------------------------------------------------------------
 # 1. /sessions and /proxies access matches role
@@ -32,9 +28,7 @@ class TestSessionAccessDependency:
         r = admin_client.get("/admin/proxies")
         assert r.status_code < 400
 
-    def test_regular_user_without_toggle_is_blocked(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_regular_user_without_toggle_is_blocked(self, fastapi_test_client: Any) -> None:
         r = fastapi_test_client.get("/sessions")
         assert r.status_code == 403
         r2 = fastapi_test_client.get("/proxies")
@@ -51,9 +45,7 @@ class TestSessionAccessDependency:
         user_db.set_use_own_accounts(user["id"], True)
 
         r = fastapi_test_client.get("/sessions")
-        assert r.status_code == 200, (
-            "Power-user with use_own_accounts=True must see /sessions"
-        )
+        assert r.status_code == 200, "Power-user with use_own_accounts=True must see /sessions"
         r2 = fastapi_test_client.get("/proxies")
         assert r2.status_code == 200
 
@@ -70,9 +62,7 @@ class TestHeaderMenuRespectsToggle:
         from chatfilter.storage.user_database import get_user_db
 
         user_db = get_user_db(test_settings.effective_database_url)
-        user_db.set_use_own_accounts(
-            user_db.get_user_by_username("testuser")["id"], True
-        )
+        user_db.set_use_own_accounts(user_db.get_user_by_username("testuser")["id"], True)
 
         r = fastapi_test_client.get("/")
         assert r.status_code == 200
@@ -102,9 +92,7 @@ class TestStartAlwaysEnqueues:
         assert "get_use_scheduler_queue" not in src, (
             "Flag check still present — /start should always enqueue"
         )
-        assert "enqueue_group_analysis" in src, (
-            "/start must call engine.enqueue_group_analysis"
-        )
+        assert "enqueue_group_analysis" in src, "/start must call engine.enqueue_group_analysis"
 
     def test_reanalyze_endpoint_has_no_flag_check(self) -> None:
         import inspect
@@ -122,9 +110,7 @@ class TestStartAlwaysEnqueues:
 
 
 class TestPoolKeyPicksFromProfile:
-    def test_engine_routes_power_user_to_user_pool(
-        self, test_settings: Any
-    ) -> None:
+    def test_engine_routes_power_user_to_user_pool(self, test_settings: Any) -> None:
         from unittest.mock import MagicMock
 
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine

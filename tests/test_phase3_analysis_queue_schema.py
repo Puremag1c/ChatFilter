@@ -38,10 +38,7 @@ def migrated_db(tmp_path: Path, alembic_cfg_factory) -> Path:
 class TestAnalysisQueueTableExists:
     def test_table_has_required_columns(self, migrated_db: Path) -> None:
         with sqlite3.connect(migrated_db) as conn:
-            cols = {
-                row[1]
-                for row in conn.execute("PRAGMA table_info(analysis_queue)").fetchall()
-            }
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(analysis_queue)").fetchall()}
 
         expected = {
             "id",
@@ -71,9 +68,9 @@ class TestAnalysisQueueTableExists:
                 ).fetchall()
             }
         # Index used by the FairShare SELECT (status + pool_key + created_at).
-        assert any(
-            "status" in idx.lower() and "pool" in idx.lower() for idx in indexes
-        ), f"Expected a (status, pool_key, ...) index on analysis_queue — have: {indexes}"
+        assert any("status" in idx.lower() and "pool" in idx.lower() for idx in indexes), (
+            f"Expected a (status, pool_key, ...) index on analysis_queue — have: {indexes}"
+        )
 
     def test_table_has_user_status_index(self, migrated_db: Path) -> None:
         with sqlite3.connect(migrated_db) as conn:
@@ -84,9 +81,9 @@ class TestAnalysisQueueTableExists:
                 ).fetchall()
             }
         # Index used by the "how many running tasks does this user hold" query.
-        assert any(
-            "user" in idx.lower() and "status" in idx.lower() for idx in indexes
-        ), f"Expected a (user_id, status) index on analysis_queue — have: {indexes}"
+        assert any("user" in idx.lower() and "status" in idx.lower() for idx in indexes), (
+            f"Expected a (user_id, status) index on analysis_queue — have: {indexes}"
+        )
 
 
 class TestAnalysisQueueDefaults:
@@ -100,9 +97,7 @@ class TestAnalysisQueueDefaults:
                 "INSERT INTO group_chats (group_id, chat_ref, chat_type, status) "
                 "VALUES ('g1', '@x', 'pending', 'pending')"
             )
-            chat_id = conn.execute(
-                "SELECT id FROM group_chats WHERE group_id = 'g1'"
-            ).fetchone()[0]
+            chat_id = conn.execute("SELECT id FROM group_chats WHERE group_id = 'g1'").fetchone()[0]
             conn.execute(
                 """
                 INSERT INTO analysis_queue
@@ -186,8 +181,7 @@ class TestEnqueueAndClaimHelpers:
 
         with sqlite3.connect(migrated_db) as conn:
             row = conn.execute(
-                "SELECT status, pool_key, user_id, group_chat_id FROM analysis_queue "
-                "WHERE id = ?",
+                "SELECT status, pool_key, user_id, group_chat_id FROM analysis_queue WHERE id = ?",
                 (task_id,),
             ).fetchone()
         assert row == ("queued", "admin", "u1", chats[0]["id"])
@@ -210,9 +204,7 @@ class TestEnqueueAndClaimHelpers:
 
         # Second claim for the same user with limit=1 — returns None.
         second = db.claim_next_task(pool_key="admin", account_id="acc2", user_limit=1)
-        assert second is None, (
-            "FairShare limit must block a second claim for the same user"
-        )
+        assert second is None, "FairShare limit must block a second claim for the same user"
 
     def test_claim_next_isolates_pool_keys(self, migrated_db: Path) -> None:
         from chatfilter.storage.group_database import GroupDatabase
@@ -258,9 +250,7 @@ class TestEnqueueAndClaimHelpers:
         assert err_row[1] == "Network timeout"
         assert err_row[2] is not None
 
-    def test_crash_recovery_resets_running_to_queued(
-        self, migrated_db: Path
-    ) -> None:
+    def test_crash_recovery_resets_running_to_queued(self, migrated_db: Path) -> None:
         """Phase 4 recovery: on startup, any running task goes back into the queue."""
         from chatfilter.storage.group_database import GroupDatabase
 

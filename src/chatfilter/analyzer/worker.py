@@ -165,9 +165,7 @@ async def process_chat(
             # Network hiccup — propagate, retry.py will rotate account.
             raise
         logger.error(f"Account '{account_id}': failed to analyze '{chat_ref}': {e}", exc_info=True)
-        return _result_from_resolved(
-            resolved, status=GroupChatStatus.ERROR.value, error=str(e)
-        )
+        return _result_from_resolved(resolved, status=GroupChatStatus.ERROR.value, error=str(e))
 
 
 # ------------------------------------------------------------------
@@ -343,9 +341,7 @@ async def _resolve_by_username(
         return _typed_failure(chat_ref, ChatTypeEnum.PRIVATE, error=str(e))
 
     except (errors.ChannelBannedError, errors.ChatForbiddenError) as e:
-        logger.info(
-            f"Account '{account_id}': '{chat_ref}' closed by Telegram ({type(e).__name__})"
-        )
+        logger.info(f"Account '{account_id}': '{chat_ref}' closed by Telegram ({type(e).__name__})")
         return _typed_failure(chat_ref, ChatTypeEnum.BANNED, error=str(e))
 
     except errors.ChatRestrictedError as e:
@@ -356,9 +352,7 @@ async def _resolve_by_username(
         if detect_network_error(e):
             # Connectivity problem — re-raise so retry.py rotates account.
             raise
-        logger.error(
-            f"Account '{account_id}': failed to resolve '{chat_ref}': {e}", exc_info=True
-        )
+        logger.error(f"Account '{account_id}': failed to resolve '{chat_ref}': {e}", exc_info=True)
         raise
 
 

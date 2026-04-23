@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 
 from chatfilter.web.app import create_app
 from chatfilter.web.session import SESSION_COOKIE_NAME
-
 from tests.conftest import _inject_admin_session
 
 

@@ -36,8 +36,14 @@ class TestEnumShape:
         assert {"BANNED", "RESTRICTED", "PRIVATE"}.issubset(names)
         # historical compatibility: DEAD, GROUP, FORUM, CHANNEL_COMMENTS,
         # CHANNEL_NO_COMMENTS, PENDING must still exist
-        assert {"DEAD", "GROUP", "FORUM", "CHANNEL_COMMENTS",
-                "CHANNEL_NO_COMMENTS", "PENDING"}.issubset(names)
+        assert {
+            "DEAD",
+            "GROUP",
+            "FORUM",
+            "CHANNEL_COMMENTS",
+            "CHANNEL_NO_COMMENTS",
+            "PENDING",
+        }.issubset(names)
 
     def test_group_chat_status_is_only_three(self) -> None:
         """Status remains PENDING/DONE/ERROR. No dead/banned here."""
@@ -46,7 +52,7 @@ class TestEnumShape:
 
 class TestBillableRules:
     def test_only_done_is_billable(self) -> None:
-        assert BILLABLE_STATUSES == {GroupChatStatus.DONE}
+        assert {GroupChatStatus.DONE} == BILLABLE_STATUSES
 
     def test_error_not_billable(self) -> None:
         assert GroupChatStatus.ERROR not in BILLABLE_STATUSES
@@ -67,9 +73,7 @@ class TestBillableRules:
             ChatTypeEnum.PRIVATE,
         ],
     )
-    def test_done_billable_regardless_of_chat_type(
-        self, chat_type: ChatTypeEnum
-    ) -> None:
+    def test_done_billable_regardless_of_chat_type(self, chat_type: ChatTypeEnum) -> None:
         """DONE is billable for every chat_type — including dead/banned/etc.
 
         Business rule: if Telegram gave us an answer (the chat is dead,
@@ -82,7 +86,7 @@ class TestBillableRules:
 
 class TestRetriableRules:
     def test_only_error_is_retriable(self) -> None:
-        assert RETRIABLE_STATUSES == {GroupChatStatus.ERROR}
+        assert {GroupChatStatus.ERROR} == RETRIABLE_STATUSES
 
     def test_done_not_retriable(self) -> None:
         """DEAD/BANNED/PRIVATE/RESTRICTED are final answers — no retry."""
@@ -91,12 +95,12 @@ class TestRetriableRules:
 
 class TestUnusableChatTypes:
     def test_contains_all_four_unusable(self) -> None:
-        assert UNUSABLE_CHAT_TYPES == {
+        assert {
             ChatTypeEnum.DEAD,
             ChatTypeEnum.BANNED,
             ChatTypeEnum.RESTRICTED,
             ChatTypeEnum.PRIVATE,
-        }
+        } == UNUSABLE_CHAT_TYPES
 
     @pytest.mark.parametrize(
         "chat_type",
@@ -113,7 +117,7 @@ class TestUnusableChatTypes:
 
 class TestTerminalStatuses:
     def test_done_and_error_both_terminal(self) -> None:
-        assert TERMINAL_STATUSES == {GroupChatStatus.DONE, GroupChatStatus.ERROR}
+        assert {GroupChatStatus.DONE, GroupChatStatus.ERROR} == TERMINAL_STATUSES
 
     def test_pending_not_terminal(self) -> None:
         assert GroupChatStatus.PENDING not in TERMINAL_STATUSES

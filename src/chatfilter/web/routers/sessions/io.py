@@ -208,8 +208,7 @@ def migrate_legacy_session_dirs() -> dict[str, int]:
 
             if target.exists():
                 logger.warning(
-                    "Legacy session %s conflicts with canonical %s — "
-                    "leaving legacy copy in place",
+                    "Legacy session %s conflicts with canonical %s — leaving legacy copy in place",
                     session_dir,
                     target,
                 )

@@ -14,11 +14,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from telethon import errors
-from telethon.tl.types import Channel, ChatInvite, ChatInviteAlready
+from telethon.tl.types import Channel
 
 from chatfilter.analyzer.worker import ChatResult, process_chat
 from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupSettings
-
 
 # ------------------------------------------------------------------
 # helpers
@@ -265,18 +264,14 @@ class TestInviteResolution:
     async def test_invite_hash_expired_is_dead(self) -> None:
         client = _client_with_resolve_exception(errors.InviteHashExpiredError(request=None))
         # invite-shaped chat_ref
-        r = await process_chat(
-            _chat("https://t.me/+abcdef123"), client, "acc1", _quick_settings()
-        )
+        r = await process_chat(_chat("https://t.me/+abcdef123"), client, "acc1", _quick_settings())
         assert r.status == GroupChatStatus.DONE.value
         assert r.chat_type == ChatTypeEnum.DEAD.value
 
     @pytest.mark.asyncio
     async def test_invite_hash_invalid_is_dead(self) -> None:
         client = _client_with_resolve_exception(errors.InviteHashInvalidError(request=None))
-        r = await process_chat(
-            _chat("https://t.me/+zxc"), client, "acc1", _quick_settings()
-        )
+        r = await process_chat(_chat("https://t.me/+zxc"), client, "acc1", _quick_settings())
         assert r.status == GroupChatStatus.DONE.value
         assert r.chat_type == ChatTypeEnum.DEAD.value
 

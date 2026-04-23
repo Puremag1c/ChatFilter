@@ -19,9 +19,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
-
 # ------------------------------------------------------------------
 # /sessions — only for use_own_accounts
 # ------------------------------------------------------------------
@@ -40,9 +37,7 @@ class TestPersonalSessionsPage:
             "Admin without use_own_accounts must NOT see /sessions (personal pool)"
         )
 
-    def test_power_user_allowed(
-        self, fastapi_test_client: Any, test_settings: Any
-    ) -> None:
+    def test_power_user_allowed(self, fastapi_test_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
         db = get_user_db(test_settings.effective_database_url)
@@ -52,9 +47,7 @@ class TestPersonalSessionsPage:
         r = fastapi_test_client.get("/sessions")
         assert r.status_code == 200
 
-    def test_admin_with_toggle_allowed(
-        self, admin_client: Any, test_settings: Any
-    ) -> None:
+    def test_admin_with_toggle_allowed(self, admin_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
         db = get_user_db(test_settings.effective_database_url)
@@ -76,9 +69,7 @@ class TestPersonalProxiesPage:
         r = admin_client.get("/proxies")
         assert r.status_code == 403
 
-    def test_power_user_allowed(
-        self, fastapi_test_client: Any, test_settings: Any
-    ) -> None:
+    def test_power_user_allowed(self, fastapi_test_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
         db = get_user_db(test_settings.effective_database_url)
@@ -103,9 +94,7 @@ class TestAdminAccountsPage:
         r = fastapi_test_client.get("/admin/accounts")
         assert r.status_code == 403
 
-    def test_power_user_blocked(
-        self, fastapi_test_client: Any, test_settings: Any
-    ) -> None:
+    def test_power_user_blocked(self, fastapi_test_client: Any, test_settings: Any) -> None:
         """Power-user is NOT an admin — the toggle only grants personal pool."""
         from chatfilter.storage.user_database import get_user_db
 
@@ -220,9 +209,7 @@ class TestHeaderMenuMatrix:
         assert 'href="/sessions"' not in body
         assert 'href="/proxies"' not in body
 
-    def test_admin_with_toggle_sees_both(
-        self, admin_client: Any, test_settings: Any
-    ) -> None:
+    def test_admin_with_toggle_sees_both(self, admin_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.user_database import get_user_db
 
         db = get_user_db(test_settings.effective_database_url)

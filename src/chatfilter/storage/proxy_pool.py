@@ -48,7 +48,6 @@ def migrate_legacy_proxy_pools(database_url: str) -> dict[str, int]:
 
     Returns stats ``{"merged": N, "renamed": N, "unchanged": N}``.
     """
-    from chatfilter.models.proxy import ProxyEntry
     from chatfilter.storage.user_database import get_user_db
 
     stats = {"merged": 0, "renamed": 0, "unchanged": 0}

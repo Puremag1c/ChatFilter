@@ -84,9 +84,7 @@ class AnalysisScheduler:
         """Requeue every ``running`` row left over from a previous process."""
         reset = self._db.reset_running_tasks_to_queued()
         if reset:
-            logger.warning(
-                "Scheduler startup: returned %d running tasks to the queue", reset
-            )
+            logger.warning("Scheduler startup: returned %d running tasks to the queue", reset)
         return reset
 
     async def start(self) -> None:
@@ -194,6 +192,7 @@ class AnalysisScheduler:
             session_state_enum = SessionState
         except Exception:
             session_state_enum = None
+
         # Owner lookup — falls back to "admin" for pre-Phase-4 sessions
         # and returns "user:{id}" for user-uploaded ones.
         def _lookup_owner_from_fs(session_id: str) -> str:
@@ -207,6 +206,7 @@ class AnalysisScheduler:
                 return get_session_owner(session_id)
             except Exception:
                 return "admin"
+
         for sid in list_fn():
             if sid in self._busy:
                 continue
@@ -303,9 +303,7 @@ class AnalysisScheduler:
 
     # ---- billing helpers --------------------------------------------
 
-    def _pre_charge(
-        self, task_id: int, user_id: str, chat_ref: str
-    ) -> float | None:
+    def _pre_charge(self, task_id: int, user_id: str, chat_ref: str) -> float | None:
         """Charge cost_per_chat before the worker runs.
 
         Idempotent: if ``charged_amount`` on the row is already > 0

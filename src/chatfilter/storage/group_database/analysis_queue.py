@@ -121,8 +121,7 @@ class AnalysisQueueMixin(DatabaseMixinBase):
         now = datetime.now(UTC)
         with self._connection() as conn:
             conn.execute(
-                "UPDATE analysis_queue SET status = 'done', finished_at = ? "
-                "WHERE id = ?",
+                "UPDATE analysis_queue SET status = 'done', finished_at = ? WHERE id = ?",
                 (now, task_id),
             )
 
@@ -221,8 +220,7 @@ class AnalysisQueueMixin(DatabaseMixinBase):
         with self._connection() as conn:
             if group_id is None:
                 rows = conn.execute(
-                    "SELECT status, COUNT(*) AS n FROM analysis_queue "
-                    "GROUP BY status"
+                    "SELECT status, COUNT(*) AS n FROM analysis_queue GROUP BY status"
                 ).fetchall()
             else:
                 rows = conn.execute(

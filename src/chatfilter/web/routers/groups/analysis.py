@@ -100,11 +100,7 @@ async def start_group_analysis(
         billing = BillingService(user_db, group_db=service.db)
 
         user = user_db.get_user_by_id(user_id)
-        pool_key = (
-            f"user:{user_id}"
-            if user and user.get("use_own_accounts")
-            else "admin"
-        )
+        pool_key = f"user:{user_id}" if user and user.get("use_own_accounts") else "admin"
         engine = get_group_engine()
         try:
             engine.enqueue_group_analysis(
@@ -223,11 +219,7 @@ async def reanalyze_group(
         user_db = get_user_db(settings_obj.effective_database_url)
         billing = BillingService(user_db, group_db=service.db)
         user = user_db.get_user_by_id(user_id)
-        pool_key = (
-            f"user:{user_id}"
-            if user and user.get("use_own_accounts")
-            else "admin"
-        )
+        pool_key = f"user:{user_id}" if user and user.get("use_own_accounts") else "admin"
         engine = get_group_engine()
         try:
             engine.enqueue_group_analysis(

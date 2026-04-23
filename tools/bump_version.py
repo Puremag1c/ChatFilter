@@ -44,7 +44,7 @@ def read_version() -> tuple[int, int, int]:
 
 def write_version(new_version: str) -> None:
     text = INIT_FILE.read_text()
-    new_text, n = _VERSION_RE.subn(rf'\g<1>{new_version}\g<3>', text)
+    new_text, n = _VERSION_RE.subn(rf"\g<1>{new_version}\g<3>", text)
     if n != 1:
         raise SystemExit(f"Failed to update {INIT_FILE}")
     INIT_FILE.write_text(new_text)
@@ -93,11 +93,11 @@ def main() -> int:
     write_version(new)
     update_changelog(new, args.message)
 
-    print(f"\nDone. Next steps:")
-    print(f"  git add src/chatfilter/__init__.py CHANGELOG.md")
+    print("\nDone. Next steps:")
+    print("  git add src/chatfilter/__init__.py CHANGELOG.md")
     print(f"  git commit -m 'chore: bump version to {new}'")
     print(f"  git tag v{new}")
-    print(f"  git push && git push --tags")
+    print("  git push && git push --tags")
     return 0
 
 

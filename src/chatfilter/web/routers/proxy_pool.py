@@ -28,7 +28,6 @@ from chatfilter.storage.proxy_pool import (
     remove_proxy,
     update_proxy,
 )
-from chatfilter.web.session import get_session
 
 logger = logging.getLogger(__name__)
 

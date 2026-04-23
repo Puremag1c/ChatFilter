@@ -30,15 +30,17 @@ class ChatTypeEnum(StrEnum):
     these values and mark GroupChatStatus=DONE.
     """
 
-    PENDING = "pending"                      # not analyzed yet (alias for "unknown")
-    GROUP = "group"                          # supergroup / megagroup
-    FORUM = "forum"                          # megagroup with topics
-    CHANNEL_COMMENTS = "channel_comments"    # broadcast channel with linked_chat
+    PENDING = "pending"  # not analyzed yet (alias for "unknown")
+    GROUP = "group"  # supergroup / megagroup
+    FORUM = "forum"  # megagroup with topics
+    CHANNEL_COMMENTS = "channel_comments"  # broadcast channel with linked_chat
     CHANNEL_NO_COMMENTS = "channel_no_comments"  # broadcast channel without comments
-    DEAD = "dead"                            # does not exist / deactivated / invalid invite
-    BANNED = "banned"                        # Telegram closed the channel (ChannelForbidden)
-    RESTRICTED = "restricted"                # Telegram globally restricted content (Channel.restricted=True, platform=all)
-    PRIVATE = "private"                      # private channel, cannot enter without invite
+    DEAD = "dead"  # does not exist / deactivated / invalid invite
+    BANNED = "banned"  # Telegram closed the channel (ChannelForbidden)
+    RESTRICTED = (
+        "restricted"  # Telegram globally restricted content (Channel.restricted=True, platform=all)
+    )
+    PRIVATE = "private"  # private channel, cannot enter without invite
 
 
 class GroupChatStatus(StrEnum):
@@ -50,9 +52,9 @@ class GroupChatStatus(StrEnum):
     not billable, retriable.
     """
 
-    PENDING = "pending"   # not taken yet
-    DONE = "done"         # Telegram responded and we recorded a chat_type
-    ERROR = "error"       # no response from Telegram or our code crashed
+    PENDING = "pending"  # not taken yet
+    DONE = "done"  # Telegram responded and we recorded a chat_type
+    ERROR = "error"  # no response from Telegram or our code crashed
 
 
 # Only statuses for which the service was actually delivered. Billing

@@ -123,7 +123,6 @@ async def get_session_config(
     """
     from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
-    from chatfilter.web.session import get_session as get_web_session
 
     templates = get_templates()
 

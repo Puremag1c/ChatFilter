@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -120,22 +119,23 @@ class TestPreChargeIdempotent:
         group_db.set_cost_per_chat(0.10)
 
         chat = group_db.load_chats(group_id="g1")[0]
-        task_id = group_db.enqueue_chat_task(
-            "g1", chat["id"], chat["chat_ref"], uid, "admin"
-        )
+        task_id = group_db.enqueue_chat_task("g1", chat["id"], chat["chat_ref"], uid, "admin")
 
         # Simulate a previous boot charging the user and then crashing.
         billing = BillingService(user_db, group_db=group_db)
         billing.charge(
-            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
+            uid,
+            0.10,
+            model="analysis",
+            tokens_in=0,
+            tokens_out=0,
             description="previous boot",
         )
         import sqlite3
 
         with sqlite3.connect(str(group_db._db_url).removeprefix("sqlite:///")) as conn:
             conn.execute(
-                "UPDATE analysis_queue SET status='running', charged_amount=0.10 "
-                "WHERE id=?",
+                "UPDATE analysis_queue SET status='running', charged_amount=0.10 WHERE id=?",
                 (task_id,),
             )
 
@@ -155,9 +155,7 @@ class TestPreChargeIdempotent:
                 status=GroupChatStatus.DONE.value,
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
         from tests.test_phase4_scheduler import _FakeSessionManager
 
         sm = _FakeSessionManager({"admin": ["acc"]})

@@ -28,9 +28,7 @@ def alembic_cfg_factory(tmp_path: Path):
     return _make
 
 
-def test_banned_restricted_private_promoted_to_done(
-    tmp_path: Path, alembic_cfg_factory
-) -> None:
+def test_banned_restricted_private_promoted_to_done(tmp_path: Path, alembic_cfg_factory) -> None:
     db_path = tmp_path / "test.db"
     cfg = alembic_cfg_factory(db_path)
 
@@ -78,9 +76,7 @@ def test_banned_restricted_private_promoted_to_done(
 
     with sqlite3.connect(db_path) as conn:
         rows = dict(
-            conn.execute(
-                "SELECT chat_ref, status FROM group_chats ORDER BY chat_ref"
-            ).fetchall()
+            conn.execute("SELECT chat_ref, status FROM group_chats ORDER BY chat_ref").fetchall()
         )
 
     assert rows["@banned"] == "done", "banned chat must be promoted to done"
@@ -91,9 +87,7 @@ def test_banned_restricted_private_promoted_to_done(
     assert rows["@grp"] == "done", "normal done row unchanged"
 
 
-def test_downgrade_reverts_only_rows_without_error(
-    tmp_path: Path, alembic_cfg_factory
-) -> None:
+def test_downgrade_reverts_only_rows_without_error(tmp_path: Path, alembic_cfg_factory) -> None:
     """Downgrade is intentionally conservative: it flips back only rows
     that carry no error text, so we don't smuggle a genuine error
     that was manually cleaned up later back into the wrong state."""
@@ -123,9 +117,7 @@ def test_downgrade_reverts_only_rows_without_error(
 
     with sqlite3.connect(db_path) as conn:
         rows = dict(
-            conn.execute(
-                "SELECT chat_ref, status FROM group_chats ORDER BY chat_ref"
-            ).fetchall()
+            conn.execute("SELECT chat_ref, status FROM group_chats ORDER BY chat_ref").fetchall()
         )
 
     assert rows["@banned"] == "error", "clean banned row reverted"

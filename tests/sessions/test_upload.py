@@ -9,7 +9,6 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from chatfilter.web.app import create_app
 from chatfilter.web.routers.sessions import (
     read_upload_with_size_limit,
     validate_config_file_format,

@@ -13,11 +13,7 @@ Business rules:
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-
-import pytest
-
 
 # ------------------------------------------------------------------
 # 1. Admin-only routes
@@ -29,15 +25,11 @@ class TestSessionsAdminOnly:
     they manage the shared pool at /admin/accounts instead. Regular users
     without the toggle get 403 too."""
 
-    def test_regular_user_cannot_open_sessions_page(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_regular_user_cannot_open_sessions_page(self, fastapi_test_client: Any) -> None:
         r = fastapi_test_client.get("/sessions")
         assert r.status_code == 403
 
-    def test_regular_user_cannot_list_sessions_api(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_regular_user_cannot_list_sessions_api(self, fastapi_test_client: Any) -> None:
         r = fastapi_test_client.get("/api/sessions")
         assert r.status_code == 403
 
@@ -53,15 +45,11 @@ class TestSessionsAdminOnly:
 
 
 class TestProxiesAdminOnly:
-    def test_regular_user_cannot_open_proxies_page(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_regular_user_cannot_open_proxies_page(self, fastapi_test_client: Any) -> None:
         r = fastapi_test_client.get("/proxies")
         assert r.status_code == 403
 
-    def test_regular_user_cannot_list_proxies_api(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_regular_user_cannot_list_proxies_api(self, fastapi_test_client: Any) -> None:
         r = fastapi_test_client.get("/api/proxies")
         assert r.status_code == 403
 
@@ -85,13 +73,10 @@ class TestHomeIsGroupsPage:
         # We assert by checking a unique marker that appears only on the
         # groups page and NOT on the session upload page.
         assert "groups-container" in body or "group-card" in body or "chats-header" in body, (
-            "Home must serve the groups page. Found body start: "
-            + body[:400]
+            "Home must serve the groups page. Found body start: " + body[:400]
         )
 
-    def test_chats_path_still_works_for_back_compat(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_chats_path_still_works_for_back_compat(self, fastapi_test_client: Any) -> None:
         """/chats should keep working so existing links don't break."""
         r = fastapi_test_client.get("/chats")
         assert r.status_code == 200
@@ -132,9 +117,7 @@ class TestUseOwnAccountsColumn:
 
 
 class TestHeaderMenuByRole:
-    def test_regular_user_sees_no_sessions_or_proxies_link(
-        self, fastapi_test_client: Any
-    ) -> None:
+    def test_regular_user_sees_no_sessions_or_proxies_link(self, fastapi_test_client: Any) -> None:
         r = fastapi_test_client.get("/")
         assert r.status_code == 200
         body = r.text
@@ -179,11 +162,10 @@ class TestProfileHasOwnAccountsToggle:
     ) -> None:
         """POST to the profile form with the toggle on updates the DB."""
         from chatfilter.storage.user_database import get_user_db
-        from chatfilter.web.csrf import get_csrf_token
         from chatfilter.web.session import get_session_store
 
         # Grab csrf + our session so we can POST.
-        store = get_session_store()
+        get_session_store()
         # The test fixture created session id inline; we need to find it.
         # Easiest path: hit a GET first to ensure session is warm, then
         # look for csrf in response HTML.

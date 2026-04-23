@@ -8,8 +8,6 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from chatfilter.web.app import create_app
-
 from .conftest import extract_csrf_token
 
 

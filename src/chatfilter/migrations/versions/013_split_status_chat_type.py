@@ -29,14 +29,12 @@ depends_on: str | None = None
 
 def upgrade() -> None:
     op.execute(
-        "UPDATE group_chats SET status = 'done' "
-        "WHERE status = 'error' AND chat_type = 'dead'"
+        "UPDATE group_chats SET status = 'done' WHERE status = 'error' AND chat_type = 'dead'"
     )
 
 
 def downgrade() -> None:
     # Restore the previous behaviour (dead chats marked as error).
     op.execute(
-        "UPDATE group_chats SET status = 'error' "
-        "WHERE status = 'done' AND chat_type = 'dead'"
+        "UPDATE group_chats SET status = 'error' WHERE status = 'done' AND chat_type = 'dead'"
     )

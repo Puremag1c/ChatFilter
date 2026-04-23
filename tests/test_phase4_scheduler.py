@@ -23,7 +23,6 @@ The scheduler must work without touching Telethon — we stub out
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -33,7 +32,6 @@ import pytest
 from chatfilter.analyzer.worker import ChatResult
 from chatfilter.models.group import ChatTypeEnum, GroupChatStatus, GroupSettings
 from chatfilter.storage.group_database import GroupDatabase
-
 
 # ------------------------------------------------------------------
 # shared fixtures
@@ -149,9 +147,7 @@ class TestSchedulerTick:
                 subscribers=100,
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         sm = _FakeSessionManager({"admin": ["acc1", "acc2"]})
         sm.get_client = AsyncMock(return_value=MagicMock())  # type: ignore[attr-defined]
@@ -190,9 +186,7 @@ class TestSchedulerTick:
                 status=GroupChatStatus.DONE.value,
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         sm = _FakeSessionManager({"admin": ["a1", "a2", "a3"]})
         sm.get_client = AsyncMock(return_value=MagicMock())  # type: ignore[attr-defined]
@@ -210,9 +204,7 @@ class TestSchedulerTick:
         await asyncio.sleep(0.3)
 
     @pytest.mark.asyncio
-    async def test_pool_isolation_admin_vs_user(
-        self, db: GroupDatabase, monkeypatch: Any
-    ) -> None:
+    async def test_pool_isolation_admin_vs_user(self, db: GroupDatabase, monkeypatch: Any) -> None:
         from chatfilter.analyzer.scheduler import AnalysisScheduler
 
         chats = _make_group(db)
@@ -229,9 +221,7 @@ class TestSchedulerTick:
                 status=GroupChatStatus.DONE.value,
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         # admin pool has only "adm1"; user:u1 pool has only "own1"
         sm = _FakeSessionManager({"admin": ["adm1"], "user:u1": ["own1"]})
@@ -253,9 +243,7 @@ class TestSchedulerTick:
 
 class TestCrashRecovery:
     @pytest.mark.asyncio
-    async def test_running_tasks_are_requeued_on_startup(
-        self, db: GroupDatabase
-    ) -> None:
+    async def test_running_tasks_are_requeued_on_startup(self, db: GroupDatabase) -> None:
         from chatfilter.analyzer.scheduler import AnalysisScheduler
 
         chats = _make_group(db)
@@ -292,9 +280,7 @@ class TestEnqueueGroupAnalysis:
     """
 
     @pytest.mark.asyncio
-    async def test_enqueue_creates_one_task_per_pending_chat(
-        self, db: GroupDatabase
-    ) -> None:
+    async def test_enqueue_creates_one_task_per_pending_chat(self, db: GroupDatabase) -> None:
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine
 
         _make_group(db, chat_refs=("@a", "@b", "@c"))
@@ -333,9 +319,7 @@ class TestEnqueueGroupAnalysis:
 
 class TestMirrorResultIntoGroupChats:
     @pytest.mark.asyncio
-    async def test_dead_chat_stored_as_done_dead(
-        self, db: GroupDatabase, monkeypatch: Any
-    ) -> None:
+    async def test_dead_chat_stored_as_done_dead(self, db: GroupDatabase, monkeypatch: Any) -> None:
         """DONE + DEAD result (worker found 'chat does not exist') is
         persisted to group_chats as (DONE, DEAD), not swallowed to ERROR."""
         from chatfilter.analyzer.scheduler import AnalysisScheduler
@@ -351,9 +335,7 @@ class TestMirrorResultIntoGroupChats:
                 error="UsernameNotOccupied",
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         sm = _FakeSessionManager({"admin": ["acc"]})
         sm.get_client = AsyncMock(return_value=MagicMock())  # type: ignore[attr-defined]

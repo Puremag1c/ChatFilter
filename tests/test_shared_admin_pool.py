@@ -11,9 +11,6 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
-import pytest
-
-
 # ------------------------------------------------------------------
 # 1. get_pool_scope / get_owner_key
 # ------------------------------------------------------------------
@@ -86,9 +83,7 @@ class TestAdminPoolIsShared:
         s = Settings(data_dir=tmp_path / "data")
         s.ensure_data_dirs()
         monkeypatch.setattr("chatfilter.config.get_settings", lambda: s)
-        monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.helpers.get_settings", lambda: s
-        )
+        monkeypatch.setattr("chatfilter.web.routers.sessions.helpers.get_settings", lambda: s)
 
         sessions_dir = s.sessions_dir
 
@@ -125,17 +120,13 @@ class TestAdminPoolIsShared:
             f"Admin pool must include both bots and exclude user-owned — got {ids}"
         )
 
-    def test_power_user_sees_only_their_own(
-        self, tmp_path: Path, monkeypatch: Any
-    ) -> None:
+    def test_power_user_sees_only_their_own(self, tmp_path: Path, monkeypatch: Any) -> None:
         from chatfilter.config import Settings
 
         s = Settings(data_dir=tmp_path / "data")
         s.ensure_data_dirs()
         monkeypatch.setattr("chatfilter.config.get_settings", lambda: s)
-        monkeypatch.setattr(
-            "chatfilter.web.routers.sessions.helpers.get_settings", lambda: s
-        )
+        monkeypatch.setattr("chatfilter.web.routers.sessions.helpers.get_settings", lambda: s)
 
         sessions_dir = s.sessions_dir
         (sessions_dir / "admin" / "Shared").mkdir(parents=True)

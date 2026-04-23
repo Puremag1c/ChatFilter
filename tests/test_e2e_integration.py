@@ -58,7 +58,6 @@ def e2e_app(e2e_settings: Settings) -> TestClient:
     stamps admin identity to exercise the full path.
     """
     from chatfilter.web.session import SESSION_COOKIE_NAME
-
     from tests.conftest import _inject_admin_session
 
     app = create_app(settings=e2e_settings)

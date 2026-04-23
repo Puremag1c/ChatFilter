@@ -15,7 +15,6 @@ Tests:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -26,7 +25,6 @@ from chatfilter.storage.group_database import GroupDatabase
 from chatfilter.web.routers.groups.export import (
     _convert_results_for_exporter as _convert_to_exporter_format,
 )
-
 
 # ------------------------------------------------------------------
 # shared setup
@@ -61,9 +59,7 @@ def _make_group(db: GroupDatabase, group_id: str = "g1") -> None:
 
 
 class TestGetResultsIncludesPending:
-    def test_pending_chats_are_in_results(
-        self, db: GroupDatabase, service: GroupService
-    ) -> None:
+    def test_pending_chats_are_in_results(self, db: GroupDatabase, service: GroupService) -> None:
         _make_group(db)
         db.save_chat(
             group_id="g1",
@@ -142,9 +138,7 @@ class TestExportPendingRows:
         )
 
         results = service.get_results("g1")
-        text = export_group_results_to_csv(
-            _convert_to_exporter_format(results), GroupSettings()
-        )
+        text = export_group_results_to_csv(_convert_to_exporter_format(results), GroupSettings())
         # both rows present
         assert "@just_imported" in text
         assert "@done_group" in text
@@ -181,9 +175,7 @@ class TestScrapedTitlesPersistToExport:
         results = service.get_results("g1")
         assert results[0].get("title") == "Scraped Title Here"
 
-        text = export_group_results_to_csv(
-            _convert_to_exporter_format(results), GroupSettings()
-        )
+        text = export_group_results_to_csv(_convert_to_exporter_format(results), GroupSettings())
         assert "Scraped Title Here" in text
 
 
@@ -217,8 +209,7 @@ class TestDownloadButtonVisibility:
         # Scan up to ~200 chars above the label for the if-condition.
         above = source[max(0, idx - 400) : idx]
         assert "stats.total > 0" in above, (
-            "Download button must be guarded by stats.total > 0, "
-            "not stats.analyzed > 0"
+            "Download button must be guarded by stats.total > 0, not stats.analyzed > 0"
         )
         assert "stats.analyzed > 0" not in above, (
             "Old condition stats.analyzed > 0 still present — "

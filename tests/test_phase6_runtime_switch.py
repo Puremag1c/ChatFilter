@@ -123,9 +123,7 @@ class TestStartEndpointDispatch:
     but have no account to dispatch it to).
     """
 
-    def test_flag_on_enqueues_rows(
-        self, fastapi_test_client: Any, test_settings: Any
-    ) -> None:
+    def test_flag_on_enqueues_rows(self, fastapi_test_client: Any, test_settings: Any) -> None:
         from chatfilter.storage.group_database import GroupDatabase
 
         db = GroupDatabase(test_settings.effective_database_url)
@@ -160,9 +158,7 @@ class TestStartEndpointDispatch:
         m = _re.search(r'<meta name="csrf-token" content="([^"]+)"', home.text)
         csrf = m.group(1) if m else ""
 
-        resp = fastapi_test_client.post(
-            "/api/groups/g-flag/start", headers={"X-CSRF-Token": csrf}
-        )
+        resp = fastapi_test_client.post("/api/groups/g-flag/start", headers={"X-CSRF-Token": csrf})
         # Accept 204 (success), 200 with toast (no-accounts branch may
         # fire depending on session_manager state in the test harness),
         # both are acceptable — what we verify next is the queue state.

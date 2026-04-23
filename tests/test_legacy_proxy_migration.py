@@ -47,21 +47,25 @@ def _seed_proxy_file(settings, key: str, name: str, proxy_id: str | None = None)
         proxy_id = str(uuid.uuid4())
     p = settings.config_dir / f"proxies_{key}.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps([
-        {
-            "id": proxy_id,
-            "name": name,
-            "type": "socks5",
-            "host": "10.0.0.1",
-            "port": 1080,
-            "username": "",
-            "password": "",
-            "status": "untested",
-            "last_ping_at": None,
-            "last_success_at": None,
-            "consecutive_failures": 0,
-        }
-    ]))
+    p.write_text(
+        json.dumps(
+            [
+                {
+                    "id": proxy_id,
+                    "name": name,
+                    "type": "socks5",
+                    "host": "10.0.0.1",
+                    "port": 1080,
+                    "username": "",
+                    "password": "",
+                    "status": "untested",
+                    "last_ping_at": None,
+                    "last_success_at": None,
+                    "consecutive_failures": 0,
+                }
+            ]
+        )
+    )
     return p
 
 
@@ -117,21 +121,25 @@ class TestMigrateLegacyProxyPools:
         shared_id = str(uuid.uuid4())
         settings.config_dir.mkdir(parents=True, exist_ok=True)
         # Canonical admin pool already has the shared proxy id.
-        (settings.config_dir / "proxies_admin.json").write_text(json.dumps([
-            {
-                "id": shared_id,
-                "name": "Canonical",
-                "type": "socks5",
-                "host": "1.1.1.1",
-                "port": 1080,
-                "username": "",
-                "password": "",
-                "status": "untested",
-                "last_ping_at": None,
-                "last_success_at": None,
-                "consecutive_failures": 0,
-            }
-        ]))
+        (settings.config_dir / "proxies_admin.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "id": shared_id,
+                        "name": "Canonical",
+                        "type": "socks5",
+                        "host": "1.1.1.1",
+                        "port": 1080,
+                        "username": "",
+                        "password": "",
+                        "status": "untested",
+                        "last_ping_at": None,
+                        "last_success_at": None,
+                        "consecutive_failures": 0,
+                    }
+                ]
+            )
+        )
         # Legacy file (under admin user's raw UUID) carries the SAME id.
         _seed_proxy_file(settings, admin_id, "LegacyDup", proxy_id=shared_id)
 

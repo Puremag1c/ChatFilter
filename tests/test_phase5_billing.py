@@ -108,9 +108,7 @@ class TestRefundAPI:
 
 
 class TestPreflightBalanceCheck:
-    def test_sufficient_balance_allows_enqueue(
-        self, dbs: tuple[GroupDatabase, Any]
-    ) -> None:
+    def test_sufficient_balance_allows_enqueue(self, dbs: tuple[GroupDatabase, Any]) -> None:
         from chatfilter.ai.billing import BillingService
         from chatfilter.analyzer.group_engine import (
             GroupAnalysisEngine,
@@ -130,9 +128,7 @@ class TestPreflightBalanceCheck:
         )
         assert count == 10
 
-    def test_insufficient_balance_blocks_enqueue(
-        self, dbs: tuple[GroupDatabase, Any]
-    ) -> None:
+    def test_insufficient_balance_blocks_enqueue(self, dbs: tuple[GroupDatabase, Any]) -> None:
         from chatfilter.ai.billing import BillingService, InsufficientBalance
         from chatfilter.analyzer.group_engine import (
             GroupAnalysisEngine,
@@ -159,9 +155,7 @@ class TestPreflightBalanceCheck:
             n = conn.execute("SELECT COUNT(*) FROM analysis_queue").fetchone()[0]
         assert n == 0
 
-    def test_cost_per_chat_zero_bypasses_check(
-        self, dbs: tuple[GroupDatabase, Any]
-    ) -> None:
+    def test_cost_per_chat_zero_bypasses_check(self, dbs: tuple[GroupDatabase, Any]) -> None:
         """Default deployment (cost_per_chat=0) must not block anyone."""
         from chatfilter.ai.billing import BillingService
         from chatfilter.analyzer.group_engine import GroupAnalysisEngine
@@ -195,9 +189,7 @@ class TestSchedulerChargeAndRefund:
         group_db.set_cost_per_chat(0.1)
         _seed_group(group_db, uid, n_chats=1)
         chat = group_db.load_chats(group_id="g1")[0]
-        group_db.enqueue_chat_task(
-            "g1", chat["id"], chat["chat_ref"], uid, "admin"
-        )
+        group_db.enqueue_chat_task("g1", chat["id"], chat["chat_ref"], uid, "admin")
 
         async def fake_process_chat(chat: dict, *_a, **_kw):
             return ChatResult(
@@ -206,9 +198,7 @@ class TestSchedulerChargeAndRefund:
                 status=GroupChatStatus.DONE.value,
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         from tests.test_phase4_scheduler import _FakeSessionManager
 
@@ -248,9 +238,7 @@ class TestSchedulerChargeAndRefund:
                 error="Network timeout",
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         from tests.test_phase4_scheduler import _FakeSessionManager
 
@@ -291,9 +279,7 @@ class TestSchedulerChargeAndRefund:
                 error="UsernameNotOccupied",
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         from tests.test_phase4_scheduler import _FakeSessionManager
 
@@ -344,9 +330,7 @@ class TestRefundRespectsCostMultiplier:
                 error="Network timeout",
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         from tests.test_phase4_scheduler import _FakeSessionManager
 
@@ -388,9 +372,7 @@ class TestRefundRespectsCostMultiplier:
                 status=GroupChatStatus.DONE.value,
             )
 
-        monkeypatch.setattr(
-            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
-        )
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", fake_process_chat)
 
         from tests.test_phase4_scheduler import _FakeSessionManager
 
@@ -433,16 +415,26 @@ class TestIdempotencyKeyPreventsDoubleCharge:
 
         key = "queue_task:42"
         after_first = billing.charge(
-            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
-            description="chat 1", idempotency_key=key,
+            uid,
+            0.10,
+            model="analysis",
+            tokens_in=0,
+            tokens_out=0,
+            description="chat 1",
+            idempotency_key=key,
         )
         assert pytest.approx(after_first, abs=1e-6) == 4.9
 
         # Simulate the scheduler's retry after a crash between charge-commit
         # and UPDATE charged_amount — SAME task_id → SAME key.
         after_retry = billing.charge(
-            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
-            description="chat 1", idempotency_key=key,
+            uid,
+            0.10,
+            model="analysis",
+            tokens_in=0,
+            tokens_out=0,
+            description="chat 1",
+            idempotency_key=key,
         )
         # Balance must NOT have moved: user charged exactly once.
         assert pytest.approx(after_retry, abs=1e-6) == 4.9
@@ -453,9 +445,7 @@ class TestIdempotencyKeyPreventsDoubleCharge:
         keyed = [t for t in txs if t.get("idempotency_key") == key]
         assert len(keyed) == 1, f"expected exactly 1 keyed tx, got {len(keyed)}"
 
-    def test_different_keys_charge_independently(
-        self, dbs: tuple[GroupDatabase, Any]
-    ) -> None:
+    def test_different_keys_charge_independently(self, dbs: tuple[GroupDatabase, Any]) -> None:
         """Two different tasks with distinct keys both go through."""
         from chatfilter.ai.billing import BillingService
 
@@ -464,12 +454,22 @@ class TestIdempotencyKeyPreventsDoubleCharge:
         billing = BillingService(user_db)
 
         billing.charge(
-            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
-            description="chat 1", idempotency_key="queue_task:1",
+            uid,
+            0.10,
+            model="analysis",
+            tokens_in=0,
+            tokens_out=0,
+            description="chat 1",
+            idempotency_key="queue_task:1",
         )
         billing.charge(
-            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
-            description="chat 2", idempotency_key="queue_task:2",
+            uid,
+            0.10,
+            model="analysis",
+            tokens_in=0,
+            tokens_out=0,
+            description="chat 2",
+            idempotency_key="queue_task:2",
         )
         # Both succeed — 2 × 0.10 debited.
         assert pytest.approx(billing.get_balance(uid), abs=1e-6) == 4.8
@@ -485,11 +485,19 @@ class TestIdempotencyKeyPreventsDoubleCharge:
         billing = BillingService(user_db)
 
         billing.charge(
-            uid, 0.10, model="gpt-x", tokens_in=100, tokens_out=50,
+            uid,
+            0.10,
+            model="gpt-x",
+            tokens_in=100,
+            tokens_out=50,
             description="ai call",
         )
         billing.charge(
-            uid, 0.10, model="gpt-x", tokens_in=100, tokens_out=50,
+            uid,
+            0.10,
+            model="gpt-x",
+            tokens_in=100,
+            tokens_out=50,
             description="ai call",
         )
         # No key → no uniqueness — both go through.
