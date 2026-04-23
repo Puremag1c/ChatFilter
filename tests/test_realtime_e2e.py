@@ -180,9 +180,13 @@ def test_template_has_sse_htmx_integration() -> None:
         "Template must have hx-ext='sse' to enable SSE extension"
     )
 
-    # Verify SSE connection is configured
-    assert 'sse-connect="/api/sessions/events"' in template_content, (
-        "Template must connect to /api/sessions/events SSE endpoint"
+    # Verify SSE connection is configured.
+    # The literal URL carries an ``{{ api_prefix }}`` placeholder so the
+    # same template serves both mounts (/api/sessions and /admin/api/sessions);
+    # the real rendered URL is covered by TestSSEAnchors in
+    # tests/test_pages_sse_i18n.py for both mounts.
+    assert 'sse-connect="{{ api_prefix }}/api/sessions/events"' in template_content, (
+        "Template must connect to {{ api_prefix }}/api/sessions/events SSE endpoint"
     )
 
     # Verify SSE swap is configured

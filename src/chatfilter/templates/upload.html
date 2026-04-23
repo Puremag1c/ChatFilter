@@ -3,6 +3,9 @@
 {% block title %}{{ _("Telegram Sessions") }} - ChatFilter{% endblock %}
 
 {% block content %}
+{% if api_prefix == '/admin' %}
+    {% include "partials/admin_tabs.html" %}
+{% endif %}
 <div class="page-header">
     <h1>{{ _("Telegram Accounts") }}</h1>
     <p class="subtitle">{{ _("Manage your Telegram sessions for chat analysis") }}</p>
@@ -17,7 +20,7 @@
     </div>
 
     <div id="sessions-list"
-         hx-get="/api/sessions"
+         hx-get="{{ api_prefix }}/api/sessions"
          hx-trigger="load, refreshSessions from:body"
          hx-swap="innerHTML"
          hx-on:htmx:response-error="this.innerHTML = '<div class=\'alert alert-error\'><strong>{{ _("Error") }}:</strong> {{ _("Failed to load accounts. Please refresh the page.") }}</div>'"
@@ -58,7 +61,7 @@
                 <p class="tab-description">{{ _("Authenticate with your phone number to create a new session.") }}</p>
 
                 <div id="auth-form-container"
-                     hx-get="/api/sessions/auth/form"
+                     hx-get="{{ api_prefix }}/api/sessions/auth/form"
                      hx-trigger="modal-opened"
                      hx-swap="innerHTML">
                     <div class="skeleton-container" aria-busy="true">
@@ -214,7 +217,7 @@
         // Proceed with deletion
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            const response = await fetch(`/api/sessions/${sessionId}`, {
+            const response = await fetch(`${window.__api_prefix__ || ''}/api/sessions/${sessionId}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-Token': csrfToken }
             });

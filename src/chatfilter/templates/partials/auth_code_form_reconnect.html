@@ -15,7 +15,7 @@
     {% endif %}
 
     <form id="auth-code-form"
-          hx-post="/api/sessions/{{ session_id }}/auth/code"
+          hx-post="{{ api_prefix }}/api/sessions/{{ session_id }}/auth/code"
           hx-target="#auth-flow-result"
           hx-swap="innerHTML"
           hx-indicator="#auth-code-spinner"

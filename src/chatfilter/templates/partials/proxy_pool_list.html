@@ -52,7 +52,7 @@
             <button class="btn btn-sm btn-secondary proxy-retest-btn"
                     data-proxy-id="{{ proxy.id }}"
                     data-proxy-name="{{ proxy.name }}"
-                    hx-post="/api/proxies/{{ proxy.id }}/retest"
+                    hx-post="{{ api_prefix }}/api/proxies/{{ proxy.id }}/retest"
                     hx-target="#proxy-row-{{ proxy.id }}"
                     hx-swap="outerHTML"
                     hx-indicator="closest tr"

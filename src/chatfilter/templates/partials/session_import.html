@@ -43,7 +43,7 @@
         </div>
 
         <form id="session-config-form"
-              hx-post="/api/sessions/import/save"
+              hx-post="{{ api_prefix }}/api/sessions/import/save"
               hx-encoding="multipart/form-data"
               hx-target="#import-save-result"
               hx-swap="innerHTML"
@@ -231,7 +231,7 @@
 
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-            const response = await fetch('/api/sessions/import/validate', {
+            const response = await fetch(`${window.__api_prefix__ || ''}/api/sessions/import/validate`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-Token': csrfToken

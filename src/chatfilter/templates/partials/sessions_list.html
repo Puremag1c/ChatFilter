@@ -6,7 +6,7 @@
 
 <div class="accounts-table-container"
      hx-ext="sse"
-     sse-connect="/api/sessions/events"
+     sse-connect="{{ api_prefix }}/api/sessions/events"
      sse-swap="message"
      hx-swap="none">
     <table class="accounts-table" role="grid">

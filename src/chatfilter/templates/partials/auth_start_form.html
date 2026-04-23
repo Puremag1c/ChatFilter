@@ -1,7 +1,7 @@
 {# Auth Flow - Start Form (phone + credentials + proxy) #}
 <div id="auth-flow-container">
     <form id="auth-start-form"
-          hx-post="/api/sessions/auth/start"
+          hx-post="{{ api_prefix }}/api/sessions/auth/start"
           hx-target="#auth-flow-result"
           hx-swap="innerHTML"
           hx-indicator="#auth-start-spinner"

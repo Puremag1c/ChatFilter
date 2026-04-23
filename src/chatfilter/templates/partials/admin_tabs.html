@@ -1,0 +1,51 @@
+{# Shared admin navigation tabs.
+
+   Rendered:
+   - Full-control flavour (users/platforms/system) on /admin/users/platforms/system —
+     uses HTMX to swap #admin-content in-place.
+   - Link flavour (accounts/proxies/queue) — full-page navigation to separate
+     pages that carry their own layout.
+
+   Include this wherever a page lives under /admin/* so the user never loses
+   their bearings when they click between the two groups.
+#}
+<nav class="admin-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--border-color,#ddd);margin-bottom:1.5rem;flex-wrap:wrap">
+    {% set tab_style = "padding:0.6rem 1.25rem;border:none;background:none;cursor:pointer;font-size:0.95rem;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted,#666);text-decoration:none;display:inline-flex;align-items:center" %}
+    {% set _path = request.url.path %}
+
+    {# HTMX-driven tabs — only meaningful when #admin-content exists (admin.html layout).
+       On accounts/proxies/queue pages they become plain links that navigate. #}
+    {% if _path in ('/admin', '/admin/users', '/admin/platforms', '/admin/system') %}
+        <button class="admin-tab-btn{% if _path == '/admin/users' or _path == '/admin' %} active{% endif %}"
+                hx-get="/admin/tab/users" hx-target="#admin-content" hx-swap="innerHTML"
+                hx-push-url="/admin/users" style="{{ tab_style }}" onclick="setActiveTab(this)">
+            {{ _("Users") }}
+        </button>
+        <button class="admin-tab-btn{% if _path == '/admin/platforms' %} active{% endif %}"
+                hx-get="/admin/tab/platforms" hx-target="#admin-content" hx-swap="innerHTML"
+                hx-push-url="/admin/platforms" style="{{ tab_style }}" onclick="setActiveTab(this)">
+            {{ _("Platforms") }}
+        </button>
+        <button class="admin-tab-btn{% if _path == '/admin/system' %} active{% endif %}"
+                hx-get="/admin/tab/system" hx-target="#admin-content" hx-swap="innerHTML"
+                hx-push-url="/admin/system" style="{{ tab_style }}" onclick="setActiveTab(this)">
+            {{ _("System") }}
+        </button>
+    {% else %}
+        {# Not on the HTMX-swap layout. Render as simple links so clicking a
+           users/platforms/system tab leaves the current page cleanly. #}
+        <a href="/admin/users" class="admin-tab-btn" style="{{ tab_style }}">{{ _("Users") }}</a>
+        <a href="/admin/platforms" class="admin-tab-btn" style="{{ tab_style }}">{{ _("Platforms") }}</a>
+        <a href="/admin/system" class="admin-tab-btn" style="{{ tab_style }}">{{ _("System") }}</a>
+    {% endif %}
+
+    <a href="/admin/accounts"
+       class="admin-tab-btn{% if _path == '/admin/accounts' %} active{% endif %}"
+       style="{{ tab_style }}">{{ _("Accounts") }}</a>
+    <a href="/admin/proxies"
+       class="admin-tab-btn{% if _path == '/admin/proxies' %} active{% endif %}"
+       style="{{ tab_style }}">{{ _("Proxies") }}</a>
+    <a href="/admin/queue"
+       class="admin-tab-btn{% if _path == '/admin/queue' %} active{% endif %}"
+       style="{{ tab_style }}">{{ _("Queue") }}</a>
+</nav>

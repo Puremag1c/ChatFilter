@@ -223,7 +223,8 @@
 
             try {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                const url = this.isEditing ? `/api/proxies/${this.editingProxyId}` : '/api/proxies';
+                const prefix = window.__api_prefix__ || '';
+                const url = this.isEditing ? `${prefix}/api/proxies/${this.editingProxyId}` : `${prefix}/api/proxies`;
                 const method = this.isEditing ? 'PUT' : 'POST';
 
                 const response = await fetch(url, {
@@ -312,7 +313,7 @@
             deleteBtn.disabled = true;
             try {
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                const response = await fetch(`/api/proxies/${proxyId}`, {
+                const response = await fetch(`${window.__api_prefix__ || ''}/api/proxies/${proxyId}`, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-Token': csrfToken

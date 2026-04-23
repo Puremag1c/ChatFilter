@@ -3336,3 +3336,156 @@ msgstr "Прокси успешно добавлен"
 
 #~ msgid "no API key"
 #~ msgstr "нет API ключа"
+
+
+# Added by 0.40.5 audit — missing RU translations backfill
+
+msgid "A unique name to identify this session. Only letters, numbers, underscores, and hyphens allowed."
+msgstr "Уникальное имя для этой сессии. Разрешены только буквы, цифры, нижние подчёркивания и дефисы."
+
+msgid "Already have a .session file? Upload it here. API credentials are configured globally."
+msgstr "Уже есть файл .session? Загрузите его здесь. API-ключи настроены глобально."
+
+msgid "Analysis queue"
+msgstr "Очередь анализа"
+
+msgid "Charged per DONE chat (including dead/banned/restricted — Telegram answered). 0 = free."
+msgstr "Списывается за каждый чат со статусом DONE (включая dead/banned/restricted — Telegram ответил). 0 = бесплатно."
+
+msgid "Current balance"
+msgstr "Текущий баланс"
+
+msgid "Default Model"
+msgstr "Модель по умолчанию"
+
+msgid "Enter a link to a public Google Sheets document. The sheet must be shared with \\\"Anyone with the link\\\"."
+msgstr "Вставьте ссылку на публичный документ Google Sheets. Доступ должен быть открыт для «Все, у кого есть ссылка»."
+
+msgid "Enter the 5-6 digit code sent to your phone. If you cancel, your session will remain disconnected, but you can try again anytime."
+msgstr "Введите 5–6-значный код, отправленный на ваш телефон. Если отменить — сессия останется отключённой, но попытку можно повторить в любой момент."
+
+msgid "Enter the password you set in Telegram Settings > Privacy and Security > Two-Step Verification"
+msgstr "Введите пароль, заданный в Telegram: Настройки > Конфиденциальность и безопасность > Двухэтапная аутентификация."
+
+msgid "Enter your two-factor authentication password. If you cancel, your session will remain disconnected, but you can try again anytime."
+msgstr "Введите пароль двухфакторной аутентификации. Если отменить — сессия останется отключённой, но попытку можно повторить."
+
+msgid "Fast/cheap model (Flash). Many calls per search."
+msgstr "Быстрая/дешёвая модель (Flash). Много вызовов на один поиск."
+
+msgid "HTML Parsing Model"
+msgstr "Модель разбора HTML"
+
+msgid "I understand that session files provide complete access to my Telegram account and accept the security risks."
+msgstr "Я понимаю, что файлы сессий дают полный доступ к моему Telegram-аккаунту, и принимаю связанные риски."
+
+msgid "I understand that session files provide complete access to my Telegram account and accept the security risks. I confirm this session was created on a trusted device and will be stored securely."
+msgstr "Я понимаю, что файлы сессий дают полный доступ к моему Telegram-аккаунту, и принимаю риски. Подтверждаю, что сессия создана на доверенном устройстве и будет храниться в безопасности."
+
+msgid "Loading..."
+msgstr "Загрузка..."
+
+msgid "No active tasks."
+msgstr "Активных задач нет."
+
+msgid "No chats match the current filters. Try adjusting or clearing the filters."
+msgstr "Нет чатов под текущие фильтры. Попробуйте изменить или сбросить фильтры."
+
+msgid "No transactions yet."
+msgstr "Пока нет транзакций."
+
+msgid "Note: The code expires in a few minutes. If you didn't receive it, start the process again."
+msgstr "Примечание: код действителен несколько минут. Если он не пришёл — начните процесс заново."
+
+msgid "One call per search to remove irrelevant results."
+msgstr "Один вызов на поиск — убирает нерелевантные результаты."
+
+msgid "Per-user queue depth"
+msgstr "Лимит задач на пользователя"
+
+msgid "Post-filter Model"
+msgstr "Модель пост-фильтрации"
+
+msgid "Preferences"
+msgstr "Настройки профиля"
+
+msgid "Previous"
+msgstr "Назад"
+
+msgid "Price per analysed chat (USD)"
+msgstr "Цена за проанализированный чат (USD)"
+
+msgid "Query Generation Model"
+msgstr "Модель генерации запросов"
+
+msgid "Queue"
+msgstr "Очередь"
+
+msgid "Queue is empty."
+msgstr "Очередь пуста."
+
+msgid "Queued"
+msgstr "В очереди"
+
+msgid "Ready to analyze"
+msgstr "Готово к анализу"
+
+msgid "Restricted"
+msgstr "Ограничен"
+
+msgid "Running"
+msgstr "Выполняется"
+
+msgid "Save preferences"
+msgstr "Сохранить настройки"
+
+msgid "Search completed — no chats found."
+msgstr "Поиск завершён — чаты не найдены."
+
+msgid "Smart model recommended (Pro/GPT-5.4). One call per search."
+msgstr "Рекомендуется умная модель (Pro/GPT-5.4). Один вызов на поиск."
+
+msgid "The selected proxy is currently unavailable. Consider selecting a working proxy."
+msgstr "Выбранная прокси сейчас недоступна. Попробуйте выбрать рабочую."
+
+msgid "This Telegram session doesn't have any chats available for analysis. Try selecting a different session or verify that your session has active chats."
+msgstr "У этой Telegram-сессии нет чатов, доступных для анализа. Попробуйте другую сессию или проверьте, что в ней есть активные чаты."
+
+msgid "This action cannot be undone. All session data and credentials will be permanently removed."
+msgstr "Действие нельзя отменить. Все данные сессии и ключи будут удалены навсегда."
+
+msgid "This action cannot be undone. If you want to extend the existing analysis without losing data, use the 'Extend analysis' button."
+msgstr "Действие нельзя отменить. Если хотите дополнить существующий анализ без потери данных — используйте кнопку «Продолжить анализ»."
+
+msgid "This will delete all existing analysis results and start from scratch. Continue?"
+msgstr "Это удалит все текущие результаты анализа и начнёт заново. Продолжить?"
+
+msgid "Top up"
+msgstr "Пополнить"
+
+msgid "Transaction History"
+msgstr "История транзакций"
+
+msgid "Upload a file or enter a Google Sheets URL to import a list of chats for analysis"
+msgstr "Загрузите файл или вставьте ссылку Google Sheets, чтобы импортировать список чатов для анализа."
+
+msgid "Upload a text file with one chat per line, or a CSV/Excel file with chat usernames, links, or IDs."
+msgstr "Загрузите текстовый файл (по одному чату в строке) или CSV/Excel с юзернеймами, ссылками или ID чатов."
+
+msgid "Use my own Telegram accounts and proxies"
+msgstr "Использовать свои Telegram-аккаунты и прокси"
+
+msgid "User"
+msgstr "Пользователь"
+
+msgid "Using multiple sessions for the same account may cause conflicts. Consider removing duplicate sessions."
+msgstr "Несколько сессий для одного аккаунта могут конфликтовать. Удалите дубликаты."
+
+msgid "When enabled, the analyses you launch run on Telegram accounts and proxies you upload yourself — shown under Sessions and Proxies in the header menu. When disabled, your analyses share the admin pool."
+msgstr "Когда включено — анализы, которые вы запускаете, идут через Telegram-аккаунты и прокси, загруженные вами (доступны в меню «Сессии» и «Прокси»). Когда выключено — ваши анализы используют общий админский пул."
+
+msgid "You haven't added any Telegram accounts yet. Click \\\"Add Account\\\" above to get started."
+msgstr "Вы ещё не добавили ни одного Telegram-аккаунта. Нажмите «Добавить аккаунт» вверху, чтобы начать."
+
+msgid "soon"
+msgstr "скоро"

@@ -1,7 +1,7 @@
 {# Session configuration form partial #}
 {# Receives: session_id, current_proxy_id, proxies #}
 <form class="session-config-form"
-      hx-put="/api/sessions/{{ session_id }}/config"
+      hx-put="{{ api_prefix }}/api/sessions/{{ session_id }}/config"
       hx-target="#session-config-result-{{ session_id }}"
       hx-swap="innerHTML"
       hx-indicator="#session-config-spinner-{{ session_id }}">

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.5] - 2026-04-23
+
+Playwright-аудит: то, что я пропустил в предыдущих релизах. Живой прогон UI нашёл три реальных регресса.
+
+### Fixed
+- **i18n: 50 непереведённых строк в RU локали** (включая всю вкладку `/admin/system`: «Price per analysed chat», «Default Model», «Query/HTML/Post-filter Model», «Charged per DONE chat…» и др.). Пользователь видел смесь ru/en на одной странице. Переводы добавлены в `ru/messages.po` и скомпилированы. Источник расхождения — строки добавлялись в v0.37 (per-stage AI models) и v0.40 (cost_per_chat / queue) без обновления .po.
+- **`/admin/accounts` показывал 403**, потому что шаблон `upload.html` жёстко слал `hx-get="/api/sessions"` вне зависимости от mount'а. Добавил `api_prefix` в `template_helpers.get_template_context` (`"/admin"` для URL под `/admin/*`, пусто иначе) и перевёл все хардкод-URL'ы в шаблонах и JS-файлах (`sessions-list.js`, `proxy-form.js`) на `{{ api_prefix }}/api/...` и `${window.__api_prefix__ || ''}${path}`. Те же mount'ы — /api/sessions (power-user) и /admin/api/sessions (admin) — теперь корректно подхватываются UI.
+- **«Leave Site? Changes that you made may not be saved» выскакивал при клике по любой форме с `<input type="checkbox" checked>`**: в `conflict-warnings.js:setupUnloadWarning` beforeunload-handler считал **любой** отмеченный чекбокс за "unsaved changes". Функция превращена в no-op — реальный анти-уход-с-анализа guard сидит в `AnalysisStateTracker` и срабатывает только когда `activeAnalysis=true`.
+- **Админ-навигация «пропадала» при переходе на `/admin/accounts`, `/admin/proxies`, `/admin/queue`**: табы жили только внутри `admin.html` (Users/Platforms/System), а эти три mount'а рендерят отдельные шаблоны (`upload.html`/`proxies.html`/`admin_queue_dashboard.html`). Вынес табы в `partials/admin_tabs.html` и подключил во все четыре шаблона когда `api_prefix == "/admin"`. Активный таб подсвечивается по URL.
+
 ## [0.40.4] - 2026-04-23
 
 Завершающий PR аудита 0.40 — UX polish (Fix #6, #7).

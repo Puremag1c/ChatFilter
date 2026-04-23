@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/static/css/fonts.css?v={{ css_version }}">
     <link rel="stylesheet" href="/static/css/style.css?v={{ css_version }}">
     <script>window.__i18n__ = {{ js_translations_json|safe }};</script>
+    <script>window.__api_prefix__ = {{ api_prefix|tojson }};</script>
     <script src="/static/js/htmx.min.js?v={{ css_version }}"></script>
     <script src="/static/js/sse.js?v={{ css_version }}"></script>
     <script src="/static/js/hyperlist.min.js?v={{ css_version }}"></script>

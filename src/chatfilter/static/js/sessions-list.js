@@ -522,7 +522,7 @@
                 const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                const response = await fetch(`/api/sessions/${sessionId}/verify-code`, {
+                const response = await fetch(`${window.__api_prefix__ || ''}/api/sessions/${sessionId}/verify-code`, {
                     method: 'POST',
                     body: formData,
                     headers: { 'X-CSRF-Token': csrfToken },
@@ -644,7 +644,7 @@
                 const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                const response = await fetch(`/api/sessions/${sessionId}/verify-2fa`, {
+                const response = await fetch(`${window.__api_prefix__ || ''}/api/sessions/${sessionId}/verify-2fa`, {
                     method: 'POST',
                     body: formData,
                     headers: { 'X-CSRF-Token': csrfToken },

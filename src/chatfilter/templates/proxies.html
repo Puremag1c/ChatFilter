@@ -3,6 +3,9 @@
 {% block title %}{{ _("Proxy Pool") }} - ChatFilter{% endblock %}
 
 {% block content %}
+{% if api_prefix == '/admin' %}
+    {% include "partials/admin_tabs.html" %}
+{% endif %}
 <div class="page-header">
     <h1>{{ _("Proxy Pool") }}</h1>
     <p class="subtitle">{{ _("Manage proxy servers for Telegram sessions") }}</p>
@@ -20,7 +23,7 @@
     </div>
 
     <div id="proxy-list"
-         hx-get="/api/proxies/list"
+         hx-get="{{ api_prefix }}/api/proxies/list"
          hx-trigger="load, refresh"
          hx-swap="innerHTML"
          hx-on:htmx:response-error="this.innerHTML = '<div class=\'alert alert-error\'><strong>{{ _("Error") }}:</strong> {{ _("Failed to load proxies. Please refresh the page.") }}</div>'"

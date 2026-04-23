@@ -67,7 +67,7 @@
             <div class="session-connection-btn-wrapper" id="session-connection-{{ session.session_id }}">
                 {% if session.state == 'connected' %}
                 <button class="btn btn-sm btn-warning session-disconnect-btn"
-                        hx-post="/api/sessions/{{ session.session_id }}/disconnect"
+                        hx-post="{{ api_prefix }}/api/sessions/{{ session.session_id }}/disconnect"
                         hx-target="#session-{{ session.session_id }}"
                         hx-swap="outerHTML"
                         hx-disabled-elt="this"
@@ -76,7 +76,7 @@
                 </button>
                 {% elif session.state == 'disconnected' %}
                 <button class="btn btn-sm btn-success session-connect-btn"
-                        hx-post="/api/sessions/{{ session.session_id }}/connect"
+                        hx-post="{{ api_prefix }}/api/sessions/{{ session.session_id }}/connect"
                         hx-target="#session-{{ session.session_id }}"
                         hx-swap="outerHTML"
                         hx-disabled-elt="this"
@@ -94,7 +94,7 @@
                 {# Error state - show Retry button with error tooltip #}
                 {% if session.retry_available is none or session.retry_available %}
                 <button class="btn btn-sm btn-danger session-connect-btn"
-                        hx-post="/api/sessions/{{ session.session_id }}/connect"
+                        hx-post="{{ api_prefix }}/api/sessions/{{ session.session_id }}/connect"
                         hx-target="#session-{{ session.session_id }}"
                         hx-swap="outerHTML"
                         hx-disabled-elt="this"
@@ -153,7 +153,7 @@
                     <span class="spinner-small" aria-hidden="true"></span>
                 </button>
                 <button class="btn btn-sm btn-secondary session-cancel-btn"
-                        hx-post="/api/sessions/{{ session.session_id }}/disconnect"
+                        hx-post="{{ api_prefix }}/api/sessions/{{ session.session_id }}/disconnect"
                         hx-target="#session-{{ session.session_id }}"
                         hx-swap="outerHTML"
                         hx-disabled-elt="this"
@@ -182,7 +182,7 @@
             </div>
             <button class="btn btn-sm btn-secondary session-config-btn"
                     data-session-id="{{ session.session_id }}"
-                    hx-get="/api/sessions/{{ session.session_id }}/config"
+                    hx-get="{{ api_prefix }}/api/sessions/{{ session.session_id }}/config"
                     hx-target="#session-config-{{ session.session_id }}"
                     hx-swap="innerHTML"
                     hx-disabled-elt="this"

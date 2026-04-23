@@ -14,7 +14,7 @@
     {% endif %}
 
     <form id="auth-2fa-form"
-          hx-post="/api/sessions/auth/2fa"
+          hx-post="{{ api_prefix }}/api/sessions/auth/2fa"
           hx-target="#auth-flow-result"
           hx-swap="innerHTML"
           hx-indicator="#auth-2fa-spinner"

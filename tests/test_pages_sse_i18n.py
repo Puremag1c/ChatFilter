@@ -133,11 +133,13 @@ class TestSSEAnchors:
         assert 'sse-swap="message"' in html
 
     def test_admin_sessions_list_has_sse_connect(self, admin_client: Any) -> None:
-        """Same SSE wiring on the admin shared-pool listing."""
+        """Same SSE wiring on the admin shared-pool listing —
+        SSE subscribes to the /admin-prefixed mount (api_prefix="/admin")
+        so the router-level admin gate gets enforced."""
         self._seed_session("admin", "stub_admin", owner="admin")
         html = admin_client.get("/admin/api/sessions").text
         assert 'hx-ext="sse"' in html
-        assert 'sse-connect="/api/sessions/events"' in html
+        assert 'sse-connect="/admin/api/sessions/events"' in html
         assert 'sse-swap="message"' in html
 
     # SSE endpoint media-type and streaming behaviour are covered in

@@ -167,30 +167,19 @@ const ConflictWarnings = (function() {
     }
 
     /**
-     * Warn about potential data loss on page close
+     * Warn about potential data loss on page close.
+     *
+     * Disabled: the original implementation treated ANY checked checkbox
+     * as "unsaved changes" and popped "Leave Site?" on every navigation
+     * after a user clicked a toggle. That is false-positive spam — a
+     * checkbox is just state, not dirtiness. ``AnalysisStateTracker``
+     * already owns the real "don't leave mid-analysis" warning via an
+     * explicit flag; we have nothing else that needs this.
+     *
+     * Kept as a no-op so the call in :func:`init` still resolves.
      */
     function setupUnloadWarning() {
-        // Check if there are any pending operations
-        window.addEventListener('beforeunload', function(e) {
-            // Check if any forms have unsaved changes
-            const forms = document.querySelectorAll('form');
-            let hasUnsavedChanges = false;
-
-            for (const form of forms) {
-                const inputs = form.querySelectorAll('input[type="checkbox"]:checked');
-                if (inputs.length > 0) {
-                    hasUnsavedChanges = true;
-                    break;
-                }
-            }
-
-            if (hasUnsavedChanges) {
-                // Modern browsers show a generic message
-                e.preventDefault();
-                e.returnValue = '';
-                return '';
-            }
-        });
+        /* no-op — see docstring */
     }
 
     /**

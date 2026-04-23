@@ -84,6 +84,16 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
 
     is_admin = session.get("is_admin", False)
 
+    # API prefix — templates that render under /admin/* must call the
+    # /admin-mounted sessions/proxies router (same handlers, admin-only
+    # gate). Pages mounted under / call the own_accounts-gated mount.
+    # Without this, admin pages hit /api/sessions and get 403.
+    try:
+        _path = request.url.path
+    except Exception:
+        _path = ""
+    api_prefix = "/admin" if _path.startswith("/admin/") or _path == "/admin" else ""
+
     return {
         "request": request,
         "csrf_token": csrf_token,
@@ -99,5 +109,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         # if they want their own accounts alongside the shared pool).
         "current_use_own_accounts": current_use_own_accounts,
         "ai_balance": ai_balance,
+        "api_prefix": api_prefix,
         **kwargs,
     }
