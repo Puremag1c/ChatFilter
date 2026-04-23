@@ -55,12 +55,17 @@ class BillingService:
         tokens_in: int,
         tokens_out: int,
         description: str,
+        idempotency_key: str | None = None,
     ) -> float:
         """Deduct cost_usd from user balance atomically.
 
         The global cost multiplier is applied automatically to cost_usd.
         Uses a single DB transaction (check + deduct + record) so concurrent
         requests cannot both pass the balance > 0 check before either deducts.
+
+        When ``idempotency_key`` is provided the key is saved on the
+        transaction row under a UNIQUE index — a second charge with the
+        same key is a no-op, protecting against double-charge on retry.
 
         Raises InsufficientBalance if balance <= 0.
         Returns new balance.
@@ -73,6 +78,7 @@ class BillingService:
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
                 description=description,
+                idempotency_key=idempotency_key,
             )
         except ValueError as exc:
             if str(exc).startswith("insufficient:"):

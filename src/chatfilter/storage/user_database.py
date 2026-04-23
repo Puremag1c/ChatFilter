@@ -303,15 +303,32 @@ class UserDatabase(SQLiteDatabase):
         tokens_in: int | None,
         tokens_out: int | None,
         description: str | None,
+        idempotency_key: str | None = None,
     ) -> float:
         """Atomically check balance, deduct cost, and record transaction.
 
         All three operations execute within a single DB transaction so concurrent
         requests cannot both pass the balance > 0 check before either deducts.
 
-        Returns new balance.
+        When ``idempotency_key`` is provided the key is written into
+        ``ai_transactions.idempotency_key`` under a partial UNIQUE index
+        (migration 016). A second call with the same key is a no-op —
+        the INSERT fails, we roll back, and return the current balance
+        untouched. This closes the scheduler's pre-charge double-charge
+        race: a crash between ``charge`` commit and
+        ``UPDATE charged_amount`` used to cause the re-queued task to
+        debit a second time; now the duplicate INSERT is caught first.
+
+        Returns new balance (unchanged on idempotency-hit).
         Raises ValueError("insufficient:<balance>") if balance <= 0.
         """
+        import sqlite3
+
+        try:
+            from sqlalchemy.exc import IntegrityError as SAIntegrityError
+        except ImportError:  # pragma: no cover — sqlalchemy always present in prod
+            SAIntegrityError = None  # type: ignore[assignment]
+
         created_at = self._datetime_to_str(datetime.now(UTC))
         with self._connection() as conn:
             # Atomic deduct: WHERE clause prevents deduction when balance < cost,
@@ -333,25 +350,48 @@ class UserDatabase(SQLiteDatabase):
             assert row is not None  # user must exist — we just updated their balance above
             new_balance = float(row["ai_balance_usd"])
 
-            conn.execute(
-                """
-                INSERT INTO ai_transactions
-                    (user_id, type, amount_usd, balance_after, model,
-                     tokens_in, tokens_out, description, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    user_id,
-                    "charge",
-                    -cost_usd,
-                    new_balance,
-                    model,
-                    tokens_in,
-                    tokens_out,
-                    description,
-                    created_at,
-                ),
-            )
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO ai_transactions
+                        (user_id, type, amount_usd, balance_after, model,
+                         tokens_in, tokens_out, description, created_at,
+                         idempotency_key)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        user_id,
+                        "charge",
+                        -cost_usd,
+                        new_balance,
+                        model,
+                        tokens_in,
+                        tokens_out,
+                        description,
+                        created_at,
+                        idempotency_key,
+                    ),
+                )
+            except Exception as exc:
+                # Idempotency-key collision: this (user, key) was already
+                # charged. Roll back the balance UPDATE so the user is
+                # debited exactly once, and return the current balance.
+                is_integrity = isinstance(exc, sqlite3.IntegrityError) or (
+                    SAIntegrityError is not None and isinstance(exc, SAIntegrityError)
+                )
+                if not is_integrity or idempotency_key is None:
+                    raise
+                # Undo the balance deduction from this attempt.
+                conn.execute(
+                    "UPDATE users SET ai_balance_usd = ai_balance_usd + ? WHERE id = ?",
+                    (cost_usd, user_id),
+                )
+                bal_cursor = conn.execute(
+                    "SELECT ai_balance_usd FROM users WHERE id = ?", (user_id,)
+                )
+                row = bal_cursor.fetchone()
+                return float(row["ai_balance_usd"]) if row else 0.0
+
             return new_balance
 
     def add_transaction(
@@ -396,7 +436,8 @@ class UserDatabase(SQLiteDatabase):
             cursor = conn.execute(
                 """
                 SELECT id, user_id, type, amount_usd, balance_after,
-                       model, tokens_in, tokens_out, description, created_at
+                       model, tokens_in, tokens_out, description, created_at,
+                       idempotency_key
                 FROM ai_transactions
                 WHERE user_id = ?
                 ORDER BY created_at DESC
@@ -419,6 +460,13 @@ class UserDatabase(SQLiteDatabase):
 
     @staticmethod
     def _transaction_row_to_dict(row: Any) -> dict[str, Any]:
+        # ``idempotency_key`` was added in migration 016. Old rows may
+        # lack it (column default is NULL); newer rows optionally carry
+        # the scheduler's queue-task key.
+        try:
+            idem = row["idempotency_key"]
+        except (IndexError, KeyError):
+            idem = None
         return {
             "id": row["id"],
             "user_id": row["user_id"],
@@ -430,6 +478,7 @@ class UserDatabase(SQLiteDatabase):
             "tokens_out": row["tokens_out"],
             "description": row["description"],
             "created_at": row["created_at"],
+            "idempotency_key": idem,
         }
 
     def set_use_own_accounts(self, user_id: str, value: bool) -> None:

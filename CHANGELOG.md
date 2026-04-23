@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.2] - 2026-04-23
+
+Аудит 0.40 закрывает финансовую часть: refund корректно учитывает `cost_multiplier`, и нет double-charge'а после рестарта.
+
+### Fixed
+- **Refund учитывает `cost_multiplier`** (Fix #1 аудита): `_pre_charge` хранит `cost * multiplier` как `charged_amount` вместо сырой `cost`. До этого при `multiplier=2, cost=0.10` списывалось $0.20, а refund возвращал только $0.10 — пользователь молча терял $0.10 на каждом ERROR.
+- **Double-charge race** (Fix #2 аудита): `atomic_charge` принимает `idempotency_key`. Миграция 016 добавляет колонку `ai_transactions.idempotency_key` + partial UNIQUE index. Scheduler передаёт `queue_task:<task_id>` — второй charge с тем же ключом — no-op, пользователь заряжен ровно один раз, даже если крашнулся между `billing.charge` коммитом и `UPDATE charged_amount`. Старые вызовы (AI-токены) передают `idempotency_key=None` — поведение без изменений.
+- **`blocked_no_funds` больше не оставляет мусорный `account_id`** (Fix #5 аудита): при insufficient balance scheduler теперь обнуляет `account_id` в UPDATE.
+
+### Added
+- Миграция `016_ai_tx_idempotency_key.py`: `ALTER TABLE ai_transactions ADD idempotency_key TEXT` + partial UNIQUE index (NULL-друзья, старые транзакции не нарушают uniqueness).
+- Regression-тесты: `TestRefundRespectsCostMultiplier` и `TestIdempotencyKeyPreventsDoubleCharge` в `test_phase5_billing.py`. Пинят точно те баги, которые исправлены.
+
 ## [0.40.1] - 2026-04-23
 
 Аудит 0.40 нашёл реальный баг в управлении shared admin pool — чиним первым. Плюс чиним забытые старые тесты, которые я сам сломал Phase 2/6.

@@ -337,7 +337,19 @@ class AnalysisScheduler:
             cost = 0.0
         if cost <= 0 or not user_id:
             return 0.0
+        # Match BillingService.charge: it multiplies cost_usd by the
+        # admin-configured cost_multiplier. We persist the post-multiplier
+        # amount on the queue row so ``_refund`` returns exactly what was
+        # actually debited (fixes refund mismatch when multiplier != 1).
         try:
+            multiplier = self._db.get_cost_multiplier()
+        except Exception:
+            multiplier = 1.0
+        effective_charge = cost * multiplier
+        try:
+            # Idempotency key — so a crash between charge-commit and the
+            # ``UPDATE charged_amount`` below does not debit the user twice
+            # when the task is re-queued on restart.
             self._billing.charge(
                 user_id,
                 cost,
@@ -345,6 +357,7 @@ class AnalysisScheduler:
                 tokens_in=0,
                 tokens_out=0,
                 description=f"Chat analysis: {chat_ref}",
+                idempotency_key=f"queue_task:{task_id}",
             )
         except Exception:
             logger.warning(
@@ -356,7 +369,7 @@ class AnalysisScheduler:
             with self._db._connection() as conn:
                 conn.execute(
                     "UPDATE analysis_queue SET status='blocked_no_funds', "
-                    "started_at=NULL WHERE id=?",
+                    "account_id=NULL, started_at=NULL WHERE id=?",
                     (task_id,),
                 )
             return None
@@ -364,9 +377,9 @@ class AnalysisScheduler:
         with self._db._connection() as conn:
             conn.execute(
                 "UPDATE analysis_queue SET charged_amount=? WHERE id=?",
-                (cost, task_id),
+                (effective_charge, task_id),
             )
-        return cost
+        return effective_charge
 
     def _refund(
         self,

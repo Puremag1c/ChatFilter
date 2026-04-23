@@ -310,3 +310,187 @@ class TestSchedulerChargeAndRefund:
 
         # DEAD + DONE → charge stays → balance 4.90
         assert pytest.approx(billing.get_balance(uid), abs=1e-6) == 4.9
+
+
+class TestRefundRespectsCostMultiplier:
+    """Regression for 0.40 audit Fix #1.
+
+    When ``cost_multiplier != 1``, ``BillingService.charge`` multiplies
+    the raw ``cost_per_chat`` on debit, but the pre-fix scheduler wrote
+    the RAW cost onto the queue row. Refund then returned only the raw
+    amount, silently keeping the multiplier diff in the product's pocket.
+    """
+
+    @pytest.mark.asyncio
+    async def test_error_refund_returns_full_multiplied_amount(
+        self, dbs: tuple[GroupDatabase, Any], monkeypatch: Any
+    ) -> None:
+        from chatfilter.ai.billing import BillingService
+        from chatfilter.analyzer.scheduler import AnalysisScheduler
+
+        group_db, user_db = dbs
+        uid = _seed_user(user_db, balance=5.0)
+        group_db.set_cost_per_chat(0.1)
+        group_db.set_cost_multiplier(2.0)  # 2x — exposes the bug
+        _seed_group(group_db, uid, n_chats=1)
+        chat = group_db.load_chats(group_id="g1")[0]
+        group_db.enqueue_chat_task("g1", chat["id"], chat["chat_ref"], uid, "admin")
+
+        async def fake_process_chat(chat: dict, *_a, **_kw):
+            return ChatResult(
+                chat_ref=chat["chat_ref"],
+                chat_type=ChatTypeEnum.PENDING.value,
+                status=GroupChatStatus.ERROR.value,
+                error="Network timeout",
+            )
+
+        monkeypatch.setattr(
+            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
+        )
+
+        from tests.test_phase4_scheduler import _FakeSessionManager
+
+        sm = _FakeSessionManager({"admin": ["acc"]})
+        sm.get_client = AsyncMock(return_value=MagicMock())
+        billing = BillingService(user_db, group_db=group_db)
+
+        scheduler = AnalysisScheduler(
+            db=group_db, session_manager=sm, billing=billing, user_limit=5
+        )
+        await scheduler.tick_once()
+        for _ in range(3):
+            await asyncio.sleep(0.02)
+
+        # Before fix: balance 4.90 (refund gave back only raw 0.10 of the 0.20 debit).
+        # After fix: refund returns the full multiplied 0.20 → balance 5.00.
+        assert pytest.approx(billing.get_balance(uid), abs=1e-6) == 5.0
+
+    @pytest.mark.asyncio
+    async def test_done_with_multiplier_charges_multiplied(
+        self, dbs: tuple[GroupDatabase, Any], monkeypatch: Any
+    ) -> None:
+        """Sanity: DONE under multiplier=2 keeps the full multiplied charge."""
+        from chatfilter.ai.billing import BillingService
+        from chatfilter.analyzer.scheduler import AnalysisScheduler
+
+        group_db, user_db = dbs
+        uid = _seed_user(user_db, balance=5.0)
+        group_db.set_cost_per_chat(0.1)
+        group_db.set_cost_multiplier(2.0)
+        _seed_group(group_db, uid, n_chats=1)
+        chat = group_db.load_chats(group_id="g1")[0]
+        group_db.enqueue_chat_task("g1", chat["id"], chat["chat_ref"], uid, "admin")
+
+        async def fake_process_chat(chat: dict, *_a, **_kw):
+            return ChatResult(
+                chat_ref=chat["chat_ref"],
+                chat_type=ChatTypeEnum.GROUP.value,
+                status=GroupChatStatus.DONE.value,
+            )
+
+        monkeypatch.setattr(
+            "chatfilter.analyzer.scheduler.process_chat", fake_process_chat
+        )
+
+        from tests.test_phase4_scheduler import _FakeSessionManager
+
+        sm = _FakeSessionManager({"admin": ["acc"]})
+        sm.get_client = AsyncMock(return_value=MagicMock())
+        billing = BillingService(user_db, group_db=group_db)
+
+        scheduler = AnalysisScheduler(
+            db=group_db, session_manager=sm, billing=billing, user_limit=5
+        )
+        await scheduler.tick_once()
+        for _ in range(3):
+            await asyncio.sleep(0.02)
+
+        # DONE → 0.10 * 2.0 = 0.20 charged → balance 4.80
+        assert pytest.approx(billing.get_balance(uid), abs=1e-6) == 4.8
+
+
+class TestIdempotencyKeyPreventsDoubleCharge:
+    """Regression for 0.40 audit Fix #2 — double-charge race.
+
+    Pre-fix: ``billing.charge`` committed the balance debit in one SQLite
+    connection; the scheduler then opened a second connection to set
+    ``charged_amount`` on the queue row. A crash between the two left
+    the user debited but the queue row at 0, so
+    ``reset_running_tasks_to_queued`` at startup re-queued the task and
+    the scheduler debited a second time.
+
+    Post-fix: ``atomic_charge`` takes an ``idempotency_key`` written
+    under a partial UNIQUE index on ``ai_transactions``. A second call
+    with the same key is a no-op on balance.
+    """
+
+    def test_second_charge_with_same_key_is_noop(self, dbs: tuple[GroupDatabase, Any]) -> None:
+        from chatfilter.ai.billing import BillingService
+
+        _, user_db = dbs
+        uid = _seed_user(user_db, balance=5.0)
+        billing = BillingService(user_db)
+
+        key = "queue_task:42"
+        after_first = billing.charge(
+            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
+            description="chat 1", idempotency_key=key,
+        )
+        assert pytest.approx(after_first, abs=1e-6) == 4.9
+
+        # Simulate the scheduler's retry after a crash between charge-commit
+        # and UPDATE charged_amount — SAME task_id → SAME key.
+        after_retry = billing.charge(
+            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
+            description="chat 1", idempotency_key=key,
+        )
+        # Balance must NOT have moved: user charged exactly once.
+        assert pytest.approx(after_retry, abs=1e-6) == 4.9
+        assert pytest.approx(billing.get_balance(uid), abs=1e-6) == 4.9
+
+        # And exactly one transaction row exists for the key.
+        txs = user_db.get_transactions(uid, limit=10, offset=0)
+        keyed = [t for t in txs if t.get("idempotency_key") == key]
+        assert len(keyed) == 1, f"expected exactly 1 keyed tx, got {len(keyed)}"
+
+    def test_different_keys_charge_independently(
+        self, dbs: tuple[GroupDatabase, Any]
+    ) -> None:
+        """Two different tasks with distinct keys both go through."""
+        from chatfilter.ai.billing import BillingService
+
+        _, user_db = dbs
+        uid = _seed_user(user_db, balance=5.0)
+        billing = BillingService(user_db)
+
+        billing.charge(
+            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
+            description="chat 1", idempotency_key="queue_task:1",
+        )
+        billing.charge(
+            uid, 0.10, model="analysis", tokens_in=0, tokens_out=0,
+            description="chat 2", idempotency_key="queue_task:2",
+        )
+        # Both succeed — 2 × 0.10 debited.
+        assert pytest.approx(billing.get_balance(uid), abs=1e-6) == 4.8
+
+    def test_charge_without_key_keeps_legacy_behaviour(
+        self, dbs: tuple[GroupDatabase, Any]
+    ) -> None:
+        """Non-scheduler calls (AI token charges) pass key=None and keep working."""
+        from chatfilter.ai.billing import BillingService
+
+        _, user_db = dbs
+        uid = _seed_user(user_db, balance=5.0)
+        billing = BillingService(user_db)
+
+        billing.charge(
+            uid, 0.10, model="gpt-x", tokens_in=100, tokens_out=50,
+            description="ai call",
+        )
+        billing.charge(
+            uid, 0.10, model="gpt-x", tokens_in=100, tokens_out=50,
+            description="ai call",
+        )
+        # No key → no uniqueness — both go through.
+        assert pytest.approx(billing.get_balance(uid), abs=1e-6) == 4.8
