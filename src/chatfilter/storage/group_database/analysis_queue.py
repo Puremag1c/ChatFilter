@@ -135,6 +135,43 @@ class AnalysisQueueMixin(DatabaseMixinBase):
                 (error, now, task_id),
             )
 
+    def requeue_task(self, task_id: int) -> int:
+        """Put a crashed task back onto the queue for another account to try.
+
+        Used by the scheduler when ``process_chat`` raises an unexpected
+        exception and the per-task attempt counter is still below the
+        retry cap. Clears ``account_id`` / ``started_at`` so the next
+        ``claim_next_task`` picks it up freshly; bumps ``attempts``
+        so the caller can stop after N retries.
+
+        Returns the new attempts value.
+        """
+        now = datetime.now(UTC)
+        with self._connection() as conn:
+            conn.execute(
+                """
+                UPDATE analysis_queue
+                   SET status = 'queued',
+                       account_id = NULL,
+                       started_at = NULL,
+                       attempts = attempts + 1,
+                       finished_at = ?
+                 WHERE id = ?
+                """,
+                (now, task_id),
+            )
+            row = conn.execute(
+                "SELECT attempts FROM analysis_queue WHERE id = ?", (task_id,)
+            ).fetchone()
+            return int(row["attempts"]) if row else 0
+
+    def get_task_attempts(self, task_id: int) -> int:
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT attempts FROM analysis_queue WHERE id = ?", (task_id,)
+            ).fetchone()
+            return int(row["attempts"]) if row else 0
+
     # ---- lifecycle / recovery --------------------------------------
 
     def reset_running_tasks_to_queued(self) -> int:

@@ -347,3 +347,69 @@ class TestMirrorResultIntoGroupChats:
         row = db.load_chats(group_id="g1")[0]
         assert row["status"] == GroupChatStatus.DONE.value
         assert row["chat_type"] == ChatTypeEnum.DEAD.value
+
+
+class TestCrashRetryWithDifferentAccount:
+    """An unknown exception from process_chat must NOT land the task
+    in ``error`` on the first attempt. Instead the scheduler requeues
+    the task so another account can try; only after ``max_attempts``
+    crashes do we record the last error as the reason.
+    """
+
+    @pytest.mark.asyncio
+    async def test_unknown_exception_requeues_until_limit(
+        self, db: GroupDatabase, monkeypatch: Any
+    ) -> None:
+        from chatfilter.analyzer.scheduler import AnalysisScheduler
+
+        chats = _make_group(db, chat_refs=("@kaboom",))
+        task_id = db.enqueue_chat_task(
+            "g1", chats[0]["id"], chats[0]["chat_ref"], "u1", "admin"
+        )
+
+        call_log: list[str] = []
+
+        async def always_fail(chat: dict, *_a, **_kw):
+            call_log.append("called")
+            raise RuntimeError("unknown downstream explosion")
+
+        monkeypatch.setattr("chatfilter.analyzer.scheduler.process_chat", always_fail)
+
+        sm = _FakeSessionManager({"admin": ["acc1"]})
+        sm.get_client = AsyncMock(return_value=MagicMock())  # type: ignore[attr-defined]
+
+        scheduler = AnalysisScheduler(db=db, session_manager=sm, user_limit=5, max_attempts=3)
+
+        # Tick 1 → crash → requeue (attempts=1)
+        await scheduler.tick_once()
+        await asyncio.sleep(0.05)
+        stats = db.get_queue_stats(group_id="g1")
+        assert stats.get("queued", 0) == 1, "first crash must put the task back on queue"
+        assert stats.get("error", 0) == 0
+
+        # Tick 2 → crash → requeue (attempts=2)
+        await scheduler.tick_once()
+        await asyncio.sleep(0.05)
+        stats = db.get_queue_stats(group_id="g1")
+        assert stats.get("queued", 0) == 1
+        assert stats.get("error", 0) == 0
+
+        # Tick 3 → crash → now attempts == max_attempts → error with reason
+        await scheduler.tick_once()
+        await asyncio.sleep(0.05)
+        stats = db.get_queue_stats(group_id="g1")
+        assert stats.get("error", 0) == 1, "final crash must land in error"
+        assert stats.get("queued", 0) == 0
+
+        # The reason on the queue row must mention both the attempt
+        # cap and the underlying exception.
+        with db._connection() as conn:  # noqa: SLF001 — test-only introspection
+            row = conn.execute(
+                "SELECT attempts, error FROM analysis_queue WHERE id = ?", (task_id,)
+            ).fetchone()
+        assert row["attempts"] == 3
+        assert "After 3 attempts" in row["error"]
+        assert "unknown downstream explosion" in row["error"]
+
+        # Worker was called on every attempt.
+        assert len(call_log) == 3

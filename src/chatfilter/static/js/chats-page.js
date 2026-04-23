@@ -225,7 +225,10 @@
         var pollInterval;
         if (hasActive) {
             if (isSseConnected) {
-                pollInterval = 60000;
+                // SSE delivers per-event updates — polling is just a
+                // safety net here, once every 5 min is plenty and
+                // keeps the card from subtle flicker every minute.
+                pollInterval = 300000;
             } else {
                 pollInterval = 30000;
             }

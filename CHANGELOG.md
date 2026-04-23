@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.10] - 2026-04-23
+
+Реальный прогон 0.40.9 на проде выявил три регресса.
+
+### Fixed
+- **13 чатов зависли как ERROR** вместо DEAD: telethon ≥1.42 `client.get_entity` оборачивает `UsernameNotOccupiedError` и `UsernameInvalidError` в обычный `ValueError('No user has "X" as username')` / `ValueError('Cannot find any entity corresponding to "X"')`. Наш `except (errors.UsernameNotOccupiedError, ...)` их не ловил — ошибка всплывала как unexpected crash и scheduler убивал task в error. Добавил отдельный `except ValueError` с распознаванием этих двух сообщений → DONE+DEAD, как и положено для удалённых юзернеймов.
+- **Прогресс застревал при первом crash'е**: scheduler вообще не ретраил unexpected exception'ы — одна осечка процесса → `mark_task_error` + refund сразу. Теперь при crash'е scheduler кладёт задачу обратно в очередь (attempts += 1), чтобы следующий `claim_next_task` подхватил её другим аккаунтом. После `max_attempts=3` crashes подряд — сдаёмся, пишем в error row полный текст "After 3 attempts: <last exception>", делаем refund. Idempotency key в `_pre_charge` гарантирует, что повторный pickup не спишет дважды.
+- **Лёгкое моргание карточки группы в `in_progress`**: `chats-page.js` пулил список групп каждые 60s даже при живом SSE, в итоге morphdom каждую минуту трогал DOM вокруг карточки. При активном SSE интервал повышен до 5 минут — polling остаётся только как fallback при `sse-disconnected`.
+
+### Added
+- `TestCrashRetryWithDifferentAccount` (тесты `test_phase4_scheduler.py`) — три попытки, потом error с reason.
+- `test_telethon_wrapped_username_not_occupied_is_dead`, `test_telethon_wrapped_cannot_find_entity_is_dead` (`test_worker_error_mapping.py`) — фиксируют обёрнутые ValueError на DEAD.
+
+### Notes
+На проде: после `git pull && restart` на 0.40.10 старые 13 error-rows не «воскреснут» автоматически — scheduler не перепроверяет терминальные статусы по дизайну. Жми `Reanalyze` на группе или пересоздай — при повторе эти чаты пойдут через новый код и лягут как DEAD.
+
 ## [0.40.9] - 2026-04-23
 
 CI/CD hotfix rollup — v0.40.8 не прошёл CI (pre-existing интеграционных 18 тестов + mypy + ruff). Содержимого нет нового vs 0.40.8, только восстановление пайплайна.

@@ -107,6 +107,29 @@ class TestResolveFailuresBecomeDone:
         assert r.chat_type == ChatTypeEnum.DEAD.value
 
     @pytest.mark.asyncio
+    async def test_telethon_wrapped_username_not_occupied_is_dead(self) -> None:
+        """Telethon ≥1.42 ``client.get_entity`` converts
+        ``UsernameNotOccupiedError`` into ``ValueError('No user has "X"
+        as username')``. Previously this slipped past our exception
+        ladder and the task crashed the scheduler. Now it must still
+        map to DONE/DEAD."""
+        wrapped = ValueError('No user has "ghost" as username')
+        client = _client_with_resolve_exception(wrapped)
+        r = await process_chat(_chat("@ghost"), client, "acc1", _quick_settings())
+        assert r.status == GroupChatStatus.DONE.value
+        assert r.chat_type == ChatTypeEnum.DEAD.value
+
+    @pytest.mark.asyncio
+    async def test_telethon_wrapped_cannot_find_entity_is_dead(self) -> None:
+        """UsernameInvalidError gets wrapped too on newer telethon —
+        same fix path."""
+        wrapped = ValueError('Cannot find any entity corresponding to "@x"')
+        client = _client_with_resolve_exception(wrapped)
+        r = await process_chat(_chat("@x"), client, "acc1", _quick_settings())
+        assert r.status == GroupChatStatus.DONE.value
+        assert r.chat_type == ChatTypeEnum.DEAD.value
+
+    @pytest.mark.asyncio
     async def test_channel_private_is_private(self) -> None:
         client = _client_with_resolve_exception(errors.ChannelPrivateError(request=None))
         r = await process_chat(_chat("@p"), client, "acc1", _quick_settings())

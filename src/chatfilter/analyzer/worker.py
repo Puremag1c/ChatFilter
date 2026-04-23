@@ -336,6 +336,19 @@ async def _resolve_by_username(
         logger.info(f"Account '{account_id}': '{chat_ref}' does not exist ({type(e).__name__})")
         return _typed_failure(chat_ref, ChatTypeEnum.DEAD, error=str(e))
 
+    except ValueError as e:
+        # Telethon ≥1.42 ``client.get_entity`` wraps UsernameNotOccupiedError
+        # in ValueError('No user has "X" as username') and UsernameInvalidError
+        # in ValueError('Cannot find any entity corresponding to "X"').
+        # Translate those to DEAD instead of letting them propagate.
+        msg = str(e)
+        if 'No user has "' in msg or "Cannot find any entity corresponding to" in msg:
+            logger.info(
+                f"Account '{account_id}': '{chat_ref}' does not exist (ValueError from get_entity)"
+            )
+            return _typed_failure(chat_ref, ChatTypeEnum.DEAD, error=msg)
+        raise
+
     except errors.ChannelPrivateError as e:
         logger.info(f"Account '{account_id}': '{chat_ref}' is private")
         return _typed_failure(chat_ref, ChatTypeEnum.PRIVATE, error=str(e))

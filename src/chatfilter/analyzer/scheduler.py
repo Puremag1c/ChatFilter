@@ -64,12 +64,15 @@ class AnalysisScheduler:
         billing: Any | None = None,
         poll_interval: float = 1.0,
         user_limit: int = 2,
+        max_attempts: int = 3,
     ) -> None:
         self._db = db
         self._sm = session_manager
         self._billing = billing
         self._poll_interval = poll_interval
         self._user_limit = user_limit
+        # Cap total per-task retries across accounts on unknown crashes.
+        self._max_attempts = max_attempts
         self._stop = asyncio.Event()
         self._loop_task: asyncio.Task[None] | None = None
         # Track in-flight per-task coroutines so shutdown can wait for them.
@@ -291,9 +294,42 @@ class AnalysisScheduler:
                 # DONE regardless of chat_type (dead/banned/etc. are billable).
                 self._db.mark_task_done(task_id)
         except Exception as e:
-            logger.exception("Chat-task %s crashed", task_id)
-            self._refund(task_id, user_id, charged_amount, chat_ref, reason="crash")
-            self._db.mark_task_error(task_id, str(e))
+            # Unexpected worker crash. Don't give up immediately —
+            # requeue so another account gets a shot. Only after
+            # ``max_attempts`` across accounts do we admit defeat,
+            # record the last exception as the row's error reason,
+            # and refund the charge.
+            attempts = self._db.get_task_attempts(task_id)
+            if attempts + 1 < self._max_attempts:
+                logger.warning(
+                    "Chat-task %s crashed on account '%s' (attempt %d/%d) — requeuing: %s",
+                    task_id,
+                    account_id,
+                    attempts + 1,
+                    self._max_attempts,
+                    e,
+                )
+                # Keep the pre-charge in place — idempotency key means
+                # the next claim's ``_pre_charge`` is a no-op.
+                self._db.requeue_task(task_id)
+            else:
+                logger.exception(
+                    "Chat-task %s crashed after %d attempts — giving up",
+                    task_id,
+                    self._max_attempts,
+                )
+                # Include this final attempt in the counter so
+                # row.attempts == total attempts we made.
+                with self._db._connection() as conn:  # noqa: SLF001
+                    conn.execute(
+                        "UPDATE analysis_queue SET attempts = attempts + 1 WHERE id = ?",
+                        (task_id,),
+                    )
+                self._refund(task_id, user_id, charged_amount, chat_ref, reason="crash")
+                self._db.mark_task_error(
+                    task_id,
+                    f"After {self._max_attempts} attempts: {e}",
+                )
         finally:
             mark_idle = getattr(self._sm, "mark_idle", None)
             if callable(mark_idle):
