@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-04-23
+
+Крупный редизайн модели запуска анализов.
+
+### Added
+- **Разделение статусов** (Phase 0): отделили «статус процесса» (`PENDING/DONE/ERROR`) от «типа чата» (`GROUP/FORUM/CHANNEL/CHANNEL_WITH_COMMENTS/DEAD/BANNED/RESTRICTED/PRIVATE`). Dead/banned/restricted/private — это результаты, а не ошибки: за них теперь корректно считается услуга (billable).
+- **Persistent очередь анализов** (Phase 3): таблица `analysis_queue`, одна строка = один chat-task. FairShare-лимит на юзера (`user_limit=2` по умолчанию).
+- **AnalysisScheduler** (Phase 4): фоновый loop в lifespan. Берёт idle-аккаунты из пула, атомарно claim'ит queued-task, запускает worker, пишет терминальный статус. Crash-recovery: на старте `running → queued`.
+- **Per-chat биллинг** (Phase 5): новый админский параметр `cost_per_chat` в `/admin/system`. Pre-flight check перед запуском группы (не стартуем, если не хватает на все чаты). Pre-charge при переводе задачи в running; refund при ERROR/crash. Идемпотентность pre-charge для корректной crash-recovery.
+- **Shared admin pool** (Phase 6 + follow-up): все админы видят один общий пул аккаунтов и прокси через `/admin/accounts` и `/admin/proxies`. Аккаунты в `data/sessions/admin/`, прокси в `data/config/proxies_admin.json`.
+- **Личные пулы для power-user**: тумблер «Use my own accounts» в профиле. При включении в меню возвращаются `Sessions` и `Proxies`; upload'ы пишутся в `data/sessions/user_<id>/`, анализы идут через pool_key=`user:<id>`.
+- **Dashboard очереди** `/admin/queue` и ссылки Accounts/Proxies/Queue в админ-панели.
+- Кнопка «Скачать» на карточке группы доступна сразу после импорта/скрапинга (не ждём анализа).
+
+### Changed
+- `/` теперь показывает список групп юзера (бывший `/chats`, остаётся alias).
+- `/start` всегда проходит через scheduler-очередь (старый in-memory flow удалён). `/stop` отменяет queued rows, `/reanalyze` enqueue'ит через тот же путь.
+- Retry чатов ретраится только по `status=ERROR` (настоящие сбои), не по chat_type (мёртвые/забаненные чаты больше не повторяем зря).
+- Scheduler ротирует аккаунт только при FloodWait / UserBannedInChannel / сетевых ошибках; ChannelBanned/ChannelPrivate и им подобные терминальные результаты больше не «сжигают» все аккаунты подряд.
+- `Channel.restricted=True` (c `platform="all"`) теперь корректно классифицируется как RESTRICTED, а не как обычный канал.
+
+### Fixed
+- `create_task` в `group_tasks` теперь строит id с микросекундной точностью — UNIQUE-конфликт при auth-retry в одной секунде устранён.
+- Экспорт CSV поддерживает PENDING-строки (пустые ячейки без падения); скрапер сохраняет полученные от платформ titles, чтобы экспорт до анализа не был пустым.
+
+### Removed
+- Legacy `legacy_import.py` (one-shot миграция из split `groups.db`/`users.db`). Прод давно на единой `chatfilter.db`.
+- Feature-flag `use_scheduler_queue` — новый flow по умолчанию.
+- Устаревший `VERSION` файл (источник истины — `__init__.py`, CI читает оттуда).
+
+### Migrations
+- `013` — backfill: `status='error' AND chat_type='dead'` → `status='done'` (dead как услуга).
+- `014` — колонка `users.use_own_accounts`.
+- `015` — таблица `analysis_queue` + индексы для FairShare-выборки.
+
+### Dev infrastructure
+- `tools/bump_version.py` (починен: читает из `__init__.py`, не из dynamic `pyproject.toml`).
+- `tools/check_version_sync.py` + pre-commit хук: `__version__` должна совпадать с верхней записью CHANGELOG.
+- Root-level clutter guards в `.gitignore` (никаких `.db`/`.png`/`.mo` в корне, никаких `VERIFICATION_*.md`-отчётов).
+- Убран HYPE-symlink-мусор из `scripts/`, снесены эфемерные отчётные MD, закоммичены `tools/`.
+
 ## [0.38.2] - 2026-04-15
 
 ### Fixed
