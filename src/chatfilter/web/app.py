@@ -133,6 +133,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception:
         logger.exception("Legacy session-dir migration failed (continuing anyway)")
 
+    # Same idea for proxies — pre-Phase-2 saved them under the raw user
+    # UUID. Re-key into admin/user_<id> pools so the new /api/proxies
+    # router can find them.
+    try:
+        from chatfilter.storage.proxy_pool import migrate_legacy_proxy_pools
+
+        proxy_stats = migrate_legacy_proxy_pools(settings.effective_database_url)
+        if proxy_stats["merged"] or proxy_stats["renamed"]:
+            logger.info(
+                "Legacy proxy migration: merged=%d renamed=%d unchanged=%d",
+                proxy_stats["merged"],
+                proxy_stats["renamed"],
+                proxy_stats["unchanged"],
+            )
+    except Exception:
+        logger.exception("Legacy proxy migration failed (continuing anyway)")
+
     # Clean up orphaned resources from SIGKILL/crashes
     cleanup_orphaned_resources(
         data_dir=settings.data_dir,

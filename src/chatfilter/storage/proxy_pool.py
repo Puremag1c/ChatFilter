@@ -10,12 +10,120 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from chatfilter.config import get_settings
+import chatfilter.config as _config  # late lookup — respects test monkeypatch
 from chatfilter.models.proxy import ProxyEntry
 from chatfilter.storage.errors import StorageNotFoundError
 from chatfilter.storage.helpers import load_json, save_json
 
 logger = logging.getLogger(__name__)
+
+
+def get_settings():
+    """Module-level indirection so both the autouse isolate fixture and
+    explicit ``patch.object(proxy_pool, 'get_settings')`` in existing
+    tests keep working.
+    """
+    return _config.get_settings()
+
+
+def migrate_legacy_proxy_pools(database_url: str) -> dict[str, int]:
+    """One-shot migration: proxies saved under legacy raw-UUID keys
+    (pre-Phase-2 where ``_get_user_id`` used ``user_id`` directly) get
+    re-keyed to the Phase-2 scope layout — ``proxies_admin.json`` for
+    admins, ``proxies_user_<id>.json`` for everyone else.
+
+    We consult the user database to classify each legacy key:
+
+      - If the raw UUID matches an ``is_admin=True`` user → merge into
+        ``proxies_admin.json`` (deduped by ``ProxyEntry.id``).
+      - If it matches a non-admin user → rename to
+        ``proxies_user_<id>.json`` (merging if that file already exists).
+      - If it doesn't match any user (orphan / stale) → fold into
+        ``proxies_admin.json`` so the proxy isn't lost.
+
+    Canonical files (``proxies_admin.json``, ``proxies_user_*.json``,
+    ``proxies_default.json``) are left alone. Idempotent: after the
+    first run there's nothing left under raw UUID keys so subsequent
+    runs do nothing.
+
+    Returns stats ``{"merged": N, "renamed": N, "unchanged": N}``.
+    """
+    from chatfilter.models.proxy import ProxyEntry
+    from chatfilter.storage.user_database import get_user_db
+
+    stats = {"merged": 0, "renamed": 0, "unchanged": 0}
+    config_dir = get_settings().config_dir
+    if not config_dir.exists():
+        return stats
+
+    # Build user_id → is_admin index once. ``list_users`` returns
+    # (rows, total) with a default page_size of 50, so ask for a big
+    # page to get everyone in one call.
+    try:
+        db = get_user_db(database_url)
+        user_rows, _ = db.list_users(page=1, page_size=100000)
+        users = {u["id"]: bool(u.get("is_admin")) for u in user_rows}
+    except Exception:
+        logger.exception("Proxy migration: could not read user DB — skipping")
+        return stats
+
+    def _merge(target_key: str, entries: list[ProxyEntry]) -> None:
+        existing = load_proxy_pool(target_key)
+        seen = {p.id for p in existing}
+        merged = existing + [p for p in entries if p.id not in seen]
+        save_proxy_pool(merged, target_key)
+
+    for path in sorted(config_dir.glob("proxies_*.json")):
+        key = path.stem[len("proxies_") :]
+
+        if key in ("admin", "default") or key.startswith("user_"):
+            stats["unchanged"] += 1
+            continue
+
+        # Load legacy file.
+        try:
+            entries = load_proxy_pool(key)
+        except Exception:
+            logger.exception("Proxy migration: could not load %s — skipping", path)
+            stats["unchanged"] += 1
+            continue
+        if not entries:
+            # Empty legacy file — just drop it.
+            try:
+                path.unlink()
+                stats["unchanged"] += 1
+            except Exception:
+                pass
+            continue
+
+        is_admin = users.get(key)
+        if is_admin is True:
+            _merge("admin", entries)
+            target = "admin (admin user)"
+            stats["merged"] += 1
+        elif is_admin is False:
+            _merge(f"user_{key}", entries)
+            target = f"user_{key}"
+            stats["renamed"] += 1
+        else:
+            # Orphan — owner unknown; fall back to admin pool so the
+            # proxies don't just vanish.
+            _merge("admin", entries)
+            target = "admin (orphan)"
+            stats["merged"] += 1
+
+        try:
+            path.unlink()
+            logger.info(
+                "Migrated %d legacy proxies from %s → proxies_%s.json",
+                len(entries),
+                path.name,
+                target,
+            )
+        except Exception:
+            logger.exception("Could not remove legacy proxy file %s", path)
+
+    return stats
 
 
 def _get_proxies_path(user_id: str) -> Path:

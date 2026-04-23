@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.7] - 2026-04-23
+
+### Fixed
+- **3 прокси «куда-то пропали»** у пользователей, существующих с пре-Phase-2 эпохи. Там `_get_user_id(request)` использовал сырой `user_id`, и прокси сохранялись в `proxies_<raw-uuid>.json`. После Phase 2 ключом стал `admin` / `user_<id>` — старые файлы просто никто не читал.
+  Добавил **одноразовую миграцию** `migrate_legacy_proxy_pools(database_url)` на startup. По каждой `proxies_<X>.json`:
+  - `X` соответствует `is_admin=True` юзеру в БД → merge в `proxies_admin.json` (дедуп по `ProxyEntry.id`)
+  - `X` соответствует обычному юзеру → rename в `proxies_user_<X>.json`
+  - `X` не соответствует ни одному юзеру (orphan) → merge в `proxies_admin.json`, чтобы прокси не потерялся
+  Canonical файлы (`proxies_admin.json`, `proxies_user_*.json`, `proxies_default.json`) не трогаются. Идемпотентно; при повторных рестартах — noop.
+- `proxy_pool.py` перешёл на late-lookup `get_settings()` (через module-level attribute) вместо import-time binding — теперь корректно подхватывает monkeypatch'и в тестах и autouse `_isolate_data_dir`.
+
+### Added
+- `test_legacy_proxy_migration.py` — 6 тестов (admin owner, regular user, orphan, canonical untouched, dedup, idempotency).
+
 ## [0.40.6] - 2026-04-23
 
 ### Fixed
