@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import chatfilter.config as _config  # late lookup — respects test monkeypatch
 from chatfilter.models.proxy import ProxyEntry
@@ -18,7 +19,7 @@ from chatfilter.storage.helpers import load_json, save_json
 logger = logging.getLogger(__name__)
 
 
-def get_settings():
+def get_settings() -> Any:
     """Module-level indirection so both the autouse isolate fixture and
     explicit ``patch.object(proxy_pool, 'get_settings')`` in existing
     tests keep working.
@@ -134,7 +135,8 @@ def _get_proxies_path(user_id: str) -> Path:
     Returns:
         Path to proxies_{user_id}.json in user's config directory.
     """
-    return get_settings().config_dir / f"proxies_{user_id}.json"
+    path: Path = get_settings().config_dir / f"proxies_{user_id}.json"
+    return path
 
 
 def load_proxy_pool(user_id: str) -> list[ProxyEntry]:

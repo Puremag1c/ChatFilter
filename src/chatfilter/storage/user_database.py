@@ -324,10 +324,13 @@ class UserDatabase(SQLiteDatabase):
         """
         import sqlite3
 
+        SAIntegrityError: type[Exception] | None
         try:
-            from sqlalchemy.exc import IntegrityError as SAIntegrityError
+            from sqlalchemy.exc import IntegrityError as _SAIntegrityError
+
+            SAIntegrityError = _SAIntegrityError
         except ImportError:  # pragma: no cover — sqlalchemy always present in prod
-            SAIntegrityError = None  # type: ignore[assignment]
+            SAIntegrityError = None
 
         created_at = self._datetime_to_str(datetime.now(UTC))
         with self._connection() as conn:

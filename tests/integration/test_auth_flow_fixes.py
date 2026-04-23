@@ -16,7 +16,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from chatfilter.web.app import create_app
 from chatfilter.web.auth_state import AuthState, AuthStep
 
 
@@ -51,9 +50,34 @@ def _make_auth_state(
 
 @pytest.fixture
 def client() -> TestClient:
-    """Create test client."""
-    app = create_app()
-    return TestClient(app)
+    """Authenticated power-user TestClient that can reach /api/sessions/*.
+
+    /api/sessions is gated by ``require_own_accounts`` since Phase 2; an
+    unauthenticated TestClient hits 403 on every call. Reuse the same
+    approach as ``tests/sessions/conftest.session_client`` — create a
+    real power-user in the isolated DB and stamp its cookie.
+    """
+    from chatfilter.config import get_settings
+    from chatfilter.storage.user_database import get_user_db
+    from chatfilter.web.app import create_app as _create_app
+    from chatfilter.web.session import SESSION_COOKIE_NAME, get_session_store
+
+    settings = get_settings()
+    db = get_user_db(settings.effective_database_url)
+
+    username = "auth_flow_integration_user"
+    existing = db.get_user_by_username(username)
+    user_id = existing["id"] if existing else db.create_user(username, "pw12345678")
+    db.set_use_own_accounts(user_id, True)
+
+    store = get_session_store()
+    sess = store.create_session()
+    sess.set("user_id", user_id)
+    sess.set("username", username)
+    sess.set("is_admin", False)
+
+    app = _create_app(debug=True, settings=settings)
+    return TestClient(app, cookies={SESSION_COOKIE_NAME: sess.session_id})
 
 
 def _get_csrf_token(client: TestClient) -> str:
