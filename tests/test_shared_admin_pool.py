@@ -155,3 +155,75 @@ class TestAdminPoolIsShared:
         listed = list_stored_sessions(user_id="user_7")
         ids = [item.session_id for item in listed]
         assert ids == ["Mine"], f"Power-user must see only their own — got {ids}"
+
+
+# ------------------------------------------------------------------
+# 3. DELETE /admin/api/sessions/{id} targets the shared admin dir
+# ------------------------------------------------------------------
+#
+# Regression for v0.40 bug where delete_session / get_session_config /
+# update_session_config all used `get_session(request).get("user_id")` —
+# the caller's raw user id — instead of `get_pool_scope(request)`.
+# For admin URLs the URL scope is "admin", so the files live under
+# sessions/admin/<name>, not sessions/<admin_user_id>/<name>.
+
+
+class TestAdminDeleteTargetsSharedDir:
+    @staticmethod
+    def _csrf(client: Any) -> dict[str, str]:
+        """Grab a CSRF token out of /chats and format it as a request header."""
+        from tests.test_groups_api import extract_csrf_token
+
+        page = client.get("/chats")
+        assert page.status_code == 200
+        return {"X-CSRF-Token": extract_csrf_token(page.text)}
+
+    @staticmethod
+    def _effective_sessions_dir() -> Path:
+        """Return the sessions_dir the handler actually sees.
+
+        ``conftest._isolate_data_dir`` (autouse) patches get_settings to a
+        per-test ``isolated_data`` dir — NOT ``test_settings.sessions_dir``.
+        We must use the same getter the request handler uses.
+        """
+        from chatfilter.web.routers.sessions import helpers as session_helpers
+
+        return session_helpers.get_settings().sessions_dir
+
+    def test_admin_can_delete_from_shared_pool(self, admin_client: Any) -> None:
+        """Fix #3: DELETE /admin/api/sessions/X must remove the file in
+        ``sessions/admin/X``, not in ``sessions/<admin_id>/X``.
+
+        Before the fix, delete_session derived the directory from the
+        caller's raw user_id, so any admin-uploaded account (which
+        always lives in sessions/admin/) returned 404 for every admin
+        that didn't personally upload it.
+        """
+        sessions_dir = self._effective_sessions_dir()
+        target = sessions_dir / "admin" / "SharedBot"
+        target.mkdir(parents=True)
+        (target / ".account_info.json").write_text(
+            json.dumps({"user_id": 999, "owner": "admin", "phone": "+123"})
+        )
+        (target / "config.json").write_text(json.dumps({"proxy_id": None}))
+        (target / "session.session").write_bytes(b"dummy")
+
+        r = admin_client.delete(
+            "/admin/api/sessions/SharedBot",
+            headers=self._csrf(admin_client),
+        )
+        assert r.status_code == 200, f"expected 200, got {r.status_code}: {r.text}"
+        assert not target.exists(), "shared-pool session directory must be gone"
+
+    def test_admin_get_config_targets_shared_dir(self, admin_client: Any) -> None:
+        """GET /admin/api/sessions/{id}/config must read sessions/admin/,
+        not sessions/<admin_id>/."""
+        sessions_dir = self._effective_sessions_dir()
+        target = sessions_dir / "admin" / "CfgBot"
+        target.mkdir(parents=True)
+        (target / "config.json").write_text(json.dumps({"proxy_id": None}))
+
+        r = admin_client.get("/admin/api/sessions/CfgBot/config")
+        assert r.status_code == 200, (
+            "Admin getting config of a shared-pool session must hit sessions/admin/"
+        )

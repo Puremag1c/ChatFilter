@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-04-23
+
+Аудит 0.40 нашёл реальный баг в управлении shared admin pool — чиним первым. Плюс чиним забытые старые тесты, которые я сам сломал Phase 2/6.
+
+### Fixed
+- **Shared admin pool unification:** все endpoints sessions унифицированы на `get_pool_scope(request)`. До этого `delete_session`, `get/update_session_config` и `upload_session` использовали raw `user_id` сессии — из-за чего админ B не мог удалить/редактировать аккаунты, загруженные админом A (файлы лежат в `sessions/admin/`, а handler искал в `sessions/<admin_B_id>/` → 404). `save_import_session` тоже выправлен по consistency: убрано переопределение `web_user_id` на raw id.
+- **47 старых тестов в `tests/sessions/`** — починены после ломок Phase 2 (`require_own_accounts` на router-level) и Phase 6 (`sessions/<user_id>` → `sessions/<pool_scope>`). Решение — TDD-friendly: единая фикстура `session_client` в `tests/sessions/conftest.py` создаёт **реального** power-user'а в БД и ставит cookie — тест проходит через настоящий auth-гейт. Плюс `scope_name` fixture вычисляет правильный pool scope — тесты больше не хардкодят детали реализации в путях.
+- **`test_profile_page_with_transactions`** — обновлён под lazy-load архитектуру (v0.35.0 перевела транзакции в `/api/profile/transactions` через HTMX, тест продолжал искать их в inline `/profile` HTML).
+
+### Added
+- Regression-тесты: `TestAdminDeleteTargetsSharedDir` в `test_shared_admin_pool.py` покрывают конкретный баг v0.40 (admin cross-pool delete/config).
+
 ## [0.40.0] - 2026-04-23
 
 Крупный редизайн модели запуска анализов.

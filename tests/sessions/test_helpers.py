@@ -156,10 +156,9 @@ class TestDeleteSessionClearsFloodWait:
     """Test that deleting a session clears its FloodWait entry."""
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app()
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
@@ -181,7 +180,7 @@ class TestDeleteSessionClearsFloodWait:
             shutil.rmtree(test_data_dir)
 
     def test_delete_session_clears_flood_wait_entry(
-        self, client: TestClient, clean_data_dir: Path
+        self, client: TestClient, clean_data_dir: Path, scope_name: str
     ) -> None:
         """Deleting an account with an active FloodWait entry should clear it."""
         from chatfilter.telegram.flood_tracker import get_flood_tracker
@@ -190,7 +189,7 @@ class TestDeleteSessionClearsFloodWait:
         session_name = "test_flood_session"
 
         # Setup: create session directory so delete doesn't 404
-        session_dir = clean_data_dir / "None" / session_name
+        session_dir = clean_data_dir / scope_name / session_name
         session_dir.mkdir(parents=True)
         (session_dir / "session.session").write_bytes(b"fake")
 
@@ -217,7 +216,7 @@ class TestDeleteSessionClearsFloodWait:
         tracker.clear_account(session_name)
 
     def test_delete_session_without_flood_wait_no_error(
-        self, client: TestClient, clean_data_dir: Path
+        self, client: TestClient, clean_data_dir: Path, scope_name: str
     ) -> None:
         """Deleting an account with no FloodWait entry should not raise errors."""
         from chatfilter.telegram.flood_tracker import get_flood_tracker
@@ -226,7 +225,7 @@ class TestDeleteSessionClearsFloodWait:
         session_name = "test_no_flood_session"
 
         # Setup: create session directory
-        session_dir = clean_data_dir / "None" / session_name
+        session_dir = clean_data_dir / scope_name / session_name
         session_dir.mkdir(parents=True)
         (session_dir / "session.session").write_bytes(b"fake")
 

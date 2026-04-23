@@ -20,7 +20,7 @@ from chatfilter.parsers.telegram_expert import (
 )
 from chatfilter.telegram.client.config import TelegramConfigError
 from chatfilter.utils.disk import DiskSpaceError
-from chatfilter.web.session import get_session
+from chatfilter.web.dependencies import get_owner_key, get_pool_scope
 
 from . import router
 from .io import (
@@ -78,9 +78,11 @@ async def upload_session(
                 context={"success": False, "error": str(e)},
             )
 
-        web_user_id = get_session(request).get("user_id")
+        # Pool scope decides the on-disk subdirectory: "admin" for shared
+        # admin uploads (URL /admin/*), "user_<id>" for personal uploads.
+        pool_scope = get_pool_scope(request)
         # Atomically create session directory to prevent TOCTOU race
-        session_dir = ensure_data_dir(web_user_id) / safe_name
+        session_dir = ensure_data_dir(pool_scope) / safe_name
         try:
             session_dir.mkdir(parents=True, exist_ok=False)
         except FileExistsError:
@@ -207,7 +209,7 @@ async def upload_session(
                 user_id = account_info["user_id"]
                 if isinstance(user_id, int):
                     duplicate_sessions = find_duplicate_accounts(
-                        user_id, exclude_session=safe_name, web_user_id=web_user_id
+                        user_id, exclude_session=safe_name, web_user_id=pool_scope
                     )
         finally:
             # Clean up temporary session file
@@ -222,11 +224,6 @@ async def upload_session(
             # source is 'file' because config was uploaded
             # Use json_account_info if provided, otherwise use account_info from session
             final_account_info = json_account_info if json_account_info else account_info
-            from chatfilter.web.dependencies import get_owner_key, get_pool_scope
-            from chatfilter.web.session import get_session as get_web_session
-
-            web_sess = get_web_session(request)
-            _web_user_id = web_sess.get("user_id", "default")
 
             # Stamp the pool owner onto the account_info so the scheduler
             # routes analyses correctly. Admin uploads feed the shared
@@ -236,18 +233,13 @@ async def upload_session(
             if final_account_info is not None:
                 final_account_info = {**final_account_info, "owner": owner_key}
 
-            # The on-disk scope (the subdirectory name) is either "admin"
-            # or "user_{id}" — all admins share one folder so each of them
-            # sees the full pool when listing.
-            scope_dirname = get_pool_scope(request)
-
             _save_session_to_disk(
                 session_dir=session_dir,
                 session_content=session_content,
                 proxy_id=None,
                 account_info=final_account_info,
                 source="file",
-                web_user_id=scope_dirname,
+                web_user_id=pool_scope,
             )
 
         except DiskSpaceError:
@@ -502,12 +494,11 @@ async def save_import_session(
                 context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
             )
 
-        # Validate proxy exists
+        # Validate proxy exists — same pool scope used for session_dir above
+        # so create / list / lookup all stay on the same scope key.
         from chatfilter.storage.errors import StorageNotFoundError
         from chatfilter.storage.proxy_pool import get_proxy_by_id
-        from chatfilter.web.session import get_session as get_web_session
 
-        web_user_id = get_web_session(request).get("user_id", "default")
         try:
             get_proxy_by_id(proxy_id, web_user_id)
         except StorageNotFoundError:

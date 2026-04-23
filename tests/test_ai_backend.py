@@ -526,10 +526,16 @@ class TestProfileTransactionHistory:
     def test_profile_page_with_transactions(
         self, fastapi_test_client: Any, test_settings: Any
     ) -> None:
-        """Profile page must show transactions when they exist."""
+        """Profile page lazy-loads transactions via HTMX on /api/profile/transactions.
+
+        Since v0.35.0 the /profile page no longer inlines transactions —
+        it renders a ``<div hx-get="/api/profile/transactions?page=1">``
+        placeholder that HTMX fills on load. This test verifies both
+        halves: /profile renders the trigger, and the HTMX endpoint
+        returns the topup row.
+        """
         from chatfilter.storage.user_database import get_user_db
 
-        # Get current user's id from the test client session cookie
         db = get_user_db(test_settings.effective_database_url)
         user = db.get_user_by_username("testuser")
         if user is None:
@@ -539,10 +545,16 @@ class TestProfileTransactionHistory:
         billing = BillingService(db)
         billing.topup(user_id, 5.0, "Test topup for profile")
 
-        response = fastapi_test_client.get("/profile")
-        assert response.status_code == 200
-        body = response.text
-        # Transaction should appear on the page
+        page = fastapi_test_client.get("/profile")
+        assert page.status_code == 200
+        # Lazy-load trigger must be present.
+        assert 'hx-get="/api/profile/transactions?page=1"' in page.text, (
+            "Profile page is missing the HTMX trigger for transactions"
+        )
+
+        partial = fastapi_test_client.get("/api/profile/transactions?page=1")
+        assert partial.status_code == 200
+        body = partial.text
         assert "topup" in body.lower() or "Test topup" in body, (
-            "Profile page does not show topup transaction"
+            "Transactions partial does not show the topup entry"
         )

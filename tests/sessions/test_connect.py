@@ -19,10 +19,9 @@ class TestSessionConnectDisconnectAPI:
     """Tests for session connect/disconnect API endpoints."""
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app(debug=True)
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
@@ -34,11 +33,11 @@ class TestSessionConnectDisconnectAPI:
             shutil.rmtree(data_dir)
 
     @pytest.fixture
-    def configured_session(self, clean_data_dir: Path) -> Path:
+    def configured_session(self, clean_data_dir: Path, scope_name: str) -> Path:
         """Create a fully configured session directory."""
         import uuid
 
-        session_dir = clean_data_dir / "None" / "test_session"
+        session_dir = clean_data_dir / scope_name / "test_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file
@@ -63,9 +62,9 @@ class TestSessionConnectDisconnectAPI:
         return session_dir
 
     @pytest.fixture
-    def unconfigured_session(self, clean_data_dir: Path) -> Path:
+    def unconfigured_session(self, clean_data_dir: Path, scope_name: str) -> Path:
         """Create a session without proxy configured."""
-        session_dir = clean_data_dir / "None" / "unconfigured_session"
+        session_dir = clean_data_dir / scope_name / "unconfigured_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file

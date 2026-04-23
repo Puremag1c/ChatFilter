@@ -19,10 +19,9 @@ class TestDeadSessionRecoveryUX:
     """Tests for dead session error messages and recovery UX flow."""
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app(debug=True)
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
@@ -34,13 +33,16 @@ class TestDeadSessionRecoveryUX:
             shutil.rmtree(data_dir)
 
     @pytest.fixture
-    def configured_session(self, clean_data_dir: Path) -> Path:
-        """Create a fully configured session directory."""
+    def configured_session(self, clean_data_dir: Path, scope_name: str) -> Path:
+        """Create a fully configured session directory.
+
+        Path uses ``scope_name`` fixture so that what the test writes on
+        disk matches whatever ``get_pool_scope`` returns for the
+        authenticated test client. No hardcoded "admin" / "None".
+        """
         import uuid
 
-        # Code uses ensure_data_dir(user_id) where user_id=None for unauthenticated requests
-        # str(None) == "None", so sessions live at sessions_dir / "None" / session_name
-        user_dir = clean_data_dir / "None"
+        user_dir = clean_data_dir / scope_name
         user_dir.mkdir(parents=True, exist_ok=True)
         session_dir = user_dir / "dead_session"
         session_dir.mkdir(parents=True, exist_ok=True)

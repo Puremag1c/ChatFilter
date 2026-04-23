@@ -311,10 +311,9 @@ class TestSessionImport:
             return Path(session_f.name).read_bytes()
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app(debug=True)
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
@@ -449,7 +448,9 @@ class TestSessionImport:
         # Verify that validation succeeds (API credentials no longer extracted from JSON)
         assert "success" in response.text.lower()
 
-    def test_save_import_session_success(self, client: TestClient, clean_data_dir: Path) -> None:
+    def test_save_import_session_success(
+        self, client: TestClient, clean_data_dir: Path, scope_name: str
+    ) -> None:
         """Test successful session import with JSON account info."""
         from unittest.mock import MagicMock
 
@@ -490,8 +491,8 @@ class TestSessionImport:
 
             assert response.status_code == 200
 
-            # Verify session was created (under "None" user_id — unauthenticated TestClient)
-            session_dir = clean_data_dir / "None" / "test_import"
+            # Verify session was created (under "admin" pool scope — unauthenticated TestClient defaults to admin)
+            session_dir = clean_data_dir / scope_name / "test_import"
             assert session_dir.exists()
 
             # Verify account_info.json contains phone
@@ -505,13 +506,13 @@ class TestSessionImport:
             assert "twoFA" not in account_info or account_info.get("twoFA") != "secret123"
 
     def test_save_import_session_duplicate_name(
-        self, client: TestClient, clean_data_dir: Path
+        self, client: TestClient, clean_data_dir: Path, scope_name: str
     ) -> None:
         """Test that duplicate session name is rejected."""
         from unittest.mock import MagicMock
 
-        # Create existing session (under "None" user_id — unauthenticated TestClient)
-        existing_dir = clean_data_dir / "None" / "duplicate_test"
+        # Pre-create session under the pool scope the test client targets.
+        existing_dir = clean_data_dir / scope_name / "duplicate_test"
         existing_dir.mkdir(parents=True, exist_ok=True)
 
         # Create valid session file

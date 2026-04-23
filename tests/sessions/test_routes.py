@@ -19,10 +19,9 @@ class TestSessionsAPIEndpoints:
     """Tests for session API endpoints."""
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app()
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
@@ -273,7 +272,7 @@ class TestSessionsAPIEndpoints:
         assert "too large" in response.text.lower()
 
     def test_upload_session_with_json_file(
-        self, client: TestClient, clean_data_dir: Path, tmp_path: Path
+        self, client: TestClient, clean_data_dir: Path, tmp_path: Path, scope_name: str
     ) -> None:
         """Test upload .session + valid .json with phone extraction."""
         # Get CSRF token from home page
@@ -358,8 +357,9 @@ class TestSessionsAPIEndpoints:
         assert response.status_code == 200
         assert "success" in response.text.lower()
 
-        # Verify session directory was created (under "None" user_id — unauthenticated TestClient)
-        session_dir = clean_data_dir / "None" / "test_session_json"
+        # Verify session directory was created under the scope the
+        # authenticated test client lands in (see ``scope_name`` fixture).
+        session_dir = clean_data_dir / scope_name / "test_session_json"
         assert session_dir.exists()
 
         # Verify account_info.json was created with phone and names from JSON (should override session info)
@@ -439,7 +439,7 @@ class TestSessionsAPIEndpoints:
         # This is acceptable behavior - just verify the error was shown
 
     def test_upload_session_json_with_2fa(
-        self, client: TestClient, clean_data_dir: Path, tmp_path: Path
+        self, client: TestClient, clean_data_dir: Path, tmp_path: Path, scope_name: str
     ) -> None:
         """Test upload .session + JSON with 2FA → encrypted storage."""
         # Get CSRF token from home page
@@ -522,8 +522,8 @@ class TestSessionsAPIEndpoints:
         assert response.status_code == 200
         assert "success" in response.text.lower()
 
-        # Verify session directory was created (under "None" user_id — unauthenticated TestClient)
-        session_dir = clean_data_dir / "None" / "test_session_with_2fa"
+        # Verify session directory was created (under "admin" pool scope — unauthenticated TestClient defaults to admin)
+        session_dir = clean_data_dir / scope_name / "test_session_with_2fa"
         assert session_dir.exists()
 
         # Verify account_info.json was created with phone and names from JSON (should override session info)

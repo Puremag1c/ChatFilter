@@ -19,10 +19,9 @@ class TestBackwardCompatibilityLegacySessions:
     """
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app(debug=True)
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path, monkeypatch) -> Iterator[Path]:

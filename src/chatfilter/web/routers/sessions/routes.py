@@ -14,7 +14,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.flood_tracker import get_flood_tracker
-from chatfilter.web.session import get_session
+from chatfilter.web.dependencies import get_pool_scope
 from chatfilter.web.template_helpers import get_template_context
 
 from . import router
@@ -30,7 +30,7 @@ async def get_sessions(request: Request) -> HTMLResponse:
     """List all registered sessions as HTML partial."""
     from chatfilter.web.app import get_templates
     from chatfilter.web.auth_state import get_auth_state_manager
-    from chatfilter.web.dependencies import get_pool_scope, get_session_manager
+    from chatfilter.web.dependencies import get_session_manager
 
     scope = get_pool_scope(request)  # "admin" for every admin; "user_<id>" otherwise
     session_manager = get_session_manager()
@@ -49,6 +49,9 @@ async def get_sessions(request: Request) -> HTMLResponse:
 async def delete_session(request: Request, session_id: str) -> HTMLResponse:
     """Delete a session.
 
+    Pool is decided by URL prefix — ``/admin/*`` targets the shared
+    admin pool; everything else targets the caller's personal pool.
+
     Returns empty response for HTMX to remove the element.
     """
     try:
@@ -59,8 +62,8 @@ async def delete_session(request: Request, session_id: str) -> HTMLResponse:
             detail="Invalid session name",
         ) from e
 
-    user_id = get_session(request).get("user_id")
-    session_dir = ensure_data_dir(user_id) / safe_name
+    pool_scope = get_pool_scope(request)
+    session_dir = ensure_data_dir(pool_scope) / safe_name
 
     if not session_dir.exists():
         raise HTTPException(
@@ -132,8 +135,8 @@ async def get_session_config(
             content=f'<div class="alert alert-error">{_("Invalid session name")}</div>',
         )
 
-    user_id = get_session(request).get("user_id")
-    session_dir = ensure_data_dir(user_id) / safe_name
+    pool_scope = get_pool_scope(request)
+    session_dir = ensure_data_dir(pool_scope) / safe_name
     config_file = session_dir / "config.json"
 
     # Load current config (use empty values if missing/corrupted)
@@ -182,8 +185,8 @@ async def update_session_config(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    user_id = get_session(request).get("user_id")
-    session_dir = ensure_data_dir(user_id) / safe_name
+    pool_scope = get_pool_scope(request)
+    session_dir = ensure_data_dir(pool_scope) / safe_name
     config_file = session_dir / "config.json"
 
     if not session_dir.exists() or not config_file.exists():

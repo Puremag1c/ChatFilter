@@ -19,10 +19,9 @@ class TestSessionConfigAPI:
     """Tests for session configuration API endpoints."""
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app(debug=True)
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path) -> Iterator[Path]:
@@ -34,9 +33,9 @@ class TestSessionConfigAPI:
             shutil.rmtree(data_dir)
 
     @pytest.fixture
-    def session_with_config(self, clean_data_dir: Path) -> Path:
+    def session_with_config(self, clean_data_dir: Path, scope_name: str) -> Path:
         """Create a session directory with config file."""
-        session_dir = clean_data_dir / "None" / "test_session"
+        session_dir = clean_data_dir / scope_name / "test_session"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Create session.session file

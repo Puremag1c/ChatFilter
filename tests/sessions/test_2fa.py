@@ -45,7 +45,9 @@ class TestVerify2FA:
                 assert not is_valid, f"Expected '{description}' to fail validation but it passed"
 
     @pytest.mark.asyncio
-    async def test_verify_code_2fa_auto_fails_shows_manual_modal(self) -> None:
+    async def test_verify_code_2fa_auto_fails_shows_manual_modal(
+        self, session_client: TestClient
+    ) -> None:
         """Test verify_code recovery when 2FA auto-entry fails (wrong stored password).
 
         Scenario:
@@ -68,8 +70,7 @@ class TestVerify2FA:
         from chatfilter.web.auth_state import AuthState, AuthStep
         from chatfilter.web.routers.sessions import save_account_info
 
-        app = create_app(debug=True)
-        client = TestClient(app)
+        client = session_client
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             session_id = "test_auto_2fa_wrong"
@@ -190,10 +191,9 @@ class TestVerifyCode2FAAutoEntry:
     """Tests for 2FA auto-entry during verify_code endpoint."""
 
     @pytest.fixture
-    def client(self) -> TestClient:
-        """Create test client."""
-        app = create_app(debug=True)
-        return TestClient(app)
+    def client(self, session_client: TestClient) -> TestClient:
+        """Power-user test client (injected from sessions/conftest)."""
+        return session_client
 
     @pytest.fixture
     def clean_data_dir(self, tmp_path: Path, monkeypatch) -> Iterator[Path]:
