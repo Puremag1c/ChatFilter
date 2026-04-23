@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.11] - 2026-04-23
+
+No product changes vs 0.40.10. Re-tag after a ruff-format follow-up so CD can pick up a commit where all CI jobs actually pass (v0.40.10 tag landed on a commit whose format-check step failed — deploy workflow_run skipped).
+
 ## [0.40.10] - 2026-04-23
 
 Реальный прогон 0.40.9 на проде выявил три регресса.
