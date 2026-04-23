@@ -110,14 +110,21 @@ class ProxyRetestResponse(BaseModel):
 def _get_user_id(request: Request) -> str:
     """Return the pool scope used as the proxy-file key.
 
-    All admins share the "admin" scope (one shared proxies_admin.json);
-    every power-user gets their own "user_<id>" scope.
+    Scope is chosen by **URL path**, exactly like
+    :func:`chatfilter.web.dependencies.get_pool_scope` for sessions:
+
+      - ``/admin/...`` → ``"admin"``   (shared admin pool)
+      - anything else  → ``"user_<id>"`` (caller's personal pool)
+
+    This lets a single user be both an admin (managing
+    ``/admin/proxies``) AND a power-user (``/proxies``) without the
+    two views bleeding into each other. Previously the check was
+    role-based on ``is_admin`` alone, so admin-power-users saw the
+    shared pool on their personal /proxies page.
     """
-    session = get_session(request)
-    if session.get("is_admin"):
-        return "admin"
-    uid = session.get("user_id")
-    return f"user_{uid}" if uid else "default"
+    from chatfilter.web.dependencies import get_pool_scope
+
+    return get_pool_scope(request)
 
 
 def _proxy_to_response(proxy: ProxyEntry) -> ProxyResponse:

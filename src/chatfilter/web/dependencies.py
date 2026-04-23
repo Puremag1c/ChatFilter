@@ -129,26 +129,18 @@ def get_pool_scope(request: Request) -> str:
 
 
 def get_proxy_scope(request: Request) -> str:
-    """Return the scope key used to identify this user's proxy pool.
+    """Scope key used to identify this user's proxy pool.
 
-    Must match :func:`chatfilter.web.routers.proxy_pool._get_user_id`
-    so that the proxy a user saved via ``/api/proxies`` is the same
-    one a form renders in ``/api/sessions/.../config``. The rule
-    there is role-based, NOT URL-based:
+    Same rule as :func:`get_pool_scope` — URL-based, so the session
+    forms render proxies from the pool that matches the current view
+    (admin mount → admin pool, personal mount → personal pool). That
+    means a single admin can be a power-user on ``/proxies`` without
+    their admin-pool proxies leaking into their personal view.
 
-      - admin (is_admin in session) → ``"admin"``  (shared pool)
-      - logged-in user              → ``"user_{id}"``
-      - anonymous / fallback        → ``"default"``
-
-    This differs from :func:`get_pool_scope` (which is URL-based for
-    the sessions layout) — do not substitute one for the other.
-    Session listing forms use THIS helper to pick the right proxies.
+    Kept as a separate function (alias) so any test that references
+    ``get_proxy_scope`` explicitly still resolves.
     """
-    session = get_session(request)
-    if session.get("is_admin"):
-        return "admin"
-    uid = session.get("user_id")
-    return f"user_{uid}" if uid else "default"
+    return get_pool_scope(request)
 
 
 def get_owner_key(request: Request) -> str:

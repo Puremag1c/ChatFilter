@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.8] - 2026-04-23
+
+### Fixed
+- **Power-user-админ видел свой admin-пул на `/proxies`** (личная страница). `proxy_pool._get_user_id()` решал scope по `is_admin` флагу в сессии — для админа-с-own_accounts всегда возвращал `"admin"`, чем смешивал оба пула в одном представлении. Перевёл на URL-based выбор (как `get_pool_scope` для сессий): `/admin/api/proxies` → `"admin"`, `/api/proxies` → `"user_<id>"`. Теперь один и тот же пользователь может быть и shared-pool-админом, и power-user с собственными прокси, не смешивая их.
+- `web.dependencies.get_proxy_scope` стал тонким алиасом `get_pool_scope` — формы рендеринга прокси на `/admin/accounts` / `/sessions` выбирают нужный пул по URL mount'а, как и сами `/api/proxies` endpoints.
+
+### Verified via Playwright
+- Админ-power-user: `GET /admin/api/proxies` видит 3 shared-admin прокси; `GET /api/proxies` — 0 (свой пул пуст).
+- `POST /api/proxies {name: "MY PERSONAL"}` добавляет только в personal pool; /admin/api/proxies его не видит.
+
 ## [0.40.7] - 2026-04-23
 
 ### Fixed
