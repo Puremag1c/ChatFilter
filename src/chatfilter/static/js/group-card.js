@@ -310,10 +310,17 @@
                         els.currentChatEl.title = data.chat_title || '';
                     }
 
-                    // Show cache-hit info message if present
-                    if (data.message && els.cacheInfoEl && els.cacheInfoRowEl) {
-                        els.cacheInfoEl.textContent = data.message;
-                        els.cacheInfoRowEl.style.display = '';
+                    // Show cache-hit info message if present, hide row
+                    // otherwise so it doesn't flicker between events when
+                    // only some carry a ``message`` field.
+                    if (els.cacheInfoEl && els.cacheInfoRowEl) {
+                        if (data.message) {
+                            els.cacheInfoEl.textContent = data.message;
+                            els.cacheInfoRowEl.style.display = '';
+                        } else {
+                            els.cacheInfoEl.textContent = '';
+                            els.cacheInfoRowEl.style.display = 'none';
+                        }
                     }
                 }
 

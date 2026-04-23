@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.12] - 2026-04-23
+
+### Fixed
+- **«Поле Cache то появляется, то исчезает»** над progress-bar в карточке анализа. SSE progress event нёс `"message": event.message` даже когда тот `None`; клиент показывал cache-row при любом истинном значении, но **не скрывал** её, если на следующем событии message отсутствовал. Потом `morphdom`-refresh сбрасывал inline style обратно на `display:none` из шаблона → row мигала. Добавил симметричный `else`: нет message → row скрывается сразу.
+
 ## [0.40.11] - 2026-04-23
 
 No product changes vs 0.40.10. Re-tag after a ruff-format follow-up so CD can pick up a commit where all CI jobs actually pass (v0.40.10 tag landed on a commit whose format-check step failed — deploy workflow_run skipped).
