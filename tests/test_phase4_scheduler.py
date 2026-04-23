@@ -363,9 +363,7 @@ class TestCrashRetryWithDifferentAccount:
         from chatfilter.analyzer.scheduler import AnalysisScheduler
 
         chats = _make_group(db, chat_refs=("@kaboom",))
-        task_id = db.enqueue_chat_task(
-            "g1", chats[0]["id"], chats[0]["chat_ref"], "u1", "admin"
-        )
+        task_id = db.enqueue_chat_task("g1", chats[0]["id"], chats[0]["chat_ref"], "u1", "admin")
 
         call_log: list[str] = []
 
