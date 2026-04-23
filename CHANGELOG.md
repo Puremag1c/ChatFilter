@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.6] - 2026-04-23
+
+### Fixed
+- **Прокси, добавленные в `/admin/proxies`, не появлялись в форме выбора прокси на `/admin/accounts`**, а вместо них форма показывала `proxies_<raw-uuid>.json` legacy-мусор. Причина: `/api/proxies` писал под ключом `"admin"` (через `_get_user_id()` по `is_admin`), а форма в `get_auth_form` / `get_session_config` / `update_session_config` читала через `get_web_session(...).get("user_id", "default")` — сырой UUID. Добавил `web.dependencies.get_proxy_scope(request)` (дубликат правила из `proxy_pool._get_user_id` — по `is_admin`) и перевёл все 4 формы на него. Теперь админ видит в форме те же прокси, что сам только что сохранил.
+- **PUT `/admin/api/sessions/<name>/config` → 404 для legacy-аккаунтов**, созданных до Phase 6. Они лежат в `sessions/<raw-user-uuid>/<name>/` (старая схема), а код пишет/читает в `sessions/admin/<name>/` (Phase-6 каноника). Listing находил их через broad-walk, но delete/config/connect — нет.
+  Добавил **одноразовую миграцию** `migrate_legacy_session_dirs()` на startup: перекладывает legacy-директории в каноничный layout по их `.account_info.json.owner` (`"admin"` → `sessions/admin/`, `"user:<id>"` → `sessions/user_<id>/`). Идемпотентно, safe при повторных рестартах. Конфликты (legacy + канон одновременно) оставляет legacy нетронутым + WARN в лог. После миграции все эндпоинты находят сессию по каноничному пути без fallback-костылей.
+
 ## [0.40.5] - 2026-04-23
 
 Playwright-аудит: то, что я пропустил в предыдущих релизах. Живой прогон UI нашёл три реальных регресса.

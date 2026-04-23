@@ -14,7 +14,7 @@ from chatfilter.i18n import _
 from chatfilter.storage.file import secure_delete_file
 from chatfilter.storage.helpers import atomic_write
 from chatfilter.telegram.flood_tracker import get_flood_tracker
-from chatfilter.web.dependencies import get_pool_scope
+from chatfilter.web.dependencies import get_pool_scope, get_proxy_scope
 from chatfilter.web.template_helpers import get_template_context
 
 from . import router
@@ -151,9 +151,9 @@ async def get_session_config(
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to read config for session {safe_name}: {e}")
 
-    # Load proxy pool
-    web_user_id = get_web_session(request).get("user_id", "default")
-    proxies = load_proxy_pool(web_user_id)
+    # Load proxy pool using the same scope key as /api/proxies
+    # so admin's shared-pool proxies show up in this admin-session form.
+    proxies = load_proxy_pool(get_proxy_scope(request))
 
     return templates.TemplateResponse(
         request=request,
@@ -204,12 +204,9 @@ async def update_session_config(
 
     from chatfilter.storage.errors import StorageNotFoundError
     from chatfilter.storage.proxy_pool import get_proxy_by_id
-    from chatfilter.web.session import get_session as get_web_session
-
-    web_user_id = get_web_session(request).get("user_id", "default")
 
     try:
-        get_proxy_by_id(proxy_id, web_user_id)
+        get_proxy_by_id(proxy_id, get_proxy_scope(request))
     except StorageNotFoundError:
         return HTMLResponse(
             content='<div class="alert alert-error">Selected proxy not found in pool</div>',
@@ -227,9 +224,10 @@ async def update_session_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    # Update proxy_id
+    # Update proxy_id and remember which proxy scope it came from so
+    # background.py / listing.py can verify the proxy still exists.
     config["proxy_id"] = proxy_id
-    config["web_user_id"] = web_user_id
+    config["web_user_id"] = get_proxy_scope(request)
 
     # Save updated config
     try:
@@ -271,11 +269,9 @@ async def get_auth_form(request: Request) -> HTMLResponse:
     """
     from chatfilter.storage.proxy_pool import load_proxy_pool
     from chatfilter.web.app import get_templates
-    from chatfilter.web.session import get_session as get_web_session
 
     templates = get_templates()
-    web_user_id = get_web_session(request).get("user_id", "default")
-    proxies = load_proxy_pool(web_user_id)
+    proxies = load_proxy_pool(get_proxy_scope(request))
 
     return templates.TemplateResponse(
         request=request,

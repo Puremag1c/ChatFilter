@@ -20,7 +20,7 @@ from chatfilter.parsers.telegram_expert import (
 )
 from chatfilter.telegram.client.config import TelegramConfigError
 from chatfilter.utils.disk import DiskSpaceError
-from chatfilter.web.dependencies import get_owner_key, get_pool_scope
+from chatfilter.web.dependencies import get_owner_key, get_pool_scope, get_proxy_scope
 
 from . import router
 from .io import (
@@ -494,13 +494,13 @@ async def save_import_session(
                 context={"success": False, "error": _("Invalid session: {error}").format(error=e)},
             )
 
-        # Validate proxy exists — same pool scope used for session_dir above
-        # so create / list / lookup all stay on the same scope key.
+        # Validate proxy exists — use the proxy-scope key (admin / user_<id>)
+        # matching what /api/proxies writes, not the session-pool scope.
         from chatfilter.storage.errors import StorageNotFoundError
         from chatfilter.storage.proxy_pool import get_proxy_by_id
 
         try:
-            get_proxy_by_id(proxy_id, web_user_id)
+            get_proxy_by_id(proxy_id, get_proxy_scope(request))
         except StorageNotFoundError:
             return templates.TemplateResponse(
                 request=request,

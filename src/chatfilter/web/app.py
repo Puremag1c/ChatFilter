@@ -115,6 +115,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     settings.data_dir.mkdir(parents=True, exist_ok=True)
 
+    # One-shot migration of legacy per-UUID session directories into the
+    # Phase-6 canonical ``sessions/admin/`` / ``sessions/user_<id>/``
+    # layout. Idempotent — subsequent startups are no-ops when the legacy
+    # dirs have already been moved.
+    try:
+        from chatfilter.web.routers.sessions.io import migrate_legacy_session_dirs
+
+        mig_stats = migrate_legacy_session_dirs()
+        if mig_stats["moved"] or mig_stats["conflicts"]:
+            logger.info(
+                "Legacy session-dir migration: moved=%d skipped=%d conflicts=%d",
+                mig_stats["moved"],
+                mig_stats["skipped"],
+                mig_stats["conflicts"],
+            )
+    except Exception:
+        logger.exception("Legacy session-dir migration failed (continuing anyway)")
+
     # Clean up orphaned resources from SIGKILL/crashes
     cleanup_orphaned_resources(
         data_dir=settings.data_dir,

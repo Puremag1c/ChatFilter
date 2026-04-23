@@ -128,6 +128,29 @@ def get_pool_scope(request: Request) -> str:
     return "admin"
 
 
+def get_proxy_scope(request: Request) -> str:
+    """Return the scope key used to identify this user's proxy pool.
+
+    Must match :func:`chatfilter.web.routers.proxy_pool._get_user_id`
+    so that the proxy a user saved via ``/api/proxies`` is the same
+    one a form renders in ``/api/sessions/.../config``. The rule
+    there is role-based, NOT URL-based:
+
+      - admin (is_admin in session) → ``"admin"``  (shared pool)
+      - logged-in user              → ``"user_{id}"``
+      - anonymous / fallback        → ``"default"``
+
+    This differs from :func:`get_pool_scope` (which is URL-based for
+    the sessions layout) — do not substitute one for the other.
+    Session listing forms use THIS helper to pick the right proxies.
+    """
+    session = get_session(request)
+    if session.get("is_admin"):
+        return "admin"
+    uid = session.get("user_id")
+    return f"user_{uid}" if uid else "default"
+
+
 def get_owner_key(request: Request) -> str:
     """Return the ownership key stored in .account_info.json / routed by scheduler.
 

@@ -160,6 +160,80 @@ def load_account_info(session_dir: Path) -> dict[str, int | str] | None:
         return None
 
 
+def migrate_legacy_session_dirs() -> dict[str, int]:
+    """One-shot migration: move legacy per-user-UUID session dirs to the
+    Phase-6 canonical layout (``sessions/admin/<name>`` or
+    ``sessions/user_<id>/<name>``).
+
+    Ran from the app lifespan at startup. Idempotent — if a session is
+    already at its canonical path it is skipped. If the canonical path
+    exists AND a legacy copy also exists, we leave the legacy copy
+    alone and log a warning (don't know which is authoritative).
+
+    Returns a stats dict ``{"moved": N, "skipped": N, "conflicts": N}``.
+    """
+    import shutil as _shutil
+
+    sessions_root = helpers.get_settings().sessions_dir
+    stats = {"moved": 0, "skipped": 0, "conflicts": 0}
+    if not sessions_root.exists():
+        return stats
+
+    canonical_names = {"admin"}
+    for sub in sessions_root.iterdir():
+        if not sub.is_dir():
+            continue
+        if sub.name in canonical_names or sub.name.startswith("user_"):
+            continue  # already canonical
+
+        # This is a legacy per-UUID dir — look inside for session subdirs.
+        for session_dir in list(sub.iterdir()):
+            if not session_dir.is_dir():
+                continue
+            info = load_account_info(session_dir)
+            owner = (info or {}).get("owner") if info else None
+            # Phase-4 default: missing metadata means this belonged to the
+            # admin pool (that's what the Phase-4 migration decided).
+            if owner is None or owner == "admin":
+                target_scope = "admin"
+            elif isinstance(owner, str) and owner.startswith("user:"):
+                target_scope = "user_" + owner.split(":", 1)[1]
+            else:
+                stats["skipped"] += 1
+                continue
+
+            target_parent = sessions_root / target_scope
+            target_parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            target = target_parent / session_dir.name
+
+            if target.exists():
+                logger.warning(
+                    "Legacy session %s conflicts with canonical %s — "
+                    "leaving legacy copy in place",
+                    session_dir,
+                    target,
+                )
+                stats["conflicts"] += 1
+                continue
+
+            try:
+                _shutil.move(str(session_dir), str(target))
+                stats["moved"] += 1
+                logger.info("Migrated legacy session %s → %s", session_dir, target)
+            except Exception:
+                logger.exception("Failed to migrate session %s", session_dir)
+                stats["skipped"] += 1
+
+        # Remove the now-empty legacy dir (best effort).
+        try:
+            if not any(sub.iterdir()):
+                sub.rmdir()
+        except Exception:
+            pass
+
+    return stats
+
+
 def get_session_owner(session_id: str) -> str:
     """Return the pool_key that owns this session.
 
