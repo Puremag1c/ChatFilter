@@ -236,6 +236,43 @@ async def admin_queue_dashboard(request: Request) -> HTMLResponse | Response:
     )
 
 
+@router.get("/admin/monitor", response_class=HTMLResponse, response_model=None)
+async def admin_monitor_dashboard(request: Request) -> HTMLResponse | Response:
+    """Admin-pool health monitor: account state counts, proxy state
+    counts, external balances. HTMX-polls /admin/api/monitor/summary
+    every 30s to refresh the numbers without a full page reload.
+    """
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/admin_monitor_dashboard.html",
+        context=get_template_context(request, version=__version__),
+    )
+
+
+@router.get("/admin/api/monitor/summary", response_class=HTMLResponse, response_model=None)
+async def admin_monitor_summary(request: Request) -> HTMLResponse | Response:
+    """HTMX partial with current admin-pool health snapshot."""
+    from chatfilter.service.monitor import get_monitor_service
+    from chatfilter.web.app import get_templates
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    snapshot = get_monitor_service().gather()
+    templates = get_templates()
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/admin_monitor_summary.html",
+        context=get_template_context(request, snapshot=snapshot),
+    )
+
+
 @router.get("/admin/users", response_class=HTMLResponse, response_model=None)
 @router.get("/admin/platforms", response_class=HTMLResponse, response_model=None)
 @router.get("/admin/system", response_class=HTMLResponse, response_model=None)

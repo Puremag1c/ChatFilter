@@ -3489,3 +3489,45 @@ msgstr "Вы ещё не добавили ни одного Telegram-аккау�
 
 msgid "soon"
 msgstr "скоро"
+
+
+# Added by Monitor PR1
+
+msgid "Monitor"
+msgstr "Монитор"
+
+msgid "Health of the shared admin pool — accounts, proxies and external balances."
+msgstr "Состояние общего админского пула — аккаунты, прокси и внешние балансы."
+
+msgid "Accounts (admin pool)"
+msgstr "Аккаунты (админ-пул)"
+
+msgid "Proxies (admin pool)"
+msgstr "Прокси (админ-пул)"
+
+msgid "Total"
+msgstr "Всего"
+
+msgid "Disconnected"
+msgstr "Отключён"
+
+msgid "FloodWait"
+msgstr "FloodWait"
+
+msgid "Needs code"
+msgstr "Нужен код"
+
+msgid "Needs 2FA"
+msgstr "Нужен 2FA"
+
+msgid "Needs confirmation"
+msgstr "Нужно подтверждение"
+
+msgid "Needs config"
+msgstr "Нужна настройка"
+
+msgid "Balances"
+msgstr "Балансы"
+
+msgid "Balance integrations are wired in a later iteration — currently shown as placeholders."
+msgstr "Интеграции балансов появятся в следующей итерации — пока это заглушки."

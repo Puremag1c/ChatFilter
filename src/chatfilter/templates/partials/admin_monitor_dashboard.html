@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container" role="main" style="padding-top:1.5rem">
+{% include "partials/admin_tabs.html" %}
+
+<div class="page-header">
+    <h1>{{ _("Monitor") }}</h1>
+    <p class="subtitle">{{ _("Health of the shared admin pool — accounts, proxies and external balances.") }}</p>
+</div>
+
+{# The actual numbers live in the HTMX partial. It reloads every 30s
+   on its own (hx-trigger), and the first paint happens on page load. #}
+<div id="monitor-stats"
+     hx-get="/admin/api/monitor/summary"
+     hx-trigger="load, every 30s"
+     hx-swap="innerHTML">
+    <p style="color:var(--text-muted,#6b7280);padding:1rem">{{ _("Loading...") }}</p>
+</div>
+</main>
+{% endblock %}

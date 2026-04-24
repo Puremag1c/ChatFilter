@@ -1,0 +1,90 @@
+{# Three sections: accounts / proxies / balances. Numbers only; the
+   list pages (/admin/accounts, /admin/proxies) remain the place to
+   drill into individual rows. #}
+
+{% set STATE_LABELS = {
+    "connected": _("Connected"),
+    "disconnected": _("Disconnected"),
+    "connecting": _("Connecting"),
+    "error": _("Error"),
+    "banned": _("Banned"),
+    "flood_wait": _("FloodWait"),
+    "needs_code": _("Needs code"),
+    "needs_2fa": _("Needs 2FA"),
+    "needs_confirmation": _("Needs confirmation"),
+    "needs_config": _("Needs config"),
+} %}
+{% set PROXY_LABELS = {
+    "working": _("Working"),
+    "no_ping": _("No ping"),
+    "untested": _("Untested"),
+} %}
+
+{% set stat_box = "padding:0.75rem 1rem;border-radius:8px;background:var(--bg-subtle,#f3f4f6);min-width:140px" %}
+{% set stat_label = "font-size:0.75rem;text-transform:uppercase;color:var(--text-muted,#6b7280);letter-spacing:0.05em" %}
+{% set stat_value = "font-size:1.5rem;font-weight:700;margin-top:0.25rem" %}
+
+<section class="card">
+    <div class="card-header">
+        <h2>{{ _("Accounts (admin pool)") }}</h2>
+        <span style="color:var(--text-muted,#6b7280);font-size:0.875rem">{{ _("Total") }}: <strong>{{ snapshot.accounts.total }}</strong></span>
+    </div>
+    <div style="padding:1rem;display:flex;flex-wrap:wrap;gap:0.75rem">
+        {% for state_key in ["connected","disconnected","connecting","error","banned","flood_wait","needs_code","needs_2fa","needs_confirmation","needs_config"] %}
+            {% set count = snapshot.accounts[state_key] %}
+            {% if count > 0 or state_key in ("connected", "error", "flood_wait") %}
+            <div style="{{ stat_box }}">
+                <div style="{{ stat_label }}">{{ STATE_LABELS[state_key] }}</div>
+                <div style="{{ stat_value }}{% if count > 0 and state_key in ('error','banned') %};color:var(--color-danger,#dc2626){% elif count > 0 and state_key == 'flood_wait' %};color:var(--color-warning,#d97706){% endif %}">{{ count }}</div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>{{ _("Proxies (admin pool)") }}</h2>
+        <span style="color:var(--text-muted,#6b7280);font-size:0.875rem">{{ _("Total") }}: <strong>{{ snapshot.proxies.total }}</strong></span>
+    </div>
+    <div style="padding:1rem;display:flex;flex-wrap:wrap;gap:0.75rem">
+        {% for state_key in ["working","no_ping","untested"] %}
+            {% set count = snapshot.proxies[state_key] %}
+            <div style="{{ stat_box }}">
+                <div style="{{ stat_label }}">{{ PROXY_LABELS[state_key] }}</div>
+                <div style="{{ stat_value }}{% if count > 0 and state_key == 'no_ping' %};color:var(--color-danger,#dc2626){% endif %}">{{ count }}</div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>{{ _("Balances") }}</h2>
+    </div>
+    <div style="padding:1rem;display:flex;flex-wrap:wrap;gap:0.75rem">
+        <div style="{{ stat_box }}">
+            <div style="{{ stat_label }}">OpenRouter</div>
+            <div style="{{ stat_value }}">
+                {% if snapshot.balances.openrouter.remaining is not none %}
+                    ${{ "%.2f"|format(snapshot.balances.openrouter.remaining) }}
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+        </div>
+        <div style="{{ stat_box }}">
+            <div style="{{ stat_label }}">ProxyLine</div>
+            <div style="{{ stat_value }}">
+                {% if snapshot.balances.proxyline.main is not none %}
+                    ${{ "%.2f"|format(snapshot.balances.proxyline.main) }}
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <p style="padding:0 1rem 1rem;color:var(--text-muted,#6b7280);font-size:0.85rem">
+        {{ _("Balance integrations are wired in a later iteration — currently shown as placeholders.") }}
+    </p>
+</section>

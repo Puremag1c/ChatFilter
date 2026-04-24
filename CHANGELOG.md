@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.13] - 2026-04-24
+
+Monitor-секция в админке — PR1 (MVP) из плана мониторинга.
+
+### Added
+- **Страница `/admin/monitor`** — 7-й админский таб. Показывает здоровье shared admin pool:
+  - Accounts: total + counts по состояниям (connected / disconnected / connecting / error / banned / flood_wait / needs_code / needs_2fa / needs_confirmation / needs_config). Accounts во FloodWait отображаются в своём bucket независимо от state.
+  - Proxies: total + counts по status (working / no_ping / untested).
+  - Balances: placeholder-виджеты для OpenRouter и ProxyLine (реальные fetchers — в PR3).
+- **HTMX polling** каждые 30с через `GET /admin/api/monitor/summary` — без full page reload, без SSE.
+- **Scope — строго admin**. `MonitorService.accounts_summary()` / `proxies_summary()` игнорируют user-owned сессии и personal proxy pools. Power-user'ы остаются автономными.
+
+### Files
+- `src/chatfilter/service/monitor.py` (new) — `MonitorService` (+ module-level singleton через `get_monitor_service()`).
+- `src/chatfilter/web/routers/admin.py` — handlers `admin_monitor_dashboard` + `admin_monitor_summary`.
+- `src/chatfilter/templates/partials/admin_monitor_dashboard.html` + `admin_monitor_summary.html` (new).
+- `src/chatfilter/templates/partials/admin_tabs.html` — 7-й таб «Монитор».
+- Переводы в `ru/messages.po` (13 новых msgid'ов, компилировано).
+
+### Tests
+- `tests/test_monitor_service.py` (new) — 8 тестов: counts by state, FloodWait overlay, user-pool isolation, empty pool.
+- `tests/test_pages_sse_i18n.py` — `test_admin_monitor` + `test_admin_monitor_summary_partial`.
+
 ## [0.40.12] - 2026-04-23
 
 ### Fixed

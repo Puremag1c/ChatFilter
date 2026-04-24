@@ -76,6 +76,23 @@ class TestPagesRenderFor200:
         r = admin_client.get("/admin")
         assert r.status_code == 200
 
+    def test_admin_monitor(self, admin_client: Any) -> None:
+        r = admin_client.get("/admin/monitor")
+        assert r.status_code == 200
+        # Monitor tab appears in the admin nav.
+        assert 'href="/admin/monitor"' in r.text
+        # HTMX polling wiring for the stats block.
+        assert 'id="monitor-stats"' in r.text
+        assert 'hx-get="/admin/api/monitor/summary"' in r.text
+
+    def test_admin_monitor_summary_partial(self, admin_client: Any) -> None:
+        r = admin_client.get("/admin/api/monitor/summary")
+        assert r.status_code == 200
+        # Three sections present, balances still placeholder.
+        assert "admin pool" in r.text
+        assert "OpenRouter" in r.text
+        assert "ProxyLine" in r.text
+
 
 # ------------------------------------------------------------------
 # 2. SSE wiring — every live-updating page must carry the HTMX SSE
