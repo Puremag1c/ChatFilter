@@ -277,17 +277,19 @@ async def connect_session(
             status_code=status.HTTP_200_OK,
         )
 
-    # Register loader factory (stores in _factories, NOT _sessions)
-    session_manager.register(safe_name, loader)
-
-    # Persist the desired state so boot recovery can bring this session
-    # back up automatically after a restart. Done synchronously here —
-    # the connect itself runs in a background task, but the user's
-    # *intent* is "connected", which should survive even if the
-    # background connect later fails.
+    # Persist the desired state BEFORE registering the loader so boot
+    # recovery can bring this session back up automatically after a
+    # restart. Done synchronously, and *before* register/connect, so
+    # the autoconnect intent survives even if this handler is killed
+    # mid-flight — the alternative (write after register) opens a
+    # microsecond window where a crash leaves the user's explicit
+    # Connect intent unrecorded on disk.
     from chatfilter.service.session_autoconnect import set_autoconnect
 
     set_autoconnect(config_path, True)
+
+    # Register loader factory (stores in _factories, NOT _sessions)
+    session_manager.register(safe_name, loader)
 
     # Pool routing (Phase 4): take the owner from the session's
     # .account_info.json. "admin" by default for every pre-Phase-4

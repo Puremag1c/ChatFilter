@@ -135,3 +135,89 @@ class TestAdminSettingsSecurity:
             )
         # redirect to login (302) or explicit 401/403 — all acceptable
         assert resp.status_code != 200
+
+
+class TestWebhookThresholdValidation:
+    """POST /admin/integrations-settings must reject garbage thresholds.
+
+    Regression: before 0.42.1 negative accounts_error threshold (``-5``)
+    caused the alerts loop to fire on every admin account in error
+    (condition ``count >= -5 and count > 0`` always True), and negative
+    balance thresholds silently suppressed all low-balance alerts.
+    """
+
+    def _get_setting(self, test_settings: Any, key: str) -> str | None:
+        from chatfilter.storage.group_database import GroupDatabase
+
+        return GroupDatabase(test_settings.effective_database_url).get_setting(key)
+
+    def test_rejects_negative_accounts_error(
+        self, admin_client: TestClient, test_settings: Any
+    ) -> None:
+        resp = admin_client.post(
+            "/admin/integrations-settings",
+            data={"webhook_threshold_accounts_error": "-5"},
+            headers={"X-CSRF-Token": _CSRF_TOKEN},
+            follow_redirects=False,
+        )
+        # Toast-error response — not a redirect, not 2xx success.
+        trigger = resp.headers.get("HX-Trigger", "")
+        assert '"type": "error"' in trigger
+        # Setting must remain at default / unchanged.
+        assert self._get_setting(test_settings, "webhook_threshold_accounts_error") != "-5"
+
+    def test_rejects_zero_accounts_error(
+        self, admin_client: TestClient, test_settings: Any
+    ) -> None:
+        resp = admin_client.post(
+            "/admin/integrations-settings",
+            data={"webhook_threshold_accounts_error": "0"},
+            headers={"X-CSRF-Token": _CSRF_TOKEN},
+            follow_redirects=False,
+        )
+        trigger = resp.headers.get("HX-Trigger", "")
+        assert '"type": "error"' in trigger
+        assert self._get_setting(test_settings, "webhook_threshold_accounts_error") != "0"
+
+    def test_rejects_negative_openrouter(
+        self, admin_client: TestClient, test_settings: Any
+    ) -> None:
+        resp = admin_client.post(
+            "/admin/integrations-settings",
+            data={"webhook_threshold_openrouter": "-1.5"},
+            headers={"X-CSRF-Token": _CSRF_TOKEN},
+            follow_redirects=False,
+        )
+        trigger = resp.headers.get("HX-Trigger", "")
+        assert '"type": "error"' in trigger
+        assert self._get_setting(test_settings, "webhook_threshold_openrouter") != "-1.5"
+
+    def test_rejects_non_numeric_proxyline(
+        self, admin_client: TestClient, test_settings: Any
+    ) -> None:
+        resp = admin_client.post(
+            "/admin/integrations-settings",
+            data={"webhook_threshold_proxyline": "abc"},
+            headers={"X-CSRF-Token": _CSRF_TOKEN},
+            follow_redirects=False,
+        )
+        trigger = resp.headers.get("HX-Trigger", "")
+        assert '"type": "error"' in trigger
+        assert self._get_setting(test_settings, "webhook_threshold_proxyline") != "abc"
+
+    def test_accepts_valid_thresholds(self, admin_client: TestClient, test_settings: Any) -> None:
+        resp = admin_client.post(
+            "/admin/integrations-settings",
+            data={
+                "webhook_threshold_accounts_error": "3",
+                "webhook_threshold_openrouter": "2.50",
+                "webhook_threshold_proxyline": "15.00",
+            },
+            headers={"X-CSRF-Token": _CSRF_TOKEN},
+            follow_redirects=False,
+        )
+        trigger = resp.headers.get("HX-Trigger", "")
+        assert '"type": "error"' not in trigger
+        assert self._get_setting(test_settings, "webhook_threshold_accounts_error") == "3"
+        assert self._get_setting(test_settings, "webhook_threshold_openrouter") == "2.50"
+        assert self._get_setting(test_settings, "webhook_threshold_proxyline") == "15.00"

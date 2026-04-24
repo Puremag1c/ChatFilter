@@ -94,11 +94,31 @@ class AccountWatchdog:
         if self._loop_task is None:
             return
         self._stop.set()
+
+        # Fire-and-forget reconnect tasks from prior ticks may still be
+        # sleeping inside ``session_manager.connect``. Cancel them before
+        # we wait on the loop — otherwise they leak past shutdown and
+        # race with ``session_manager.disconnect_all`` on SIGINT.
+        pending = [
+            rs.active_task
+            for rs in self._retry_state.values()
+            if rs.active_task is not None and not rs.active_task.done()
+        ]
+        for t in pending:
+            t.cancel()
+
         try:
             await asyncio.wait_for(self._loop_task, timeout=timeout)
         except TimeoutError:
             self._loop_task.cancel()
         self._loop_task = None
+
+        if pending:
+            import contextlib
+
+            for t in pending:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await t
         logger.info("AccountWatchdog stopped")
 
     # ---- loop --------------------------------------------------------

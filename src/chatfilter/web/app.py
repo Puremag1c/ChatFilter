@@ -433,6 +433,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"Error stopping proxy health monitor: {e}")
 
+    # 5aa. Cancel boot recovery task if it's still running — otherwise it
+    # races with ``session_manager.disconnect_all`` below and ends up
+    # calling ``client.connect()`` on already-closed clients.
+    brt = getattr(app.state.app_state, "boot_recovery_task", None)
+    if brt is not None and not brt.done():
+        logger.info("Cancelling boot recovery task")
+        brt.cancel()
+        import contextlib
+
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await asyncio.wait_for(brt, timeout=5.0)
+        logger.info("Boot recovery task cancelled")
+
     # 5b. Stop account watchdog
     wd = getattr(app.state.app_state, "account_watchdog", None)
     if wd is not None:

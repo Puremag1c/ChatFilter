@@ -47,6 +47,12 @@ DEFAULT_TIMEOUT = 5.0
 DEFAULT_DEDUP_WINDOW = 3600.0  # 1 hour
 MAX_RESPONSE_LOG_BYTES = 200
 
+# Non-standard ports are almost always a sign of someone trying to
+# reach an internal service (Redis 6379, Postgres 5432, Elastic 9200,
+# etc.) via a public DNS name. Webhook providers live on standard
+# HTTPS. Keep the list tiny on purpose.
+_ALLOWED_WEBHOOK_PORTS = frozenset({80, 443, 8080, 8443})
+
 
 @dataclass(frozen=True)
 class WebhookEvent:
@@ -103,6 +109,17 @@ def validate_webhook_url(url: str | None) -> str | None:
         return None
     # Block the most common hostname forms for loopback.
     if host.lower() in ("localhost", "localhost.localdomain"):
+        return None
+
+    # Port must be a standard web port — anything else is a strong hint
+    # that someone is aiming a public DNS name at an internal service.
+    # urllib gives us the port only when the URL actually carries one;
+    # None means default-for-scheme which is always 80/443, so safe.
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is not None and port not in _ALLOWED_WEBHOOK_PORTS:
         return None
 
     return stripped

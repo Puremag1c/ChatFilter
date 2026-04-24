@@ -246,6 +246,26 @@ class TestValidateWebhookUrl:
     def test_rejects_missing_host(self) -> None:
         assert validate_webhook_url("http:///path") is None
 
+    def test_rejects_non_standard_ports(self) -> None:
+        """Public DNS name on a non-web port is almost always someone
+        aiming at an internal service (Redis 6379, Postgres 5432,
+        Elastic 9200, etc.) through attacker-controlled DNS. Only
+        accept standard HTTP(S) ports."""
+        assert validate_webhook_url("https://example.com:6379/hook") is None
+        assert validate_webhook_url("https://example.com:5432/hook") is None
+        assert validate_webhook_url("https://example.com:22/hook") is None
+        assert validate_webhook_url("https://example.com:9200/") is None
+
+    def test_accepts_standard_ports(self) -> None:
+        assert validate_webhook_url("https://example.com:443/h") == "https://example.com:443/h"
+        assert validate_webhook_url("http://example.com:80/h") == "http://example.com:80/h"
+        assert validate_webhook_url("https://example.com:8443/h") == "https://example.com:8443/h"
+        assert validate_webhook_url("http://example.com:8080/h") == "http://example.com:8080/h"
+
+    def test_accepts_default_port(self) -> None:
+        """No explicit port → default for scheme (80/443) is safe."""
+        assert validate_webhook_url("https://example.com/hook") == "https://example.com/hook"
+
     @pytest.mark.asyncio
     async def test_send_refuses_blocked_url(self, mock_httpx) -> None:
         """End-to-end: send() short-circuits on a loopback URL."""

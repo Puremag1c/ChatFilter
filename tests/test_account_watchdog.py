@@ -178,6 +178,40 @@ class TestTickOnce:
         await rs.active_task
 
     @pytest.mark.asyncio
+    async def test_stop_cancels_pending_reconnect_tasks(self, mock_listing) -> None:
+        """``stop()`` must not leak fire-and-forget reconnect tasks
+        that are sleeping inside a hung ``session_manager.connect``.
+        Before 0.42.1 those tasks survived shutdown and raced with
+        ``disconnect_all`` on SIGINT (client.connect() on a closed
+        client → noisy tracebacks + partial sessions).
+        """
+        mock_listing.append(SessionListItem(session_id="Hung", state="error"))
+        sm = _FakeSessionManager(registered={"Hung"})
+
+        # connect() hangs forever — simulates a dead Telegram handshake.
+        never = asyncio.Event()
+
+        async def _block(_sid: str):
+            await never.wait()
+
+        sm.connect.side_effect = _block
+
+        wd = AccountWatchdog(session_manager=sm, poll_interval=60.0)
+        await wd.start()
+        await wd.tick_once()
+        # Give create_task a cycle to schedule.
+        await asyncio.sleep(0)
+
+        rs = wd._retry_state["Hung"]
+        assert rs.active_task is not None
+        assert not rs.active_task.done()
+
+        await wd.stop(timeout=1.0)
+
+        assert rs.active_task.done(), "stop() must cancel in-flight reconnects"
+        assert rs.active_task.cancelled() or rs.active_task.exception() is not None
+
+    @pytest.mark.asyncio
     async def test_user_pool_not_involved(self, mock_listing) -> None:
         """Watchdog calls ``list_stored_sessions(user_id="admin")`` —
         user-owned sessions are filtered out at the listing layer by the

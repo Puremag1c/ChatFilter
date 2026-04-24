@@ -631,15 +631,51 @@ async def update_integrations_settings(
 
     if proxyline_api_key.strip():
         group_db.set_setting("proxyline_api_key", proxyline_api_key.strip())
-    group_db.set_setting(
-        "webhook_threshold_accounts_error", webhook_threshold_accounts_error.strip() or "1"
-    )
-    group_db.set_setting(
-        "webhook_threshold_openrouter", webhook_threshold_openrouter.strip() or "5.00"
-    )
-    group_db.set_setting(
-        "webhook_threshold_proxyline", webhook_threshold_proxyline.strip() or "10.00"
-    )
+
+    # Validate thresholds — negative/zero values either spam alerts
+    # (accounts_error: ``count >= -5`` always True) or silently suppress
+    # them (balance: ``remaining < -5`` impossible). Empty = keep default.
+    raw_err = webhook_threshold_accounts_error.strip()
+    if raw_err:
+        try:
+            if int(raw_err) < 1:
+                raise ValueError
+        except ValueError:
+            return _toast_response(
+                "Порог accounts_error должен быть целым числом ≥ 1",
+                toast_type="error",
+            )
+        group_db.set_setting("webhook_threshold_accounts_error", raw_err)
+    else:
+        group_db.set_setting("webhook_threshold_accounts_error", "1")
+
+    raw_or = webhook_threshold_openrouter.strip()
+    if raw_or:
+        try:
+            if float(raw_or) <= 0:
+                raise ValueError
+        except ValueError:
+            return _toast_response(
+                "Порог OpenRouter должен быть числом > 0",
+                toast_type="error",
+            )
+        group_db.set_setting("webhook_threshold_openrouter", raw_or)
+    else:
+        group_db.set_setting("webhook_threshold_openrouter", "5.00")
+
+    raw_pl = webhook_threshold_proxyline.strip()
+    if raw_pl:
+        try:
+            if float(raw_pl) <= 0:
+                raise ValueError
+        except ValueError:
+            return _toast_response(
+                "Порог ProxyLine должен быть числом > 0",
+                toast_type="error",
+            )
+        group_db.set_setting("webhook_threshold_proxyline", raw_pl)
+    else:
+        group_db.set_setting("webhook_threshold_proxyline", "10.00")
 
     return _toast_response("Настройки интеграций сохранены", redirect="/admin")
 

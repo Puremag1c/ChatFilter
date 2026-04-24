@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.1] - 2026-04-24
+
+Патч-релиз по результатам пост-релизного аудита 0.42.0. Один P0 (silent data loss в admin-UI редактировании прокси) и три P1 (shutdown-race, leak фоновых задач, отсутствие валидации webhook-порогов) плюс два P2 (порядок записи autoconnect, SSRF через нестандартные порты).
+
+### Fixed — P0
+
+- **`update_proxy_endpoint` больше не стирает `proxyline_id` / `expires_at` / health-поля.** До 0.42.1 любой PUT на `/admin/api/proxies/{id}` (редактирование name/host/port через UI) пересобирал `ProxyEntry(...)` с нуля — новые поля из PR3 (ProxyLine linkage) молча обнулялись, `status` ресетился в UNTESTED, кнопка Renew на `/admin/monitor` начинала возвращать 400. Переписано на `existing_proxy.model_copy(update={...})` в единственном месте — `src/chatfilter/web/routers/proxy_pool.py:294-316`. Тест `test_update_proxy_preserves_proxyline_and_health_fields` пинит round-trip.
+
+### Fixed — P1
+
+- **Shutdown отменяет `boot_recovery_task`.** В `web/app.py` lifespan section 5aa перед `disconnect_all` теперь делает `cancel + await` boot recovery task с 5s timeout. До этого Boot Recovery мог вызывать `client.connect()` на уже закрытый клиент при SIGINT в середине Phase B (50 админ-аккаунтов × ~25s стартапа = окно гарантированного race).
+- **`AccountWatchdog.stop()` отменяет in-flight reconnect tasks.** Раньше `stop()` только отменял `_loop_task`; `rs.active_task` — fire-and-forget задачи с зависшим `SessionManager.connect` — оставались pending и попадали в гонку с `disconnect_all`. Исправлено в `service/account_watchdog.py`: перед `wait_for(loop_task)` собираем все живые `active_task` и `.cancel()` их, потом дожидаемся через `contextlib.suppress(asyncio.CancelledError, Exception)`. Тест `test_stop_cancels_pending_reconnect_tasks` закрепляет поведение.
+- **Валидация webhook-порогов в `/admin/integrations-settings`.** Админ мог сохранить `-5` или `abc` для любого из трёх `webhook_threshold_*` — `accounts_error=-5` → alert каждый tick (условие `count >= -5 and count > 0` всегда истинно при любой ошибке), `balance=-5` → никогда не триггерится (`remaining < -5` невозможно для реальных балансов). Теперь web/routers/admin.py `update_integrations_settings` валидирует int≥1 / float>0 и возвращает toast-ошибку при нарушении. Пустая строка → дефолт. 5 тестов в `test_admin_settings_security.py::TestWebhookThresholdValidation`.
+
+### Fixed — P2
+
+- **`set_autoconnect(True)` теперь пишется ДО `session_manager.register()`** в `web/routers/sessions/connect.py`. Закрывает микросекундное окно, где падение процесса между register (in-memory) и set_autoconnect (disk) оставляло disk-флаг с предыдущим значением — юзеру с явно disconnect'нутой сессией пришлось бы нажать Connect дважды после такого крэша.
+- **SSRF: webhook URL только на стандартных web-портах.** `notifications.py:validate_webhook_url` добавляет whitelist `{80, 443, 8080, 8443}` поверх IP-блокировок. Раньше `https://attacker.com:6379/` проходил валидацию — DNS rebinding на internal Redis/Postgres был достижим. Тесты `test_rejects_non_standard_ports`, `test_accepts_standard_ports`, `test_accepts_default_port`.
+
+### Tests
+
+- +11 регрессионных тестов (1 P0 round-trip, 1 watchdog stop, 5 threshold validation, 3 port whitelist, 1 default port). Всего 222 в релевантном срезе — зелёные, ruff/mypy clean.
+
 ## [0.42.0] - 2026-04-24
 
 Две связанные фичи в одном релизе: завершение Monitor-секции (PR2–4 из плана) и Boot Recovery. Все 14 находок из post-implementation аудита (security / reliability / architecture) закрыты.

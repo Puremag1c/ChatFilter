@@ -377,6 +377,87 @@ class TestUpdateProxy:
         assert data["success"] is False
         assert "Invalid proxy type" in data["error"]
 
+    def test_update_proxy_preserves_proxyline_and_health_fields(
+        self, client: TestClient, csrf_token: str
+    ):
+        """PUT through the admin form must not wipe ProxyLine linkage
+        or health history — they were set elsewhere (syncer / health
+        monitor) and the admin editing name/host has no business
+        touching them.
+
+        Regression: before 0.42.1 the endpoint reconstructed
+        ``ProxyEntry(...)`` without these fields, so every edit reset
+        ``proxyline_id`` to None (breaking renew + expiry sync) and
+        status to UNTESTED (forcing a re-ping).
+        """
+        from datetime import UTC, datetime
+
+        from chatfilter.config_proxy import ProxyStatus
+
+        proxy_id = "11111111-1111-1111-1111-111111111111"
+        pin = datetime(2026, 4, 20, 10, 0, 0, tzinfo=UTC)
+        ok = datetime(2026, 4, 20, 9, 59, 0, tzinfo=UTC)
+        exp = datetime(2026, 6, 1, 0, 0, 0, tzinfo=UTC)
+        existing_proxy = ProxyEntry(
+            id=proxy_id,
+            name="Old",
+            type=ProxyType.SOCKS5,
+            host="old.example.com",
+            port=1080,
+            password="secret",
+            status=ProxyStatus.WORKING,
+            last_ping_at=pin,
+            last_success_at=ok,
+            consecutive_failures=0,
+            proxyline_id=12345,
+            expires_at=exp,
+        )
+
+        captured: dict[str, ProxyEntry] = {}
+
+        def _capture(pid: str, entry: ProxyEntry, user_id: str) -> ProxyEntry:
+            captured["entry"] = entry
+            return entry
+
+        with (
+            patch(
+                "chatfilter.web.routers.proxy_pool.get_proxy_by_id",
+                return_value=existing_proxy,
+            ),
+            patch(
+                "chatfilter.web.routers.proxy_pool.update_proxy",
+                side_effect=_capture,
+            ),
+        ):
+            response = client.put(
+                f"/admin/api/proxies/{proxy_id}",
+                json={
+                    "name": "New Name",
+                    "type": "http",
+                    "host": "new.example.com",
+                    "port": 8080,
+                    "username": "",
+                },
+                headers={"X-CSRF-Token": csrf_token},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+        saved = captured["entry"]
+        # Edits landed.
+        assert saved.name == "New Name"
+        assert saved.host == "new.example.com"
+        assert saved.port == 8080
+        assert saved.type == ProxyType.HTTP
+        # Critical: untouched fields survived the round-trip.
+        assert saved.proxyline_id == 12345
+        assert saved.expires_at == exp
+        assert saved.status == ProxyStatus.WORKING
+        assert saved.last_ping_at == pin
+        assert saved.last_success_at == ok
+        assert saved.password == "secret"  # no new password provided
+
 
 class TestDeleteProxy:
     """Tests for DELETE /admin/api/proxies/{proxy_id} endpoint."""

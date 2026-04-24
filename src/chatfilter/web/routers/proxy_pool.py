@@ -296,15 +296,20 @@ async def update_proxy_endpoint(
         # Use existing password if new one not provided
         password = body.password if body.password is not None else existing_proxy.password
 
-        # Create updated proxy entry
-        updated_proxy = ProxyEntry(
-            id=proxy_id,
-            name=body.name,
-            type=proxy_type,
-            host=body.host,
-            port=body.port,
-            username=body.username,
-            password=password,
+        # model_copy preserves every field we don't touch — including
+        # ``proxyline_id`` / ``expires_at`` (ProxyLine integration) and
+        # health bookkeeping (``status``, ``last_ping_at``, ...).
+        # A bare ``ProxyEntry(...)`` constructor would silently reset
+        # them to defaults on every admin edit.
+        updated_proxy = existing_proxy.model_copy(
+            update={
+                "name": body.name,
+                "type": proxy_type,
+                "host": body.host,
+                "port": body.port,
+                "username": body.username,
+                "password": password,
+            }
         )
 
         # Update in pool
