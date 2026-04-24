@@ -113,6 +113,10 @@ src/chatfilter/i18n/messages.pot
 /*.xml
 /*.txt
 /MagicMock/
+# Tests that mock ``settings.effective_database_url`` can accidentally
+# create SQLite files named after the mock's repr — trap them here so
+# they never reach ``git status`` noise.
+/<MagicMock*
 
 # Ephemeral session reports (anywhere) — these belong in docs/reports/
 # if they need to live long-term, not in git root.
