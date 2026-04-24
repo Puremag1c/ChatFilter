@@ -33,6 +33,9 @@
     <!-- Skip to main content link for keyboard navigation -->
     <a href="#main-content" class="skip-link">{{ _("Skip to main content") }}</a>
 
+    {# Boot-recovery progress banner (no-op once recovery is done) #}
+    {% include "partials/_boot_recovery_banner.html" %}
+
     <header role="banner">
         <nav class="header-nav" role="navigation" aria-label="{{ _("Main navigation") }}">
             <div class="header-left">

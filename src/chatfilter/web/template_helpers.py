@@ -94,6 +94,20 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         _path = ""
     api_prefix = "/admin" if _path.startswith("/admin/") or _path == "/admin" else ""
 
+    # Boot recovery progress (shown as a yellow banner in base.html).
+    # None → no banner. Snapshot object → banner renders with counters.
+    # We always include the field so templates don't need to guard.
+    boot_recovery = None
+    try:
+        from chatfilter.service.boot_recovery import get_boot_recovery_holder
+
+        _h = get_boot_recovery_holder()
+        if _h is not None:
+            boot_recovery = _h.snapshot()
+    except Exception:
+        # Never let a banner probe break the page.
+        pass
+
     return {
         "request": request,
         "csrf_token": csrf_token,
@@ -110,5 +124,6 @@ def get_template_context(request: Request, **kwargs: Any) -> dict[str, Any]:
         "current_use_own_accounts": current_use_own_accounts,
         "ai_balance": ai_balance,
         "api_prefix": api_prefix,
+        "boot_recovery": boot_recovery,
         **kwargs,
     }

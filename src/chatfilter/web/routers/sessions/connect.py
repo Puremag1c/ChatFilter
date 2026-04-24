@@ -280,6 +280,15 @@ async def connect_session(
     # Register loader factory (stores in _factories, NOT _sessions)
     session_manager.register(safe_name, loader)
 
+    # Persist the desired state so boot recovery can bring this session
+    # back up automatically after a restart. Done synchronously here —
+    # the connect itself runs in a background task, but the user's
+    # *intent* is "connected", which should survive even if the
+    # background connect later fails.
+    from chatfilter.service.session_autoconnect import set_autoconnect
+
+    set_autoconnect(config_path, True)
+
     # Pool routing (Phase 4): take the owner from the session's
     # .account_info.json. "admin" by default for every pre-Phase-4
     # session, or "user:{id}" when a power-user uploaded it.
@@ -444,6 +453,21 @@ async def disconnect_session(
         )
 
     session_manager = _web_deps.get_session_manager()
+
+    # Persist the user's intent to stay disconnected — boot recovery
+    # skips this session on the next restart. Done BEFORE the actual
+    # disconnect so that even if ``session_manager.disconnect`` fails
+    # (network, race), the desired state is recorded. Best-effort: if
+    # the config.json is unreachable, we still try to disconnect.
+    from chatfilter.web.dependencies import get_pool_scope
+
+    try:
+        config_path = ensure_data_dir(get_pool_scope(request)) / safe_name / "config.json"
+        from chatfilter.service.session_autoconnect import set_autoconnect
+
+        set_autoconnect(config_path, False)
+    except Exception:
+        logger.warning("Could not write autoconnect=False for %s", safe_name, exc_info=True)
 
     # Check current session state before attempting disconnect
     info = session_manager.get_info(safe_name)

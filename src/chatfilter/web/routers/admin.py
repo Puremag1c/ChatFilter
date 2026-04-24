@@ -38,7 +38,14 @@ def _toast_response(
     return Response(status_code=status_code, headers=headers)
 
 
-_SENSITIVE_SETTINGS = {"openrouter_api_key"}
+# Settings whose value we never render as plaintext in the admin UI.
+# ``webhook_url`` is included because common webhook providers (Slack,
+# Discord) put a bearer-like secret directly in the URL path.
+_SENSITIVE_SETTINGS = {"openrouter_api_key", "proxyline_api_key", "webhook_url"}
+
+# ProxyLine's supported renewal periods (days). Whitelist so an admin
+# can't accidentally spend the balance by typing ``?period=99999``.
+ALLOWED_RENEW_PERIODS = frozenset({30, 60, 90, 120, 180, 360})
 
 
 def _mask_api_key(value: str) -> str:
@@ -264,12 +271,98 @@ async def admin_monitor_summary(request: Request) -> HTMLResponse | Response:
     if not _require_admin(request):
         return Response(status_code=403, content="Forbidden")
 
-    snapshot = get_monitor_service().gather()
+    snapshot = await get_monitor_service().gather()
     templates = get_templates()
     return templates.TemplateResponse(
         request=request,
         name="partials/admin_monitor_summary.html",
         context=get_template_context(request, snapshot=snapshot),
+    )
+
+
+@router.post("/admin/api/proxies/{local_id}/renew", response_model=None)
+async def admin_proxy_renew(request: Request, local_id: str, period: int = 30) -> Response:
+    """Renew an admin-pool proxy via ProxyLine.
+
+    Looks up ``local_id`` in ``proxies_admin.json``, extracts its
+    ``proxyline_id``, calls ``/renew/`` on ProxyLine, refreshes the
+    local ``expires_at`` so the UI reflects the extension without
+    waiting for the hourly syncer.
+    """
+    from chatfilter.service.proxyline_client import ProxylineError, get_proxyline_client
+    from chatfilter.service.proxyline_syncer import get_proxyline_syncer
+    from chatfilter.storage.group_database import GroupDatabase
+    from chatfilter.storage.proxy_pool import load_proxy_pool
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    if period not in ALLOWED_RENEW_PERIODS:
+        return Response(
+            status_code=422,
+            content=f"period must be one of {sorted(ALLOWED_RENEW_PERIODS)}",
+        )
+
+    settings = getattr(request.app.state, "settings", None)
+    if settings is None:
+        return Response(status_code=500, content="Settings unavailable")
+
+    try:
+        group_db = GroupDatabase(settings.effective_database_url)
+        api_key = group_db.get_setting("proxyline_api_key")
+    except Exception:
+        api_key = None
+    client = get_proxyline_client(api_key if api_key else None)
+    if client is None:
+        return Response(status_code=400, content="ProxyLine API key not configured")
+
+    proxies = load_proxy_pool("admin")
+    target = next((p for p in proxies if p.id == local_id), None)
+    if target is None:
+        return Response(status_code=404, content="Proxy not found in admin pool")
+    if target.proxyline_id is None:
+        return Response(
+            status_code=400,
+            content="Proxy has no proxyline_id — cannot renew via API",
+        )
+
+    try:
+        await client.renew([target.proxyline_id], period)
+    except ProxylineError as e:
+        return Response(status_code=502, content=f"ProxyLine: {e}")
+
+    # Sync this one row so the UI reflects the new expiry.
+    syncer = get_proxyline_syncer()
+    if syncer is not None:
+        import contextlib as _cl
+
+        with _cl.suppress(Exception):
+            await syncer.run_once()
+
+    return Response(status_code=204)
+
+
+@router.post("/admin/api/proxyline/sync", response_model=None)
+async def admin_proxyline_sync(request: Request) -> Response:
+    """Trigger an immediate ProxyLine sync (admin-pool expires_at)."""
+    from chatfilter.service.proxyline_syncer import get_proxyline_syncer
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    syncer = get_proxyline_syncer()
+    if syncer is None:
+        return Response(status_code=503, content="Syncer not running")
+    try:
+        stats = await syncer.run_once()
+    except Exception as e:
+        return Response(status_code=500, content=f"Sync failed: {e}")
+    import json as _json
+
+    return Response(
+        status_code=200,
+        content=_json.dumps(stats),
+        media_type="application/json",
     )
 
 
@@ -487,6 +580,11 @@ async def update_ai_settings(
         group_db.set_cost_per_chat(cost_per_chat)
     if openrouter_api_key.strip():
         group_db.set_setting("openrouter_api_key", openrouter_api_key.strip())
+        # Reset the balance-fetcher cache so the dashboard reflects the
+        # new key on its next tick instead of serving cached ``None``.
+        from chatfilter.ai.openrouter_client import clear_cache as _clear_or_cache
+
+        _clear_or_cache()
     if ai_model.strip():
         group_db.set_setting("ai_model", ai_model.strip())
     # Per-stage models: empty = use default
@@ -496,6 +594,94 @@ async def update_ai_settings(
     group_db.set_setting("ai_fallback_models", ai_fallback_models.strip())
 
     return _toast_response("AI настройки сохранены", redirect="/admin")
+
+
+@router.post("/admin/integrations-settings", response_model=None)
+async def update_integrations_settings(
+    request: Request,
+    proxyline_api_key: str = Form(""),
+    webhook_url: str = Form(""),
+    webhook_threshold_accounts_error: str = Form("1"),
+    webhook_threshold_openrouter: str = Form("5.00"),
+    webhook_threshold_proxyline: str = Form("10.00"),
+) -> Response:
+    from chatfilter.service.notifications import validate_webhook_url
+
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    stripped_webhook = webhook_url.strip()
+    group_db = _get_group_db(request)
+
+    # Empty = keep existing (same UX as the api-key fields — the password
+    # input never echoes the current value back). To explicitly disable
+    # notifications, the admin types the literal word ``off`` (case-
+    # insensitive), which we translate to an empty stored value.
+    if stripped_webhook:
+        if stripped_webhook.lower() == "off":
+            group_db.set_setting("webhook_url", "")
+        elif validate_webhook_url(stripped_webhook) is None:
+            return _toast_response(
+                "Webhook URL должен быть https:// или http:// на публичный хост "
+                "(либо введите 'off' чтобы отключить уведомления)",
+                toast_type="error",
+            )
+        else:
+            group_db.set_setting("webhook_url", stripped_webhook)
+
+    if proxyline_api_key.strip():
+        group_db.set_setting("proxyline_api_key", proxyline_api_key.strip())
+    group_db.set_setting(
+        "webhook_threshold_accounts_error", webhook_threshold_accounts_error.strip() or "1"
+    )
+    group_db.set_setting(
+        "webhook_threshold_openrouter", webhook_threshold_openrouter.strip() or "5.00"
+    )
+    group_db.set_setting(
+        "webhook_threshold_proxyline", webhook_threshold_proxyline.strip() or "10.00"
+    )
+
+    return _toast_response("Настройки интеграций сохранены", redirect="/admin")
+
+
+@router.post("/admin/integrations-test-webhook", response_model=None)
+async def test_webhook(request: Request) -> Response:
+    if not _require_admin(request):
+        return Response(status_code=403, content="Forbidden")
+
+    from chatfilter.service.notifications import (
+        WebhookEvent,
+        get_webhook_notifier,
+        validate_webhook_url,
+    )
+
+    group_db = _get_group_db(request)
+    raw_url = (group_db.get_setting("webhook_url") or "").strip()
+    if not raw_url:
+        return _toast_response("Сначала введите Webhook URL и сохраните", toast_type="error")
+
+    url = validate_webhook_url(raw_url)
+    if url is None:
+        return _toast_response(
+            "Сохранённый Webhook URL отклонён валидацией (только публичные http/https)",
+            toast_type="error",
+        )
+
+    notifier = get_webhook_notifier()
+    # Bypass dedup for the test ping.
+    notifier._last_sent.pop("admin.test", None)
+    # Deliberately NO PII in details — this payload goes to an external
+    # server the admin *may* not fully trust yet (they're testing it).
+    evt = WebhookEvent(
+        key="admin.test",
+        severity="info",
+        subject="ChatFilter webhook test",
+        body="This is a manual test dispatch from the admin UI.",
+    )
+    ok = await notifier.send(url, evt)
+    if ok:
+        return _toast_response("Webhook доставлен — 2xx от сервера")
+    return _toast_response("Webhook не доставлен — см. server logs", toast_type="error")
 
 
 @router.post("/admin/settings", response_model=None)

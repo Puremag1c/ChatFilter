@@ -85,7 +85,7 @@ class TestAccountsSummary:
 
         summary = svc.accounts_summary()
 
-        assert summary["flood_wait"] == 1
+        assert summary["floodwait"] == 1
         assert summary["disconnected"] == 0
         get_flood_tracker().clear_account("Blocked")
 
@@ -143,22 +143,26 @@ class TestProxiesSummary:
 
 
 class TestBalancesPlaceholder:
-    def test_returns_none_everywhere(self, monitor) -> None:
+    @pytest.mark.asyncio
+    async def test_returns_none_when_keys_missing(self, monitor) -> None:
+        """Without API keys configured balances stay None — UI shows "—"."""
         svc, _ = monitor
-        b = svc.balances()
+        b = await svc.balances()
         assert b["openrouter"]["remaining"] is None
         assert b["proxyline"]["main"] is None
         assert b["proxyline"]["affiliate"] is None
 
 
 class TestGather:
-    def test_single_call_bundles_all(self, monitor) -> None:
+    @pytest.mark.asyncio
+    async def test_single_call_bundles_all(self, monitor) -> None:
         svc, settings = monitor
         _seed_session(settings.sessions_dir, "admin", "A", owner="admin")
         _seed_proxy_pool(settings.config_dir, "admin", [{"status": "working"}])
 
-        bundle = svc.gather()
+        bundle = await svc.gather()
 
         assert bundle["accounts"]["total"] == 1
         assert bundle["proxies"]["total"] == 1
         assert "balances" in bundle
+        assert "expiring_soon" in bundle

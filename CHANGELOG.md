@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-04-24
+
+Две связанные фичи в одном релизе: завершение Monitor-секции (PR2–4 из плана) и Boot Recovery. Все 14 находок из post-implementation аудита (security / reliability / architecture) закрыты.
+
+### Boot Recovery — «что было включено до рестарта, включается снова»
+
+Scope: **все пулы** (admin + user_*). После рестарта сервера система сама пингует все прокси и поднимает аккаунты, которые пользователь явно включил до рестарта. Десктопный UI показывает нежёлтый sticky banner с прогресс-бейджем и ETA, сайт при этом полностью функционален.
+
+Ключ к «что было включено» — новый persistent флаг `autoconnect: bool` в `sessions/<scope>/<name>/config.json`:
+- Явный **Connect** → `autoconnect=True` (записывается сразу, не после успеха — чтобы желание пережило network-фейлы)
+- Явный **Disconnect** → `autoconnect=False`
+- Отсутствует в pre-0.42 config → default `True` (существующие сессии остаются живыми, как были)
+
+Проходит в фоне из lifespan task в две фазы:
+- **Phase A**: ping всех прокси во всех пулах (reuse `ProxyHealthMonitor.check_all_proxies`).
+- **Phase B**: для каждой сессии (`list_stored_sessions(user_id=None)`) — skip если `autoconnect=False`, banned, needs_auth, нет session.session, или прокси мертва; иначе `register(loader)` + `connect`. Семафор 10 concurrent, failsafe timeout 300s чтобы UI никогда не залипал.
+
+Приостановленные анализы — **уже работало**: `AnalysisScheduler.recover()` в lifespan резетит `running → queued`, scheduler подхватывает. Никаких изменений.
+
+New files:
+- `src/chatfilter/service/boot_recovery.py` + `service/session_autoconnect.py`
+- `src/chatfilter/web/routers/boot.py` — `GET /admin/api/boot-status`
+- `src/chatfilter/templates/partials/_boot_recovery_banner.html` — sticky yellow banner с JS polling
+- 27 новых тестов (`test_boot_recovery.py` + `test_session_autoconnect.py`)
+
+Modified:
+- `web/routers/sessions/connect.py` — write `autoconnect=True/False` вокруг Connect/Disconnect
+- `web/app.py` — lifespan task + AppState fields
+- `web/template_helpers.py` — `boot_recovery` в template context
+- `templates/base.html` — include banner partial
+
+### Monitor PR2–4 + audit fixes
+
+Всё из плана `playful-jumping-tulip.md` PR2 (AccountWatchdog), PR3 (ProxyLine integration + OpenRouter balance + syncer), PR4 (WebhookNotifier + MonitorAlertsLoop). Детали:
+
+- **PR2 — AccountWatchdog** (`service/account_watchdog.py`): раз в 60с смотрит admin-pool sessions в `error/disconnected`, кикает `SessionManager.connect` с per-account exponential backoff 30→120→600→1800s. Scope — admin only (через `list_stored_sessions(user_id="admin")`).
+- **PR3 — ProxyLine + OpenRouter**: `service/proxyline_client.py` (thin httpx wrapper, all 6 endpoints, TTL cache), `service/proxyline_syncer.py` (hourly refresh expires_at в admin pool), `ai/openrouter_client.py` (`fetch_credits`, 5-min cache). ProxyEntry получил поля `proxyline_id: int | None` и `expires_at: datetime | None`. Admin UI: баннер «истекает через N дней» с кнопками Renew 30d/90d; секция Integrations в `/admin` (ProxyLine API key + webhook + пороги + кнопка Test).
+- **PR4 — Webhooks**: `service/notifications.py` (WebhookNotifier + WebhookEvent), `service/alerts_loop.py` (MonitorAlertsLoop, 5-min interval). Severity: accounts.error → warning, proxy.expiring ≤1d → warning/error, OR balance < threshold → error, PL balance < threshold → warning. Dedup window 1h in-memory.
+
+### Audit fixes (14 findings, P1 × 7 + P2 × 7)
+
+Все закрыты до этого релиза — сводка для history:
+
+1. **ProxyEntry.with_health_update / with_status_reset** перестали дропать новые поля (`proxyline_id`, `expires_at`) — переписано на `self.model_copy(update=...)`.
+2. **AccountWatchdog** трекает `active_task` в `_AccountRetryState.is_busy()` — убраны дубли reconnect tasks на одну сессию.
+3. **Initial sleep** в ProxylineSyncer и MonitorAlertsLoop теперь прерывается stop-event'ом (shutdown latency 60s→immediate).
+4. **Renew period** валидируется whitelist'ом `{30,60,90,120,180,360}` против `period=99999`.
+5. **Test webhook payload** больше не содержит `admin_user_id` (PII leak на потенциально враждебный URL).
+6. **SSRF**: `validate_webhook_url` отсекает `file://`, `javascript://`, loopback/private ranges (169.254.169.254 и т.п.). Применяется в `WebhookNotifier.send`, `/admin/integrations-settings`, test endpoint.
+7. **json.dumps(default=str)** — datetime в details event не ронит send тихо через TypeError.
+8. **AppState** — все новые background-сервисы задекларированы в `__init__` (раньше были динамические атрибуты).
+9. **Circular dep** notifications↔monitor разорвана вынесением `MonitorAlertsLoop` в `service/alerts_loop.py`.
+10. **OpenRouter cache** сбрасывается при ротации API key (`clear_cache()` в `update_ai_settings`).
+11. **webhook_url masking**: в `_SENSITIVE_SETTINGS` + password input в форме + `"off"` для явного отключения.
+12. **Silent monitoring warning**: если обе balance-фетчера вернули None при сконфигурированных ключах → `log.warning`.
+13. **Backoff reset** теперь только после наблюдения `state == "connected"` в `tick_once`, не после успешного `await connect()`.
+14. **Response size limits**: `MAX_RESPONSE_BYTES` в proxyline_client (1MB) и openrouter_client (100KB) — защита от 50MB ответа, буферизованного в память.
+
++ `asyncio.Lock` в `get_proxyline_client` для безопасной ротации key из sync и async callers; concurrent webhook dispatch через `asyncio.gather` в `check_and_notify` (10 events × 5s serial = 50s → concurrent ~5s).
+
+### Metrics
+
+- **226 тестов** в Monitor + Boot Recovery scope — все зелёные
+- **45 новых тестов** добавлено за релиз (22 proxyline_client + 12 openrouter + 15 syncer + 10 account_watchdog + 9 webhook + 8 monitor_triggers + 18 boot_recovery + 9 autoconnect)
+- ruff/mypy clean
+
 ## [0.40.13] - 2026-04-24
 
 Monitor-секция в админке — PR1 (MVP) из плана мониторинга.

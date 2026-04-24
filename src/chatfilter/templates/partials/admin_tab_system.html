@@ -88,3 +88,58 @@
         <button type="submit" class="btn btn-primary">{{ _("Save") }}</button>
     </form>
 </section>
+
+<section class="card" style="margin-top:1.5rem">
+    <div class="card-header">
+        <h2>{{ _("Integrations") }}</h2>
+    </div>
+    <form hx-post="/admin/integrations-settings" hx-swap="none" style="display:flex;flex-direction:column;gap:1rem;padding:1rem;max-width:560px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div>
+            <label for="proxyline-api-key" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("ProxyLine API Key") }}</label>
+            <input type="password" id="proxyline-api-key" name="proxyline_api_key"
+                   class="form-input" autocomplete="off"
+                   placeholder="{{ _('Key set (leave blank to keep)') if app_settings.get('proxyline_api_key') else 'pl-...' }}">
+            <small style="color:var(--text-muted,#666)">{{ _("Enables balance display, expiry sync, and buy/renew from the admin UI. Admin pool only.") }}</small>
+        </div>
+        <div>
+            <label for="webhook-url" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Notifications webhook URL") }}</label>
+            {# ``_SENSITIVE_SETTINGS`` masks the stored URL before it reaches this template,
+               because Slack/Discord webhooks embed a bearer token directly in the path.
+               We render the input as a password field — any current value stays server-side,
+               and the admin types a fresh URL to replace it. #}
+            <input type="password" id="webhook-url" name="webhook_url"
+                   class="form-input" autocomplete="off"
+                   placeholder="{{ _('URL set (leave blank to keep)') if app_settings.get('webhook_url') else 'https://hooks.example.com/...' }}">
+            <small style="color:var(--text-muted,#666)">{{ _("POST JSON with admin-pool alerts. Leave blank to keep existing; type 'off' and save to disable.") }}</small>
+        </div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap">
+            <div>
+                <label for="webhook-threshold-accounts-error" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Alert when error accounts ≥") }}</label>
+                <input type="number" id="webhook-threshold-accounts-error" name="webhook_threshold_accounts_error"
+                       class="form-input" min="0" step="1" style="width:100px"
+                       value="{{ app_settings.get('webhook_threshold_accounts_error', '1') }}">
+            </div>
+            <div>
+                <label for="webhook-threshold-openrouter" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Alert when OpenRouter < $") }}</label>
+                <input type="number" id="webhook-threshold-openrouter" name="webhook_threshold_openrouter"
+                       class="form-input" min="0" step="0.01" style="width:100px"
+                       value="{{ app_settings.get('webhook_threshold_openrouter', '5.00') }}">
+            </div>
+            <div>
+                <label for="webhook-threshold-proxyline" style="display:block;font-size:0.875rem;margin-bottom:0.25rem">{{ _("Alert when ProxyLine < $") }}</label>
+                <input type="number" id="webhook-threshold-proxyline" name="webhook_threshold_proxyline"
+                       class="form-input" min="0" step="0.01" style="width:100px"
+                       value="{{ app_settings.get('webhook_threshold_proxyline', '10.00') }}">
+            </div>
+        </div>
+        <div style="display:flex;gap:0.5rem">
+            <button type="submit" class="btn btn-primary">{{ _("Save") }}</button>
+            <button type="button" class="btn btn-secondary"
+                    hx-post="/admin/integrations-test-webhook"
+                    hx-swap="none">
+                {{ _("Send test webhook") }}
+            </button>
+        </div>
+    </form>
+</section>

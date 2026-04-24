@@ -1,0 +1,105 @@
+{#
+  Yellow progress banner shown while boot recovery is running.
+
+  Rendering:
+    - First render: server-side template context decides whether the
+      banner starts visible (boot_recovery.in_progress truthy) or
+      hidden. This avoids the 1.5 s flicker where the JS would fetch
+      for the first time.
+    - Live updates: a ~1.5 s poll hits /admin/api/boot-status and
+      updates the counters / ETA; when in_progress flips to false, the
+      banner hides itself and the page is left alone.
+
+  The banner is anchored as ``position: sticky`` at the top of the
+  page, so it doesn't cover content — it pushes the rest down while
+  visible and disappears cleanly.
+#}
+<div id="boot-recovery-banner"
+     class="boot-recovery-banner"
+     {% if not (boot_recovery and boot_recovery.in_progress) %}hidden{% endif %}
+     data-done-label="{{ _('Готово — перезагружаем...') }}"
+     data-eta-prefix="{{ _('осталось') }}"
+     data-eta-suffix="{{ _('сек') }}">
+    <span class="boot-recovery-banner__spinner" aria-hidden="true"></span>
+    <span class="boot-recovery-banner__msg">
+        {{ _("Восстановление после перезапуска:") }}
+        <strong>
+            <span id="boot-recovery-connected">{{ boot_recovery.sessions_connected if boot_recovery else 0 }}</span>
+            /
+            <span id="boot-recovery-total">{{ boot_recovery.sessions_total if boot_recovery else 0 }}</span>
+        </strong>
+        {{ _("аккаунтов включено") }}
+        <span id="boot-recovery-eta" class="boot-recovery-banner__eta"></span>
+    </span>
+</div>
+
+<style>
+.boot-recovery-banner {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    background: var(--color-warning, #d97706);
+    color: #fff;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.boot-recovery-banner[hidden] { display: none; }
+.boot-recovery-banner__spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: boot-recovery-spin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+.boot-recovery-banner__eta { opacity: 0.85; margin-left: 0.5rem; }
+@keyframes boot-recovery-spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+(function () {
+    var banner = document.getElementById('boot-recovery-banner');
+    if (!banner) return;
+
+    var elConnected = document.getElementById('boot-recovery-connected');
+    var elTotal = document.getElementById('boot-recovery-total');
+    var elEta = document.getElementById('boot-recovery-eta');
+    var etaPrefix = banner.dataset.etaPrefix || 'remaining';
+    var etaSuffix = banner.dataset.etaSuffix || 's';
+
+    function render(snap) {
+        if (snap.in_progress) {
+            banner.hidden = false;
+            if (elConnected) elConnected.textContent = snap.sessions_connected || 0;
+            if (elTotal) elTotal.textContent = snap.sessions_total || 0;
+            if (elEta) {
+                elEta.textContent = (snap.eta_seconds != null && snap.eta_seconds > 0)
+                    ? ('· ' + etaPrefix + ' ~' + snap.eta_seconds + ' ' + etaSuffix)
+                    : '';
+            }
+        } else if (!banner.hidden) {
+            banner.hidden = true;
+        }
+    }
+
+    async function poll() {
+        try {
+            var resp = await fetch('/admin/api/boot-status', {credentials: 'same-origin'});
+            if (!resp.ok) return;
+            var snap = await resp.json();
+            render(snap);
+        } catch (_) { /* transient, try again on next tick */ }
+    }
+
+    // First poll right away (covers a race where the page was
+    // rendered before recovery started), then every 1.5 s until the
+    // tab is closed or recovery reports done.
+    setTimeout(poll, 400);
+    setInterval(poll, 1500);
+})();
+</script>

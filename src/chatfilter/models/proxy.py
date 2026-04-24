@@ -81,6 +81,13 @@ class ProxyEntry(BaseModel):
     last_success_at: FlexibleDatetime = Field(default=None)
     consecutive_failures: int = Field(default=0, ge=0)
 
+    # ProxyLine integration (admin-pool only — user-pool ignores these).
+    # ``proxyline_id`` maps this local row to the remote order so the
+    # syncer/UI can renew/reorder without extra indirection.
+    # ``expires_at`` is refreshed from ProxyLine by the hourly syncer.
+    proxyline_id: int | None = Field(default=None)
+    expires_at: FlexibleDatetime = Field(default=None)
+
     @field_validator("name")
     @classmethod
     def name_must_be_stripped(cls, v: str) -> str:
@@ -186,55 +193,40 @@ class ProxyEntry(BaseModel):
     ) -> ProxyEntry:
         """Create a new ProxyEntry with updated health status.
 
-        Since ProxyEntry is immutable (frozen=True), this returns a new instance.
-
-        Args:
-            success: Whether the ping was successful.
-            ping_time: When the ping was performed (defaults to now).
-
-        Returns:
-            New ProxyEntry with updated health fields.
+        Since ProxyEntry is immutable (frozen=True), this returns a new
+        instance via ``model_copy`` — so every other field (including
+        ``proxyline_id`` / ``expires_at``) is preserved without the
+        caller having to enumerate it here.
         """
         from datetime import UTC
 
         now = ping_time or datetime.now(UTC)
 
         if success:
-            return ProxyEntry(
-                id=self.id,
-                name=self.name,
-                type=self.type,
-                host=self.host,
-                port=self.port,
-                username=self.username,
-                password=self.password,
-                status=ProxyStatus.WORKING,
-                last_ping_at=now,
-                last_success_at=now,
-                consecutive_failures=0,
+            return self.model_copy(
+                update={
+                    "status": ProxyStatus.WORKING,
+                    "last_ping_at": now,
+                    "last_success_at": now,
+                    "consecutive_failures": 0,
+                }
             )
-        else:
-            new_failures = self.consecutive_failures + 1
-            # Auto-disable after 3 consecutive failures
-            # Special case: if proxy was UNTESTED (from retest), 1 failure = NO_PING
-            if self.status == ProxyStatus.UNTESTED or new_failures >= 3:
-                new_status = ProxyStatus.NO_PING
-            else:
-                new_status = self.status  # Keep WORKING if less than 3 failures
 
-            return ProxyEntry(
-                id=self.id,
-                name=self.name,
-                type=self.type,
-                host=self.host,
-                port=self.port,
-                username=self.username,
-                password=self.password,
-                status=new_status,
-                last_ping_at=now,
-                last_success_at=self.last_success_at,
-                consecutive_failures=new_failures,
-            )
+        new_failures = self.consecutive_failures + 1
+        # Auto-disable after 3 consecutive failures
+        # Special case: if proxy was UNTESTED (from retest), 1 failure = NO_PING
+        if self.status == ProxyStatus.UNTESTED or new_failures >= 3:
+            new_status = ProxyStatus.NO_PING
+        else:
+            new_status = self.status  # Keep WORKING if less than 3 failures
+
+        return self.model_copy(
+            update={
+                "status": new_status,
+                "last_ping_at": now,
+                "consecutive_failures": new_failures,
+            }
+        )
 
     def with_status_reset(self) -> ProxyEntry:
         """Create a new ProxyEntry with reset health status for retesting.
@@ -242,18 +234,11 @@ class ProxyEntry(BaseModel):
         Returns:
             New ProxyEntry with status reset to UNTESTED and counters cleared.
         """
-        return ProxyEntry(
-            id=self.id,
-            name=self.name,
-            type=self.type,
-            host=self.host,
-            port=self.port,
-            username=self.username,
-            password=self.password,
-            status=ProxyStatus.UNTESTED,
-            last_ping_at=self.last_ping_at,  # Keep last ping time
-            last_success_at=self.last_success_at,  # Keep last success time
-            consecutive_failures=0,
+        return self.model_copy(
+            update={
+                "status": ProxyStatus.UNTESTED,
+                "consecutive_failures": 0,
+            }
         )
 
     def to_telethon_proxy(self) -> tuple[int, str, int, bool, str | None, str | None]:

@@ -26,6 +26,7 @@ from chatfilter.web.middleware import (
 )
 from chatfilter.web.routers.admin import router as admin_router
 from chatfilter.web.routers.auth import router as auth_router
+from chatfilter.web.routers.boot import router as boot_router
 from chatfilter.web.routers.catalog import router as catalog_router
 from chatfilter.web.routers.chatlist import router as chatlist_router
 from chatfilter.web.routers.chats import router as chats_router
@@ -55,7 +56,11 @@ class AppState:
             import asyncio
 
             from chatfilter.scheduler.updater import ChatMetricsUpdater
+            from chatfilter.service.account_watchdog import AccountWatchdog
+            from chatfilter.service.alerts_loop import MonitorAlertsLoop
+            from chatfilter.service.boot_recovery import BootRecoveryHolder
             from chatfilter.service.proxy_health import ProxyHealthMonitor
+            from chatfilter.service.proxyline_syncer import ProxylineSyncer
             from chatfilter.telegram.session import SessionManager
 
         self.shutting_down = False
@@ -69,6 +74,13 @@ class AppState:
         # Phase 4: persistent-queue scheduler.
         self.analysis_scheduler: Any | None = None
         self.css_version: str = ""  # CSS file hash for cache-busting
+        # 0.41 Monitor — admin-pool health background tasks.
+        self.account_watchdog: AccountWatchdog | None = None
+        self.proxyline_syncer: ProxylineSyncer | None = None
+        self.monitor_alerts_loop: MonitorAlertsLoop | None = None
+        # 0.42 Boot Recovery — revives "autoconnect=True" sessions after restart.
+        self.boot_recovery_holder: BootRecoveryHolder | None = None
+        self.boot_recovery_task: asyncio.Task[None] | None = None
 
 
 @asynccontextmanager
@@ -203,6 +215,60 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     proxy_health_monitor.start()
     app.state.app_state.proxy_health_monitor = proxy_health_monitor
     logger.info("Proxy health monitor started")
+
+    # Kick off boot recovery in the background: ping every proxy, then
+    # reconnect each session whose persistent ``autoconnect`` flag is
+    # True and whose proxy came back alive. Runs concurrently with the
+    # rest of startup; the banner in base.html shows progress to logged-in
+    # users. The watchdog that starts right after this will happily skip
+    # sessions whose factory isn't registered yet and pick them up on
+    # its next tick once recovery finishes.
+    from chatfilter.service.boot_recovery import (
+        BootRecoveryHolder,
+        run_boot_recovery,
+        set_boot_recovery_holder,
+    )
+
+    boot_holder = BootRecoveryHolder()
+    set_boot_recovery_holder(boot_holder)
+    app.state.app_state.boot_recovery_holder = boot_holder
+    boot_recovery_task = asyncio.create_task(
+        run_boot_recovery(session_manager, boot_holder),
+        name="boot-recovery",
+    )
+    app.state.app_state.boot_recovery_task = boot_recovery_task
+    logger.info("Boot recovery task dispatched")
+
+    # Start account watchdog — auto-reconnect admin-pool sessions
+    # that fell into error/disconnected. Admin-pool only.
+    from chatfilter.service.account_watchdog import AccountWatchdog, set_account_watchdog
+
+    account_watchdog = AccountWatchdog(session_manager=session_manager)
+    await account_watchdog.start()
+    set_account_watchdog(account_watchdog)
+    app.state.app_state.account_watchdog = account_watchdog
+    logger.info("Account watchdog started")
+
+    # Start ProxyLine expiry syncer — hourly refresh of expires_at
+    # on admin-pool proxies with proxyline_id. No-op without API key.
+    from chatfilter.service.proxyline_syncer import ProxylineSyncer, set_proxyline_syncer
+
+    proxyline_syncer = ProxylineSyncer()
+    await proxyline_syncer.start()
+    set_proxyline_syncer(proxyline_syncer)
+    app.state.app_state.proxyline_syncer = proxyline_syncer
+    logger.info("ProxyLine syncer started")
+
+    # Start webhook alerts loop — periodically evaluates dashboard
+    # snapshot against admin-configured thresholds and dispatches to the
+    # webhook URL from app_settings.
+    from chatfilter.service.alerts_loop import MonitorAlertsLoop, set_alerts_loop
+
+    alerts_loop = MonitorAlertsLoop()
+    await alerts_loop.start()
+    set_alerts_loop(alerts_loop)
+    app.state.app_state.monitor_alerts_loop = alerts_loop
+    logger.info("Monitor alerts loop started")
 
     # Start auth state cleanup task
     from chatfilter.web.auth_state import get_auth_state_manager
@@ -367,6 +433,36 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.error(f"Error stopping proxy health monitor: {e}")
 
+    # 5b. Stop account watchdog
+    wd = getattr(app.state.app_state, "account_watchdog", None)
+    if wd is not None:
+        logger.info("Stopping account watchdog")
+        try:
+            await wd.stop()
+            logger.info("Account watchdog stopped")
+        except Exception as e:
+            logger.error(f"Error stopping account watchdog: {e}")
+
+    # 5c. Stop ProxyLine syncer
+    pls = getattr(app.state.app_state, "proxyline_syncer", None)
+    if pls is not None:
+        logger.info("Stopping ProxyLine syncer")
+        try:
+            await pls.stop()
+            logger.info("ProxyLine syncer stopped")
+        except Exception as e:
+            logger.error(f"Error stopping ProxyLine syncer: {e}")
+
+    # 5d. Stop monitor alerts loop
+    mal = getattr(app.state.app_state, "monitor_alerts_loop", None)
+    if mal is not None:
+        logger.info("Stopping monitor alerts loop")
+        try:
+            await mal.stop()
+            logger.info("Monitor alerts loop stopped")
+        except Exception as e:
+            logger.error(f"Error stopping monitor alerts loop: {e}")
+
     # 6. Stop connection monitor and disconnect all Telegram sessions
     if app.state.app_state.session_manager:
         logger.info("Stopping connection monitor")
@@ -518,6 +614,9 @@ def create_app(
     app.include_router(catalog_router)
     app.include_router(admin_router)
     app.include_router(auth_router)
+    # Boot-recovery status endpoint — any logged-in user can poll.
+    # No admin gate on purpose: the banner ships to everyone.
+    app.include_router(boot_router)
     app.include_router(health_router)
     app.include_router(export_router)
     # Personal pool — only visible to power-users.
